@@ -25,6 +25,7 @@ type AccessMana struct {
 // Record defines a record of the snapshot.
 type Record struct {
 	Essence        *TransactionEssence
+	UnlockBlocks   UnlockBlocks
 	UnspentOutputs []bool
 }
 
@@ -50,6 +51,18 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 			return 0, fmt.Errorf("unable to write transaction with %s: %w", transactionID, err)
 		}
 		bytesWritten += int64(len(record.Essence.Bytes()))
+
+		fmt.Printf("Writing unlockBlock : %s", s.Transactions)
+		unlockBlocksLength := uint32(len(record.UnlockBlocks.Bytes()))
+		if err := binary.Write(writer, binary.LittleEndian, unlockBlocksLength); err != nil {
+			return 0, fmt.Errorf("unable to write unspent output index length with %s: %w", transactionID, err)
+		}
+		bytesWritten += 4
+
+		if err := binary.Write(writer, binary.LittleEndian, record.UnlockBlocks.Bytes()); err != nil {
+			return 0, fmt.Errorf("unable to write unlockBlocks with %s: %w", transactionID, err)
+		}
+		bytesWritten += int64(unlockBlocksLength)
 
 		if err := binary.Write(writer, binary.LittleEndian, uint32(len(record.UnspentOutputs))); err != nil {
 			return 0, fmt.Errorf("unable to write unspent output index length with %s: %w", transactionID, err)
@@ -143,6 +156,22 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 		}
 		bytesRead += int64(n)
 
+		var unlockBlockLength uint32
+		if err := binary.Read(reader, binary.LittleEndian, &unlockBlockLength); err != nil {
+			return 0, fmt.Errorf("unable to read length of unlockBlocks at index %d: %w", i, err)
+		}
+		bytesRead += 4
+
+		unlockBlockBytes := make([]byte, unlockBlockLength)
+		if err := binary.Read(reader, binary.LittleEndian, &unlockBlockBytes); err != nil {
+			return 0, fmt.Errorf("unable to read transactionID: %w", err)
+		}
+		unlockBlocks, n, err := UnlockBlocksFromBytes(unlockBlockBytes)
+		if err != nil {
+			return 0, fmt.Errorf("unable to parse unlockblocks at index %d: %w", i, err)
+		}
+		bytesRead += int64(n)
+
 		var unspentOutputsLength uint32
 		if err := binary.Read(reader, binary.LittleEndian, &unspentOutputsLength); err != nil {
 			return 0, fmt.Errorf("unable to read unspent outputs length at index %d: %w", i, err)
@@ -160,6 +189,7 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 
 		s.Transactions[txID] = Record{
 			Essence:        txEssence,
+			UnlockBlocks:   unlockBlocks,
 			UnspentOutputs: unspentOutputs,
 		}
 	}

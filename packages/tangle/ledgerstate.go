@@ -220,6 +220,7 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 		if includeTransaction {
 			snapshot.Transactions[transaction.ID()] = ledgerstate.Record{
 				Essence:        transaction.Essence(),
+				UnlockBlocks:   transaction.UnlockBlocks(),
 				UnspentOutputs: unspentOutputs,
 			}
 		}

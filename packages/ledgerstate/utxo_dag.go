@@ -269,16 +269,18 @@ func (u *UTXODAG) CachedConsumers(outputID OutputID) (cachedConsumers CachedCons
 func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 	// storing genesis tx and genesis output
 	// store TransactionMetadata
-	// transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
-	// transactionMetadata.SetSolid(true)
-	// transactionMetadata.SetBranchID(MasterBranchID)
-	// transactionMetadata.SetFinalized(true)
+	transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
+	transactionMetadata.SetSolid(true)
+	transactionMetadata.SetBranchID(MasterBranchID)
+	transactionMetadata.SetFinalized(true)
 
-	// (&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(GenesisTransactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
-	// 	transactionMetadata.Persist()
-	// 	transactionMetadata.SetModified()
-	// 	return transactionMetadata
-	// })}).Release()
+	(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(GenesisTransactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		transactionMetadata.Persist()
+		transactionMetadata.SetModified()
+		return transactionMetadata
+	})}).Release()
+
+	fmt.Printf("Genesis: txID: %s\n", transactionMetadata.id)
 
 	fmt.Println("___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ")
 	fmt.Println("___", GenesisTransactionID)
@@ -287,10 +289,10 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		fmt.Println("___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ")
 		fmt.Println("__ txID ", txID)
 		fmt.Println("__ outputs  ", len(record.Essence.outputs))
-		transaction := NewTransaction(record.Essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+		transaction := NewTransaction(record.Essence, record.UnlockBlocks)
 		fmt.Printf("__ new ID %s\n", transaction.ID())
 		// fmt.Println(transaction)
-		cached, stored := u.transactionStorage.StoreIfAbsent(transaction)
+		cached, storedTx := u.transactionStorage.StoreIfAbsent(transaction)
 		fmt.Println("***************************************************************")
 		if !u.transactionStorage.Contains(transaction.ID().Bytes()) {
 			fmt.Println("Cannot find newTxID in storage: ", transaction.ID(), ", old id: ", txID)
@@ -299,23 +301,16 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		}
 		fmt.Println("***************************************************************")
 
-		fmt.Println("____ stored tx: ", stored)
-		if stored {
+		fmt.Println("____ stored tx: ", storedTx)
+		if storedTx {
 			cached.Release()
 		}
 
-		// u.outputStorage.ForEach()
-		// if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
-		// 	err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output))
-		// }) {
-		// 	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
-		// }
-
 		for i, output := range record.Essence.outputs {
-			// fmt.Println("_____________ ", output.ID().OutputIndex())
-			// fmt.Println("_____________ ", output.ID())
-			// fmt.Println("_____________ ", output.Balances())
-			// fmt.Println("_____________ ", output.Address())
+			//fmt.Println("_____________ ", output.ID().OutputIndex())
+			//fmt.Println("_____________ ", output.ID())
+			//fmt.Println("_____________ ", output.Balances())
+			//fmt.Println("_____________ ", output.Address())
 			if !record.UnspentOutputs[i] {
 				continue
 			}
@@ -340,15 +335,15 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		}
 
 		// store TransactionMetadata
-		transactionMetadata := NewTransactionMetadata(txID)
-		transactionMetadata.SetSolid(true)
-		transactionMetadata.SetBranchID(MasterBranchID)
-		transactionMetadata.SetFinalized(true)
+		txMetadata := NewTransactionMetadata(txID)
+		txMetadata.SetSolid(true)
+		txMetadata.SetBranchID(MasterBranchID)
+		txMetadata.SetFinalized(true)
 
 		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) objectstorage.StorableObject {
-			transactionMetadata.Persist()
-			transactionMetadata.SetModified()
-			return transactionMetadata
+			txMetadata.Persist()
+			txMetadata.SetModified()
+			return txMetadata
 		})}).Release()
 	}
 }
