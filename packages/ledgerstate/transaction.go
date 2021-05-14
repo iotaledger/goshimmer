@@ -85,6 +85,7 @@ func TransactionIDFromBase58(base58String string) (transactionID TransactionID, 
 
 // TransactionIDFromMarshalUtil unmarshals a TransactionID using a MarshalUtil (for easier unmarshaling).
 func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionID TransactionID, err error) {
+
 	transactionIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -175,6 +176,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 	}
 
 	for i, output := range essence.Outputs() {
+		// the first call of transaction.ID() will also create a transaction id
 		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
 	}
 

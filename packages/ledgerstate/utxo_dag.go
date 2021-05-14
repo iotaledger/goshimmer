@@ -284,16 +284,18 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 	fmt.Println("___", GenesisTransactionID)
 
 	for txID, record := range snapshot.Transactions {
+		fmt.Println("___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ")
 		fmt.Println("__ txID ", txID)
 		fmt.Println("__ outputs  ", len(record.Essence.outputs))
 		transaction := NewTransaction(record.Essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+		fmt.Printf("__ new ID %s\n", transaction.ID())
 		// fmt.Println(transaction)
 		cached, stored := u.transactionStorage.StoreIfAbsent(transaction)
 		fmt.Println("***************************************************************")
-		if !u.transactionStorage.Contains(txID.Bytes()) {
-			fmt.Println("Cannot find txID in storage: ", txID)
+		if !u.transactionStorage.Contains(transaction.ID().Bytes()) {
+			fmt.Println("Cannot find newTxID in storage: ", transaction.ID(), ", old id: ", txID)
 		} else {
-			fmt.Println("Found txID in storage: ", txID)
+			fmt.Println("Found new newTxID in storage: ", transaction.ID(), ", old id: ", txID)
 		}
 		fmt.Println("***************************************************************")
 
