@@ -64,3 +64,21 @@ func TestBLSAddress(t *testing.T) {
 	assert.Equal(t, address.Type(), addressFromBase58.Type())
 	assert.Equal(t, address.Digest(), addressFromBase58.Digest())
 }
+
+func TestAliasAddressClone(t *testing.T) {
+	d := [33]byte{}
+	a := NewAliasAddress(d[:])
+	b := a.Clone()
+	assert.NotSame(t, a, b)
+	assert.Equal(t, a.Array(), b.Array())
+}
+
+func TestAliasAddressIsNil(t *testing.T) {
+	nilAddr := AliasAddress{}
+	require.True(t, nilAddr.IsNil())
+	pNilAddr := &nilAddr
+	require.True(t, pNilAddr.IsNil())
+	notNilAddr := NewAliasAddress([]byte("data"))
+	require.False(t, notNilAddr.IsNil())
+	require.True(t, nilAddr.Equals(&AliasAddress{}))
+}

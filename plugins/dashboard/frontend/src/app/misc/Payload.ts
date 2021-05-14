@@ -33,31 +33,81 @@ export class DrngCbPayload {
 
 // Transaction payload
 export class TransactionPayload {
-    tx_id: string;
-    tx_essence: TransactionEssence;
-    unlock_blocks: Array<string>;
+    txID: string;
+    transaction: Transaction;
 }
 
-export class TransactionEssence {
+export class Transaction {
     version: number;
     timestamp: number;
-    access_pledge_id: string;
-    cons_pledge_id: string;
+    accessPledgeID: string;
+    consensusPledgeID: string;
     inputs: Array<Input>;
     outputs: Array<Output>;
-    data: string;
+    unlockBlocks: Array<UnlockBlock>;
+    dataPayload: any;
 }
 
 export class Input {
-    output_id: string;
-    address: string;
-    balance: Array<Balance>;
+    type: string;
+    referencedOutputID: string;
+    output: Output;
 }
 
 export class Output {
-    output_id: string;
+    outputID: OutputID;
+    type: string;
+    output: any;
+}
+
+export class OutputID {
+    base58: string;
+    transactionID: string;
+    outputIndex: number;
+}
+
+export class UnlockBlock {
+    type: string;
+    referencedIndex: number;
+    signatureType: number;
+    publicKey: string;
+    signature: string;
+}
+
+export class SigLockedSingleOutput {
+    balance: number;
     address: string;
-    balance: Array<Balance>;
+}
+
+export class SigLockedColoredOutput {
+    balances: Map<string,number>;
+    address: string;
+}
+
+export class AliasOutput {
+    balances: Map<string,number>;
+    aliasAddress: string;
+    stateAddress: string;
+    stateIndex: number;
+    isGovernanceUpdate: boolean;
+    isOrigin: boolean;
+    isDelegated: boolean;
+    delegationTimelock: number;
+    governingAddress: string;
+
+    stateData: any;
+    governanceMetadata: any;
+    immutableData: any;
+}
+
+export class ExtendedLockedOutput {
+    balances: Map<string,number>;
+    address: string
+    fallbackAddress?: string;
+    fallbackDeadline?: number;
+    timelock?: number;
+    payload: any;
+
 }
 
 export class Balance {
