@@ -77,7 +77,10 @@ func addPeersFromConfigToManager(mgr *manualpeering.Manager) {
 		plugin.Logger().Errorw("Failed to get known peers from the config file, continuing without them...", "err", err)
 	} else if len(peers) != 0 {
 		plugin.Logger().Infow("Pass known peers list from the config file to the manager", "peers", peers)
-		mgr.AddPeer(peers...)
+		if err := mgr.AddPeer(peers...); err != nil {
+			plugin.Logger().Infow("Failed to pass known peers list from the config file to the manager",
+				"peers", peers, "err", err)
+		}
 	}
 }
 

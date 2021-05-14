@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -278,15 +279,19 @@ func (m *Manager) keepPeerConnected(kp *knownPeer) {
 	defer ticker.Stop()
 
 	peerID := kp.peer.ID()
-	connectorFn := m.getConnectorFn(kp)
 	for {
 		if kp.getConnStatus() == ConnStatusDisconnected {
 			m.log.Infow(
-				"Peer is disconnected, calling gossip layer to establish connection",
+				"Peer is disconnected, calling gossip layer to establish the connection",
 				"peer", kp.peer, "connectionDirection", kp.connDirection,
 			)
-			if err := connectorFn(ctx, kp.peer, gossip.NeighborsGroupManual);
-				err != nil && !errors.Is(err, gossip.ErrDuplicateNeighbor) && !errors.Is(err, context.Canceled) {
+			var err error
+			if kp.connDirection == ConnDirectionOutbound {
+				err = m.gm.AddOutbound(ctx, kp.peer, gossip.NeighborsGroupManual)
+			} else if kp.connDirection == ConnDirectionInbound {
+				err = m.gm.AddInbound(ctx, kp.peer, gossip.NeighborsGroupManual, server.WithNoDefaultTimeout())
+			}
+			if err != nil && !errors.Is(err, gossip.ErrDuplicateNeighbor) && !errors.Is(err, context.Canceled) {
 				m.log.Errorw(
 					"Failed to connect a neighbor in the gossip layer",
 					"peerID", peerID, "connectionDirection", kp.connDirection, "err", err,
@@ -300,18 +305,6 @@ func (m *Manager) keepPeerConnected(kp *knownPeer) {
 			return
 		}
 	}
-}
-
-type connectorFunc func(context.Context, *peer.Peer, gossip.NeighborsGroup) error
-
-func (m *Manager) getConnectorFn(kp *knownPeer) connectorFunc {
-	var fn connectorFunc
-	if kp.connDirection == ConnDirectionOutbound {
-		fn = m.gm.AddOutbound
-	} else if kp.connDirection == ConnDirectionInbound {
-		fn = m.gm.AddInbound
-	}
-	return fn
 }
 
 func (m *Manager) onGossipNeighborRemoved(neighbor *gossip.Neighbor) {
