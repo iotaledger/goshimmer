@@ -3,10 +3,9 @@ package faucet
 import (
 	"fmt"
 	"net/http"
-	goSync "sync"
+	"sync"
 
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
@@ -19,55 +18,48 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
-const (
-	// PluginName is the name of the web API faucet endpoint plugin.
-	PluginName = "WebAPI faucet Endpoint"
-)
-
 var (
 	// plugin is the plugin instance of the web API info endpoint plugin.
 	plugin    *node.Plugin
-	once      goSync.Once
-	log       *logger.Logger
-	fundingMu goSync.Mutex
+	once      sync.Once
+	fundingMu sync.Mutex
 )
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+		plugin = node.NewPlugin("WebAPI faucet Endpoint", node.Enabled, configure)
 	})
 	return plugin
 }
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-faucet")
 	webapi.Server().POST("faucet", requestFunds)
 }
 
 // requestFunds creates a faucet request (0-value) message with the given destination address and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
 func requestFunds(c echo.Context) error {
+	// TODO: re-evaluate: do we need the lock here?
 	fundingMu.Lock()
 	defer fundingMu.Unlock()
+
 	var request jsonmodels.FaucetRequest
-	var addr ledgerstate.Address
 	if err := c.Bind(&request); err != nil {
-		log.Info(err.Error())
+		plugin.LogInfo(err.Error())
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: err.Error()})
 	}
 
-	log.Debug("Received - address:", request.Address)
+	plugin.LogInfo("Received - address:", request.Address)
+	plugin.LogInfo(request)
 
 	addr, err := ledgerstate.AddressFromBase58EncodedString(request.Address)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid address"})
 	}
 
-	emptyID := identity.ID{}
-	accessManaPledgeID := emptyID
-	consensusManaPledgeID := emptyID
-
+	var accessManaPledgeID identity.ID
+	var consensusManaPledgeID identity.ID
 	if request.AccessManaPledgeID != "" {
 		accessManaPledgeID, err = mana.IDFromStr(request.AccessManaPledgeID)
 		if err != nil {
@@ -82,7 +74,7 @@ func requestFunds(c echo.Context) error {
 		}
 	}
 
-	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty), accessManaPledgeID, consensusManaPledgeID)
+	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty), accessManaPledgeID, consensusManaPledgeID, request.Nonce)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: err.Error()})
 	}

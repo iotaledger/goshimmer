@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"context"
 	"crypto"
 
 	"github.com/cockroachdb/errors"
@@ -40,22 +39,23 @@ var (
 )
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
-func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID, consensusManaPledgeID identity.ID) (*Request, error) {
+func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) (*Request, error) {
 	p := &Request{
 		payloadType:           Type,
 		address:               addr,
 		accessManaPledgeID:    accessManaPledgeID,
 		consensusManaPledgeID: consensusManaPledgeID,
+		nonce:                 nonce,
 	}
 
-	objectBytes := p.Bytes()
-	powRelevantBytes := objectBytes[:len(objectBytes)-pow.NonceBytes]
-	nonce, err := powWorker.Mine(context.Background(), powRelevantBytes, powTarget)
-	if err != nil {
-		err = errors.Errorf("failed to do PoW for faucet request: %w", err)
-		return nil, err
-	}
-	p.nonce = nonce
+	//objectBytes := p.Bytes()
+	//powRelevantBytes := objectBytes[:len(objectBytes)-pow.NonceBytes]
+	//nonce, err := powWorker.Mine(context.Background(), powRelevantBytes, powTarget)
+	//if err != nil {
+	//	err = errors.Errorf("failed to do PoW for faucet request: %w", err)
+	//	return nil, err
+	//}
+	//p.nonce = nonce
 	return p, nil
 }
 
