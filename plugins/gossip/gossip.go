@@ -75,7 +75,7 @@ func start(shutdownSignal <-chan struct{}) {
 	defer srv.Close()
 
 	mgr.Start(srv)
-	defer mgr.Close()
+	defer mgr.Stop()
 
 	log.Infof("%s started: age-threshold=%v bind-address=%s", PluginName, ageThreshold, localAddr.String())
 

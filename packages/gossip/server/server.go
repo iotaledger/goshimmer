@@ -116,7 +116,7 @@ func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogg
 		"network", listener.Addr().Network(),
 		"address", listener.Addr().String(),
 	)
-
+	t.wg.Add(2)
 	go t.run()
 	go t.listenLoop()
 
@@ -243,12 +243,12 @@ func (t *TCP) closeConnection(c net.Conn) {
 }
 
 func (t *TCP) run() {
-	t.wg.Add(1)
 	defer t.wg.Done()
 	for {
 		select {
 		// add a new matcher to the list
 		case m := <-t.addAcceptMatcherCh:
+			t.wg.Add(1)
 			go t.handleAcceptMatcher(m)
 
 		// on accept received, check all matchers for a fit
@@ -266,7 +266,6 @@ func (t *TCP) run() {
 }
 
 func (t *TCP) handleAcceptMatcher(m *acceptMatcher) {
-	t.wg.Add(1)
 	defer t.wg.Done()
 	listElem := t.pushAcceptMatcher(m)
 	defer t.removeAcceptMatcher(listElem)
@@ -298,6 +297,7 @@ func (t *TCP) matchNewConnection(a accept) bool {
 		if m.peer.ID() == a.fromID {
 			matched = true
 			// finish the handshake
+			t.wg.Add(1)
 			go t.matchAccept(m, a.req, a.conn)
 		}
 	}
@@ -317,7 +317,6 @@ func (t *TCP) removeAcceptMatcher(e *list.Element) {
 }
 
 func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
-	t.wg.Add(1)
 	defer t.wg.Done()
 
 	if err := t.writeHandshakeResponse(req, conn); err != nil {
@@ -330,7 +329,6 @@ func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
 }
 
 func (t *TCP) listenLoop() {
-	t.wg.Add(1)
 	defer t.wg.Done()
 
 	for {

@@ -60,9 +60,11 @@ type Manager struct {
 
 	wg sync.WaitGroup
 
-	mu        sync.RWMutex
-	srv       *server.TCP
-	neighbors map[identity.ID]*neighborWithGroup
+	server      *server.TCP
+	serverMutex sync.RWMutex
+
+	neighbors      sync.Map
+	neighborsMutex sync.RWMutex
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
 	messageWorkerPool *workerpool.WorkerPool
@@ -83,8 +85,7 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 			NeighborsGroupAuto:   NewNeighborsEvents(),
 			NeighborsGroupManual: NewNeighborsEvents(),
 		},
-		srv:       nil,
-		neighbors: make(map[identity.ID]*neighborWithGroup),
+		server: nil,
 	}
 
 	m.messageWorkerPool = workerpool.New(func(task workerpool.Task) {
@@ -104,19 +105,28 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 
 // Start starts the manager for the given TCP server.
 func (m *Manager) Start(srv *server.TCP) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.serverMutex.Lock()
+	defer m.serverMutex.Unlock()
 
-	m.srv = srv
+	m.server = srv
 
 	m.messageWorkerPool.Start()
 	m.messageRequestWorkerPool.Start()
 }
 
-// Close stops the manager and closes all established connections.
-func (m *Manager) Close() {
-	m.stop()
-	m.wg.Wait()
+// Stop stops the manager and closes all established connections.
+func (m *Manager) Stop() {
+	m.serverMutex.Lock()
+	defer m.serverMutex.Unlock()
+
+	m.server = nil
+
+	// close all neighbor connections
+	m.neighbors.Range(func(_, value interface{}) bool {
+		nbr := value.(*neighborWithGroup)
+		_ = nbr.Close()
+		return true
+	})
 
 	m.messageWorkerPool.Stop()
 	m.messageRequestWorkerPool.Stop()
@@ -132,41 +142,27 @@ func (m *Manager) NeighborsEvents(group NeighborsGroup) NeighborsEvents {
 	return m.neighborsEvents[group]
 }
 
-func (m *Manager) stop() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.srv = nil
-
-	// close all neighbor connections
-	for _, nbr := range m.neighbors {
-		_ = nbr.Close()
-	}
-}
-
 // AddOutbound tries to add a neighbor by connecting to that peer.
 func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
 	connectOpts ...server.ConnectPeerOption) error {
-	return m.addNeighbor(ctx, p, group, m.srv.DialPeer, connectOpts)
+	return m.addNeighbor(ctx, p, group, m.server.DialPeer, connectOpts)
 }
 
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
 func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
 	connectOpts ...server.ConnectPeerOption) error {
-	return m.addNeighbor(ctx, p, group, m.srv.AcceptPeer, connectOpts)
+	return m.addNeighbor(ctx, p, group, m.server.AcceptPeer, connectOpts)
 }
 
 // DropNeighbor disconnects the neighbor with the given ID.
 func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	n, ok := m.neighbors[id]
-	if !ok || n.group != group {
+	value, ok := m.neighbors.LoadAndDelete(id)
+	nbr := value.(*neighborWithGroup)
+	if !ok || nbr.group != group {
 		return ErrUnknownNeighbor
 	}
-	delete(m.neighbors, id)
 
-	return n.Close()
+	return nbr.Close()
 }
 
 // RequestMessage requests the message with the given id from the neighbors.
@@ -185,13 +181,12 @@ func (m *Manager) SendMessage(msgData []byte, to ...identity.ID) {
 
 // AllNeighbors returns all the neighbors that are currently connected.
 func (m *Manager) AllNeighbors() []*Neighbor {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	result := make([]*Neighbor, 0, len(m.neighbors))
-	for _, n := range m.neighbors {
+	var result []*Neighbor
+	m.neighbors.Range(func(_, value interface{}) bool {
+		n := value.(*neighborWithGroup)
 		result = append(result, n.Neighbor)
-	}
+		return true
+	})
 	return result
 }
 
@@ -205,11 +200,9 @@ func (m *Manager) getNeighbors(ids ...identity.ID) []*Neighbor {
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	for _, id := range ids {
-		if n, ok := m.neighbors[id]; ok {
+		if value, ok := m.neighbors.Load(id); ok {
+			n := value.(*neighborWithGroup)
 			result = append(result, n.Neighbor)
 		}
 	}
@@ -230,13 +223,13 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	connectorFunc func(context.Context, *peer.Peer, ...server.ConnectPeerOption) (net.Conn, error),
 	connectOpts []server.ConnectPeerOption,
 ) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if p.ID() == m.local.ID() {
 		return ErrLoopbackNeighbor
 	}
-	if m.srv == nil {
+	m.serverMutex.RLock()
+	defer m.serverMutex.RUnlock()
+	if m.server == nil {
 		return ErrNotRunning
 	}
 
@@ -244,12 +237,6 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if err != nil {
 		m.neighborsEvents[group].ConnectionFailed.Trigger(p, err)
 		return err
-	}
-
-	if _, ok := m.neighbors[p.ID()]; ok {
-		_ = conn.Close()
-		m.neighborsEvents[group].ConnectionFailed.Trigger(p, ErrDuplicateNeighbor)
-		return ErrDuplicateNeighbor
 	}
 
 	// create and add the neighbor
@@ -267,7 +254,13 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		}
 	}))
 
-	m.neighbors[p.ID()] = &neighborWithGroup{Neighbor: nbr, group: group}
+	n := &neighborWithGroup{Neighbor: nbr, group: group}
+	if _, ok := m.neighbors.LoadOrStore(p.ID(), n); ok {
+		_ = conn.Close()
+		m.neighborsEvents[group].ConnectionFailed.Trigger(p, ErrDuplicateNeighbor)
+		return ErrDuplicateNeighbor
+	}
+
 	nbr.Listen()
 	m.neighborsEvents[group].NeighborAdded.Trigger(nbr)
 
