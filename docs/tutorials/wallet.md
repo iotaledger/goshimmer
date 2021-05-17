@@ -837,7 +837,7 @@ Delegating funds... [DONE]
 
 If we omitted the `-del-addr` flag and its value, the wallet would have asked the node it is connected to, to provide
 a delegation address. You can get this delegation address yourself as well by running the `server-status` command in
-the wallet.
+the wallet, or querying the `/info` endpoint of a node through the webapi.
 ```bash
 ./cli-wallet server-status
 ```
