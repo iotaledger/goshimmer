@@ -1,5 +1,9 @@
 package framework
 
+import (
+	"time"
+)
+
 const (
 	autopeeringMaxTries = 50
 	waitForManaMaxTries = 50
@@ -32,6 +36,8 @@ const (
 
 // Parameters to override before calling any peer creation function.
 var (
+	// ParaTangleTimeWindow defines the time window in which the node will consider itself in sync.
+	ParaTangleTimeWindow = 30 * time.Second
 	// ParaFCoBAverageNetworkDelay defines the configured avg. network delay (in seconds) for the FCOB rules.
 	ParaFCoBAverageNetworkDelay = 5
 	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
@@ -64,7 +70,7 @@ var (
 	ParaWriteManaThreshold = 1.0
 	// ParaActivityInterval defines the interval between activity messages (in seconds).
 	ParaActivityInterval = 1
-	// ParaActivityInterval defines if activity messages are issue by all the nodes.
+	// ParaActivityPluginOnEveryNode defines if activity messages are issue by all the nodes.
 	ParaActivityPluginOnEveryNode = false
 )
 
@@ -82,7 +88,8 @@ type GoShimmerConfig struct {
 	EntryNodePublicKey string
 	DisabledPlugins    string
 	SnapshotFilePath   string
-	StartSync          bool
+
+	StartSync bool
 
 	DRNGCommittee string
 	DRNGDistKey   string

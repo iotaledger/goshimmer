@@ -128,9 +128,9 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--drng.custom.distributedPubKey=%s", config.DRNGDistKey),
 			fmt.Sprintf("--drng.xteam.committeeMembers="),
 			fmt.Sprintf("--drng.pollen.committeeMembers="),
-			fmt.Sprintf("--gossip.ageThreshold=%s", "2m"),
 			fmt.Sprintf("--activity.broadcastIntervalSec=%d", config.ActivityInterval),
 			fmt.Sprintf("--messageLayer.startSynced=%t", config.StartSync),
+			fmt.Sprintf("--messageLayer.tangleTimeWindow=%s", ParaTangleTimeWindow),
 			fmt.Sprintf("--mana.allowedAccessFilterEnabled=%t", config.ManaAllowedAccessFilterEnabled),
 			fmt.Sprintf("--mana.allowedConsensusFilterEnabled=%t", config.ManaAllowedConsensusFilterEnabled),
 			fmt.Sprintf("--mana.allowedAccessPledge=%s", func() string {
