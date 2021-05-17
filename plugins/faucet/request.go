@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	_ "golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
@@ -16,7 +15,8 @@ import (
 
 const (
 	// ObjectName defines the name of the faucet object (payload).
-	ObjectName = "faucet"
+	ObjectName  = "faucet"
+	payloadType = 2
 )
 
 // Request represents a faucet request which contains an address for the faucet to send funds to.
@@ -30,7 +30,7 @@ type Request struct {
 
 // Type represents the identifier for the faucet Request type.
 var (
-	Type = payload.NewType(2, ObjectName, PayloadUnmarshaler)
+	Type = payload.NewType(payloadType, ObjectName, PayloadUnmarshaler)
 )
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
