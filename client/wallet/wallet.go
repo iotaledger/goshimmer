@@ -39,6 +39,9 @@ const (
 	milliSeconds               = 1000   // miliseconds in a second
 )
 
+// ErrTooManyOutputs is an error returned when the number of outputs/inputs exceeds the protocol wide constant
+var ErrTooManyOutputs = errors.New("number of outputs is more, than supported for a single transaction")
+
 // Wallet is a wallet that can handle aliases and extendedlockedoutputs.
 type Wallet struct {
 	addressManager *AddressManager
@@ -114,6 +117,9 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *led
 	// collect that many outputs for funding
 	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds)
 	if err != nil {
+		if errors.Is(err, ErrTooManyOutputs) {
+			err = errors.Errorf("consolidate funds and try again: %w", err)
+		}
 		return
 	}
 
@@ -181,59 +187,68 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		return
 	}
 	if len(confirmedAvailableBalance) == 0 {
-		err = errors.Errorf("no available balance to be swept in wallet")
+		err = errors.Errorf("no available balance to be consolidated in wallet")
 		return
 	}
 	// collect outputs
-	consumedOutputs, err := wallet.collectOutputsForFunding(confirmedAvailableBalance)
-	if err != nil {
+	allOutputs, err := wallet.collectOutputsForFunding(confirmedAvailableBalance)
+	if err != nil && !errors.Is(err, ErrTooManyOutputs) {
 		return
 	}
-
-	// build inputs from consumed outputs
-	inputs := wallet.buildInputs(consumedOutputs)
-	// aggregate all the funds we consume from inputs
-	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
-	toAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty) // no optional toAddress from options
-
-	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
-
-	// determine pledgeIDs
-	aPledgeID, cPledgeID, err := wallet.derivePledgeIDs(consolidateOptions.AccessManaPledgeID, consolidateOptions.ConsensusManaPledgeID)
-	if err != nil {
+	if allOutputs.OutputCount() == 1 {
+		err = errors.Errorf("can't consolidate funds, there is only one value output in wallet")
 		return
 	}
+	consumedOutputsSlice := allOutputs.SplitIntoChunksOfMaxInputCount()
 
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
-	outputsByID := consumedOutputs.OutputsByID()
+	for _, consumedOutputs := range consumedOutputsSlice {
+		// build inputs from consumed outputs
+		inputs := wallet.buildInputs(consumedOutputs)
+		// aggregate all the funds we consume from inputs
+		totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
+		toAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty) // no optional toAddress from options
 
-	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
+		outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
 
-	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
+		// determine pledgeIDs
+		aPledgeID, cPledgeID, pErr := wallet.derivePledgeIDs(consolidateOptions.AccessManaPledgeID, consolidateOptions.ConsensusManaPledgeID)
+		if pErr != nil {
+			err = pErr
+			return
+		}
 
-	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
-	if err != nil {
-		return nil, err
+		txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
+		outputsByID := consumedOutputs.OutputsByID()
+
+		unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
+
+		tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
+
+		// check syntactical validity by marshaling an unmarshaling
+		tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+		if err != nil {
+			return nil, err
+		}
+
+		// check tx validity (balances, unlock blocks)
+		ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
+		}
+
+		wallet.markOutputsAndAddressesSpent(consumedOutputs)
+		err = wallet.connector.SendTransaction(tx)
+		if err != nil {
+			return nil, err
+		}
+		if consolidateOptions.WaitForConfirmation {
+			err = wallet.WaitForTxConfirmation(tx.ID())
+		}
 	}
 
-	// check tx validity (balances, unlock blocks)
-	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
-	}
-
-	wallet.markOutputsAndAddressesSpent(consumedOutputs)
-	err = wallet.connector.SendTransaction(tx)
-	if err != nil {
-		return nil, err
-	}
-	if consolidateOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
-	}
 	return tx, err
 }
 
@@ -330,6 +345,9 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	// where will we spend from?
 	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Amount})
 	if err != nil {
+		if errors.Is(err, ErrTooManyOutputs) {
+			err = errors.Errorf("consolidate funds and try again: %w", err)
+		}
 		return
 	}
 	receiveAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty)
@@ -387,6 +405,9 @@ func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOpti
 	// collect that many outputs for funding
 	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds)
 	if err != nil {
+		if errors.Is(err, ErrTooManyOutputs) {
+			err = errors.Errorf("consolidate funds and try again: %w", err)
+		}
 		return
 	}
 
@@ -524,6 +545,9 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 	// collect funds required for an alias input
 	consumedOutputs, err := wallet.collectOutputsForFunding(createNFTOptions.InitialBalance)
 	if err != nil {
+		if errors.Is(err, ErrTooManyOutputs) {
+			err = errors.Errorf("consolidate funds and try again: %w", err)
+		}
 		return nil, nil, err
 	}
 	// determine which address should receive the nft
@@ -957,6 +981,9 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	// collect funds required for a deposit
 	consumedOutputs, err := wallet.collectOutputsForFunding(depositBalances)
 	if err != nil {
+		if errors.Is(err, ErrTooManyOutputs) {
+			err = errors.Errorf("consolidate funds and try again: %w", err)
+		}
 		return nil, err
 	}
 	// build inputs from consumed outputs
@@ -2063,6 +2090,7 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 
 	collected := make(map[ledgerstate.Color]uint64)
 	outputsToConsume := NewAddressToOutputs()
+	numOfCollectedOutputs := 0
 	now := time.Now()
 	for _, addy := range addresses {
 		for outputID, output := range unspentOutputs[addy] {
@@ -2092,11 +2120,16 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 					outputsToConsume[addy] = make(map[ledgerstate.OutputID]*Output)
 				}
 				outputsToConsume[addy][outputID] = output
-				if enoughCollected(collected, fundingBalance) {
+				numOfCollectedOutputs++
+				if enoughCollected(collected, fundingBalance) && numOfCollectedOutputs <= ledgerstate.MaxInputCount {
 					return outputsToConsume, nil
 				}
 			}
 		}
+	}
+
+	if enoughCollected(collected, fundingBalance) && numOfCollectedOutputs > ledgerstate.MaxOutputCount {
+		return outputsToConsume, errors.Errorf("failed to collect outputs: %w", ErrTooManyOutputs)
 	}
 
 	return nil, errors.Errorf("failed to gather initial funds \n %s, there are only \n %s funds available",
