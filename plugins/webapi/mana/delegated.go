@@ -1,10 +1,12 @@
 package mana
 
 import (
+	"net/http"
+
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
-	"github.com/labstack/echo"
-	"net/http"
 )
 
 // region GetDelegatedMana /////////////////////////////////////////////////////////////////////////////////////////////
