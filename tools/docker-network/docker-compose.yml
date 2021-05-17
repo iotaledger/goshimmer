@@ -61,32 +61,6 @@ services:
     depends_on:
       - entry_node
 
-  peer_master1:
-    container_name: peer_master1
-    image: golang:1.16.2
-    stop_grace_period: 1m
-    entrypoint: /go/bin/main
-    command: >
-      --config=/tmp/config.json
-      --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap,"webapi tools endpoint"
-      --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
-      --messageLayer.snapshot.genesisNode=
-      --node.disablePlugins=portcheck,clock
-      --statement.writeStatement=true
-      --statement.writeManaThreshold=1.0
-      --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
-      --webapi.exportPath=/tmp/
-    volumes:
-      - ./config.docker.json:/tmp/config.json:ro
-      - goshimmer-cache:/go
-      - ../integration-tests/assets:/tmp/assets
-    ports:
-      - "127.0.0.1:8085:8080/tcp" # web API
-      - "127.0.0.1:8086:8081/tcp" # dashboard
-    depends_on:
-      - entry_node
-
   faucet:
     image: golang:1.16.2
     stop_grace_period: 1m
