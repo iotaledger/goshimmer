@@ -1,21 +1,17 @@
 package faucet
 
 import (
-	"crypto"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	_ "golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-
-	// Only want to use init
-	_ "golang.org/x/crypto/blake2b"
 )
 
 const (
@@ -34,12 +30,11 @@ type Request struct {
 
 // Type represents the identifier for the faucet Request type.
 var (
-	Type      = payload.NewType(2, ObjectName, PayloadUnmarshaler)
-	powWorker = pow.New(crypto.BLAKE2b_512, 1)
+	Type = payload.NewType(2, ObjectName, PayloadUnmarshaler)
 )
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
-func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) (*Request, error) {
+func NewRequest(addr ledgerstate.Address, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) *Request {
 	p := &Request{
 		payloadType:           Type,
 		address:               addr,
@@ -48,15 +43,7 @@ func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID, con
 		nonce:                 nonce,
 	}
 
-	//objectBytes := p.Bytes()
-	//powRelevantBytes := objectBytes[:len(objectBytes)-pow.NonceBytes]
-	//nonce, err := powWorker.Mine(context.Background(), powRelevantBytes, powTarget)
-	//if err != nil {
-	//	err = errors.Errorf("failed to do PoW for faucet request: %w", err)
-	//	return nil, err
-	//}
-	//p.nonce = nonce
-	return p, nil
+	return p
 }
 
 // FromBytes parses the marshaled version of a Request into a request object.
