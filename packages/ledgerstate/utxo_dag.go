@@ -70,6 +70,42 @@ func (u *UTXODAG) Shutdown() {
 	})
 }
 
+func (u *UTXODAG) StoreTransaction(transaction *Transaction) (solid bool) {
+	u.TransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
+		transactionMetadata := NewTransactionMetadata(transactionID)
+
+		cachedConsumedOutputs := u.ConsumedOutputs(transaction)
+		defer cachedConsumedOutputs.Release()
+		consumedOutputs := cachedConsumedOutputs.Unwrap()
+
+		if !u.allOutputsExist(consumedOutputs) {
+			// store unsolid consumers
+
+			return transactionMetadata
+		}
+
+		if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
+			u.Events.TransactionInvalid.Trigger(transaction, errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid))
+
+			return nil
+		}
+
+		if !UnlockBlocksValid(consumedOutputs, transaction) {
+			u.Events.TransactionInvalid.Trigger(transaction, errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid))
+
+			return
+		}
+
+		// TODO: STORE TRANSACTION
+
+		return transactionMetadata
+	}).Consume(func(transactionMetadata *TransactionMetadata) {
+		solid = transactionMetadata.Solid()
+	})
+
+	return solid
+}
+
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
 func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
@@ -219,7 +255,13 @@ func (u *UTXODAG) Transaction(transactionID TransactionID) (cachedTransaction *C
 }
 
 // TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-func (u *UTXODAG) TransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata) {
+func (u *UTXODAG) TransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedTransactionMetadata{u.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](transactionID)
+		})}
+	}
+
 	return &CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.Load(transactionID.Bytes())}
 }
 

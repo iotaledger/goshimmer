@@ -361,15 +361,11 @@ func (s *S0lidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 	solid = true
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
 		if solid || requestMissingMessages {
-			// as missing messages are requested in isMessageMarkedAsSolid, we need to be aware of short-circuit evaluation
-			// rules, thus we need to evaluate isMessageMarkedAsSolid !!first!!
 			solid = s.isMessageMarkedAsSolid(parentMessageID, requestMissingMessages) && solid
 		}
 	})
 	message.ForEachWeakParent(func(parentMessageID MessageID) {
 		if solid || requestMissingMessages {
-			// as missing messages are requested in isMessageMarkedAsSolid, we need to be aware of short-circuit evaluation
-			// rules, thus we need to evaluate isMessageMarkedAsSolid !!first!!
 			solid = s.isMessageMarkedAsWeaklySolid(parentMessageID, requestMissingMessages) && solid
 		}
 	})
@@ -396,8 +392,6 @@ func (s *S0lidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingM
 			})
 		}
 
-		// do not initialize the metadata here, we execute this in the optional ComputeIfAbsent callback to be secure
-		// from race conditions
 		return nil
 	}).Consume(func(messageMetadata *MessageMetadata) {
 		solid = messageMetadata.IsSolid()
@@ -422,8 +416,6 @@ func (s *S0lidifier) isMessageMarkedAsWeaklySolid(messageID MessageID, requestMi
 			})
 		}
 
-		// do not initialize the metadata here, we execute this in the optional ComputeIfAbsent callback to be secure
-		// from race conditions
 		return nil
 	}).Consume(func(messageMetadata *MessageMetadata) {
 		solid = messageMetadata.IsSolid() || messageMetadata.IsWeaklySolid()
@@ -446,7 +438,7 @@ func (s *S0lidifier) isPayloadSolid(message *Message) (solid bool) {
 		attachment.SetModified()
 		attachment.Persist()
 
-		solid = s.tangle.LedgerState.UTXODAG.ProcessTransaction(transaction)
+		solid = s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
 
 		return attachment
 	})
