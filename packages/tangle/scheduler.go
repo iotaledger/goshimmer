@@ -44,6 +44,7 @@ type Scheduler struct {
 
 	tangle  *Tangle
 	ticker  *time.Ticker
+	started typeutils.AtomicBool
 	stopped typeutils.AtomicBool
 
 	mu       sync.Mutex
@@ -83,7 +84,6 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	}
 	scheduler.closures.messageSolid = events.NewClosure(scheduler.messageSolidHandler)
 	scheduler.closures.messageInvalid = events.NewClosure(scheduler.messageInvalidHandler)
-	scheduler.closures.messageDiscarded = events.NewClosure(scheduler.messageDiscardedHandler)
 
 	return scheduler
 }
@@ -106,15 +106,16 @@ func (s *Scheduler) messageInvalidHandler(id MessageID) {
 	s.tangle.Events.Error.Trigger(errors.Errorf("invalid message in scheduler: %x", id))
 }
 
-func (s *Scheduler) messageDiscardedHandler(id MessageID) {
-	// TODO: integration tests are failing when this is active
-	// s.tangle.Storage.DeleteMessage(id)
-}
-
 // Start starts the scheduler.
 func (s *Scheduler) Start() {
+	s.started.Set()
 	// start the main loop
 	go s.mainLoop()
+}
+
+// Running returns true if the scheduler has started.
+func (s *Scheduler) Running() bool {
+	return s.started.IsSet()
 }
 
 // Shutdown shuts down the Scheduler.
@@ -133,15 +134,12 @@ func (s *Scheduler) Shutdown() {
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(s.closures.messageSolid)
 	s.tangle.Events.MessageInvalid.Attach(s.closures.messageInvalid)
-	// TODO: if possible this should be moved to tangle.Storage setup
-	s.tangle.Scheduler.Events.MessageDiscarded.Attach(s.closures.messageDiscarded)
 }
 
 // Detach detaches the scheduler from the tangle events.
 func (s *Scheduler) Detach() {
 	s.tangle.Solidifier.Events.MessageSolid.Detach(s.closures.messageSolid)
 	s.tangle.Events.MessageInvalid.Detach(s.closures.messageInvalid)
-	s.tangle.Scheduler.Events.MessageDiscarded.Detach(s.closures.messageDiscarded)
 }
 
 // SubmitAndReady submits the message to the scheduler and marks it ready right away.
