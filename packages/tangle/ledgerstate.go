@@ -163,15 +163,13 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 	l.UTXODAG.LoadSnapshot(snapshot)
-	fmt.Println("................................................................................................................")
 	for txID, record := range snapshot.Transactions {
-		fmt.Println("... Snapshot tx loaded: ", txID, "#outputs=", len(record.Essence.Outputs()), record.UnspentOutputs)
+		fmt.Println("... Loading snapshot transaction: ", txID, "#outputs=", len(record.Essence.Outputs()), record.UnspentOutputs)
 		attachment, _ := l.tangle.Storage.StoreAttachment(txID, EmptyMessageID)
 		if attachment != nil {
 			attachment.Release()
 		}
 	}
-	fmt.Println("................................................................................................................")
 	attachment, _ := l.tangle.Storage.StoreAttachment(ledgerstate.GenesisTransactionID, EmptyMessageID)
 	if attachment != nil {
 		attachment.Release()
@@ -180,8 +178,9 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 
 // SnapshotUTXO returns the UTXO snapshot, which is a list of transactions with unspent outputs.
 func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
-	// The following parameter should be much larger than the max timestamp variation, and the required time for confirmation.
-	minAge := 30 * time.Second // this should be at least two times the max allowed time stamp offset
+	// The following parameter should be much larger than the max allowed timestamp variation, and the required time for confirmation.
+	minAge := 15 * time.Second
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!! minAge set for testing, but the value must be adjusted higher !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	snapshot = &ledgerstate.Snapshot{
 		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
 	}

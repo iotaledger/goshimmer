@@ -267,55 +267,19 @@ func (u *UTXODAG) CachedConsumers(outputID OutputID) (cachedConsumers CachedCons
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
-	// storing genesis tx and genesis output
-	// store TransactionMetadata
-	transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
-	transactionMetadata.SetSolid(true)
-	transactionMetadata.SetBranchID(MasterBranchID)
-	transactionMetadata.SetFinalized(true)
-
-	(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(GenesisTransactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
-		transactionMetadata.Persist()
-		transactionMetadata.SetModified()
-		return transactionMetadata
-	})}).Release()
-
-	fmt.Printf("Genesis: txID: %s\n", transactionMetadata.id)
-
-	fmt.Println("___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ")
-	fmt.Println("___", GenesisTransactionID)
-
 	for txID, record := range snapshot.Transactions {
-		fmt.Println("___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ")
-		fmt.Println("__ txID ", txID)
-		fmt.Println("__ outputs  ", len(record.Essence.outputs))
 		transaction := NewTransaction(record.Essence, record.UnlockBlocks)
-		fmt.Printf("__ new ID %s\n", transaction.ID())
-		// fmt.Println(transaction)
 		cached, storedTx := u.transactionStorage.StoreIfAbsent(transaction)
-		fmt.Println("***************************************************************")
-		if !u.transactionStorage.Contains(transaction.ID().Bytes()) {
-			fmt.Println("Cannot find newTxID in storage: ", transaction.ID(), ", old id: ", txID)
-		} else {
-			fmt.Println("Found new newTxID in storage: ", transaction.ID(), ", old id: ", txID)
-		}
-		fmt.Println("***************************************************************")
 
-		fmt.Println("____ stored tx: ", storedTx)
 		if storedTx {
 			cached.Release()
 		}
 
 		for i, output := range record.Essence.outputs {
-			//fmt.Println("_____________ ", output.ID().OutputIndex())
-			//fmt.Println("_____________ ", output.ID())
-			//fmt.Println("_____________ ", output.Balances())
-			//fmt.Println("_____________ ", output.Address())
 			if !record.UnspentOutputs[i] {
 				continue
 			}
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
-			// fmt.Println("_____________ stored output: ", stored)
 			if stored {
 				cachedOutput.Release()
 			}

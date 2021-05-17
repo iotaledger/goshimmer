@@ -39,9 +39,9 @@ var nodesToPledge = []string{
 func init() {
 	flag.Uint64(cfgGenesisTokenAmount, 1000000000000000, "the amount of tokens to add to the genesis output") // we pledge this amount to peer master
 	flag.String(cfgSnapshotFileName, defaultSnapshotFileName, "the name of the generated snapshot file")
-	flag.String(cfgSnapshotGenesisSeed, "", "the genesis seed")
+	// flag.String(cfgSnapshotGenesisSeed, "", "the genesis seed")
 	// Most recent seed when checking ../integration-tests/assets :
-	// flag.String(cfgSnapshotGenesisSeed, "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih", "the genesis seed")
+	flag.String(cfgSnapshotGenesisSeed, "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih", "the genesis seed")
 }
 
 func main() {
@@ -106,6 +106,7 @@ func main() {
 
 	txRecord := ledgerstate.Record{
 		Essence:        tx.Essence(),
+		UnlockBlocks:   tx.UnlockBlocks(),
 		UnspentOutputs: []bool{true},
 	}
 	transactionsMap[tx.ID()] = txRecord
@@ -143,6 +144,7 @@ func main() {
 
 		record := ledgerstate.Record{
 			Essence:        tx.Essence(),
+			UnlockBlocks:   tx.UnlockBlocks(),
 			UnspentOutputs: []bool{true},
 		}
 		transactionsMap[tx.ID()] = record
