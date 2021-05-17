@@ -39,7 +39,7 @@ func (r *Refresher) Refresh() (err error) {
 
 	for i := 0; i < numberOfChunks; i++ {
 		// which chunks to consume?
-		consumedChunk := make([]*ledgerstate.AliasOutput, ledgerstate.MaxInputCount)
+		var consumedChunk []*ledgerstate.AliasOutput
 		if len(delegationOutputs) > ledgerstate.MaxInputCount {
 			consumedChunk = delegationOutputs[:ledgerstate.MaxInputCount]
 			delegationOutputs = delegationOutputs[ledgerstate.MaxInputCount:]
