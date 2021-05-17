@@ -13,7 +13,6 @@ import {LinkContainer} from 'react-router-bootstrap';
 import {ExplorerMessageQueryResult} from "app/components/ExplorerMessageQueryResult";
 import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
-import {Faucet} from "app/components/Faucet";
 import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
 import {Drng} from "app/components/Drng";
@@ -70,11 +69,6 @@ export class Root extends React.Component<Props, any> {
                                 dRNG beacon
                             </Nav.Link>
                         </LinkContainer>
-                        <LinkContainer to="/faucet">
-                            <Nav.Link>
-                                Faucet 
-                            </Nav.Link>
-                        </LinkContainer>
                         <LinkContainer to="/mana">
                             <Nav.Link>
                                 Mana
@@ -103,7 +97,6 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/visualizer/history" component={Visualizer}/>
-                    <Route exact path="/faucet" component={Faucet}/>
                     <Route exact path="/mana" component={Mana}/>
                     <Redirect to="/dashboard"/>
                 </Switch>
