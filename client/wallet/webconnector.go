@@ -33,6 +33,7 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 	status.Synced = response.TangleTime.Synced
 	status.Version = response.Version
 	status.ManaDecay = response.ManaDecay
+	status.DelegationAddress = response.ManaDelegationAddress
 
 	return
 }

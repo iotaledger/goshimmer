@@ -22,7 +22,7 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	helpPtr := command.Bool("help", false, "show this help screen")
 	amountPtr := command.Int64("amount", 0, "the amount of tokens that should be delegated")
 	colorPtr := command.String("color", "IOTA", "color of the tokens that should delegated")
-	delegationAddressPtr := command.String("del-addr", "", "the address to delegate funds to")
+	delegationAddressPtr := command.String("del-addr", "", "address to delegate funds to. when omitted, wallet delegates to the node it is connected to")
 	timelockUntilPtr := command.Int64("until", 0, "unix timestamp until which the delegated funds are timelocked")
 	accessManaPledgeIDPtr := command.String("access-mana-id", "", "node ID to pledge access mana to")
 	consensusManaPledgeIDPtr := command.String("consensus-mana-id", "", "node ID to pledge consensus mana to")
@@ -41,8 +41,25 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if *colorPtr == "" {
 		printUsage(command, "color must be set")
 	}
+	var delegationAddress ledgerstate.Address
+	delegateToConnectedNode := false
+	var status wallet.ServerStatus
 	if *delegationAddressPtr == "" {
-		printUsage(command, "delegation address must be set")
+		var statusErr error
+		status, statusErr = cliWallet.ServerStatus()
+		if statusErr != nil {
+			printUsage(command, fmt.Sprintf("failed to get delegation address from connected node: %s", statusErr.Error()))
+		}
+		delegationAddress, err = ledgerstate.AddressFromBase58EncodedString(status.DelegationAddress)
+		if err != nil {
+			printUsage(command, fmt.Sprintf("failed to parse connected node's delegation adddress: %s", err.Error()))
+		}
+		delegateToConnectedNode = true
+	} else {
+		delegationAddress, err = ledgerstate.AddressFromBase58EncodedString(*delegationAddressPtr)
+		if err != nil {
+			printUsage(command, fmt.Sprintf("provided delelegation address %s is not a valid IOTA address: %s", *delegationAddressPtr, err.Error()))
+		}
 	}
 
 	var fundsColor ledgerstate.Color
@@ -64,11 +81,6 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 				printUsage(command, parseErr.Error())
 			}
 		}
-	}
-
-	delegationAddress, err := ledgerstate.AddressFromBase58EncodedString(*delegationAddressPtr)
-	if err != nil {
-		printUsage(command, fmt.Sprintf("%s is not a valid IOTA address: %s", *delegationAddressPtr, err.Error()))
 	}
 
 	options := []delegateoptions.DelegateFundsOption{
@@ -105,6 +117,11 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	fmt.Println()
+	if delegateToConnectedNode {
+		fmt.Printf("\nDelegating to node %s, delegation address %s\n", status.ID, delegationAddress.Base58())
+	} else {
+		fmt.Printf("\nDelegating to address %s\n", delegationAddress.Base58())
+	}
 	for _, id := range delegationIDs {
 		fmt.Println("Delegation ID is: ", id.Base58())
 	}
