@@ -9,10 +9,11 @@ import (
 
 const (
 	// basic routes
-	routeGetAddresses    = "ledgerstate/addresses/"
-	routeGetBranches     = "ledgerstate/branches/"
-	routeGetOutputs      = "ledgerstate/outputs/"
-	routeGetTransactions = "ledgerstate/transactions/"
+	routeGetAddresses     = "ledgerstate/addresses/"
+	routeGetBranches      = "ledgerstate/branches/"
+	routeGetOutputs       = "ledgerstate/outputs/"
+	routeGetTransactions  = "ledgerstate/transactions/"
+	routePostTransactions = "ledgerstate/transactions"
 
 	// route path modifiers
 	pathUnspentOutputs = "/unspentOutputs"
@@ -176,5 +177,16 @@ func (api *GoShimmerAPI) GetTransactionAttachments(base58EncodedTransactionID st
 	}(), nil, res); err != nil {
 		return nil, err
 	}
+	return res, nil
+}
+
+// PostTransaction sends the transaction(bytes) to the Tangle and returns its transaction ID.
+func (api *GoShimmerAPI) PostTransaction(transactionBytes []byte) (*json_models.PostTransactionResponse, error) {
+	res := &json_models.PostTransactionResponse{}
+	if err := api.do(http.MethodPost, routePostTransactions,
+		&json_models.PostTransactionRequest{TransactionBytes: transactionBytes}, res); err != nil {
+		return nil, err
+	}
+
 	return res, nil
 }
