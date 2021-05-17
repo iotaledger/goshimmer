@@ -73,3 +73,18 @@ type DRNGMetrics struct {
 	IssuedTimestamp   time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
 	ReceivedTimestamp time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
 }
+
+// StatementLog defines the statement metrics record to sent be to remote logger.
+type StatementLog struct {
+	NodeID       string    `json:"nodeID"`
+	MsgID        string    `json:"msgID"`
+	IssuerID     string    `json:"issuerID"`
+	IssuedTime   time.Time `json:"issuedTime"`
+	ArrivalTime  time.Time `json:"arrivalTime"`
+	SolidTime    time.Time `json:"solidTime"`
+	DeltaArrival int64     `json:"deltaArrival"`
+	DeltaSolid   int64     `json:"deltaSolid"`
+	Clock        bool      `json:"clock"`
+	Sync         bool      `json:"sync"`
+	Type         string    `json:"type"`
+}

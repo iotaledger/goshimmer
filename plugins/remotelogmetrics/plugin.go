@@ -42,6 +42,7 @@ func configure(_ *node.Plugin) {
 	configureFPCConflictsMetrics()
 	configureDRNGMetrics()
 	configureTransactionMetrics()
+	configureStatementMetrics()
 }
 
 func run(_ *node.Plugin) {
@@ -86,4 +87,8 @@ func configureDRNGMetrics() {
 
 func configureTransactionMetrics() {
 	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+}
+
+func configureStatementMetrics() {
+	messagelayer.Tangle().ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
 }

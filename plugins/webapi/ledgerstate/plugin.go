@@ -10,8 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -46,6 +48,7 @@ func Plugin() *node.Plugin {
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/consensus", GetTransactionConsensusMetadata)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
+			webapi.Server().POST("ledgerstate/transactions", PostTransaction)
 		})
 	})
 
@@ -138,9 +141,6 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 					if err != nil {
 						return
 					}
-					messagelayer.Tangle().LedgerState.TransactionMetadata(txID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-						inclusionState.Finalized = transactionMetadata.Finalized()
-					})
 					inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
 					inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
 					inclusionState.Conflicting = len(messagelayer.Tangle().LedgerState.ConflictSet(txID)) != 0
@@ -414,6 +414,77 @@ func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err err
 	}
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region postTransaction //////////////////////////////////////////////////////////////////////////////////////////////
+
+const maxBookedAwaitTime = 5 * time.Second
+
+var (
+	sendTxMu sync.Mutex
+	// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
+	ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to node")
+)
+
+// PostTransaction sends a transaction.
+func PostTransaction(c echo.Context) error {
+	sendTxMu.Lock()
+	defer sendTxMu.Unlock()
+
+	var request jsonmodels.PostTransactionRequest
+	if err := c.Bind(&request); err != nil {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
+
+	// parse tx
+	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
+
+	// validate allowed mana pledge nodes.
+	allowedAccessMana := messagelayer.GetAllowedPledgeNodes(mana.AccessMana)
+	if allowedAccessMana.IsFilterEnabled {
+		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
+				Error: fmt.Errorf("not allowed to pledge access mana to %s: %w", tx.Essence().AccessPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
+	}
+	allowedConsensusMana := messagelayer.GetAllowedPledgeNodes(mana.ConsensusMana)
+	if allowedConsensusMana.IsFilterEnabled {
+		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
+				Error: fmt.Errorf("not allowed to pledge consensus mana to %s: %w", tx.Essence().ConsensusPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
+	}
+
+	// check transaction validity
+	if transactionErr := messagelayer.Tangle().LedgerState.CheckTransaction(tx); transactionErr != nil {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: transactionErr.Error()})
+	}
+
+	// check if transaction is too old
+	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+	}
+
+	// if transaction is in the future we wait until the time arrives
+	if tx.Essence().Timestamp().After(clock.SyncedTime()) {
+		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
+	}
+
+	issueTransaction := func() (*tangle.Message, error) {
+		return messagelayer.Tangle().IssuePayload(tx)
+	}
+
+	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
+	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

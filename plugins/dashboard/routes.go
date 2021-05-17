@@ -92,7 +92,6 @@ func setupRoutes(e *echo.Echo) {
 	apiRoutes := e.Group("/api")
 
 	setupExplorerRoutes(apiRoutes)
-	setupFaucetRoutes(apiRoutes)
 	setupVisualizerRoutes(apiRoutes)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
