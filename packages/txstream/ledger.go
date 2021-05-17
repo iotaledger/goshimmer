@@ -16,6 +16,5 @@ type Ledger interface {
 	EventTransactionConfirmed() *events.Event
 	EventTransactionBooked() *events.Event
 	PostTransaction(tx *ledgerstate.Transaction) error
-	RequestFunds(target ledgerstate.Address) error
 	Detach()
 }

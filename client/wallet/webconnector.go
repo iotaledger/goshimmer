@@ -38,8 +38,8 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 }
 
 // RequestFaucetFunds request some funds from the faucet for test purposes.
-func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address) (err error) {
-	_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58())
+func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address, powTarget int) (err error) {
+	_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58(), powTarget)
 
 	return
 }

@@ -188,10 +188,6 @@ func configureEvents() {
 			}
 			fundingRequest := message.Payload().(*Request)
 			addr := fundingRequest.Address()
-			if IsAddressBlackListed(addr) {
-				log.Infof("can't fund address %s since it is blacklisted", addr.Base58())
-				return
-			}
 
 			// verify PoW
 			leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
@@ -202,6 +198,11 @@ func configureEvents() {
 
 			if leadingZeroes < targetPoWDifficulty {
 				log.Infof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
+				return
+			}
+
+			if IsAddressBlackListed(addr) {
+				log.Infof("can't fund address %s since it is blacklisted", addr.Base58())
 				return
 			}
 

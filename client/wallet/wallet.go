@@ -46,6 +46,7 @@ type Wallet struct {
 	outputManager  *OutputManager
 	connector      Connector
 
+	faucetPowDifficulty int
 	// if this option is enabled the wallet will use a single reusable address instead of changing addresses.
 	reusableAddress          bool
 	ConfirmationPollInterval int // in milliseconds
@@ -1416,7 +1417,7 @@ func (wallet *Wallet) UnspentAliasOutputs(includePending bool) map[address.Addre
 // RequestFaucetFunds requests some funds from the faucet for testing purposes.
 func (wallet *Wallet) RequestFaucetFunds(waitForConfirmation ...bool) (err error) {
 	if len(waitForConfirmation) == 0 || !waitForConfirmation[0] {
-		err = wallet.connector.RequestFaucetFunds(wallet.ReceiveAddress())
+		err = wallet.connector.RequestFaucetFunds(wallet.ReceiveAddress(), wallet.faucetPowDifficulty)
 
 		return
 	}
@@ -1429,7 +1430,7 @@ func (wallet *Wallet) RequestFaucetFunds(waitForConfirmation ...bool) (err error
 		return
 	}
 
-	err = wallet.connector.RequestFaucetFunds(wallet.ReceiveAddress())
+	err = wallet.connector.RequestFaucetFunds(wallet.ReceiveAddress(), wallet.faucetPowDifficulty)
 	if err != nil {
 		return
 	}
