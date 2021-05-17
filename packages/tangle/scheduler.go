@@ -178,7 +178,7 @@ func (s *Scheduler) Submit(messageID MessageID) (err error) {
 		nodeID := identity.NewID(message.IssuerPublicKey())
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 		if mana < MinMana {
-			err = errors.Errorf("%w: %f <= %f", schedulerutils.ErrInsufficientMana, mana, float64(MinMana))
+			err = errors.Errorf("%w: id=%s, mana=%f", schedulerutils.ErrInsufficientMana, nodeID, mana)
 			s.Events.MessageDiscarded.Trigger(messageID)
 			return
 		}

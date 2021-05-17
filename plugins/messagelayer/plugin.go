@@ -109,15 +109,18 @@ func configure(plugin *node.Plugin) {
 		plugin.LogDebugf("message booked in message layer: %s", messageID.Base58())
 	}))
 
-	Tangle().Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
+	Tangle().TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", ev.Synced)
 		if ev.Synced {
-			// Only for the first synced
+			// only for the first synced
 			syncedOnce.Do(func() {
-				Tangle().Scheduler.Setup()        // start buffering solid messages
-				Tangle().FifoScheduler.Detach()   // stop receiving more messages
-				Tangle().FifoScheduler.Shutdown() // schedule remaining messages
-				Tangle().Scheduler.Start()        // start the actual scheduler
+				// switching the scheduler takes some time, so we must not do it inside the event func
+				go func() {
+					Tangle().Scheduler.Setup()        // start buffering solid messages
+					Tangle().FifoScheduler.Detach()   // stop receiving more messages
+					Tangle().FifoScheduler.Shutdown() // schedule remaining messages
+					Tangle().Scheduler.Start()        // start the actual scheduler
+				}()
 			})
 			// make sure that we are using the configured rate when synced
 			rate := Tangle().Options.SchedulerParams.Rate
@@ -154,22 +157,7 @@ func configure(plugin *node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
-		syncCheckTimer := time.NewTicker(time.Second)
-		sync := false
-		// hack of switching scheduler
-	out:
-		for {
-			select {
-			case <-syncCheckTimer.C:
-				newSync := Tangle().TimeManager.Synced()
-				if newSync != sync {
-					go Tangle().Events.SyncChanged.Trigger(&tangle.SyncChangedEvent{Synced: newSync})
-					sync = newSync
-				}
-			case <-shutdownSignal:
-				break out
-			}
-		}
+		<-shutdownSignal
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		plugin.Panicf("Failed to start as daemon: %s", err)

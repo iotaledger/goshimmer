@@ -57,7 +57,6 @@ func New(options ...Option) (tangle *Tangle) {
 		Events: &Events{
 			MessageEligible: events.NewEvent(MessageIDCaller),
 			MessageInvalid:  events.NewEvent(MessageIDCaller),
-			SyncChanged:     events.NewEvent(SyncChangedCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
 			Info:            events.NewEvent(events.StringCaller),
 		},
@@ -207,9 +206,6 @@ type Events struct {
 	// Fired when a message has been eligible.
 	MessageEligible *events.Event
 
-	// Fired when the nodes sync status changes.
-	SyncChanged *events.Event
-
 	// Error is triggered when the Tangle faces an error from which it can not recover.
 	Error *events.Event
 
@@ -217,19 +213,9 @@ type Events struct {
 	Info *events.Event
 }
 
-// SyncChangedEvent represents a syn changed event.
-type SyncChangedEvent struct {
-	Synced bool
-}
-
 // MessageIDCaller is the caller function for events that hand over a MessageID.
 func MessageIDCaller(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
-}
-
-// SyncChangedCaller is the caller function for sync changed event.
-func SyncChangedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *SyncChangedEvent))(params[0].(*SyncChangedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
