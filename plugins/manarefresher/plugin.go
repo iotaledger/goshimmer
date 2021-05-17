@@ -99,7 +99,7 @@ func DelegatedOutputs() (delegated ledgerstate.Outputs, err error) {
 		return
 	}
 	delegated = make(ledgerstate.Outputs, len(found))
-	for i, _ := range found {
+	for i := range found {
 		delegated[i] = found[i]
 	}
 	return delegated, nil

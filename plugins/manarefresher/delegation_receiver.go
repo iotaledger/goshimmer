@@ -14,8 +14,10 @@ type DelegationReceiver struct {
 	*wallet
 	delegatedFunds map[ledgerstate.Color]uint64
 	delFundsMutex  sync.RWMutex
-
 	sync.RWMutex
+
+	// utility to be able to filter based on the same timestamp
+	localTimeNow time.Time
 }
 
 // Scan scans for unspent delegation outputs on the delegation receiver address
@@ -24,42 +26,9 @@ func (d *DelegationReceiver) Scan() []*ledgerstate.AliasOutput {
 	defer d.Unlock()
 	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(d.address)
 	defer cachedOutputs.Release()
-	now := clock.SyncedTime()
-
-	filtered := cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) bool {
-		// it has to be an alias
-		if output.Type() != ledgerstate.AliasOutputType {
-			return false
-		}
-		// it has to be unspent
-		isUnspent := false
-		isConfirmed := false
-		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			isUnspent = outputMetadata.ConsumerCount() == 0
-			incState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(output.ID().TransactionID())
-			if err != nil {
-				return
-			}
-			isConfirmed = incState == ledgerstate.Confirmed
-		})
-		if !isUnspent || !isConfirmed {
-			return false
-		}
-		// has to be a delegation alias that the delegation address owns for at least 1 min into the future
-		alias := output.(*ledgerstate.AliasOutput)
-		if !alias.GetStateAddress().Equals(d.address) {
-			return false
-		}
-		if !alias.IsDelegated() {
-			return false
-		}
-		// when delegation timelock is present, we want to have 1 minute window to prepare the refresh tx, otherwise just drop it
-		// TODO: what is the optimal window?
-		if !alias.DelegationTimelock().IsZero() && !alias.DelegationTimeLockedNow(now.Add(time.Minute)) {
-			return false
-		}
-		return true
-	})
+	// filterDelegationOutputs will use this time for condition checking
+	d.localTimeNow = clock.SyncedTime()
+	filtered := cachedOutputs.Unwrap().Filter(d.filterDelegationOutputs)
 
 	scanResult := make([]*ledgerstate.AliasOutput, len(filtered))
 	for i, output := range filtered {
@@ -97,4 +66,47 @@ func (d *DelegationReceiver) TotalDelegatedFunds() uint64 {
 // Address returns the receive address of the delegation receiver.
 func (d *DelegationReceiver) Address() ledgerstate.Address {
 	return d.address
+}
+
+// filterDelegationOutputs checks if the output satisfies the conditions to be considered a valid delegation outputs
+// that the plugin can refresh:
+//		- output is an AliasOutput
+// 		- it is unspent
+// 		- it is confirmed
+// 		- its state address is the same as DelegationReceiver's address
+//		- output is delegated
+// 		- if delegation time lock is present, it doesn't expire within 1 minute
+func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) bool {
+	// it has to be an alias
+	if output.Type() != ledgerstate.AliasOutputType {
+		return false
+	}
+	// it has to be unspent
+	isUnspent := false
+	isConfirmed := false
+	messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		isUnspent = outputMetadata.ConsumerCount() == 0
+		incState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(output.ID().TransactionID())
+		if err != nil {
+			return
+		}
+		isConfirmed = incState == ledgerstate.Confirmed
+	})
+	if !isUnspent || !isConfirmed {
+		return false
+	}
+	// has to be a delegation alias that the delegation address owns for at least 1 min into the future
+	alias := output.(*ledgerstate.AliasOutput)
+	if !alias.GetStateAddress().Equals(d.address) {
+		return false
+	}
+	if !alias.IsDelegated() {
+		return false
+	}
+	// when delegation timelock is present, we want to have 1 minute window to prepare the refresh tx, otherwise just drop it
+	// TODO: what is the optimal window?
+	if !alias.DelegationTimelock().IsZero() && !alias.DelegationTimeLockedNow(d.localTimeNow.Add(time.Minute)) {
+		return false
+	}
+	return true
 }
