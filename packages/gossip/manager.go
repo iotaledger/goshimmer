@@ -49,9 +49,9 @@ type Manager struct {
 	server      *server.TCP
 	serverMutex sync.RWMutex
 
-	neighbors         map[identity.ID]*Neighbor
-	neighborsMapMutex sync.RWMutex
-	perNeighborMutex  sync.Map
+	neighbors                 map[identity.ID]*Neighbor
+	neighborsMapMutex         sync.RWMutex
+	neighborConnectionMutexes sync.Map
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
 	messageWorkerPool *workerpool.WorkerPool
@@ -150,9 +150,9 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 }
 
 func (m *Manager) dropNeighbor(id identity.ID, group *NeighborsGroup) error {
-	nbrMutex := m.getNeighborMutex(id)
-	nbrMutex.Lock()
-	defer nbrMutex.Unlock()
+	nbrConnectionMutex := m.getNeighborConnectionMutex(id)
+	nbrConnectionMutex.Lock()
+	defer nbrConnectionMutex.Unlock()
 	nbr, err := m.getAndDeleteNeighbor(id, group)
 	if err != nil {
 		return errors.WithStack(err)
@@ -239,9 +239,9 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if m.server == nil {
 		return ErrNotRunning
 	}
-	nbrMutex := m.getNeighborMutex(p.ID())
-	nbrMutex.Lock()
-	defer nbrMutex.Unlock()
+	nbrConnectionMutex := m.getNeighborConnectionMutex(p.ID())
+	nbrConnectionMutex.Lock()
+	defer nbrConnectionMutex.Unlock()
 	if m.neighborExists(p.ID()) {
 		m.neighborsEvents[group].ConnectionFailed.Trigger(p, ErrDuplicateNeighbor)
 		return ErrDuplicateNeighbor
@@ -289,9 +289,9 @@ func (m *Manager) setNeighbor(neighbor *Neighbor) {
 	m.neighbors[neighbor.ID()] = neighbor
 }
 
-func (m *Manager) getNeighborMutex(id identity.ID) *sync.Mutex {
+func (m *Manager) getNeighborConnectionMutex(id identity.ID) *sync.Mutex {
 	newMutex := &sync.Mutex{}
-	value, _ := m.perNeighborMutex.LoadOrStore(id, newMutex)
+	value, _ := m.neighborConnectionMutexes.LoadOrStore(id, newMutex)
 	mutex := value.(*sync.Mutex)
 	return mutex
 }
