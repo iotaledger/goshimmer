@@ -94,7 +94,8 @@ func run(_ *node.Plugin) {
 		timeutil.NewTicker(func() {
 			measureMana()
 		}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
-
+		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		<-shutdownSignal
 		log.Infof("Stopping Metrics Mana Updater ...")
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -108,7 +109,8 @@ func run(_ *node.Plugin) {
 				measureAccessResearchMana()
 				measureConsensusResearchMana()
 			}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
-
+			// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+			<-shutdownSignal
 			log.Infof("Stopping Metrics Research Mana Updater ...")
 		}, shutdown.PriorityMetrics); err != nil {
 			log.Panicf("Failed to start as daemon: %s", err)

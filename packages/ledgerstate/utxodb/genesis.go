@@ -17,7 +17,7 @@ const (
 	genesisIndex     = 31415926535
 
 	// RequestFundsAmount is how many iotas are returned from the faucet
-	RequestFundsAmount = 1337 // same as Goshimmer faucet
+	RequestFundsAmount = 1000000 // 1Mi
 )
 
 var essenceVersion = ledgerstate.TransactionEssenceVersion(0)
