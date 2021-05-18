@@ -50,6 +50,18 @@ func NewStorage(store kvstore.KVStore) (storage *Storage) {
 	return
 }
 
+func (s *Storage) OpinionStorageSize() uint64 {
+	return s.opinionStorage.PersistedSize()
+}
+
+func (s *Storage) TimestampOpinionStorageSize() uint64 {
+	return s.timestampOpinionStorage.PersistedSize()
+}
+
+func (s *Storage) MessageMetadataStorageSize() uint64 {
+	return s.messageMetadataStorage.PersistedSize()
+}
+
 // OpinionEssence returns the OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
 // of given transactionID.
 func (s *Storage) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {

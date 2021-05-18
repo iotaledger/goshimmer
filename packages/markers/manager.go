@@ -54,6 +54,14 @@ func NewManager(store kvstore.KVStore) (newManager *Manager) {
 	return
 }
 
+func (m *Manager) SequenceStoreSize() uint64 {
+	return m.sequenceStore.PersistedSize()
+}
+
+func (m *Manager) SequenceAliasMappingStoreSize() uint64 {
+	return m.sequenceAliasMappingStore.PersistedSize()
+}
+
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
 // message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.

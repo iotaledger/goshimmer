@@ -117,6 +117,52 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	return
 }
 
+func (s *Storage) MessagetStorageSize() uint64 {
+	return s.messageStorage.PersistedSize()
+}
+
+func (s *Storage) MessageMetadataStorageSize() uint64 {
+	return s.messageMetadataStorage.PersistedSize()
+}
+
+func (s *Storage) ApproverStorageSize() uint64 {
+	return s.approverStorage.PersistedSize()
+}
+
+func (s *Storage) MissingMessageStorageSize() uint64 {
+	return s.missingMessageStorage.PersistedSize()
+}
+
+func (s *Storage) AttachmentStorageSize() uint64 {
+	return s.attachmentStorage.PersistedSize()
+}
+
+func (s *Storage) MarkerIndexBranchIDMappingStorageSize() uint64 {
+	return s.markerIndexBranchIDMappingStorage.PersistedSize()
+}
+
+func (s *Storage) IndividuallyMappedMessageStorageSize() uint64 {
+	return s.individuallyMappedMessageStorage.PersistedSize()
+}
+
+func (s *Storage) SequenceSupportersStorageSize() uint64 {
+	return s.sequenceSupportersStorage.PersistedSize()
+}
+
+func (s *Storage) BranchSupportersStorageSize() uint64 {
+	return s.branchSupportersStorage.PersistedSize()
+}
+
+func (s *Storage) StatementStorageSize() uint64 {
+	return s.statementStorage.PersistedSize()
+}
+func (s *Storage) BranchWeightStorageSize() uint64 {
+	return s.branchWeightStorage.PersistedSize()
+}
+func (s *Storage) MarkerMessageMappingStorageSize() uint64 {
+	return s.markerMessageMappingStorage.PersistedSize()
+}
+
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (s *Storage) Setup() {
 	s.tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {

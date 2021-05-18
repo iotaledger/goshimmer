@@ -99,6 +99,13 @@ func configureManaPlugin(*node.Plugin) {
 	configureEvents()
 }
 
+func AccessManaVectorStorageSize() uint64 {
+	return storages[mana.AccessMana].PersistedSize()
+}
+func ConsensusManaVectorStorageSize() uint64 {
+	return storages[mana.ConsensusMana].PersistedSize()
+}
+
 func configureEvents() {
 	// until we have the proper event...
 	Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
