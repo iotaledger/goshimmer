@@ -34,7 +34,7 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
-	FifoScheduler         *FifoScheduler
+	FIFOScheduler         *FIFOScheduler
 	Orderer               *Orderer
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
@@ -69,7 +69,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.FifoScheduler = NewFifoScheduler(tangle)
+	tangle.FIFOScheduler = NewFIFOScheduler(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
@@ -112,7 +112,7 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
-	t.FifoScheduler.Setup()
+	t.FIFOScheduler.Setup()
 	t.Scheduler.Setup()
 	t.Orderer.Setup()
 	t.Booker.Setup()
@@ -130,12 +130,12 @@ func (t *Tangle) Setup() {
 		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
 	}))
 
-	// we are never using the FifoScheduler when the node is started in a synced state
+	// we are never using the FIFOScheduler when the node is started in a synced state
 	t.fifoScheduling.SetTo(!t.Synced())
 
 	// start the corresponding scheduler
 	if t.fifoScheduling.IsSet() {
-		t.FifoScheduler.Start()
+		t.FIFOScheduler.Start()
 	} else {
 		t.Scheduler.Start()
 	}
@@ -152,7 +152,7 @@ func (t *Tangle) Setup() {
 		if t.fifoScheduling.SetToIf(true, false) {
 			// switching the scheduler takes some time, so we must not do it directly in the event func
 			go func() {
-				t.FifoScheduler.Shutdown() // schedule remaining messages
+				t.FIFOScheduler.Shutdown() // schedule remaining messages
 				t.Scheduler.Start()        // start the actual scheduler
 			}()
 		}
@@ -209,7 +209,7 @@ func (t *Tangle) Prune() (err error) {
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
 	t.RateSetter.Shutdown()
-	t.FifoScheduler.Shutdown()
+	t.FIFOScheduler.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()
 	t.Booker.Shutdown()
@@ -228,9 +228,9 @@ func (t *Tangle) Shutdown() {
 
 // schedule schedules the message with the given id.
 func (t *Tangle) schedule(id MessageID) {
-	// during bootstrapping use the FifoScheduler for everything
+	// during bootstrapping use the FIFOScheduler for everything
 	if t.fifoScheduling.IsSet() {
-		t.FifoScheduler.Schedule(id)
+		t.FIFOScheduler.Schedule(id)
 		return
 	}
 

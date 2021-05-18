@@ -165,7 +165,7 @@ func registerLocalMetrics() {
 	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		increasePerComponentCounter(Scheduler)
 	}))
-	messagelayer.Tangle().FifoScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.Tangle().FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		increasePerComponentCounter(Scheduler)
 	}))
 

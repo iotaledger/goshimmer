@@ -14,12 +14,12 @@ func TestFifoScheduler(t *testing.T) {
 	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
-	// setup tangle up till the FifoScheduler
+	// setup tangle up till the FIFOScheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
-	tangle.FifoScheduler.Setup()
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(tangle.FifoScheduler.Schedule))
-	tangle.FifoScheduler.Start()
+	tangle.FIFOScheduler.Setup()
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(tangle.FIFOScheduler.Schedule))
+	tangle.FIFOScheduler.Start()
 
 	// testing desired scheduled order: A - B - C - D - E  (B - A - D - C is equivalent)
 	messages := make(map[string]*Message)
@@ -30,7 +30,7 @@ func TestFifoScheduler(t *testing.T) {
 	messages["E"] = newTestParentsDataWithTimestamp("E", []MessageID{messages["C"].ID(), messages["D"].ID()}, []MessageID{}, time.Now().Add(3*time.Second))
 
 	// Bypass the Booker
-	tangle.FifoScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBooked(true)
 			tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)

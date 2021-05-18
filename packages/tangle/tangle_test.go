@@ -522,7 +522,7 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.FifoScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&scheduledMessages, 1)
 		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
 	}))

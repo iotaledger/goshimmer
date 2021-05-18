@@ -70,35 +70,35 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent) {
-		plugin.LogInfof("message rejected in parser: %s", ev.Message.ID().Base58())
+		plugin.LogInfof("message rejected in Parser: %s", ev.Message.ID().Base58())
 	}))
 
-	Tangle().FifoScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message discarded in FifoScheduler %s", messageID.Base58())
+	Tangle().FIFOScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		plugin.LogInfof("message discarded in FIFOScheduler %s", messageID.Base58())
 	}))
 
-	Tangle().FifoScheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("node %s is blacklisted in FifoScheduler", nodeID.String())
+	Tangle().FIFOScheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
+		plugin.LogInfof("node %s is blacklisted in FIFOScheduler", nodeID.String())
 	}))
 
-	Tangle().FifoScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogDebugf("message scheduled in FifoScheduler: %s", messageID.Base58())
+	Tangle().FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		plugin.LogDebugf("message scheduled in FIFOScheduler: %s", messageID.Base58())
 	}))
 
 	Tangle().RateSetter.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message discarded in rate setter: %s", messageID.Base58())
+		plugin.LogInfof("message discarded in RateSetter: %s", messageID.Base58())
 	}))
 
 	Tangle().Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message rejected in scheduler: %s", messageID.Base58())
+		plugin.LogInfof("message rejected in Scheduler: %s", messageID.Base58())
 	}))
 
 	Tangle().Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("node %s is blacklisted in scheduler", nodeID.String())
+		plugin.LogInfof("node %s is blacklisted in Scheduler", nodeID.String())
 	}))
 
 	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogDebugf("message scheduled in scheduler: %s", messageID.Base58())
+		plugin.LogDebugf("message scheduled in Scheduler: %s", messageID.Base58())
 	}))
 
 	Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -106,7 +106,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogDebugf("message booked in message layer: %s", messageID.Base58())
+		plugin.LogDebugf("message booked: %s", messageID.Base58())
 	}))
 
 	Tangle().TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {

@@ -13,9 +13,9 @@ const (
 
 // region Scheduler ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// FifoScheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
-type FifoScheduler struct {
-	Events *FifoSchedulerEvents
+// FIFOScheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
+type FIFOScheduler struct {
+	Events *FIFOSchedulerEvents
 
 	tangle                 *Tangle
 	inbox                  chan MessageID
@@ -28,10 +28,10 @@ type FifoScheduler struct {
 	onMessageInvalid       *events.Closure
 }
 
-// NewFifoScheduler returns a new scheduler.
-func NewFifoScheduler(tangle *Tangle) (scheduler *FifoScheduler) {
-	scheduler = &FifoScheduler{
-		Events: &FifoSchedulerEvents{
+// NewFIFOScheduler returns a new scheduler.
+func NewFIFOScheduler(tangle *Tangle) *FIFOScheduler {
+	scheduler := &FIFOScheduler{
+		Events: &FIFOSchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
@@ -49,24 +49,24 @@ func NewFifoScheduler(tangle *Tangle) (scheduler *FifoScheduler) {
 }
 
 // Start starts the scheduler.
-func (s *FifoScheduler) Start() {
+func (s *FIFOScheduler) Start() {
 	// start the main loop
 	go s.mainLoop()
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
-func (s *FifoScheduler) Setup() {
+func (s *FIFOScheduler) Setup() {
 	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(s.onOpinionFormed)
 	s.tangle.Events.MessageInvalid.Attach(s.onMessageInvalid)
 }
 
 // Schedule schedules the given messageID.
-func (s *FifoScheduler) Schedule(messageID MessageID) {
+func (s *FIFOScheduler) Schedule(messageID MessageID) {
 	s.inbox <- messageID
 }
 
-// Shutdown shuts down the Scheduler and persists its state.
-func (s *FifoScheduler) Shutdown() {
+// Shutdown shuts down the scheduler and persists its state.
+func (s *FIFOScheduler) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		close(s.shutdownSignal)
 	})
@@ -77,7 +77,7 @@ func (s *FifoScheduler) Shutdown() {
 	s.tangle.Events.MessageInvalid.Detach(s.onMessageInvalid)
 }
 
-func (s *FifoScheduler) mainLoop() {
+func (s *FIFOScheduler) mainLoop() {
 	for {
 		select {
 		case messageID := <-s.inbox:
@@ -90,7 +90,7 @@ func (s *FifoScheduler) mainLoop() {
 	}
 }
 
-func (s *FifoScheduler) scheduleMessage(messageID MessageID) {
+func (s *FIFOScheduler) scheduleMessage(messageID MessageID) {
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.SetScheduled(true) {
 			if s.scheduledMessages.Add(messageID) {
@@ -105,21 +105,21 @@ func (s *FifoScheduler) scheduleMessage(messageID MessageID) {
 
 // region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
 
-// FifoSchedulerEvents represents events happening in the Scheduler.
-type FifoSchedulerEvents struct {
+// FIFOSchedulerEvents represents events happening in the Scheduler.
+type FIFOSchedulerEvents struct {
 	// MessageScheduled is triggered when a message is ready to be scheduled.
 	MessageScheduled *events.Event
 	MessageDiscarded *events.Event
 	NodeBlacklisted  *events.Event
 }
 
-func (s *FifoScheduler) messageInvalidHandler(messageID MessageID) {
+func (s *FIFOScheduler) messageInvalidHandler(messageID MessageID) {
 	if s.scheduledMessages.Delete(messageID) {
 		s.allMessagesScheduledWG.Done()
 	}
 }
 
-func (s *FifoScheduler) opinionFormedHandler(messageID MessageID) {
+func (s *FIFOScheduler) opinionFormedHandler(messageID MessageID) {
 	if s.scheduledMessages.Delete(messageID) {
 		s.allMessagesScheduledWG.Done()
 	}
