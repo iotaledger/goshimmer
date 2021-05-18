@@ -260,8 +260,7 @@ func (m *Manager) removePeerByID(peerID identity.ID) error {
 	delete(m.knownPeers, peerID)
 	close(kp.removeCh)
 	<-kp.doneCh
-	if err := m.gm.DropNeighbor(peerID, gossip.NeighborsGroupManual);
-		err != nil && !errors.Is(err, gossip.ErrUnknownNeighbor) {
+	if err := m.gm.DropNeighbor(peerID, gossip.NeighborsGroupManual); err != nil && !errors.Is(err, gossip.ErrUnknownNeighbor) {
 		return errors.Wrapf(err, "failed to drop known peer %s in the gossip layer", peerID)
 	}
 	return nil
@@ -309,11 +308,16 @@ func (m *Manager) keepPeerConnected(kp *knownPeer) {
 
 func (m *Manager) onGossipNeighborRemoved(neighbor *gossip.Neighbor) {
 	m.changeNeighborStatus(neighbor, ConnStatusDisconnected)
+	m.log.Infow(
+		"Gossip layer successfully connected with the peer",
+		"peer", neighbor.Peer,
+	)
 }
 
 func (m *Manager) onGossipNeighborAdded(neighbor *gossip.Neighbor) {
 	m.changeNeighborStatus(neighbor, ConnStatusConnected)
 }
+
 func (m *Manager) changeNeighborStatus(neighbor *gossip.Neighbor, connStatus ConnectionStatus) {
 	m.knownPeersMutex.RLock()
 	defer m.knownPeersMutex.RUnlock()
