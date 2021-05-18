@@ -48,6 +48,22 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	return
 }
 
+func (b *BranchDAG) BranchStorageSize() uint64 {
+	return b.branchStorage.PersistedSize()
+}
+
+func (b *BranchDAG) ChildBranchStorageSize() uint64 {
+	return b.childBranchStorage.PersistedSize()
+}
+
+func (b *BranchDAG) ConflictStorageSize() uint64 {
+	return b.conflictStorage.PersistedSize()
+}
+
+func (b *BranchDAG) ConflictMemberStorageSize() uint64 {
+	return b.conflictMemberStorage.PersistedSize()
+}
+
 // CreateConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
 // updates the ConflictBranch according to the new details if necessary.
 func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {

@@ -58,6 +58,28 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	return
 }
 
+func (u *UTXODAG) TransactionStorageSize() uint64 {
+	return u.transactionStorage.PersistedSize()
+}
+
+func (u *UTXODAG) TransactionMetadataStorageSize() uint64 {
+	return u.transactionMetadataStorage.PersistedSize()
+}
+
+func (u *UTXODAG) OutputStorageSize() uint64 {
+	return u.outputStorage.PersistedSize()
+}
+func (u *UTXODAG) OutputMetadataStorageSize() uint64 {
+	return u.outputMetadataStorage.PersistedSize()
+}
+
+func (u *UTXODAG) ConsumerStorageSize() uint64 {
+	return u.consumerStorage.PersistedSize()
+}
+func (u *UTXODAG) AddressOutputMappingStorageSize() uint64 {
+	return u.addressOutputMappingStorage.PersistedSize()
+}
+
 // Shutdown shuts down the UTXODAG and persists its state.
 func (u *UTXODAG) Shutdown() {
 	u.shutdownOnce.Do(func() {

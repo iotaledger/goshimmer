@@ -89,6 +89,19 @@ func run(_ *node.Plugin) {
 	}
 
 	// create a background worker that updates the mana metrics
+	if err := daemon.BackgroundWorker("Metrics Storage Updater", func(shutdownSignal <-chan struct{}) {
+		defer log.Infof("Stopping Metrics Storage Updater ... done")
+		timeutil.NewTicker(func() {
+			measureStorageSizes()
+		}, time.Second*time.Duration(30), shutdownSignal)
+		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		<-shutdownSignal
+		log.Infof("Stopping Metrics Storage Updater ...")
+	}, shutdown.PriorityMetrics); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	// create a background worker that updates the mana metrics
 	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
 		timeutil.NewTicker(func() {
