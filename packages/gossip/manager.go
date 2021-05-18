@@ -156,6 +156,7 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 	return m.dropNeighbor(id, &group)
 }
 
+// dropNeighbor drops the neighbor with the given ID, if group presents it must also match for neighbor to be dropped.
 func (m *Manager) dropNeighbor(id identity.ID, group *NeighborsGroup) error {
 	nbrConnectionMutex := m.getNeighborConnectionMutex(id)
 	nbrConnectionMutex.Lock()
@@ -168,6 +169,8 @@ func (m *Manager) dropNeighbor(id identity.ID, group *NeighborsGroup) error {
 	return nbr.Close()
 }
 
+// getAndDeleteNeighbor deletes and returns neighbor by ID,
+// if group presents it must match with the neighbor group, otherwise it won't be deleted and returned.
 func (m *Manager) getAndDeleteNeighbor(id identity.ID, group *NeighborsGroup) (*Neighbor, error) {
 	m.neighborsMapMutex.Lock()
 	defer m.neighborsMapMutex.Unlock()
