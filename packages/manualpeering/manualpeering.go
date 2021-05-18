@@ -322,14 +322,14 @@ func (m *Manager) keepPeerConnected(kp *knownPeer) {
 
 func (m *Manager) onGossipNeighborRemoved(neighbor *gossip.Neighbor) {
 	m.changeNeighborStatus(neighbor, ConnStatusDisconnected)
-	m.log.Infow(
-		"Gossip layer successfully connected with the peer",
-		"peer", neighbor.Peer,
-	)
 }
 
 func (m *Manager) onGossipNeighborAdded(neighbor *gossip.Neighbor) {
 	m.changeNeighborStatus(neighbor, ConnStatusConnected)
+	m.log.Infow(
+		"Gossip layer successfully connected with the peer",
+		"peer", neighbor.Peer,
+	)
 }
 
 func (m *Manager) changeNeighborStatus(neighbor *gossip.Neighbor, connStatus ConnectionStatus) {
