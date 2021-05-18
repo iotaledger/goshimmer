@@ -21,20 +21,28 @@ import (
 
 const defaultReconnectInterval = 5 * time.Second
 
+// ConnectionDirection is an enum for the type of connection between local peer and the other peer in the gossip layer.
 type ConnectionDirection string
 
 const (
+	// ConnDirectionOutbound means that the local peer dials for the connection in the gossip layer.
 	ConnDirectionOutbound ConnectionDirection = "outbound"
-	ConnDirectionInbound  ConnectionDirection = "inbound"
+	// ConnDirectionInbound means that the local peer accepts for the connection in the gossip layer.
+	ConnDirectionInbound ConnectionDirection = "inbound"
 )
 
+// ConnectionStatus is an enum for the peer connection status in the gossip layer.
 type ConnectionStatus string
 
 const (
+	// ConnStatusDisconnected means that there is no real connection established in the gossip layer for that peer.
 	ConnStatusDisconnected ConnectionStatus = "disconnected"
-	ConnStatusConnected    ConnectionStatus = "connected"
+	// ConnStatusConnected means that there is a real connection established in the gossip layer for that peer.
+	ConnStatusConnected ConnectionStatus = "connected"
 )
 
+// KnownPeer defines a peer record in the manualpeering layer.
+// This type contains the actual peer reference, connection direction and the gossip connection status.
 type KnownPeer struct {
 	Peer          *peer.Peer          `json:"peer"`
 	ConnDirection ConnectionDirection `json:"connectionDirection"`
@@ -102,12 +110,16 @@ func (m *Manager) RemovePeer(keys ...ed25519.PublicKey) error {
 	return resultErr
 }
 
+// GetKnownPeersConfig holds optional parameters for the GetKnownPeers method.
 type GetKnownPeersConfig struct {
+	// If true, GetKnownPeers returns peers that have actual connection established in the gossip layer.
 	OnlyConnected bool `json:"onlyConnected"`
 }
 
+// GetKnownPeersOption defines a single option for GetKnownPeers method.
 type GetKnownPeersOption func(conf *GetKnownPeersConfig)
 
+// BuildGetKnownPeersConfig builds GetKnownPeersConfig struct from a list of options.
 func BuildGetKnownPeersConfig(opts []GetKnownPeersOption) *GetKnownPeersConfig {
 	conf := &GetKnownPeersConfig{}
 	for _, o := range opts {
@@ -116,6 +128,7 @@ func BuildGetKnownPeersConfig(opts []GetKnownPeersOption) *GetKnownPeersConfig {
 	return conf
 }
 
+// ToOptions translates config struct to a list of corresponding options.
 func (c *GetKnownPeersConfig) ToOptions() (opts []GetKnownPeersOption) {
 	if c.OnlyConnected {
 		opts = append(opts, WithOnlyConnectedPeers())
@@ -123,6 +136,7 @@ func (c *GetKnownPeersConfig) ToOptions() (opts []GetKnownPeersOption) {
 	return opts
 }
 
+// WithOnlyConnectedPeers returns a GetKnownPeersOption that sets OnlyConnected field to true.
 func WithOnlyConnectedPeers() GetKnownPeersOption {
 	return func(conf *GetKnownPeersConfig) {
 		conf.OnlyConnected = true

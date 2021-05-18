@@ -34,7 +34,7 @@ func (api *GoShimmerAPI) RemoveManualPeers(keys []ed25519.PublicKey) error {
 // GetManualKnownPeers gets the list of connected neighbors from the manual peering layer.
 func (api *GoShimmerAPI) GetManualKnownPeers(opts ...manualpeering.GetKnownPeersOption) (
 	peers []*manualpeering.KnownPeer, err error) {
-	conf:=manualpeering.BuildGetKnownPeersConfig(opts)
+	conf := manualpeering.BuildGetKnownPeersConfig(opts)
 	if err := api.do(http.MethodGet, plugin.RouteManualPeers, conf, &peers); err != nil {
 		return nil, errors.Wrap(err, "failed to get manual connected peers from the API")
 	}

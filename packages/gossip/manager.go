@@ -230,7 +230,6 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	connectorFunc func(context.Context, *peer.Peer, ...server.ConnectPeerOption) (net.Conn, error),
 	connectOpts []server.ConnectPeerOption,
 ) error {
-
 	if p.ID() == m.local.ID() {
 		return ErrLoopbackNeighbor
 	}

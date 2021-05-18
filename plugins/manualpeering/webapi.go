@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
+// RouteManualPeers defines the HTTP path for manualpeering peers endpoint.
 const RouteManualPeers = "manualpeering/peers"
 
 func configureWebAPI() {
@@ -109,7 +110,7 @@ func removePeers(peers []*PeerToRemove) error {
 }
 
 func getPeersHandler(c echo.Context) error {
-	conf:=&manualpeering.GetKnownPeersConfig{}
+	conf := &manualpeering.GetKnownPeersConfig{}
 	if err := webapi.ParseJSONRequest(c, conf); err != nil {
 		plugin.Logger().Errorw("Failed to parse get peers config from the request", "err", err)
 		return c.JSON(

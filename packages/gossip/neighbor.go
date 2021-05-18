@@ -35,7 +35,7 @@ type Neighbor struct {
 	*peer.Peer
 	*buffconn.BufferedConnection
 
-	Group NeighborsGroup
+	Group           NeighborsGroup
 	log             *logger.Logger
 	queue           chan []byte
 	messagesDropped atomic.Int32
@@ -48,21 +48,21 @@ type Neighbor struct {
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(peer *peer.Peer, group NeighborsGroup, conn net.Conn, log *logger.Logger) *Neighbor {
-	if !IsSupported(peer) {
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, conn net.Conn, log *logger.Logger) *Neighbor {
+	if !IsSupported(p) {
 		panic("peer does not support gossip")
 	}
 
 	// always include ID and address with every log message
 	log = log.With(
-		"id", peer.ID(),
+		"id", p.ID(),
 		"network", conn.LocalAddr().Network(),
 		"addr", conn.RemoteAddr().String(),
 	)
 
 	return &Neighbor{
-		Peer:                  peer,
-		Group: group,
+		Peer:                  p,
+		Group:                 group,
 		BufferedConnection:    buffconn.NewBufferedConnection(conn, maxPacketSize),
 		log:                   log,
 		queue:                 make(chan []byte, neighborQueueSize),

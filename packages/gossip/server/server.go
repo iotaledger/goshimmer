@@ -139,6 +139,7 @@ func (t *TCP) LocalAddr() net.Addr {
 	return t.listener.Addr()
 }
 
+// ConnectPeerOption defines an option for the DialPeer and AcceptPeer methods.
 type ConnectPeerOption func(conf *connectPeerConfig)
 
 type connectPeerConfig struct {
@@ -155,6 +156,7 @@ func buildConnectPeerConfig(opts []ConnectPeerOption) *connectPeerConfig {
 	return conf
 }
 
+// WithNoDefaultTimeout returns a ConnectPeerOption that disables the default timeout for dial or accept.
 func WithNoDefaultTimeout() ConnectPeerOption {
 	return func(conf *connectPeerConfig) {
 		conf.useDefaultTimeout = false
