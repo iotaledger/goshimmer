@@ -7,14 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 )
 
-const (
-	// MaxBufferSize is the maximum total (of all nodes) buffer size in bytes
-	MaxBufferSize = 10 * 1024 * 1024
-)
-
-// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
-var MaxQueueWeight = 1024.0 * 1024.0
-
 var (
 	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
 	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
@@ -28,14 +20,19 @@ var (
 
 // BufferQueue represents a buffer of NodeQueue
 type BufferQueue struct {
+	maxBuffer int
+	maxQueue  float64
+
 	activeNode map[identity.ID]*ring.Ring
 	ring       *ring.Ring
 	size       int
 }
 
-// NewBufferQueue returns a new BufferQueue
-func NewBufferQueue() *BufferQueue {
+// NewBufferQueue returns a new BufferQueue.
+func NewBufferQueue(maxBuffer int, maxQueue float64) *BufferQueue {
 	return &BufferQueue{
+		maxBuffer:  maxBuffer,
+		maxQueue:   maxQueue,
 		activeNode: make(map[identity.ID]*ring.Ring),
 		ring:       nil,
 	}
@@ -63,7 +60,7 @@ func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
 // Submit submits a message.
 func (b *BufferQueue) Submit(msg Element, rep float64) error {
 	size := msg.Size()
-	if b.size+size > MaxBufferSize {
+	if b.size+size > b.maxBuffer {
 		return ErrBufferFull
 	}
 
@@ -76,7 +73,7 @@ func (b *BufferQueue) Submit(msg Element, rep float64) error {
 		nodeQueue = NewNodeQueue(nodeID)
 	}
 
-	if float64(nodeQueue.Size()+size)/rep > MaxQueueWeight {
+	if float64(nodeQueue.Size()+size)/rep > b.maxQueue {
 		return ErrInboxExceeded
 	}
 	if !nodeQueue.Submit(msg) {

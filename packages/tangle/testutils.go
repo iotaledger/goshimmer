@@ -602,12 +602,12 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 var (
 	aMana               = 100.0
 	totalAMana          = 1000.0
-	maxQueueWeight      = 1024.0 * 1024.0
+	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000
 	noAManaNode         = identity.GenerateIdentity()
 	testSchedulerParams = SchedulerParams{
+		MaxBufferSize:               testMaxBuffer,
 		Rate:                        testRate,
-		MaxQueueWeight:              &maxQueueWeight,
 		AccessManaRetrieveFunc:      accessManaRetriever,
 		TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 	}

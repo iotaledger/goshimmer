@@ -173,6 +173,7 @@ func Tangle() *tangle.Tangle {
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			tangle.SchedulerConfig(tangle.SchedulerParams{
+				MaxBufferSize:               SchedulerParameters.MaxBufferSize,
 				Rate:                        schedulerRate(SchedulerParameters.Rate),
 				AccessManaRetrieveFunc:      accessManaRetriever,
 				TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
@@ -184,6 +185,7 @@ func Tangle() *tangle.Tangle {
 			tangle.StartSynced(Parameters.StartSynced),
 		)
 
+		tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
 
 		tangleInstance.Setup()

@@ -14,26 +14,21 @@ import (
 )
 
 const (
-	// MaxDeficit is the maximum deficit, i.e. max bytes that can be scheduled without waiting; >= maxMessageSize
+	// MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
+	// It must be >= MaxMessageSize.
 	MaxDeficit = MaxMessageSize
-	// MinMana is the minimum mana require to be able to issue a message.
-	// TODO: what is a good value? Would something > MaxMessageSize / 1000 be possible
-	MinMana = 0.0001
+	// MinMana is the minimum amount of Mana needed to issue messages.
+	// MaxMessageSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
+	MinMana = 1
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has been stopped
 var ErrNotRunning = errors.New("scheduler stopped")
 
-// AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
-type AccessManaRetrieveFunc func(nodeID identity.ID) float64
-
-// TotalAccessManaRetrieveFunc is a function type to retrieve the total access mana (e.g. via the mana plugin)
-type TotalAccessManaRetrieveFunc func() float64
-
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
+	MaxBufferSize               int
 	Rate                        time.Duration
-	MaxQueueWeight              *float64
 	AccessManaRetrieveFunc      func(identity.ID) float64
 	TotalAccessManaRetrieveFunc func() float64
 }
@@ -60,9 +55,11 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
 		panic("scheduler: the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	}
-	if tangle.Options.SchedulerParams.MaxQueueWeight != nil {
-		schedulerutils.MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
-	}
+
+	// maximum buffer size (in bytes)
+	maxBuffer := tangle.Options.SchedulerParams.MaxBufferSize
+	// maximum access mana-scaled inbox length
+	maxQueue := float64(maxBuffer) / float64(tangle.LedgerState.TotalSupply())
 
 	return &Scheduler{
 		Events: &SchedulerEvents{
@@ -72,7 +69,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		},
 		tangle:         tangle,
 		ticker:         time.NewTicker(tangle.Options.SchedulerParams.Rate),
-		buffer:         schedulerutils.NewBufferQueue(),
+		buffer:         schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
 		deficits:       make(map[identity.ID]float64),
 		shutdownSignal: make(chan struct{}),
 	}

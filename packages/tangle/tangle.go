@@ -68,10 +68,10 @@ func New(options ...Option) (tangle *Tangle) {
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
+	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.FIFOScheduler = NewFIFOScheduler(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
-	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)

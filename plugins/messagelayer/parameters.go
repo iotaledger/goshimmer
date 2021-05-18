@@ -107,15 +107,14 @@ var ManaParameters = struct {
 
 // RateSetterParameters contains the configuration parameters used by the Rate Setter.
 var RateSetterParameters = struct {
-	// Beta defines beta value for rate setting.
-	Beta float64 `default:"0.7" usage:"the beta for rate setter"`
-
 	// Initial defines the initial rate of rate setting.
 	Initial float64 `default:"20000" usage:"the initial rate of rate setting"`
 }{}
 
 // SchedulerParameters contains the configuration parameters used by the Scheduler.
 var SchedulerParameters = struct {
+	// MaxBufferSize defines the maximum buffer size (in bytes).
+	MaxBufferSize int `default:"10000000" usage:"maximum buffer size (in bytes)"`
 	// SchedulerRate defines the frequency to schedule a message.
 	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
 }{}

@@ -1,8 +1,10 @@
-package schedulerutils
+package schedulerutils_test
 
 import (
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
@@ -13,7 +15,11 @@ import (
 
 // region Buffered Queue test /////////////////////////////////////////////////////////////////////////////////////////////
 
-const numMessages = 100
+const (
+	numMessages = 100
+	maxBuffer   = 40 * numMessages
+	maxQueue    = 2 * maxBuffer / numMessages
+)
 
 var (
 	selfLocalIdentity = identity.GenerateLocalIdentity()
@@ -21,7 +27,8 @@ var (
 )
 
 func TestBufferQueue_Submit(t *testing.T) {
-	b := NewBufferQueue()
+	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
+
 	var size int
 	for i := 0; i < numMessages; i++ {
 		msg := newTestMessage(identity.GenerateIdentity().PublicKey())
@@ -34,7 +41,7 @@ func TestBufferQueue_Submit(t *testing.T) {
 }
 
 func TestBufferQueue_Unsubmit(t *testing.T) {
-	b := NewBufferQueue()
+	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
@@ -52,7 +59,7 @@ func TestBufferQueue_Unsubmit(t *testing.T) {
 }
 
 func TestBufferQueue_Ready(t *testing.T) {
-	b := NewBufferQueue()
+	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
@@ -68,7 +75,7 @@ func TestBufferQueue_Ready(t *testing.T) {
 }
 
 func TestBufferQueue_Time(t *testing.T) {
-	b := NewBufferQueue()
+	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 
 	future := newTestMessage(selfNode.PublicKey())
 	future.issuingTime = time.Now().Add(time.Second)
@@ -86,7 +93,7 @@ func TestBufferQueue_Time(t *testing.T) {
 }
 
 func TestBufferQueue_Ring(t *testing.T) {
-	b := NewBufferQueue()
+	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
@@ -102,24 +109,24 @@ func TestBufferQueue_Ring(t *testing.T) {
 }
 
 func TestBufferQueue_IDs(t *testing.T) {
-	b := NewBufferQueue()
+	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 
 	assert.Empty(t, b.IDs())
 
-	ids := make([]ElementID, numMessages)
+	ids := make([]schedulerutils.ElementID, numMessages)
 	for i := range ids {
 		msg := newTestMessage(identity.GenerateIdentity().PublicKey())
 		assert.NoError(t, b.Submit(msg, 1))
 		if i%2 == 0 {
 			assert.True(t, b.Ready(msg))
 		}
-		ids[i] = ElementIDFromBytes(msg.IDBytes())
+		ids[i] = schedulerutils.ElementIDFromBytes(msg.IDBytes())
 	}
 	assert.ElementsMatch(t, ids, b.IDs())
 }
 
 func TestBufferQueue_RemoveNode(t *testing.T) {
-	b := NewBufferQueue()
+	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 
 	assert.NoError(t, b.Submit(newTestMessage(selfNode.PublicKey()), 1))
 
@@ -133,7 +140,7 @@ func TestBufferQueue_RemoveNode(t *testing.T) {
 	assert.Nil(t, b.Current())
 }
 
-func ringLen(b *BufferQueue) int {
+func ringLen(b *schedulerutils.BufferQueue) int {
 	n := 0
 	if q := b.Current(); q != nil {
 		n = 1

@@ -55,7 +55,7 @@ type RateSetter struct {
 	issuingQueue   *schedulerutils.NodeQueue
 	issueChan      chan *Message
 	ownRate        *atomic.Float64
-	haltUpdate     uint
+	pauseUpdates   uint
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
 }
@@ -71,7 +71,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issueChan:      make(chan *Message),
 		ownRate:        atomic.NewFloat64(Initial),
-		haltUpdate:     0,
+		pauseUpdates:   0,
 		shutdownSignal: make(chan struct{}),
 		shutdownOnce:   sync.Once{},
 	}
@@ -85,8 +85,15 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
-	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		r.rateSetting(messageID)
+	// update own rate setting
+	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) {
+		if r.pauseUpdates > 0 {
+			r.pauseUpdates--
+			return
+		}
+		if r.issuingQueue.Size() > 0 {
+			r.rateSetting()
+		}
 	}))
 }
 
@@ -111,30 +118,17 @@ func (r *RateSetter) Shutdown() {
 	})
 }
 
-func (r *RateSetter) rateSetting(messageID MessageID) {
-	isIssuer := false
-	r.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		nodeID := identity.NewID(message.IssuerPublicKey())
-		isIssuer = r.self == nodeID
-	})
-	if !isIssuer {
-		return
-	}
-
-	if r.haltUpdate > 0 {
-		r.haltUpdate--
-		return
-	}
-
-	mana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)
+// rateSetting updates the rate ownRate at which messages can be issued by the node.
+func (r *RateSetter) rateSetting() {
+	ownMana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)
 	totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 
 	ownRate := r.ownRate.Load()
-	if float64(r.tangle.Scheduler.NodeQueueSize(r.self))/mana > Backoff {
+	if float64(r.tangle.Scheduler.NodeQueueSize(r.self))/ownMana > Backoff {
 		ownRate /= RateSettingDecrease
-		r.haltUpdate = RateSettingPause
+		r.pauseUpdates = RateSettingPause
 	} else {
-		ownRate += RateSettingIncrease * mana / totalMana
+		ownRate += RateSettingIncrease * ownMana / totalMana
 	}
 	r.ownRate.Store(ownRate)
 }
