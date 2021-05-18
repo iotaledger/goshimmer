@@ -955,107 +955,6 @@ func transactionIDEventHandler(handler interface{}, params ...interface{}) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedAddressOutputMapping ///////////////////////////////////////////////////////////////////////////////////
-
-// CachedAddressOutputMapping is a wrapper for the generic CachedObject returned by the object storage that overrides
-// the accessor methods with a type-casted one.
-type CachedAddressOutputMapping struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedAddressOutputMapping) Retain() *CachedAddressOutputMapping {
-	return &CachedAddressOutputMapping{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedAddressOutputMapping) Unwrap() *AddressOutputMapping {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*AddressOutputMapping)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedAddressOutputMapping) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*AddressOutputMapping))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedAddressOutputMapping.
-func (c *CachedAddressOutputMapping) String() string {
-	return stringify.Struct("CachedAddressOutputMapping",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedAddressOutputMappings //////////////////////////////////////////////////////////////////////////////////
-
-// CachedAddressOutputMappings represents a collection of CachedAddressOutputMapping objects.
-type CachedAddressOutputMappings []*CachedAddressOutputMapping
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedAddressOutputMappings) Unwrap() (unwrappedOutputs []*AddressOutputMapping) {
-	unwrappedOutputs = make([]*AddressOutputMapping, len(c))
-	for i, cachedAddressOutputMapping := range c {
-		untypedObject := cachedAddressOutputMapping.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*AddressOutputMapping)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedOutputs[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedAddressOutputMappings) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
-	for _, cachedAddressOutputMapping := range c {
-		consumed = cachedAddressOutputMapping.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedAddressOutputMappings) Release(force ...bool) {
-	for _, cachedAddressOutputMapping := range c {
-		cachedAddressOutputMapping.Release(force...)
-	}
-}
-
-// String returns a human readable version of the CachedAddressOutputMappings.
-func (c CachedAddressOutputMappings) String() string {
-	structBuilder := stringify.StructBuilder("CachedAddressOutputMappings")
-	for i, cachedAddressOutputMapping := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedAddressOutputMapping))
-	}
-
-	return structBuilder.String()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region AddressOutputMapping /////////////////////////////////////////////////////////////////////////////////////////
 
 // AddressOutputMapping represents a mapping between Addresses and their corresponding Outputs. Since an Address can have a
@@ -1156,6 +1055,107 @@ func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = &AddressOutputMapping{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedAddressOutputMapping ///////////////////////////////////////////////////////////////////////////////////
+
+// CachedAddressOutputMapping is a wrapper for the generic CachedObject returned by the object storage that overrides
+// the accessor methods with a type-casted one.
+type CachedAddressOutputMapping struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedAddressOutputMapping) Retain() *CachedAddressOutputMapping {
+	return &CachedAddressOutputMapping{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedAddressOutputMapping) Unwrap() *AddressOutputMapping {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*AddressOutputMapping)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedAddressOutputMapping) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*AddressOutputMapping))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedAddressOutputMapping.
+func (c *CachedAddressOutputMapping) String() string {
+	return stringify.Struct("CachedAddressOutputMapping",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedAddressOutputMappings //////////////////////////////////////////////////////////////////////////////////
+
+// CachedAddressOutputMappings represents a collection of CachedAddressOutputMapping objects.
+type CachedAddressOutputMappings []*CachedAddressOutputMapping
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedAddressOutputMappings) Unwrap() (unwrappedOutputs []*AddressOutputMapping) {
+	unwrappedOutputs = make([]*AddressOutputMapping, len(c))
+	for i, cachedAddressOutputMapping := range c {
+		untypedObject := cachedAddressOutputMapping.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*AddressOutputMapping)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedOutputs[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedAddressOutputMappings) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
+	for _, cachedAddressOutputMapping := range c {
+		consumed = cachedAddressOutputMapping.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedAddressOutputMappings) Release(force ...bool) {
+	for _, cachedAddressOutputMapping := range c {
+		cachedAddressOutputMapping.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedAddressOutputMappings.
+func (c CachedAddressOutputMappings) String() string {
+	structBuilder := stringify.StructBuilder("CachedAddressOutputMappings")
+	for i, cachedAddressOutputMapping := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedAddressOutputMapping))
+	}
+
+	return structBuilder.String()
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
