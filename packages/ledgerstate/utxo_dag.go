@@ -80,6 +80,7 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (solid bool) {
 
 		if !u.allOutputsExist(consumedOutputs) {
 			// store unsolid consumers
+			u.bookConsumers()
 
 			return transactionMetadata
 		}
@@ -954,6 +955,107 @@ func transactionIDEventHandler(handler interface{}, params ...interface{}) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region CachedAddressOutputMapping ///////////////////////////////////////////////////////////////////////////////////
+
+// CachedAddressOutputMapping is a wrapper for the generic CachedObject returned by the object storage that overrides
+// the accessor methods with a type-casted one.
+type CachedAddressOutputMapping struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedAddressOutputMapping) Retain() *CachedAddressOutputMapping {
+	return &CachedAddressOutputMapping{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedAddressOutputMapping) Unwrap() *AddressOutputMapping {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*AddressOutputMapping)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedAddressOutputMapping) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*AddressOutputMapping))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedAddressOutputMapping.
+func (c *CachedAddressOutputMapping) String() string {
+	return stringify.Struct("CachedAddressOutputMapping",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedAddressOutputMappings //////////////////////////////////////////////////////////////////////////////////
+
+// CachedAddressOutputMappings represents a collection of CachedAddressOutputMapping objects.
+type CachedAddressOutputMappings []*CachedAddressOutputMapping
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedAddressOutputMappings) Unwrap() (unwrappedOutputs []*AddressOutputMapping) {
+	unwrappedOutputs = make([]*AddressOutputMapping, len(c))
+	for i, cachedAddressOutputMapping := range c {
+		untypedObject := cachedAddressOutputMapping.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*AddressOutputMapping)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedOutputs[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedAddressOutputMappings) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
+	for _, cachedAddressOutputMapping := range c {
+		consumed = cachedAddressOutputMapping.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedAddressOutputMappings) Release(force ...bool) {
+	for _, cachedAddressOutputMapping := range c {
+		cachedAddressOutputMapping.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedAddressOutputMappings.
+func (c CachedAddressOutputMappings) String() string {
+	structBuilder := stringify.StructBuilder("CachedAddressOutputMappings")
+	for i, cachedAddressOutputMapping := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedAddressOutputMapping))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region AddressOutputMapping /////////////////////////////////////////////////////////////////////////////////////////
 
 // AddressOutputMapping represents a mapping between Addresses and their corresponding Outputs. Since an Address can have a
@@ -1057,103 +1159,66 @@ var _ objectstorage.StorableObject = &AddressOutputMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedAddressOutputMapping ///////////////////////////////////////////////////////////////////////////////////
+// region SolidityType /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedAddressOutputMapping is a wrapper for the generic CachedObject returned by the object storage that overrides
-// the accessor methods with a type-casted one.
-type CachedAddressOutputMapping struct {
-	objectstorage.CachedObject
-}
+// SolidityType is a type that specifies the types of solid states that a transaction can be in.
+type SolidityType uint8
 
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedAddressOutputMapping) Retain() *CachedAddressOutputMapping {
-	return &CachedAddressOutputMapping{c.CachedObject.Retain()}
-}
+// SolidityTypeLength defines the amount of bytes of a marshaled SolidityType.
+const SolidityTypeLength = 1
 
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedAddressOutputMapping) Unwrap() *AddressOutputMapping {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
+const (
+	// Unsolid represents transactions that are not solid, yet.
+	Unsolid SolidityType = iota
+
+	// Solid represents transaction that are solid and fully booked.
+	Solid
+
+	// LazySolid represents transactions that are solid but not fully booked because they spend funds of rejected or
+	// invalid Branches.
+	LazySolid
+)
+
+// SolidityTypeFromBytes unmarshals a SolidityType from a sequence of bytes.
+func SolidityTypeFromBytes(solidityTypeBytes []byte) (solidityType SolidityType, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(solidityTypeBytes)
+	if solidityType, err = SolidityTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SolidityType from MarshalUtil: %w", err)
+		return
 	}
-
-	typedObject := untypedObject.(*AddressOutputMapping)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedAddressOutputMapping) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*AddressOutputMapping))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedAddressOutputMapping.
-func (c *CachedAddressOutputMapping) String() string {
-	return stringify.Struct("CachedAddressOutputMapping",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedAddressOutputMappings //////////////////////////////////////////////////////////////////////////////////
-
-// CachedAddressOutputMappings represents a collection of CachedAddressOutputMapping objects.
-type CachedAddressOutputMappings []*CachedAddressOutputMapping
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedAddressOutputMappings) Unwrap() (unwrappedOutputs []*AddressOutputMapping) {
-	unwrappedOutputs = make([]*AddressOutputMapping, len(c))
-	for i, cachedAddressOutputMapping := range c {
-		untypedObject := cachedAddressOutputMapping.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*AddressOutputMapping)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedOutputs[i] = typedObject
-	}
+	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedAddressOutputMappings) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
-	for _, cachedAddressOutputMapping := range c {
-		consumed = cachedAddressOutputMapping.Consume(consumer, forceRelease...) || consumed
+// SolidityTypeFromMarshalUtil unmarshals a SolidityType using a MarshalUtil (for easier unmarshaling).
+func SolidityTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (solidityType SolidityType, err error) {
+	untypedSolidityType, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse SolidityType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
 	}
 
-	return
+	return SolidityType(untypedSolidityType), nil
 }
 
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedAddressOutputMappings) Release(force ...bool) {
-	for _, cachedAddressOutputMapping := range c {
-		cachedAddressOutputMapping.Release(force...)
-	}
+// Bytes returns a marshaled version of the SolidityType.
+func (c SolidityType) Bytes() (marshaledSolidityType []byte) {
+	return []byte{uint8(c)}
 }
 
-// String returns a human readable version of the CachedAddressOutputMappings.
-func (c CachedAddressOutputMappings) String() string {
-	structBuilder := stringify.StructBuilder("CachedAddressOutputMappings")
-	for i, cachedAddressOutputMapping := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedAddressOutputMapping))
+// String returns a human readable version of the SolidityType.
+func (c SolidityType) String() (humanReadableSolidityType string) {
+	switch c {
+	case Unsolid:
+		return "SolidityType(Unsolid)"
+	case Solid:
+		return "SolidityType(Solid)"
+	case LazySolid:
+		return "SolidityType(LazySolid)"
+	default:
+		return "SolidityType(" + strconv.Itoa(int(c)) + ")"
 	}
-
-	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1161,26 +1226,25 @@ func (c CachedAddressOutputMappings) String() string {
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the objectstorage.
-var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{OutputIDLength, TransactionIDLength}...)
+var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{SolidityTypeLength, OutputIDLength, TransactionIDLength}...)
 
 // Consumer represents the relationship between an Output and its spending Transactions. Since an Output can have a
 // potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the Output.
 type Consumer struct {
+	solidityType  SolidityType
 	consumedInput OutputID
 	transactionID TransactionID
-	validMutex    sync.RWMutex
-	valid         types.TriBool
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewConsumer creates a Consumer object from the given information.
-func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid types.TriBool) *Consumer {
+func NewConsumer(consumedInput OutputID, transactionID TransactionID, solidityType SolidityType) *Consumer {
 	return &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
-		valid:         valid,
+		solidityType:  solidityType,
 	}
 }
 
@@ -1199,16 +1263,16 @@ func ConsumerFromBytes(bytes []byte) (consumer *Consumer, consumedBytes int, err
 // ConsumerFromMarshalUtil unmarshals an Consumer using a MarshalUtil (for easier unmarshaling).
 func ConsumerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
 	consumer = &Consumer{}
+	if consumer.solidityType, err = SolidityTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SolidityType from MarshalUtil: %w", err)
+		return
+	}
 	if consumer.consumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
 		return
 	}
 	if consumer.transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
-		return
-	}
-	if consumer.valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -1236,28 +1300,9 @@ func (c *Consumer) TransactionID() TransactionID {
 	return c.transactionID
 }
 
-// Valid returns a flag that indicates if the spending Transaction is valid or not.
-func (c *Consumer) Valid() (valid types.TriBool) {
-	c.validMutex.RLock()
-	defer c.validMutex.RUnlock()
-
-	return c.valid
-}
-
-// SetValid updates the valid flag of the Consumer and returns true if the value was changed.
-func (c *Consumer) SetValid(valid types.TriBool) (updated bool) {
-	c.validMutex.Lock()
-	defer c.validMutex.Unlock()
-
-	if valid == c.valid {
-		return
-	}
-
-	c.valid = valid
-	c.SetModified()
-	updated = true
-
-	return
+// SolidityType returns the type of the Consumer.
+func (c *Consumer) SolidityType() (solidityType SolidityType) {
+	return c.solidityType
 }
 
 // Bytes marshals the Consumer into a sequence of bytes.
@@ -1270,26 +1315,25 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 	return stringify.Struct("Consumer",
 		stringify.StructField("consumedInput", c.consumedInput),
 		stringify.StructField("transactionID", c.transactionID),
+		stringify.StructField("solidityType", c.solidityType),
 	)
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Consumer) Update(other objectstorage.StorableObject) {
+func (c *Consumer) Update(_ objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Consumer) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(c.consumedInput.Bytes(), c.transactionID.Bytes())
+	return byteutils.ConcatBytes(c.solidityType.Bytes(), c.consumedInput.Bytes(), c.transactionID.Bytes())
 }
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
 // storage.
 func (c *Consumer) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.BoolSize).
-		Write(c.Valid()).
-		Bytes()
+	return nil
 }
 
 // code contract (make sure the struct implements all required methods)
