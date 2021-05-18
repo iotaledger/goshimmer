@@ -14,17 +14,18 @@ import (
 const PluginName = "WebAPI tools Endpoint"
 
 const (
-	RouteDiagnosticMessages                    = "tools/diagnostic/messages"
+	routeDiagnostics                           = "tools/diagnostic"
+	RouteDiagnosticMessages                    = routeDiagnostics + "/messages"
 	RouteDiagnosticsFirstWeakMessageReferences = RouteDiagnosticMessages + "/firstweakreferences"
 	RouteDiagnosticsMessageRank                = RouteDiagnosticMessages + "/rank/:rank"
-	RouteDiagnosticsUtxoDag                    = "tools/diagnostic/utxodag"
-	RouteDiagnosticsBranches                   = "tools/diagnostic/branches"
+	RouteDiagnosticsUtxoDag                    = routeDiagnostics + "/utxodag"
+	RouteDiagnosticsBranches                   = routeDiagnostics + "/branches"
 	RouteDiagnosticsLazyBookedBranches         = RouteDiagnosticsBranches + "/lazybooked"
 	RouteDiagnosticsInvalidBranches            = RouteDiagnosticsBranches + "/invalid"
-	RouteDiagnosticsTips                       = "tools/diagnostic/tips"
+	RouteDiagnosticsTips                       = routeDiagnostics + "/tips"
 	RouteDiagnosticsStrongTips                 = RouteDiagnosticsTips + "/strong"
 	RouteDiagnosticsWeakTips                   = RouteDiagnosticsTips + "/weak"
-	RouteDiagnosticsDRNG                       = "tools/diagnostic/drng"
+	RouteDiagnosticsDRNG                       = routeDiagnostics + "/drng"
 )
 
 var (

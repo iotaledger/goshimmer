@@ -100,9 +100,9 @@ func (api *GoShimmerAPI) GetDiagnosticsDRNG() (*csv.Reader, error) {
 
 // run an api call on a certain route and return a csv
 func (api *GoShimmerAPI) diagnose(route string) (*csv.Reader, error) {
-	var res *csv.Reader
-	if err := api.do(http.MethodGet, route, nil, res); err != nil {
+	reader := &csv.Reader{}
+	if err := api.do(http.MethodGet, route, nil, reader); err != nil {
 		return nil, err
 	}
-	return res, nil
+	return reader, nil
 }
