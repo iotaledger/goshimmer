@@ -118,6 +118,16 @@ func (r *RateSetter) Shutdown() {
 	})
 }
 
+// Rate returns the rate of the rate setter.
+func (r *RateSetter) Rate() float64 {
+	return r.ownRate.Load()
+}
+
+// Size returns the size of the issuing queue.
+func (r *RateSetter) Size() int {
+	return r.issuingQueue.Size()
+}
+
 // rateSetting updates the rate ownRate at which messages can be issued by the node.
 func (r *RateSetter) rateSetting() {
 	ownMana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)

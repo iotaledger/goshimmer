@@ -5,12 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/typeutils"
+	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 )
 
 const (
@@ -45,6 +46,7 @@ type Scheduler struct {
 	mu       sync.Mutex
 	buffer   *schedulerutils.BufferQueue
 	deficits map[identity.ID]float64
+	rate     *atomic.Duration
 
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
@@ -68,6 +70,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 		},
 		tangle:         tangle,
+		rate:           atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
 		ticker:         time.NewTicker(tangle.Options.SchedulerParams.Rate),
 		buffer:         schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
 		deficits:       make(map[identity.ID]float64),
@@ -119,7 +122,13 @@ func (s *Scheduler) SetRate(rate time.Duration) {
 	// only update the ticker when the scheduler is running
 	if !s.stopped.IsSet() {
 		s.ticker.Reset(rate)
+		s.rate.Store(rate)
 	}
+}
+
+// Rate gets the rate of the scheduler.
+func (s *Scheduler) Rate() time.Duration {
+	return s.rate.Load()
 }
 
 // Submit submits a message to be considered by the scheduler.
@@ -280,6 +289,17 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 // NodeQueueSize returns the size of the nodeIDs queue.
 func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
 	return s.buffer.NodeQueue(nodeID).Size()
+}
+
+// NodeQueueSizes returns the size for each node queue.
+func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
+	nodeQueueSizes := make(map[identity.ID]int)
+	for _, ID := range s.buffer.IDs() {
+		nodeID := identity.ID(ID)
+		size := s.NodeQueueSize(nodeID)
+		nodeQueueSizes[nodeID] = size
+	}
+	return nodeQueueSizes
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
