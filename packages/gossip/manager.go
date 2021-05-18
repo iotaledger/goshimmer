@@ -51,6 +51,13 @@ type Manager struct {
 
 	neighbors                 map[identity.ID]*Neighbor
 	neighborsMapMutex         sync.RWMutex
+
+	// neighborConnectionMutexes is an ever-growing map where the key is a neighbor ID and the value is a mutex.
+	// We create a new record in that map for every new unique neighbor and never delete it.
+	// Taking in account that amount of possible unique neighbors is pretty small,
+	// the size on that map shouldn't be an issue.
+	// We need this map to acquire a lock for the particular neighbor ID only during the connection and dropping,
+	// because otherwise long-running, hanging operations like accept will block the whole manager.
 	neighborConnectionMutexes sync.Map
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
