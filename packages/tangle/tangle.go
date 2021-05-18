@@ -50,6 +50,7 @@ type Tangle struct {
 	Events                *Events
 
 	setupParserOnce sync.Once
+	fifoScheduling  typeutils.AtomicBool
 }
 
 // New is the constructor for the Tangle.
@@ -68,8 +69,8 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Scheduler = NewScheduler(tangle)
 	tangle.FifoScheduler = NewFifoScheduler(tangle)
+	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
@@ -129,46 +130,27 @@ func (t *Tangle) Setup() {
 		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
 	}))
 
-	// we are only using the FifoScheduler if the not is starting not synced
-	var useFifo typeutils.AtomicBool
-	useFifo.SetTo(!t.Synced())
+	// we are never using the FifoScheduler when the node is started in a synced state
+	t.fifoScheduling.SetTo(!t.Synced())
 
 	// start the corresponding scheduler
-	if useFifo.IsSet() {
+	if t.fifoScheduling.IsSet() {
 		t.FifoScheduler.Start()
 	} else {
 		t.Scheduler.Start()
 	}
 
 	// pass solid messages to the scheduler
-	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
-		// during bootstrapping use the FifoScheduler for everything
-		if useFifo.IsSet() {
-			t.FifoScheduler.Schedule(id)
-			return
-		}
+	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(t.schedule))
 
-		t.Storage.Message(id).Consume(func(msg *Message) {
-			if identity.NewID(msg.IssuerPublicKey()) == t.Options.Identity.ID() {
-				if err := t.RateSetter.Issue(msg); err != nil {
-					t.Events.Error.Trigger(errors.Errorf("failed to issue to rate setter: %w", err))
-				}
-			} else {
-				if err := t.Scheduler.SubmitAndReady(msg.ID()); err != nil {
-					t.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
-				}
-			}
-		})
-	}))
-
-	// switch the scheduler
+	// switch the scheduler, the first time we get synced
 	t.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(e *SyncChangedEvent) {
 		if !e.Synced {
 			return
 		}
 		// switch the scheduler exactly once
-		if useFifo.SetToIf(true, false) {
-			// switching the scheduler takes some time, so we must not do it inside the event func
+		if t.fifoScheduling.SetToIf(true, false) {
+			// switching the scheduler takes some time, so we must not do it directly in the event func
 			go func() {
 				t.FifoScheduler.Shutdown() // schedule remaining messages
 				t.Scheduler.Start()        // start the actual scheduler
@@ -242,6 +224,29 @@ func (t *Tangle) Shutdown() {
 	if t.WeightProvider != nil {
 		t.WeightProvider.Shutdown()
 	}
+}
+
+// schedule schedules the message with the given id.
+func (t *Tangle) schedule(id MessageID) {
+	// during bootstrapping use the FifoScheduler for everything
+	if t.fifoScheduling.IsSet() {
+		t.FifoScheduler.Schedule(id)
+		return
+	}
+
+	t.Storage.Message(id).Consume(func(msg *Message) {
+		// if we issued the message submit it to the rate setter
+		if identity.NewID(msg.IssuerPublicKey()) == t.Options.Identity.ID() {
+			if err := t.RateSetter.Issue(msg); err != nil {
+				t.Events.Error.Trigger(errors.Errorf("failed to issue to rate setter: %w", err))
+			}
+			return
+		}
+		// otherwise the message needs to be scheduled
+		if err := t.Scheduler.SubmitAndReady(msg.ID()); err != nil {
+			t.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+		}
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
