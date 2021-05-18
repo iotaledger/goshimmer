@@ -121,7 +121,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 }
 
 func newTestNeighbor(name string, conn net.Conn) *Neighbor {
-	return NewNeighbor(newTestPeer(name, conn), conn, log.Named(name))
+	return NewNeighbor(newTestPeer(name, conn), NeighborsGroupAuto, conn, log.Named(name))
 }
 
 func newTestPeer(name string, conn net.Conn) *peer.Peer {

@@ -20,11 +20,22 @@ const (
 	droppedMessagesThreshold = 1000
 )
 
+// NeighborsGroup is an enum type for various neighbors groups like auto/manual.
+type NeighborsGroup int8
+
+const (
+	// NeighborsGroupAuto represents a neighbors group that is managed automatically.
+	NeighborsGroupAuto NeighborsGroup = iota
+	// NeighborsGroupManual represents a neighbors group that is managed manually.
+	NeighborsGroupManual
+)
+
 // Neighbor describes the established gossip connection to another peer.
 type Neighbor struct {
 	*peer.Peer
 	*buffconn.BufferedConnection
 
+	Group NeighborsGroup
 	log             *logger.Logger
 	queue           chan []byte
 	messagesDropped atomic.Int32
@@ -37,7 +48,7 @@ type Neighbor struct {
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
+func NewNeighbor(peer *peer.Peer, group NeighborsGroup, conn net.Conn, log *logger.Logger) *Neighbor {
 	if !IsSupported(peer) {
 		panic("peer does not support gossip")
 	}
@@ -51,6 +62,7 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 
 	return &Neighbor{
 		Peer:                  peer,
+		Group: group,
 		BufferedConnection:    buffconn.NewBufferedConnection(conn, maxPacketSize),
 		log:                   log,
 		queue:                 make(chan []byte, neighborQueueSize),
