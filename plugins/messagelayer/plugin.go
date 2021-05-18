@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -313,27 +314,56 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 }
 
 // AwaitMessageToBeIssued awaits maxAwait for the given message to get issued.
-func AwaitMessageToBeIssued(messageID tangle.MessageID, maxAwait time.Duration) error {
-	issued := make(chan struct{}, 1)
+func AwaitMessageToBeIssued(f func() (*tangle.Message, error), issuer ed25519.PublicKey, maxAwait time.Duration) (*tangle.Message, error) {
+	issued := make(chan *tangle.Message, 1)
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := events.NewClosure(func(message *tangle.Message) {
-		if message.ID() != messageID {
-			return
-		}
-		select {
-		case issued <- struct{}{}:
-		case <-exit:
-		}
+	closure := events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			if message.IssuerPublicKey() != issuer {
+				return
+			}
+			select {
+			case issued <- message:
+			case <-exit:
+			}
+		})
 	})
 	Tangle().Scheduler.Events.MessageScheduled.Attach(closure)
 	defer Tangle().Scheduler.Events.MessageScheduled.Detach(closure)
 
-	select {
-	case <-time.After(maxAwait):
-		return ErrMessageWasNotIssuedInTime
-	case <-issued:
-		return nil
+	// channel to receive the result of issuance
+	issueResult := make(chan struct {
+		msg *tangle.Message
+		err error
+	}, 1)
+
+	go func() {
+		msg, err := f()
+		issueResult <- struct {
+			msg *tangle.Message
+			err error
+		}{msg: msg, err: err}
+	}()
+
+	// wait on issuance
+	result := <-issueResult
+
+	if result.err != nil || result.msg == nil {
+		return nil, errors.Errorf("Failed to issue data %s: %w", result.msg.ID().Base58(), result.err)
+	}
+
+	ticker := time.NewTicker(maxAwait)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			return nil, ErrMessageWasNotIssuedInTime
+		case msg := <-issued:
+			if result.msg.ID() == msg.ID() {
+				return msg, nil
+			}
+		}
 	}
 }
