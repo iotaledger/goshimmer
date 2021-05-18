@@ -187,7 +187,7 @@ func (o OutputsByAddressAndOutputID) SplitIntoChunksOfMaxInputCount() []OutputsB
 		return []OutputsByAddressAndOutputID{o}
 	}
 	result := make([]OutputsByAddressAndOutputID, outputCount/ledgerstate.MaxInputCount+1)
-	for i, _ := range result {
+	for i := range result {
 		// init all chunks
 		result[i] = NewAddressToOutputs()
 	}

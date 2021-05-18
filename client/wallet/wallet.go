@@ -176,7 +176,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *led
 // region ConsolidateFunds /////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsolidateFunds consolidates available wallet funds into one output.
-func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.ConsolidateFundsOption) (tx *ledgerstate.Transaction, err error) {
+func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.ConsolidateFundsOption) (txs []*ledgerstate.Transaction, err error) {
 	consolidateOptions, err := consolidateoptions.Build(options...)
 	if err != nil {
 		return
@@ -222,7 +222,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 
 		unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
 
-		tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
+		tx := ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
 		// check syntactical validity by marshaling an unmarshaling
 		tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
@@ -231,9 +231,9 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		}
 
 		// check tx validity (balances, unlock blocks)
-		ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
-		if err != nil {
-			return nil, err
+		ok, cErr := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
+		if cErr != nil {
+			return nil, cErr
 		}
 		if !ok {
 			return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
@@ -244,12 +244,16 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		if err != nil {
 			return nil, err
 		}
+		txs = append(txs, tx)
 		if consolidateOptions.WaitForConfirmation {
 			err = wallet.WaitForTxConfirmation(tx.ID())
+			if err != nil {
+				return txs, err
+			}
 		}
 	}
 
-	return tx, err
+	return txs, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
