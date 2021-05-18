@@ -14,10 +14,12 @@ func TestFifoScheduler(t *testing.T) {
 	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
-	// setup tangle up till the Scheduler
+	// setup tangle up till the FifoScheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.FifoScheduler.Setup()
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(tangle.FifoScheduler.Schedule))
+	tangle.FifoScheduler.Start()
 
 	// testing desired scheduled order: A - B - C - D - E  (B - A - D - C is equivalent)
 	messages := make(map[string]*Message)

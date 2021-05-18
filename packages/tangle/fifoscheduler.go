@@ -113,10 +113,6 @@ type FifoSchedulerEvents struct {
 	NodeBlacklisted  *events.Event
 }
 
-func (s *FifoScheduler) messageSolidHandler(messageID MessageID) {
-	s.Schedule(messageID)
-}
-
 func (s *FifoScheduler) messageInvalidHandler(messageID MessageID) {
 	if s.scheduledMessages.Delete(messageID) {
 		s.allMessagesScheduledWG.Done()

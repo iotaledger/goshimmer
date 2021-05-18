@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -126,6 +127,53 @@ func (t *Tangle) Setup() {
 
 	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
+	}))
+
+	// we are only using the FifoScheduler if the not is starting not synced
+	var useFifo typeutils.AtomicBool
+	useFifo.SetTo(!t.Synced())
+
+	// start the corresponding scheduler
+	if useFifo.IsSet() {
+		t.FifoScheduler.Start()
+	} else {
+		t.Scheduler.Start()
+	}
+
+	// pass solid messages to the scheduler
+	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
+		// during bootstrapping use the FifoScheduler for everything
+		if useFifo.IsSet() {
+			t.FifoScheduler.Schedule(id)
+			return
+		}
+
+		t.Storage.Message(id).Consume(func(msg *Message) {
+			if identity.NewID(msg.IssuerPublicKey()) == t.Options.Identity.ID() {
+				if err := t.RateSetter.Issue(msg); err != nil {
+					t.Events.Error.Trigger(errors.Errorf("failed to issue to rate setter: %w", err))
+				}
+			} else {
+				if err := t.Scheduler.SubmitAndReady(msg.ID()); err != nil {
+					t.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+				}
+			}
+		})
+	}))
+
+	// switch the scheduler
+	t.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(e *SyncChangedEvent) {
+		if !e.Synced {
+			return
+		}
+		// switch the scheduler exactly once
+		if useFifo.SetToIf(true, false) {
+			// switching the scheduler takes some time, so we must not do it inside the event func
+			go func() {
+				t.FifoScheduler.Shutdown() // schedule remaining messages
+				t.Scheduler.Start()        // start the actual scheduler
+			}()
+		}
 	}))
 }
 
