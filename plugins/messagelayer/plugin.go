@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -39,7 +40,8 @@ var (
 var (
 	plugin     *node.Plugin
 	pluginOnce sync.Once
-	syncedOnce sync.Once
+
+	useFifo typeutils.AtomicBool
 )
 
 // Plugin gets the plugin instance.
@@ -110,19 +112,41 @@ func configure(plugin *node.Plugin) {
 		plugin.LogDebugf("message booked in message layer: %s", messageID.Base58())
 	}))
 
+	// we are only using the FifoScheduler if the not is starting not synced
+	useFifo.SetTo(!Tangle().Synced())
+	Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id tangle.MessageID) {
+		// during bootstrapping use the FifoScheduler for everything
+		if useFifo.IsSet() {
+			Tangle().FifoScheduler.Schedule(id)
+			return
+		}
+
+		Tangle().Storage.Message(id).Consume(func(message *tangle.Message) {
+			if identity.NewID(message.IssuerPublicKey()) == Tangle().Options.Identity.ID() {
+				if err := Tangle().RateSetter.Issue(message); err != nil {
+					Tangle().Events.Error.Trigger(errors.Errorf("failed to issue to rate setter: %w", err))
+				}
+			} else {
+				if err := Tangle().Scheduler.SubmitAndReady(message.ID()); err != nil {
+					Tangle().Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+				}
+			}
+		})
+	}))
+
 	Tangle().TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", ev.Synced)
 		if ev.Synced {
-			// only for the first synced
-			syncedOnce.Do(func() {
+			// switch the scheduler exactly once
+			if useFifo.SetToIf(true, false) {
 				// switching the scheduler takes some time, so we must not do it inside the event func
 				go func() {
-					Tangle().Scheduler.Setup()        // start buffering solid messages
-					Tangle().FifoScheduler.Detach()   // stop receiving more messages
 					Tangle().FifoScheduler.Shutdown() // schedule remaining messages
 					Tangle().Scheduler.Start()        // start the actual scheduler
+					plugin.LogInfo("Switched to the regular scheduler")
 				}()
-			})
+			}
+
 			// make sure that we are using the configured rate when synced
 			rate := Tangle().Options.SchedulerParams.Rate
 			Tangle().Scheduler.SetRate(rate)
@@ -158,6 +182,12 @@ func configure(plugin *node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+		if useFifo.IsSet() {
+			plugin.LogInfo("Using FIFO scheduler during bootstrapping")
+			Tangle().FifoScheduler.Start()
+		} else {
+			Tangle().Scheduler.Start()
+		}
 		<-shutdownSignal
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {

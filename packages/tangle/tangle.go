@@ -111,6 +111,7 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.FifoScheduler.Setup()
+	t.Scheduler.Setup()
 	t.Orderer.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
@@ -178,6 +179,7 @@ func (t *Tangle) Prune() (err error) {
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
 	t.RateSetter.Shutdown()
+	t.FifoScheduler.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()
 	t.Booker.Shutdown()

@@ -210,6 +210,9 @@ func TestScheduler_Issue(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
+	}))
 	tangle.Scheduler.Start()
 
 	const numMessages = 5
@@ -248,6 +251,9 @@ func TestSchedulerFlow(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
+	}))
 	tangle.Scheduler.Start()
 
 	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
@@ -318,6 +324,9 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
+	}))
 	tangle.Scheduler.Start()
 
 	// generate the messages we want to solidify

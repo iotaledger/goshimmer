@@ -51,12 +51,6 @@ type Scheduler struct {
 	buffer   *schedulerutils.BufferQueue
 	deficits map[identity.ID]float64
 
-	closures struct {
-		messageSolid     *events.Closure
-		messageInvalid   *events.Closure
-		messageDiscarded *events.Closure
-	}
-
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
 }
@@ -70,7 +64,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		schedulerutils.MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
 	}
 
-	scheduler := &Scheduler{
+	return &Scheduler{
 		Events: &SchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
@@ -82,28 +76,6 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		deficits:       make(map[identity.ID]float64),
 		shutdownSignal: make(chan struct{}),
 	}
-	scheduler.closures.messageSolid = events.NewClosure(scheduler.messageSolidHandler)
-	scheduler.closures.messageInvalid = events.NewClosure(scheduler.messageInvalidHandler)
-
-	return scheduler
-}
-
-func (s *Scheduler) messageSolidHandler(id MessageID) {
-	s.tangle.Storage.Message(id).Consume(func(message *Message) {
-		if identity.NewID(message.IssuerPublicKey()) == s.tangle.Options.Identity.ID() {
-			if err := s.tangle.RateSetter.Issue(message); err != nil {
-				s.tangle.Events.Error.Trigger(errors.Errorf("failed to issue to rate setter: %w", err))
-			}
-		} else {
-			if err := s.tangle.Scheduler.SubmitAndReady(message.ID()); err != nil {
-				s.tangle.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
-			}
-		}
-	})
-}
-
-func (s *Scheduler) messageInvalidHandler(id MessageID) {
-	s.tangle.Events.Error.Trigger(errors.Errorf("invalid message in scheduler: %x", id))
 }
 
 // Start starts the scheduler.
@@ -131,16 +103,7 @@ func (s *Scheduler) Shutdown() {
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
-func (s *Scheduler) Setup() {
-	s.tangle.Solidifier.Events.MessageSolid.Attach(s.closures.messageSolid)
-	s.tangle.Events.MessageInvalid.Attach(s.closures.messageInvalid)
-}
-
-// Detach detaches the scheduler from the tangle events.
-func (s *Scheduler) Detach() {
-	s.tangle.Solidifier.Events.MessageSolid.Detach(s.closures.messageSolid)
-	s.tangle.Events.MessageInvalid.Detach(s.closures.messageInvalid)
-}
+func (s *Scheduler) Setup() {}
 
 // SubmitAndReady submits the message to the scheduler and marks it ready right away.
 func (s *Scheduler) SubmitAndReady(messageID MessageID) error {

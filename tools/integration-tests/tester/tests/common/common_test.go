@@ -12,7 +12,7 @@ import (
 )
 
 // TestSynchronization checks whether messages are relayed through the network,
-// a node that joins later solidifies, whether it is de-synced after a restart
+// a node that joins later solidifies, whether it is desynced after a restart
 // and becomes synced again.
 func TestSynchronization(t *testing.T) {
 	initialPeers := 4
@@ -39,10 +39,7 @@ func TestSynchronization(t *testing.T) {
 	log.Println("Spawning new node to sync...")
 	newPeer, err := n.CreatePeerWithMana(framework.GoShimmerConfig{Mana: true})
 	require.NoError(t, err)
-	// wait for peer to start
-	time.Sleep(5 * time.Second)
-	err = n.WaitForAutopeering(2)
-	require.NoError(t, err)
+	// when the node has mana it must also be peered
 
 	// 3. issue some messages on old peers so that new peer can solidify
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10, ids)
@@ -55,12 +52,11 @@ func TestSynchronization(t *testing.T) {
 	// 5. shut down newly added peer
 	err = newPeer.Stop()
 	require.NoError(t, err)
+	log.Println("Stopping new node... done")
 
 	// 6. issue more data messages on old peers
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numMessages, ids)
 	log.Printf("Issuing %d messages to be synced... done\n", numMessages)
-	// wait for messages to be gossiped and leaf the synced time windows
-	time.Sleep(framework.ParaTangleTimeWindow)
 
 	// 7. let it startup again
 	log.Println("Restarting new node to sync again...")
