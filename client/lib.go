@@ -107,7 +107,7 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 		case contentTypeJSON:
 			return json.Unmarshal(resBody, decodeTo)
 		case contentTypeCSV:
-			decodeTo = csv.NewReader(bufio.NewReader(bytes.NewReader(resBody)))
+			*decodeTo.(*csv.Reader) = *csv.NewReader(bufio.NewReader(bytes.NewReader(resBody)))
 			return nil
 		default:
 			return fmt.Errorf("Can't decode %s content-type", contType)
