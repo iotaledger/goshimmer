@@ -49,8 +49,8 @@ type Manager struct {
 	server      *server.TCP
 	serverMutex sync.RWMutex
 
-	neighbors                 map[identity.ID]*Neighbor
-	neighborsMapMutex         sync.RWMutex
+	neighbors         map[identity.ID]*Neighbor
+	neighborsMapMutex sync.RWMutex
 
 	// neighborConnectionMutexes is an ever-growing map where the key is a neighbor ID and the value is a mutex.
 	// We create a new record in that map for every new unique neighbor and never delete it.
