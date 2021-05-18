@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -63,7 +64,7 @@ type Manager struct {
 	server      *server.TCP
 	serverMutex sync.RWMutex
 
-	neighbors      sync.Map
+	neighbors      map[identity.ID]*neighborWithGroup
 	neighborsMutex sync.RWMutex
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
@@ -85,7 +86,8 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 			NeighborsGroupAuto:   NewNeighborsEvents(),
 			NeighborsGroupManual: NewNeighborsEvents(),
 		},
-		server: nil,
+		neighbors: map[identity.ID]*neighborWithGroup{},
+		server:    nil,
 	}
 
 	m.messageWorkerPool = workerpool.New(func(task workerpool.Task) {
@@ -121,15 +123,19 @@ func (m *Manager) Stop() {
 
 	m.server = nil
 
-	// close all neighbor connections
-	m.neighbors.Range(func(_, value interface{}) bool {
-		nbr := value.(*neighborWithGroup)
-		_ = nbr.Close()
-		return true
-	})
+	m.dropAllNeighbors()
 
 	m.messageWorkerPool.Stop()
 	m.messageRequestWorkerPool.Stop()
+}
+
+func (m *Manager) dropAllNeighbors() {
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
+	for _, nbr := range m.neighbors {
+		_ = nbr.Close()
+	}
+	m.neighbors = map[identity.ID]*neighborWithGroup{}
 }
 
 // Events returns the events related to the gossip protocol.
@@ -156,8 +162,9 @@ func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsG
 
 // DropNeighbor disconnects the neighbor with the given ID.
 func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
-	value, ok := m.neighbors.LoadAndDelete(id)
-	nbr := value.(*neighborWithGroup)
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
+	nbr, ok := m.neighbors[id]
 	if !ok || nbr.group != group {
 		return ErrUnknownNeighbor
 	}
@@ -181,12 +188,12 @@ func (m *Manager) SendMessage(msgData []byte, to ...identity.ID) {
 
 // AllNeighbors returns all the neighbors that are currently connected.
 func (m *Manager) AllNeighbors() []*Neighbor {
-	var result []*Neighbor
-	m.neighbors.Range(func(_, value interface{}) bool {
-		n := value.(*neighborWithGroup)
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
+	result := make([]*Neighbor, 0, len(m.neighbors))
+	for _, n := range m.neighbors {
 		result = append(result, n.Neighbor)
-		return true
-	})
+	}
 	return result
 }
 
@@ -199,10 +206,10 @@ func (m *Manager) getNeighbors(ids ...identity.ID) []*Neighbor {
 
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
-
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	for _, id := range ids {
-		if value, ok := m.neighbors.Load(id); ok {
-			n := value.(*neighborWithGroup)
+		if n, ok := m.neighbors[id]; ok {
 			result = append(result, n.Neighbor)
 		}
 	}
@@ -255,15 +262,24 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	}))
 
 	n := &neighborWithGroup{Neighbor: nbr, group: group}
-	if _, ok := m.neighbors.LoadOrStore(p.ID(), n); ok {
-		_ = conn.Close()
-		m.neighborsEvents[group].ConnectionFailed.Trigger(p, ErrDuplicateNeighbor)
-		return ErrDuplicateNeighbor
+	if err := m.setNeighborIfNotSet(n); err != nil {
+		return errors.WithStack(err)
 	}
 
 	nbr.Listen()
 	m.neighborsEvents[group].NeighborAdded.Trigger(nbr)
 
+	return nil
+}
+
+func (m *Manager) setNeighborIfNotSet(neighbor *neighborWithGroup) error {
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
+	if _, ok := m.neighbors[neighbor.ID()]; ok {
+		_ = neighbor.Close()
+		m.neighborsEvents[neighbor.group].ConnectionFailed.Trigger(neighbor.Peer, ErrDuplicateNeighbor)
+		return ErrDuplicateNeighbor
+	}
 	return nil
 }
 
