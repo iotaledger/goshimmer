@@ -319,7 +319,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 		peer := drng.network.peers[i]
 		addr := peer.Seed.Address(uint64(0)).Address()
 		ID := base58.Encode(peer.ID().Bytes())
-		_, err := drng.network.peers[0].SendFaucetRequest(addr.Base58(), ID, ID)
+		_, err := drng.network.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
 		if err != nil {
 			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
 		}
@@ -352,8 +352,7 @@ func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors i
 		peer := n.peers[i]
 		addr := peer.Seed.Address(uint64(0)).Address()
 		ID := base58.Encode(peer.ID().Bytes())
-		_, err := n.peers[0].SendFaucetRequest(addr.Base58(), ID, ID)
-		time.Sleep(2 * time.Second)
+		_, err := n.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
 		if err != nil {
 			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
 		}

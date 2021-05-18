@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -69,6 +70,9 @@ var (
 	// internal metrics for neighbor's mana
 	averageNeighborsAccess    atomic.Float64
 	averageNeighborsConsensus atomic.Float64
+
+	// internal metrics for delegated mana
+	delegationAmount atomic.Uint64
 
 	// internal metrics for pledges
 	pledges     = NodePledgeMap{}
@@ -146,6 +150,11 @@ func AveragePledgeAccess() mana.NodeMap {
 	return result
 }
 
+// DelegatedMana returns how much mana is currently delegated to the node.
+func DelegatedMana() uint64 {
+	return delegationAmount.Load()
+}
+
 // addPledge populates the pledge logs for the node.
 func addPledge(event *mana.PledgedEvent) {
 	pledgesLock.Lock()
@@ -195,4 +204,6 @@ func measureMana() {
 		consensusAvg = consensusSum / float64(len(neighborConsensusMap))
 	}
 	averageNeighborsConsensus.Store(consensusAvg)
+
+	delegationAmount.Store(manarefresher.TotalDelegatedFunds())
 }

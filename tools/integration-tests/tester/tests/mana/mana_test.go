@@ -66,7 +66,7 @@ func TestPledgeFilter(t *testing.T) {
 		peer, err := n.CreatePeer(framework.GoShimmerConfig{
 			Mana:           true,
 			ActivityPlugin: true,
-			StartSync: true,
+			StartSync:      true,
 		})
 		require.NoError(t, err)
 		peers[i] = peer
@@ -87,7 +87,7 @@ func TestPledgeFilter(t *testing.T) {
 		ManaAllowedAccessPledge:           []string{accessPeerID},
 		ManaAllowedConsensusPledge:        []string{consensusPeerID},
 		ActivityPlugin:                    true,
-		StartSync: true,
+		StartSync:                         true,
 	})
 
 	require.NoError(t, err)
@@ -175,12 +175,12 @@ func TestApis(t *testing.T) {
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	// send funds to node 1
 	peer1ID := base58.Encode(peers[1].ID().Bytes())
-	_, err = peers[0].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), peer1ID, peer1ID)
+	_, err = peers[0].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer1ID, peer1ID)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
 	// send funds to node 2
 	peer2ID := base58.Encode(peers[2].ID().Bytes())
-	_, err = peers[0].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), peer2ID, peer2ID)
+	_, err = peers[0].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer2ID, peer2ID)
 	require.NoError(t, err)
 	time.Sleep(20 * time.Second)
 

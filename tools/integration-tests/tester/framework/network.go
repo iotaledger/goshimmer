@@ -163,7 +163,7 @@ func (n *Network) CreatePeerWithMana(c GoShimmerConfig) (*Peer, error) {
 	time.Sleep(15 * time.Second)
 	addr := peer.Seed.Address(uint64(0)).Address()
 	ID := base58.Encode(peer.ID().Bytes())
-	_, err = n.peers[0].SendFaucetRequest(addr.Base58(), ID, ID)
+	_, err = n.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
 	if err != nil {
 		_ = peer.Stop()
 		return nil, fmt.Errorf("error sending faucet request... shutting down: %w", err)

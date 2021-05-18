@@ -115,7 +115,7 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
 	}
 
-	resp, err := peer.SendFaucetRequest(addr.Base58(), aManaPledgeID, cManaPledgeID)
+	resp, err := peer.SendFaucetRequest(addr.Base58(), framework.ParaPoWFaucetDifficulty, aManaPledgeID, cManaPledgeID)
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
 	sent := DataMessageSent{

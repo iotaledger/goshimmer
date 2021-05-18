@@ -20,6 +20,7 @@ func NewConsensusManager(tangle *Tangle) (opinionFormer *ConsensusManager) {
 	opinionFormer = &ConsensusManager{
 		Events: &ConsensusManagerEvents{
 			MessageOpinionFormed: events.NewEvent(MessageIDCaller),
+			StatementProcessed:   events.NewEvent(MessageCaller),
 		},
 
 		tangle: tangle,
@@ -97,6 +98,8 @@ func (o *ConsensusManager) SetTransactionLiked(transactionID ledgerstate.Transac
 type ConsensusManagerEvents struct {
 	// Fired when an opinion of a message is formed.
 	MessageOpinionFormed *events.Event
+	// Fired when after a received statement is processed.
+	StatementProcessed *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

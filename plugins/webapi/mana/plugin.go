@@ -35,6 +35,8 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("/mana/consensus/online", getOnlineConsensusHandler)
 	webapi.Server().GET("/mana/pending", GetPendingMana)
 	webapi.Server().GET("mana/allowedManaPledge", allowedManaPledgeHandler)
+	webapi.Server().GET("mana/delegated", GetDelegatedMana)
+	webapi.Server().GET("mana/delegated/outputs", GetDelegatedOutputs)
 	// webapi.Server().GET("/mana/consensus/past", getPastConsensusManaVectorHandler)
 	// webapi.Server().GET("/mana/consensus/logs", getEventLogsHandler)
 	// webapi.Server().GET("/mana/consensus/metadata", getPastConsensusVectorMetadataHandler)

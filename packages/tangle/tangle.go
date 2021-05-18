@@ -218,6 +218,11 @@ func MessageIDCaller(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
 }
 
+// MessageCaller is the caller function for events that hand over a Message.
+func MessageCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*Message))(params[0].(*Message))
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
