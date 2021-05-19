@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 	"unsafe"
@@ -1447,6 +1448,7 @@ func (wallet *Wallet) UnspentAliasOutputs(includePending bool) map[address.Addre
 
 // RequestFaucetFunds requests some funds from the faucet for testing purposes.
 func (wallet *Wallet) RequestFaucetFunds(waitForConfirmation ...bool) (err error) {
+	fmt.Println("RequestFaucetFunds", wallet.faucetPowDifficulty)
 	if len(waitForConfirmation) == 0 || !waitForConfirmation[0] {
 		err = wallet.connector.RequestFaucetFunds(wallet.ReceiveAddress(), wallet.faucetPowDifficulty)
 
