@@ -182,6 +182,23 @@ func (b *BufferQueue) IDs() (ids []ElementID) {
 	return ids
 }
 
+// NodeIDs returns the nodeIDs of all nodes.
+func (b *BufferQueue) NodeIDs() []identity.ID {
+	var nodeIDs []identity.ID
+	start := b.Current()
+	if start == nil {
+		return nil
+	}
+	for q := start; ; {
+		nodeIDs = append(nodeIDs, q.NodeID())
+		q = b.Next()
+		if q == start {
+			break
+		}
+	}
+	return nodeIDs
+}
+
 func (b *BufferQueue) ringRemove(r *ring.Ring) {
 	n := b.ring.Next()
 	if r == b.ring {

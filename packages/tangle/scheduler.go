@@ -294,8 +294,7 @@ func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
 // NodeQueueSizes returns the size for each node queue.
 func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 	nodeQueueSizes := make(map[identity.ID]int)
-	for _, ID := range s.buffer.IDs() {
-		nodeID := identity.ID(ID)
+	for _, nodeID := range s.buffer.NodeIDs() {
 		size := s.NodeQueueSize(nodeID)
 		nodeQueueSizes[nodeID] = size
 	}

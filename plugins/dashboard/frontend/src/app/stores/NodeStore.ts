@@ -180,7 +180,7 @@ export class NodeStore {
     @observable last_component_counter_metric: ComponentCounterMetric = new ComponentCounterMetric();
     @observable collected_component_counter_metrics: Array<ComponentCounterMetric> = [];
     @observable scheduler_rate: number;
-    @observable collected_scheduler_metrics: any = {}
+    @observable collected_scheduler_metrics: any = {nodes: {}, ts: []}
     @observable collecting: boolean = true;
 
     constructor() {
@@ -223,7 +223,10 @@ export class NodeStore {
         this.neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
         this.collected_tips_metrics = [];
         this.collected_component_counter_metrics = [];
-        this.collected_scheduler_metrics = {}
+        this.collected_scheduler_metrics = {
+            nodes: {},
+            ts: []
+        }
     }
 
     reconnect() {
@@ -318,17 +321,21 @@ export class NodeStore {
 
     @action
     updateSchedulerMetric = (schedulerMetric: SchedulerMetric) => {
+        if(!this.collected_scheduler_metrics.ts) {
+            this.collected_scheduler_metrics.ts = []
+        }
+        this.collected_scheduler_metrics.ts.push(dateformat(Date.now(), "HH:MM:ss"))
        if(schedulerMetric.nodeQueueSizes) {
            Object.keys(schedulerMetric.nodeQueueSizes).forEach(nodeID => {
-               let data = this.collected_scheduler_metrics[nodeID]
+               let data = this.collected_scheduler_metrics.nodes[nodeID]
                if (!data){
-                   this.collected_scheduler_metrics[nodeID] = []
+                   data = []
                }
                if (data.length > maxMetricsDataPoints) {
                    data.shift()
                }
-               data.push(schedulerMetric[nodeID])
-               this.collected_scheduler_metrics[nodeID] = data
+               data.push(schedulerMetric.nodeQueueSizes[nodeID])
+               this.collected_scheduler_metrics.nodes[nodeID] = data
            })
        }
        this.scheduler_rate = schedulerMetric.rate
@@ -405,11 +412,16 @@ export class NodeStore {
 
     @computed
     get schedulerSeries() {
-        let labels = []
+        let labels = [...this.collected_scheduler_metrics.ts]
         let datasets = []
-        Object.keys(this.collected_scheduler_metrics).forEach(nodeID => {
-            let dataset = Object.assign({}, chartSeriesOpts, {label: nodeID})
-            dataset.data.push(...this.collected_scheduler_metrics[nodeID])
+        let r = 255, g = 182, b = 193;
+        Object.keys(this.collected_scheduler_metrics.nodes).forEach((nodeID, i) => {
+            r -= 33
+            g -= 50
+            b -= 60
+            let color = 'rgba(' + r + ',' + g + ',' + b + ',1)';
+            let dataset = Object.assign({}, chartSeriesOpts, series(nodeID, color, color))
+            dataset.data.push(...this.collected_scheduler_metrics.nodes[nodeID])
             datasets.push(dataset)
         })
         return {
