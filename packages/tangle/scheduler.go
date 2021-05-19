@@ -131,6 +131,31 @@ func (s *Scheduler) Rate() time.Duration {
 	return s.rate.Load()
 }
 
+// NodeQueueSize returns the size of the nodeIDs queue.
+func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	nodeQueue := s.buffer.NodeQueue(nodeID)
+	if nodeQueue == nil {
+		return 0
+	}
+	return nodeQueue.Size()
+}
+
+// NodeQueueSizes returns the size for each node queue.
+func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	nodeQueueSizes := make(map[identity.ID]int)
+	for _, nodeID := range s.buffer.NodeIDs() {
+		size := s.buffer.NodeQueue(nodeID).Size()
+		nodeQueueSizes[nodeID] = size
+	}
+	return nodeQueueSizes
+}
+
 // Submit submits a message to be considered by the scheduler.
 // This transactions will be included in all the control metrics, but it will never be
 // scheduled until Ready(messageID) has been called.
@@ -284,21 +309,6 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 		panic("scheduler: deficit is less than 0")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
-}
-
-// NodeQueueSize returns the size of the nodeIDs queue.
-func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
-	return s.buffer.NodeQueue(nodeID).Size()
-}
-
-// NodeQueueSizes returns the size for each node queue.
-func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
-	nodeQueueSizes := make(map[identity.ID]int)
-	for _, nodeID := range s.buffer.NodeIDs() {
-		size := s.NodeQueueSize(nodeID)
-		nodeQueueSizes[nodeID] = size
-	}
-	return nodeQueueSizes
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
