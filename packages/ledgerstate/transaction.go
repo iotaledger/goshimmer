@@ -167,7 +167,7 @@ type Transaction struct {
 // NewTransaction creates a new Transaction from the given details.
 func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (transaction *Transaction) {
 	if len(unlockBlocks) != len(essence.Inputs()) {
-		panic(fmt.Sprintf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.inputs)))
+		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.inputs)))
 	}
 
 	transaction = &Transaction{
@@ -249,7 +249,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	}
 
 	if len(transaction.unlockBlocks) != len(transaction.essence.Inputs()) {
-		err = errors.Errorf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("In TransactionFromMarshalUtil: amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
 		return
 	}
 

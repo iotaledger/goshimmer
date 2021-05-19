@@ -67,6 +67,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
 				UnspentOutputs: []bool{true},
 			},
 		},
@@ -254,6 +255,7 @@ func TestOpinionFormer(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
 				UnspentOutputs: []bool{true},
 			},
 		},

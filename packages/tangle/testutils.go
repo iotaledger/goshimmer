@@ -211,10 +211,14 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
 				UnspentOutputs: unspentOutputs,
 			},
 		},
 	}
+
+	fmt.Println("............... snapshot: ")
+	fmt.Println(snapshot)
 
 	m.tangle.LedgerState.LoadSnapshot(snapshot)
 
