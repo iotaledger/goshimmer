@@ -175,14 +175,8 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 
 	faucetPeer := peers[0]
 
-	genesisAddr := faucetPeer.Seed.Address(0).Address()
-	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{genesisAddr.Base58()})
-	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucetPeer.String())
-	genesisBalance := unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
-	fmt.Println("faucetRemainBalance:", genesisBalance)
-
 	// faucet keeps remaining amount on address 0
-	addrBalance[genesisAddr.Base58()][ledgerstate.ColorIOTA] = genesisBalance - int64(framework.ParaFaucetPreparedOutputsCount*int(framework.ParaFaucetTokensPerRequest))
+	addrBalance[faucetPeer.Seed.Address(0).Address().Base58()][ledgerstate.ColorIOTA] = int64(framework.GenesisTokenAmount - framework.ParaFaucetPreparedOutputsCount*int(framework.ParaFaucetTokensPerRequest))
 	var i uint64
 	// faucet has split genesis output into n bits of 1337 each and remainder on 0
 	for i = 1; i < uint64(len(peers)); i++ {
