@@ -126,7 +126,6 @@ func (api *GoShimmerAPI) GetOutputMetadata(base58EncodedOutputID string) (*json_
 
 // GetTransaction gets the transaction of the corresponding to TransactionID.
 func (api *GoShimmerAPI) GetTransaction(base58EncodedTransactionID string) (*json_models.Transaction, error) {
-	//	res := &jsonmodels.GetTransactionByIDResponse{}
 	res := &json_models.Transaction{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID}, "")

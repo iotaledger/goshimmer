@@ -7,21 +7,9 @@ import (
 )
 
 const (
-	routeSendTxn              = "value/sendTransaction"
-	routeSendTxnByJSON        = "value/sendTransactionByJson"
-	routeUnspentOutputs       = "value/unspentOutputs"
+	routeSendTxn       = "value/sendTransaction"
+	routeSendTxnByJSON = "value/sendTransactionByJson"
 )
-
-// GetUnspentOutputs return unspent output IDs of addresses
-func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*value.UnspentOutputsResponse, error) {
-	res := &value.UnspentOutputsResponse{}
-	if err := api.do(http.MethodPost, routeUnspentOutputs,
-		&value.UnspentOutputsRequest{Addresses: addresses}, res); err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
 
 // SendTransaction sends the transaction(bytes) to the Value Tangle and returns transaction ID.
 func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {

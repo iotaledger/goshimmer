@@ -182,13 +182,13 @@ func TestConsensus(t *testing.T) {
 
 	for i, conflictingTx := range conflictingTxIDs {
 		for _, p := range n.Peers() {
-			tx, err := p.GetTransactionByID(conflictingTx)
+			tx, err := p.GetTransactionInclusionState(conflictingTx)
 			assert.NoError(t, err)
-			if tx.InclusionState.Confirmed {
+			if tx.Confirmed {
 				confirmed[i]++
 				continue
 			}
-			if tx.InclusionState.Rejected {
+			if tx.Rejected {
 				rejected[i]++
 			}
 		}

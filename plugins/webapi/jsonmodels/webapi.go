@@ -191,19 +191,12 @@ func NewErrorResponse(err error) *ErrorResponse {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetTransactionByIDResponse represents the JSON model of the transaction's consensus metadata.
-type GetTransactionByIDResponse struct {
-	TransactionMetadata TransactionMetadata `json:"transactionMetadata"`
-	Transaction         Transaction         `json:"transaction"`
-	InclusionState      InclusionState      `json:"inclusionState"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region GetUnspentOutputsResponse ////////////////////////////////////////////////////////////////////////////////////
 
-//GetUnspentOutputsResponse represents the JSON model for the unspent outputs API endpoint
+// GetUnspentOutputResponse represents the JSON model of a response from the GetUnspentOutput endpoint.
 type GetUnspentOutputResponse struct {
+	Address *Address  `json:"address"`
+	Outputs []*Output `json:"outputs"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

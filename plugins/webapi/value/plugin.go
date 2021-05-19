@@ -26,7 +26,5 @@ func Plugin() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	webapi.Server().POST("value/unspentOutputs", unspentOutputsHandler)
-	webapi.Server().POST("value/sendTransaction", sendTransactionHandler)
 	webapi.Server().POST("value/sendTransactionByJson", sendTransactionByJSONHandler)
 }
