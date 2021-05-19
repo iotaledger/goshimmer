@@ -41,6 +41,8 @@ func loadWallet() *wallet.Wallet {
 		walletOptions = append(walletOptions, wallet.ReusableAddress(true))
 	}
 
+	walletOptions = append(walletOptions, wallet.FaucetPowDifficulty(config.FaucetPowDifficulty))
+
 	return wallet.New(walletOptions...)
 }
 

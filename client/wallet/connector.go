@@ -11,7 +11,7 @@ import (
 type Connector interface {
 	UnspentOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID, err error)
 	SendTransaction(transaction *ledgerstate.Transaction) (err error)
-	RequestFaucetFunds(address address.Address) (err error)
+	RequestFaucetFunds(address address.Address, powTarget int) (err error)
 	GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error)
 	GetTransactionInclusionState(txID ledgerstate.TransactionID) (inc ledgerstate.InclusionState, err error)
 	GetUnspentAliasOutput(address *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error)

@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -112,6 +113,12 @@ func getInfo(c echo.Context) error {
 		ConsensusTimestamp: tConsensus,
 	}
 
+	var delegationAddressString string
+	delegationAddress, err := manarefresher.DelegationAddress()
+	if err == nil {
+		delegationAddressString = delegationAddress.Base58()
+	}
+
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          discovery.NetworkVersion(),
@@ -125,6 +132,7 @@ func getInfo(c echo.Context) error {
 		EnabledPlugins:          enabledPlugins,
 		DisabledPlugins:         disabledPlugins,
 		Mana:                    nodeMana,
+		ManaDelegationAddress:   delegationAddressString,
 		ManaDecay:               mana.Decay,
 	})
 }

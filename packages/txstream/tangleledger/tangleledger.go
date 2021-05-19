@@ -6,12 +6,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // TangleLedger imlpements txstream.TangleLedger with the Goshimmer tangle as backend
@@ -120,16 +117,6 @@ func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 		return fmt.Errorf("failed to issue transaction: %w", err)
 	}
 	return nil
-}
-
-// RequestFunds requests funds from the faucet
-func (t *TangleLedger) RequestFunds(target ledgerstate.Address) error {
-	faucetPayload, err := faucet.NewRequest(target, config.Node().Int(faucet.CfgFaucetPoWDifficulty), identity.ID{}, identity.ID{})
-	if err != nil {
-		return err
-	}
-	_, err = messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload)
-	return err
 }
 
 // GetOutput finds an output by ID (either spent or unspent)

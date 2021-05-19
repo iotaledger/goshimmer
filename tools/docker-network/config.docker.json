@@ -81,6 +81,6 @@
     "bindAddress": "0.0.0.0:8080"
   },
   "faucet": {
-    "powDifficulty": 2
+    "powDifficulty": 12
   }
 }
