@@ -51,7 +51,7 @@ func init() {
 	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this faucet is enabled")
 	flag.Int(CfgFaucetTokensPerRequest, 1000000, "the amount of tokens the faucet should send for each request")
 	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer")
-	flag.Int(CfgFaucetPoWDifficulty, 25, "defines the PoW difficulty for faucet payloads")
+	flag.Int(CfgFaucetPoWDifficulty, 22, "defines the PoW difficulty for faucet payloads")
 	flag.Int(CfgFaucetBlacklistCapacity, 10000, "holds the maximum amount the address blacklist holds")
 	flag.Int(CfgFaucetPreparedOutputsCount, 126, "number of outputs the faucet prepares")
 	flag.Int(CfgFaucetStartIndex, 0, "address index to start faucet with")

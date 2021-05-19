@@ -1,3 +1,7 @@
+# v0.6.1 - 2021-05-19
+* Change Faucet default parameters
+* **Breaking**: bumps network and database versions
+
 # v0.6.0 - 2021-05-19
 * Add first iteration of the tokenization framework
 * Add aMana refresher
