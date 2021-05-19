@@ -133,7 +133,7 @@ const (
 	PrefixMessageMetadata
 
 	// cacheTime defines the duration that the object Storage caches objects.
-	cacheTime = 0 * time.Second
+	cacheTime = 1 * time.Second
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -244,7 +244,6 @@ func (m *MessageMetadata) SetPayloadOpinionFormed(payloadOpinionFormed bool) (mo
 	modified = true
 
 	m.SetModified()
-	m.Persist()
 
 	return
 }
@@ -271,7 +270,6 @@ func (m *MessageMetadata) SetTimestampOpinionFormed(timestampOpinionFormed bool)
 	modified = true
 
 	m.SetModified()
-	m.Persist()
 
 	return
 }
@@ -309,7 +307,6 @@ func (m *MessageMetadata) SetMessageOpinionFormed(messageOpinionFormed bool) (mo
 	modified = true
 
 	m.SetModified()
-	m.Persist()
 
 	return
 }
@@ -336,7 +333,6 @@ func (m *MessageMetadata) SetMessageOpinionTriggered(messageOpinionTriggered boo
 	modified = true
 
 	m.SetModified()
-	m.Persist()
 
 	return
 }
@@ -372,7 +368,7 @@ func (m *MessageMetadata) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the MessageMetadata into a sequence of bytes that are used as the value part in the
 // object Storage.
 func (m *MessageMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New(3 * marshalutil.BoolSize).
+	return marshalutil.New(4*marshalutil.BoolSize + marshalutil.TimeSize).
 		WriteBool(m.PayloadOpinionFormed()).
 		WriteBool(m.TimestampOpinionFormed()).
 		WriteBool(m.MessageOpinionFormed()).
