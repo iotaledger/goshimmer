@@ -1,9 +1,9 @@
 package vote
 
 import (
-	"errors"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"

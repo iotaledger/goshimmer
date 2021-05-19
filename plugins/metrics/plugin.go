@@ -54,7 +54,6 @@ func run(_ *node.Plugin) {
 		measureInitialDBStats()
 		registerLocalMetrics()
 	}
-
 	// Events from analysis server
 	if config.Node().Bool(CfgMetricsGlobal) {
 		server.Events.MetricHeartbeat.Attach(onMetricHeartbeatReceived)
@@ -95,7 +94,8 @@ func run(_ *node.Plugin) {
 		timeutil.NewTicker(func() {
 			measureMana()
 		}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
-
+		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		<-shutdownSignal
 		log.Infof("Stopping Metrics Mana Updater ...")
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -109,7 +109,8 @@ func run(_ *node.Plugin) {
 				measureAccessResearchMana()
 				measureConsensusResearchMana()
 			}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
-
+			// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+			<-shutdownSignal
 			log.Infof("Stopping Metrics Research Mana Updater ...")
 		}, shutdown.PriorityMetrics); err != nil {
 			log.Panicf("Failed to start as daemon: %s", err)
@@ -208,8 +209,8 @@ func registerLocalMetrics() {
 	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64) {
 		memUsageBytes.Store(memAllocBytes)
 	}))
-	metrics.Events().Synced.Attach(events.NewClosure(func(synced bool) {
-		isSynced.Store(synced)
+	metrics.Events().TangleTimeSynced.Attach(events.NewClosure(func(synced bool) {
+		isTangleTimeSynced.Store(synced)
 	}))
 
 	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)

@@ -2,11 +2,10 @@ package drng
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
@@ -29,19 +28,18 @@ var ErrParsingCommitteeMember = errors.New("cannot parse committee member")
 
 func configureDRNG() *drng.DRNG {
 	c := make(map[uint32][]drng.Option)
-	log = logger.NewLogger(PluginName)
 
 	// Pollen dRNG configuration
 	// parse identities of the committee members
 	committeeMembers, err := parseCommitteeMembers(config.Node().Strings(CfgDRNGCommitteeMembers))
 	if err != nil {
-		log.Warnf("Invalid %s: %s", CfgDRNGCommitteeMembers, err)
+		plugin.LogWarnf("Invalid %s: %s", CfgDRNGCommitteeMembers, err)
 	}
 
 	// parse distributed public key of the committee
 	dpk, err := parseDistributedPublicKey(CfgDRNGDistributedPubKey)
 	if err != nil {
-		log.Warn(err)
+		plugin.LogWarn(err)
 	}
 
 	// configure pollen committee
@@ -60,13 +58,13 @@ func configureDRNG() *drng.DRNG {
 	// parse identities of the x-team committee members
 	committeeMembers, err = parseCommitteeMembers(config.Node().Strings(CfgDRNGXTeamCommitteeMembers))
 	if err != nil {
-		log.Warnf("Invalid %s: %s", CfgDRNGXTeamCommitteeMembers, err)
+		plugin.LogWarnf("Invalid %s: %s", CfgDRNGXTeamCommitteeMembers, err)
 	}
 
 	// parse distributed public key of the committee
 	dpk, err = parseDistributedPublicKey(CfgDRNGXTeamDistributedPubKey)
 	if err != nil {
-		log.Warn(err)
+		plugin.LogWarn(err)
 	}
 
 	// configure X-Team committee
@@ -85,13 +83,13 @@ func configureDRNG() *drng.DRNG {
 	// parse identities of the x-team committee members
 	committeeMembers, err = parseCommitteeMembers(config.Node().Strings(CfgDRNGCustomCommitteeMembers))
 	if err != nil {
-		log.Warnf("Invalid %s: %s", CfgDRNGCustomCommitteeMembers, err)
+		plugin.LogWarn("Invalid %s: %s", CfgDRNGCustomCommitteeMembers, err)
 	}
 
 	// parse distributed public key of the committee
 	dpk, err = parseDistributedPublicKey(CfgDRNGCustomDistributedPubKey)
 	if err != nil {
-		log.Warn(err)
+		plugin.LogWarn(err)
 	}
 
 	// configure Custom committee
@@ -106,7 +104,7 @@ func configureDRNG() *drng.DRNG {
 		if customConf.InstanceID != Pollen && customConf.InstanceID != XTeam {
 			c[customConf.InstanceID] = []drng.Option{drng.SetCommittee(customConf)}
 		} else {
-			log.Warnf("Invalid Custom dRNG instanceID: %d, must be different than both Pollen and X-Team dRNG instance IDs (%d - %d)", customConf.InstanceID, pollenConf.InstanceID, xTeamConf.InstanceID)
+			plugin.LogWarnf("Invalid Custom dRNG instanceID: %d, must be different than both Pollen and X-Team dRNG instance IDs (%d - %d)", customConf.InstanceID, pollenConf.InstanceID, xTeamConf.InstanceID)
 		}
 	}
 

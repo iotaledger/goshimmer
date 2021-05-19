@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TEST_NAMES='autopeering common drng message value consensus faucet syncbeacon mana'
+TEST_NAMES='autopeering common drng message value consensus faucet mana'
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1

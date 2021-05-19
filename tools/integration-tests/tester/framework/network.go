@@ -126,19 +126,8 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.Name = name
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
-	config.DisabledPlugins = func() string {
-		if !config.SyncBeaconFollower {
-			return disabledPluginsPeer + ",SyncBeaconFollower"
-		}
-		return disabledPluginsPeer
-	}()
+	config.DisabledPlugins = disabledPluginsPeer
 	config.SnapshotFilePath = snapshotFilePath
-	if config.SyncBeaconFollowNodes == "" {
-		config.SyncBeaconFollowNodes = syncBeaconPublicKey
-	}
-	if config.SyncBeaconBroadcastInterval == 0 {
-		config.SyncBeaconBroadcastInterval = 5
-	}
 	if config.FPCRoundInterval == 0 {
 		config.FPCRoundInterval = 5
 	}
@@ -186,7 +175,7 @@ func (n *Network) CreatePeerWithMana(c GoShimmerConfig) (*Peer, error) {
 	}
 	addr := peer.Seed.Address(uint64(0)).Address()
 	ID := base58.Encode(peer.ID().Bytes())
-	_, err = peer.SendFaucetRequest(addr.Base58(), ID, ID)
+	_, err = peer.SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
 	if err != nil {
 		_ = peer.Stop()
 		return nil, fmt.Errorf("error sending faucet request... shutting down: %w", err)

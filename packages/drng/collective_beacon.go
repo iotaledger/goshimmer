@@ -3,7 +3,7 @@ package drng
 import (
 	"bytes"
 	"crypto/sha512"
-	"errors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/drand/drand/chain"
 	"github.com/drand/drand/key"

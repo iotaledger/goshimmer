@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
-	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
@@ -34,8 +34,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/clock"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,7 +69,6 @@ func ConsensusPlugin() *node.Plugin {
 }
 
 func configureConsensusPlugin(plugin *node.Plugin) {
-	configureRemoteLogger()
 	configureFPC(plugin)
 
 	// subscribe to FCOB events
@@ -364,7 +361,7 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs, timestampID
 	defer func() {
 		cerr := conn.Close()
 		if err == nil {
-			err = xerrors.Errorf("failed to close connection: %w", cerr)
+			err = errors.Errorf("failed to close connection: %w", cerr)
 		}
 	}()
 
@@ -450,61 +447,6 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region RemoteLogger /////////////////////////////////////////////////////////////////////////////////////////////////
-
-const (
-	remoteLogType = "statement"
-)
-
-var (
-	remoteLogger *remotelog.RemoteLoggerConn
-	myID         string
-	clockEnabled bool
-)
-
-func configureRemoteLogger() {
-	remoteLogger = remotelog.RemoteLogger()
-
-	if local.GetInstance() != nil {
-		myID = local.GetInstance().ID().String()
-	}
-
-	clockEnabled = !node.IsSkipped(clock.Plugin())
-}
-
-func sendToRemoteLog(msgID, issuerID string, issuedTime, arrivalTime, solidTime int64) {
-	m := statementLog{
-		NodeID:       myID,
-		MsgID:        msgID,
-		IssuerID:     issuerID,
-		IssuedTime:   issuedTime,
-		ArrivalTime:  arrivalTime,
-		SolidTime:    solidTime,
-		DeltaArrival: arrivalTime - issuedTime,
-		DeltaSolid:   solidTime - issuedTime,
-		Clock:        clockEnabled,
-		Sync:         Tangle().Synced(),
-		Type:         remoteLogType,
-	}
-	_ = remoteLogger.Send(m)
-}
-
-type statementLog struct {
-	NodeID       string `json:"nodeID"`
-	MsgID        string `json:"msgID"`
-	IssuerID     string `json:"issuerID"`
-	IssuedTime   int64  `json:"issuedTime"`
-	ArrivalTime  int64  `json:"arrivalTime"`
-	SolidTime    int64  `json:"solidTime"`
-	DeltaArrival int64  `json:"deltaArrival"`
-	DeltaSolid   int64  `json:"deltaSolid"`
-	Clock        bool   `json:"clock"`
-	Sync         bool   `json:"sync"`
-	Type         string `json:"type"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
@@ -536,14 +478,14 @@ func makeStatement(roundStats *vote.RoundStats, broadcastFunc func(conflicts sta
 		case vote.TimestampType:
 			timeStampStatement, err := makeTimeStampStatement(id, v)
 			if err != nil {
-				plugin.LogErrorf("Statement error: %s", xerrors.Errorf("Failed to create a TimeStamp statement: %w", err))
+				plugin.LogErrorf("Statement error: %s", errors.Errorf("Failed to create a TimeStamp statement: %w", err))
 				break
 			}
 			timestamps = append(timestamps, timeStampStatement)
 		case vote.ConflictType:
 			conflictStatement, err := makeConflictStatement(id, v)
 			if err != nil {
-				plugin.LogErrorf("Statement error: %s", xerrors.Errorf("Failed to create a Conflict statement: %w", err))
+				plugin.LogErrorf("Statement error: %s", errors.Errorf("Failed to create a Conflict statement: %w", err))
 				break
 			}
 			conflicts = append(conflicts, conflictStatement)
@@ -575,7 +517,7 @@ func hasStatementExceededMaxSize(conflicts statement.Conflicts, timestamps state
 func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, error) {
 	messageID, err := ledgerstate.TransactionIDFromBase58(id)
 	if err != nil {
-		err = xerrors.Errorf("Failed to create a Conflict statement: %w", err)
+		err = errors.Errorf("Failed to create a Conflict statement: %w", err)
 		return statement.Conflict{}, err
 	}
 	conflict := statement.Conflict{
@@ -591,7 +533,7 @@ func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, erro
 func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, error) {
 	messageID, err := tangle.NewMessageID(id)
 	if err != nil {
-		err = xerrors.Errorf("Failed to create a TimeStamp statement: %w", err)
+		err = errors.Errorf("Failed to create a TimeStamp statement: %w", err)
 		return statement.Timestamp{}, err
 	}
 	timestamp := statement.Timestamp{
@@ -645,16 +587,7 @@ func readStatement(messageID tangle.MessageID) {
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
 
 		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
-
-		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			sendToRemoteLog(
-				msg.ID().Base58(),
-				issuerID.String(),
-				msg.IssuingTime().UnixNano(),
-				messageMetadata.ReceivedTime().UnixNano(),
-				messageMetadata.SolidificationTime().UnixNano(),
-			)
-		})
+		Tangle().ConsensusManager.Events.StatementProcessed.Trigger(msg)
 	})
 }
 

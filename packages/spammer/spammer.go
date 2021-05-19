@@ -5,14 +5,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // IssuePayloadFunc is a function which issues a payload.
-type IssuePayloadFunc = func(payload payload.Payload) (*tangle.Message, error)
+type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*tangle.Message, error)
 
 // Spammer spams messages with a static data payload.
 type Spammer struct {
@@ -51,7 +51,7 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64, i
 
 		// we don't care about errors or the actual issued message
 		_, err := spammer.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-		if xerrors.Is(err, tangle.ErrNotSynced) {
+		if errors.Is(err, tangle.ErrNotSynced) {
 			// can't issue msg because node not in sync
 			return
 		}

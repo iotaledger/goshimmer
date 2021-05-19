@@ -1,10 +1,11 @@
 package client
 
 import (
-	"errors"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/netutil"

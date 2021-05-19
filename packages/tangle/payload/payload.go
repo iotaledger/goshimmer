@@ -3,9 +3,9 @@ package payload
 import (
 	"fmt"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"golang.org/x/xerrors"
 )
 
 // MaxSize defines the maximum allowed size of a marshaled Payload (in bytes).
@@ -30,7 +30,7 @@ type Payload interface {
 func FromBytes(payloadBytes []byte) (payload Payload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(payloadBytes)
 	if payload, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -42,11 +42,11 @@ func FromBytes(payloadBytes []byte) (payload Payload, consumedBytes int, err err
 func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err error) {
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if payloadSize > MaxSize {
-		err = xerrors.Errorf("maximum payload size of %d bytes exceeded: %w", MaxSize, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("maximum payload size of %d bytes exceeded: %w", MaxSize, cerrors.ErrParseBytesFailed)
 		return
 	}
 	// a payloadSize of 0 indicates the payload is omitted and the payload is nil
@@ -56,14 +56,14 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 
 	payloadType, err := TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal Type from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to unmarshal Type from MarshalUtil: %w", err)
 		return
 	}
 
 	marshalUtil.ReadSeek(-marshalutil.Uint32Size * 2)
 	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize) + 4)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal payload bytes (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to unmarshal payload bytes (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 

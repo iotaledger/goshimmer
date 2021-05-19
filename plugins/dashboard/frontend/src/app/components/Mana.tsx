@@ -29,7 +29,7 @@ export class Mana extends React.Component<Props, any> {
         return (
             <Container>
                 {
-                    !nodeStore.status.synced &&
+                    !nodeStore.status.tangleTime.synced &&
                     <Badge variant="danger">WARNING: Node not in sync, displayed mana values might be outdated!</Badge>
                 }
                 <Row className={"mb-3"}>
@@ -155,14 +155,14 @@ export class Mana extends React.Component<Props, any> {
                     <Col>
                         <ManaEventList
                             title={"Access Events"}
-                            listItems={nodeStore.status.synced?  manaStore.accessEventList: [manaStore.nodeNotSyncedListItem]}
+                            listItems={nodeStore.status.tangleTime.synced?  manaStore.accessEventList: [manaStore.nodeNotSyncedListItem]}
                             since={manaStore.lastRemovedAccessEventTime}
                         />
                     </Col>
                     <Col>
                         <ManaEventList
                             title={"Consensus Events"}
-                            listItems={nodeStore.status.synced? manaStore.consensusEventList: [manaStore.nodeNotSyncedListItem]}
+                            listItems={nodeStore.status.tangleTime.synced? manaStore.consensusEventList: [manaStore.nodeNotSyncedListItem]}
                             since={manaStore.lastRemovedConsensusEventTime}
                         />
                     </Col>

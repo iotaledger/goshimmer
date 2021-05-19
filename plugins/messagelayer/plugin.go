@@ -1,25 +1,22 @@
 package messagelayer
 
 import (
-	"errors"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/gommon/log"
-	"golang.org/x/xerrors"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/node"
 )
 
 const (
@@ -62,6 +59,12 @@ func configure(plugin *node.Plugin) {
 		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
 	}))
 
+	Tangle().Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			Tangle().WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
+		})
+	}))
+
 	// read snapshot file
 	if Parameters.Snapshot.File != "" {
 		snapshot := &ledgerstate.Snapshot{}
@@ -79,13 +82,6 @@ func configure(plugin *node.Plugin) {
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
 
-	// set up epochsManager so that we mark nodes as active
-	Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			EpochsManager().Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
-		})
-	}))
-
 	configureApprovalWeight()
 }
 
@@ -94,7 +90,7 @@ func run(*node.Plugin) {
 		<-shutdownSignal
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -116,9 +112,11 @@ func Tangle() *tangle.Tangle {
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
-			tangle.ApprovalWeights(tangle.WeightProviderFromEpochsManager(EpochsManager())),
 			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
+			tangle.StartSynced(Parameters.StartSynced),
 		)
+
+		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
 
 		tangleInstance.Setup()
 	})
@@ -142,24 +140,6 @@ func ConsensusMechanism() *fcob.ConsensusMechanism {
 	})
 
 	return consensusMechanism
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Epochs ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-var (
-	epochsManager     *epochs.Manager
-	epochsManagerOnce sync.Once
-)
-
-// EpochsManager returns the instance of the epochs manager.
-func EpochsManager() *epochs.Manager {
-	epochsManagerOnce.Do(func() {
-		epochsManager = epochs.NewManager(epochs.Store(database.Store()), epochs.ManaRetriever(ManaEpoch), epochs.CacheTime(0))
-	})
-
-	return epochsManager
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -215,7 +195,7 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	result := <-issueResult
 
 	if result.err != nil || result.msg == nil {
-		return nil, xerrors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
 	}
 
 	select {

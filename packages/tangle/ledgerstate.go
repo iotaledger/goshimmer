@@ -1,8 +1,8 @@
 package tangle
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/types"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -14,7 +14,9 @@ import (
 type LedgerState struct {
 	tangle    *Tangle
 	BranchDAG *ledgerstate.BranchDAG
-	utxoDAG   *ledgerstate.UTXODAG
+	UTXODAG   *ledgerstate.UTXODAG
+
+	totalSupply uint64
 }
 
 // NewLedgerState is the constructor of the LedgerState component.
@@ -23,13 +25,13 @@ func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
 	return &LedgerState{
 		tangle:    tangle,
 		BranchDAG: branchDAG,
-		utxoDAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, branchDAG),
+		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, branchDAG),
 	}
 }
 
 // Shutdown shuts down the LedgerState and persists its state.
 func (l *LedgerState) Shutdown() {
-	l.utxoDAG.Shutdown()
+	l.UTXODAG.Shutdown()
 	l.BranchDAG.Shutdown()
 }
 
@@ -48,13 +50,13 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
-		if xerrors.Is(err, ledgerstate.ErrInvalidStateTransition) {
+		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
 			inheritedBranch = ledgerstate.InvalidBranchID
 			err = nil
 			return
 		}
 
-		err = xerrors.Errorf("failed to aggregate BranchIDs: %w", err)
+		err = errors.Errorf("failed to aggregate BranchIDs: %w", err)
 		return
 	}
 	cachedAggregatedBranch.Release()
@@ -66,13 +68,13 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 // TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
 // not pass.
 func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
-	if err = l.utxoDAG.CheckTransaction(transaction); err != nil {
+	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
 			messagemetadata.SetInvalid(true)
 		})
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
 
-		return xerrors.Errorf("invalid transaction in message with %s: %w", messageID, err)
+		return errors.Errorf("invalid transaction in message with %s: %w", messageID, err)
 	}
 
 	return nil
@@ -85,21 +87,21 @@ func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.Transacti
 
 // TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
 func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *ledgerstate.CachedTransactionMetadata) {
-	return l.utxoDAG.TransactionMetadata(transactionID)
+	return l.UTXODAG.TransactionMetadata(transactionID)
 }
 
 // Transaction retrieves the Transaction with the given TransactionID from the object storage.
 func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransaction {
-	return l.utxoDAG.Transaction(transactionID)
+	return l.UTXODAG.Transaction(transactionID)
 }
 
 // BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
 // eventual error.
 func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
-	targetBranch, err = l.utxoDAG.BookTransaction(transaction)
+	targetBranch, err = l.UTXODAG.BookTransaction(transaction)
 	if err != nil {
-		if !xerrors.Is(err, ledgerstate.ErrTransactionInvalid) && !xerrors.Is(err, ledgerstate.ErrTransactionNotSolid) {
-			err = xerrors.Errorf("failed to book Transaction: %w", err)
+		if !errors.Is(err, ledgerstate.ErrTransactionInvalid) && !errors.Is(err, ledgerstate.ErrTransactionNotSolid) {
+			err = errors.Errorf("failed to book Transaction: %w", err)
 			return
 		}
 
@@ -137,7 +139,7 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 // TransactionInclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
 // Pending, Confirmed or Rejected.
 func (l *LedgerState) TransactionInclusionState(transactionID ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
-	return l.utxoDAG.InclusionState(transactionID)
+	return l.UTXODAG.InclusionState(transactionID)
 }
 
 // BranchInclusionState returns the InclusionState of the Branch with the given BranchID which can either be
@@ -151,7 +153,7 @@ func (l *LedgerState) BranchInclusionState(branchID ledgerstate.BranchID) (inclu
 
 // BranchID returns the branchID of the given transactionID.
 func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID) {
-	l.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	l.UTXODAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		branchID = transactionMetadata.BranchID()
 	})
 	return
@@ -159,11 +161,18 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
-	l.utxoDAG.LoadSnapshot(snapshot)
-	for txID := range snapshot.Transactions {
+	l.UTXODAG.LoadSnapshot(snapshot)
+	for txID, essence := range snapshot.Transactions {
 		attachment, _ := l.tangle.Storage.StoreAttachment(txID, EmptyMessageID)
 		if attachment != nil {
 			attachment.Release()
+		}
+		// The following only works assuming that the snapshot contains all of the unspent outputs.
+		for _, output := range essence.Outputs() {
+			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				l.totalSupply += balance
+				return true
+			})
 		}
 	}
 	attachment, _ := l.tangle.Storage.StoreAttachment(ledgerstate.GenesisTransactionID, EmptyMessageID)
@@ -174,17 +183,17 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 
 // Output returns the Output with the given ID.
 func (l *LedgerState) Output(outputID ledgerstate.OutputID) *ledgerstate.CachedOutput {
-	return l.utxoDAG.Output(outputID)
+	return l.UTXODAG.Output(outputID)
 }
 
 // OutputMetadata returns the OutputMetadata with the given ID.
 func (l *LedgerState) OutputMetadata(outputID ledgerstate.OutputID) *ledgerstate.CachedOutputMetadata {
-	return l.utxoDAG.OutputMetadata(outputID)
+	return l.UTXODAG.OutputMetadata(outputID)
 }
 
 // OutputsOnAddress retrieves all the Outputs that are associated with an address.
 func (l *LedgerState) OutputsOnAddress(address ledgerstate.Address) (cachedOutputs ledgerstate.CachedOutputs) {
-	l.utxoDAG.AddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+	l.UTXODAG.AddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
 		cachedOutputs = append(cachedOutputs, l.Output(addressOutputMapping.OutputID()))
 	})
 	return
@@ -192,17 +201,22 @@ func (l *LedgerState) OutputsOnAddress(address ledgerstate.Address) (cachedOutpu
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
 func (l *LedgerState) CheckTransaction(transaction *ledgerstate.Transaction) (err error) {
-	return l.utxoDAG.CheckTransaction(transaction)
+	return l.UTXODAG.CheckTransaction(transaction)
 }
 
 // ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
 func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cachedInputs ledgerstate.CachedOutputs) {
-	return l.utxoDAG.ConsumedOutputs(transaction)
+	return l.UTXODAG.ConsumedOutputs(transaction)
 }
 
 // Consumers returns the (cached) consumers of the given outputID.
 func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
-	return l.utxoDAG.Consumers(outputID)
+	return l.UTXODAG.Consumers(outputID)
+}
+
+// TotalSupply returns the total supply.
+func (l *LedgerState) TotalSupply() (totalSupply uint64) {
+	return l.totalSupply
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

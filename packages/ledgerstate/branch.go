@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
@@ -16,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 )
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -52,7 +52,7 @@ func NewBranchID(transactionID TransactionID) (branchID BranchID) {
 func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -64,12 +64,12 @@ func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err 
 func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded BranchID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded BranchID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if branchID, _, err = BranchIDFromBytes(decodedBytes); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from bytes: %w", err)
+		err = errors.Errorf("failed to parse BranchID from bytes: %w", err)
 		return
 	}
 
@@ -80,7 +80,7 @@ func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
 	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse BranchID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(branchID[:], branchIDBytes)
@@ -91,6 +91,13 @@ func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID Bra
 // BranchIDFromRandomness returns a random BranchID which can for example be used for unit tests.
 func BranchIDFromRandomness() (branchID BranchID) {
 	crypto.Randomness.Read(branchID[:])
+
+	return
+}
+
+// TransactionID returns the TransactionID of its underlying conflicting Transaction.
+func (b BranchID) TransactionID() (transactionID TransactionID) {
+	copy(transactionID[:], b[:])
 
 	return
 }
@@ -160,7 +167,7 @@ func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 func BranchIDsFromBytes(bytes []byte) (branchIDs BranchIDs, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchIDs from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchIDs from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -172,7 +179,7 @@ func BranchIDsFromBytes(bytes []byte) (branchIDs BranchIDs, consumedBytes int, e
 func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs BranchIDs, err error) {
 	branchIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse BranchIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -180,7 +187,7 @@ func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs B
 	for i := uint64(0); i < branchIDsCount; i++ {
 		branchID, branchIDErr := BranchIDFromMarshalUtil(marshalUtil)
 		if branchIDErr != nil {
-			err = xerrors.Errorf("failed to parse BranchID: %w", branchIDErr)
+			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
 			return
 		}
 
@@ -276,7 +283,7 @@ const (
 func BranchTypeFromBytes(branchTypeBytes []byte) (branchType BranchType, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(branchTypeBytes)
 	if branchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchType from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchType from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -287,7 +294,7 @@ func BranchTypeFromBytes(branchTypeBytes []byte) (branchType BranchType, consume
 func BranchTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchType BranchType, err error) {
 	branchTypeByte, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -297,7 +304,7 @@ func BranchTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchType
 	case AggregatedBranchType:
 		return
 	default:
-		err = xerrors.Errorf("invalid BranchType (%X): %w", branchTypeByte, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid BranchType (%X): %w", branchTypeByte, cerrors.ErrParseBytesFailed)
 		return
 	}
 }
@@ -372,7 +379,7 @@ type Branch interface {
 func BranchFromBytes(bytes []byte) (branch Branch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branch, err = BranchFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -383,7 +390,7 @@ func BranchFromBytes(bytes []byte) (branch Branch, consumedBytes int, err error)
 func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch, err error) {
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -391,16 +398,16 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 	switch BranchType(branchType) {
 	case ConflictBranchType:
 		if branch, err = ConflictBranchFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse ConflictBranch: %w", err)
+			err = errors.Errorf("failed to parse ConflictBranch: %w", err)
 			return
 		}
 	case AggregatedBranchType:
 		if branch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse AggregatedBranch: %w", err)
+			err = errors.Errorf("failed to parse AggregatedBranch: %w", err)
 			return
 		}
 	default:
-		err = xerrors.Errorf("unsupported BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("unsupported BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -410,7 +417,7 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 // BranchFromObjectStorage restores a Branch that was stored in the object storage.
 func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.StorableObject, err error) {
 	if branch, _, err = BranchFromBytes(data); err != nil {
-		err = xerrors.Errorf("failed to parse Branch from bytes: %w", err)
+		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
 		return
 	}
 
@@ -466,7 +473,7 @@ func (c *CachedBranch) UnwrapConflictBranch() (conflictBranch *ConflictBranch, e
 
 	conflictBranch, typeCastOK := branch.(*ConflictBranch)
 	if !typeCastOK {
-		err = xerrors.Errorf("CachedBranch does not contain a ConflictBranch: %w", cerrors.ErrFatal)
+		err = errors.Errorf("CachedBranch does not contain a ConflictBranch: %w", cerrors.ErrFatal)
 		return
 	}
 
@@ -482,7 +489,7 @@ func (c *CachedBranch) UnwrapAggregatedBranch() (aggregatedBranch *AggregatedBra
 
 	aggregatedBranch, typeCastOK := branch.(*AggregatedBranch)
 	if !typeCastOK {
-		err = xerrors.Errorf("CachedBranch does not contain an AggregatedBranch: %w", cerrors.ErrFatal)
+		err = errors.Errorf("CachedBranch does not contain an AggregatedBranch: %w", cerrors.ErrFatal)
 		return
 	}
 
@@ -541,7 +548,7 @@ func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *C
 func ConflictBranchFromBytes(bytes []byte) (conflictBranch *ConflictBranch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictBranch, err = ConflictBranchFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ConflictBranch from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ConflictBranch from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -553,41 +560,41 @@ func ConflictBranchFromBytes(bytes []byte) (conflictBranch *ConflictBranch, cons
 func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *ConflictBranch, err error) {
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if BranchType(branchType) != ConflictBranchType {
-		err = xerrors.Errorf("invalid BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	conflictBranch = &ConflictBranch{}
 	if conflictBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse id: %w", err)
+		err = errors.Errorf("failed to parse id: %w", err)
 		return
 	}
 	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse parents: %w", err)
+		err = errors.Errorf("failed to parse parents: %w", err)
 		return
 	}
 	if conflictBranch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse conflicts: %w", err)
+		err = errors.Errorf("failed to parse conflicts: %w", err)
 		return
 	}
 	if conflictBranch.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if conflictBranch.monotonicallyLiked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse monotonicallyLiked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse monotonicallyLiked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if conflictBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -843,7 +850,7 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 func AggregatedBranchFromBytes(bytes []byte) (aggregatedBranch *AggregatedBranch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if aggregatedBranch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse AggregatedBranch from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse AggregatedBranch from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -855,37 +862,37 @@ func AggregatedBranchFromBytes(bytes []byte) (aggregatedBranch *AggregatedBranch
 func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if BranchType(branchType) != AggregatedBranchType {
-		err = xerrors.Errorf("invalid BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	aggregatedBranch = &AggregatedBranch{}
 	if aggregatedBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse id: %w", err)
+		err = errors.Errorf("failed to parse id: %w", err)
 		return
 	}
 	if aggregatedBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse parents: %w", err)
+		err = errors.Errorf("failed to parse parents: %w", err)
 		return
 	}
 	if aggregatedBranch.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if aggregatedBranch.monotonicallyLiked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse monotonicallyLiked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse monotonicallyLiked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if aggregatedBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if aggregatedBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -1085,7 +1092,7 @@ func NewChildBranch(parentBranchID BranchID, childBranchID BranchID, childBranch
 func ChildBranchFromBytes(bytes []byte) (childBranch *ChildBranch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if childBranch, err = ChildBranchFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -1097,15 +1104,15 @@ func ChildBranchFromBytes(bytes []byte) (childBranch *ChildBranch, consumedBytes
 func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
 	childBranch = &ChildBranch{}
 	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if childBranch.childBranchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse child BranchType from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse child BranchType from MarshalUtil: %w", err)
 		return
 	}
 
@@ -1116,7 +1123,7 @@ func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBran
 // object storage. It is used by the object storage, to create new instances of this entity.
 func ChildBranchFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = ChildBranchFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
-		err = xerrors.Errorf("failed to parse ChildBranch from bytes: %w", err)
+		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 		return
 	}
 

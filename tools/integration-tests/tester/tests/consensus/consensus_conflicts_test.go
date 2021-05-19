@@ -165,10 +165,12 @@ func TestConsensus(t *testing.T) {
 	// wait until the voting has finalized
 	log.Println("waiting for voting/transaction finalization to be done on all peers...")
 	awaitFinalization := map[string]tests.ExpectedInclusionState{}
-	for _, conflictingTx := range conflictingTxs {
-		awaitFinalization[conflictingTx.ID().Base58()] = tests.ExpectedInclusionState{
-			Finalized: tests.True(),
-		}
+
+	awaitFinalization[conflictingTxIDs[0]] = tests.ExpectedInclusionState{
+		Finalized: tests.True(),
+	}
+	awaitFinalization[conflictingTxIDs[1]] = tests.ExpectedInclusionState{
+		Finalized: tests.False(),
 	}
 
 	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 30*time.Duration(framework.ParaFPCRoundInterval)*time.Second)

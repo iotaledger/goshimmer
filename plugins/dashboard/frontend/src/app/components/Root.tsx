@@ -13,7 +13,6 @@ import {LinkContainer} from 'react-router-bootstrap';
 import {ExplorerMessageQueryResult} from "app/components/ExplorerMessageQueryResult";
 import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
-import {Faucet} from "app/components/Faucet";
 import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
 import {Drng} from "app/components/Drng";
@@ -21,7 +20,6 @@ import {Mana} from "app/components/Mana";
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerOutputQueryResult} from "app/components/ExplorerOutputQueryResult";
 import {ExplorerBranchQueryResult} from "app/components/ExplorerBranchQueryResult";
-import {Epoch} from "app/components/Epoch";
 
 interface Props {
     history: any;
@@ -71,19 +69,9 @@ export class Root extends React.Component<Props, any> {
                                 dRNG beacon
                             </Nav.Link>
                         </LinkContainer>
-                        <LinkContainer to="/faucet">
-                            <Nav.Link>
-                                Faucet 
-                            </Nav.Link>
-                        </LinkContainer>
                         <LinkContainer to="/mana">
                             <Nav.Link>
                                 Mana
-                            </Nav.Link>
-                        </LinkContainer>
-                        <LinkContainer to="/epoch">
-                            <Nav.Link>
-                                Epochs
                             </Nav.Link>
                         </LinkContainer>
                     </Nav>
@@ -109,9 +97,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/visualizer/history" component={Visualizer}/>
-                    <Route exact path="/faucet" component={Faucet}/>
                     <Route exact path="/mana" component={Mana}/>
-                    <Route exact path="/epoch" component={Epoch}/>
                     <Redirect to="/dashboard"/>
                 </Switch>
                 {this.props.children}

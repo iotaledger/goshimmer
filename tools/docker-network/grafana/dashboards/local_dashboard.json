@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1614868629696,
+  "iteration": 1621007102124,
   "links": [],
   "panels": [
     {
@@ -728,12 +728,6 @@
           "interval": "",
           "legendFormat": "Network Delay Messages Per Second",
           "refId": "E"
-        },
-        {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"syncbeacon(200)\"}[5m])",
-          "interval": "",
-          "legendFormat": "Sync Beacons Per Second",
-          "refId": "F"
         },
         {
           "expr": "irate(tangle_messages_per_type_count{message_type=\"Statement(3)\"}[5m])",
@@ -3681,7 +3675,7 @@
           "refId": "A"
         },
         {
-          "expr": "mana_access_percentile",
+          "expr": "mana_consensus_percentile",
           "interval": "",
           "legendFormat": "Consensus Percentile",
           "refId": "B"
@@ -3707,6 +3701,7 @@
       },
       "yaxes": [
         {
+          "$$hashKey": "object:359",
           "format": "percent",
           "label": null,
           "logBase": 1,
@@ -3715,6 +3710,7 @@
           "show": true
         },
         {
+          "$$hashKey": "object:360",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -3833,7 +3829,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Average pledged BM1 and BM2 of consensus mana pledged to the node",
+      "description": "Average pledged BM1 and BM2 of access mana pledged to the node",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -3845,12 +3841,12 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 11,
-        "w": 8,
+        "w": 7,
         "x": 16,
         "y": 91
       },
       "hiddenSeries": false,
-      "id": 110,
+      "id": 114,
       "legend": {
         "avg": false,
         "current": false,
@@ -3877,9 +3873,108 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_average_consensus_pledge{type=\"bm1\"}",
+          "expr": "mana_average_access_pledge{type=\"bm2\"}",
           "interval": "",
           "legendFormat": "{{nodeID}}",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Average Pledged Access Mana",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:872",
+          "format": "si: m",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:873",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Amount of mana currently delegated to the node.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "si: m"
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 10,
+        "w": 9,
+        "x": 0,
+        "y": 102
+      },
+      "hiddenSeries": false,
+      "id": 110,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.4.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_delegated_amount",
+          "interval": "",
+          "legendFormat": "",
           "refId": "A"
         }
       ],
@@ -3887,7 +3982,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Average Pledged Consensus Mana",
+      "title": "Mana Delegated To Node",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -3908,7 +4003,7 @@
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": null,
+          "min": "0",
           "show": true
         },
         {
@@ -3933,7 +4028,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 102
+        "y": 112
       },
       "id": 34,
       "panels": [],
@@ -3958,7 +4053,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 103
+        "y": 113
       },
       "hiddenSeries": false,
       "id": 36,
@@ -4062,7 +4157,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 103
+        "y": 113
       },
       "id": 38,
       "options": {
@@ -4121,7 +4216,7 @@
         "h": 8,
         "w": 3,
         "x": 16,
-        "y": 103
+        "y": 113
       },
       "id": 42,
       "options": {
@@ -4180,7 +4275,7 @@
         "h": 8,
         "w": 3,
         "x": 19,
-        "y": 103
+        "y": 113
       },
       "id": 40,
       "options": {
@@ -4231,7 +4326,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 111
+        "y": 121
       },
       "hiddenSeries": false,
       "id": 44,
@@ -4326,7 +4421,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 111
+        "y": 121
       },
       "hiddenSeries": false,
       "id": 50,
@@ -4422,7 +4517,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 119
+        "y": 129
       },
       "hiddenSeries": false,
       "id": 49,
@@ -4517,7 +4612,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 119
+        "y": 129
       },
       "hiddenSeries": false,
       "id": 46,
@@ -4661,5 +4756,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 15
+  "version": 23
 }

@@ -31,8 +31,14 @@ const (
 	PriorityDashboard
 	// PrioritySynchronization defines the shutdown priority for synchronization.
 	PrioritySynchronization
+	// PriorityManaRefresher defines the shutdown priority for the manarefresher plugin.
+	PriorityManaRefresher
+	// PriorityActivity defines the shutdown priority for the activity plugin.
+	PriorityActivity
 	// PrioritySpammer defines the shutdown priority for spammer.
 	PrioritySpammer
 	// PriorityBootstrap defines the shutdown priority for bootstrap.
 	PriorityBootstrap
+	// PriorityTXStream defines the shutdown priority for realtime.
+	PriorityTXStream
 )
