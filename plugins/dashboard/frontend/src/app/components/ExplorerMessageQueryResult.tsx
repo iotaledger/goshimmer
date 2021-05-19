@@ -13,7 +13,6 @@ import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {TransactionPayload} from 'app/components/TransactionPayload'
-import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
 import {resolveBase58BranchID} from "app/utils/branch";
@@ -63,8 +62,6 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                 return <StatementPayload/>
             case PayloadType.Data:
                 return <BasicPayload/>
-            case PayloadType.SyncBeacon:
-                return <SyncBeaconPayload/>
             case PayloadType.Faucet:
             default:
                 return <BasicPayload/>
@@ -273,19 +270,14 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                             </Col>
                         </Row>
 
-                        <Row className={"mb-3"}>
+                        <Row className={"mb-3"} style={{marginTop: "20px", marginBottom: "20px"}}>
                             <Col>
-                                <h4>Payload</h4>
+                                <h3>Payload</h3>
                             </Col>
                         </Row>
-
                         <Row className={"mb-3"}>
                             <Col>
-                                <ListGroup>
-                                    <ListGroup.Item className="text-break">
-                                        {this.renderPayload()}
-                                    </ListGroup.Item>
-                                </ListGroup>
+                                {this.renderPayload()}
                             </Col>
                         </Row>
                     </React.Fragment>

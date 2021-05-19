@@ -4,16 +4,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/markers"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 const (
@@ -26,37 +25,47 @@ const (
 // entire network as it tracks the time of the last confirmed message. Comparing the issuing time of the last confirmed
 // message to the node's current wall clock time then yields a reasonable assessment of how much in sync the node is.
 type TimeManager struct {
-	tangle *Tangle
+	Events *TimeManagerEvents
 
-	lastConfirmedMessage LastConfirmedMessage
+	tangle      *Tangle
+	startSynced bool
+
 	lastConfirmedMutex   sync.RWMutex
+	lastConfirmedMessage LastConfirmedMessage
+	lastSynced           bool
 }
 
 // NewTimeManager is the constructor for TimeManager.
-func NewTimeManager(tangle *Tangle) (timeManager *TimeManager) {
-	timeManager = &TimeManager{
-		tangle: tangle,
+func NewTimeManager(tangle *Tangle) *TimeManager {
+	t := &TimeManager{
+		Events: &TimeManagerEvents{
+			SyncChanged: events.NewEvent(SyncChangedCaller),
+		},
+		tangle:      tangle,
+		startSynced: tangle.Options.StartSynced,
+	}
+
+	// initialize with Genesis
+	t.lastConfirmedMessage = LastConfirmedMessage{
+		MessageID: EmptyMessageID,
+		Time:      time.Unix(DefaultGenesisTime, 0),
 	}
 
 	marshaledLastConfirmedMessage, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
 	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
 		panic(err)
 	}
-	// Load from storage if key was found.
+	// load from storage if key was found
 	if marshaledLastConfirmedMessage != nil {
-		if timeManager.lastConfirmedMessage, _, err = lastConfirmedMessageFromBytes(marshaledLastConfirmedMessage); err != nil {
+		if t.lastConfirmedMessage, _, err = lastConfirmedMessageFromBytes(marshaledLastConfirmedMessage); err != nil {
 			panic(err)
 		}
-		return
 	}
 
-	// Initialize with Genesis if not found in storage.
-	timeManager.lastConfirmedMessage = LastConfirmedMessage{
-		MessageID: EmptyMessageID,
-		Time:      time.Unix(DefaultGenesisTime, 0),
-	}
+	// initialize the synced status
+	t.lastSynced = t.synced()
 
-	return
+	return t
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
@@ -97,6 +106,14 @@ func (t *TimeManager) Synced() bool {
 	t.lastConfirmedMutex.RLock()
 	defer t.lastConfirmedMutex.RUnlock()
 
+	return t.lastSynced
+}
+
+func (t *TimeManager) synced() bool {
+	if t.startSynced && t.lastConfirmedMessage.Time.Unix() == DefaultGenesisTime {
+		return true
+	}
+
 	return clock.Since(t.lastConfirmedMessage.Time) < t.tangle.Options.SyncTimeWindow
 }
 
@@ -116,6 +133,12 @@ func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition
 			t.lastConfirmedMessage = LastConfirmedMessage{
 				MessageID: messageID,
 				Time:      message.IssuingTime(),
+			}
+
+			if newSynced := t.synced(); t.lastSynced != newSynced {
+				t.lastSynced = newSynced
+				// trigger the event inside the lock to assure that the status is still correct
+				t.Events.SyncChanged.Trigger(&SyncChangedEvent{Synced: newSynced})
 			}
 		}
 	})
@@ -173,6 +196,26 @@ func (l LastConfirmedMessage) String() string {
 		stringify.StructField("MessageID", l.MessageID),
 		stringify.StructField("Time", l.Time),
 	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimeManagerEvents ////////////////////////////////////////////////////////////////////////////////////////////
+
+// TimeManagerEvents represents events happening in the TimeManager.
+type TimeManagerEvents struct {
+	// Fired when the nodes sync status changes.
+	SyncChanged *events.Event
+}
+
+// SyncChangedEvent represents a syn changed event.
+type SyncChangedEvent struct {
+	Synced bool
+}
+
+// SyncChangedCaller is the caller function for sync changed event.
+func SyncChangedCaller(handler interface{}, params ...interface{}) {
+	handler.(func(ev *SyncChangedEvent))(params[0].(*SyncChangedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

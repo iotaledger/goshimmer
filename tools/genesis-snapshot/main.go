@@ -66,11 +66,10 @@ func main() {
 	// Wallet mocker
 	mockedConnector := newMockConnector(
 		&wallet.Output{
-			Address:  genesisSeed.Address(0),
-			OutputID: ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0),
-			Balances: ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			Address: genesisSeed.Address(0),
+			Object: ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				ledgerstate.ColorIOTA: genesisTokenAmount,
-			}),
+			}), &ledgerstate.ED25519Address{}).SetID(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)),
 			InclusionState: wallet.InclusionState{
 				Liked:     true,
 				Confirmed: true,
@@ -213,8 +212,8 @@ type mockConnector struct {
 	outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output
 }
 
-func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output, err error) {
-	outputs = make(map[address.Address]map[ledgerstate.OutputID]*wallet.Output)
+func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (outputs wallet.OutputsByAddressAndOutputID, err error) {
+	outputs = make(wallet.OutputsByAddressAndOutputID)
 	for _, addr := range addresses {
 		for outputID, output := range connector.outputs[addr] {
 			if !output.InclusionState.Spent {
@@ -240,15 +239,14 @@ func newMockConnector(outputs ...*wallet.Output) (connector *mockConnector) {
 			connector.outputs[output.Address] = make(map[ledgerstate.OutputID]*wallet.Output)
 		}
 
-		connector.outputs[output.Address][output.OutputID] = output
+		connector.outputs[output.Address][output.Object.ID()] = output
 	}
 
 	return
 }
 
-func (connector *mockConnector) RequestFaucetFunds(addr address.Address) (err error) {
+func (connector *mockConnector) RequestFaucetFunds(aaddress address.Address, powTarget int) (err error) {
 	// generate random transaction id
-
 	return
 }
 
@@ -258,5 +256,13 @@ func (connector *mockConnector) SendTransaction(tx *ledgerstate.Transaction) (er
 }
 
 func (connector *mockConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
+	return
+}
+
+func (connector *mockConnector) GetTransactionInclusionState(txID ledgerstate.TransactionID) (inc ledgerstate.InclusionState, err error) {
+	return
+}
+
+func (connector *mockConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
 	return
 }

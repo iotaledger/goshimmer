@@ -18,6 +18,8 @@ type LedgerState struct {
 	tangle    *Tangle
 	BranchDAG *ledgerstate.BranchDAG
 	UTXODAG   *ledgerstate.UTXODAG
+
+	totalSupply uint64
 }
 
 // NewLedgerState is the constructor of the LedgerState component.
@@ -170,6 +172,13 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 		if attachment != nil {
 			attachment.Release()
 		}
+		// The following only works assuming that the snapshot contains all of the unspent outputs.
+		for _, output := range record.Outputs() {
+			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				l.totalSupply += balance
+				return true
+			})
+		}
 	}
 	attachment, _ := l.tangle.Storage.StoreAttachment(ledgerstate.GenesisTransactionID, EmptyMessageID)
 	if attachment != nil {
@@ -272,6 +281,11 @@ func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cac
 // Consumers returns the (cached) consumers of the given outputID.
 func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
 	return l.UTXODAG.CachedConsumers(outputID)
+}
+
+// TotalSupply returns the total supply.
+func (l *LedgerState) TotalSupply() (totalSupply uint64) {
+	return l.totalSupply
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

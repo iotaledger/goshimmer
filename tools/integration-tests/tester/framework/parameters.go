@@ -14,7 +14,9 @@ const (
 
 	logsDir = "/tmp/logs/"
 
-	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,syncbeaconfollower,metrics,valuetransfers,consensus,messagelayer,mana,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint,clock"
+	// TODO ??? the upper line was from a conflict merge, the newer version is missing "mana", should it be added?
+	// disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,syncbeaconfollower,metrics,valuetransfers,consensus,messagelayer,mana,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint,clock"
+	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,metrics,valuetransfers,consensus,messagelayer,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint,clock"
 	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling,clock"
 	snapshotFilePath         = "/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin"
 	dockerLogsPrefixLen      = 8
@@ -46,8 +48,6 @@ var (
 	ParaPoWFaucetDifficulty = 2
 	// ParaFaucetPreparedOutputsCount defines the number of outputs the faucet should prepare.
 	ParaFaucetPreparedOutputsCount = 10
-	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
-	ParaSyncBeaconOnEveryNode = false
 	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
 	ParaManaOnEveryNode = true
 	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
@@ -66,6 +66,10 @@ var (
 	ParaWriteManaThreshold = 1.0
 	// ParaSnapshotResetTime defines if the aMana Snapshot should be reset to the current Time.
 	ParaSnapshotResetTime = false
+	// ParaActivityInterval defines the interval between activity messages (in seconds).
+	ParaActivityInterval = 1
+	// ParaActivityInterval defines if activity messages are issue by all the nodes.
+	ParaActivityPluginOnEveryNode = false
 )
 
 var (
@@ -90,11 +94,8 @@ type GoShimmerConfig struct {
 
 	Faucet bool
 
-	SyncBeacon                  bool
-	SyncBeaconFollower          bool
-	SyncBeaconFollowNodes       string
-	SyncBeaconBroadcastInterval int
-	SyncBeaconMaxTimeOfflineSec int
+	ActivityPlugin   bool
+	ActivityInterval int
 
 	Mana                              bool
 	ManaAllowedAccessFilterEnabled    bool

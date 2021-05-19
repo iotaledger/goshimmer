@@ -115,7 +115,7 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
 	}
 
-	resp, err := peer.SendFaucetRequest(addr.Base58(), aManaPledgeID, cManaPledgeID)
+	resp, err := peer.SendFaucetRequest(addr.Base58(), framework.ParaPoWFaucetDifficulty, aManaPledgeID, cManaPledgeID)
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
 	sent := DataMessageSent{
@@ -133,7 +133,7 @@ func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[st
 			// check that the peer sees itself as synchronized
 			info, err := peer.Info()
 			require.NoError(t, err)
-			assert.Truef(t, info.Synced, "Node %s is not synced", peer)
+			assert.Truef(t, info.TangleTime.Synced, "Node %s is not synced", peer)
 		}
 
 		var idsSlice []string
@@ -475,7 +475,7 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 			// check that the peer sees itself as synchronized
 			info, err := peer.Info()
 			require.NoError(t, err)
-			require.Truef(t, info.Synced, "peer '%s' not synced", peer)
+			require.Truef(t, info.TangleTime.Synced, "peer '%s' not synced", peer)
 		}
 
 		for txId, expectedTransaction := range transactionIDs {

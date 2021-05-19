@@ -178,6 +178,20 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
 		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
+		// check if an alias output is deadlocked to itself
+		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
+		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
+		// address set as the later determined alias address. Hence this check here.
+		if output.Type() == AliasOutputType {
+			alias := output.(*AliasOutput)
+			aliasAddress := alias.GetAliasAddress()
+			if alias.GetStateAddress().Equals(aliasAddress) {
+				panic(fmt.Sprintf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
+			}
+			if alias.GetGoverningAddress().Equals(aliasAddress) {
+				panic(fmt.Sprintf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
+			}
+		}
 	}
 
 	return
@@ -241,9 +255,17 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 
 	maxReferencedUnlockIndex := len(transaction.essence.Inputs()) - 1
 	for i, unlockBlock := range transaction.unlockBlocks {
-		if unlockBlock.Type() == ReferenceUnlockBlockType {
+		switch unlockBlock.Type() {
+		case SignatureUnlockBlockType:
+			continue
+		case ReferenceUnlockBlockType:
 			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
 				err = errors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
+				return
+			}
+		case AliasUnlockBlockType:
+			if unlockBlock.(*AliasUnlockBlock).AliasInputIndex() > uint16(maxReferencedUnlockIndex) {
+				err = errors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).AliasInputIndex())
 				return
 			}
 		}
@@ -251,6 +273,20 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 
 	for i, output := range transaction.essence.Outputs() {
 		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
+		// check if an alias output is deadlocked to itself
+		// for origin alias outputs, alias address is only known once the ID of the output is set
+		if output.Type() == AliasOutputType {
+			alias := output.(*AliasOutput)
+			aliasAddress := alias.GetAliasAddress()
+			if alias.GetStateAddress().Equals(aliasAddress) {
+				err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+				return
+			}
+			if alias.GetGoverningAddress().Equals(aliasAddress) {
+				err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+				return
+			}
+		}
 	}
 
 	return

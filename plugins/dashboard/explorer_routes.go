@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
@@ -110,19 +111,18 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
 type ExplorerAddress struct {
-	Address   string           `json:"address"`
-	OutputIDs []ExplorerOutput `json:"output_ids"`
+	Address         string           `json:"address"`
+	ExplorerOutputs []ExplorerOutput `json:"explorerOutputs"`
 }
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID                 string               `json:"id"`
-	TransactionID      string               `json:"transaction_id"`
-	Balances           []value.Balance      `json:"balances"`
-	InclusionState     value.InclusionState `json:"inclusion_state"`
-	SolidificationTime int64                `json:"solidification_time"`
-	ConsumerCount      int                  `json:"consumer_count"`
-	PendingMana        float64              `json:"pending_mana"`
+	ID             *jsonmodels.OutputID       `json:"id"`
+	Output         *jsonmodels.Output         `json:"output"`
+	Metadata       *jsonmodels.OutputMetadata `json:"metadata"`
+	InclusionState value.InclusionState       `json:"inclusionState"`
+	TxTimestamp    int                        `json:"txTimestamp"`
+	PendingMana    float64                    `json:"pendingMana"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -218,58 +218,73 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
 	}
 
-	outputids := make([]ExplorerOutput, 0)
-	inclusionState := value.InclusionState{}
+	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
+	// TODO the following was conflicting after merge to develop. Can it be removed ?
+	// messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	// 	// iterate balances
+	// 	var b []value.Balance
+	// 	output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+	// 		b = append(b, value.Balance{
+	// 			Value: int64(balance),
+	// 			Color: color.String(),
 	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
-		// iterate balances
-		var b []value.Balance
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			b = append(b, value.Balance{
-				Value: int64(balance),
-				Color: color.String(),
+		var metaData *ledgerstate.OutputMetadata
+		inclusionState := value.InclusionState{}
+		var timestamp int64
+
+		// get output metadata + liked status from branch of the output
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			metaData = outputMetadata
+			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+				inclusionState.Liked = branch.Liked()
 			})
-			return true
 		})
+
+		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
 		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
-		var consumerCount int
-		var branch ledgerstate.Branch
-		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			consumerCount = outputMetadata.ConsumerCount()
-			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
-				branch = b
-			})
-		})
-		var solidificationTime int64
+		// TODO the following was conflicting and removed after merging. Can it be removed ?
+		// var consumerCount int
+		// var branch ledgerstate.Branch
+		// messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		// 	consumerCount = outputMetadata.ConsumerCount()
+		// 	messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
+		// 		branch = b
+		// 	})
+		// })
+		// var solidificationTime int64
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
 			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
-			inclusionState.Liked = branch.Liked()
 			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
 			inclusionState.Finalized = txMeta.Finalized()
 			inclusionState.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
-			solidificationTime = txMeta.SolidificationTime().Unix()
 		})
 
+		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+			timestamp = transaction.Essence().Timestamp().Unix()
+		})
+
+		// how much pending mana the output has?
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
-		outputids = append(outputids, ExplorerOutput{
-			ID:                 output.ID().Base58(),
-			TransactionID:      output.ID().TransactionID().Base58(),
-			Balances:           b,
-			InclusionState:     inclusionState,
-			ConsumerCount:      consumerCount,
-			SolidificationTime: solidificationTime,
-			PendingMana:        pendingMana,
+
+		outputs = append(outputs, ExplorerOutput{
+			ID:             jsonmodels.NewOutputID(output.ID()),
+			Output:         jsonmodels.NewOutput(output),
+			Metadata:       jsonmodels.NewOutputMetadata(metaData),
+			InclusionState: inclusionState,
+			TxTimestamp:    int(timestamp),
+			PendingMana:    pendingMana,
 		})
 	})
 
-	if len(outputids) == 0 {
+	if len(outputs) == 0 {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
 	}
 
 	return &ExplorerAddress{
-		Address:   strAddress,
-		OutputIDs: outputids,
+		Address:         strAddress,
+		ExplorerOutputs: outputs,
 	}, nil
 }

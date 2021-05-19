@@ -75,26 +75,19 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config := GoShimmerConfig{
-			SyncBeacon: func(i int) bool {
-				if ParaSyncBeaconOnEveryNode {
+			ActivityPlugin: func(i int) bool {
+				if ParaActivityPluginOnEveryNode {
 					return true
 				}
 				return i == 0
 			}(i),
-			SyncBeaconBroadcastInterval: func(i int) int {
-				broadcastInterval := 0
+			ActivityInterval: func(i int) int {
+				broadcastInterval := 3
 				if i == 0 {
 					broadcastInterval = 1
 				}
 				return broadcastInterval
 			}(i),
-			SyncBeaconFollower: func(i int) bool {
-				if ParaSyncBeaconOnEveryNode {
-					return false
-				}
-				return i > 0
-			}(i),
-
 			Seed: func(i int) string {
 				if i == 0 {
 					return syncBeaconSeed
@@ -162,17 +155,18 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config := GoShimmerConfig{
-			SyncBeacon: func(i int) bool {
-				if ParaSyncBeaconOnEveryNode {
+			ActivityPlugin: func(i int) bool {
+				if ParaActivityPluginOnEveryNode {
 					return true
 				}
 				return i == 0
 			}(i),
-			SyncBeaconFollower: func(i int) bool {
-				if ParaSyncBeaconOnEveryNode {
-					return false
+			ActivityInterval: func(i int) int {
+				broadcastInterval := 3
+				if i == 0 {
+					broadcastInterval = 1
 				}
-				return i > 0
+				return broadcastInterval
 			}(i),
 			Seed: func(i int) string {
 				if i == 0 {
@@ -288,11 +282,10 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 	}
 
 	config := GoShimmerConfig{
-		DRNGInstance:       111,
-		DRNGThreshold:      3,
-		DRNGDistKey:        hex.EncodeToString(drng.distKey),
-		DRNGCommittee:      drngCommittee,
-		SyncBeaconFollower: true,
+		DRNGInstance:  111,
+		DRNGThreshold: 3,
+		DRNGDistKey:   hex.EncodeToString(drng.distKey),
+		DRNGCommittee: drngCommittee,
 	}
 
 	// create peers/GoShimmer nodes
@@ -305,9 +298,8 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 
 	// create extra sync beacon node
 	config = GoShimmerConfig{
-		SyncBeacon:         true,
-		SyncBeaconFollower: false,
-		Seed:               syncBeaconSeed,
+		ActivityPlugin: true,
+		Seed:           syncBeaconSeed,
 	}
 	bytes, err := base58.Decode(config.Seed)
 	if err != nil {
@@ -344,7 +336,7 @@ func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors i
 		peer := n.peers[i]
 		addr := peer.Seed.Address(uint64(0)).Address()
 		ID := base58.Encode(peer.ID().Bytes())
-		_, err := peer.SendFaucetRequest(addr.Base58(), ID, ID)
+		_, err := peer.SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
 		if err != nil {
 			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
 		}

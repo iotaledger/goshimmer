@@ -24,7 +24,10 @@ var Parameters = struct {
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
-	TangleTimeWindow time.Duration `default:"1m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+	TangleTimeWindow time.Duration `default:"2m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+
+	// StartSynced defines if the node should start as synced.
+	StartSynced bool `default:"false" usage:"start as synced"`
 }{}
 
 // FPCParameters contains the configuration parameters used by the FPC consensus.
@@ -75,24 +78,6 @@ var StatementParameters = struct {
 	DeleteAfter int `default:"5" usage:"the time in minutes after which older statements are deleted from the registry"`
 }{}
 
-// SyncBeaconFollowerParameters contains the configuration parameters used by the syncbeacon follower plugin.
-var SyncBeaconFollowerParameters = struct {
-	// FollowNodes defines the list of nodes this node should follow to determine its sync status.
-	FollowNodes []string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24,9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd" usage:"list of trusted nodes to follow their sync status"`
-
-	// MaxTimeWindowSec defines the maximum time window for which a sync payload would be considerable.
-	MaxTimeWindowSec int `default:"10" usage:"the maximum time window for which a sync payload would be considerable"`
-
-	// MaxTimeOffline defines the maximum time a beacon node can stay without receiving updates.
-	MaxTimeOffline int `default:"70" usage:"the maximum time the node should stay synced without receiving updates"`
-
-	// CleanupInterval defines the interval that old beacon status are cleaned up.
-	CleanupInterval int `default:"10" usage:"the interval at which cleanups are done"`
-
-	// SyncPercentage defines the percentage of following nodes that have to be synced.
-	SyncPercentage float64 `default:"0.5" usage:"percentage of nodes being followed that need to be synced in order to consider the node synced"`
-}{}
-
 // ManaParameters contains the configuration parameters used by the mana plugin.
 var ManaParameters = struct {
 	// EmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
@@ -126,6 +111,5 @@ func init() {
 	configuration.BindParameters(&Parameters, "messageLayer")
 	configuration.BindParameters(&FPCParameters, "fpc")
 	configuration.BindParameters(&StatementParameters, "statement")
-	configuration.BindParameters(&SyncBeaconFollowerParameters, "syncbeaconfollower")
 	configuration.BindParameters(&ManaParameters, "mana")
 }

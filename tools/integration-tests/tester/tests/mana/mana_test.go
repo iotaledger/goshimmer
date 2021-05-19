@@ -64,8 +64,8 @@ func TestPledgeFilter(t *testing.T) {
 	peers := make([]*framework.Peer, numPeers)
 	for i := 0; i < numPeers; i++ {
 		peer, err := n.CreatePeer(framework.GoShimmerConfig{
-			Mana:       true,
-			SyncBeacon: true,
+			Mana:           true,
+			ActivityPlugin: true,
 		})
 		require.NoError(t, err)
 		peers[i] = peer
@@ -85,7 +85,7 @@ func TestPledgeFilter(t *testing.T) {
 		ManaAllowedConsensusFilterEnabled: true,
 		ManaAllowedAccessPledge:           []string{accessPeerID},
 		ManaAllowedConsensusPledge:        []string{consensusPeerID},
-		SyncBeacon:                        true,
+		ActivityPlugin:                    true,
 	})
 
 	require.NoError(t, err)
@@ -172,11 +172,11 @@ func TestApis(t *testing.T) {
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	// send funds to node 1
-	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58())
+	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
 	// send funds to node 2
-	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58())
+	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty)
 	require.NoError(t, err)
 	time.Sleep(20 * time.Second)
 
@@ -251,6 +251,15 @@ func TestApis(t *testing.T) {
 	assert.Equal(t, outputID, resp8.OutputID)
 	fmt.Println("pending mana: ", resp8.Mana)
 	assert.Greater(t, resp8.Mana, 0.0)
+
+	//Test /mana/allowedManaPledge
+	pledgeList, err := peers[0].GoShimmerAPI.GetAllowedManaPledgeNodeIDs()
+	require.NoError(t, err, "Error occurred while testing allowed mana pledge api")
+	assert.Equal(t, false, pledgeList.Access.IsFilterEnabled, "/mana/allowedManaPledge: FilterEnabled field for access mana is not as expected")
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), pledgeList.Access.Allowed[0], "/mana/allowedManaPledge: Allowed node id to pledge access mana is not as expected")
+	assert.Equal(t, false, pledgeList.Consensus.IsFilterEnabled, "/mana/allowedManaPledge: FilterEnabled field for consensus mana is not as expected")
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), pledgeList.Consensus.Allowed[0], "/mana/allowedManaPledge: Allowed node id to pledge consensus mana is not as expected")
+
 }
 
 func stripGenesisNodeID(input []manaPkg.NodeStr) (output []manaPkg.NodeStr) {
