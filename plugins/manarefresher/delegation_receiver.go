@@ -24,7 +24,7 @@ type DelegationReceiver struct {
 func (d *DelegationReceiver) Scan() []*ledgerstate.AliasOutput {
 	d.Lock()
 	defer d.Unlock()
-	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(d.address)
+	cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(d.address)
 	defer cachedOutputs.Release()
 	// filterDelegationOutputs will use this time for condition checking
 	d.localTimeNow = clock.SyncedTime()
@@ -84,7 +84,7 @@ func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) 
 	// it has to be unspent
 	isUnspent := false
 	isConfirmed := false
-	messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		isUnspent = outputMetadata.ConsumerCount() == 0
 		incState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(output.ID().TransactionID())
 		if err != nil {
