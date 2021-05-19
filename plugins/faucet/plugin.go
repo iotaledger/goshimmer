@@ -29,9 +29,6 @@ const (
 	// PluginName is the name of the faucet plugin.
 	PluginName = "Faucet"
 
-	// WaitForSync defines the time to wait for being in sync.
-	WaitForSync = 5 * time.Second
-
 	// CfgFaucetSeed defines the base58 encoded seed the faucet uses.
 	CfgFaucetSeed = "faucet.seed"
 	// CfgFaucetTokensPerRequest defines the amount of tokens the faucet should send for each request.
@@ -145,31 +142,62 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("[Faucet]", func(shutdownSignal <-chan struct{}) {
-		// wait until node is in sync
-		for !messagelayer.Tangle().Synced() {
-			log.Infof("Waiting for node to become synced...")
-			time.Sleep(WaitForSync)
-		}
-		log.Infof("Waiting for node to become synced... DONE")
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+		defer log.Infof("Stopping %s ... done", PluginName)
 
-		log.Infof("Deriving faucet state from the ledger...")
+		log.Info("Waiting for node to become synced...")
+		if !waitUntilSynced(shutdownSignal) {
+			return
+		}
+		log.Info("Waiting for node to become synced... DONE")
+
+		log.Info("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
 		dErr := Faucet().DeriveStateFromTangle(startIndex)
 		if dErr != nil {
 			log.Errorf(dErr.Error())
 		}
-		log.Infof("Deriving faucet state from the ledger... DONE")
+		log.Info("Deriving faucet state from the ledger... DONE")
 
-		log.Infof("Starting funding workerpools...")
+		log.Info("Starting funding workerpools...")
 		// start the funding workerpool
 		fundingWorkerPool.Start()
 		defer fundingWorkerPool.Stop()
-		log.Infof("Starting funding workerpools... DONE")
+		log.Info("Starting funding workerpools... DONE")
 		initDone.Store(true)
+
 		<-shutdownSignal
+		log.Infof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
 		log.Panicf("Failed to start daemon: %s", err)
+	}
+}
+
+func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
+	synced := make(chan struct{}, 1)
+	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
+		if e.Synced {
+			// use non-blocking send to prevent deadlocks in rare cases when the SyncedChanged events is spammed
+			select {
+			case synced <- struct{}{}:
+			default:
+			}
+		}
+	})
+	messagelayer.Tangle().TimeManager.Events.SyncChanged.Attach(closure)
+	defer messagelayer.Tangle().TimeManager.Events.SyncChanged.Detach(closure)
+
+	// if we are already synced, there is no need to wait for the event
+	if messagelayer.Tangle().TimeManager.Synced() {
+		return true
+	}
+
+	// block until we are either synced or shutting down
+	select {
+	case <-synced:
+		return true
+	case <-shutdownSignal:
+		return false
 	}
 }
 
