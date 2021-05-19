@@ -173,7 +173,7 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 			attachment.Release()
 		}
 		// The following only works assuming that the snapshot contains all of the unspent outputs.
-		for _, output := range record.Outputs() {
+		for _, output := range record.Essence.Outputs() {
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				l.totalSupply += balance
 				return true
