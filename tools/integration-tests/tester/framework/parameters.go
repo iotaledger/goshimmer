@@ -37,7 +37,7 @@ const (
 // Parameters to override before calling any peer creation function.
 var (
 	// ParaTangleTimeWindow defines the time window in which the node will consider itself in sync.
-	ParaTangleTimeWindow = 30 * time.Second
+	ParaTangleTimeWindow = 2 * time.Minute
 	// ParaFCoBAverageNetworkDelay defines the configured avg. network delay (in seconds) for the FCOB rules.
 	ParaFCoBAverageNetworkDelay = 5
 	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
@@ -75,12 +75,14 @@ var (
 )
 
 var (
-	genesisSeed = []byte{95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
-		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230}
+	genesisSeed = []byte{
+		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
+		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
+	}
 	genesisSeedBase58 = "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih"
 )
 
-//GoShimmerConfig defines the config of a GoShimmer node.
+// GoShimmerConfig defines the config of a GoShimmer node.
 type GoShimmerConfig struct {
 	Seed               string
 	Name               string
