@@ -39,7 +39,6 @@ func Plugin() *node.Plugin {
 func configure(plugin *node.Plugin) {
 	webapi.Server().POST("faucet", requestFunds)
 	targetPoWDifficulty = config.Node().Int(faucet.CfgFaucetPoWDifficulty)
-	fmt.Println("configure targetPoWDifficulty", targetPoWDifficulty)
 }
 
 // requestFunds creates a faucet request (0-value) message with the given destination address and
@@ -50,8 +49,6 @@ func requestFunds(c echo.Context) error {
 		plugin.LogInfo(err.Error())
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: err.Error()})
 	}
-
-	fmt.Println("requestFunds targetPoWDifficulty", targetPoWDifficulty)
 
 	plugin.LogInfo("Received - address:", request.Address)
 	plugin.LogDebug(request)
@@ -86,7 +83,6 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Could not verify PoW"})
 	}
 
-	fmt.Println("leadingZeros", leadingZeroes, targetPoWDifficulty)
 	if leadingZeroes < targetPoWDifficulty {
 		plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Funding request doesn't fulfill PoW requirement"})
