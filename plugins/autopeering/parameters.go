@@ -2,7 +2,7 @@ package autopeering
 
 import "github.com/iotaledger/hive.go/configuration"
 
-// Parameters contains the configuration parameters used by the message layer.
+// Parameters contains the configuration parameters used by the autopeering layer.
 var Parameters = struct {
 	// Mana defines the config flag of mana in the autopeering.
 	Mana bool `default:"true" usage:"enable/disable mana in the autopeering"`
@@ -12,6 +12,8 @@ var Parameters = struct {
 
 	// Ro defines the config flag of Ro.
 	Ro float64 `default:"2." usage:"Ro parameter"`
+
+	EnableGossipIntegration bool `default:"true" usage:"enable/disable autopeering for gossip layer"`
 }{}
 
 func init() {

@@ -3,11 +3,13 @@ package manualpeering
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -19,6 +21,34 @@ import (
 
 const defaultReconnectInterval = 5 * time.Second
 
+// ConnectionDirection is an enum for the type of connection between local peer and the other peer in the gossip layer.
+type ConnectionDirection string
+
+const (
+	// ConnDirectionOutbound means that the local peer dials for the connection in the gossip layer.
+	ConnDirectionOutbound ConnectionDirection = "outbound"
+	// ConnDirectionInbound means that the local peer accepts for the connection in the gossip layer.
+	ConnDirectionInbound ConnectionDirection = "inbound"
+)
+
+// ConnectionStatus is an enum for the peer connection status in the gossip layer.
+type ConnectionStatus string
+
+const (
+	// ConnStatusDisconnected means that there is no real connection established in the gossip layer for that peer.
+	ConnStatusDisconnected ConnectionStatus = "disconnected"
+	// ConnStatusConnected means that there is a real connection established in the gossip layer for that peer.
+	ConnStatusConnected ConnectionStatus = "connected"
+)
+
+// KnownPeer defines a peer record in the manualpeering layer.
+// This type contains the actual peer reference, connection direction and the gossip connection status.
+type KnownPeer struct {
+	Peer          *peer.Peer          `json:"peer"`
+	ConnDirection ConnectionDirection `json:"connectionDirection"`
+	ConnStatus    ConnectionStatus    `json:"connectionStatus"`
+}
+
 // Manager is the core entity in the manualpeering package.
 // It holds a list of known peers and constantly provisions it to the gossip layer.
 // Its job is to keep in sync the list of known peers
@@ -28,91 +58,108 @@ const defaultReconnectInterval = 5 * time.Second
 // manager will make sure gossip drops that connection.
 // Manager also subscribes to the gossip events and in case the connection with a manual peer fails it will reconnect.
 type Manager struct {
-	gm                      *gossip.Manager
-	log                     *logger.Logger
-	local                   *peer.Local
-	startOnce               sync.Once
-	isStarted               typeutils.AtomicBool
-	stopOnce                sync.Once
-	stopCh                  chan struct{}
-	workersWG               sync.WaitGroup
-	syncTicker              *time.Ticker
-	syncTriggerCh           chan struct{}
-	knownPeersMutex         sync.RWMutex
-	knownPeers              map[identity.ID]*peer.Peer
-	connectedNeighborsMutex sync.RWMutex
-	connectedNeighbors      map[identity.ID]*peer.Peer
+	gm                *gossip.Manager
+	log               *logger.Logger
+	local             *peer.Local
+	startOnce         sync.Once
+	isStarted         typeutils.AtomicBool
+	stopOnce          sync.Once
+	stopMutex         sync.RWMutex
+	isStopped         bool
+	reconnectInterval time.Duration
+	knownPeersMutex   sync.RWMutex
+	knownPeers        map[identity.ID]*knownPeer
 
 	onGossipNeighborRemovedClosure *events.Closure
+	onGossipNeighborAddedClosure   *events.Closure
 }
 
 // NewManager initializes a new Manager instance.
 func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Manager {
 	m := &Manager{
-		gm:                 gm,
-		local:              local,
-		log:                log,
-		syncTicker:         time.NewTicker(defaultReconnectInterval),
-		syncTriggerCh:      make(chan struct{}, 1),
-		stopCh:             make(chan struct{}),
-		knownPeers:         map[identity.ID]*peer.Peer{},
-		connectedNeighbors: map[identity.ID]*peer.Peer{},
+		gm:                gm,
+		local:             local,
+		log:               log,
+		reconnectInterval: defaultReconnectInterval,
+		knownPeers:        map[identity.ID]*knownPeer{},
 	}
 	m.onGossipNeighborRemovedClosure = events.NewClosure(m.onGossipNeighborRemoved)
+	m.onGossipNeighborAddedClosure = events.NewClosure(m.onGossipNeighborAdded)
 	return m
 }
 
 // AddPeer adds multiple peers to the list of known peers.
-func (m *Manager) AddPeer(peers ...*peer.Peer) {
-	m.mutateKnownPeers(func(knownPeers map[identity.ID]*peer.Peer) {
-		for _, p := range peers {
-			knownPeers[p.ID()] = p
+func (m *Manager) AddPeer(peers ...*peer.Peer) error {
+	var resultErr error
+	for _, p := range peers {
+		if err := m.addPeer(p); err != nil {
+			resultErr = errors.CombineErrors(resultErr, err)
 		}
-	})
+	}
+	return resultErr
 }
 
 // RemovePeer removes multiple peers from the list of known peers.
-func (m *Manager) RemovePeer(keys ...ed25519.PublicKey) {
-	ids := make([]identity.ID, len(keys))
-	for i, key := range keys {
-		ids[i] = identity.NewID(key)
-	}
-	m.mutateKnownPeers(func(knownPeers map[identity.ID]*peer.Peer) {
-		for _, id := range ids {
-			delete(knownPeers, id)
+func (m *Manager) RemovePeer(keys ...ed25519.PublicKey) error {
+	var resultErr error
+	for _, key := range keys {
+		if err := m.removePeer(key); err != nil {
+			resultErr = errors.CombineErrors(resultErr, err)
 		}
-	})
+	}
+	return resultErr
+}
+
+// GetKnownPeersConfig holds optional parameters for the GetKnownPeers method.
+type GetKnownPeersConfig struct {
+	// If true, GetKnownPeers returns peers that have actual connection established in the gossip layer.
+	OnlyConnected bool `json:"onlyConnected"`
+}
+
+// GetKnownPeersOption defines a single option for GetKnownPeers method.
+type GetKnownPeersOption func(conf *GetKnownPeersConfig)
+
+// BuildGetKnownPeersConfig builds GetKnownPeersConfig struct from a list of options.
+func BuildGetKnownPeersConfig(opts []GetKnownPeersOption) *GetKnownPeersConfig {
+	conf := &GetKnownPeersConfig{}
+	for _, o := range opts {
+		o(conf)
+	}
+	return conf
+}
+
+// ToOptions translates config struct to a list of corresponding options.
+func (c *GetKnownPeersConfig) ToOptions() (opts []GetKnownPeersOption) {
+	if c.OnlyConnected {
+		opts = append(opts, WithOnlyConnectedPeers())
+	}
+	return opts
+}
+
+// WithOnlyConnectedPeers returns a GetKnownPeersOption that sets OnlyConnected field to true.
+func WithOnlyConnectedPeers() GetKnownPeersOption {
+	return func(conf *GetKnownPeersConfig) {
+		conf.OnlyConnected = true
+	}
 }
 
 // GetKnownPeers returns the list of known peers.
-func (m *Manager) GetKnownPeers() []*peer.Peer {
+func (m *Manager) GetKnownPeers(opts ...GetKnownPeersOption) []*KnownPeer {
+	conf := BuildGetKnownPeersConfig(opts)
 	m.knownPeersMutex.RLock()
 	defer m.knownPeersMutex.RUnlock()
-	peers := make([]*peer.Peer, 0, len(m.knownPeers))
-	for _, p := range m.knownPeers {
-		peers = append(peers, p)
+	peers := make([]*KnownPeer, 0, len(m.knownPeers))
+	for _, kp := range m.knownPeers {
+		connStatus := kp.getConnStatus()
+		if !conf.OnlyConnected || connStatus == ConnStatusConnected {
+			peers = append(peers, &KnownPeer{
+				Peer:          kp.peer,
+				ConnDirection: kp.connDirection,
+				ConnStatus:    connStatus,
+			})
+		}
 	}
 	return peers
-}
-
-// GetConnectedPeers returns the list of connected peers.
-func (m *Manager) GetConnectedPeers() []*peer.Peer {
-	m.connectedNeighborsMutex.RLock()
-	defer m.connectedNeighborsMutex.RUnlock()
-	peers := make([]*peer.Peer, 0, len(m.connectedNeighbors))
-	for _, p := range m.connectedNeighbors {
-		peers = append(peers, p)
-	}
-	return peers
-}
-
-func (m *Manager) mutateKnownPeers(mutateFn func(knownPeers map[identity.ID]*peer.Peer)) {
-	m.knownPeersMutex.Lock()
-	defer m.knownPeersMutex.Unlock()
-
-	mutateFn(m.knownPeers)
-
-	m.triggerSync()
 }
 
 // Start subscribes to the gossip layer events and starts internal background workers.
@@ -120,176 +167,190 @@ func (m *Manager) mutateKnownPeers(mutateFn func(knownPeers map[identity.ID]*pee
 func (m *Manager) Start() {
 	m.startOnce.Do(func() {
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborRemovedClosure)
-		m.workersWG.Add(1)
-		go func() {
-			defer m.workersWG.Done()
-			m.syncGossipNeighbors()
-		}()
+		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborAdded.Attach(m.onGossipNeighborAddedClosure)
 		m.isStarted.Set()
 	})
 }
 
 // Stop terminates internal background workers. Calling multiple times has no effect.
-func (m *Manager) Stop() error {
+func (m *Manager) Stop() (err error) {
 	if !m.isStarted.IsSet() {
 		return errors.New("can't stop the manager: it hasn't been started yet")
 	}
 	m.stopOnce.Do(func() {
+		m.stopMutex.Lock()
+		defer m.stopMutex.Unlock()
+		m.isStopped = true
+		err = errors.WithStack(m.removeAllKnownPeers())
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
-		close(m.stopCh)
-		m.workersWG.Wait()
+		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborAdded.Detach(m.onGossipNeighborAddedClosure)
 	})
+	return err
+}
+
+type knownPeer struct {
+	peer          *peer.Peer
+	connDirection ConnectionDirection
+	connStatus    *atomic.Value
+	removeCh      chan struct{}
+	doneCh        chan struct{}
+}
+
+func newKnownPeer(p *peer.Peer, connDirection ConnectionDirection) *knownPeer {
+	kp := &knownPeer{
+		peer:          p,
+		connDirection: connDirection,
+		connStatus:    &atomic.Value{},
+		removeCh:      make(chan struct{}),
+		doneCh:        make(chan struct{}),
+	}
+	kp.setConnStatus(ConnStatusDisconnected)
+	return kp
+}
+
+func (kp *knownPeer) getConnStatus() ConnectionStatus {
+	return kp.connStatus.Load().(ConnectionStatus)
+}
+
+func (kp *knownPeer) setConnStatus(cs ConnectionStatus) {
+	kp.connStatus.Store(cs)
+}
+
+func (m *Manager) addPeer(p *peer.Peer) error {
+	if !m.isStarted.IsSet() {
+		return errors.New("manualpeering manager hasn't been started yet")
+	}
+	m.stopMutex.RLock()
+	defer m.stopMutex.RUnlock()
+	if m.isStopped {
+		return errors.New("manualpeering manager was stopped")
+	}
+	m.knownPeersMutex.Lock()
+	defer m.knownPeersMutex.Unlock()
+	connDirection, err := m.connectionDirection(p)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	kp := newKnownPeer(p, connDirection)
+	if _, exists := m.knownPeers[kp.peer.ID()]; exists {
+		return nil
+	}
+	m.log.Infow("Adding new peer to the list of known peers in manualpeering", "peer", p)
+	m.knownPeers[kp.peer.ID()] = kp
+	go func() {
+		defer close(kp.doneCh)
+		m.keepPeerConnected(kp)
+	}()
 	return nil
+}
+
+func (m *Manager) removePeer(key ed25519.PublicKey) error {
+	m.knownPeersMutex.Lock()
+	defer m.knownPeersMutex.Unlock()
+	m.log.Infow("Removing peer from from the list of known peers in manualpeering",
+		"publicKey", key)
+	peerID := identity.NewID(key)
+	err := m.removePeerByID(peerID)
+	return errors.WithStack(err)
+}
+
+func (m *Manager) removeAllKnownPeers() error {
+	m.knownPeersMutex.Lock()
+	defer m.knownPeersMutex.Unlock()
+	var resultErr error
+	for peerID := range m.knownPeers {
+		if err := m.removePeerByID(peerID); err != nil {
+			resultErr = errors.CombineErrors(resultErr, err)
+		}
+	}
+	return resultErr
+}
+
+func (m *Manager) removePeerByID(peerID identity.ID) error {
+	kp, exists := m.knownPeers[peerID]
+	if !exists {
+		return nil
+	}
+	delete(m.knownPeers, peerID)
+	close(kp.removeCh)
+	<-kp.doneCh
+	if err := m.gm.DropNeighbor(peerID, gossip.NeighborsGroupManual); err != nil && !errors.Is(err, gossip.ErrUnknownNeighbor) {
+		return errors.Wrapf(err, "failed to drop known peer %s in the gossip layer", peerID)
+	}
+	return nil
+}
+
+func (m *Manager) keepPeerConnected(kp *knownPeer) {
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	cancelContextOnRemove := func() {
+		<-kp.removeCh
+		ctxCancel()
+	}
+	go cancelContextOnRemove()
+
+	ticker := time.NewTicker(m.reconnectInterval)
+	defer ticker.Stop()
+
+	peerID := kp.peer.ID()
+	for {
+		if kp.getConnStatus() == ConnStatusDisconnected {
+			m.log.Infow(
+				"Peer is disconnected, calling gossip layer to establish the connection",
+				"peer", kp.peer, "connectionDirection", kp.connDirection,
+			)
+			var err error
+			if kp.connDirection == ConnDirectionOutbound {
+				err = m.gm.AddOutbound(ctx, kp.peer, gossip.NeighborsGroupManual)
+			} else if kp.connDirection == ConnDirectionInbound {
+				err = m.gm.AddInbound(ctx, kp.peer, gossip.NeighborsGroupManual, server.WithNoDefaultTimeout())
+			}
+			if err != nil && !errors.Is(err, gossip.ErrDuplicateNeighbor) && !errors.Is(err, context.Canceled) {
+				m.log.Errorw(
+					"Failed to connect a neighbor in the gossip layer",
+					"peerID", peerID, "connectionDirection", kp.connDirection, "err", err,
+				)
+			}
+		}
+		select {
+		case <-ticker.C:
+		case <-kp.removeCh:
+			<-ctx.Done()
+			return
+		}
+	}
 }
 
 func (m *Manager) onGossipNeighborRemoved(neighbor *gossip.Neighbor) {
-	m.connectedNeighborsMutex.Lock()
-	defer m.connectedNeighborsMutex.Unlock()
-	delete(m.connectedNeighbors, neighbor.ID())
+	m.changeNeighborStatus(neighbor, ConnStatusDisconnected)
 }
 
-func (m *Manager) syncGossipNeighbors() {
-	for {
-		select {
-		case <-m.stopCh:
-			return
-		case <-m.syncTriggerCh:
-		case <-m.syncTicker.C:
-		}
-
-		neighborsToConnect, neighborsToDrop := m.getNeighborsDiff()
-		wg := sync.WaitGroup{}
-		const tasksNum = 2
-		wg.Add(tasksNum)
-
-		go func() {
-			defer wg.Done()
-			m.connectNeighbors(neighborsToConnect)
-		}()
-		go func() {
-			defer wg.Done()
-			m.dropNeighbors(neighborsToDrop)
-		}()
-
-		wg.Wait()
-	}
+func (m *Manager) onGossipNeighborAdded(neighbor *gossip.Neighbor) {
+	m.changeNeighborStatus(neighbor, ConnStatusConnected)
+	m.log.Infow(
+		"Gossip layer successfully connected with the peer",
+		"peer", neighbor.Peer,
+	)
 }
 
-func (m *Manager) getNeighborsDiff() (neighborsToConnect, neighborsToDrop []*peer.Peer) {
-	m.connectedNeighborsMutex.RLock()
-	defer m.connectedNeighborsMutex.RUnlock()
+func (m *Manager) changeNeighborStatus(neighbor *gossip.Neighbor, connStatus ConnectionStatus) {
 	m.knownPeersMutex.RLock()
 	defer m.knownPeersMutex.RUnlock()
-
-	for peerID, p := range m.knownPeers {
-		if _, exists := m.connectedNeighbors[peerID]; !exists {
-			neighborsToConnect = append(neighborsToConnect, p)
-		}
-	}
-
-	for peerID, p := range m.connectedNeighbors {
-		if _, exists := m.knownPeers[peerID]; !exists {
-			neighborsToDrop = append(neighborsToDrop, p)
-		}
-	}
-
-	return neighborsToConnect, neighborsToDrop
-}
-
-func (m *Manager) connectNeighbors(peers []*peer.Peer) {
-	if len(peers) == 0 {
+	kp, exists := m.knownPeers[neighbor.ID()]
+	if !exists {
 		return
 	}
-	m.log.Infow("Found known peers that aren't in the gossip neighbors list, connecting to them", "peers", peers)
-	wg := sync.WaitGroup{}
-	wg.Add(len(peers))
-	for _, p := range peers {
-		go func(p *peer.Peer) {
-			defer wg.Done()
-			if err := m.connectNeighbor(p); err != nil {
-				m.log.Errorw("Failed to add a neighbor to gossip layer, skip it", "err", err)
-			}
-		}(p)
-	}
-	wg.Wait()
+	kp.setConnStatus(connStatus)
 }
 
-func (m *Manager) dropNeighbors(peers []*peer.Peer) {
-	if len(peers) == 0 {
-		return
-	}
-	m.log.Infow("Found gossip neighbors that aren't in the known peers anymore, dropping them", "peers", peers)
-	wg := sync.WaitGroup{}
-	wg.Add(len(peers))
-	for _, p := range peers {
-		go func(p *peer.Peer) {
-			defer wg.Done()
-			if err := m.dropNeighbor(p); err != nil {
-				m.log.Errorw("Failed to drop a neighbor in gossip layer, skip it", "err", err)
-			}
-		}(p)
-	}
-	wg.Wait()
-}
-
-func (m *Manager) connectNeighbor(p *peer.Peer) error {
-	connDirection, err := m.connectionDirection(p)
-	if err != nil {
-		return errors.Wrap(err, "failed to figure out the connection direction for peer")
-	}
-	switch connDirection {
-	case connDirectionOutbound:
-		if err := m.gm.AddOutbound(context.Background(), p, gossip.NeighborsGroupManual); err != nil {
-			return errors.Wrapf(err, "failed to connect an outbound neighbor; publicKey=%s", p.PublicKey())
-		}
-	case connDirectionInbound:
-		if err := m.gm.AddInbound(context.Background(), p, gossip.NeighborsGroupManual); err != nil {
-			return errors.Wrapf(err, "failed to connect an inbound neighbor; publicKey=%s", p.PublicKey())
-		}
-	default:
-		return errors.Newf("unknown connection direction for neighbor; publicKey=%s, connDirection=%s", p.PublicKey(), connDirection)
-	}
-	m.connectedNeighborsMutex.Lock()
-	defer m.connectedNeighborsMutex.Unlock()
-	m.connectedNeighbors[p.ID()] = p
-	return nil
-}
-
-func (m *Manager) dropNeighbor(p *peer.Peer) error {
-	if err := m.gm.DropNeighbor(p.ID(), gossip.NeighborsGroupManual); err != nil {
-		return errors.Wrapf(err, "gossip layer failed to drop neighbor %s", p.PublicKey())
-	}
-	m.connectedNeighborsMutex.Lock()
-	defer m.connectedNeighborsMutex.Unlock()
-	delete(m.connectedNeighbors, p.ID())
-	return nil
-}
-
-func (m *Manager) triggerSync() {
-	select {
-	case m.syncTriggerCh <- struct{}{}:
-	default:
-	}
-}
-
-type connectionDirection int8
-
-const (
-	connDirectionOutbound connectionDirection = iota
-	connDirectionInbound
-)
-
-//go:generate stringer -type=connectionDirection
-
-func (m *Manager) connectionDirection(p *peer.Peer) (connectionDirection, error) {
+func (m *Manager) connectionDirection(p *peer.Peer) (ConnectionDirection, error) {
 	localPK := m.local.PublicKey().String()
 	peerPK := p.PublicKey().String()
 	if localPK < peerPK {
-		return connDirectionOutbound, nil
+		return ConnDirectionOutbound, nil
 	} else if localPK > peerPK {
-		return connDirectionInbound, nil
+		return ConnDirectionInbound, nil
 	} else {
-		return connectionDirection(0), errors.Newf(
+		return "", errors.Newf(
 			"manualpeering: provided neighbor public key %s is the same as the local %s: can't compare lexicographically",
 			peerPK,
 			localPK,

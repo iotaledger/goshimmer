@@ -37,10 +37,9 @@ var (
 
 // connection timeouts
 const (
-	defaultDialTimeout       = 1 * time.Second                    // timeout for net.Dial
-	handshakeTimeout         = 500 * time.Millisecond             // read/write timeout of the handshake packages
-	acceptTimeout            = 3 * time.Second                    // timeout to accept incoming connections
-	defaultConnectionTimeout = acceptTimeout + 2*handshakeTimeout // timeout after which the connection must be established
+	defaultDialTimeout   = 1 * time.Second                    // timeout for net.Dial
+	handshakeTimeout     = 500 * time.Millisecond             // read/write timeout of the handshake packages
+	defaultAcceptTimeout = 3*time.Second + 2*handshakeTimeout // timeout after which the connection must be accepted.
 
 	maxHandshakePacketSize = 256
 )
@@ -117,7 +116,7 @@ func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogg
 		"network", listener.Addr().Network(),
 		"address", listener.Addr().String(),
 	)
-
+	t.wg.Add(2)
 	go t.run()
 	go t.listenLoop()
 
@@ -140,9 +139,34 @@ func (t *TCP) LocalAddr() net.Addr {
 	return t.listener.Addr()
 }
 
+// ConnectPeerOption defines an option for the DialPeer and AcceptPeer methods.
+type ConnectPeerOption func(conf *connectPeerConfig)
+
+type connectPeerConfig struct {
+	useDefaultTimeout bool
+}
+
+func buildConnectPeerConfig(opts []ConnectPeerOption) *connectPeerConfig {
+	conf := &connectPeerConfig{
+		useDefaultTimeout: true,
+	}
+	for _, o := range opts {
+		o(conf)
+	}
+	return conf
+}
+
+// WithNoDefaultTimeout returns a ConnectPeerOption that disables the default timeout for dial or accept.
+func WithNoDefaultTimeout() ConnectPeerOption {
+	return func(conf *connectPeerConfig) {
+		conf.useDefaultTimeout = false
+	}
+}
+
 // DialPeer establishes a gossip connection to the given peer.
 // If the peer does not accept the connection or the handshake fails, an error is returned.
-func (t *TCP) DialPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
+func (t *TCP) DialPeer(ctx context.Context, p *peer.Peer, opts ...ConnectPeerOption) (net.Conn, error) {
+	conf := buildConnectPeerConfig(opts)
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
@@ -152,7 +176,10 @@ func (t *TCP) DialPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
 	if err := backoff.Retry(dialRetryPolicy, func() error {
 		var err error
 		address := net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port()))
-		dialer := &net.Dialer{Timeout: defaultDialTimeout}
+		dialer := &net.Dialer{}
+		if conf.useDefaultTimeout {
+			dialer.Timeout = defaultDialTimeout
+		}
 		conn, err = dialer.DialContext(ctx, "tcp", address)
 		if err != nil {
 			return fmt.Errorf("dial %s / %s failed: %w", address, p.ID(), err)
@@ -175,14 +202,14 @@ func (t *TCP) DialPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
 
 // AcceptPeer awaits an incoming connection from the given peer.
 // If the peer does not establish the connection or the handshake fails, an error is returned.
-func (t *TCP) AcceptPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
+func (t *TCP) AcceptPeer(ctx context.Context, p *peer.Peer, opts ...ConnectPeerOption) (net.Conn, error) {
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
 	// wait for the connection
-	connected := t.acceptPeer(ctx, p)
+	connected := t.acceptPeer(ctx, p, opts)
 	if connected.err != nil {
 		return nil, fmt.Errorf("accept %s / %s failed: %w", net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port())), p.ID(), connected.err)
 	}
@@ -194,10 +221,11 @@ func (t *TCP) AcceptPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
 	return connected.c, nil
 }
 
-func (t *TCP) acceptPeer(ctx context.Context, p *peer.Peer) connect {
-	if _, ok := ctx.Deadline(); !ok {
+func (t *TCP) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) connect {
+	conf := buildConnectPeerConfig(opts)
+	if conf.useDefaultTimeout {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
+		ctx, cancel = context.WithTimeout(ctx, defaultAcceptTimeout)
 		defer cancel()
 	}
 	// add the matcher
@@ -217,12 +245,12 @@ func (t *TCP) closeConnection(c net.Conn) {
 }
 
 func (t *TCP) run() {
-	t.wg.Add(1)
 	defer t.wg.Done()
 	for {
 		select {
 		// add a new matcher to the list
 		case m := <-t.addAcceptMatcherCh:
+			t.wg.Add(1)
 			go t.handleAcceptMatcher(m)
 
 		// on accept received, check all matchers for a fit
@@ -240,7 +268,6 @@ func (t *TCP) run() {
 }
 
 func (t *TCP) handleAcceptMatcher(m *acceptMatcher) {
-	t.wg.Add(1)
 	defer t.wg.Done()
 	listElem := t.pushAcceptMatcher(m)
 	defer t.removeAcceptMatcher(listElem)
@@ -272,6 +299,7 @@ func (t *TCP) matchNewConnection(a accept) bool {
 		if m.peer.ID() == a.fromID {
 			matched = true
 			// finish the handshake
+			t.wg.Add(1)
 			go t.matchAccept(m, a.req, a.conn)
 		}
 	}
@@ -291,7 +319,6 @@ func (t *TCP) removeAcceptMatcher(e *list.Element) {
 }
 
 func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
-	t.wg.Add(1)
 	defer t.wg.Done()
 
 	if err := t.writeHandshakeResponse(req, conn); err != nil {
@@ -304,7 +331,6 @@ func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
 }
 
 func (t *TCP) listenLoop() {
-	t.wg.Add(1)
 	defer t.wg.Done()
 
 	for {

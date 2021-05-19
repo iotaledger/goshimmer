@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -76,18 +75,12 @@ func start(shutdownSignal <-chan struct{}) {
 	defer srv.Close()
 
 	mgr.Start(srv)
-	defer mgr.Close()
-
-	// trigger start of the autopeering selection
-	go func() { autopeering.StartSelection() }()
+	defer mgr.Stop()
 
 	log.Infof("%s started: age-threshold=%v bind-address=%s", PluginName, ageThreshold, localAddr.String())
 
 	<-shutdownSignal
 	log.Info("Stopping " + PluginName + " ...")
-
-	// assure that the autopeering selection is always stopped before the gossip manager
-	autopeering.Selection().Close()
 }
 
 // loads the given message from the message layer and returns it or an error if not found.
