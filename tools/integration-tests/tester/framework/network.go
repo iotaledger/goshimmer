@@ -351,7 +351,6 @@ func (n *Network) waitForPeering(minimumNeighbors int, getNeighborsFn getNeighbo
 	}
 
 	for i := peeringMaxTries; i > 0; i-- {
-
 		for _, p := range n.peers {
 			if neighborsNumber, err := getNeighborsFn(p); err != nil {
 				log.Printf("request error: %v\n", err)

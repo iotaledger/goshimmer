@@ -18,7 +18,7 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetwork("faucet_TestPersistence", 5,  framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("faucet_TestPersistence", 5, framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -56,7 +56,7 @@ func TestFaucetPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
-	err=n.DoManualPeeringAndWait()
+	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
 	// check whether all issued messages are available on all nodes

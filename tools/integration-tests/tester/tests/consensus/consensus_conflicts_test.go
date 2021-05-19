@@ -31,7 +31,7 @@ func TestConsensus(t *testing.T) {
 	// }()
 
 	// create two partitions with their own peers
-	n, err := f.CreateNetwork("conflict", numberOfPeers,  framework.CreateNetworkConfig{Mana: true})
+	n, err := f.CreateNetwork("conflict", numberOfPeers, framework.CreateNetworkConfig{Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -249,7 +249,7 @@ func createBalances(balanceType string, nOutputs int, inputBalance uint64) []uin
 			fmt.Printf("before %v", outputBalances)
 			outputBalances = append(outputBalances, inputBalance*9/10)
 			remainingBalance, _ := ledgerstate.SafeSubUint64(inputBalance, outputBalances[0])
-			fmt.Printf("remainig %v", outputBalances)
+			fmt.Printf("remaining %v", outputBalances)
 			for i := 1; i < nOutputs-1; i++ {
 				outputBalances = append(outputBalances, remainingBalance/uint64(nOutputs-1))
 				totalBalance, _ = ledgerstate.SafeAddUint64(totalBalance, outputBalances[i])

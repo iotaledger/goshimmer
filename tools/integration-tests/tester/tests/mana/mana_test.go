@@ -18,7 +18,7 @@ import (
 )
 
 func TestManaPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("mana_TestPersistence", 1,  framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("mana_TestPersistence", 1, framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -57,7 +57,7 @@ func TestManaPersistence(t *testing.T) {
 
 func TestPledgeFilter(t *testing.T) {
 	numPeers := 2
-	n, err := f.CreateNetwork("mana_TestAPI", 0,  framework.CreateNetworkConfig{})
+	n, err := f.CreateNetwork("mana_TestAPI", 0, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -141,7 +141,7 @@ func TestApis(t *testing.T) {
 	defer func() {
 		framework.ParaManaOnEveryNode = prevParaManaOnEveryNode
 	}()
-	n, err := f.CreateNetwork("mana_TestAPI", 4,  framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("mana_TestAPI", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -254,7 +254,7 @@ func TestApis(t *testing.T) {
 	fmt.Println("pending mana: ", resp8.Mana)
 	assert.Greater(t, resp8.Mana, 0.0)
 
-	//Test /mana/allowedManaPledge
+	// Test /mana/allowedManaPledge
 	pledgeList, err := peers[0].GoShimmerAPI.GetAllowedManaPledgeNodeIDs()
 	require.NoError(t, err, "Error occurred while testing allowed mana pledge api")
 	assert.Equal(t, false, pledgeList.Access.IsFilterEnabled, "/mana/allowedManaPledge: FilterEnabled field for access mana is not as expected")
