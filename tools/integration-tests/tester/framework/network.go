@@ -17,6 +17,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/manualpeering"
 )
 
 // Network represents a complete GoShimmer network within Docker.
@@ -329,7 +330,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 // WaitForManualpeering waits until all peers have reached together as neighbors.
 func (n *Network) WaitForManualpeering() error {
 	getNeighborsFn := func(p *Peer) (int, error) {
-		peers, err := p.GetManualConnectedPeers()
+		peers, err := p.GetManualKnownPeers(manualpeering.WithOnlyConnectedPeers())
 		if err != nil {
 			return 0, errors.Wrap(err, "client failed to return manually connected peers")
 		}
