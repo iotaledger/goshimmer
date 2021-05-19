@@ -79,6 +79,8 @@ var (
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests
 	initDone atomic.Bool
+
+	waitForManaWindow = 5 * time.Second
 )
 
 // Plugin returns the plugin instance of the faucet plugin.
@@ -298,14 +300,14 @@ func waitForMana() error {
 		aMana, _, err := messagelayer.GetAccessMana(nodeID)
 		if err != nil {
 			plugin.LogInfof("error getting faucet mana. NodeID=%s: %s", nodeID, err.Error())
-			time.Sleep(5 * time.Second)
+			time.Sleep(waitForManaWindow)
 			continue
 		}
 		if aMana >= 1.0 {
 			return nil
 		}
 		plugin.LogInfof("not done yet: Access mana=%f", aMana)
-		time.Sleep(5 * time.Second)
+		time.Sleep(waitForManaWindow)
 	}
 	return errors.Errorf("Waiting for faucet to have at least 1.0 access mana not successful")
 }
