@@ -5,18 +5,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -166,7 +166,6 @@ func TestAlias_Persistence(t *testing.T) {
 	// wait for peers to change their state to synchronized
 	time.Sleep(10 * time.Second)
 
-	fmt.Println("Test:", framework.ParaPoWFaucetDifficulty)
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
 
