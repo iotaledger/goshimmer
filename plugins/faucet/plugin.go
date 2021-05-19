@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/events"
@@ -48,6 +49,8 @@ const (
 	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCounts"
 	// CfgFaucetStartIndex defines from which address index the faucet should start gathering outputs.
 	CfgFaucetStartIndex = "faucet.startIndex"
+
+	waitForManaMaxTries = 10
 )
 
 func init() {
@@ -153,6 +156,11 @@ func run(*node.Plugin) {
 		}
 		log.Infof("Waiting for node to become synced... DONE")
 
+		err := waitForMana()
+		if err != nil {
+			log.Panic("failed to get at least 1.0 mana: %s", err)
+		}
+
 		log.Infof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
 		dErr := Faucet().DeriveStateFromTangle(startIndex)
@@ -251,4 +259,25 @@ func RemoveAddressFromBlacklist(address ledgerstate.Address) {
 	defer blackListMutex.Unlock()
 
 	blacklist.Delete(address.Base58())
+}
+
+func waitForMana() error {
+	log.Info("Waiting for faucet to have at least 1.0 access mana")
+	defer log.Info("Waiting for faucet to have at least 1.0 access mana... done\n")
+
+	nodeID := messagelayer.Tangle().Options.Identity.ID()
+	for i := waitForManaMaxTries; i > 0; i-- {
+		aMana, _, err := messagelayer.GetAccessMana(nodeID)
+		if err != nil {
+			plugin.LogInfof("error getting faucet mana. NodeID=%s: %s", nodeID, err.Error())
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		if aMana >= 1.0 {
+			return nil
+		}
+		plugin.LogInfof("not done yet: Access mana=%f", aMana)
+		time.Sleep(5 * time.Second)
+	}
+	return errors.Errorf("Waiting for faucet to have at least 1.0 access mana not successful")
 }
