@@ -30,10 +30,10 @@ func TestPrepareFaucet(t *testing.T) {
 		Faucet:         true,
 		Mana:           true,
 		ActivityPlugin: true,
-		StartSync: true,
+		StartSync:      true,
 	})
 	require.NoError(t, err)
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// Tests genesis output is split into 10 outputs. [1,2,...10] and balance,
 	const genesisBalance = int64(1000000000000000)
