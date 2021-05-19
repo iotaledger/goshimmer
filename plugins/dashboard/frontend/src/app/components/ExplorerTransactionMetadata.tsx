@@ -36,7 +36,7 @@ export class ExplorerTransactionMetadata extends React.Component<Props, any> {
             );
         }
         return (
-            <Container>
+            <div style={{marginTop: "20px", marginBottom: "20px"}}>
                 <h4>Metadata</h4>
                 {txMetadata && <ListGroup>
                     <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${txMetadata.branchID}`}>{resolveBase58BranchID(txMetadata.branchID)}</a></ListGroup.Item>
@@ -45,7 +45,7 @@ export class ExplorerTransactionMetadata extends React.Component<Props, any> {
                     <ListGroup.Item>Finalized: {txMetadata.finalized.toString()}</ListGroup.Item>
                     <ListGroup.Item>Lazy booked: {txMetadata.lazyBooked.toString()}</ListGroup.Item>
                 </ListGroup>}
-            </Container>
+            </div>
         )
     }
 }

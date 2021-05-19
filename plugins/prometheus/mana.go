@@ -15,6 +15,7 @@ var (
 	averageNeighborsConsensus prometheus.Gauge
 	averageAccessPledge       *prometheus.GaugeVec
 	averageConsensusPledge    *prometheus.GaugeVec
+	delegatedMana             prometheus.Gauge
 )
 
 func registerManaMetrics() {
@@ -80,6 +81,12 @@ func registerManaMetrics() {
 			Help: "Average consensus mana of all neighbors.",
 		})
 
+	delegatedMana = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "mana_delegated_amount",
+			Help: "The amount of mana delegated to the node at the moment",
+		})
+
 	registry.MustRegister(accessManaMap)
 	registry.MustRegister(accessPercentile)
 	registry.MustRegister(consensusManaMap)
@@ -88,6 +95,7 @@ func registerManaMetrics() {
 	registry.MustRegister(averageConsensusPledge)
 	registry.MustRegister(averageNeighborsAccess)
 	registry.MustRegister(averageNeighborsConsensus)
+	registry.MustRegister(delegatedMana)
 
 	addCollect(collectManaMetrics)
 }
@@ -113,4 +121,6 @@ func collectManaMetrics() {
 	for nodeID, value := range consensusPledges {
 		averageConsensusPledge.WithLabelValues(nodeID.String(), "bm1").Set(value)
 	}
+
+	delegatedMana.Set(float64(metrics.DelegatedMana()))
 }

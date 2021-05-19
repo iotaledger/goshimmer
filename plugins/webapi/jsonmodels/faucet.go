@@ -11,4 +11,5 @@ type FaucetRequest struct {
 	Address               string `json:"address"`
 	AccessManaPledgeID    string `json:"accessManaPledgeID"`
 	ConsensusManaPledgeID string `json:"consensusManaPledgeID"`
+	Nonce                 uint64 `json:"nonce"`
 }

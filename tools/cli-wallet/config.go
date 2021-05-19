@@ -9,8 +9,10 @@ import (
 
 // config type that defines the config structure
 type configuration struct {
-	WebAPI    string           `json:"WebAPI,omitempty"`
-	BasicAuth client.BasicAuth `json:"basic_auth,omitempty"`
+	WebAPI              string           `json:"WebAPI,omitempty"`
+	BasicAuth           client.BasicAuth `json:"basic_auth,omitempty"`
+	ReuseAddresses      bool             `json:"reuse_addresses"`
+	FaucetPowDifficulty int              `json:"faucetPowDifficulty"`
 }
 
 // internal variable that holds the config
@@ -22,7 +24,9 @@ var configJSON = `{
 	  "enabled": false,
 	  "username": "goshimmer",
 	  "password": "goshimmer"
-	}
+	},
+	"reuse_addresses": false,
+	"faucetPowDifficulty": 25
 }`
 
 // load the config file
@@ -34,7 +38,7 @@ func loadConfig() {
 			panic(err)
 		}
 
-		if err = os.WriteFile("config.json", []byte(configJSON), 0644); err != nil {
+		if err = os.WriteFile("config.json", []byte(configJSON), 0o644); err != nil {
 			panic(err)
 		}
 		if file, err = os.Open("config.json"); err != nil {

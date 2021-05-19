@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"bytes"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -19,6 +21,9 @@ const (
 
 	// BLSAddressType represents an Address secured by the BLS signature scheme.
 	BLSAddressType
+
+	// AliasAddressType represents ID used in AliasOutput and AliasLockOutput
+	AliasAddressType
 )
 
 // AddressLength contains the length of an address (type length = 1, digest length = 32).
@@ -32,6 +37,7 @@ func (a AddressType) String() string {
 	return [...]string{
 		"AddressTypeED25519",
 		"AddressTypeBLS",
+		"AliasAddress",
 	}[a]
 }
 
@@ -49,6 +55,9 @@ type Address interface {
 
 	// Clone creates a copy of the Address.
 	Clone() Address
+
+	// Equals returns true if the two Addresses are equal.
+	Equals(other Address) bool
 
 	// Bytes returns a marshaled version of the Address.
 	Bytes() []byte
@@ -104,10 +113,23 @@ func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Addre
 		return ED25519AddressFromMarshalUtil(marshalUtil)
 	case BLSAddressType:
 		return BLSAddressFromMarshalUtil(marshalUtil)
+	case AliasAddressType:
+		return AliasAddressFromMarshalUtil(marshalUtil)
 	default:
 		err = errors.Errorf("unsupported address type (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return
 	}
+}
+
+// AddressFromSignature returns address corresponding to the signature if it has one (for ed25519 and BLS).
+func AddressFromSignature(sig Signature) (Address, error) {
+	switch s := sig.(type) {
+	case *ED25519Signature:
+		return NewED25519Address(s.PublicKey), nil
+	case *BLSSignature:
+		return NewBLSAddress(s.Signature.PublicKey.Bytes()), nil
+	}
+	return nil, errors.New("signature has no corresponding address")
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -195,6 +217,11 @@ func (e *ED25519Address) Clone() Address {
 	return &ED25519Address{
 		digest: clonedDigest,
 	}
+}
+
+// Equals returns true if the two Addresses are equal.
+func (e *ED25519Address) Equals(other Address) bool {
+	return e.Type() == other.Type() && bytes.Equal(e.digest, other.Digest())
 }
 
 // Bytes returns a marshaled version of the Address.
@@ -312,6 +339,11 @@ func (b *BLSAddress) Clone() Address {
 	}
 }
 
+// Equals returns true if the two Addresses are equal.
+func (b *BLSAddress) Equals(other Address) bool {
+	return b.Type() == other.Type() && bytes.Equal(b.digest, other.Digest())
+}
+
 // Bytes returns a marshaled version of the Address.
 func (b *BLSAddress) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.digest)
@@ -339,5 +371,129 @@ func (b *BLSAddress) String() string {
 
 // code contract (make sure the struct implements all required methods)
 var _ Address = &BLSAddress{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AliasAddress ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// AliasAddressDigestSize defines the length of the alias address digest in bytes.
+const AliasAddressDigestSize = 32
+
+// AliasAddress represents a special type of Address which is not backed by a private key directly,
+// but is indirectly backed by a private key defined by corresponding AliasOutput parameters
+type AliasAddress struct {
+	digest [AliasAddressDigestSize]byte
+}
+
+// NewAliasAddress creates a new AliasAddress from the given bytes used as seed.
+// Normally the seed is an OutputID.
+func NewAliasAddress(data []byte) *AliasAddress {
+	return &AliasAddress{
+		digest: blake2b.Sum256(data),
+	}
+}
+
+// AliasAddressFromBytes unmarshals an AliasAddress from a sequence of bytes.
+func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(data)
+	if address, err = AliasAddressFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse AliasAddress from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// AliasAddressFromBase58EncodedString creates an AliasAddress from a base58 encoded string.
+func AliasAddressFromBase58EncodedString(base58String string) (address *AliasAddress, err error) {
+	data, err := base58.Decode(base58String)
+	if err != nil {
+		err = errors.Errorf("error while decoding base58 encoded AliasAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		return
+	}
+
+	if address, _, err = AliasAddressFromBytes(data); err != nil {
+		err = errors.Errorf("failed to parse AliasAddress from data: %w", err)
+		return
+	}
+
+	return
+}
+
+// AliasAddressFromMarshalUtil parses a AliasAddress from the given MarshalUtil.
+func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *AliasAddress, err error) {
+	addressType, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = errors.Errorf("error parsing AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if AddressType(addressType) != AliasAddressType {
+		err = errors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	data, err := marshalUtil.ReadBytes(AliasAddressDigestSize)
+	if err != nil {
+		err = errors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	address = &AliasAddress{}
+	copy(address.digest[:], data)
+	return
+}
+
+// Type returns the AddressType of the Address.
+func (a *AliasAddress) Type() AddressType {
+	return AliasAddressType
+}
+
+// Digest returns the hashed version of the Addresses public key.
+func (a *AliasAddress) Digest() []byte {
+	return a.digest[:]
+}
+
+// Clone creates a copy of the Address.
+func (a *AliasAddress) Clone() Address {
+	return &AliasAddress{digest: a.digest}
+}
+
+// Bytes returns a marshaled version of the Address.
+func (a *AliasAddress) Bytes() []byte {
+	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, a.digest[:])
+}
+
+// Array returns an array of bytes that contains the marshaled version of the Address.
+func (a *AliasAddress) Array() (array [AddressLength]byte) {
+	copy(array[:], a.Bytes())
+
+	return
+}
+
+// Equals returns true if the two Addresses are equal.
+func (a *AliasAddress) Equals(other Address) bool {
+	return a.Type() == other.Type() && bytes.Equal(a.Digest(), other.Digest())
+}
+
+// Base58 returns a base58 encoded version of the Address.
+func (a *AliasAddress) Base58() string {
+	return base58.Encode(a.Bytes())
+}
+
+// String returns a human readable version of the addresses for debug purposes.
+func (a *AliasAddress) String() string {
+	return stringify.Struct("AliasAddress",
+		stringify.StructField("Digest", a.Digest()),
+		stringify.StructField("Base58", a.Base58()),
+	)
+}
+
+// IsNil returns if the alias address is zero value (uninitialized).
+func (a *AliasAddress) IsNil() bool {
+	return a.digest == [32]byte{}
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ Address = &AliasAddress{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
