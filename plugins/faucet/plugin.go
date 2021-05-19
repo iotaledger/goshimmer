@@ -19,6 +19,7 @@ import (
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -46,8 +47,6 @@ const (
 	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCounts"
 	// CfgFaucetStartIndex defines from which address index the faucet should start gathering outputs.
 	CfgFaucetStartIndex = "faucet.startIndex"
-
-	waitForManaMaxTries = 10
 )
 
 func init() {
@@ -154,26 +153,28 @@ func run(*node.Plugin) {
 		if !waitUntilSynced(shutdownSignal) {
 			return
 		}
-		log.Info("Waiting for node to become synced... DONE")
+		log.Info("Waiting for node to become synced... done")
 
-		err := waitForMana()
-		if err != nil {
-			log.Panic("failed to get at least 1.0 mana: %s", err)
+		log.Info("Waiting for node to have sufficient access mana")
+		if err := waitForMana(shutdownSignal); err != nil {
+			log.Errorf("failed to get sufficient access mana: %s", err)
+			return
 		}
+		log.Info("Waiting for node to have sufficient access mana... done")
 
 		log.Infof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
-		dErr := Faucet().DeriveStateFromTangle(startIndex)
-		if dErr != nil {
-			log.Errorf(dErr.Error())
+		if err := Faucet().DeriveStateFromTangle(startIndex); err != nil {
+			log.Errorf("failed to derive state: %s", err)
+			return
 		}
-		log.Info("Deriving faucet state from the ledger... DONE")
+		log.Info("Deriving faucet state from the ledger... done")
 
 		log.Info("Starting funding workerpools...")
 		// start the funding workerpool
 		fundingWorkerPool.Start()
 		defer fundingWorkerPool.Stop()
-		log.Info("Starting funding workerpools... DONE")
+		log.Info("Starting funding workerpools... done")
 		initDone.Store(true)
 
 		<-shutdownSignal
@@ -208,6 +209,29 @@ func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
 		return true
 	case <-shutdownSignal:
 		return false
+	}
+}
+
+func waitForMana(shutdownSignal <-chan struct{}) error {
+	nodeID := messagelayer.Tangle().Options.Identity.ID()
+	for {
+		// stop polling, if we are shutting down
+		select {
+		case <-shutdownSignal:
+			return errors.New("faucet shutting down")
+		default:
+		}
+
+		aMana, _, err := messagelayer.GetAccessMana(nodeID)
+		// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
+		if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+			return err
+		}
+		if aMana >= tangle.MinMana {
+			return nil
+		}
+		plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangle.MinMana)
+		time.Sleep(waitForManaWindow)
 	}
 }
 
@@ -289,25 +313,4 @@ func RemoveAddressFromBlacklist(address ledgerstate.Address) {
 	defer blackListMutex.Unlock()
 
 	blacklist.Delete(address.Base58())
-}
-
-func waitForMana() error {
-	log.Info("Waiting for faucet to have at least 1.0 access mana")
-	defer log.Info("Waiting for faucet to have at least 1.0 access mana... done\n")
-
-	nodeID := messagelayer.Tangle().Options.Identity.ID()
-	for i := waitForManaMaxTries; i > 0; i-- {
-		aMana, _, err := messagelayer.GetAccessMana(nodeID)
-		if err != nil {
-			plugin.LogInfof("error getting faucet mana. NodeID=%s: %s", nodeID, err.Error())
-			time.Sleep(waitForManaWindow)
-			continue
-		}
-		if aMana >= 1.0 {
-			return nil
-		}
-		plugin.LogInfof("not done yet: Access mana=%f", aMana)
-		time.Sleep(waitForManaWindow)
-	}
-	return errors.Errorf("Waiting for faucet to have at least 1.0 access mana not successful")
 }

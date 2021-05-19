@@ -20,7 +20,7 @@ const (
 	MaxDeficit = MaxMessageSize
 	// MinMana is the minimum amount of Mana needed to issue messages.
 	// MaxMessageSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
-	MinMana = 1
+	MinMana float64 = 1.0
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has been stopped

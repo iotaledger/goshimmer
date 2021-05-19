@@ -54,11 +54,7 @@ func TestSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	log.Println("Stopping new node... done")
 
-	// 6. issue more data messages on old peers
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numMessages, ids)
-	log.Printf("Issuing %d messages to be synced... done\n", numMessages)
-
-	// 7. let it startup again
+	// 6. let it startup again
 	log.Println("Restarting new node to sync again...")
 	err = newPeer.Start()
 	require.NoError(t, err)
@@ -69,16 +65,16 @@ func TestSynchronization(t *testing.T) {
 
 	// note: this check is too dependent on the initial time a node sends bootstrap messages
 	// and therefore very error prone. Therefore it's not done for now.
-	// 8. check that it is in state de-synced
+	// 7. check that it is in state desynced
 	//resp, err := newPeer.Info()
 	//require.NoError(t, err)
 	//assert.Falsef(t, resp.Synced, "Peer %s should be desynced but is synced!", newPeer.String())
 
-	// 9. issue some messages on old peers so that new peer can sync again
+	// 8. issue some messages on old peers so that new peer can sync again
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10, ids)
 	// wait for peer to solidify
 	time.Sleep(30 * time.Second)
 
-	// 10. check whether all issued messages are available on all nodes
+	// 9. check whether all issued messages are available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 }

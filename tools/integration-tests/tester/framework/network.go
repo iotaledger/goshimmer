@@ -14,6 +14,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/tangle"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 )
 
@@ -322,7 +324,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 // WaitForMana waits until all peers have access mana.
 // Returns error if all peers don't have mana after waitForManaMaxTries
 func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
-	log.Printf("Waiting for nodes to get at least 1.0 access mana...\n")
+	log.Printf("Waiting for nodes to get at least %f access mana...\n", tangle.MinMana)
 	defer log.Printf("Waiting for nodes to get mana... done\n")
 
 	peers := n.peers
@@ -341,7 +343,7 @@ func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
 				continue
 			}
 			log.Println("node: ", peer.ID().String(), " - mana: ", infoRes.Mana.Access)
-			if infoRes.Mana.Access > 1.0 {
+			if infoRes.Mana.Access >= tangle.MinMana {
 				delete(m, peer)
 			}
 		}
