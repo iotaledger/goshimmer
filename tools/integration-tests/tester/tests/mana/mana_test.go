@@ -176,11 +176,11 @@ func TestApis(t *testing.T) {
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	// send funds to node 1
-	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58())
+	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
 	// send funds to node 2
-	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58())
+	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty)
 	require.NoError(t, err)
 	time.Sleep(20 * time.Second)
 

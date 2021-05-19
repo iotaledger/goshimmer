@@ -45,7 +45,6 @@ var (
 	// plugin is the plugin instance of the remote plugin instance.
 	plugin      *node.Plugin
 	pluginOnce  sync.Once
-	log         *logger.Logger
 	myID        string
 	myGitHead   string
 	myGitBranch string
@@ -68,10 +67,8 @@ func init() {
 }
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger(PluginName)
-
 	if config.Node().Bool(CfgDisableEvents) {
-		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
+		plugin.LogFatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
 		return
 	}
 
@@ -100,12 +97,12 @@ func run(plugin *node.Plugin) {
 		logger.Events.AnyMsg.Attach(logEvent)
 		workerPool.Start()
 		<-shutdownSignal
-		log.Infof("Stopping %s ...", PluginName)
+		plugin.LogInfof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)
 		workerPool.Stop()
-		log.Infof("Stopping %s ... done", PluginName)
+		plugin.LogInfof("Stopping %s ... done", PluginName)
 	}, shutdown.PriorityRemoteLog); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -129,7 +126,7 @@ func SendLogMsg(level logger.Level, name, msg string) {
 func getGitInfo() {
 	r, err := git.PlainOpen(getGitDir())
 	if err != nil {
-		log.Debug("Could not open Git repo.")
+		plugin.LogDebug("Could not open Git repo.")
 		return
 	}
 
@@ -169,7 +166,7 @@ func RemoteLogger() *RemoteLoggerConn {
 	remoteLoggerOnce.Do(func() {
 		r, err := newRemoteLoggerConn(config.Node().String(CfgLoggerRemotelogServerAddress))
 		if err != nil {
-			log.Fatal(err)
+			plugin.LogFatal(err)
 			return
 		}
 

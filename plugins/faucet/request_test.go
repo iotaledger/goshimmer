@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -22,10 +21,7 @@ func ExampleRequest() {
 	emptyID := identity.ID{}
 
 	// 1. create faucet payload
-	faucetRequest, err := NewRequest(address, 4, emptyID, emptyID)
-	if err != nil {
-		panic(err)
-	}
+	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
 	// 2. build actual message
 	tx := tangle.NewMessage(
@@ -47,10 +43,7 @@ func TestRequest(t *testing.T) {
 	access, _ := identity.RandomID()
 	consensus, _ := identity.RandomID()
 
-	originalRequest, err := NewRequest(address, 4, access, consensus)
-	if err != nil {
-		panic(err)
-	}
+	originalRequest := NewRequest(address, access, consensus, 0)
 
 	clonedRequest, _, err := FromBytes(originalRequest.Bytes())
 	if err != nil {
@@ -75,11 +68,8 @@ func TestIsFaucetReq(t *testing.T) {
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 	emptyID := identity.ID{}
 
-	faucetRequest, err := NewRequest(address, 4, emptyID, emptyID)
-	if err != nil {
-		require.NoError(t, err)
-		return
-	}
+	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
+
 	faucetMsg := tangle.NewMessage(
 		[]tangle.MessageID{tangle.EmptyMessageID},
 		[]tangle.MessageID{},
