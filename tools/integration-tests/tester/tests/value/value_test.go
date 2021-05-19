@@ -167,7 +167,7 @@ func TestAlias_Persistence(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// create a wallet that connects to a random peer
-	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()))
+	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)

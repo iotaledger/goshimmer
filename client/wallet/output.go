@@ -167,3 +167,43 @@ func (o OutputsByAddressAndOutputID) ToLedgerStateOutputs() ledgerstate.Outputs 
 	}
 	return outputs
 }
+
+// OutputCount returns the number of outputs in the struct.
+func (o OutputsByAddressAndOutputID) OutputCount() int {
+	outputCount := 0
+	for _, outputIDMapping := range o {
+		for range outputIDMapping {
+			outputCount++
+		}
+	}
+	return outputCount
+}
+
+// SplitIntoChunksOfMaxInputCount splits the mapping into chunks that contain at most ledgerstate.MaxInputCount outputs.
+func (o OutputsByAddressAndOutputID) SplitIntoChunksOfMaxInputCount() []OutputsByAddressAndOutputID {
+	outputCount := o.OutputCount()
+	if outputCount <= ledgerstate.MaxInputCount {
+		// there is no need to split
+		return []OutputsByAddressAndOutputID{o}
+	}
+	result := make([]OutputsByAddressAndOutputID, outputCount/ledgerstate.MaxInputCount+1)
+	for i := range result {
+		// init all chunks
+		result[i] = NewAddressToOutputs()
+	}
+	processedCount := 0
+	chunkCount := -1
+	for addy, outputIDMapping := range o {
+		for outputID, output := range outputIDMapping {
+			if processedCount%ledgerstate.MaxInputCount == 0 {
+				chunkCount++
+			}
+			if _, has := result[chunkCount][addy]; !has {
+				result[chunkCount][addy] = make(map[ledgerstate.OutputID]*Output)
+			}
+			result[chunkCount][addy][outputID] = output
+			processedCount++
+		}
+	}
+	return result
+}

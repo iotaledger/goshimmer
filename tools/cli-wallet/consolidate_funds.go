@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidateoptions"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -27,7 +28,8 @@ func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet
 		printUsage(command)
 	}
 
-	_, err = cliWallet.ConsolidateFunds(
+	var txs []*ledgerstate.Transaction
+	txs, err = cliWallet.ConsolidateFunds(
 		consolidateoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
 		consolidateoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	)
@@ -36,5 +38,9 @@ func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet
 	}
 
 	fmt.Println()
+	fmt.Printf("\nConsolidated funds into %d output(s) via:\n", len(txs))
+	for _, tx := range txs {
+		fmt.Printf("\n\tTransaction %s\n", tx.ID().Base58())
+	}
 	fmt.Println("Consolidating funds... [DONE]")
 }
