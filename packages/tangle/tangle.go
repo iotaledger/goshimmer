@@ -127,15 +127,15 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 }
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
-func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err error) {
+func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *Message, err error) {
 	if !t.Synced() {
 		err = errors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
 	}
 
-	if payload.Type() == ledgerstate.TransactionType {
+	if p.Type() == ledgerstate.TransactionType {
 		var invalidInputs []string
-		transaction := payload.(*ledgerstate.Transaction)
+		transaction := p.(*ledgerstate.Transaction)
 		for _, input := range transaction.Essence().Inputs() {
 			if input.Type() == ledgerstate.UTXOInputType {
 				t.LedgerState.OutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
@@ -152,7 +152,7 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 		}
 	}
 
-	return t.MessageFactory.IssuePayload(payload, t)
+	return t.MessageFactory.IssuePayload(p, parentsCount...)
 }
 
 // Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
@@ -204,6 +204,11 @@ type Events struct {
 // MessageIDCaller is the caller function for events that hand over a MessageID.
 func MessageIDCaller(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
+}
+
+// MessageCaller is the caller function for events that hand over a Message.
+func MessageCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*Message))(params[0].(*Message))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

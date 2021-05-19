@@ -18,6 +18,7 @@ const (
 	routePending                  = "mana/pending"
 	routePastConsensusVector      = "mana/consensus/past"
 	routePastConsensusEventLogs   = "mana/consensus/logs"
+	routeAllowedPledgeNodeIDs     = "mana/allowedManaPledge"
 )
 
 // GetOwnMana returns the access and consensus mana of the node this api client is communicating with.
@@ -164,5 +165,15 @@ func (api *GoShimmerAPI) GetConsensusEventLogs(nodeIDs []string) (*jsonmodels.Ge
 		&jsonmodels.GetEventLogsRequest{NodeIDs: nodeIDs}, res); err != nil {
 		return nil, err
 	}
+	return res, nil
+}
+
+// GetAllowedManaPledgeNodeIDs returns the list of allowed mana pledge IDs.
+func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*jsonmodels.AllowedManaPledgeResponse, error) {
+	res := &jsonmodels.AllowedManaPledgeResponse{}
+	if err := api.do(http.MethodGet, routeAllowedPledgeNodeIDs, nil, res); err != nil {
+		return nil, err
+	}
+
 	return res, nil
 }

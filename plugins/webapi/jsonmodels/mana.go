@@ -116,3 +116,16 @@ type GetPercentileResponse struct {
 	Consensus          float64 `json:"consensus"`
 	ConsensusTimestamp int64   `json:"consensusTimestamp"`
 }
+
+// AllowedManaPledgeResponse is the http response.
+type AllowedManaPledgeResponse struct {
+	Access    AllowedPledge `json:"accessMana"`
+	Consensus AllowedPledge `json:"consensusMana"`
+	Error     string        `json:"error,omitempty"`
+}
+
+// AllowedPledge represents the nodes that mana is allowed to be pledged to.
+type AllowedPledge struct {
+	IsFilterEnabled bool     `json:"isFilterEnabled"`
+	Allowed         []string `json:"allowed,omitempty"`
+}

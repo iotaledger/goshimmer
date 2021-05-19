@@ -1,3 +1,19 @@
+# v0.6.0 - 2021-05-19
+* Add first iteration of the tokenization framework
+* Add aMana refresher
+* Add CORS to middleware Dashboard server
+* Allow specifying parents count when issuing messages 
+* Move PoW for Faucet requests to client
+* Remove Faucet requests from Node's Dashboard
+* Improve cli-wallet
+* Improve APIs
+* Improve integration tests
+* Refactor statement remote logging  
+* Display full messageID in explorer feed
+* Update JS dependencies
+* Update documentation
+* **Breaking**: bumps network and database versions
+
 # v0.5.9 - 2021-05-11
 * Replace sync beacons with Tangle Time
 * Fix approval weight manager persistence
