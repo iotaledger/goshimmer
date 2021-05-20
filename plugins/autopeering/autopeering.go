@@ -114,6 +114,9 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 func evalMana(nodeIdentity *identity.Identity) uint64 {
+	if !manaEnabled {
+		return 0
+	}
 	m, _, err := messagelayer.GetConsensusMana(nodeIdentity.ID())
 	if err != nil {
 		return 0
