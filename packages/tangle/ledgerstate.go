@@ -240,7 +240,7 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	return snapshot
 }
 
-// Transaction returns a specific transaction.
+// ReturnTransaction returns a specific transaction.
 func (l *LedgerState) ReturnTransaction(transactionID ledgerstate.TransactionID) (transaction *ledgerstate.Transaction) {
 	return l.UTXODAG.Transaction(transactionID)
 }

@@ -221,14 +221,6 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
-	// TODO the following was conflicting after merge to develop. Can it be removed ?
-	// messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
-	// 	// iterate balances
-	// 	var b []value.Balance
-	// 	output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-	// 		b = append(b, value.Balance{
-	// 			Value: int64(balance),
-	// 			Color: color.String(),
 	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
 		inclusionState := value.InclusionState{}
@@ -245,16 +237,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
 		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
-		// TODO the following was conflicting and removed after merging. Can it be removed ?
-		// var consumerCount int
-		// var branch ledgerstate.Branch
-		// messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		// 	consumerCount = outputMetadata.ConsumerCount()
-		// 	messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
-		// 		branch = b
-		// 	})
-		// })
-		// var solidificationTime int64
+
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
 			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
 			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected

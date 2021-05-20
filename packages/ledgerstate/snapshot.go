@@ -157,13 +157,13 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 		bytesRead += int64(n)
 
 		var unlockBlockLength uint32
-		if err := binary.Read(reader, binary.LittleEndian, &unlockBlockLength); err != nil {
+		if err = binary.Read(reader, binary.LittleEndian, &unlockBlockLength); err != nil {
 			return 0, fmt.Errorf("unable to read length of unlockBlocks at index %d: %w", i, err)
 		}
 		bytesRead += 4
 
 		unlockBlockBytes := make([]byte, unlockBlockLength)
-		if err := binary.Read(reader, binary.LittleEndian, &unlockBlockBytes); err != nil {
+		if err = binary.Read(reader, binary.LittleEndian, &unlockBlockBytes); err != nil {
 			return 0, fmt.Errorf("unable to read transactionID: %w", err)
 		}
 		unlockBlocks, n, err := UnlockBlocksFromBytes(unlockBlockBytes)
