@@ -312,7 +312,7 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := a.vector[nodeID]; !exist {
-		return 0.0, t, ErrNodeNotFoundInBaseManaVector
+		return 1.0, t, nil
 	}
 	if len(optionalUpdateTime) > 0 {
 		t = optionalUpdateTime[0]
@@ -320,5 +320,9 @@ func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ..
 	_ = a.update(nodeID, t)
 
 	baseMana := a.vector[nodeID]
-	return baseMana.EffectiveValue(), t, nil
+	effectiveValue := baseMana.EffectiveValue()
+	if effectiveValue < 1 {
+		effectiveValue = 1
+	}
+	return effectiveValue, t, nil
 }
