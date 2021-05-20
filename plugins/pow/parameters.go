@@ -21,5 +21,5 @@ func init() {
 	flag.Int(CfgPOWDifficulty, 22, "PoW difficulty")
 	flag.Int(CfgPOWNumThreads, 1, "number of threads used to do the PoW")
 	flag.Duration(CfgPOWTimeout, time.Minute, "PoW timeout")
-	flag.Duration(CfgPOWParentsRefreshInterval, time.Second, "PoW parents refresh interval timeout")
+	flag.Duration(CfgPOWParentsRefreshInterval, 300*time.Millisecond, "PoW parents refresh interval timeout")
 }
