@@ -221,7 +221,9 @@ func TestAlias_Persistence(t *testing.T) {
 	}
 
 	// wait for peers to start
-	time.Sleep(20 * time.Second)
+	time.Sleep(5 * time.Second)
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
