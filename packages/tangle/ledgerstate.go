@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -163,7 +164,7 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 }
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
-func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
+func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 	l.UTXODAG.LoadSnapshot(snapshot)
 	// add attachment link between txs from snapshot and the genesis message (EmptyMessageID).
 	for txID, record := range snapshot.Transactions {
@@ -173,7 +174,14 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 			attachment.Release()
 		}
 		// The following only works assuming that the snapshot contains all of the unspent outputs.
-		for _, output := range record.Essence.Outputs() {
+		if l.totalSupply != 0 {
+			err = errors.Errorf("totalSupply is not zero at start of snapshot: %w", cerrors.ErrFatal)
+			return
+		}
+		for i, output := range record.Essence.Outputs() {
+			if !record.UnspentOutputs[i] {
+				continue
+			}
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				l.totalSupply += balance
 				return true
@@ -184,6 +192,7 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 	if attachment != nil {
 		attachment.Release()
 	}
+	return
 }
 
 // SnapshotUTXO returns the UTXO snapshot, which is a list of transactions with unspent outputs.

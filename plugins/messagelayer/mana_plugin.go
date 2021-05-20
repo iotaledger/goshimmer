@@ -779,26 +779,26 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 
 	// load txSnapshot into SnapshotInfoVec
 	for txID, record := range snapshot.Transactions {
-		totalBalance := uint64(0)
+		totalUnspentBalanceInTx := uint64(0)
 		for i, output := range record.Essence.Outputs() {
 			if !record.UnspentOutputs[i] {
 				continue
 			}
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				totalBalance += balance
+				totalUnspentBalanceInTx += balance
 				return true
 			})
 		}
 		txInfo := &mana.TxSnapshot{
-			Value:     float64(totalBalance),
+			Value:     float64(totalUnspentBalanceInTx),
 			TxID:      txID,
 			Timestamp: record.Essence.Timestamp(),
 		}
 		txSnapshotByNode[record.Essence.ConsensusPledgeID()] = append(txSnapshotByNode[record.Essence.ConsensusPledgeID()], txInfo)
 	}
 
+	// sort txSnapshot per nodeID, so that for each nodeID it is in temporal order
 	SnapshotByNode := make(map[identity.ID]mana.SnapshotNode)
-
 	for nodeID := range txSnapshotByNode {
 		sort.Sort(txSnapshotByNode[nodeID])
 		snapshotNode := mana.SnapshotNode{
@@ -807,7 +807,7 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 		SnapshotByNode[nodeID] = snapshotNode
 	}
 
-	// load access mana into SnapshotInfoVec
+	// determine addTime if snapshot should be updated for the difference to now
 	var addTime time.Duration
 	// for certain applications (e.g. docker-network) update all timestamps, to have large enough aMana
 	maxTimestamp := time.Unix(tangle.DefaultGenesisTime, 0)
@@ -820,6 +820,7 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 		addTime = time.Since(maxTimestamp)
 	}
 
+	// load access mana
 	for nodeID, accessMana := range snapshot.AccessManaByNode {
 		snapshotNode, ok := SnapshotByNode[nodeID]
 		if !ok { // fill with empty element if it does not exist yet
