@@ -157,7 +157,7 @@ func TestApis(t *testing.T) {
 	resp, err := peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(emptyNodeID.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp.NodeID)
-	assert.Equal(t, 0.0, resp.Access)
+	assert.Equal(t, 1.0, resp.Access)
 	assert.Greater(t, resp.Consensus, 0.0)
 
 	resp, err = peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(peers[0].ID().Bytes()))
