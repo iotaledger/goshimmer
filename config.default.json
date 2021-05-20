@@ -110,7 +110,9 @@
   "pow": {
     "difficulty": 22,
     "numThreads": 1,
-    "timeout": "1m"
+    "timeout": "1m",
+    "parentsRefreshInterval": "1s"
+
   },
   "profiling": {
     "bindAddress": "127.0.0.1:6061"

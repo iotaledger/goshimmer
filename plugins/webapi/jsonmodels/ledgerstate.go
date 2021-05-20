@@ -691,7 +691,6 @@ func NewInput(input ledgerstate.Input, referencedOutput ...*Output) *Input {
 			ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
 			Output:             referencedOutput[0],
 		}
-
 	}
 
 	return &Input{
