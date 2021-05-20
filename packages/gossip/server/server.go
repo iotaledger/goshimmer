@@ -226,10 +226,9 @@ func (t *TCP) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOp
 		if errors.Is(err, context.DeadlineExceeded) {
 			t.log.Debugw("accept timeout", "id", am.peer.ID())
 			return nil, errors.WithStack(ErrTimeout)
-		} else {
-			t.log.Debugw("context error", "id", am.peer.ID(), "err", err)
-			return nil, errors.WithStack(err)
 		}
+		t.log.Debugw("context error", "id", am.peer.ID(), "err", err)
+		return nil, errors.WithStack(err)
 	case <-t.closing:
 		return nil, errors.WithStack(ErrClosed)
 	}
