@@ -1,8 +1,12 @@
 package framework
 
+import (
+	"time"
+)
+
 const (
 	autopeeringMaxTries = 50
-	waitForManaMaxTries = 10
+	waitForManaMaxTries = 50
 
 	apiPort = "8080"
 
@@ -32,12 +36,14 @@ const (
 
 // Parameters to override before calling any peer creation function.
 var (
+	// ParaTangleTimeWindow defines the time window in which the node will consider itself in sync.
+	ParaTangleTimeWindow = 30 * time.Second
 	// ParaFCoBAverageNetworkDelay defines the configured avg. network delay (in seconds) for the FCOB rules.
 	ParaFCoBAverageNetworkDelay = 5
 	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
 	ParaOutboundUpdateIntervalMs = 100
 	// ParaFaucetTokensPerRequest defines the tokens to send up on each faucet request message.
-	ParaFaucetTokensPerRequest int64 = 1337
+	ParaFaucetTokensPerRequest int64 = 1000000
 	// ParaPoWDifficulty defines the PoW difficulty.
 	ParaPoWDifficulty = 2
 	// ParaWaitToKill defines the time to wait before killing the node.
@@ -64,17 +70,19 @@ var (
 	ParaWriteManaThreshold = 1.0
 	// ParaActivityInterval defines the interval between activity messages (in seconds).
 	ParaActivityInterval = 1
-	// ParaActivityInterval defines if activity messages are issue by all the nodes.
+	// ParaActivityPluginOnEveryNode defines if activity messages are issue by all the nodes.
 	ParaActivityPluginOnEveryNode = false
 )
 
 var (
-	genesisSeed = []byte{95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
-		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230}
+	genesisSeed = []byte{
+		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
+		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
+	}
 	genesisSeedBase58 = "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih"
 )
 
-//GoShimmerConfig defines the config of a GoShimmer node.
+// GoShimmerConfig defines the config of a GoShimmer node.
 type GoShimmerConfig struct {
 	Seed               string
 	Name               string
@@ -82,6 +90,8 @@ type GoShimmerConfig struct {
 	EntryNodePublicKey string
 	DisabledPlugins    string
 	SnapshotFilePath   string
+
+	StartSynced bool
 
 	DRNGCommittee string
 	DRNGDistKey   string
@@ -115,6 +125,7 @@ type NetworkConfig struct {
 
 // CreateNetworkConfig is the config for optional plugins passed through createNetwork.
 type CreateNetworkConfig struct {
-	Faucet bool
-	Mana   bool
+	Faucet      bool
+	Mana        bool
+	StartSynced bool
 }

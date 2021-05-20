@@ -27,8 +27,8 @@ const (
 	cfgSnapshotGenesisSeed  = "seed"
 	defaultSnapshotFileName = "./snapshot.bin"
 
-	tokensToPledge uint64 = 1000000000000000
-	faucetPledge          = "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
+	tokensToPledge = 1000000000000000
+	faucetPledge   = "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
 )
 
 var nodesToPledge = []string{
