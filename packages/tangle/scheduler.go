@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -153,7 +152,6 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 	nodeQueueSizes := make(map[identity.ID]int)
 	for _, nodeID := range s.buffer.NodeIDs() {
 		size := s.buffer.NodeQueue(nodeID).Size()
-		fmt.Println("in NodeQueueSizes", nodeID.String(), size)
 		nodeQueueSizes[nodeID] = size
 	}
 	return nodeQueueSizes
