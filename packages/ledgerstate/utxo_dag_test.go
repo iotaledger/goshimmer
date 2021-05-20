@@ -900,7 +900,6 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 		t.Log(bErr)
 		assert.Error(t, bErr)
 	})
-
 }
 
 func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
