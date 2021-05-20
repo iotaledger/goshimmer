@@ -14,6 +14,9 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
+      - name: Setup dependencies
+        run: |
+        sudo apt-get install libgflags-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
 
       - name: Setup Go 1.16.3
         uses: actions/setup-go@v1
