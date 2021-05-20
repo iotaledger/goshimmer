@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // AccessBaseManaVector represents a base mana vector.
