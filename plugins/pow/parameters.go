@@ -15,11 +15,12 @@ const (
 	CfgPOWTimeout = "pow.timeout"
 	// CfgPOWParentsRefreshInterval defines the config flag for the PoW parents refresh interval.
 	CfgPOWParentsRefreshInterval = "pow.parentsRefreshInterval"
+	parentsRefreshRateDefault    = 300 * time.Millisecond
 )
 
 func init() {
 	flag.Int(CfgPOWDifficulty, 22, "PoW difficulty")
 	flag.Int(CfgPOWNumThreads, 1, "number of threads used to do the PoW")
 	flag.Duration(CfgPOWTimeout, time.Minute, "PoW timeout")
-	flag.Duration(CfgPOWParentsRefreshInterval, 300*time.Millisecond, "PoW parents refresh interval timeout")
+	flag.Duration(CfgPOWParentsRefreshInterval, parentsRefreshRateDefault, "PoW parents refresh interval timeout")
 }
