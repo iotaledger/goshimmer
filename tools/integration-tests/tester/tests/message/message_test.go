@@ -13,9 +13,9 @@ import (
 // TestPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestPersistence(t *testing.T) {
 	n, err := f.CreateNetworkWithMana("message_TestPersistence", 4, 2, framework.CreateNetworkConfig{
-		Faucet: true,
-		Mana:   true,
-		StartSync: true,
+		Faucet:      true,
+		Mana:        true,
+		StartSynced: true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)

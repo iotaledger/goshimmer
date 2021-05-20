@@ -60,7 +60,6 @@ func New(options ...Option) (tangle *Tangle) {
 			MessageEligible: events.NewEvent(MessageIDCaller),
 			MessageInvalid:  events.NewEvent(MessageIDCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
-			Info:            events.NewEvent(events.StringCaller),
 		},
 	}
 
@@ -263,9 +262,6 @@ type Events struct {
 
 	// Error is triggered when the Tangle faces an error from which it can not recover.
 	Error *events.Event
-
-	// Info is triggered when the tangle should log the info provided.
-	Info *events.Event
 }
 
 // MessageIDCaller is the caller function for events that hand over a MessageID.

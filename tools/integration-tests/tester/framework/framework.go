@@ -101,7 +101,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				}
 				return config.Mana && i == 0
 			}(i),
-			StartSync:                  config.StartSync,
+			StartSynced:                config.StartSynced,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,
@@ -286,7 +286,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 		DRNGDistKey:   hex.EncodeToString(drng.distKey),
 		DRNGCommittee: drngCommittee,
 		Mana:          true,
-		StartSync:     true,
+		StartSynced:   true,
 	}
 
 	// create peers/GoShimmer nodes
@@ -347,7 +347,7 @@ func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors i
 	if err != nil {
 		return nil, err
 	}
-	time.Sleep(15 * time.Second)
+
 	for i := 1; i < len(n.peers); i++ {
 		peer := n.peers[i]
 		addr := peer.Seed.Address(uint64(0)).Address()

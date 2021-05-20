@@ -91,7 +91,7 @@ type GoShimmerConfig struct {
 	DisabledPlugins    string
 	SnapshotFilePath   string
 
-	StartSync bool
+	StartSynced bool
 
 	DRNGCommittee string
 	DRNGDistKey   string
@@ -125,7 +125,7 @@ type NetworkConfig struct {
 
 // CreateNetworkConfig is the config for optional plugins passed through createNetwork.
 type CreateNetworkConfig struct {
-	Faucet    bool
-	Mana      bool
-	StartSync bool
+	Faucet      bool
+	Mana        bool
+	StartSynced bool
 }

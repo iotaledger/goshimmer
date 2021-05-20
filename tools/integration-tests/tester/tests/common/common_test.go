@@ -17,9 +17,9 @@ import (
 func TestSynchronization(t *testing.T) {
 	initialPeers := 4
 	n, err := f.CreateNetworkWithMana("common_TestSynchronization", initialPeers, 2, framework.CreateNetworkConfig{
-		Faucet:    true,
-		Mana:      true,
-		StartSync: true,
+		Faucet:      true,
+		Mana:        true,
+		StartSynced: true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)

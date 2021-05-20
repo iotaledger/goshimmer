@@ -123,10 +123,7 @@ func (s *Storage) Setup() {
 		s.tangle.Storage.StoreMessage(msgParsedEvent.Message)
 	}))
 	s.tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID MessageID) {
-		// make sure the event is triggered when the Scheduler is running
-		if s.tangle.Scheduler.Running() {
-			s.DeleteMessage(messageID)
-		}
+		s.DeleteMessage(messageID)
 	}))
 }
 

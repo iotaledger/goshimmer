@@ -31,7 +31,7 @@ func TestConsensus(t *testing.T) {
 	// }()
 
 	// create two partitions with their own peers
-	n, err := f.CreateNetworkWithMana("conflict", numberOfPeers, 3, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSync: true})
+	n, err := f.CreateNetworkWithMana("conflict", numberOfPeers, 3, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -91,10 +91,7 @@ func TestConsensus(t *testing.T) {
 	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
 	// and 1 avg delay more to make sure each node has mana
 	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBAverageNetworkDelay)
-	//time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*2*time.Second + 5*time.Second)
-
-	// Wait for transaction to be finalized via the sync beacons weight
-	//time.Sleep(20 * time.Second)
+	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*2*time.Second + 5*time.Second)
 
 	resp1, err := n.Peers()[0].GoShimmerAPI.GetAllMana()
 	require.NoError(t, err)
