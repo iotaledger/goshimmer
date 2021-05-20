@@ -312,6 +312,9 @@ func schedulerMetrics() *schedulermetric {
 	for nodeID, size := range messagelayer.Tangle().Scheduler.NodeQueueSizes() {
 		nodeQueueSizes[nodeID.String()] = size
 	}
+	// add consumed bytes of the node itself
+	nodeQueueSizes[messagelayer.Tangle().Options.Identity.ID().String()] = messagelayer.Tangle().RateSetter.Size()
+
 	return &schedulermetric{
 		NodeQueueSizes: nodeQueueSizes,
 		Rate:           messagelayer.Tangle().Scheduler.Rate().String(),

@@ -55,7 +55,7 @@ export default class SchedulerChart extends React.Component<Props, any> {
         return (
             <Card>
                 <Card.Body>
-                    <Card.Title>Scheduler</Card.Title>
+                    <Card.Title>Congestion control - buffered bytes of each node</Card.Title>
                     <small>
                         Rate: {this.props.nodeStore.scheduler_rate}
                     </small>
