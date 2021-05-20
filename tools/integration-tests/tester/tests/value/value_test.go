@@ -244,7 +244,7 @@ func TestAlias_Persistence(t *testing.T) {
 	_, err = w.DestroyNFT(destroynftoptions.Alias(aliasID.Base58()), destroynftoptions.WaitForConfirmation(true))
 	require.NoError(t, err)
 	// give enough time to all peers
-	time.Sleep(15 * time.Second)
+	time.Sleep(25 * time.Second)
 	// check if all nodes destroyed it
 	for _, peer := range n.Peers() {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
