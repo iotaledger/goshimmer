@@ -24,4 +24,4 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Run Tests
-        run: go -tags rocksdb test ./...
+        run: go test ./... -tags rocksdb
