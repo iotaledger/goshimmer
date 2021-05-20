@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
@@ -25,7 +26,8 @@ const (
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	tangle := New()
+	selfLocalIdentity := identity.GenerateLocalIdentity()
+	tangle := newTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	tangle.MessageFactory = NewMessageFactory(
@@ -114,7 +116,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	msgFactory := NewMessageFactory(
@@ -144,7 +146,7 @@ func TestMessageFactory_POW(t *testing.T) {
 }
 
 func TestWorkerFunc_PayloadSize(t *testing.T) {
-	testTangle := New()
+	testTangle := newTestTangle()
 	defer testTangle.Shutdown()
 
 	msgFactory := NewMessageFactory(
