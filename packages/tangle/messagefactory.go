@@ -144,7 +144,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-func (f *MessageFactory) getIssuingTime(strongParents MessageIDs, weakParents MessageIDs) time.Time {
+func (f *MessageFactory) getIssuingTime(strongParents, weakParents MessageIDs) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
