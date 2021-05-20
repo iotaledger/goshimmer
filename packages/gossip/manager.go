@@ -49,16 +49,8 @@ type Manager struct {
 	server      *server.TCP
 	serverMutex sync.RWMutex
 
-	neighbors         map[identity.ID]*Neighbor
-	neighborsMapMutex sync.RWMutex
-
-	// neighborConnectionMutexes is an ever-growing map where the key is a neighbor ID and the value is a mutex.
-	// We create a new record in that map for every new unique neighbor and never delete it.
-	// Taking in account that amount of possible unique neighbors is pretty small,
-	// the size on that map shouldn't be an issue.
-	// We need this map to acquire a lock for the particular neighbor ID only during the connection and dropping,
-	// because otherwise long-running, hanging operations like accept will block the whole manager.
-	neighborConnectionMutexes sync.Map
+	neighbors      map[identity.ID]*Neighbor
+	neighborsMutex sync.RWMutex
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
 	messageWorkerPool *workerpool.WorkerPool
@@ -125,7 +117,7 @@ func (m *Manager) Stop() {
 func (m *Manager) dropAllNeighbors() {
 	neighborsList := m.AllNeighbors()
 	for _, nbr := range neighborsList {
-		_ = m.dropNeighbor(nbr.ID(), nil /* group */)
+		_ = nbr.Close()
 	}
 }
 
@@ -151,17 +143,9 @@ func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsG
 	return m.addNeighbor(ctx, p, group, m.server.AcceptPeer, connectOpts)
 }
 
-// DropNeighbor disconnects the neighbor with the given ID.
+// DropNeighbor disconnects the neighbor with the given ID and the group.
 func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
-	return m.dropNeighbor(id, &group)
-}
-
-// dropNeighbor drops the neighbor with the given ID, if group presents it must also match for neighbor to be dropped.
-func (m *Manager) dropNeighbor(id identity.ID, group *NeighborsGroup) error {
-	nbrConnectionMutex := m.getNeighborConnectionMutex(id)
-	nbrConnectionMutex.Lock()
-	defer nbrConnectionMutex.Unlock()
-	nbr, err := m.getAndDeleteNeighbor(id, group)
+	nbr, err := m.getNeighbor(id, group)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -169,16 +153,14 @@ func (m *Manager) dropNeighbor(id identity.ID, group *NeighborsGroup) error {
 	return nbr.Close()
 }
 
-// getAndDeleteNeighbor deletes and returns neighbor by ID,
-// if group presents it must match with the neighbor group, otherwise it won't be deleted and returned.
-func (m *Manager) getAndDeleteNeighbor(id identity.ID, group *NeighborsGroup) (*Neighbor, error) {
-	m.neighborsMapMutex.Lock()
-	defer m.neighborsMapMutex.Unlock()
+// getNeighbor returns neighbor by ID and group.
+func (m *Manager) getNeighbor(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	nbr, ok := m.neighbors[id]
-	if !ok || (group != nil && nbr.Group != *group) {
+	if !ok || nbr.Group != group {
 		return nil, ErrUnknownNeighbor
 	}
-	delete(m.neighbors, id)
 	return nbr, nil
 }
 
@@ -198,8 +180,8 @@ func (m *Manager) SendMessage(msgData []byte, to ...identity.ID) {
 
 // AllNeighbors returns all the neighbors that are currently connected.
 func (m *Manager) AllNeighbors() []*Neighbor {
-	m.neighborsMapMutex.RLock()
-	defer m.neighborsMapMutex.RUnlock()
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	result := make([]*Neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
 		result = append(result, n)
@@ -216,8 +198,8 @@ func (m *Manager) getNeighbors(ids ...identity.ID) []*Neighbor {
 
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
-	m.neighborsMapMutex.RLock()
-	defer m.neighborsMapMutex.RUnlock()
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	for _, id := range ids {
 		if n, ok := m.neighbors[id]; ok {
 			result = append(result, n)
@@ -248,9 +230,6 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if m.server == nil {
 		return ErrNotRunning
 	}
-	nbrConnectionMutex := m.getNeighborConnectionMutex(p.ID())
-	nbrConnectionMutex.Lock()
-	defer nbrConnectionMutex.Unlock()
 	if m.neighborExists(p.ID()) {
 		m.neighborsEvents[group].ConnectionFailed.Trigger(p, ErrDuplicateNeighbor)
 		return ErrDuplicateNeighbor
@@ -264,10 +243,39 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 
 	// create and add the neighbor
 	nbr := NewNeighbor(p, group, conn, m.log)
+	if err := m.setNeighbor(nbr); err != nil {
+		_ = conn.Close()
+		m.neighborsEvents[group].ConnectionFailed.Trigger(p, err)
+		return errors.WithStack(err)
+	}
+	m.neighborsEvents[group].NeighborAdded.Trigger(nbr)
+
+	return nil
+}
+
+func (m *Manager) neighborExists(id identity.ID) bool {
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
+	_, ok := m.neighbors[id]
+	return ok
+}
+
+func (m *Manager) deleteNeighbor(nbr *Neighbor) {
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
+	delete(m.neighbors, nbr.ID())
+}
+
+func (m *Manager) setNeighbor(nbr *Neighbor) error {
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
+	if _, exists := m.neighbors[nbr.ID()]; exists {
+		return errors.WithStack(ErrDuplicateNeighbor)
+	}
 	nbr.Events.Close.Attach(events.NewClosure(func() {
 		// assure that the neighbor is removed and notify
-		_ = m.DropNeighbor(p.ID(), group)
-		m.neighborsEvents[group].NeighborRemoved.Trigger(nbr)
+		m.deleteNeighbor(nbr)
+		m.neighborsEvents[nbr.Group].NeighborRemoved.Trigger(nbr)
 	}))
 	nbr.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
 		dataCopy := make([]byte, len(data))
@@ -276,33 +284,9 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 			m.log.Debugw("error handling packet", "err", err)
 		}
 	}))
-
-	m.setNeighbor(nbr)
-
+	m.neighbors[nbr.ID()] = nbr
 	nbr.Listen()
-	m.neighborsEvents[group].NeighborAdded.Trigger(nbr)
-
 	return nil
-}
-
-func (m *Manager) neighborExists(id identity.ID) bool {
-	m.neighborsMapMutex.RLock()
-	defer m.neighborsMapMutex.RUnlock()
-	_, ok := m.neighbors[id]
-	return ok
-}
-
-func (m *Manager) setNeighbor(neighbor *Neighbor) {
-	m.neighborsMapMutex.Lock()
-	defer m.neighborsMapMutex.Unlock()
-	m.neighbors[neighbor.ID()] = neighbor
-}
-
-func (m *Manager) getNeighborConnectionMutex(id identity.ID) *sync.Mutex {
-	newMutex := &sync.Mutex{}
-	value, _ := m.neighborConnectionMutexes.LoadOrStore(id, newMutex)
-	mutex := value.(*sync.Mutex)
-	return mutex
 }
 
 func (m *Manager) handlePacket(data []byte, nbr *Neighbor) error {
