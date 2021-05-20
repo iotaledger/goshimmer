@@ -23,7 +23,7 @@ import (
 
 // TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestTransactionPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("transaction_TestPersistence", 4,  framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("transaction_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -93,7 +93,7 @@ func TestTransactionPersistence(t *testing.T) {
 
 // TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
 func TestValueColoredPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("valueColor_TestPersistence", 4,  framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -163,7 +163,7 @@ func TestValueColoredPersistence(t *testing.T) {
 
 // TestAlias_Persistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
 func TestAlias_Persistence(t *testing.T) {
-	n, err := f.CreateNetwork("alias_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("alias_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -263,7 +263,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 // TestAlias_Delegation tests if a delegation output can be used to refresh mana.
 func TestAlias_Delegation(t *testing.T) {
-	n, err := f.CreateNetwork("alias_TestDelegation", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("alias_TestDelegation", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
