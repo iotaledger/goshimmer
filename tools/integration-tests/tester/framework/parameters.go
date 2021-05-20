@@ -37,7 +37,7 @@ const (
 // Parameters to override before calling any peer creation function.
 var (
 	// ParaTangleTimeWindow defines the time window in which the node will consider itself in sync.
-	ParaTangleTimeWindow = 2 * time.Minute
+	ParaTangleTimeWindow = 30 * time.Second
 	// ParaFCoBAverageNetworkDelay defines the configured avg. network delay (in seconds) for the FCOB rules.
 	ParaFCoBAverageNetworkDelay = 5
 	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
