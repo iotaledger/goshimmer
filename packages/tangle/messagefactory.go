@@ -105,10 +105,10 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
-	startTime := clock.SyncedTime()
+	startTime := time.Now()
 
 	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
-	for err != nil && startTime.Add(f.powTimeout).After(clock.SyncedTime()) {
+	for err != nil && time.Since(startTime) < f.powTimeout {
 		strongParents, weakParents, err = f.selector.Tips(p, countStrongParents, 2)
 		if err != nil {
 			err = errors.Errorf("tips could not be selected: %w", err)
