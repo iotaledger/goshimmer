@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 )
 
@@ -151,6 +153,7 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 	nodeQueueSizes := make(map[identity.ID]int)
 	for _, nodeID := range s.buffer.NodeIDs() {
 		size := s.buffer.NodeQueue(nodeID).Size()
+		fmt.Println("in NodeQueueSizes", nodeID.String(), size)
 		nodeQueueSizes[nodeID] = size
 	}
 	return nodeQueueSizes
@@ -241,7 +244,7 @@ func (s *Scheduler) schedule() *Message {
 	}
 
 	readyNode := false
-	now := time.Now()
+	now := clock.SyncedTime()
 	for q := start; ; {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready and its issuing time is not in the future
