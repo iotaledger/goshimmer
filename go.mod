@@ -2,12 +2,13 @@ module github.com/iotaledger/goshimmer
 
 go 1.16
 
+replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210505192124-94dfdec03284
+
 require (
 	github.com/DataDog/zstd v1.4.8 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/beevik/ntp v0.3.0
 	github.com/cockroachdb/errors v1.8.4
-	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.6.3
@@ -15,10 +16,11 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20210427112115-75c7ebf4ebbb
+	github.com/iotaledger/hive.go v0.0.0-20210519165529-9307269fa16c
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
+	github.com/linxGnu/grocksdb v1.6.35 // indirect
 	github.com/magiconair/properties v1.8.1
 	github.com/markbates/pkger v0.17.1
 	github.com/mr-tron/base58 v1.2.0

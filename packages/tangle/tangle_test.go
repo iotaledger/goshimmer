@@ -216,12 +216,12 @@ func TestTangle_MissingMessages(t *testing.T) {
 		storeDelay   = 5 * time.Millisecond
 	)
 
-	// create badger store
-	badger, err := testutil.BadgerDB(t)
+	// create rocksdb store
+	rocksdb, err := testutil.RocksDB(t)
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := New(Store(badger))
+	tangle := New(Store(rocksdb))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -366,8 +366,8 @@ func TestTangle_Flow(t *testing.T) {
 		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 		messageWorkerQueueSize = 1000
 	)
-	// create badger store
-	badger, err := testutil.BadgerDB(t)
+	// create rocksdb store
+	rocksdb, err := testutil.RocksDB(t)
 	require.NoError(t, err)
 
 	// map to keep track of the tips
@@ -375,7 +375,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := New(Store(badger))
+	tangle := New(Store(rocksdb))
 	defer tangle.Shutdown()
 
 	// create local peer
