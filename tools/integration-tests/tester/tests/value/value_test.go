@@ -82,7 +82,7 @@ func TestTransactionPersistence(t *testing.T) {
 	time.Sleep(20 * time.Second)
 
 	// check whether all issued transactions are available on all nodes and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+	tests.CheckTransactions(t, n.Peers(), txIds, false, tests.ExpectedInclusionState{
 		Confirmed: tests.True(),
 	})
 
