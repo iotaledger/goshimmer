@@ -15,8 +15,8 @@ type rocksDB struct {
 
 // NewDB returns a new persisting DB object.
 func NewDB(dirname string) (DB, error) {
-	db, error := rocksdb.CreateDB(dirname)
-	return &rocksDB{RocksDB: db}, error
+	db, err := rocksdb.CreateDB(dirname)
+	return &rocksDB{RocksDB: db}, err
 }
 
 func (db *rocksDB) NewStore() kvstore.KVStore {
