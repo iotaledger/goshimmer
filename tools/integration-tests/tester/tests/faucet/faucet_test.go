@@ -62,7 +62,7 @@ func TestFaucetPersistence(t *testing.T) {
 	time.Sleep(20 * time.Second)
 
 	// check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, false)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)
