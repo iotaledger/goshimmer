@@ -6,6 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+const inboxSize = 1024
+
 // Orderer is a Tangle component that makes sure that no messages are booked without their parents being booked first.
 type Orderer struct {
 	Events *OrdererEvents
@@ -28,8 +30,8 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 		},
 		tangle:            tangle,
 		shutdownSignal:    make(chan struct{}),
-		bookedMessageChan: make(chan MessageID, 1024),
-		inbox:             make(chan MessageID, 1024),
+		bookedMessageChan: make(chan MessageID, inboxSize),
+		inbox:             make(chan MessageID, inboxSize),
 		parentsMap:        make(map[MessageID][]MessageID),
 	}
 

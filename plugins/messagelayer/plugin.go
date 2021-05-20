@@ -54,9 +54,6 @@ func configure(plugin *node.Plugin) {
 	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
 		plugin.LogError(err)
 	}))
-	Tangle().Events.Info.Attach(events.NewClosure(func(info string) {
-		plugin.LogInfo(info)
-	}))
 
 	// Messages created by the node need to pass through the normal flow.
 	Tangle().MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(message *tangle.Message) {
