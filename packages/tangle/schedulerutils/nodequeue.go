@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"go.uber.org/atomic"
 )
 
 // ElementIDLength defines the length of an ElementID.
@@ -48,7 +49,7 @@ type NodeQueue struct {
 	nodeID    identity.ID
 	submitted map[ElementID]*Element
 	inbox     *ElementHeap
-	size      int
+	size      atomic.Int64
 }
 
 // NewNodeQueue returns a new NodeQueue
@@ -57,21 +58,16 @@ func NewNodeQueue(nodeID identity.ID) *NodeQueue {
 		nodeID:    nodeID,
 		submitted: make(map[ElementID]*Element),
 		inbox:     new(ElementHeap),
-		size:      0,
 	}
 }
 
-// IsInactive returns true when the node is inactive, i.e. there are no messages in the queue.
-func (q *NodeQueue) IsInactive() bool {
-	return q.Size() == 0
-}
-
 // Size returns the total size of the messages in the queue.
+// This function is thread-safe.
 func (q *NodeQueue) Size() int {
 	if q == nil {
 		return 0
 	}
-	return q.size
+	return int(q.size.Load())
 }
 
 // NodeID returns the ID of the node belonging to the queue.
@@ -92,7 +88,7 @@ func (q *NodeQueue) Submit(element Element) bool {
 	}
 
 	q.submitted[id] = &element
-	q.size += element.Size()
+	q.size.Add(int64(element.Size()))
 	return true
 }
 
@@ -104,7 +100,7 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 	}
 
 	delete(q.submitted, id)
-	q.size -= element.Size()
+	q.size.Sub(int64(element.Size()))
 	return true
 }
 
@@ -142,7 +138,7 @@ func (q *NodeQueue) Front() Element {
 // PopFront removes the first ready message from the queue.
 func (q *NodeQueue) PopFront() Element {
 	msg := heap.Pop(q.inbox).(Element)
-	q.size -= msg.Size()
+	q.size.Sub(int64(msg.Size()))
 	return msg
 }
 

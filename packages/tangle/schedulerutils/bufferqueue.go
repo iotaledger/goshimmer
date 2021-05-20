@@ -104,7 +104,7 @@ func (b *BufferQueue) Unsubmit(msg Element) bool {
 	}
 
 	b.size -= msg.Size()
-	if nodeQueue.IsInactive() {
+	if nodeQueue.Size() == 0 {
 		b.ringRemove(element)
 		delete(b.activeNode, nodeID)
 	}
@@ -157,7 +157,7 @@ func (b *BufferQueue) Current() *NodeQueue {
 func (b *BufferQueue) PopFront() Element {
 	q := b.Current()
 	msg := q.PopFront()
-	if q.IsInactive() {
+	if q.Size() == 0 {
 		b.ringRemove(b.ring)
 		delete(b.activeNode, identity.NewID(msg.IssuerPublicKey()))
 	}
