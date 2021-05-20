@@ -285,7 +285,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			}
 
 			// store addressOutputMapping
-			u.StoreAddressOutputMapping(output.Address(), output.ID())
+			u.ManageStoreAddressOutputMapping(output)
 
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
@@ -884,6 +884,29 @@ func (u *UTXODAG) consumedBranchIDs(transactionID TransactionID) (branchIDs Bran
 	}
 
 	return
+}
+
+// ManageStoreAddressOutputMapping mangages how to store the address-output mapping dependent on which type of output it is.
+func (u *UTXODAG) ManageStoreAddressOutputMapping(output Output) {
+	switch output.Type() {
+	case AliasOutputType:
+		castedOutput := output.(*AliasOutput)
+		// if it is an origin alias output, we don't have the aliasaddress from the parsed bytes.
+		// that happens in utxodag output booking, so we calculate the alias address here
+		u.StoreAddressOutputMapping(castedOutput.GetAliasAddress(), output.ID())
+		u.StoreAddressOutputMapping(castedOutput.GetStateAddress(), output.ID())
+		if !castedOutput.IsSelfGoverned() {
+			u.StoreAddressOutputMapping(castedOutput.GetGoverningAddress(), output.ID())
+		}
+	case ExtendedLockedOutputType:
+		castedOutput := output.(*ExtendedLockedOutput)
+		if castedOutput.FallbackAddress() != nil {
+			u.StoreAddressOutputMapping(castedOutput.FallbackAddress(), output.ID())
+		}
+		u.StoreAddressOutputMapping(output.Address(), output.ID())
+	default:
+		u.StoreAddressOutputMapping(output.Address(), output.ID())
+	}
 }
 
 // StoreAddressOutputMapping stores the address-output mapping.
