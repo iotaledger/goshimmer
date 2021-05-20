@@ -29,7 +29,7 @@ func TestTransactionPersistence(t *testing.T) {
 	defer tests.ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// master node sends funds to all peers in the network
 	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
@@ -97,7 +97,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	defer tests.ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// master node sends funds to all peers in the network
 	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
@@ -166,7 +166,7 @@ func TestAlias_Persistence(t *testing.T) {
 	defer tests.ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
