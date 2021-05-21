@@ -9,10 +9,11 @@ import (
 
 // config type that defines the config structure
 type configuration struct {
-	WebAPI              string           `json:"WebAPI,omitempty"`
-	BasicAuth           client.BasicAuth `json:"basic_auth,omitempty"`
-	ReuseAddresses      bool             `json:"reuse_addresses"`
-	FaucetPowDifficulty int              `json:"faucetPowDifficulty"`
+	WebAPI               string           `json:"WebAPI,omitempty"`
+	BasicAuth            client.BasicAuth `json:"basic_auth,omitempty"`
+	ReuseAddresses       bool             `json:"reuse_addresses"`
+	FaucetPowDifficulty  int              `json:"faucetPowDifficulty"`
+	AssetRegistryNetwork string           `json:"assetRegistryNetwork"`
 }
 
 // internal variable that holds the config
@@ -26,7 +27,8 @@ var configJSON = `{
 	  "password": "goshimmer"
 	},
 	"reuse_addresses": false,
-	"faucetPowDifficulty": 25
+	"faucetPowDifficulty": 25,
+	"assetRegistryNetwork": "pollen"
 }`
 
 // load the config file

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
+	"github.com/capossele/asset-registry/pkg/registryservice"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -31,6 +32,18 @@ func loadWallet() *wallet.Wallet {
 	options := []client.Option{}
 	if config.BasicAuth.IsEnabled() {
 		options = append(options, client.WithBasicAuth(config.BasicAuth.Credentials()))
+	}
+
+	if assetRegistry != nil {
+		// we do have an asset registry parsed
+		if config.AssetRegistryNetwork != assetRegistry.Network() && registryservice.Networks[config.AssetRegistryNetwork] {
+			assetRegistry = wallet.NewAssetRegistry(config.AssetRegistryNetwork)
+		}
+	} else if registryservice.Networks[config.AssetRegistryNetwork] {
+		// when asset registry is nil, this is the first time that we load the wallet.
+		// if config.AssetRegistryNetwork is not valid, we leave assetRegistry as nil, and
+		// wallet.New() will initialize it to the default value
+		assetRegistry = wallet.NewAssetRegistry(config.AssetRegistryNetwork)
 	}
 
 	walletOptions := []wallet.Option{
@@ -151,6 +164,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        request funds from the testnet-faucet")
 		fmt.Println("  create-asset")
 		fmt.Println("        create an asset in the form of colored coins")
+		fmt.Println("  asset-info")
+		fmt.Println("        returns information about an asset")
 		fmt.Println("  delegate-funds")
 		fmt.Println("        delegate funds to an address")
 		fmt.Println("  reclaim-delegated")

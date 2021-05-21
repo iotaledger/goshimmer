@@ -28,6 +28,7 @@ import (
 var (
 	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
 	ErrTransactionStateNotSameInTime = errors.New("transaction state did not materialize in time")
+	ErrNotSynced                     = errors.New("peers not synced")
 )
 
 const maxRetry = 50
@@ -639,6 +640,24 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 		}
 	}
 	return ErrTransactionStateNotSameInTime
+}
+
+// AwaitSync waits until the given peers are in synced.
+func AwaitSync(t *testing.T, peers []*framework.Peer, maxAwait time.Duration) error {
+	s := time.Now()
+	for ; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
+		// check that the peer sees itself as synchronized
+		allSynced := true
+		for _, peer := range peers {
+			info, err := peer.Info()
+			require.NoError(t, err)
+			allSynced = allSynced && info.TangleTime.Synced
+		}
+		if allSynced {
+			return nil
+		}
+	}
+	return ErrNotSynced
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
