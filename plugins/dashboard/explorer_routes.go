@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 )
@@ -120,9 +119,18 @@ type ExplorerOutput struct {
 	ID             *jsonmodels.OutputID       `json:"id"`
 	Output         *jsonmodels.Output         `json:"output"`
 	Metadata       *jsonmodels.OutputMetadata `json:"metadata"`
-	InclusionState value.InclusionState       `json:"inclusionState"`
+	InclusionState ExplorerInclusionState     `json:"inclusionState"`
 	TxTimestamp    int                        `json:"txTimestamp"`
 	PendingMana    float64                    `json:"pendingMana"`
+}
+
+// ExplorerInclusionState defines the struct for storing inclusion states for ExplorerOutput
+type ExplorerInclusionState struct {
+	Confirmed   bool `json:"confirmed,omitempty"`
+	Rejected    bool `json:"rejected,omitempty"`
+	Liked       bool `json:"liked,omitempty"`
+	Conflicting bool `json:"conflicting,omitempty"`
+	Finalized   bool `json:"finalized,omitempty"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -223,7 +231,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	// get outputids by address
 	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
-		inclusionState := value.InclusionState{}
+		inclusionState := ExplorerInclusionState{}
 		var timestamp int64
 
 		// get output metadata + liked status from branch of the output

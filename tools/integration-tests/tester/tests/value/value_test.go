@@ -321,7 +321,7 @@ func TestAlias_Delegation(t *testing.T) {
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(delegatedAliasOutputID)),
 		ledgerstate.NewOutputs(nextOutput))
 	tx = ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
-	_, err = n.RandomPeer().SendTransaction(tx.Bytes())
+	_, err = n.RandomPeer().PostTransaction(tx.Bytes())
 	require.NoError(t, err)
 	// give enough time to all peers
 	time.Sleep(5 * time.Second)

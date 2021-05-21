@@ -13,25 +13,6 @@ type PastconeResponse struct {
 	Error        string `json:"error,omitempty"`
 }
 
-// ObjectsResponse is the HTTP response from retrieving value objects.
-type ObjectsResponse struct {
-	ValueObjects []Object `json:"value_objects,omitempty"`
-	Error        string   `json:"error,omitempty"`
-}
-
-// Object holds the info of a value object
-type Object struct {
-	Parents        []string `json:"parent,omitempty"`
-	ID             string   `json:"id"`
-	Tip            bool     `json:"tip,omitempty"`
-	InclusionState string   `json:"inclusionState"`
-	Solid          bool     `json:"solid"`
-	Finalized      bool     `json:"finalize"`
-	Rejected       bool     `json:"rejected"`
-	BranchID       string   `json:"branch_id"`
-	TransactionID  string   `json:"transaction_id"`
-}
-
 // MissingResponse is the HTTP response containing all the missing messages and their count.
 type MissingResponse struct {
 	IDs   []string `json:"ids,omitempty"`

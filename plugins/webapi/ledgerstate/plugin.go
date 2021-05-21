@@ -287,7 +287,6 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
 	}
-
 	return
 }
 
@@ -302,13 +301,15 @@ func GetTransaction(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
+	var tx *ledgerstate.Transaction
+	// retrieve transaction
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewTransaction(transaction))
+		tx = transaction
 	}) {
 		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
+		return
 	}
-
-	return
+	return c.JSON(http.StatusOK, jsonmodels.NewTransaction(tx))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
