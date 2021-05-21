@@ -228,13 +228,13 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
-	messagelayer.Tangle().LedgerState.OutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
 		inclusionState := ExplorerInclusionState{}
 		var timestamp int64
 
 		// get output metadata + liked status from branch of the output
-		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
 			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
 				inclusionState.Liked = branch.Liked()
@@ -244,6 +244,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
 		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
+
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
 			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
 			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected

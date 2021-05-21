@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoadSnapshot(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	ledgerState := tangle.LedgerState
@@ -38,8 +38,12 @@ func TestLoadSnapshot(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 

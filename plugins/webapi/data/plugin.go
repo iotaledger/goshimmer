@@ -3,16 +3,20 @@ package data
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
+
+const maxIssuedAwaitTime = 5 * time.Second
 
 // PluginName is the name of the web API data endpoint plugin.
 const PluginName = "WebAPI data Endpoint"
@@ -46,9 +50,15 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
 
-	msg, err := messagelayer.Tangle().IssuePayload(payload.NewGenericDataPayload(request.Data))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
+	issueData := func() (*tangle.Message, error) {
+		return messagelayer.Tangle().IssuePayload(payload.NewGenericDataPayload(request.Data))
 	}
+
+	// await MessageScheduled event to be triggered.
+	msg, err := messagelayer.AwaitMessageToBeIssued(issueData, messagelayer.Tangle().Options.Identity.PublicKey(), maxIssuedAwaitTime)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
+	}
+
 	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: msg.ID().Base58()})
 }

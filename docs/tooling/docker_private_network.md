@@ -44,6 +44,8 @@ It is therefore possible to send messages to the local network via the `master_p
 docker logs --follow CONTAINERNAME
 ```
 
+## Snapshot tool
+A snapshot tool is provided in the tools folder. The snapshot file that is created must be moved into the `integration-tests/assets` folder. There, rename and replace the existing bin file (`7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`). After restarting the docker network the snapshot file will be loaded.
 
 ## How to use message approval check tool
 

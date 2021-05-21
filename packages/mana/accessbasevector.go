@@ -7,6 +7,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // AccessBaseManaVector represents a base mana vector.
@@ -36,25 +38,24 @@ func (a *AccessBaseManaVector) Has(nodeID identity.ID) bool {
 }
 
 // LoadSnapshot loads the initial mana state into the base mana vector.
-func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotInfo, snapshotTime time.Time) {
+func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
 	a.Lock()
 	defer a.Unlock()
 
-	// pledging "fake" mana to nodes present in the snapshot
-	now := time.Now()
-	for nodeID, info := range snapshot {
+	// pledging aMana to nodes present in the snapshot as if all was pledged at Timestamp
+	for nodeID, record := range snapshot {
 		a.vector[nodeID] = &AccessBaseMana{
-			BaseMana2:          100,
-			EffectiveBaseMana2: 0,
-			LastUpdated:        now,
+			BaseMana2:          record.AccessMana.Value,
+			EffectiveBaseMana2: record.AccessMana.Value,
+			LastUpdated:        record.AccessMana.Timestamp,
 		}
 		// trigger events
 		Events().Pledged.Trigger(&PledgedEvent{
-			NodeID:        nodeID,
-			Amount:        100,
-			Time:          now,
-			ManaType:      a.Type(),
-			TransactionID: info.TxID,
+			NodeID:   nodeID,
+			Amount:   record.AccessMana.Value,
+			Time:     record.AccessMana.Timestamp,
+			ManaType: a.Type(),
+			// TransactionID: record.TxID,
 		})
 	}
 }
@@ -312,7 +313,7 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := a.vector[nodeID]; !exist {
-		return 0.0, t, ErrNodeNotFoundInBaseManaVector
+		return tangle.MinMana, t, nil
 	}
 	if len(optionalUpdateTime) > 0 {
 		t = optionalUpdateTime[0]
@@ -320,5 +321,9 @@ func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ..
 	_ = a.update(nodeID, t)
 
 	baseMana := a.vector[nodeID]
-	return baseMana.EffectiveValue(), t, nil
+	effectiveValue := baseMana.EffectiveValue()
+	if effectiveValue < tangle.MinMana {
+		effectiveValue = tangle.MinMana
+	}
+	return effectiveValue, t, nil
 }

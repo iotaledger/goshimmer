@@ -2036,7 +2036,7 @@ func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aI
 	}
 
 	if cIDFromOptions == "" {
-		cID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+		cID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.ConsensusMana][0])
 	} else {
 		cID, err = mana.IDFromStr(cIDFromOptions)
 	}

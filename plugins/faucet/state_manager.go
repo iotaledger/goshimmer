@@ -128,8 +128,8 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 	remainderAddress := s.seed.Address(RemainderAddressIndex).Address()
 
 	// remainder output should sit on address 0
-	messagelayer.Tangle().LedgerState.OutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
-		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if outputMetadata.ConsumerCount() < 1 {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
 				if !ok || iotaBalance < MinimumFaucetBalance {
@@ -158,8 +158,8 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 	log.Infof("Looking for prepared outputs in the Tangle...")
 
 	for i := startIndex; uint64(i) <= endIndex; i++ {
-		messagelayer.Tangle().LedgerState.OutputsOnAddress(s.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
-			messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(s.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
+			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() < 1 {
 					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
 					if !colorExist {

@@ -111,6 +111,7 @@
     "difficulty": 22,
     "numThreads": 1,
     "timeout": "1m"
+
   },
   "profiling": {
     "bindAddress": "127.0.0.1:6061"

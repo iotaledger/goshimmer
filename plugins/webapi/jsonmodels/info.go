@@ -1,6 +1,8 @@
 package jsonmodels
 
-import "time"
+import (
+	"time"
+)
 
 // InfoResponse holds the response of the GET request.
 type InfoResponse struct {
@@ -32,6 +34,10 @@ type InfoResponse struct {
 	ManaDelegationAddress string `json:"manaDelegationAddress,omitempty"`
 	// ManaDecay is the decay coefficient of bm2.
 	ManaDecay float64 `json:"mana_decay"`
+	// Scheduler is the scheduler.
+	Scheduler Scheduler `json:"scheduler"`
+	// RateSetter is the rate setter.
+	RateSetter RateSetter `json:"rateSetter"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }
@@ -49,4 +55,17 @@ type Mana struct {
 	AccessTimestamp    time.Time `json:"accessTimestamp"`
 	Consensus          float64   `json:"consensus"`
 	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
+}
+
+// Scheduler is the scheduler details.
+type Scheduler struct {
+	Running        bool           `json:"running"`
+	Rate           string         `json:"rate"`
+	NodeQueueSizes map[string]int `json:"nodeQueueSizes"`
+}
+
+// RateSetter is the rate setter details.
+type RateSetter struct {
+	Rate float64 `json:"rate"`
+	Size int     `json:"size"`
 }
