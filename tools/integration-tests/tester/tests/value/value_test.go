@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
@@ -18,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -150,6 +149,8 @@ func TestValueColoredPersistence(t *testing.T) {
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
 
+	n.WaitForAutopeering(2)
+
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
 		Confirmed: tests.True(),
@@ -220,6 +221,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	n.WaitForAutopeering(3)
 
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
@@ -244,7 +246,7 @@ func TestAlias_Persistence(t *testing.T) {
 	_, err = w.DestroyNFT(destroynftoptions.Alias(aliasID.Base58()), destroynftoptions.WaitForConfirmation(true))
 	require.NoError(t, err)
 	// give enough time to all peers
-	time.Sleep(25 * time.Second)
+	time.Sleep(10 * time.Second)
 	// check if all nodes destroyed it
 	for _, peer := range n.Peers() {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
