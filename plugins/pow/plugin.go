@@ -43,4 +43,5 @@ func configure(*node.Plugin) {
 
 	messagelayer.Tangle().Parser.AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
 	messagelayer.Tangle().MessageFactory.SetWorker(tangle.WorkerFunc(DoPOW))
+	messagelayer.Tangle().MessageFactory.SetTimeout(timeout)
 }
