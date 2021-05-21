@@ -161,6 +161,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        request funds from the testnet-faucet")
 		fmt.Println("  create-asset")
 		fmt.Println("        create an asset in the form of colored coins")
+		fmt.Println("  asset-info")
+		fmt.Println("        returns information about an asset")
 		fmt.Println("  delegate-funds")
 		fmt.Println("        delegate funds to an address")
 		fmt.Println("  reclaim-delegated")

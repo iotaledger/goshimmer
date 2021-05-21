@@ -150,6 +150,19 @@ func (a *AssetRegistry) Network() string {
 	return a.network
 }
 
+// LoadAsset returns an asset either from local or from central registry.
+func (a *AssetRegistry) LoadAsset(id ledgerstate.Color) (*Asset, error) {
+	_, ok := a.assets[id]
+	if !ok {
+		success := a.updateLocalFromCentral(id)
+		if !success {
+			return nil, errors.Errorf("no asset found with assetID (color) %s", id.Base58())
+		}
+	}
+	asset := a.assets[id]
+	return &asset, nil
+}
+
 // RegisterAsset registers an asset in the registry, so we can look up names and symbol of colored coins.
 func (a *AssetRegistry) RegisterAsset(color ledgerstate.Color, asset Asset) error {
 	a.assets[color] = asset
