@@ -92,22 +92,28 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 }
 
 // LoadSnapshot loads the snapshot.
-func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotInfo, snapshotTime time.Time) {
+func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
 	c.Lock()
 	defer c.Unlock()
 
-	for nodeID, info := range snapshot {
-		c.vector[nodeID] = &ConsensusBaseMana{
-			BaseMana1: info.Value,
+	for nodeID, records := range snapshot {
+		var value float64
+		for _, record := range records.SortedTxSnapshot {
+			value += record.Value
+
+			// trigger event
+			Events().Pledged.Trigger(&PledgedEvent{
+				NodeID:        nodeID,
+				Amount:        record.Value,
+				Time:          record.Timestamp,
+				ManaType:      c.Type(),
+				TransactionID: record.TxID,
+			})
 		}
-		// trigger events
-		Events().Pledged.Trigger(&PledgedEvent{
-			NodeID:        nodeID,
-			Amount:        info.Value,
-			Time:          snapshotTime,
-			ManaType:      c.Type(),
-			TransactionID: info.TxID,
-		})
+
+		c.vector[nodeID] = &ConsensusBaseMana{
+			BaseMana1: value,
+		}
 	}
 }
 
