@@ -1106,6 +1106,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	}
 	if len(owned) == 0 {
 		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+		return
 	}
 
 	toBeConsumed := ledgerstate.Outputs{}
@@ -1124,6 +1125,10 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 			return true
 		})
 		toBeConsumed = append(toBeConsumed, output)
+	}
+	if len(toBeConsumed) == 0 {
+		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+		return
 	}
 
 	nextAlias := alias.NewAliasOutputNext(false)

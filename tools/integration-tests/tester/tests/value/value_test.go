@@ -79,6 +79,7 @@ func TestTransactionPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, false, tests.ExpectedInclusionState{
@@ -148,8 +149,7 @@ func TestValueColoredPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
-
-	n.WaitForAutopeering(2)
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -170,7 +170,7 @@ func TestAlias_Persistence(t *testing.T) {
 	time.Sleep(15 * time.Second)
 
 	// create a wallet that connects to a random peer
-	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
+	w := wallet.New(wallet.WebAPI(n.Peers()[1].BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)
@@ -221,7 +221,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
-	n.WaitForAutopeering(3)
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
@@ -246,7 +246,7 @@ func TestAlias_Persistence(t *testing.T) {
 	_, err = w.DestroyNFT(destroynftoptions.Alias(aliasID.Base58()), destroynftoptions.WaitForConfirmation(true))
 	require.NoError(t, err)
 	// give enough time to all peers
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 	// check if all nodes destroyed it
 	for _, peer := range n.Peers() {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
