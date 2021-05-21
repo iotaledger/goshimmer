@@ -18,7 +18,11 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetwork("faucet_TestPersistence", 5, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, framework.CreateNetworkConfig{
+		Faucet:      true,
+		Mana:        true,
+		StartSynced: true,
+	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -60,7 +64,7 @@ func TestFaucetPersistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, false)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)

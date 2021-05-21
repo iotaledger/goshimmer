@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ import (
 )
 
 func TestManaPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("mana_TestPersistence", 1, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("mana_TestPersistence", 1, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -67,6 +68,7 @@ func TestPledgeFilter(t *testing.T) {
 		peer, err := n.CreatePeer(framework.GoShimmerConfig{
 			Mana:           true,
 			ActivityPlugin: true,
+			StartSynced:    true,
 		})
 		require.NoError(t, err)
 		peers[i] = peer
@@ -87,6 +89,7 @@ func TestPledgeFilter(t *testing.T) {
 		ManaAllowedAccessPledge:           []string{accessPeerID},
 		ManaAllowedConsensusPledge:        []string{consensusPeerID},
 		ActivityPlugin:                    true,
+		StartSynced:                       true,
 	})
 	require.NoError(t, err)
 
@@ -141,7 +144,7 @@ func TestApis(t *testing.T) {
 	defer func() {
 		framework.ParaManaOnEveryNode = prevParaManaOnEveryNode
 	}()
-	n, err := f.CreateNetwork("mana_TestAPI", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("mana_TestAPI", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -157,7 +160,7 @@ func TestApis(t *testing.T) {
 	resp, err := peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(emptyNodeID.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp.NodeID)
-	assert.Equal(t, 0.0, resp.Access)
+	assert.Equal(t, 1.0, resp.Access)
 	assert.Greater(t, resp.Consensus, 0.0)
 
 	resp, err = peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(peers[0].ID().Bytes()))
@@ -174,11 +177,13 @@ func TestApis(t *testing.T) {
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	// send funds to node 1
-	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty)
+	peer1ID := base58.Encode(peers[1].ID().Bytes())
+	_, err = peers[0].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer1ID, peer1ID)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
 	// send funds to node 2
-	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty)
+	peer2ID := base58.Encode(peers[2].ID().Bytes())
+	_, err = peers[0].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer2ID, peer2ID)
 	require.NoError(t, err)
 	time.Sleep(20 * time.Second)
 

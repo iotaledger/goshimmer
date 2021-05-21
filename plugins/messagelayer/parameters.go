@@ -105,9 +105,25 @@ var ManaParameters = struct {
 	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
 }{}
 
+// RateSetterParameters contains the configuration parameters used by the Rate Setter.
+var RateSetterParameters = struct {
+	// Initial defines the initial rate of rate setting.
+	Initial float64 `default:"20000" usage:"the initial rate of rate setting"`
+}{}
+
+// SchedulerParameters contains the configuration parameters used by the Scheduler.
+var SchedulerParameters = struct {
+	// MaxBufferSize defines the maximum buffer size (in bytes).
+	MaxBufferSize int `default:"10000000" usage:"maximum buffer size (in bytes)"`
+	// SchedulerRate defines the frequency to schedule a message.
+	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
+}{}
+
 func init() {
 	configuration.BindParameters(&Parameters, "messageLayer")
 	configuration.BindParameters(&FPCParameters, "fpc")
 	configuration.BindParameters(&StatementParameters, "statement")
 	configuration.BindParameters(&ManaParameters, "mana")
+	configuration.BindParameters(&RateSetterParameters, "rateSetter")
+	configuration.BindParameters(&SchedulerParameters, "scheduler")
 }
