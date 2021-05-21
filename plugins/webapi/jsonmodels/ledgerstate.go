@@ -2,8 +2,9 @@ package jsonmodels
 
 import (
 	"encoding/json"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"time"
+
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/typeutils"

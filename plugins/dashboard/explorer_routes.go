@@ -124,6 +124,7 @@ type ExplorerOutput struct {
 	PendingMana    float64                    `json:"pendingMana"`
 }
 
+// ExplorerInclusionState defines the struct for storing inclusion states for ExplorerOutput
 type ExplorerInclusionState struct {
 	Confirmed   bool `json:"confirmed,omitempty"`
 	Rejected    bool `json:"rejected,omitempty"`
