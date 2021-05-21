@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
+	"github.com/capossele/asset-registry/pkg/registryservice"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -31,6 +32,15 @@ func loadWallet() *wallet.Wallet {
 	options := []client.Option{}
 	if config.BasicAuth.IsEnabled() {
 		options = append(options, client.WithBasicAuth(config.BasicAuth.Credentials()))
+	}
+
+	if assetRegistry != nil {
+		// we do have an asset registry parsed
+		if config.AssetRegistryNetwork != assetRegistry.Network() && registryservice.Networks[config.AssetRegistryNetwork] {
+			assetRegistry = wallet.NewAssetRegistry(config.AssetRegistryNetwork)
+		}
+	} else {
+		assetRegistry = wallet.NewAssetRegistry("test")
 	}
 
 	walletOptions := []wallet.Option{
