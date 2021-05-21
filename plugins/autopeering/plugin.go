@@ -27,8 +27,7 @@ var (
 	plugin *node.Plugin
 	once   sync.Once
 
-	log         *logger.Logger
-	manaEnabled bool
+	log *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -48,12 +47,6 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	plugins := node.GetPlugins()
-	if manaPlugin, ok := plugins["mana"]; ok {
-		if !node.IsSkipped(manaPlugin) {
-			manaEnabled = true
-		}
-	}
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityAutopeering); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
