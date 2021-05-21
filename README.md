@@ -35,7 +35,9 @@
 
 This repository is where the IOTA Foundation's Research Department tests the Coordicide modules to study and evaluate their performance.
 
-The aim of this open repository is  to give the community the opportunity to follow developments, take part in testing, and learn  more about [Coordicide](https://coordicide.iota.org/).
+The aim of this open repository is to give the community the opportunity to follow developments, take part in testing, and learn  more about [Coordicide](https://coordicide.iota.org/).
+
+For a documentation, including tutorials and resources, we refer to the [Documentation](http://goshimmer.docs.iota.org/) (Github [link](https://github.com/iotaledger/goshimmer/blob/develop/docs/SUMMARY.md)).
 
 **Note:** You can find details about future development plans on our [roadmap](https://roadmap.iota.org).
 

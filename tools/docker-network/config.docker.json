@@ -70,7 +70,8 @@
   "pow": {
     "difficulty": 2,
     "numThreads": 1,
-    "timeout": "10s"
+    "timeout": "10s",
+    "parentsRefreshInterval": "300ms"
   },
   "webapi": {
     "basic_auth": {

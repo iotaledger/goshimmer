@@ -38,7 +38,7 @@ func execCreateAssetCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	assetColor, err := cliWallet.CreateAsset(wallet.Asset{
 		Name:   *namePtr,
 		Symbol: *symbolPtr,
-		Amount: *amountPtr,
+		Supply: *amountPtr,
 	})
 	if err != nil {
 		printUsage(command, err.Error())
