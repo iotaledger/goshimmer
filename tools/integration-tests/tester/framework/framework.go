@@ -307,7 +307,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 
 	// wait until peers are fully started and connected
 	time.Sleep(5 * time.Second)
-	err = drng.network.DoManualPeeringAndWait()
+	err = drng.network.DoManualPeeringAndWait(drng.network.peers[1:]...)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

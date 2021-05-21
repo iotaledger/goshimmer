@@ -282,21 +282,24 @@ func (n *Network) Shutdown() error {
 	return nil
 }
 
-func (n *Network) DoManualPeeringAndWait() error {
-	if err := n.DoManualPeering(); err != nil {
+func (n *Network) DoManualPeeringAndWait(peers ...*Peer) error {
+	if err := n.DoManualPeering(peers...); err != nil {
 		return errors.WithStack(err)
 	}
-	if err := n.WaitForManualpeering(); err != nil {
+	if err := n.WaitForManualpeering(peers...); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
 }
 
-func (n *Network) DoManualPeering() error {
-	for idx, p := range n.peers {
-		allOtherPeers := make([]*Peer, 0, len(n.peers)-1)
-		allOtherPeers = append(allOtherPeers, n.peers[:idx]...)
-		allOtherPeers = append(allOtherPeers, n.peers[idx+1:]...)
+func (n *Network) DoManualPeering(peers ...*Peer) error {
+	if len(peers) == 0 {
+		peers = n.peers
+	}
+	for idx, p := range peers {
+		allOtherPeers := make([]*Peer, 0, len(peers)-1)
+		allOtherPeers = append(allOtherPeers, peers[:idx]...)
+		allOtherPeers = append(allOtherPeers, peers[idx+1:]...)
 		peersToAdd := ToPeerModels(allOtherPeers)
 		if err := p.AddManualPeers(peersToAdd); err != nil {
 			return errors.Wrap(err, "failed to add manual peers via API")
@@ -320,7 +323,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 }
 
 // WaitForManualpeering waits until all peers have reached together as neighbors.
-func (n *Network) WaitForManualpeering() error {
+func (n *Network) WaitForManualpeering(peers ...*Peer) error {
 	getNeighborsFn := func(p *Peer) (int, error) {
 		peers, err := p.GetManualKnownPeers(manualpeering.WithOnlyConnectedPeers())
 		if err != nil {
@@ -328,22 +331,28 @@ func (n *Network) WaitForManualpeering() error {
 		}
 		return len(peers), nil
 	}
-	err := n.waitForPeering(len(n.peers)-1, getNeighborsFn)
+	if len(peers) == 0 {
+		peers = n.peers
+	}
+	err := n.waitForPeering(len(peers)-1, getNeighborsFn, peers...)
 	return errors.Wrap(err, "failed to wait for manual peering to succeed")
 }
 
 type getNeighborsNumberFunc func(p *Peer) (int, error)
 
-func (n *Network) waitForPeering(minimumNeighbors int, getNeighborsFn getNeighborsNumberFunc) error {
+func (n *Network) waitForPeering(minimumNeighbors int, getNeighborsFn getNeighborsNumberFunc, peers ...*Peer) error {
 	log.Printf("Waiting for peering...\n")
 	defer log.Printf("Waiting for peering... done\n")
 
 	if minimumNeighbors == 0 {
 		return nil
 	}
+	if len(peers) == 0 {
+		peers = n.peers
+	}
 
 	for i := peeringMaxTries; i > 0; i-- {
-		for _, p := range n.peers {
+		for _, p := range peers {
 			if neighborsNumber, err := getNeighborsFn(p); err != nil {
 				log.Printf("request error: %v\n", err)
 			} else {
@@ -354,7 +363,7 @@ func (n *Network) waitForPeering(minimumNeighbors int, getNeighborsFn getNeighbo
 		// verify neighbor requirement
 		min := math.MaxInt64
 		total := 0
-		for _, p := range n.peers {
+		for _, p := range peers {
 			neighbors := p.TotalNeighbors()
 			if neighbors < min {
 				min = neighbors
