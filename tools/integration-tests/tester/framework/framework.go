@@ -265,7 +265,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 	privKeys := make([]ed25519.PrivateKey, peers)
 	var drngCommittee string
 
-	for i := 1; i < peers; i++ {
+	for i := 0; i < peers; i++ {
 		pubKeys[i], privKeys[i], err = ed25519.GenerateKey()
 		if err != nil {
 			return nil, err
@@ -289,14 +289,11 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		if i != 0 {
-			config.Seed = privKeys[i].Seed().String()
-		}
+		config.Seed = privKeys[i].Seed().String()
 		if _, e := drng.CreatePeer(func() GoShimmerConfig {
 			if i == 0 {
 				faucetConfig := config
 				faucetConfig.Faucet = true
-				faucetConfig.Seed = syncBeaconSeed
 				return faucetConfig
 			}
 			return config
@@ -307,7 +304,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 
 	// wait until peers are fully started and connected
 	time.Sleep(5 * time.Second)
-	err = drng.network.DoManualPeeringAndWait(drng.network.peers[1:]...)
+	err = drng.network.DoManualPeeringAndWait(drng.network.peers...)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
