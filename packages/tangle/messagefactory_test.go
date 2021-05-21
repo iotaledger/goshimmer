@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -22,6 +23,7 @@ import (
 
 const (
 	targetPOW     = 10
+	powTimeout    = 10 * time.Second
 	totalMessages = 2000
 )
 
@@ -36,6 +38,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 			return []MessageID{EmptyMessageID}, []MessageID{}, nil
 		}),
 	)
+	tangle.MessageFactory.SetTimeout(powTimeout)
 	defer tangle.MessageFactory.Shutdown()
 
 	// keep track of sequence numbers
@@ -133,7 +136,7 @@ func TestMessageFactory_POW(t *testing.T) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return worker.Mine(context.Background(), content, targetPOW)
 	}))
-
+	msgFactory.SetTimeout(powTimeout)
 	msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 

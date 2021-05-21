@@ -62,7 +62,7 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 	consumedOutputs := make(ledgerstate.Outputs, len(tx.Essence().Inputs()))
 	for i, consumedOutputID := range tx.Essence().Inputs() {
 		referencedOutputID := consumedOutputID.(*ledgerstate.UTXOInput).ReferencedOutputID()
-		messagelayer.Tangle().LedgerState.Output(referencedOutputID).Consume(func(output ledgerstate.Output) {
+		messagelayer.Tangle().LedgerState.CachedOutput(referencedOutputID).Consume(func(output ledgerstate.Output) {
 			consumedOutputs[i] = output
 		})
 	}

@@ -76,7 +76,7 @@ func TestExampleC(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx3 is correct
 		Tx3AggregatedBranch := NewAggregatedBranch(NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID())))
-		utxoDAG.TransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx3AggregatedBranch.ID(), metadata.BranchID())
 		})
 
@@ -146,7 +146,7 @@ func TestExampleB(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx3 is correct
 		Tx3BranchID := NewBranchID(transactions["TX3"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx3BranchID, metadata.BranchID())
 		})
 
@@ -160,7 +160,7 @@ func TestExampleB(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx4 is correct
 		Tx4BranchID := NewBranchID(transactions["TX4"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX4"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx4BranchID, metadata.BranchID())
 		})
 		// Checking that the parents BranchID of TX4 is MasterBranchID
@@ -180,7 +180,7 @@ func TestExampleB(t *testing.T) {
 	// Checking that the BranchID of TX2 is correct and it is the parent of both TX3 and TX4.
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx2BranchID, metadata.BranchID())
 		})
 
@@ -244,7 +244,7 @@ func TestExampleA(t *testing.T) {
 	// Checking TX2
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx2BranchID, metadata.BranchID())
 		})
 	}
@@ -253,7 +253,7 @@ func TestExampleA(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx3 is correct
 		Tx3BranchID := NewBranchID(transactions["TX2"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx3BranchID, metadata.BranchID())
 		})
 
@@ -285,7 +285,7 @@ func TestBookInvalidTransaction(t *testing.T) {
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -316,7 +316,7 @@ func TestBookRejectedTransaction(t *testing.T) {
 	rejectedBranch.SetFinalized(true)
 	utxoDAG.branchDAG.branchStorage.Store(rejectedBranch).Release()
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -346,7 +346,7 @@ func TestBookRejectedConflictingTransaction(t *testing.T) {
 	// double spend
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -374,7 +374,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -408,7 +408,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
 	tx1, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx1.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx1.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -424,7 +424,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 	// double spend
 	tx2, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
 
-	cachedTxMetadata2 := utxoDAG.TransactionMetadata(tx2.ID())
+	cachedTxMetadata2 := utxoDAG.CachedTransactionMetadata(tx2.ID())
 	defer cachedTxMetadata2.Release()
 	txMetadata2 := cachedTxMetadata2.Unwrap()
 
@@ -781,7 +781,7 @@ func TestAddressOutputMapping(t *testing.T) {
 		NewED25519Address(kp.PublicKey),
 	}
 	utxoDAG.addressOutputMappingStorage.Store(NewAddressOutputMapping(w.address, EmptyOutputID)).Release()
-	res := utxoDAG.AddressOutputMapping(w.address)
+	res := utxoDAG.CachedAddressOutputMapping(w.address)
 	res.Release()
 	assert.Equal(t, 1, len(res))
 }
@@ -900,7 +900,6 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 		t.Log(bErr)
 		assert.Error(t, bErr)
 	})
-
 }
 
 func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
@@ -1017,7 +1016,7 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 	branchIDs := make(BranchIDs, len(outputsToSpend))
 	for i, outputToSpend := range outputsToSpend {
 		inputs[i] = NewUTXOInput(outputToSpend.ID())
-		utxoDAG.OutputMetadata(outputToSpend.ID()).Consume(func(outputMetadata *OutputMetadata) {
+		utxoDAG.CachedOutputMetadata(outputToSpend.ID()).Consume(func(outputMetadata *OutputMetadata) {
 			branchIDs[outputMetadata.BranchID()] = types.Void
 		})
 	}
