@@ -1,22 +1,21 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58/base58"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58/base58"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
@@ -32,17 +31,6 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// genesis wallet
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
-
-	//unspentOutputs, err := n.Peers()[0].PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
-	//require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
-	//genesisOutput, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
-	//require.NoError(t, err)
-	//genesisBalance, exist := genesisOutput.Balances().Get(ledgerstate.ColorIOTA)
-	//assert.Equal(t, true, exist)
-	//fmt.Println("faucetRemainBalance:", genesisBalance)
-	//
-	//input := ledgerstate.NewUTXOInput(genesisOutput.ID())
-	//
 
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address()

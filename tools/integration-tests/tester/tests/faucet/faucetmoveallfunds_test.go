@@ -1,10 +1,10 @@
 package faucet
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

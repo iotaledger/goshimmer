@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"math/rand"
 	"os"
 	"sync"
@@ -11,7 +10,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -20,8 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
