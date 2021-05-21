@@ -31,7 +31,7 @@ var (
 // Plugin returns the plugin as a singleton.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin("WebAPI snapshot Endpoint", node.Enabled, func(*node.Plugin) {
+		plugin = node.NewPlugin("snapshot", node.Disabled, func(*node.Plugin) {
 			webapi.Server().GET("snapshot", DumpCurrentLedger)
 		})
 	})
