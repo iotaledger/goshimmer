@@ -39,8 +39,11 @@ func loadWallet() *wallet.Wallet {
 		if config.AssetRegistryNetwork != assetRegistry.Network() && registryservice.Networks[config.AssetRegistryNetwork] {
 			assetRegistry = wallet.NewAssetRegistry(config.AssetRegistryNetwork)
 		}
-	} else {
-		assetRegistry = wallet.NewAssetRegistry("test")
+	} else if registryservice.Networks[config.AssetRegistryNetwork] {
+		// when asset registry is nil, this is the first time that we load the wallet.
+		// if config.AssetRegistryNetwork is not valid, we leave assetRegistry as nil, and
+		// wallet.New() will initialize it to the default value
+		assetRegistry = wallet.NewAssetRegistry(config.AssetRegistryNetwork)
 	}
 
 	walletOptions := []wallet.Option{
