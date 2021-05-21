@@ -171,39 +171,6 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 		return
 	}
 
-	// TODO conflicting after merge
-	// var inputs []InputContent
-	// var outputs []OutputContent
-	// var stringifiedUnlockBlocks []string
-
-	// // fill in inputs
-	// for _, input := range tx.Essence().Inputs() {
-	// 	if input.Type() == ledgerstate.UTXOInputType {
-	// 		utxoInput := input.(*ledgerstate.UTXOInput)
-	// 		refOutputID := utxoInput.ReferencedOutputID()
-	// 		_ = messagelayer.Tangle().LedgerState.CachedOutput(refOutputID).Consume(func(o ledgerstate.Output) {
-	// 			content := InputContent{
-	// 				OutputID: o.ID().Base58(),
-	// 				Address:  o.Address().Base58(),
-	// 			}
-	// 			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-	// 				content.Balances = append(content.Balances, Balance{Color: color.String(), Value: balance})
-	// 				return true
-	// 			})
-	// 			inputs = append(inputs, content)
-	// 		})
-	// 	}
-	// }
-
-	// // fill in outputs
-	// for _, output := range tx.Essence().Outputs() {
-	// 	content := OutputContent{
-	// 		OutputID: output.ID().Base58(),
-	// 		Address:  output.Address().Base58(),
-	// 	}
-	// 	output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-	// 		content.Balances = append(content.Balances, Balance{Color: color.String(), Value: balance})
-	// 		return true
 	tp.TxID = tx.ID().Base58()
 	tp.Transaction = jsonmodels.NewTransaction(tx)
 	// add consumed inputs
