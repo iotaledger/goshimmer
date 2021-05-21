@@ -39,24 +39,6 @@ func TestConsensus(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
-	snapshot := tests.GetSnapshot()
-
-	faucetPledge := "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
-	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
-	if err != nil {
-		panic(err)
-	}
-	nodeID := identity.NewID(pubKey)
-
-	genesisTransactionID := ledgerstate.GenesisTransactionID
-	for ID, record := range snapshot.Transactions {
-		if record.Essence.AccessPledgeID() == nodeID {
-			genesisTransactionID = ID
-		}
-	}
-
-	// make genesis fund easily divisible for further splitting of the funds
-	const genesisBalance = 1000000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address()
 	unspentOutputs, err := n.Peers()[0].GetUnspentOutputs([]string{genesisAddr.Base58()})
