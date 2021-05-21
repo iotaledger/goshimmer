@@ -47,7 +47,7 @@ func TestPrepareFaucet(t *testing.T) {
 		require.NoError(t, err)
 		balance, exist := out.Balances().Get(ledgerstate.ColorIOTA)
 		assert.Equal(t, true, exist)
-		assert.Equal(t, framework.ParaFaucetTokensPerRequest, balance)
+		assert.Equal(t, framework.ParaFaucetTokensPerRequest, int64(balance))
 		totalSplit += framework.ParaFaucetTokensPerRequest
 	}
 	balance := genesisBalance - totalSplit
@@ -58,7 +58,7 @@ func TestPrepareFaucet(t *testing.T) {
 	require.NoError(t, err)
 	balanceValue, exist := out.Balances().Get(ledgerstate.ColorIOTA)
 	assert.Equal(t, true, exist)
-	assert.Equal(t, balance, balanceValue)
+	assert.Equal(t, balance, int64(balanceValue))
 
 	// add 1 node to the network
 	peer, err := n.CreatePeer(framework.GoShimmerConfig{
@@ -86,7 +86,7 @@ func TestPrepareFaucet(t *testing.T) {
 	require.NoError(t, err)
 	balanceValue, exist = out.Balances().Get(ledgerstate.ColorIOTA)
 	assert.Equal(t, true, exist)
-	assert.Equal(t, framework.ParaFaucetTokensPerRequest, balanceValue)
+	assert.Equal(t, framework.ParaFaucetTokensPerRequest, int64(balanceValue))
 
 	// check balance is untouched
 	balanceOutputAddress := faucet.Seed.Address(0).Address().Base58()
@@ -96,7 +96,7 @@ func TestPrepareFaucet(t *testing.T) {
 	require.NoError(t, err)
 	balanceValue, exist = out.Balances().Get(ledgerstate.ColorIOTA)
 	assert.Equal(t, true, exist)
-	assert.Equal(t, genesisBalance-(10*framework.ParaFaucetTokensPerRequest), balanceValue)
+	assert.Equal(t, genesisBalance-(10*framework.ParaFaucetTokensPerRequest), int64(balanceValue))
 
 	// issue 2 more request to split the remainder balance.
 	addr := peer.Seed.Address(10).Address()
@@ -114,7 +114,7 @@ func TestPrepareFaucet(t *testing.T) {
 	require.NoError(t, err)
 	balanceValue, exist = out.Balances().Get(ledgerstate.ColorIOTA)
 	assert.Equal(t, true, exist)
-	assert.Equal(t, genesisBalance-20*framework.ParaFaucetTokensPerRequest, balanceValue)
+	assert.Equal(t, genesisBalance-20*framework.ParaFaucetTokensPerRequest, int64(balanceValue))
 
 	for i := 11; i < 21; i++ {
 		_addr := faucet.Seed.Address(uint64(i)).Address().Base58()
@@ -124,7 +124,7 @@ func TestPrepareFaucet(t *testing.T) {
 		require.NoError(t, err)
 		balanceValue, exist = out.Balances().Get(ledgerstate.ColorIOTA)
 		assert.Equal(t, true, exist)
-		assert.Equal(t, framework.ParaFaucetTokensPerRequest, balanceValue)
+		assert.Equal(t, framework.ParaFaucetTokensPerRequest, int64(balanceValue))
 	}
 
 }

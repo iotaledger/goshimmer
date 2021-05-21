@@ -2,6 +2,7 @@ package jsonmodels
 
 import (
 	"encoding/json"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -491,7 +492,7 @@ type OutputMetadata struct {
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
 	firstConsumer := ""
-	// omit firstconsumer field if it hasn't been consumed yet
+	// omit firstConsumer field if it hasn't been consumed yet
 	if outputMetadata.FirstConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
 		firstConsumer = outputMetadata.FirstConsumer().Base58()
 	}
@@ -777,6 +778,7 @@ type TransactionInclusionState struct {
 	Pending       bool   `json:"pending"`
 	Confirmed     bool   `json:"confirmed"`
 	Rejected      bool   `json:"rejected"`
+	Conflicting   bool   `json:"conflicting"`
 }
 
 // NewTransactionInclusionState returns the TransactionInclusionState from the given ledgerstate.InclusionState.
@@ -786,6 +788,7 @@ func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, id 
 		Pending:       inclusionState == ledgerstate.Pending,
 		Confirmed:     inclusionState == ledgerstate.Confirmed,
 		Rejected:      inclusionState == ledgerstate.Rejected,
+		Conflicting:   len(messagelayer.Tangle().LedgerState.ConflictSet(id)) != 0,
 	}
 }
 

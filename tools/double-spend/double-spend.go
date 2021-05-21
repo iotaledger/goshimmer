@@ -40,16 +40,16 @@ func main() {
 	// wait for the funds
 	for i := 0; i < 10; i++ {
 		time.Sleep(5 * time.Second)
-		resp, err := clients[0].GetUnspentOutputs([]string{myAddr.Address().Base58()})
+		resp, err := clients[0].PostAddressUnspentOutputs([]string{myAddr.Address().Base58()})
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		fmt.Println("Waiting for funds to be confirmed...")
 		for _, v := range resp.UnspentOutputs {
-			if len(v.OutputIDs) > 0 {
-				myOutputID = v.OutputIDs[0].ID
-				confirmed = v.OutputIDs[0].InclusionState.Confirmed
+			if len(v.Outputs) > 0 {
+				myOutputID = v.Outputs[0].Output.OutputID.Base58
+				confirmed = v.Outputs[0].InclusionState.Confirmed
 				break
 			}
 		}
@@ -98,16 +98,14 @@ func main() {
 			unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 			tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 			conflictingTxs[i] = tx
-			//
-			//msg := tangle.NewMessage(tangle.MessageIDs{tangle.EmptyMessageID}, tangle.MessageIDs{tangle.EmptyMessageID}, )
-			//valueObject := valuepayload.New(valuepayload.GenesisID, valuepayload.GenesisID, tx)
 
 			// issue the tx
-			conflictingMsgIDs[i], err = clients[i].SendPayload(tx.Bytes())
-			if err != nil {
+			resp, err2 := clients[i].PostTransaction(tx.Bytes())
+			if err2 != nil {
 				fmt.Println(err)
 				return
 			}
+			fmt.Println(resp.TransactionID)
 
 			fmt.Printf("issued conflict transaction %s\n", conflictingMsgIDs[i])
 		}(i)

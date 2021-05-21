@@ -286,15 +286,14 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
 	// send transaction
-	txId, err = from.SendTransaction(txn.Bytes())
+	respTx, err := from.PostTransaction(txn.Bytes())
 	if err != nil {
 		fmt.Println(fmt.Errorf("could not send transaction on %s: %w", from.String(), err).Error())
 		return true, ""
 	}
-
+	txId = respTx.TransactionID
 	addrBalance[inputAddr.Base58()][ledgerstate.ColorIOTA] -= sentValue
 	addrBalance[outputAddr.Base58()][ledgerstate.ColorIOTA] += sentValue
-
 	return false, txId
 }
 
@@ -350,11 +349,12 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 	})
 
 	// send transaction
-	txId, err = from.SendTransaction(txn.Bytes())
+	respTx, err := from.PostTransaction(txn.Bytes())
 	if err != nil {
 		fmt.Println(fmt.Errorf("could not send transaction on %s: %w", from.String(), err).Error())
 		return true, ""
 	}
+	txId = respTx.TransactionID
 
 	// update balance list
 	updateBalanceList(addrBalance, balanceList, inputAddr.Base58(), outputAddr.Base58(), txn.Essence().Outputs()[0])
@@ -402,7 +402,7 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 			sum := make(map[ledgerstate.Color]int64)
 			resp, err := peer.PostAddressUnspentOutputs([]string{addr})
 			require.NoError(t, err)
-			assert.Equal(t, addr, resp.UnspentOutputs[0].Address)
+			assert.Equal(t, addr, resp.UnspentOutputs[0].Address.Base58)
 
 			// calculate the balances of each colored coin
 			for _, unspents := range resp.UnspentOutputs[0].Outputs {
@@ -487,29 +487,33 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 		}
 
 		for txId, expectedTransaction := range transactionIDs {
-			out, err := peer.PostAddressUnspentOutputs([]string{txId})
-			require.NoError(t, err)
 			transaction, err := peer.GetTransaction(txId)
+			require.NoError(t, err)
+
+			inclusionState, err := peer.GetTransactionInclusionState(txId)
+			require.NoError(t, err)
+
+			metadata, err := peer.GetTransactionMetadata(txId)
+			require.NoError(t, err)
+
+			consensusData, err := peer.GetTransactionConsensusMetadata(txId)
 			require.NoError(t, err)
 
 			// check inclusion state
 			if expectedInclusionState.Confirmed != nil {
-				assert.Equal(t, *expectedInclusionState.Confirmed, out.UnspentOutputs[0].Outputs[0].InclusionState.Confirmed, "confirmed state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Confirmed, inclusionState.Confirmed, "confirmed state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Conflicting != nil {
-				assert.Equal(t, *expectedInclusionState.Conflicting, out.UnspentOutputs[0].Outputs[0].InclusionState.Conflicting, "conflict state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Conflicting, inclusionState.Conflicting, "conflict state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Solid != nil {
-				assert.Equal(t, *expectedInclusionState.Solid, out.UnspentOutputs[0].Outputs[0].InclusionState.Solid, "solid state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Solid, metadata.Solid, "solid state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Rejected != nil {
-				assert.Equal(t, *expectedInclusionState.Rejected, out.UnspentOutputs[0].Outputs[0].InclusionState.Rejected, "rejected state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Rejected, inclusionState.Rejected, "rejected state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Liked != nil {
-				assert.Equal(t, *expectedInclusionState.Liked, out.UnspentOutputs[0].Outputs[0].InclusionState.Liked, "liked state doesn't match - tx %s - peer '%s'", txId, peer)
-			}
-			if expectedInclusionState.Preferred != nil {
-				assert.Equal(t, *expectedInclusionState.Preferred, out.UnspentOutputs[0].Outputs[0].InclusionState.Preferred, "preferred state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Liked, consensusData.Liked, "liked state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 
 			if expectedTransaction != nil {
@@ -592,30 +596,35 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 			go func(p *framework.Peer) {
 				defer wg.Done()
 				for txID := range transactionIDs {
-					out, err := p.PostAddressUnspentOutputs([]string{txID})
+					inclusionState, err := p.GetTransactionInclusionState(txID)
+					if err != nil {
+						continue
+					}
+					metadata, err := p.GetTransactionMetadata(txID)
+					if err != nil {
+						continue
+					}
+					consensusData, err := p.GetTransactionConsensusMetadata(txID)
 					if err != nil {
 						continue
 					}
 					expInclState := transactionIDs[txID]
-					if expInclState.Confirmed != nil && *expInclState.Confirmed != out.UnspentOutputs[0].Outputs[0].InclusionState.Confirmed {
+					if expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed {
 						continue
 					}
-					if expInclState.Conflicting != nil && *expInclState.Conflicting != out.UnspentOutputs[0].Outputs[0].InclusionState.Conflicting {
+					if expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting {
 						continue
 					}
-					if expInclState.Finalized != nil && *expInclState.Finalized != out.UnspentOutputs[0].Outputs[0].InclusionState.Finalized {
+					if expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized {
 						continue
 					}
-					if expInclState.Liked != nil && *expInclState.Liked != out.UnspentOutputs[0].Outputs[0].InclusionState.Liked {
+					if expInclState.Liked != nil && *expInclState.Liked != consensusData.Liked {
 						continue
 					}
-					if expInclState.Preferred != nil && *expInclState.Preferred != out.UnspentOutputs[0].Outputs[0].InclusionState.Preferred {
+					if expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected {
 						continue
 					}
-					if expInclState.Rejected != nil && *expInclState.Rejected != out.UnspentOutputs[0].Outputs[0].InclusionState.Rejected {
-						continue
-					}
-					if expInclState.Solid != nil && *expInclState.Solid != out.UnspentOutputs[0].Outputs[0].InclusionState.Solid {
+					if expInclState.Solid != nil && *expInclState.Solid != metadata.Solid {
 						continue
 					}
 					atomic.AddInt32(&counter, -1)

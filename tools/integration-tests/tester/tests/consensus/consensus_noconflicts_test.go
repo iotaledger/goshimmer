@@ -83,8 +83,9 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tx1 := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
 	utilsTx := jsonmodels.NewTransaction(tx1)
 
-	txID, err := n.Peers()[0].SendTransaction(tx1.Bytes())
+	resp, err := n.Peers()[0].PostTransaction(tx1.Bytes())
 	require.NoError(t, err)
+	txID := resp.TransactionID
 
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
@@ -128,8 +129,9 @@ func TestConsensusNoConflicts(t *testing.T) {
 		tx := ledgerstate.NewTransaction(tx2Essence, ledgerstate.UnlockBlocks{unlockBlock})
 		secondReceiverAddresses[i] = addr.Base58()
 
-		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
+		resp, err := n.Peers()[rand.Intn(len(n.Peers()))].PostTransaction(tx.Bytes())
 		require.NoError(t, err)
+		txID := resp.TransactionID
 
 		utilsTx := jsonmodels.NewTransaction(tx)
 

@@ -64,7 +64,8 @@ func TestConsensus(t *testing.T) {
 	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{}, "skewed")
 
 	// issue the transaction
-	n.Peers()[0].SendTransaction(spendingGenTx.Bytes())
+	_, err = n.Peers()[0].PostTransaction(spendingGenTx.Bytes())
+	assert.NoError(t, err)
 
 	// sleep the avg. network delay so both partitions confirm their own first seen transaction
 	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
@@ -92,7 +93,8 @@ func TestConsensus(t *testing.T) {
 		pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID(), "equal")
 
 		// issue the transaction
-		n.Peers()[0].SendTransaction(pledgingTxs[receiverId].Bytes())
+		_, err = n.Peers()[0].PostTransaction(pledgingTxs[receiverId].Bytes())
+		assert.NoError(t, err)
 		receiverId++
 	}
 	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
@@ -124,9 +126,9 @@ func TestConsensus(t *testing.T) {
 		conflictingTxs[i], receiverSeeds[i] = CreateOutputs(conflictInput, lastOutputBalance, destGenSeed.KeyPair(numberOfPeers), 1, peer.ID(), "equal")
 
 		// issue conflicting transaction
-		txId, err := peer.SendTransaction(conflictingTxs[i].Bytes())
-		require.NoError(t, err)
-		conflictingTxIDs[i] = txId
+		resp, err2 := peer.PostTransaction(conflictingTxs[i].Bytes())
+		require.NoError(t, err2)
+		conflictingTxIDs[i] = resp.TransactionID
 
 		// sleep to prefer the first one
 		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
