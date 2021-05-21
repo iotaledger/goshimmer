@@ -137,13 +137,14 @@ func TestScheduler_SetRate(t *testing.T) {
 	var scheduled atomic.Bool
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) { scheduled.Store(true) }))
 
-	// start and make sure scheduler is running
 	tangle.Scheduler.Start()
+
+	// effectively disable the scheduler by setting a very low rate
+	tangle.Scheduler.SetRate(time.Hour)
+	// assure that any potential ticks issued before the rate change have been processed
 	time.Sleep(100 * time.Millisecond)
 
-	// disable the scheduler by setting a very long rate
-	tangle.Scheduler.SetRate(time.Hour)
-
+	// submit a new message to the scheduler
 	msg := newMessage(peerNode.PublicKey())
 	tangle.Storage.StoreMessage(msg)
 	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
@@ -153,7 +154,8 @@ func TestScheduler_SetRate(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	assert.False(t, scheduled.Load())
 
-	tangle.Scheduler.SetRate(testRate)
+	// after reducing the rate again, the message should eventually be scheduled
+	tangle.Scheduler.SetRate(10 * time.Millisecond)
 	assert.Eventually(t, scheduled.Load, 1*time.Second, 10*time.Millisecond)
 }
 
