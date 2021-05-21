@@ -79,7 +79,7 @@ func TestTransactionPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
-	require.NoError(t, n.WaitForAutopeering(2))
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, false, tests.ExpectedInclusionState{
@@ -149,7 +149,7 @@ func TestValueColoredPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
-	require.NoError(t, n.WaitForAutopeering(2))
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -221,7 +221,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
-	require.NoError(t, n.WaitForAutopeering(2))
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
