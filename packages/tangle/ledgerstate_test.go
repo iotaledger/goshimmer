@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoadSnapshot(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	ledgerState := tangle.LedgerState

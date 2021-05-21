@@ -411,12 +411,12 @@ func TestAccessBaseManaVector_GetMana(t *testing.T) {
 	assert.NoError(t, err)
 	randID := randNodeID()
 	mana, _, err := bmv.GetMana(randID)
-	assert.Equal(t, 0.0, mana)
-	assert.Error(t, err)
+	assert.Equal(t, 1.0, mana)
+	assert.NoError(t, err)
 
 	bmv.SetMana(randID, &AccessBaseMana{})
 	mana, _, err = bmv.GetMana(randID)
-	assert.Equal(t, 0.0, mana)
+	assert.Equal(t, 1.0, mana)
 	assert.NoError(t, err)
 
 	bmv.SetMana(randID, &AccessBaseMana{
@@ -533,7 +533,7 @@ func TestAccessBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	result, _, err = bmv.GetHighestManaNodes(20)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, len(result))
-	for index, value := range result {
+	for index, value := range result[:8] {
 		assert.Equal(t, nodeIDs[9-index], value.ID)
 	}
 }
@@ -586,7 +586,7 @@ func TestAccessBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
 	result, _, err = bmv.GetHighestManaNodesFraction(1.1)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, len(result))
-	for index, value := range result {
+	for index, value := range result[:8] {
 		assert.Equal(t, nodeIDs[9-index], value.ID)
 	}
 }
