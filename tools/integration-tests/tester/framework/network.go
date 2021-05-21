@@ -89,17 +89,6 @@ func (n *Network) createEntryNode() error {
 
 	return nil
 }
-func (n *Network) CreatePeerAndWaitForManualPeering(c GoShimmerConfig) (*Peer, error) {
-	p, err := n.CreatePeer(c)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	time.Sleep(5 * time.Second)
-	if err := n.DoManualPeeringAndWait(); err != nil {
-		return nil, errors.WithStack(err)
-	}
-	return p, nil
-}
 
 // CreatePeer creates a new peer/GoShimmer node in the network and returns it.
 // Passing bootstrap true enables the bootstrap plugin on the given peer.

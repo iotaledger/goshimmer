@@ -47,6 +47,9 @@ func TestPersistence(t *testing.T) {
 	// wait for peers to start
 	time.Sleep(10 * time.Second)
 
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
+
 	// 5. check whether all issued messages are persistently available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, false)
 }
