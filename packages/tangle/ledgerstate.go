@@ -197,9 +197,9 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 
 // SnapshotUTXO returns the UTXO snapshot, which is a list of transactions with unspent outputs.
 func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
-	// The following parameter should be much larger than the max allowed timestamp variation, and the required time for confirmation.
-	minAge := 15 * time.Second
-	fmt.Println("!!!!!!!!!!!!!!!!!!!!! minAge set for testing, but the value must be adjusted higher !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	// The following parameter should be larger than the max allowed timestamp variation, and the required time for confirmation.
+	// We can snapshot this far in the past, since global snapshots dont occur frequent and it is ok to ignore the last few minutes.
+	minAge := 120 * time.Second
 	snapshot = &ledgerstate.Snapshot{
 		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
 	}
