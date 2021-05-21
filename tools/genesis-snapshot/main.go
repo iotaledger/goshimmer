@@ -129,7 +129,7 @@ func main() {
 
 	newSnapshot := &ledgerstate.Snapshot{Transactions: transactionsMap}
 
-	genesisWallet := wallet.New(wallet.Import(genesisSeed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry()), wallet.GenericConnector(mockedConnector))
+	genesisWallet := wallet.New(wallet.Import(genesisSeed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry("test")), wallet.GenericConnector(mockedConnector))
 	genesisAddress := genesisWallet.Seed().Address(0).Address()
 
 	log.Println("genesis:")
