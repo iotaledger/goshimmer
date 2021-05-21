@@ -14,6 +14,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/tangle"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 )
 
@@ -160,9 +162,10 @@ func (n *Network) CreatePeerWithMana(c GoShimmerConfig) (*Peer, error) {
 	if err != nil {
 		return nil, err
 	}
+	time.Sleep(15 * time.Second)
 	addr := peer.Seed.Address(uint64(0)).Address()
 	ID := base58.Encode(peer.ID().Bytes())
-	_, err = peer.SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
+	_, err = n.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
 	if err != nil {
 		_ = peer.Stop()
 		return nil, fmt.Errorf("error sending faucet request... shutting down: %w", err)
@@ -321,7 +324,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 // WaitForMana waits until all peers have access mana.
 // Returns error if all peers don't have mana after waitForManaMaxTries
 func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
-	log.Printf("Waiting for nodes to get mana...\n")
+	log.Printf("Waiting for nodes to get at least %f access mana...\n", tangle.MinMana)
 	defer log.Printf("Waiting for nodes to get mana... done\n")
 
 	peers := n.peers
@@ -335,10 +338,16 @@ func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
 	for i := waitForManaMaxTries; i > 0; i-- {
 		for peer := range m {
 			infoRes, err := peer.Info()
-			if err == nil && infoRes.Mana.Access > 0.0 {
+			if err != nil {
+				log.Printf("err getting info for peer %s: %v", peer.ID(), err)
+				continue
+			}
+			log.Println("node: ", peer.ID().String(), " - mana: ", infoRes.Mana.Access)
+			if infoRes.Mana.Access >= tangle.MinMana {
 				delete(m, peer)
 			}
 		}
+		log.Println("remaining... ", len(m))
 		if len(m) == 0 {
 			return nil
 		}

@@ -98,7 +98,6 @@ func configureMessageLayer() {
 				if requested := requestedMsgs.delete(messageID); requested {
 					return
 				}
-
 				mgr.SendMessage(message.Bytes())
 			})
 		})
