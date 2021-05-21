@@ -62,7 +62,7 @@ func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMess
 	}
 
 	for i := 0; i < numMessages; i++ {
-		data := []byte(fmt.Sprintf("Test%d", i))
+		data := []byte(fmt.Sprintf("Test: %d", i))
 
 		peer := peers[rand.Intn(len(peers))]
 		id, sent := SendDataMessage(t, peer, data, i)
@@ -174,6 +174,7 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	}
 
 	faucetPeer := peers[0]
+
 	// faucet keeps remaining amount on address 0
 	addrBalance[faucetPeer.Seed.Address(0).Address().Base58()][ledgerstate.ColorIOTA] = int64(framework.GenesisTokenAmount - framework.ParaFaucetPreparedOutputsCount*int(framework.ParaFaucetTokensPerRequest))
 	var i uint64

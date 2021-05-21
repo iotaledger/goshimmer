@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
@@ -16,19 +18,18 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 // TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestTransactionPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("transaction_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("transaction_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// master node sends funds to all peers in the network
 	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
@@ -81,7 +82,7 @@ func TestTransactionPersistence(t *testing.T) {
 	time.Sleep(20 * time.Second)
 
 	// check whether all issued transactions are available on all nodes and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+	tests.CheckTransactions(t, n.Peers(), txIds, false, tests.ExpectedInclusionState{
 		Confirmed: tests.True(),
 	})
 
@@ -91,12 +92,12 @@ func TestTransactionPersistence(t *testing.T) {
 
 // TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
 func TestValueColoredPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// master node sends funds to all peers in the network
 	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
@@ -121,6 +122,7 @@ func TestValueColoredPersistence(t *testing.T) {
 		fail, txId := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
 		require.False(t, fail)
 		txIds[txId] = nil
+		time.Sleep(2 * time.Second)
 	}
 	// wait for value messages to be gossiped
 	time.Sleep(3 * messagelayer.DefaultAverageNetworkDelay)
@@ -159,12 +161,12 @@ func TestValueColoredPersistence(t *testing.T) {
 
 // TestAlias_Persistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
 func TestAlias_Persistence(t *testing.T) {
-	n, err := f.CreateNetwork("alias_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetworkWithMana("alias_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
@@ -242,7 +244,7 @@ func TestAlias_Persistence(t *testing.T) {
 	_, err = w.DestroyNFT(destroynftoptions.Alias(aliasID.Base58()), destroynftoptions.WaitForConfirmation(true))
 	require.NoError(t, err)
 	// give enough time to all peers
-	time.Sleep(5 * time.Second)
+	time.Sleep(25 * time.Second)
 	// check if all nodes destroyed it
 	for _, peer := range n.Peers() {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
@@ -259,7 +261,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 // TestAlias_Delegation tests if a delegation output can be used to refresh mana.
 func TestAlias_Delegation(t *testing.T) {
-	n, err := f.CreateNetwork("alias_TestDelegation", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetworkWithMana("alias_TestDelegation", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

@@ -23,7 +23,7 @@ import (
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{Mana: true})
+	n, err := f.CreateNetworkWithMana("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{Mana: true, Faucet: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -52,12 +52,16 @@ func TestConsensusNoConflicts(t *testing.T) {
 	const genesisBalance = 1000000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address()
-	genesisOutputID := ledgerstate.NewOutputID(genesisTransactionID, 0)
+	unspentOutputs, err := n.Peers()[0].GetUnspentOutputs([]string{genesisAddr.Base58()})
+	require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
+	genesisBalance := unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
+
+	genesisOutputID, _ := ledgerstate.OutputIDFromBase58(unspentOutputs.UnspentOutputs[0].OutputIDs[0].ID)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
 	firstReceiver := seed.NewSeed()
 	const depositCount = 10
-	const deposit = genesisBalance / depositCount
+	deposit := uint64(genesisBalance / depositCount)
 	firstReceiverAddresses := make([]string, depositCount)
 	firstReceiverDepositAddrs := make([]ledgerstate.Address, depositCount)
 	firstReceiverDepositOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
@@ -67,7 +71,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 		firstReceiverDepositAddrs[i] = addr
 		firstReceiverAddresses[i] = addr.Base58()
 		firstReceiverDepositOutputs[addr] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit})
-		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
+		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
 	}
 
 	// issue transaction spending from the genesis output
@@ -133,7 +137,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 		utilsTx := value.ParseTransaction(tx)
 
-		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
+		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks,
 		}

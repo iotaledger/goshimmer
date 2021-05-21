@@ -30,9 +30,10 @@ func TestPrepareFaucet(t *testing.T) {
 		Faucet:         true,
 		Mana:           true,
 		ActivityPlugin: true,
+		StartSynced:    true,
 	})
 	require.NoError(t, err)
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// Tests genesis output is split into 10 outputs. [1,2,...10] and balance,
 	const genesisBalance = int64(1000000000000000)
@@ -52,7 +53,7 @@ func TestPrepareFaucet(t *testing.T) {
 	assert.Equal(t, balance, outputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
 
 	// add 1 node to the network
-	peer, err := n.CreatePeer(framework.GoShimmerConfig{
+	peer, err := n.CreatePeerWithMana(framework.GoShimmerConfig{
 		Mana:           true,
 		ActivityPlugin: true,
 	})
@@ -63,7 +64,7 @@ func TestPrepareFaucet(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// issue 9 requests to consume the 1st 9 faucet prepared outputs.
-	for i = 0; i < 9; i++ {
+	for i = 1; i < 9; i++ {
 		addr := peer.Address(i).Address()
 		tests.SendFaucetRequest(t, peer, addr)
 	}

@@ -607,3 +607,34 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var (
+	aMana               = 100.0
+	totalAMana          = 1000.0
+	testMaxBuffer       = 1 * 1024 * 1024
+	testRate            = time.Second / 5000
+	noAManaNode         = identity.GenerateIdentity()
+	testSchedulerParams = SchedulerParams{
+		MaxBufferSize:               testMaxBuffer,
+		Rate:                        testRate,
+		AccessManaRetrieveFunc:      accessManaRetriever,
+		TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
+	}
+)
+
+func accessManaRetriever(id identity.ID) float64 {
+	if id == noAManaNode.ID() {
+		return 0
+	}
+	return aMana
+}
+
+func totalAccessManaRetriever() float64 {
+	return totalAMana
+}
+
+// newTestTangle returns a Tangle instance with a testing schedulerConfig
+func newTestTangle(options ...Option) *Tangle {
+	options = append(options, SchedulerConfig(testSchedulerParams))
+	return New(options...)
+}

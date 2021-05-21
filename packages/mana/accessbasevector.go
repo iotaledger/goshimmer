@@ -7,6 +7,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // AccessBaseManaVector represents a base mana vector.
@@ -311,7 +313,7 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := a.vector[nodeID]; !exist {
-		return 0.0, t, ErrNodeNotFoundInBaseManaVector
+		return tangle.MinMana, t, nil
 	}
 	if len(optionalUpdateTime) > 0 {
 		t = optionalUpdateTime[0]
@@ -319,5 +321,9 @@ func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ..
 	_ = a.update(nodeID, t)
 
 	baseMana := a.vector[nodeID]
-	return baseMana.EffectiveValue(), t, nil
+	effectiveValue := baseMana.EffectiveValue()
+	if effectiveValue < tangle.MinMana {
+		effectiveValue = tangle.MinMana
+	}
+	return effectiveValue, t, nil
 }

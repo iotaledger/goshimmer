@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/events"
@@ -18,6 +19,7 @@ import (
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -76,6 +78,8 @@ var (
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests
 	initDone atomic.Bool
+
+	waitForManaWindow = 5 * time.Second
 )
 
 // Plugin returns the plugin instance of the faucet plugin.
@@ -149,21 +153,28 @@ func run(*node.Plugin) {
 		if !waitUntilSynced(shutdownSignal) {
 			return
 		}
-		log.Info("Waiting for node to become synced... DONE")
+		log.Info("Waiting for node to become synced... done")
 
-		log.Info("Deriving faucet state from the ledger...")
-		// determine state, prepare more outputs if needed
-		dErr := Faucet().DeriveStateFromTangle(startIndex)
-		if dErr != nil {
-			log.Errorf(dErr.Error())
+		log.Info("Waiting for node to have sufficient access mana")
+		if err := waitForMana(shutdownSignal); err != nil {
+			log.Errorf("failed to get sufficient access mana: %s", err)
+			return
 		}
-		log.Info("Deriving faucet state from the ledger... DONE")
+		log.Info("Waiting for node to have sufficient access mana... done")
+
+		log.Infof("Deriving faucet state from the ledger...")
+		// determine state, prepare more outputs if needed
+		if err := Faucet().DeriveStateFromTangle(startIndex); err != nil {
+			log.Errorf("failed to derive state: %s", err)
+			return
+		}
+		log.Info("Deriving faucet state from the ledger... done")
 
 		log.Info("Starting funding workerpools...")
 		// start the funding workerpool
 		fundingWorkerPool.Start()
 		defer fundingWorkerPool.Stop()
-		log.Info("Starting funding workerpools... DONE")
+		log.Info("Starting funding workerpools... done")
 		initDone.Store(true)
 
 		<-shutdownSignal
@@ -198,6 +209,29 @@ func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
 		return true
 	case <-shutdownSignal:
 		return false
+	}
+}
+
+func waitForMana(shutdownSignal <-chan struct{}) error {
+	nodeID := messagelayer.Tangle().Options.Identity.ID()
+	for {
+		// stop polling, if we are shutting down
+		select {
+		case <-shutdownSignal:
+			return errors.New("faucet shutting down")
+		default:
+		}
+
+		aMana, _, err := messagelayer.GetAccessMana(nodeID)
+		// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
+		if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+			return err
+		}
+		if aMana >= tangle.MinMana {
+			return nil
+		}
+		plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangle.MinMana)
+		time.Sleep(waitForManaWindow)
 	}
 }
 

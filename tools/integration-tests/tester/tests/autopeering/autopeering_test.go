@@ -11,7 +11,7 @@ import (
 )
 
 func TestNetworkSplit(t *testing.T) {
-	n, err := f.CreateNetworkWithPartitions("autopeering_TestNetworkSplit", 6, 2, 2, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetworkWithPartitions("autopeering_TestNetworkSplit", 6, 2, 2, framework.CreateNetworkConfig{StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

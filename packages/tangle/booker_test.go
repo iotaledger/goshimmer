@@ -15,7 +15,7 @@ import (
 )
 
 func TestScenario_1(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 
@@ -257,7 +257,7 @@ func TestScenario_1(t *testing.T) {
 }
 
 func TestScenario_2(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 
@@ -621,7 +621,7 @@ func TestScenario_2(t *testing.T) {
 }
 
 func TestScenario_3(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 
@@ -909,7 +909,7 @@ func TestScenario_3(t *testing.T) {
 }
 
 func TestBookerNewAutomaticSequence(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(tangle)
@@ -943,7 +943,7 @@ func TestBookerNewAutomaticSequence(t *testing.T) {
 }
 
 func TestBookerMarkerMappings(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
