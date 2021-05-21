@@ -307,10 +307,6 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 
 	// wait until peers are fully started and connected
 	time.Sleep(5 * time.Second)
-	err = drng.network.DoManualPeeringAndWait()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
 
 	// get mana from faucet
 	for i := 1; i < peers; i++ {
@@ -326,6 +322,11 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 	err = drng.network.WaitForMana(drng.network.peers[1:]...)
 	if err != nil {
 		return nil, err
+	}
+	time.Sleep(5 * time.Second)
+	err = drng.network.DoManualPeeringAndWait()
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	return drng, nil
