@@ -245,7 +245,7 @@ func newMockConnector(outputs ...*wallet.Output) (connector *mockConnector) {
 	return
 }
 
-func (connector *mockConnector) RequestFaucetFunds(aaddress address.Address, powTarget int) (err error) {
+func (connector *mockConnector) RequestFaucetFunds(addr address.Address, powTarget int) (err error) {
 	// generate random transaction id
 	return
 }
