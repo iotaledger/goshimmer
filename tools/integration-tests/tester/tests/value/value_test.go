@@ -150,6 +150,8 @@ func TestValueColoredPersistence(t *testing.T) {
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
 
+	n.WaitForAutopeering(2)
+
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
 		Confirmed: tests.True(),
@@ -220,6 +222,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	n.WaitForAutopeering(2)
 
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
