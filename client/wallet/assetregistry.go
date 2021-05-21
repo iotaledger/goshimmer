@@ -2,14 +2,16 @@ package wallet
 
 import (
 	"context"
+	"strconv"
+
 	"github.com/capossele/asset-registry/pkg/registryclient"
 	"github.com/capossele/asset-registry/pkg/registryservice"
 	"github.com/cockroachdb/errors"
 	"github.com/go-resty/resty/v2"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/typeutils"
-	"strconv"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 const (
@@ -27,11 +29,11 @@ type AssetRegistry struct {
 
 // NewAssetRegistry is the constructor for the AssetRegistry.
 func NewAssetRegistry(network string, registryURL ...string) *AssetRegistry {
-	hostUrl := RegistryHostURL
+	hostURL := RegistryHostURL
 	if len(registryURL) > 0 {
-		hostUrl = registryURL[0]
+		hostURL = registryURL[0]
 	}
-	client := registryclient.NewHTTPClient(resty.New().SetHostURL(hostUrl))
+	client := registryclient.NewHTTPClient(resty.New().SetHostURL(hostURL))
 	return &AssetRegistry{
 		make(map[ledgerstate.Color]Asset),
 		client,
@@ -56,6 +58,7 @@ func ParseAssetRegistry(marshalUtil *marshalutil.MarshalUtil) (assetRegistry *As
 	network := typeutils.BytesToString(networkBytes)
 	if !registryservice.Networks[network] {
 		err = errors.Errorf("unsupported asset registry network: %s", network)
+		return
 	}
 	assetRegistry = NewAssetRegistry(network)
 
@@ -142,10 +145,12 @@ func ParseAssetRegistry(marshalUtil *marshalutil.MarshalUtil) (assetRegistry *As
 	return
 }
 
+// SetRegistryURL sets the url of the registry api server.
 func (a *AssetRegistry) SetRegistryURL(url string) {
 	a.client = registryclient.NewHTTPClient(resty.New().SetHostURL(url))
 }
 
+// Network returns the current network the asset registry connects to.
 func (a *AssetRegistry) Network() string {
 	return a.network
 }
