@@ -406,7 +406,7 @@ func TestTangle_Flow(t *testing.T) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return testWorker.Mine(context.Background(), content, targetPOW)
 	}))
-
+	tangle.MessageFactory.SetTimeout(powTimeout)
 	// create a helper function that creates the messages
 	createNewMessage := func(invalidTS bool) *Message {
 		var msg *Message
