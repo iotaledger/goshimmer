@@ -108,8 +108,8 @@ github.com/cockroachdb/errors v1.8.4 h1:41oZ1A4Eju6LviqkGpu5R2M39gHHVAFvOYsQjot1
 github.com/cockroachdb/errors v1.8.4/go.mod h1:GScl7wnuvY335l6h0jbkHIKJ+8uEmUmJRVWKnenUbfI=
 github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f h1:o/kfcElHqOiXqcou5a3rIlMc7oJbMQkeLk0VQJ7zgqY=
 github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f/go.mod h1:i/u985jwjWRlyHXQbwatDASoW0RMlZ/3i9yJHE2xLkI=
-github.com/cockroachdb/pebble v0.0.0-20210313162627-639dfcee1d23 h1:UvUEq6cU4jdzsPZ/w87PYF206koN26nx1rusWjDPCp8=
-github.com/cockroachdb/pebble v0.0.0-20210313162627-639dfcee1d23/go.mod h1:1XpB4cLQcF189RAcWi4gUc110zJgtOfT7SVNGY8sOe0=
+github.com/cockroachdb/pebble v0.0.0-20210520205706-edcfca5432fb h1:8X6gQtko9Ph8/t76954wSdBJA9e3/i0+5rca5bLrA7c=
+github.com/cockroachdb/pebble v0.0.0-20210520205706-edcfca5432fb/go.mod h1:1XpB4cLQcF189RAcWi4gUc110zJgtOfT7SVNGY8sOe0=
 github.com/cockroachdb/redact v1.0.8 h1:8QG/764wK+vmEYoOlfobpe12EQcS81ukx/a4hdVMxNw=
 github.com/cockroachdb/redact v1.0.8/go.mod h1:BVNblN9mBWFyMyqK1k3AAiSxhvhfK2oOZZ2lK+dpvRg=
 github.com/cockroachdb/sentry-go v0.6.1-cockroachdb.2 h1:IKgmqgMQlVJIZj19CdocBeSfSaiCbEBZGKODaixqtHM=
@@ -405,8 +405,8 @@ github.com/hydrogen18/memlistener v0.0.0-20141126152155-54553eb933fb/go.mod h1:q
 github.com/imkira/go-interpol v1.1.0/go.mod h1:z0h2/2T3XF8kyEPpRgJ3kmNv+C43p+I/CoI+jC3w2iA=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
-github.com/iotaledger/hive.go v0.0.0-20210427112115-75c7ebf4ebbb h1:/rQpy4+WTsgdlh4azuPoICb60y15yXN+ArjVlAu01Js=
-github.com/iotaledger/hive.go v0.0.0-20210427112115-75c7ebf4ebbb/go.mod h1:NyBg/Ny7FFAdDs59zdwTVoysU2ZbJVQnRwyLIDFKJYA=
+github.com/iotaledger/hive.go v0.0.0-20210521235256-53707d3d14ce h1:bogYd3UC6r8liOgqIlfCzwuCeeR1b33LcE3siyO0brA=
+github.com/iotaledger/hive.go v0.0.0-20210521235256-53707d3d14ce/go.mod h1:Tk0JKeE5BtunebnyKXdNnwEZxObakdBdMWKea/AUCDw=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
