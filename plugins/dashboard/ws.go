@@ -140,16 +140,16 @@ func sendInitialData(ws *websocket.Conn) error {
 	if err := sendAllowedManaPledge(ws); err != nil {
 		return err
 	}
-	if err := manaBuffer.SendEvents(ws); err != nil {
+	if err := ManaBufferInstance().SendEvents(ws); err != nil {
 		return err
 	}
-	if err := manaBuffer.SendValueMsgs(ws); err != nil {
+	if err := ManaBufferInstance().SendValueMsgs(ws); err != nil {
 		return err
 	}
-	if err := manaBuffer.SendMapOverall(ws); err != nil {
+	if err := ManaBufferInstance().SendMapOverall(ws); err != nil {
 		return err
 	}
-	if err := manaBuffer.SendMapOnline(ws); err != nil {
+	if err := ManaBufferInstance().SendMapOnline(ws); err != nil {
 		return err
 	}
 	return nil
