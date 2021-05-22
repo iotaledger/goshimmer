@@ -8,7 +8,7 @@ require (
 	github.com/beevik/ntp v0.3.0
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
 	github.com/cockroachdb/errors v1.8.4
-	github.com/dgraph-io/badger/v2 v2.0.3
+	github.com/cockroachdb/pebble v0.0.0-20210520205706-edcfca5432fb
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.6.3
