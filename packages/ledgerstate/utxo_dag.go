@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 
@@ -37,6 +38,8 @@ type UTXODAG struct {
 	addressOutputMappingStorage *objectstorage.ObjectStorage
 	branchDAG                   *BranchDAG
 	shutdownOnce                sync.Once
+
+	syncutils.MultiMutex
 }
 
 // NewUTXODAG create a new UTXODAG from the given details.
@@ -70,41 +73,139 @@ func (u *UTXODAG) Shutdown() {
 	})
 }
 
-func (u *UTXODAG) StoreTransaction(transaction *Transaction) (solid bool) {
-	u.TransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
-		transactionMetadata := NewTransactionMetadata(transactionID)
-
-		cachedConsumedOutputs := u.ConsumedOutputs(transaction)
-		defer cachedConsumedOutputs.Release()
-		consumedOutputs := cachedConsumedOutputs.Unwrap()
-
-		if !u.allOutputsExist(consumedOutputs) {
-			// store unsolid consumers
-			u.bookConsumers()
-
-			return transactionMetadata
+func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType SolidityType, newSolidityType SolidityType) {
+	for _, input := range transaction.Essence().Inputs() {
+		if previousSolidityType != UndefinedSolidityType {
+			u.consumerStorage.Delete(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transaction.ID(), previousSolidityType).Bytes())
 		}
 
-		if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
-			u.Events.TransactionInvalid.Trigger(transaction, errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid))
+		u.consumerStorage.Store(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transaction.ID(), newSolidityType)).Release()
+	}
+}
 
-			return nil
-		}
+func (u *UTXODAG) transactionObjectivelyValid(transaction *Transaction, consumedOutputs Outputs) (valid bool, err error) {
+	if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
+		return false, errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
+	}
 
-		if !UnlockBlocksValid(consumedOutputs, transaction) {
-			u.Events.TransactionInvalid.Trigger(transaction, errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid))
+	if !UnlockBlocksValid(consumedOutputs, transaction) {
+		return false, errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
+	}
 
+	return true, nil
+}
+
+func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, propagationWalker *walker.Walker) {
+	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
+	defer cachedConsumedOutputs.Release()
+	consumedOutputs := cachedConsumedOutputs.Unwrap()
+
+	if !u.allOutputsExist(consumedOutputs) {
+		previousSolidityType := transactionMetadata.SetSolidityType(Unsolid)
+		if previousSolidityType >= Unsolid {
 			return
 		}
 
-		// TODO: STORE TRANSACTION
+		u.updateConsumers(transaction, previousSolidityType, Unsolid)
+
+		return
+	}
+
+	if valid, err := u.transactionObjectivelyValid(transaction, consumedOutputs); !valid {
+		// TODO: CLEANUP INVALID TRANSACTION
+
+		u.Events.TransactionInvalid.Trigger(transaction, err)
+
+		return
+	}
+
+	u.bookTransaction(transaction, transactionMetadata, consumedOutputs)
+}
+
+func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, consumedOutputs Outputs) (targetBranch BranchID, err error) {
+	// retrieve the metadata of the Inputs
+	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
+	defer cachedInputsMetadata.Release()
+	inputsMetadata := cachedInputsMetadata.Unwrap()
+
+	// check if Transaction is attaching to something invalid
+	if u.inputsInInvalidBranch(inputsMetadata) {
+		u.bookInvalidTransaction(transaction, transactionMetadata)
+
+		return InvalidBranchID, nil
+	}
+
+	// check if transaction is attaching to something rejected
+	if rejected, rejectedBranch := u.inputsInRejectedBranch(inputsMetadata); rejected {
+		u.bookRejectedTransaction(transaction, transactionMetadata, rejectedBranch)
+
+		return rejectedBranch, nil
+	}
+
+	// check if any Input was spent by a confirmed Transaction already
+	if inputsSpentByConfirmedTransaction, tmpErr := u.inputsSpentByConfirmedTransaction(inputsMetadata); tmpErr != nil {
+		return BranchID{}, errors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
+	} else if inputsSpentByConfirmedTransaction {
+		return u.bookRejectedConflictingTransaction(transaction, transactionMetadata)
+	}
+
+	// mark transaction as "permanently rejected"
+	if !u.consumedOutputsPastConeValid(consumedOutputs, inputsMetadata) {
+		u.bookInvalidTransaction(transaction, transactionMetadata)
+
+		return InvalidBranchID, nil
+	}
+
+	// determine the booking details before we book
+	branchesOfInputsConflicting, normalizedBranchIDs, conflictingInputs, err := u.determineBookingDetails(inputsMetadata)
+	if err != nil {
+		return BranchID{}, errors.Errorf("failed to determine booking details of Transaction with %s: %w", transaction.ID(), err)
+	}
+
+	// are branches of inputs conflicting
+	if branchesOfInputsConflicting {
+		u.bookInvalidTransaction(transaction, transactionMetadata)
+
+		return InvalidBranchID, nil
+	}
+
+	if len(conflictingInputs) != 0 {
+		return u.bookConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs, conflictingInputs.ByID()), nil
+	}
+
+	return u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs), nil
+}
+
+func (u *UTXODAG) StoreTransaction(transaction *Transaction) (solidityType SolidityType) {
+	propagationWalker := walker.New(true)
+
+	u.LockEntity(transaction)
+	u.TransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
+		u.transactionStorage.Store(transaction).Release()
+		transactionMetadata := NewTransactionMetadata(transactionID)
+
+		u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
 
 		return transactionMetadata
 	}).Consume(func(transactionMetadata *TransactionMetadata) {
-		solid = transactionMetadata.Solid()
+		solidityType = transactionMetadata.SolidityType()
 	})
+	u.UnlockEntity(transaction)
 
-	return solid
+	for propagationWalker.HasNext() {
+		transactionID := propagationWalker.Next().(TransactionID)
+
+		u.Transaction(transactionID).Consume(func(transaction *Transaction) {
+			u.LockEntity(transaction)
+			defer u.UnlockEntity(transaction)
+
+			u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+				u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
+			})
+		})
+	}
+
+	return solidityType
 }
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
@@ -127,6 +228,7 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	return nil
 }
 
+/*
 // BookTransaction books a Transaction into the ledger state.
 func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
@@ -216,6 +318,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 
 	return
 }
+*/
 
 // InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
 // Pending, Confirmed or Rejected.
@@ -293,7 +396,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 	// storing genesis tx and genesis output
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
-	transactionMetadata.SetSolid(true)
+	transactionMetadata.SetSolidityType(Solid)
 	transactionMetadata.SetBranchID(MasterBranchID)
 	transactionMetadata.SetFinalized(true)
 
@@ -331,7 +434,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 
 		// store TransactionMetadata
 		transactionMetadata := NewTransactionMetadata(txID)
-		transactionMetadata.SetSolid(true)
+		transactionMetadata.SetSolidityType(Solid)
 		transactionMetadata.SetBranchID(MasterBranchID)
 		transactionMetadata.SetFinalized(true)
 
@@ -426,29 +529,30 @@ func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmed
 
 // bookInvalidTransaction is an internal utility function that books the given Transaction into the Branch identified by
 // the InvalidBranchID.
-func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata) {
+func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata) {
 	transactionMetadata.SetBranchID(InvalidBranchID)
-	transactionMetadata.SetSolid(true)
+	if previousSolidityType := transactionMetadata.SetSolidityType(Invalid); previousSolidityType != Invalid {
+		u.updateConsumers(transaction, previousSolidityType, Invalid)
+	}
 	transactionMetadata.SetFinalized(true)
 
-	u.bookConsumers(inputsMetadata, transaction.ID(), types.False)
 	u.bookOutputs(transaction, InvalidBranchID)
 }
 
 // bookRejectedTransaction is an internal utility function that "lazy" books the given Transaction into a rejected
 // Branch.
-func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, rejectedBranch BranchID) {
+func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, rejectedBranch BranchID) {
 	transactionMetadata.SetBranchID(rejectedBranch)
-	transactionMetadata.SetSolid(true)
-	transactionMetadata.SetLazyBooked(true)
+	if previousSolidityType := transactionMetadata.SetSolidityType(LazySolid); previousSolidityType != LazySolid {
+		u.updateConsumers(transaction, previousSolidityType, LazySolid)
+	}
 
-	u.bookConsumers(inputsMetadata, transaction.ID(), types.Maybe)
 	u.bookOutputs(transaction, rejectedBranch)
 }
 
 // bookRejectedConflictingTransaction is an internal utility function that "lazy" books the given Transaction into its
 // own ConflictBranch which is immediately rejected and only kept in the DAG for possible reorgs.
-func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata) (targetBranch BranchID, err error) {
+func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata) (targetBranch BranchID, err error) {
 	targetBranch = NewBranchID(transaction.ID())
 	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(targetBranch, NewBranchIDs(LazyBookedConflictsBranchID), nil)
 	if conflictBranchErr != nil {
@@ -462,7 +566,7 @@ func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, t
 		branch.SetFinalized(true)
 		branch.SetInclusionState(Rejected)
 
-		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, targetBranch)
+		u.bookRejectedTransaction(transaction, transactionMetadata, targetBranch)
 	}) {
 		err = errors.Errorf("failed to load ConflictBranch with %s: %w", cachedConflictBranch.ID(), cerrors.ErrFatal)
 	}
@@ -482,8 +586,13 @@ func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transa
 		targetBranch = branch.ID()
 
 		transactionMetadata.SetBranchID(targetBranch)
-		transactionMetadata.SetSolid(true)
-		u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
+		if previousSolidityType := transactionMetadata.SetSolidityType(Solid); previousSolidityType != Solid {
+			u.updateConsumers(transaction, previousSolidityType, Solid)
+
+			for _, inputMetadata := range inputsMetadata {
+				inputMetadata.RegisterConsumer(transaction.ID())
+			}
+		}
 		u.bookOutputs(transaction, targetBranch)
 	}) {
 		panic(fmt.Errorf("failed to load AggregatedBranch with %s", cachedAggregatedBranch.ID()))
@@ -501,7 +610,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 		u.forkConsumer(transactionID, conflictingInputs)
 
 		return
-	}, types.True)
+	}, Solid)
 
 	// create new ConflictBranch
 	targetBranch = NewBranchID(transaction.ID())
@@ -513,8 +622,13 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 	// book Transaction into new ConflictBranch
 	if !cachedConflictBranch.Consume(func(branch Branch) {
 		transactionMetadata.SetBranchID(targetBranch)
-		transactionMetadata.SetSolid(true)
-		u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
+		if previousSolidityType := transactionMetadata.SetSolidityType(Solid); previousSolidityType != Solid {
+			u.updateConsumers(transaction, previousSolidityType, Solid)
+
+			for _, inputMetadata := range inputsMetadata {
+				inputMetadata.RegisterConsumer(transaction.ID())
+			}
+		}
 		u.bookOutputs(transaction, targetBranch)
 	}) {
 		panic(fmt.Errorf("failed to load ConflictBranch with %s", cachedConflictBranch.ID()))
@@ -552,7 +666,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 			}
 		}
 
-		u.walkFutureCone(outputIds, u.propagateBranchUpdates, types.True)
+		u.walkFutureCone(outputIds, u.propagateBranchUpdates, Solid)
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
@@ -605,28 +719,6 @@ func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchI
 	}
 
 	return
-}
-
-// bookConsumers creates the reference between an Output and its spending Transaction. It increases the ConsumerCount if
-// the Transaction is a valid spend.
-func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID TransactionID, valid types.TriBool) {
-	for _, inputMetadata := range inputsMetadata {
-		if valid == types.True {
-			inputMetadata.RegisterConsumer(transactionID)
-		}
-
-		newConsumer := NewConsumer(inputMetadata.ID(), transactionID, valid)
-		if !(&CachedConsumer{CachedObject: u.consumerStorage.ComputeIfAbsent(newConsumer.ObjectStorageKey(), func(key []byte) objectstorage.StorableObject {
-			newConsumer.Persist()
-			newConsumer.SetModified()
-
-			return newConsumer
-		})}).Consume(func(consumer *Consumer) {
-			consumer.SetValid(valid)
-		}) {
-			panic("failed to update valid flag of Consumer")
-		}
-	}
 }
 
 // bookOutputs creates the Outputs and their corresponding OutputsMetadata in the object storage.
@@ -866,7 +958,7 @@ func (u *UTXODAG) createdOutputIDsOfTransaction(transactionID TransactionID) (ou
 // walkFutureCone is an internal utility function that walks through the future cone of the given Outputs and calling
 // the callback function on each step. It is possible to provide an optional filter for the valid flag of the Consumer
 // to only walk through matching Consumers.
-func (u *UTXODAG) walkFutureCone(entryPoints []OutputID, callback func(transactionID TransactionID) (nextOutputsToVisit []OutputID), optionalValidFlagFilter ...types.TriBool) {
+func (u *UTXODAG) walkFutureCone(entryPoints []OutputID, callback func(transactionID TransactionID) (nextOutputsToVisit []OutputID), optionalValidFlagFilter ...SolidityType) {
 	stack := list.New()
 	for _, outputID := range entryPoints {
 		stack.PushBack(outputID)
@@ -882,7 +974,7 @@ func (u *UTXODAG) walkFutureCone(entryPoints []OutputID, callback func(transacti
 				return
 			}
 
-			if len(optionalValidFlagFilter) >= 1 && consumer.Valid() != optionalValidFlagFilter[0] {
+			if len(optionalValidFlagFilter) >= 1 && consumer.SolidityType() != optionalValidFlagFilter[0] {
 				return
 			}
 
@@ -943,8 +1035,12 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 
 // UTXODAGEvents is a container for all of the UTXODAG related events.
 type UTXODAGEvents struct {
+	// TransactionInvalid gets triggered whenever an objectively invalid Transaction is detected.
+	TransactionInvalid *events.Event
+
 	// TransactionBranchIDUpdated gets triggered when the BranchID of a Transaction is changed after the initial booking.
 	TransactionBranchIDUpdated *events.Event
+
 	// Fired when a transaction gets confirmed.
 	TransactionConfirmed *events.Event
 }
@@ -1037,7 +1133,7 @@ func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (a *AddressOutputMapping) Update(other objectstorage.StorableObject) {
+func (a *AddressOutputMapping) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -1168,15 +1264,21 @@ type SolidityType uint8
 const SolidityTypeLength = 1
 
 const (
-	// Unsolid represents transactions that are not solid, yet.
-	Unsolid SolidityType = iota
+	// UndefinedSolidityType represents
+	UndefinedSolidityType SolidityType = iota
 
-	// Solid represents transaction that are solid and fully booked.
-	Solid
+	// Unsolid represents transactions that are not solid, yet.
+	Unsolid
 
 	// LazySolid represents transactions that are solid but not fully booked because they spend funds of rejected or
 	// invalid Branches.
 	LazySolid
+
+	// Solid represents transaction that are solid and fully booked.
+	Solid
+
+	// Invalid represents transactions that are solid and fully booked but spend outputs from conflicting branches.
+	Invalid
 )
 
 // SolidityTypeFromBytes unmarshals a SolidityType from a sequence of bytes.
@@ -1210,6 +1312,8 @@ func (c SolidityType) Bytes() (marshaledSolidityType []byte) {
 // String returns a human readable version of the SolidityType.
 func (c SolidityType) String() (humanReadableSolidityType string) {
 	switch c {
+	case UndefinedSolidityType:
+		return "SolidityType(UndefinedSolidityType)"
 	case Unsolid:
 		return "SolidityType(Unsolid)"
 	case Solid:
