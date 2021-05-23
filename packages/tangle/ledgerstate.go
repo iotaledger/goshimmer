@@ -177,9 +177,7 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 				continue
 			}
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				if record.UnspentOutputs[i] {
-					l.totalSupply += balance
-				}
+				l.totalSupply += balance
 				return true
 			})
 		}
