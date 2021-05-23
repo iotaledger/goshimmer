@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
@@ -18,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -80,6 +79,7 @@ func TestTransactionPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, false, tests.ExpectedInclusionState{
@@ -149,6 +149,7 @@ func TestValueColoredPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -169,7 +170,7 @@ func TestAlias_Persistence(t *testing.T) {
 	time.Sleep(15 * time.Second)
 
 	// create a wallet that connects to a random peer
-	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
+	w := wallet.New(wallet.WebAPI(n.Peers()[1].BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)
@@ -220,6 +221,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
 
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
@@ -244,7 +246,7 @@ func TestAlias_Persistence(t *testing.T) {
 	_, err = w.DestroyNFT(destroynftoptions.Alias(aliasID.Base58()), destroynftoptions.WaitForConfirmation(true))
 	require.NoError(t, err)
 	// give enough time to all peers
-	time.Sleep(25 * time.Second)
+	time.Sleep(20 * time.Second)
 	// check if all nodes destroyed it
 	for _, peer := range n.Peers() {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
@@ -319,7 +321,7 @@ func TestAlias_Delegation(t *testing.T) {
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(delegatedAliasOutputID)),
 		ledgerstate.NewOutputs(nextOutput))
 	tx = ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
-	_, err = n.RandomPeer().SendTransaction(tx.Bytes())
+	_, err = n.RandomPeer().PostTransaction(tx.Bytes())
 	require.NoError(t, err)
 	// give enough time to all peers
 	time.Sleep(5 * time.Second)

@@ -170,12 +170,13 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	if err != nil {
 		return
 	}
+
 	tp.TxID = tx.ID().Base58()
 	tp.Transaction = jsonmodels.NewTransaction(tx)
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*ledgerstate.UTXOInput).ReferencedOutputID()
-		messagelayer.Tangle().LedgerState.Output(refOutputID).Consume(func(output ledgerstate.Output) {
+		messagelayer.Tangle().LedgerState.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
 			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
 		})
 	}

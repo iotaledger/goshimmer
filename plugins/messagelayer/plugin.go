@@ -114,7 +114,7 @@ func configure(plugin *node.Plugin) {
 			plugin.Panic("can not open snapshot file:", err)
 		}
 		if _, err := snapshot.ReadFrom(f); err != nil {
-			plugin.Panic("could not read snapshot file:", err)
+			plugin.Panic("could not read snapshot file in message layer plugin:", err)
 		}
 		Tangle().LedgerState.LoadSnapshot(snapshot)
 		plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)

@@ -150,7 +150,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                         </Row>
 
                         {
-                            msg.rank &&
+                            !!msg.rank &&
                             <Row className={"mb-3"}>
                                 <Col>
                                     <h5>Markers</h5>

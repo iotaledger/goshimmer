@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58/base58"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58/base58"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
@@ -34,12 +34,13 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address()
-	unspentOutputs, err := n.Peers()[0].GetUnspentOutputs([]string{genesisAddr.Base58()})
+	unspentOutputs, err := n.Peers()[0].PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
-	genesisBalance := unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
-
-	genesisOutputID, _ := ledgerstate.OutputIDFromBase58(unspentOutputs.UnspentOutputs[0].OutputIDs[0].ID)
-	input := ledgerstate.NewUTXOInput(genesisOutputID)
+	genesisOutput, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
+	require.NoError(t, err)
+	genesisBalance, exist := genesisOutput.Balances().Get(ledgerstate.ColorIOTA)
+	assert.True(t, exist)
+	input := ledgerstate.NewUTXOInput(genesisOutput.ID())
 
 	firstReceiver := seed.NewSeed()
 	const depositCount = 10
@@ -67,10 +68,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 	sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(tx1Essence.Bytes()))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	tx1 := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
-	utilsTx := value.ParseTransaction(tx1)
+	utilsTx := jsonmodels.NewTransaction(tx1)
 
-	txID, err := n.Peers()[0].SendTransaction(tx1.Bytes())
+	resp, err := n.Peers()[0].PostTransaction(tx1.Bytes())
 	require.NoError(t, err)
+	txID := resp.TransactionID
 
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
@@ -86,7 +88,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	time.Sleep(20 * time.Second)
 	log.Println("check that the transaction is finalized/confirmed by all peers")
 	tests.CheckTransactions(t, n.Peers(), map[string]*tests.ExpectedTransaction{
-		txID: {Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks},
+		txID: {Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks},
 	}, true, tests.ExpectedInclusionState{
 		Confirmed: tests.True(), Finalized: tests.True(),
 		Conflicting: tests.False(), Solid: tests.True(),
@@ -114,14 +116,15 @@ func TestConsensusNoConflicts(t *testing.T) {
 		tx := ledgerstate.NewTransaction(tx2Essence, ledgerstate.UnlockBlocks{unlockBlock})
 		secondReceiverAddresses[i] = addr.Base58()
 
-		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
+		resp, err := n.Peers()[rand.Intn(len(n.Peers()))].PostTransaction(tx.Bytes())
 		require.NoError(t, err)
+		txID := resp.TransactionID
 
-		utilsTx := value.ParseTransaction(tx)
+		utilsTx := jsonmodels.NewTransaction(tx)
 
 		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
-			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks,
+			Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks,
 		}
 	}
 

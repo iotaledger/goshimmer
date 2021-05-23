@@ -66,7 +66,7 @@ func GetAddress(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
+	cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, cachedOutputs.Unwrap()))
@@ -83,11 +83,11 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
+	cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
-		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			isUnspent = outputMetadata.ConsumerCount() == 0
 		})
 
@@ -119,7 +119,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 	}
 	for i, addy := range addresses {
 		res.UnspentOutputs[i] = &jsonmodels.WalletOutputsOnAddress{}
-		cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(addy)
+		cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(addy)
 		res.UnspentOutputs[i].Address = jsonmodels.Address{
 			Type:   addy.Type().String(),
 			Base58: addy.Base58(),
@@ -127,12 +127,12 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
 		for _, output := range cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
-			messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				isUnspent = outputMetadata.ConsumerCount() == 0
 			})
 			return
 		}) {
-			cachedOutputMetadata := messagelayer.Tangle().LedgerState.OutputMetadata(output.ID())
+			cachedOutputMetadata := messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID())
 			cachedOutputMetadata.Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() == 0 {
 					inclusionState := jsonmodels.InclusionState{}
@@ -245,7 +245,7 @@ func GetOutput(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+	if !messagelayer.Tangle().LedgerState.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
@@ -282,12 +282,11 @@ func GetOutputMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !messagelayer.Tangle().LedgerState.OutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	if !messagelayer.Tangle().LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewOutputMetadata(outputMetadata))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
 	}
-
 	return
 }
 
@@ -302,13 +301,15 @@ func GetTransaction(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
+	var tx *ledgerstate.Transaction
+	// retrieve transaction
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewTransaction(transaction))
+		tx = transaction
 	}) {
 		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
+		return
 	}
-
-	return
+	return c.JSON(http.StatusOK, jsonmodels.NewTransaction(tx))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

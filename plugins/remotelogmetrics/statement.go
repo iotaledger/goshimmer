@@ -13,6 +13,10 @@ import (
 )
 
 func onStatementReceived(msg *tangle.Message) {
+	if !messagelayer.Tangle().Synced() {
+		return
+	}
+
 	clockEnabled := !node.IsSkipped(clock.Plugin())
 	var myID string
 	if local.GetInstance() != nil {
