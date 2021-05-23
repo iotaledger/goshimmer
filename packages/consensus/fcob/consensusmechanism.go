@@ -18,10 +18,10 @@ import (
 
 var (
 	// LikedThreshold is the first time threshold of FCoB.
-	LikedThreshold = 5 * time.Second
+	LikedThreshold = 2 * time.Second
 
 	// LocallyFinalizedThreshold is the second time threshold of FCoB.
-	LocallyFinalizedThreshold = 10 * time.Second
+	LocallyFinalizedThreshold = 4 * time.Second
 )
 
 // region ConsensusMechanism ///////////////////////////////////////////////////////////////////////////////////////////
