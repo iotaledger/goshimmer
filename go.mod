@@ -18,7 +18,6 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/websocket v1.4.2
 	github.com/iotaledger/hive.go v0.0.0-20210523190624-62dd208e10b0
-	github.com/kr/pretty v0.2.1 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/linxGnu/grocksdb v1.6.35 // indirect
