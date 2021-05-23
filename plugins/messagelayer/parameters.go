@@ -20,7 +20,7 @@ var Parameters = struct {
 
 	// FCOB contains parameters related to the fast consensus of barcelona.
 	FCOB struct {
-		AverageNetworkDelay int `default:"5" usage:"the avg. network delay to use for FCoB rules"`
+		AverageNetworkDelay int `default:"2" usage:"the avg. network delay to use for FCoB rules"`
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
