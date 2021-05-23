@@ -37,13 +37,15 @@ The wallet can be configured by creating a `config.json` file in the directory o
 	  "username": "goshimmer",
 	  "password": "goshimmer"
 	},
-	"reuse_addresses": false
+	"reuse_addresses": false,
+	"faucetPowDifficulty": 25
 }
 ```
  - The `WebAPI` tells the wallet which node API to communicate with. Set it to the url of a node API.
  - If the node has basic authentication enabled, you may configure your wallet with a username and password.
  - The `resuse_addresses` option specifies if the wallet should treat addresses as reusable, or whether it should try to
    spend from any wallet address only once.
+ - `faucetPowDifficulty` defines the difficulty of the faucet request POW the wallet should do.
    
 To perform the wallet initialization, run the `init` command of the wallet:
 ```bash
@@ -131,6 +133,35 @@ STATUS  BALANCE                 COLOR                                           
 1000 IOTA tokens were tagged with the color `HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn` to create `MyUniqueToken`.
 The IOTA balance is decremented, but we have received assets in return for the used IOTAs. The created asset tokens
 behave exactly like an IOTA token, they can be transferred without fees to any address.
+
+### Fetching Info of a Digital Asset
+
+In the previous step we have created a digital asset called `MyUniqueToken`. It's name, symbol and initial supply
+is known to the wallet because we provided this input while creating it. The network however doesn't store this
+information, it only knows its unique identifier, the assetID (or color).
+To help others discover the attributes of the asset, upon asset creation, the `cli-wallet` automatically sends this
+information to a metadata registry service.
+When you receive an asset unknown locally to your wallet, it queries this registry service for the metadata. You can
+also query this metadata yourself by running the `asset-info` command in the wallet:
+
+```bash
+./cli-wallet asset-info -id HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn
+```
+
+```bash
+IOTA Pollen CLI-Wallet 0.2
+
+Asset Info
+
+PROPERTY                        VALUE
+-----------------------         --------------------------------------------
+Name                            MyUniqueToken
+Symbol                          MUT
+AssetID(color)                  HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn
+Initial Supply                  1000
+Creating Transaction            G7ergf7YzVUSqQMS69jGexYtihbhpsvELEsPHWToYtKj
+Network                         test
+```
 
 ## Sending Tokens and Assets
 
