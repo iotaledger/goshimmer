@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -173,17 +172,14 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 		if attachment != nil {
 			attachment.Release()
 		}
-		// The following only works assuming that the snapshot contains all of the unspent outputs.
-		if l.totalSupply != 0 {
-			err = errors.Errorf("totalSupply is not zero at start of snapshot: %w", cerrors.ErrFatal)
-			return
-		}
 		for i, output := range record.Essence.Outputs() {
 			if !record.UnspentOutputs[i] {
 				continue
 			}
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				l.totalSupply += balance
+				if record.UnspentOutputs[i] {
+					l.totalSupply += balance
+				}
 				return true
 			})
 		}
