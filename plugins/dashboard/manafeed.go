@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -23,7 +24,16 @@ var (
 	manaFeedWorkerQueueSize = 50
 	manaFeedWorkerPool      *workerpool.WorkerPool
 	manaBuffer              *ManaBuffer
+	manaBufferOnce          sync.Once
 )
+
+// ManaBufferInstance is the ManaBuffer singleton.
+func ManaBufferInstance() *ManaBuffer {
+	manaBufferOnce.Do(func() {
+		manaBuffer = NewManaBuffer()
+	})
+	return manaBuffer
+}
 
 func configureManaFeed() {
 	manaFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
@@ -51,7 +61,6 @@ func runManaFeed() {
 		manaFeedWorkerPool.Submit(MsgTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(shutdownSignal <-chan struct{}) {
-		manaBuffer = NewManaBuffer()
 		mana.Events().Pledged.Attach(notifyManaPledge)
 		mana.Events().Revoked.Attach(notifyManaRevoke)
 		manaFeedWorkerPool.Start()
@@ -98,7 +107,7 @@ func sendManaValue() {
 		Type: MsgTypeManaValue,
 		Data: msgData,
 	})
-	manaBuffer.StoreValueMsg(msgData)
+	ManaBufferInstance().StoreValueMsg(msgData)
 }
 
 func sendManaMapOverall() {
@@ -132,7 +141,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: consensusPayload,
 	})
-	manaBuffer.StoreMapOverall(accessPayload, consensusPayload)
+	ManaBufferInstance().StoreMapOverall(accessPayload, consensusPayload)
 }
 
 func sendManaMapOnline() {
@@ -171,11 +180,11 @@ func sendManaMapOnline() {
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,
 	})
-	manaBuffer.StoreMapOnline(accessPayload, consensusPayload)
+	ManaBufferInstance().StoreMapOnline(accessPayload, consensusPayload)
 }
 
 func sendManaPledge(ev *mana.PledgedEvent) {
-	manaBuffer.StoreEvent(ev)
+	ManaBufferInstance().StoreEvent(ev)
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaPledge,
 		Data: ev.ToJSONSerializable(),
@@ -183,7 +192,7 @@ func sendManaPledge(ev *mana.PledgedEvent) {
 }
 
 func sendManaRevoke(ev *mana.RevokedEvent) {
-	manaBuffer.StoreEvent(ev)
+	ManaBufferInstance().StoreEvent(ev)
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaRevoke,
 		Data: ev.ToJSONSerializable(),
