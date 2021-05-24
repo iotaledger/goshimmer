@@ -28,7 +28,7 @@ var configJSON = `{
 	},
 	"reuse_addresses": false,
 	"faucetPowDifficulty": 25,
-	"assetRegistryNetwork": "pollen"
+	"assetRegistryNetwork": "test"
 }`
 
 // load the config file
