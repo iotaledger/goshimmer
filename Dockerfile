@@ -4,7 +4,7 @@
 # golang 1.16.3-buster amd64
 FROM golang@sha256:dfa3cef088454200d6b48e2a911138f7d5d9afff77f89243eea6342f16ddcfb0 AS build
 
-ARG BUILD_TAGS=builtin_static,rocksdb
+ARG BUILD_TAGS=rocksdb,builtin_static,netgo
 
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates
