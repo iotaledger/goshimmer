@@ -12,14 +12,13 @@ builds:
   # GoShimmer AMD64 all OS
   - id: goshimmer
     binary: goshimmer
-    env:
-      - CGO_ENABLED=0
+    flags:
+      - -tags=builtin_static,rocksdb
     ldflags:
       - -s -w -X github.com/iotaledger/goshimmer/plugins/banner.AppVersion={{.Version}}
+    main: main.go
     goos:
       - linux
-      - darwin
-      - windows
     goarch:
       - amd64
 
