@@ -187,12 +187,12 @@ func TestApis(t *testing.T) {
 	peer1ID := base58.Encode(peers[1].ID().Bytes())
 	_, err = peers[0].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer1ID, peer1ID)
 	require.NoError(t, err)
-	time.Sleep(20 * time.Second)
+	time.Sleep(30 * time.Second)
 	// send funds to node 2
 	peer2ID := base58.Encode(peers[2].ID().Bytes())
 	_, err = peers[0].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer2ID, peer2ID)
 	require.NoError(t, err)
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	require.NoError(t, err)
 	allManaResp, err := peers[0].GoShimmerAPI.GetAllMana()
@@ -211,7 +211,7 @@ func TestApis(t *testing.T) {
 	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
 	require.Equal(t, 3, len(resp3.Nodes))
 	for i := 0; i < 3; i++ {
-		t.Log("Lopping over resp3: ", i, peers[i].ID(), resp3.Nodes[i].NodeID)
+		// t.Log("Lopping over resp3: ", i, peers[i].ID(), resp3.Nodes[i].NodeID)
 		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
 	}
 
