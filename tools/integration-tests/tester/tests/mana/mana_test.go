@@ -10,137 +10,136 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-func TestManaPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("mana_TestPersistence", 1, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+// func TestManaPersistence(t *testing.T) {
+// 	n, err := f.CreateNetwork("mana_TestPersistence", 1, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+// 	require.NoError(t, err)
+// 	defer tests.ShutdownNetwork(t, n)
 
-	// wait for faucet to move funds and move mana
-	time.Sleep(10 * time.Second)
+// 	// wait for faucet to move funds and move mana
+// 	time.Sleep(10 * time.Second)
 
-	peers := n.Peers()
+// 	peers := n.Peers()
 
-	info, err := peers[0].Info()
-	require.NoError(t, err)
-	manaBefore := info.Mana
-	require.Greater(t, manaBefore.Access, 0.0)
-	require.Greater(t, manaBefore.Consensus, 0.0)
+// 	info, err := peers[0].Info()
+// 	require.NoError(t, err)
+// 	manaBefore := info.Mana
+// 	require.Greater(t, manaBefore.Access, 0.0)
+// 	require.Greater(t, manaBefore.Consensus, 0.0)
 
-	// stop all nodes. Expects mana to be saved successfully
-	for _, peer := range n.Peers() {
-		err = peer.Stop()
-		require.NoError(t, err)
-	}
+// 	// stop all nodes. Expects mana to be saved successfully
+// 	for _, peer := range n.Peers() {
+// 		err = peer.Stop()
+// 		require.NoError(t, err)
+// 	}
 
-	// start all nodes
-	for _, peer := range peers {
-		err = peer.Start()
-		require.NoError(t, err)
-	}
+// 	// start all nodes
+// 	for _, peer := range peers {
+// 		err = peer.Start()
+// 		require.NoError(t, err)
+// 	}
 
-	// wait for peers to start
-	time.Sleep(5 * time.Second)
-	err = n.DoManualPeeringAndWait()
-	require.NoError(t, err)
+// 	// wait for peers to start
+// 	time.Sleep(5 * time.Second)
+// 	err = n.DoManualPeeringAndWait()
+// 	require.NoError(t, err)
 
-	info, err = peers[0].Info()
-	require.NoError(t, err)
-	manaAfter := info.Mana
-	require.Greater(t, manaAfter.Access, 0.0)
-	require.Greater(t, manaAfter.Consensus, 0.0)
-}
+// 	info, err = peers[0].Info()
+// 	require.NoError(t, err)
+// 	manaAfter := info.Mana
+// 	require.Greater(t, manaAfter.Access, 0.0)
+// 	require.Greater(t, manaAfter.Consensus, 0.0)
+// }
 
-func TestPledgeFilter(t *testing.T) {
-	numPeers := 2
-	n, err := f.CreateNetwork("mana_TestAPI", 0, framework.CreateNetworkConfig{})
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+// func TestPledgeFilter(t *testing.T) {
+// 	numPeers := 2
+// 	n, err := f.CreateNetwork("mana_TestAPI", 0, framework.CreateNetworkConfig{})
+// 	require.NoError(t, err)
+// 	defer tests.ShutdownNetwork(t, n)
 
-	// create peers
-	peers := make([]*framework.Peer, numPeers)
-	for i := 0; i < numPeers; i++ {
-		peer, err := n.CreatePeer(framework.GoShimmerConfig{
-			Mana:           true,
-			ActivityPlugin: true,
-			StartSynced:    true,
-		})
-		require.NoError(t, err)
-		peers[i] = peer
-	}
+// 	// create peers
+// 	peers := make([]*framework.Peer, numPeers)
+// 	for i := 0; i < numPeers; i++ {
+// 		peer, err := n.CreatePeer(framework.GoShimmerConfig{
+// 			Mana:           true,
+// 			ActivityPlugin: true,
+// 			StartSynced:    true,
+// 		})
+// 		require.NoError(t, err)
+// 		peers[i] = peer
+// 	}
 
-	accessPeer := peers[0]
-	accessPeerID := base58.Encode(accessPeer.Identity.ID().Bytes())
-	consensusPeer := peers[1]
-	consensusPeerID := base58.Encode(consensusPeer.Identity.ID().Bytes())
+// 	accessPeer := peers[0]
+// 	accessPeerID := base58.Encode(accessPeer.Identity.ID().Bytes())
+// 	consensusPeer := peers[1]
+// 	consensusPeerID := base58.Encode(consensusPeer.Identity.ID().Bytes())
 
-	// faucet
-	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
-		Seed:                              "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
-		Faucet:                            true,
-		Mana:                              true,
-		ManaAllowedAccessFilterEnabled:    true,
-		ManaAllowedConsensusFilterEnabled: true,
-		ManaAllowedAccessPledge:           []string{accessPeerID},
-		ManaAllowedConsensusPledge:        []string{consensusPeerID},
-		ActivityPlugin:                    true,
-		StartSynced:                       true,
-	})
-	require.NoError(t, err)
+// 	// faucet
+// 	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
+// 		Seed:                              "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
+// 		Faucet:                            true,
+// 		Mana:                              true,
+// 		ManaAllowedAccessFilterEnabled:    true,
+// 		ManaAllowedConsensusFilterEnabled: true,
+// 		ManaAllowedAccessPledge:           []string{accessPeerID},
+// 		ManaAllowedConsensusPledge:        []string{consensusPeerID},
+// 		ActivityPlugin:                    true,
+// 		StartSynced:                       true,
+// 	})
+// 	require.NoError(t, err)
 
-	time.Sleep(5 * time.Second)
-	err = n.DoManualPeeringAndWait()
-	require.NoError(t, err)
+// 	time.Sleep(5 * time.Second)
+// 	err = n.DoManualPeeringAndWait()
+// 	require.NoError(t, err)
 
-	time.Sleep(10 * time.Second)
+// 	time.Sleep(10 * time.Second)
 
-	addrBalance := make(map[string]map[ledgerstate.Color]int64)
-	faucetAddrStr := faucet.Seed.Address(1).Address().Base58()
-	addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
-	addrBalance[accessPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
-	addrBalance[consensusPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
+// 	addrBalance := make(map[string]map[ledgerstate.Color]int64)
+// 	faucetAddrStr := faucet.Seed.Address(1).Address().Base58()
+// 	addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
+// 	addrBalance[accessPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
+// 	addrBalance[consensusPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
 
-	// get faucet balances
-	unspentOutputs, err := faucet.PostAddressUnspentOutputs([]string{faucetAddrStr})
-	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucet.String())
-	out, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
-	require.NoError(t, err)
-	balanceValue, exist := out.Balances().Get(ledgerstate.ColorIOTA)
-	require.Equal(t, true, exist)
-	addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = int64(balanceValue)
+// 	// get faucet balances
+// 	unspentOutputs, err := faucet.PostAddressUnspentOutputs([]string{faucetAddrStr})
+// 	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucet.String())
+// 	out, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
+// 	require.NoError(t, err)
+// 	balanceValue, exist := out.Balances().Get(ledgerstate.ColorIOTA)
+// 	require.Equal(t, true, exist)
+// 	addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = int64(balanceValue)
 
-	// pledge mana to allowed pledge
-	fail, _ := tests.SendIotaTransaction(t, faucet, accessPeer, addrBalance, 100, tests.TransactionConfig{
-		FromAddressIndex:      1,
-		ToAddressIndex:        0,
-		AccessManaPledgeID:    accessPeer.Identity.ID(),
-		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
-	})
-	require.False(t, fail)
+// 	// pledge mana to allowed pledge
+// 	fail, _ := tests.SendIotaTransaction(t, faucet, accessPeer, addrBalance, 100, tests.TransactionConfig{
+// 		FromAddressIndex:      1,
+// 		ToAddressIndex:        0,
+// 		AccessManaPledgeID:    accessPeer.Identity.ID(),
+// 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
+// 	})
+// 	require.False(t, fail)
 
-	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
-		FromAddressIndex:      2,
-		ToAddressIndex:        0,
-		AccessManaPledgeID:    accessPeer.Identity.ID(),
-		ConsensusManaPledgeID: accessPeer.Identity.ID(),
-	})
-	require.True(t, fail)
+// 	// pledge mana to disallowed pledge
+// 	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
+// 		FromAddressIndex:      2,
+// 		ToAddressIndex:        0,
+// 		AccessManaPledgeID:    accessPeer.Identity.ID(),
+// 		ConsensusManaPledgeID: accessPeer.Identity.ID(),
+// 	})
+// 	require.True(t, fail)
 
-	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
-		FromAddressIndex:      2,
-		ToAddressIndex:        0,
-		AccessManaPledgeID:    consensusPeer.Identity.ID(),
-		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
-	})
-	require.True(t, fail)
-}
+// 	// pledge mana to disallowed pledge
+// 	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
+// 		FromAddressIndex:      2,
+// 		ToAddressIndex:        0,
+// 		AccessManaPledgeID:    consensusPeer.Identity.ID(),
+// 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
+// 	})
+// 	require.True(t, fail)
+// }
 
 func TestApis(t *testing.T) {
 	prevParaManaOnEveryNode := framework.ParaManaOnEveryNode
@@ -151,6 +150,9 @@ func TestApis(t *testing.T) {
 	n, err := f.CreateNetwork("mana_TestAPI", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
+
+	err = tests.AwaitSync(t, n.Peers(), 20*time.Second)
+	require.NoError(t, err)
 
 	emptyNodeID := identity.ID{}
 
@@ -184,7 +186,7 @@ func TestApis(t *testing.T) {
 	peer1ID := base58.Encode(peers[1].ID().Bytes())
 	_, err = peers[0].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer1ID, peer1ID)
 	require.NoError(t, err)
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 	// send funds to node 2
 	peer2ID := base58.Encode(peers[2].ID().Bytes())
 	_, err = peers[0].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer2ID, peer2ID)
@@ -208,6 +210,7 @@ func TestApis(t *testing.T) {
 	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
 	require.Equal(t, 3, len(resp3.Nodes))
 	for i := 0; i < 3; i++ {
+		t.Log("Lopping over resp3: ", i, peers[i].ID(), resp3.Nodes[i].NodeID)
 		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
 	}
 
