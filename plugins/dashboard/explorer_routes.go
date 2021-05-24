@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 )
@@ -120,9 +119,18 @@ type ExplorerOutput struct {
 	ID             *jsonmodels.OutputID       `json:"id"`
 	Output         *jsonmodels.Output         `json:"output"`
 	Metadata       *jsonmodels.OutputMetadata `json:"metadata"`
-	InclusionState value.InclusionState       `json:"inclusionState"`
+	InclusionState ExplorerInclusionState     `json:"inclusionState"`
 	TxTimestamp    int                        `json:"txTimestamp"`
 	PendingMana    float64                    `json:"pendingMana"`
+}
+
+// ExplorerInclusionState defines the struct for storing inclusion states for ExplorerOutput
+type ExplorerInclusionState struct {
+	Confirmed   bool `json:"confirmed,omitempty"`
+	Rejected    bool `json:"rejected,omitempty"`
+	Liked       bool `json:"liked,omitempty"`
+	Conflicting bool `json:"conflicting,omitempty"`
+	Finalized   bool `json:"finalized,omitempty"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -221,13 +229,13 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
-	messagelayer.Tangle().LedgerState.OutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
-		inclusionState := value.InclusionState{}
+		inclusionState := ExplorerInclusionState{}
 		var timestamp int64
 
 		// get output metadata + liked status from branch of the output
-		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
 			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
 				inclusionState.Liked = branch.Liked()
@@ -237,6 +245,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
 		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
+
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
 			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
 			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected

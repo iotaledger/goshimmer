@@ -46,7 +46,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			_, _ = fmt.Fprintf(w, "%s\t%d %s\t%s\t%s\n", "[ OK ]", amount, cliWallet.AssetRegistry().Symbol(color), color.String(), cliWallet.AssetRegistry().Name(color))
 		}
 		for color, amount := range pendingBalance {
-			_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", "[PEND]", amount, color.String(), cliWallet.AssetRegistry().Name(color))
+			_, _ = fmt.Fprintf(w, "%s\t%d %s\t%s\t%s\n", "[PEND]", amount, cliWallet.AssetRegistry().Symbol(color), color.String(), cliWallet.AssetRegistry().Name(color))
 		}
 	}
 	_ = w.Flush()
@@ -134,9 +134,15 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			i := 0
 			balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				if i == 0 {
-					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d\t%s\t%s\n", "[ OK ]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
+					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d %s\t%s\t%s\n", "[ OK ]", aliasID.Base58(),
+						balance, cliWallet.AssetRegistry().Symbol(color),
+						color.String(),
+						cliWallet.AssetRegistry().Name(color))
 				} else {
-					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
+					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d %s\t%s\t%s\n", "", "", balance,
+						cliWallet.AssetRegistry().Symbol(color),
+						color.String(),
+						cliWallet.AssetRegistry().Name(color))
 				}
 				i++
 				return true
@@ -150,9 +156,15 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			i := 0
 			balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				if i == 0 {
-					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d\t%s\t%s\n", "[PEND]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
+					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d %s\t%s\t%s\n", "[PEND]", aliasID.Base58(),
+						balance, cliWallet.AssetRegistry().Symbol(color),
+						color.String(),
+						cliWallet.AssetRegistry().Name(color))
 				} else {
-					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
+					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d %s\t%s\t%s\n", "", "", balance,
+						cliWallet.AssetRegistry().Symbol(color),
+						color.String(),
+						cliWallet.AssetRegistry().Name(color))
 				}
 				i++
 				return true
@@ -226,9 +238,15 @@ func printAliasBalance(header, idName string, cliWallet *wallet.Wallet, confirme
 		i := 0
 		balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			if i == 0 {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", "[ OK ]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d %s\t%s\t%s\n", "[ OK ]", aliasID.Base58(), balance,
+					cliWallet.AssetRegistry().Symbol(color),
+					color.String(),
+					cliWallet.AssetRegistry().Name(color))
 			} else {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d %s\t%s\t%s\n", "", "", balance,
+					cliWallet.AssetRegistry().Symbol(color),
+					color.String(),
+					cliWallet.AssetRegistry().Name(color))
 			}
 			i++
 			return true
@@ -239,9 +257,15 @@ func printAliasBalance(header, idName string, cliWallet *wallet.Wallet, confirme
 		i := 0
 		balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			if i == 0 {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", "[PEND]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d %s\t%s\t%s\n", "[PEND]", aliasID.Base58(), balance,
+					cliWallet.AssetRegistry().Symbol(color),
+					color.String(),
+					cliWallet.AssetRegistry().Name(color))
 			} else {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d %s\t%s\t%s\n", "", "", balance,
+					cliWallet.AssetRegistry().Symbol(color),
+					color.String(),
+					cliWallet.AssetRegistry().Name(color))
 			}
 			i++
 			return true

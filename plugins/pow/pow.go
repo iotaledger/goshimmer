@@ -23,9 +23,10 @@ var (
 	hash = crypto.BLAKE2b_512
 
 	// configured via parameters
-	difficulty int
-	numWorkers int
-	timeout    time.Duration
+	difficulty             int
+	numWorkers             int
+	timeout                time.Duration
+	parentsRefreshInterval time.Duration
 )
 
 var (
@@ -43,6 +44,7 @@ func Worker() *pow.Worker {
 		difficulty = config.Node().Int(CfgPOWDifficulty)
 		numWorkers = config.Node().Int(CfgPOWNumThreads)
 		timeout = config.Node().Duration(CfgPOWTimeout)
+		parentsRefreshInterval = config.Node().Duration(CfgPOWParentsRefreshInterval)
 		// create the worker
 		worker = pow.New(hash, numWorkers)
 	})
@@ -61,7 +63,7 @@ func DoPOW(msg []byte) (uint64, error) {
 
 	log.Debugw("start PoW", "difficulty", difficulty, "numWorkers", numWorkers)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), parentsRefreshInterval)
 	defer cancel()
 	nonce, err := worker.Mine(ctx, content[:len(content)-pow.NonceBytes], difficulty)
 

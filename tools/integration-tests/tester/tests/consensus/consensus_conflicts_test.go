@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -41,20 +41,23 @@ func TestConsensus(t *testing.T) {
 
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address()
-	unspentOutputs, err := n.Peers()[0].GetUnspentOutputs([]string{genesisAddr.Base58()})
+	unspentOutputs, err := n.Peers()[0].PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
-	genesisBalance := unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
+	genesisOutput, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
+	require.NoError(t, err)
+	genesisBalance, exist := genesisOutput.Balances().Get(ledgerstate.ColorIOTA)
+	assert.True(t, exist)
 	fmt.Println("faucetRemainBalance:", genesisBalance)
 
-	genesisOutputID, _ := ledgerstate.OutputIDFromBase58(unspentOutputs.UnspentOutputs[0].OutputIDs[0].ID)
-	input := ledgerstate.NewUTXOInput(genesisOutputID)
+	input := ledgerstate.NewUTXOInput(genesisOutput.ID())
 
 	// splitting genesis funds to one address per peer plus one additional that will be used for the conflict
 	// split funds to different addresses of destGenSeed
-	spendingGenTx, destGenSeed := CreateOutputs(input, uint64(genesisBalance), genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{}, "skewed")
+	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{}, "skewed")
 
 	// issue the transaction
-	n.Peers()[0].SendTransaction(spendingGenTx.Bytes())
+	_, err = n.Peers()[0].PostTransaction(spendingGenTx.Bytes())
+	assert.NoError(t, err)
 
 	// sleep the avg. network delay so both partitions confirm their own first seen transaction
 	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
@@ -68,7 +71,6 @@ func TestConsensus(t *testing.T) {
 	pledgingTxs := make([]*ledgerstate.Transaction, numberOfPeers+1)
 	pledgeSeed := make([]*seed.Seed, numberOfPeers+1)
 	receiverId := 0
-	// pledge mana from destGenSeed to each peer
 	for _, peer := range n.Peers() {
 		// get next dest addresses
 		destAddr := destGenSeed.Address(uint64(receiverId)).Address()
@@ -83,8 +85,8 @@ func TestConsensus(t *testing.T) {
 		pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID(), "equal")
 
 		// issue the transaction
-		_, err = n.Peers()[0].SendTransaction(pledgingTxs[receiverId].Bytes())
-		require.NoError(t, err)
+		_, err = n.Peers()[0].PostTransaction(pledgingTxs[receiverId].Bytes())
+		assert.NoError(t, err)
 		receiverId++
 		time.Sleep(2 * time.Second)
 	}
@@ -114,9 +116,9 @@ func TestConsensus(t *testing.T) {
 		conflictingTxs[i], receiverSeeds[i] = CreateOutputs(conflictInput, lastOutputBalance, destGenSeed.KeyPair(numberOfPeers), 1, peer.ID(), "equal")
 
 		// issue conflicting transaction
-		txId, err := peer.SendTransaction(conflictingTxs[i].Bytes())
-		require.NoError(t, err)
-		conflictingTxIDs[i] = txId
+		resp, err2 := peer.PostTransaction(conflictingTxs[i].Bytes())
+		require.NoError(t, err2)
+		conflictingTxIDs[i] = resp.TransactionID
 
 		// sleep to prefer the first one
 		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
@@ -137,11 +139,11 @@ func TestConsensus(t *testing.T) {
 
 	expectations := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
-		utilsTx := value.ParseTransaction(conflictingTx)
+		utilsTx := jsonmodels.NewTransaction(conflictingTx)
 		expectations[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
-			Inputs:       &utilsTx.Inputs,
-			Outputs:      &utilsTx.Outputs,
-			UnlockBlocks: &utilsTx.UnlockBlocks,
+			Inputs:       utilsTx.Inputs,
+			Outputs:      utilsTx.Outputs,
+			UnlockBlocks: utilsTx.UnlockBlocks,
 		}
 	}
 
@@ -172,13 +174,13 @@ func TestConsensus(t *testing.T) {
 
 	for i, conflictingTx := range conflictingTxIDs {
 		for _, p := range n.Peers() {
-			tx, err := p.GetTransactionByID(conflictingTx)
+			tx, err := p.GetTransactionInclusionState(conflictingTx)
 			assert.NoError(t, err)
-			if tx.InclusionState.Confirmed {
+			if tx.Confirmed {
 				confirmed[i]++
 				continue
 			}
-			if tx.InclusionState.Rejected {
+			if tx.Rejected {
 				rejected[i]++
 			}
 		}
