@@ -496,7 +496,7 @@ func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Pe
 	mgr.Start(srv)
 
 	detach := func() {
-		mgr.Close()
+		mgr.Stop()
 		srv.Close()
 		_ = lis.Close()
 	}

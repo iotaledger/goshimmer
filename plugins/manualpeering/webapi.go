@@ -9,15 +9,18 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
+// RouteManualPeers defines the HTTP path for manualpeering peers endpoint.
+const RouteManualPeers = "manualpeering/peers"
+
 func configureWebAPI() {
-	webapi.Server().POST("manualpeering/peers", addPeersHandler)
-	webapi.Server().DELETE("manualpeering/peers", removePeersHandler)
-	webapi.Server().GET("manualpeering/peers/known", getKnownPeersHandler)
-	webapi.Server().GET("manualpeering/peers/connected", getConnectedPeersHandler)
+	webapi.Server().POST(RouteManualPeers, addPeersHandler)
+	webapi.Server().DELETE(RouteManualPeers, removePeersHandler)
+	webapi.Server().GET(RouteManualPeers, getPeersHandler)
 }
 
 /*
@@ -48,7 +51,13 @@ func addPeersHandler(c echo.Context) error {
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid add peers request")),
 		)
 	}
-	Manager().AddPeer(peers...)
+	if err := Manager().AddPeer(peers...); err != nil {
+		plugin.Logger().Errorw(
+			"Can't add some of the peers from the HTTP request to manualpeering manager",
+			"err", err,
+		)
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
+	}
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -85,25 +94,30 @@ func removePeersHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func removePeers(ntds []*PeerToRemove) error {
-	keys := make([]ed25519.PublicKey, len(ntds))
-	for i, ntd := range ntds {
+func removePeers(peers []*PeerToRemove) error {
+	keys := make([]ed25519.PublicKey, len(peers))
+	for i, ntd := range peers {
 		publicKey, err := ed25519.PublicKeyFromString(ntd.PublicKey)
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse public key %s from HTTP request", publicKey)
 		}
 		keys[i] = publicKey
 	}
-	Manager().RemovePeer(keys...)
+	if err := Manager().RemovePeer(keys...); err != nil {
+		return errors.Wrap(err, "manualpeering manager failed to remove some peers")
+	}
 	return nil
 }
 
-func getKnownPeersHandler(c echo.Context) error {
-	peers := Manager().GetKnownPeers()
-	return c.JSON(http.StatusOK, peers)
-}
-
-func getConnectedPeersHandler(c echo.Context) error {
-	peers := Manager().GetConnectedPeers()
+func getPeersHandler(c echo.Context) error {
+	conf := &manualpeering.GetKnownPeersConfig{}
+	if err := webapi.ParseJSONRequest(c, conf); err != nil {
+		plugin.Logger().Errorw("Failed to parse get peers config from the request", "err", err)
+		return c.JSON(
+			http.StatusBadRequest,
+			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid get peers request")),
+		)
+	}
+	peers := Manager().GetKnownPeers(conf.ToOptions()...)
 	return c.JSON(http.StatusOK, peers)
 }
