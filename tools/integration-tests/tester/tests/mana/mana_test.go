@@ -211,7 +211,6 @@ func TestApis(t *testing.T) {
 	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
 	require.Equal(t, 3, len(resp3.Nodes))
 	for i := 0; i < 3; i++ {
-		// t.Log("Lopping over resp3: ", i, peers[i].ID(), resp3.Nodes[i].NodeID)
 		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
 	}
 
