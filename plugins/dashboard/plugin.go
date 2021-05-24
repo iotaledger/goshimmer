@@ -185,8 +185,6 @@ const (
 	MsgManaDashboardAddress
 	// MsgTypeMsgOpinionFormed defines a tip info message.
 	MsgTypeMsgOpinionFormed
-	// MsgSchedulerMetric defines a message containing schedule metrics.
-	MsgSchedulerMetric
 )
 
 type wsmsg struct {
@@ -237,11 +235,6 @@ type componentsmetric struct {
 	Solidifier uint64 `json:"solidifier"`
 	Scheduler  uint64 `json:"scheduler"`
 	Booker     uint64 `json:"booker"`
-}
-
-type schedulermetric struct {
-	NodeQueueSizes map[string]int `json:"nodeQueueSizes"`
-	Rate           string         `json:"rate"`
 }
 
 func neighborMetrics() []neighbormetric {
@@ -305,18 +298,4 @@ func currentNodeStatus() *nodestatus {
 		MessageID: lcm.MessageID.Base58(),
 	}
 	return status
-}
-
-func schedulerMetrics() *schedulermetric {
-	nodeQueueSizes := make(map[string]int)
-	for nodeID, size := range messagelayer.Tangle().Scheduler.NodeQueueSizes() {
-		nodeQueueSizes[nodeID.String()] = size
-	}
-	// add consumed bytes of the node itself
-	nodeQueueSizes[messagelayer.Tangle().Options.Identity.ID().String()] = messagelayer.Tangle().RateSetter.Size()
-
-	return &schedulermetric{
-		NodeQueueSizes: nodeQueueSizes,
-		Rate:           messagelayer.Tangle().Scheduler.Rate().String(),
-	}
 }
