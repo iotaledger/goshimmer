@@ -37,6 +37,8 @@ const (
 	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms)
 	DefaultConfirmationTimeout = 150000 // in ms
 	milliSeconds               = 1000   // miliseconds in a second
+	// DefaultAssetRegistryNetwork is the default asset registry network.
+	DefaultAssetRegistryNetwork = "test"
 )
 
 // ErrTooManyOutputs is an error returned when the number of outputs/inputs exceeds the protocol wide constant
@@ -60,9 +62,7 @@ type Wallet struct {
 // in as an optional parameter.
 func New(options ...Option) (wallet *Wallet) {
 	// create wallet
-	wallet = &Wallet{
-		assetRegistry: NewAssetRegistry(),
-	}
+	wallet = &Wallet{}
 
 	// configure wallet
 	for _, option := range options {
@@ -84,7 +84,7 @@ func New(options ...Option) (wallet *Wallet) {
 
 	// initialize asset registry if none was provided in the options.
 	if wallet.assetRegistry == nil {
-		wallet.assetRegistry = NewAssetRegistry()
+		wallet.assetRegistry = NewAssetRegistry(DefaultAssetRegistryNetwork)
 	}
 
 	// initialize wallet with default connector (server) if none was provided
@@ -335,7 +335,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 
 // CreateAsset creates a new colored token with the given details.
 func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (assetColor ledgerstate.Color, err error) {
-	if asset.Amount == 0 {
+	if asset.Supply == 0 {
 		err = errors.New("required to provide the amount when trying to create an asset")
 
 		return
@@ -348,7 +348,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	// where will we spend from?
-	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Amount})
+	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Supply})
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -363,7 +363,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	tx, err := wallet.SendFunds(
-		sendoptions.Destination(receiveAddress, asset.Amount, ledgerstate.ColorMint),
+		sendoptions.Destination(receiveAddress, asset.Supply, ledgerstate.ColorMint),
 		sendoptions.WaitForConfirmation(wait),
 	)
 	if err != nil {
@@ -387,6 +387,8 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	if assetColor != ledgerstate.ColorIOTA {
+		asset.Color = assetColor
+		asset.TransactionID = tx.ID()
 		wallet.assetRegistry.RegisterAsset(assetColor, asset)
 	}
 
@@ -1104,6 +1106,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	}
 	if len(owned) == 0 {
 		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+		return
 	}
 
 	toBeConsumed := ledgerstate.Outputs{}
@@ -1122,6 +1125,10 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 			return true
 		})
 		toBeConsumed = append(toBeConsumed, output)
+	}
+	if len(toBeConsumed) == 0 {
+		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+		return
 	}
 
 	nextAlias := alias.NewAliasOutputNext(false)
@@ -2036,7 +2043,7 @@ func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aI
 	}
 
 	if cIDFromOptions == "" {
-		cID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+		cID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.ConsensusMana][0])
 	} else {
 		cID, err = mana.IDFromStr(cIDFromOptions)
 	}

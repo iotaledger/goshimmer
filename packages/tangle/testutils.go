@@ -189,9 +189,11 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	outputs := []ledgerstate.Output{}
+	unspentOutputs := []bool{}
 
 	for address, balance := range genesisOutputs {
 		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
+		unspentOutputs = append(unspentOutputs, true)
 	}
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
@@ -206,16 +208,23 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: unspentOutputs,
+			},
 		},
 	}
+
+	fmt.Println("............... snapshot: ")
+	fmt.Println(snapshot)
 
 	m.tangle.LedgerState.LoadSnapshot(snapshot)
 
 	for alias := range m.options.genesisOutputs {
-		m.tangle.LedgerState.UTXODAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.UTXODAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.LedgerState.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
 				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(addressOutputMapping.OutputID())
@@ -224,8 +233,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	for alias := range m.options.coloredGenesisOutputs {
-		m.tangle.LedgerState.UTXODAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.UTXODAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.LedgerState.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
 			})
@@ -598,3 +607,34 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var (
+	aMana               = 100.0
+	totalAMana          = 1000.0
+	testMaxBuffer       = 1 * 1024 * 1024
+	testRate            = time.Second / 5000
+	noAManaNode         = identity.GenerateIdentity()
+	testSchedulerParams = SchedulerParams{
+		MaxBufferSize:               testMaxBuffer,
+		Rate:                        testRate,
+		AccessManaRetrieveFunc:      accessManaRetriever,
+		TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
+	}
+)
+
+func accessManaRetriever(id identity.ID) float64 {
+	if id == noAManaNode.ID() {
+		return 0
+	}
+	return aMana
+}
+
+func totalAccessManaRetriever() float64 {
+	return totalAMana
+}
+
+// newTestTangle returns a Tangle instance with a testing schedulerConfig
+func newTestTangle(options ...Option) *Tangle {
+	options = append(options, SchedulerConfig(testSchedulerParams))
+	return New(options...)
+}

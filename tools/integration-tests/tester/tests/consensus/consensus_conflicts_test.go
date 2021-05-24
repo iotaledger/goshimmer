@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -31,7 +31,7 @@ func TestConsensus(t *testing.T) {
 	// }()
 
 	// create two partitions with their own peers
-	n, err := f.CreateNetwork("conflict", numberOfPeers, 3, framework.CreateNetworkConfig{Mana: true})
+	n, err := f.CreateNetworkWithMana("conflict", numberOfPeers, 3, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -39,32 +39,25 @@ func TestConsensus(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
-	snapshot := tests.GetSnapshot()
-
-	faucetPledge := "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
-	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
-	if err != nil {
-		panic(err)
-	}
-	nodeID := identity.NewID(pubKey)
-
-	genesisTransactionID := ledgerstate.GenesisTransactionID
-	for ID, tx := range snapshot.Transactions {
-		if tx.AccessPledgeID() == nodeID {
-			genesisTransactionID = ID
-		}
-	}
-
-	// make genesis fund easily divisible for further splitting of the funds
-	const genesisBalance = 1000000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
-	genesisOutputID := ledgerstate.NewOutputID(genesisTransactionID, 0)
-	input := ledgerstate.NewUTXOInput(genesisOutputID)
+	genesisAddr := genesisSeed.Address(0).Address()
+	unspentOutputs, err := n.Peers()[0].PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
+	require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
+	genesisOutput, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
+	require.NoError(t, err)
+	genesisBalance, exist := genesisOutput.Balances().Get(ledgerstate.ColorIOTA)
+	assert.True(t, exist)
+	fmt.Println("faucetRemainBalance:", genesisBalance)
+
+	input := ledgerstate.NewUTXOInput(genesisOutput.ID())
+
 	// splitting genesis funds to one address per peer plus one additional that will be used for the conflict
+	// split funds to different addresses of destGenSeed
 	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{}, "skewed")
 
 	// issue the transaction
-	n.Peers()[0].SendTransaction(spendingGenTx.Bytes())
+	_, err = n.Peers()[0].PostTransaction(spendingGenTx.Bytes())
+	assert.NoError(t, err)
 
 	// sleep the avg. network delay so both partitions confirm their own first seen transaction
 	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
@@ -92,16 +85,15 @@ func TestConsensus(t *testing.T) {
 		pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID(), "equal")
 
 		// issue the transaction
-		n.Peers()[0].SendTransaction(pledgingTxs[receiverId].Bytes())
+		_, err = n.Peers()[0].PostTransaction(pledgingTxs[receiverId].Bytes())
+		assert.NoError(t, err)
 		receiverId++
+		time.Sleep(2 * time.Second)
 	}
 	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
 	// and 1 avg delay more to make sure each node has mana
 	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBAverageNetworkDelay)
 	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*2*time.Second + 5*time.Second)
-
-	// Wait for transaction to be finalized via the sync beacons weight
-	time.Sleep(20 * time.Second)
 
 	resp1, err := n.Peers()[0].GoShimmerAPI.GetAllMana()
 	require.NoError(t, err)
@@ -124,9 +116,9 @@ func TestConsensus(t *testing.T) {
 		conflictingTxs[i], receiverSeeds[i] = CreateOutputs(conflictInput, lastOutputBalance, destGenSeed.KeyPair(numberOfPeers), 1, peer.ID(), "equal")
 
 		// issue conflicting transaction
-		txId, err := peer.SendTransaction(conflictingTxs[i].Bytes())
-		require.NoError(t, err)
-		conflictingTxIDs[i] = txId
+		resp, err2 := peer.PostTransaction(conflictingTxs[i].Bytes())
+		require.NoError(t, err2)
+		conflictingTxIDs[i] = resp.TransactionID
 
 		// sleep to prefer the first one
 		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
@@ -147,11 +139,11 @@ func TestConsensus(t *testing.T) {
 
 	expectations := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
-		utilsTx := value.ParseTransaction(conflictingTx)
+		utilsTx := jsonmodels.NewTransaction(conflictingTx)
 		expectations[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
-			Inputs:       &utilsTx.Inputs,
-			Outputs:      &utilsTx.Outputs,
-			UnlockBlocks: &utilsTx.UnlockBlocks,
+			Inputs:       utilsTx.Inputs,
+			Outputs:      utilsTx.Outputs,
+			UnlockBlocks: utilsTx.UnlockBlocks,
 		}
 	}
 
@@ -182,13 +174,13 @@ func TestConsensus(t *testing.T) {
 
 	for i, conflictingTx := range conflictingTxIDs {
 		for _, p := range n.Peers() {
-			tx, err := p.GetTransactionByID(conflictingTx)
+			tx, err := p.GetTransactionInclusionState(conflictingTx)
 			assert.NoError(t, err)
-			if tx.InclusionState.Confirmed {
+			if tx.Confirmed {
 				confirmed[i]++
 				continue
 			}
-			if tx.InclusionState.Rejected {
+			if tx.Rejected {
 				rejected[i]++
 			}
 		}
@@ -257,7 +249,7 @@ func createBalances(balanceType string, nOutputs int, inputBalance uint64) []uin
 			lastBalance, _ := ledgerstate.SafeSubUint64(remainingBalance, totalBalance)
 			outputBalances = append(outputBalances, lastBalance)
 			// outputBalances = append(outputBalances, createBalances("equal", nOutputs-1, remainingBalance)...)
-			fmt.Printf("rady %v", outputBalances)
+			fmt.Printf("ready %v", outputBalances)
 		}
 	}
 	log.Printf("Transaction balances; input: %d, output: %v", inputBalance, outputBalances)

@@ -9,6 +9,10 @@ import (
 )
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
+	if !messagelayer.Tangle().Synced() {
+		return
+	}
+
 	record := &remotelogmetrics.TransactionMetrics{
 		Type:          "transaction",
 		TransactionID: transactionID.Base58(),

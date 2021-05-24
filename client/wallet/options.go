@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/capossele/asset-registry/pkg/registryservice"
 	"github.com/iotaledger/hive.go/bitmask"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -58,6 +59,15 @@ func ConfirmationTimeout(timeout int) Option {
 			wallet.ConfirmationPollInterval = DefaultConfirmationTimeout
 		} else {
 			wallet.ConfirmationPollInterval = timeout
+		}
+	}
+}
+
+// AssetRegistryNetwork defines which network we intend to use for asset lookups.
+func AssetRegistryNetwork(network string) Option {
+	return func(wallet *Wallet) {
+		if registryservice.Networks[network] {
+			wallet.assetRegistry = NewAssetRegistry(network)
 		}
 	}
 }

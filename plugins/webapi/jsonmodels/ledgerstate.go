@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
@@ -491,7 +493,7 @@ type OutputMetadata struct {
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
 	firstConsumer := ""
-	// omit firstconsumer field if it hasn't been consumed yet
+	// omit firstConsumer field if it hasn't been consumed yet
 	if outputMetadata.FirstConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
 		firstConsumer = outputMetadata.FirstConsumer().Base58()
 	}
@@ -691,7 +693,6 @@ func NewInput(input ledgerstate.Input, referencedOutput ...*Output) *Input {
 			ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
 			Output:             referencedOutput[0],
 		}
-
 	}
 
 	return &Input{
@@ -777,6 +778,7 @@ type TransactionInclusionState struct {
 	Pending       bool   `json:"pending"`
 	Confirmed     bool   `json:"confirmed"`
 	Rejected      bool   `json:"rejected"`
+	Conflicting   bool   `json:"conflicting"`
 }
 
 // NewTransactionInclusionState returns the TransactionInclusionState from the given ledgerstate.InclusionState.
@@ -786,6 +788,7 @@ func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, id 
 		Pending:       inclusionState == ledgerstate.Pending,
 		Confirmed:     inclusionState == ledgerstate.Confirmed,
 		Rejected:      inclusionState == ledgerstate.Rejected,
+		Conflicting:   len(messagelayer.Tangle().LedgerState.ConflictSet(id)) != 0,
 	}
 }
 

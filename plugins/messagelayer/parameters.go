@@ -20,7 +20,7 @@ var Parameters = struct {
 
 	// FCOB contains parameters related to the fast consensus of barcelona.
 	FCOB struct {
-		AverageNetworkDelay int `default:"5" usage:"the avg. network delay to use for FCoB rules"`
+		AverageNetworkDelay int `default:"2" usage:"the avg. network delay to use for FCoB rules"`
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
@@ -103,6 +103,22 @@ var ManaParameters = struct {
 	VectorsCleanupInterval time.Duration `default:"30m" usage:"interval to cleanup empty mana nodes from the mana vectors"`
 	// DebuggingEnabled defines if the mana plugin responds to queries while not being in sync or not.
 	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
+	// SnapshotResetTime defines if the aMana Snapshot should be reset to the current Time.
+	SnapshotResetTime bool `default:"false" usage:"when loading snapshot reset to current time when true"`
+}{}
+
+// RateSetterParameters contains the configuration parameters used by the Rate Setter.
+var RateSetterParameters = struct {
+	// Initial defines the initial rate of rate setting.
+	Initial float64 `default:"20000" usage:"the initial rate of rate setting"`
+}{}
+
+// SchedulerParameters contains the configuration parameters used by the Scheduler.
+var SchedulerParameters = struct {
+	// MaxBufferSize defines the maximum buffer size (in bytes).
+	MaxBufferSize int `default:"10000000" usage:"maximum buffer size (in bytes)"`
+	// SchedulerRate defines the frequency to schedule a message.
+	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
 }{}
 
 func init() {
@@ -110,4 +126,6 @@ func init() {
 	configuration.BindParameters(&FPCParameters, "fpc")
 	configuration.BindParameters(&StatementParameters, "statement")
 	configuration.BindParameters(&ManaParameters, "mana")
+	configuration.BindParameters(&RateSetterParameters, "rateSetter")
+	configuration.BindParameters(&SchedulerParameters, "scheduler")
 }

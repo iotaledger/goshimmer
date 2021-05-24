@@ -11,8 +11,6 @@ import (
 const (
 	routePastCone = "tools/message/pastcone"
 	routeMissing  = "tools/message/missing"
-
-	routeValueDebug = "tools/value/objects"
 )
 
 // ------------------- Communication layer -----------------------------
@@ -41,17 +39,6 @@ func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*jsonmode
 func (api *GoShimmerAPI) Missing() (*jsonmodels.MissingResponse, error) {
 	res := &jsonmodels.MissingResponse{}
 	if err := api.do(http.MethodGet, routeMissing, nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-// ------------------- Value layer -----------------------------
-
-// ValueObjects returns the list of value objects.
-func (api *GoShimmerAPI) ValueObjects() (*jsonmodels.ObjectsResponse, error) {
-	res := &jsonmodels.ObjectsResponse{}
-	if err := api.do(http.MethodGet, routeValueDebug, nil, res); err != nil {
 		return nil, err
 	}
 	return res, nil

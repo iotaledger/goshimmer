@@ -1,7 +1,7 @@
 version: "3.5"
 
 services:
- 
+
   entry_node:
     container_name: entry_node
     image: golang:1.16.2
@@ -41,12 +41,13 @@ services:
       --config=/tmp/config.json
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
-      --node.enablePlugins=prometheus,spammer,"webapi tools endpoint",activity
+      --node.enablePlugins=prometheus,spammer,"webapi tools endpoint",activity,snapshot
       --node.disablePlugins=clock
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --messageLayer.snapshot.genesisNode=
       --metrics.manaResearch=false
       --mana.enableResearchVectors=false
+      --mana.snapshotResetTime=true
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
       --webapi.exportPath=/tmp/
@@ -75,6 +76,7 @@ services:
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
+      --mana.snapshotResetTime=true
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
       --webapi.exportPath=/tmp/
@@ -99,6 +101,7 @@ services:
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
+      --mana.snapshotResetTime=true
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
       --webapi.exportPath=/tmp/

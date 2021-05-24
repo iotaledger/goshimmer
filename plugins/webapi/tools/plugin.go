@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/drng"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/message"
-	"github.com/iotaledger/goshimmer/plugins/webapi/tools/value"
 )
 
 // PluginName is the name of the web API tools endpoint plugin.
@@ -23,7 +22,7 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure)
 	})
 	return plugin
 }
@@ -32,7 +31,6 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/message/pastcone", message.PastconeHandler)
 	webapi.Server().GET("tools/message/missing", message.MissingHandler)
 	webapi.Server().GET("tools/message/approval", message.ApprovalHandler)
-	webapi.Server().GET("tools/value/objects", value.ObjectsHandler)
 	webapi.Server().GET("tools/message/orphanage", message.OrphanageHandler)
 
 	webapi.Server().GET("tools/diagnostic/messages", message.DiagnosticMessagesHandler)
