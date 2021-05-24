@@ -13,10 +13,9 @@ builds:
   - id: goshimmer
     binary: goshimmer
     flags:
-      - -tags=builtin_static,rocksdb
+      - -tags=rocksdb,builtin_static,netgo
     ldflags:
       - -s -w -X github.com/iotaledger/goshimmer/plugins/banner.AppVersion={{.Version}}
-    main: main.go
     goos:
       - linux
     goarch:
