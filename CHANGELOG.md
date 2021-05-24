@@ -1,3 +1,16 @@
+# v0.6.2 - 2021-05-24
+* Add Congestion Control
+* Add global snapshot
+* Add Central Asset Registry to cli-wallet
+* Switch to RocksDB instead of BadgerDB
+* Enhance manual peering
+* Improve gossip
+* Improve APIs
+* Fix several dashboard bugs
+* Update lo latest hive.go
+* Update snapshot file 
+* **Breaking**: bumps network and database versions
+
 # v0.6.1 - 2021-05-19
 * Change Faucet default parameters
 * **Breaking**: bumps network and database versions
