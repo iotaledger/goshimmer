@@ -2,7 +2,7 @@ module github.com/iotaledger/goshimmer
 
 go 1.16
 
-replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210505192124-94dfdec03284
+replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210518222204-d6ea5eedcfb9
 
 require (
 	github.com/DataDog/zstd v1.4.8 // indirect
