@@ -1,12 +1,10 @@
 package gossip
 
 import (
-	"context"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -16,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -48,14 +45,10 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	ageThreshold = config.Node().Duration(CfgGossipAgeThreshold)
 	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
-	disableAutopeering := config.Node().Bool(CfgGossipDisableAutopeering)
 	requestedMsgs = newRequestedMessages()
 
 	configureLogging()
 	configureMessageLayer()
-	if !disableAutopeering {
-		configureAutopeering()
-	}
 }
 
 func run(*node.Plugin) {
@@ -67,49 +60,6 @@ func run(*node.Plugin) {
 	}
 }
 
-func configureAutopeering() {
-	log.Info("Configuring autopeering to manage neighbors in the gossip layer")
-	// assure that the Manager is instantiated
-	mgr := Manager()
-
-	// link to the autopeering events
-	peerSel := autopeering.Selection()
-	peerSel.Events().Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
-		go func() {
-			if err := mgr.DropNeighbor(ev.DroppedID, gossip.NeighborsGroupAuto); err != nil {
-				log.Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
-			}
-		}()
-	}))
-	peerSel.Events().IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		if !ev.Status {
-			return // ignore rejected peering
-		}
-		go func() {
-			if err := mgr.AddInbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
-				log.Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
-			}
-		}()
-	}))
-	peerSel.Events().OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		if !ev.Status {
-			return // ignore rejected peering
-		}
-		go func() {
-			if err := mgr.AddOutbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
-				log.Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
-			}
-		}()
-	}))
-
-	// notify the autopeering on connection loss
-	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, _ error) {
-		peerSel.RemoveNeighbor(p.ID())
-	}))
-	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
-		peerSel.RemoveNeighbor(n.ID())
-	}))
-}
 
 func configureLogging() {
 	// assure that the Manager is instantiated
@@ -148,7 +98,6 @@ func configureMessageLayer() {
 				if requested := requestedMsgs.delete(messageID); requested {
 					return
 				}
-
 				mgr.SendMessage(message.Bytes())
 			})
 		})

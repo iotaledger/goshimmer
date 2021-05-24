@@ -31,11 +31,11 @@ func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, powTarget i
 	var cManaPledgeID identity.ID
 	if len(pledgeIDs) > 1 {
 		aManaPledgeIDFromString, err := mana.IDFromStr(pledgeIDs[0])
-		if err != nil {
+		if err == nil {
 			aManaPledgeID = aManaPledgeIDFromString
 		}
 		cManaPledgeIDFromString, err := mana.IDFromStr(pledgeIDs[1])
-		if err != nil {
+		if err == nil {
 			cManaPledgeID = cManaPledgeIDFromString
 		}
 	}

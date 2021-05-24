@@ -101,6 +101,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				}
 				return config.Mana && i == 0
 			}(i),
+			StartSynced:                config.StartSynced,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,
@@ -108,6 +109,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
+			SnapshotResetTime:          ParaSnapshotResetTime,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -182,6 +184,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
+			SnapshotResetTime:          ParaSnapshotResetTime,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -265,7 +268,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 	privKeys := make([]ed25519.PrivateKey, peers)
 	var drngCommittee string
 
-	for i := 0; i < peers; i++ {
+	for i := 1; i < peers; i++ {
 		pubKeys[i], privKeys[i], err = ed25519.GenerateKey()
 		if err != nil {
 			return nil, err
@@ -284,32 +287,47 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 		DRNGThreshold: 3,
 		DRNGDistKey:   hex.EncodeToString(drng.distKey),
 		DRNGCommittee: drngCommittee,
+		Mana:          true,
+		StartSynced:   true,
 	}
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config.Seed = privKeys[i].Seed().String()
-		if _, err = drng.CreatePeer(config, pubKeys[i]); err != nil {
-			return nil, err
+		if i != 0 {
+			config.Seed = privKeys[i].Seed().String()
 		}
-	}
-
-	// create extra sync beacon node
-	config = GoShimmerConfig{
-		ActivityPlugin: true,
-		Seed:           syncBeaconSeed,
-	}
-	bytes, err := base58.Decode(config.Seed)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = drng.CreatePeer(config, ed25519.PrivateKeyFromSeed(bytes).Public()); err != nil {
-		return nil, err
+		if _, e := drng.CreatePeer(func() GoShimmerConfig {
+			if i == 0 {
+				faucetConfig := config
+				faucetConfig.Faucet = true
+				faucetConfig.Seed = syncBeaconSeed
+				return faucetConfig
+			}
+			return config
+		}(), pubKeys[i]); e != nil {
+			return nil, e
+		}
 	}
 
 	// wait until peers are fully started and connected
 	time.Sleep(1 * time.Second)
 	err = drng.network.WaitForAutopeering(minimumNeighbors)
+	if err != nil {
+		return nil, err
+	}
+
+	// get mana from faucet
+	for i := 1; i < peers; i++ {
+		peer := drng.network.peers[i]
+		addr := peer.Seed.Address(uint64(0)).Address()
+		ID := base58.Encode(peer.ID().Bytes())
+		_, err := drng.network.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
+		if err != nil {
+			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
+		}
+		time.Sleep(2 * time.Second)
+	}
+	err = drng.network.WaitForMana(drng.network.peers[1:]...)
 	if err != nil {
 		return nil, err
 	}
@@ -320,26 +338,28 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 // CreateNetworkWithMana creates and returns a (Docker) Network that contains peers that all have some mana.
 // Mana is gotten by sending faucet requests.
 func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors int, config CreateNetworkConfig) (*Network, error) {
-	n, err := f.CreateNetwork(name, peers, minimumNeighbors, config)
-	if err != nil {
-		return nil, err
-	}
 	if !config.Faucet {
 		return nil, fmt.Errorf("faucet is required")
 	}
 	if !config.Mana {
 		return nil, fmt.Errorf("mana plugin is required to load mana snapshot")
 	}
+
+	n, err := f.CreateNetwork(name, peers, minimumNeighbors, config)
+	if err != nil {
+		return nil, err
+	}
+
 	for i := 1; i < len(n.peers); i++ {
 		peer := n.peers[i]
 		addr := peer.Seed.Address(uint64(0)).Address()
 		ID := base58.Encode(peer.ID().Bytes())
-		_, err := peer.SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
+		_, err := n.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
 		if err != nil {
 			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
 		}
 	}
-	err = n.WaitForMana()
+	err = n.WaitForMana(n.peers[1:]...)
 	if err != nil {
 		return nil, err
 	}

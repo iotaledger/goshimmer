@@ -51,7 +51,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+	b.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID MessageID) {
 		if err := b.BookMessage(messageID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to book message with %s: %w", messageID, err))
 		}
@@ -204,7 +204,7 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transactionID := payload.(*ledgerstate.Transaction).ID()
 
-				if !b.tangle.LedgerState.UTXODAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+				if !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 					branchIDs[transactionMetadata.BranchID()] = types.Void
 				}) {
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
@@ -245,25 +245,7 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	}
 
 	for _, output := range transaction.Essence().Outputs() {
-		switch output.Type() {
-		case ledgerstate.AliasOutputType:
-			castedOutput := output.(*ledgerstate.AliasOutput)
-			// if it is an origin alias output, we don't have the aliasaddress from the parsed bytes.
-			// that happens in utxodag output booking, so we calculate the alias address here
-			b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(castedOutput.GetAliasAddress(), output.ID())
-			b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(castedOutput.GetStateAddress(), output.ID())
-			if !castedOutput.IsSelfGoverned() {
-				b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(castedOutput.GetGoverningAddress(), output.ID())
-			}
-		case ledgerstate.ExtendedLockedOutputType:
-			castedOutput := output.(*ledgerstate.ExtendedLockedOutput)
-			if castedOutput.FallbackAddress() != nil {
-				b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(castedOutput.FallbackAddress(), output.ID())
-			}
-			b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(output.Address(), output.ID())
-		default:
-			b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(output.Address(), output.ID())
-		}
+		b.tangle.LedgerState.UTXODAG.ManageStoreAddressOutputMapping(output)
 	}
 
 	if attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), message.ID()); stored {

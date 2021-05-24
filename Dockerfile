@@ -1,10 +1,10 @@
 # syntax = docker/dockerfile:1.2.1
 
 ############################
-# Build
-############################
-# golang:1.16.2-buster
-FROM golang@sha256:a23a7e49a820f9ae69df0fedf64f037cb15b004997effa93ec885e5032277bc1 AS build
+# golang 1.16.3-buster amd64
+FROM golang@sha256:dfa3cef088454200d6b48e2a911138f7d5d9afff77f89243eea6342f16ddcfb0 AS build
+
+ARG BUILD_TAGS=builtin_static,rocksdb
 
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates
@@ -27,7 +27,8 @@ RUN go mod verify
 # 4. Verify that goshimmer binary is statically linked
 RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    GOOS=linux GOARCH=amd64 go build \
+    -tags="$BUILD_TAGS" \
     -ldflags='-w -s -extldflags "-static"' \
     -o /go/bin/goshimmer; \
     ./check_static.sh
@@ -35,9 +36,9 @@ RUN --mount=target=. \
 ############################
 # Image
 ############################
-# using static nonroot image
-# user:group is nonroot:nonroot, uid:gid = 65532:65532
-FROM gcr.io/distroless/static@sha256:23aa732bba4c8618c0d97c26a72a32997363d591807b0d4c31b0bbc8a774bddf
+# https://github.com/GoogleContainerTools/distroless/tree/master/cc
+# using distroless cc image, which includes everything in the base image (glibc, libssl and openssl)
+FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5dd6313be41a8c55adb
 
 EXPOSE 14666/tcp
 EXPOSE 14626/udp
@@ -47,6 +48,6 @@ COPY snapshot.bin /snapshot.bin
 COPY config.default.json /config.json
 
 # Copy the Pre-built binary file from the previous stage
-COPY --from=build /go/bin/goshimmer /run/goshimmer
+COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /run/goshimmer
 
 ENTRYPOINT ["/run/goshimmer", "--config=/config.json", "--messageLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]

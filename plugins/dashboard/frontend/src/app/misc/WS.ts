@@ -16,8 +16,9 @@ export enum WSMsgType {
     ManaInitPledge,
     ManaRevoke,
     ManaInitRevoke,
-    ManaInitDone
-
+    ManaInitDone,
+    MsgManaDashboardAddress,
+    MsgTypeMsgOpinionFormed
 }
 
 export interface WSMessage {

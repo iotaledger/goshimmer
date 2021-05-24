@@ -29,7 +29,7 @@ var (
 	emaCoeff1 = 0.00003209
 	// exponential moving average coefficient for Mana 2 calculation (used in access mana)
 	emaCoeff2 = 0.00003209
-	// Decay is the mana decay (gamma) (used in access mana).
+	// Decay is the mana decay (gamma) (used in access mana), in 1/sec
 	Decay = 0.00003209
 )
 

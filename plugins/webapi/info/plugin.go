@@ -119,6 +119,11 @@ func getInfo(c echo.Context) error {
 		delegationAddressString = delegationAddress.Base58()
 	}
 
+	nodeQueueSizes := make(map[string]int)
+	for nodeID, size := range messagelayer.Tangle().Scheduler.NodeQueueSizes() {
+		nodeQueueSizes[nodeID.String()] = size
+	}
+
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          discovery.NetworkVersion(),
@@ -134,5 +139,14 @@ func getInfo(c echo.Context) error {
 		Mana:                    nodeMana,
 		ManaDelegationAddress:   delegationAddressString,
 		ManaDecay:               mana.Decay,
+		Scheduler: jsonmodels.Scheduler{
+			Running:        messagelayer.Tangle().Scheduler.Running(),
+			Rate:           messagelayer.Tangle().Scheduler.Rate().String(),
+			NodeQueueSizes: nodeQueueSizes,
+		},
+		RateSetter: jsonmodels.RateSetter{
+			Rate: messagelayer.Tangle().RateSetter.Rate(),
+			Size: messagelayer.Tangle().RateSetter.Size(),
+		},
 	})
 }

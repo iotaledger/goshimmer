@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -33,6 +34,8 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
+	FIFOScheduler         *FIFOScheduler
+	Orderer               *Orderer
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -40,12 +43,14 @@ type Tangle struct {
 	TipManager            *TipManager
 	Requester             *Requester
 	MessageFactory        *MessageFactory
+	RateSetter            *RateSetter
 	LedgerState           *LedgerState
 	Utils                 *Utils
 	WeightProvider        WeightProvider
 	Events                *Events
 
 	setupParserOnce sync.Once
+	fifoScheduling  typeutils.AtomicBool
 }
 
 // New is the constructor for the Tangle.
@@ -62,9 +67,10 @@ func New(options ...Option) (tangle *Tangle) {
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
-	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
+	tangle.Solidifier = NewSolidifier(tangle)
+	tangle.FIFOScheduler = NewFIFOScheduler(tangle)
+	tangle.Scheduler = NewScheduler(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
@@ -73,6 +79,8 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
+	tangle.RateSetter = NewRateSetter(tangle)
+	tangle.Orderer = NewOrderer(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
 
@@ -103,12 +111,15 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
+	t.FIFOScheduler.Setup()
 	t.Scheduler.Setup()
+	t.Orderer.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
+	t.RateSetter.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
@@ -117,12 +128,39 @@ func (t *Tangle) Setup() {
 	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
 	}))
+
+	// we are never using the FIFOScheduler when the node is started in a synced state
+	t.fifoScheduling.SetTo(!t.Synced())
+
+	// start the corresponding scheduler
+	if t.fifoScheduling.IsSet() {
+		t.FIFOScheduler.Start()
+	} else {
+		t.Scheduler.Start()
+	}
+
+	// pass solid messages to the scheduler
+	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(t.schedule))
+
+	// switch the scheduler, the first time we get synced
+	t.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(e *SyncChangedEvent) {
+		if !e.Synced {
+			return
+		}
+		// switch the scheduler exactly once
+		if t.fifoScheduling.SetToIf(true, false) {
+			// switching the scheduler takes some time, so we must not do it directly in the event func
+			go func() {
+				t.FIFOScheduler.Shutdown() // schedule remaining messages
+				t.Scheduler.Start()        // start the actual scheduler
+			}()
+		}
+	}))
 }
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 	t.setupParserOnce.Do(t.Parser.Setup)
-
 	t.Parser.Parse(messageBytes, peer)
 }
 
@@ -138,7 +176,7 @@ func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *
 		transaction := p.(*ledgerstate.Transaction)
 		for _, input := range transaction.Essence().Inputs() {
 			if input.Type() == ledgerstate.UTXOInputType {
-				t.LedgerState.OutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				t.LedgerState.CachedOutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 					t.LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
 						if branch.InclusionState() == ledgerstate.Rejected || !branch.MonotonicallyLiked() {
 							invalidInputs = append(invalidInputs, input.Base58())
@@ -169,9 +207,11 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
+	t.RateSetter.Shutdown()
+	t.FIFOScheduler.Shutdown()
 	t.Scheduler.Shutdown()
+	t.Orderer.Shutdown()
 	t.Booker.Shutdown()
-	t.LedgerState.Shutdown()
 	t.ConsensusManager.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
@@ -183,6 +223,29 @@ func (t *Tangle) Shutdown() {
 	if t.WeightProvider != nil {
 		t.WeightProvider.Shutdown()
 	}
+}
+
+// schedule schedules the message with the given id.
+func (t *Tangle) schedule(id MessageID) {
+	// during bootstrapping use the FIFOScheduler for everything
+	if t.fifoScheduling.IsSet() {
+		t.FIFOScheduler.Schedule(id)
+		return
+	}
+
+	t.Storage.Message(id).Consume(func(msg *Message) {
+		// if we issued the message submit it to the rate setter
+		if identity.NewID(msg.IssuerPublicKey()) == t.Options.Identity.ID() {
+			if err := t.RateSetter.Issue(msg); err != nil {
+				t.Events.Error.Trigger(errors.Errorf("failed to issue to rate setter: %w", err))
+			}
+			return
+		}
+		// otherwise the message needs to be scheduled
+		if err := t.Scheduler.SubmitAndReady(msg.ID()); err != nil {
+			t.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+		}
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -227,6 +290,8 @@ type Options struct {
 	TangleWidth                  int
 	ConsensusMechanism           ConsensusMechanism
 	GenesisNode                  *ed25519.PublicKey
+	SchedulerParams              SchedulerParams
+	RateSetterParams             RateSetterParams
 	WeightProvider               WeightProvider
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
@@ -280,6 +345,20 @@ func GenesisNode(genesisNodeBase58 string) Option {
 
 	return func(options *Options) {
 		options.GenesisNode = genesisPublicKey
+	}
+}
+
+// SchedulerConfig is an Option for the Tangle that allows to set the scheduler.
+func SchedulerConfig(config SchedulerParams) Option {
+	return func(options *Options) {
+		options.SchedulerParams = config
+	}
+}
+
+// RateSetterConfig is an Option for the Tangle that allows to set the rate setter.
+func RateSetterConfig(params RateSetterParams) Option {
+	return func(options *Options) {
+		options.RateSetterParams = params
 	}
 }
 

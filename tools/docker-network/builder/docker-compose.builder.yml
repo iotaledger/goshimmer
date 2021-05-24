@@ -5,7 +5,7 @@ services:
     container_name: builder
     image: golang:1.16.2
     working_dir: /tmp/goshimmer/
-    entrypoint: go install main.go pkged.go
+    entrypoint: go install -tags rocksdb main.go pkged.go 
     volumes:
       - ../../..:/tmp/goshimmer:ro
       - goshimmer-cache:/go
