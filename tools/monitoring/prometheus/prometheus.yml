@@ -4,4 +4,4 @@ scrape_configs:
       static_configs:
       - targets:
         # goshimmer prometheus plugin export
-        - goshimmer:9311
+        - 127.0.0.1:9311
