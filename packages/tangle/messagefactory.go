@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -93,7 +94,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	if len(parentsCount) > 0 {
 		countStrongParents = parentsCount[0]
 	}
-
 	strongParents, weakParents, err := f.selector.Tips(p, countStrongParents, 2)
 	if err != nil {
 		err = errors.Errorf("tips could not be selected: %w", err)
@@ -101,7 +101,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		f.issuanceMutex.Unlock()
 		return nil, err
 	}
-
 	issuingTime := f.getIssuingTime(strongParents, weakParents)
 
 	issuerPublicKey := f.localIdentity.PublicKey()
@@ -111,12 +110,14 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 
 	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
 	for err != nil && time.Since(startTime) < f.powTimeout {
-		strongParents, weakParents, err = f.selector.Tips(p, countStrongParents, 2)
-		if err != nil {
-			err = errors.Errorf("tips could not be selected: %w", err)
-			f.Events.Error.Trigger(err)
-			f.issuanceMutex.Unlock()
-			return nil, err
+		if p.Type() != ledgerstate.TransactionType {
+			strongParents, weakParents, err = f.selector.Tips(p, countStrongParents, 2)
+			if err != nil {
+				err = errors.Errorf("tips could not be selected: %w", err)
+				f.Events.Error.Trigger(err)
+				f.issuanceMutex.Unlock()
+				return nil, err
+			}
 		}
 
 		issuingTime = f.getIssuingTime(strongParents, weakParents)
