@@ -1,18 +1,18 @@
 HTTP APIs:
 
-* [/ledgerstate/addresses/:address](#ledgerstateaddresses:address)
-* [/ledgerstate/addresses/:address/unspentOutputs](#ledgerstateaddresses:addressunspentoutputs)
-* [/ledgerstate/branches/:branchID](#ledgerstatebranches:branchid)
-* [/ledgerstate/branches/:branchID/children](#ledgerstatebranches:branchidchildren)
-* [/ledgerstate/branches/:branchID/conflicts](#ledgerstatebranches:branchidconflicts)
-* [/ledgerstate/outputs/:outputID](#ledgerstateoutputs:outputid)
-* [/ledgerstate/outputs/:outputID/consumers](#ledgerstateoutputs:outputidconsumers)
-* [/ledgerstate/outputs/:outputID/metadata](#ledgerstateoutputs:outputidmetadata)
-* [/ledgerstate/transactions/:transactionID](#ledgerstatetransactions:transactionid)
-* [/ledgerstate/transactions/:transactionID/metadata](#ledgerstatetransactions:transactionidmetadata)
-* [/ledgerstate/transactions/:transactionID/inclusionState](#ledgerstatetransactions:transactionidinclusionstate)
-* [/ledgerstate/transactions/:transactionID/consensus](#ledgerstatetransactions:transactionidconsensus)
-* [/ledgerstate/transactions/:transactionID/attachments](#ledgerstatetransactions:transactionidattachments)
+* [/ledgerstate/addresses/:address](#ledgerstateaddressesaddress)
+* [/ledgerstate/addresses/:address/unspentOutputs](#ledgerstateaddressesaddressunspentoutputs)
+* [/ledgerstate/branches/:branchID](#ledgerstatebranchesbranchid)
+* [/ledgerstate/branches/:branchID/children](#ledgerstatebranchesbranchidchildren)
+* [/ledgerstate/branches/:branchID/conflicts](#ledgerstatebranchesbranchidconflicts)
+* [/ledgerstate/outputs/:outputID](#ledgerstateoutputsoutputid)
+* [/ledgerstate/outputs/:outputID/consumers](#ledgerstateoutputsoutputidconsumers)
+* [/ledgerstate/outputs/:outputID/metadata](#ledgerstateoutputsoutputidmetadata)
+* [/ledgerstate/transactions/:transactionID](#ledgerstatetransactionstransactionid)
+* [/ledgerstate/transactions/:transactionID/metadata](#ledgerstatetransactionstransactionidmetadata)
+* [/ledgerstate/transactions/:transactionID/inclusionState](#ledgerstatetransactionstransactionidinclusionstate)
+* [/ledgerstate/transactions/:transactionID/consensus](#ledgerstatetransactionstransactionidconsensus)
+* [/ledgerstate/transactions/:transactionID/attachments](#ledgerstatetransactionstransactionidattachments)
 * [/ledgerstate/transactions](#ledgerstatetransactions)
 * [/ledgerstate/addresses/unspentOutputs](#ledgerstateaddressesunspentoutputs)
 
@@ -120,12 +120,13 @@ resp, err := goshimAPI.GetAddressOutputs("6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGy
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
-| `outputIndex`   | string | The index of an output.     |
+| `outputIndex`   | int | The index of an output.     |
 
 ## `/ledgerstate/addresses/:address/unspentOutputs`
 Gets list of all unspent outputs for the address based on a given base58 encoded address ID.
 
 ### Parameters
+
 | **Parameter**            | `addressID`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
@@ -142,17 +143,19 @@ curl http://localhost:8080/ledgerstate/addresses/:address/unspentOutputs \
 ```
 #### client lib - `GetAddressUnspentOutputs()`
 ```Go
-resp, err := goshimAPI.GetAddressUnspentOutputs("6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK")
-	if err != nil {
-		// return error
-	}
-	fmt.Println("otuput address: ", resp.Address)
-	
-	for _, output := range resp.Outputs {
-		fmt.Println("otuputID: ", output.OutputID)
-		fmt.Println("output type: ", output.Type)
-		// get output instance
-		out, err = output.ToLedgerstateOutput()
+address := "6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK"
+resp, err := goshimAPI.GetAddressUnspentOutputs(address)
+if err != nil {
+    // return error
+}
+fmt.Println("otuput address: ", resp.Address)
+
+for _, output := range resp.Outputs {
+    fmt.Println("otuputID: ", output.OutputID)
+    fmt.Println("output type: ", output.Type)
+    // get output instance
+    out, err = output.ToLedgerstateOutput()
+}
 ```
 ### Response examples
 ```json
@@ -199,6 +202,7 @@ resp, err := goshimAPI.GetAddressUnspentOutputs("6PQqFcwarCVbEMxWFeAqj7YswK842dM
 |:-----|:------|:------|
 | `outputID`  | OutputID | The indentifier of an output.   |
 | `outputType`   | string | The full ID of a node.     |
+| `output` | string | An output raw message containing balances and corresponding addresses |
 
 `OutputID`
 
@@ -206,7 +210,7 @@ resp, err := goshimAPI.GetAddressUnspentOutputs("6PQqFcwarCVbEMxWFeAqj7YswK842dM
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
-| `outputIndex`   | string | The index of an output.     |
+| `outputIndex`   | int | The index of an output.     |
 
 ## `/ledgerstate/branches/:branchID`
 Gets a branch details for a given base58 encoded branch ID.
@@ -235,7 +239,7 @@ if err != nil {
     // return error
 }
 fmt.Println("branch ID: ", resp.ID)
-fmt.Println("branch type: ", resp.Type)
+fmt.Println("br                                                                                                        anch type: ", resp.Type)
 fmt.Println("branch inclusion state: ", resp.InclusionState)
 fmt.Println("branch parents IDs: ", resp.Parents)
 fmt.Println("branch conflicts IDs: ", resp.ConflictIDs)
@@ -326,7 +330,8 @@ for _, branch := range resp.ChildBranches {
 | `branchID`  | string | The branch identifier encoded with base58.   |
 | `childBranches`        | []ChildBranch | The child branches data.  |
 
-`ChildBranches`
+
+`ChildBranch`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -393,7 +398,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/conflicts \
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `branchID`  | string | The branch identifier encoded with base58.   |
-| `conflicts`        | []Conflicts | The conflict data.  |
+| `conflicts`        | []Conflict | The conflict data.  |
 
 `Conflict`
 |Field | Type | Description|
@@ -407,7 +412,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/conflicts \
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
-| `outputIndex`   | string | The index of an output.     |
+| `outputIndex`   | int | The index of an output.     |
 
 ## `/ledgerstate/outputs/:outputID`
 Get an output details for a given base58 encoded output ID.
@@ -473,7 +478,7 @@ fmt.Println("transactionID: ", resp.OutputID.TransactionID)
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
-| `outputIndex`   | string | The index of an output.     |
+| `outputIndex`   | int | The index of an output.     |
 
 ## `/ledgerstate/outputs/:outputID/consumers`
 Get a list of consumers for a given base58 encoded output ID.
@@ -542,7 +547,7 @@ for _, consumer := range resp.Consumers {
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
-| `outputIndex`   | string | The index of an output.     |
+| `outputIndex`   | int | The index of an output.     |
 
 `Consumers`
 
@@ -621,7 +626,7 @@ fmt.Println("solidification time: ",  time.Unix(resp.SolidificationTime, 0))
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
-| `outputIndex`   | string | The index of an output.     |
+| `outputIndex`   | int | The index of an output.     |
 
 ## `/ledgerstate/transactions/:transactionID`
 Gets a transaction details for a given base58 encoded transaction ID.
@@ -717,11 +722,15 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 | `dataPayload` | []byte      | The boolean indicator if the transaction . |
 
 `Input `
-TODO
+|Field | Type | Description|
+|:-----|:------|:------|
+| `Type`  | strin | The type of an input.   |
+| `ReferencedOutputID`   | string | The output ID that is used as an input for the transaction.     |
+| `output` | Output | An output that is used as an input for the transaction |
 
 `Output`
 
-|Return field | Type | Description|
+|Field | Type | Description|
 |:-----|:------|:------|
 | `outputID`  | OutputID | The indentifier of an output.   |
 | `outputType`   | string | The full ID of a node.     |
@@ -733,14 +742,17 @@ TODO
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
-| `outputIndex`   | string | The index of an output.     |
+| `outputIndex`   | int | The index of an output.     |
 
-`UnlockBlock` TODO
+`UnlockBlock`
 |Field | Type | Description|
 |:-----|:------|:------|
-| `base58`  | string |   |
-| `transactionID`   | string |     |
-| `outputIndex`   | string |     |
+| `type`  | string |  The unlock block type: signature or reference. |
+| `referencedIndex`  | uint16 |  The reference index of an unlock block. |
+| `signatureType`  | uint8 |  The unlock block signature type: ED25519 or BLS. |
+| `publicKey`  | string |  The public key of a transaction owner. |
+| `signature`  | string | The string representation of a signature encoded with base58 signed over a transaction essence. |
+
 
 ## `/ledgerstate/transactions/:transactionID/metadata`
 Gets a transaction metadata for a given base58 encoded transaction ID.
@@ -770,7 +782,7 @@ if err != nil {
 fmt.Println("transactionID:", resp.TransactionID)
 fmt.Println("branchID:", resp.BranchID)
 fmt.Printf("branch lazy booked: %v, solid: %v, finalized: %v\n", resp.LazyBooked, resp.Solid, resp.Finalized)
-fmt.Println("solidifiacation time:",  time.Unix(resp.SolidificationTime,0))
+fmt.Println("solidifiacation time:",  time.Unix(resp.SolidificationTime, 0))
 ```
 ### Response examples
 ```json
@@ -783,10 +795,15 @@ fmt.Println("solidifiacation time:",  time.Unix(resp.SolidificationTime,0))
     "lazyBooked": false
 }
 ```
-
 ### Results
-
-
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `transactionID`         | string  | The transaction identifier encoded with base58.    |
+| `branchID`       | string    | The issuing time of the transaction. |
+| `solid`  | bool      | The boolean indicatior if the transaction is solid. |
+| `solidificationTime`          | uint64      | The time of solidification of the transaction. |
+| `finalized`         | bool    | The boolean indicator if the transaction is finalized. |
+| `lazyBooked`    | bool      | The boolean indicator if the transaction is lazily booked.|
 ## `/ledgerstate/transactions/:transactionID/inclusionState`
 Gets the fcob opinion associated with transaction based on a given base58 encoded transaction ID.
 
@@ -827,7 +844,13 @@ fmt.Printf("conflicting: %v, confirmed: %v, rejected: %v, pending: %v\n", resp.C
 ```
 
 ### Results
-
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `transactionID`         | string  | The transaction identifier encoded with base58.  |
+| `pending`       | bool    | The boolean indicatior if the transaction is pending. |
+| `confirmed`  | bool      | The boolean indicatior if the transaction is confirmed. |
+| `rejected`          | bool      | The boolean indicatior if the transaction is rejected. |
+| `conflicting`         | bool    | The boolean indicator if the transaction is conflicting. |
 
 ## `/ledgerstate/transactions/:transactionID/consensus`
 Gets the fcob opinion associated with transaction based on a given base58 encoded transaction ID.
@@ -874,10 +897,16 @@ fmt.Println("fcob time 2:", time.Unix(resp.FCOBTime2, 0))
 ```
 
 ### Results
-
-
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `transactionID`         | string  | The transaction identifier encoded with base58.  |
+| `timestamp`       | uint64    | The timestamp of the arrival. |
+| `lok`          | string      | The level of knowledge of the transaction - the degree of certainty of the associated opinion.|
+| `liked`  | bool      | The fcob opinion for the transaction. |
+| `fcobTime1`         | bool    | The fcob opinion's execution time.|
+| `fcobTime2`         | bool    | The fcob opinion's locally finalized execution time.|
 ## `/ledgerstate/transactions/:transactionID/attachments`
-Gets the list of message ID with attachements of the base58 encoded transaction ID.
+Gets the list of messages IDs with attachements of the base58 encoded transaction ID.
 
 ### Parameters
 | **Parameter**            | `transactionID`      |
@@ -917,10 +946,12 @@ for _, msgID := range resp.MessageIDs {
 ```
 
 ### Results
-
-
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `transactionID`   | string  | The transaction identifier encoded with base58.  |
+| `messageIDs`       | []string    | The messeges IDs that contains the requested transaction payload. |
 ## `/ledgerstate/transactions`
-Sends transaction provided in form of a binary data, validates transaction before issuing the message payload. For more detail on how to prepare transaction bytes see the [tutorial]().TODO
+Sends transaction provided in form of a binary data, validates transaction before issuing the message payload. For more detail on how to prepare transaction bytes see the [tutorial]().
 
 ### Examples
 
@@ -938,7 +969,10 @@ fmt.Println("Transaction sent, txID: ", resp.TransactionID)
 ```
 
 ### Results
-
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `transactionID`   | string  | The transaction identifier encoded with base58.  |
+| `Error`   | error  | The error returned if transaction was not processed correctly, otherwise is nil.  |
 
 ## `/ledgerstate/addresses/unspentOutputs`
 Gets all unspent outputs for a list of addresses and returns them along with inclusion state details.
@@ -981,3 +1015,56 @@ for _, outputs := range resp.UnspentOutputs {
 
 ### Results
 
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `unspentOutputs`   | WalletOutputsOnAddress  | Unspent outputs representation for wallet.  |
+
+`WalletOutputsOnAddress`
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `Address`   | Address  | Unspent outputs representation for wallet.  |
+| `Outputs`   | []WalletOutput  | Unspent outputs representation for wallet.  |
+
+`Address`
+
+|Field | Type | Description|
+|:-----|:------|:------|
+| `type`  | string | The type of an address.   |
+| `base58`| string   | The address encoded with base58.          |
+
+`WalletOutput`
+|Field | Type | Description|
+|:-----|:------|:------|
+| `output`  | Output | The type of an address.   |
+| `inclusionState`| InclusionState   | The address encoded with base58.  |
+| `metadata`| WalletOutputMetadata   | The address encoded with base58.  |
+
+`Output`
+
+|Field | Type | Description|
+|:-----|:------|:------|
+| `outputID`  | OutputID | The indentifier of an output.   |
+| `outputType`   | string | The full ID of a node.     |
+| `output` | string | An output raw message containing balances and corresponding addresses |
+
+`OutputID`
+
+|Field | Type | Description|
+|:-----|:------|:------|
+| `base58`  | string | The output identifier encoded with base58.    |
+| `transactionID`   | string | The transaction identifier encoded with base58.     |
+| `outputIndex`   | int | The index of an output.     |
+
+`InclusionState`
+
+|Field | Type | Description|
+|:-----|:------|:------|
+| `confirmed`  | bool |  The boolean indicatior if the transaction containing output is confirmed. |
+| `rejected`   | bool | The boolean indicatior if the transaction containing output is rejected.  |
+| `conflicting`   | bool | The boolean indicatior if the transaction containing output is conflicting. |
+
+`WalletOutputMetadata`
+
+|Field | Type | Description|
+|:-----|:------|:------|
+| `timestamp`  | time.Time | The timestamp of the transaction containing the output.    |
