@@ -70,10 +70,15 @@ We always recommend to run your node via [Docker](https://goshimmer.docs.iota.or
 
 Please follow this guide: https://github.com/facebook/rocksdb/blob/master/INSTALL.md to build above libs.
 
-Finally, when compiling GoShimmer, just add the option `-tags rocksdb`:
+Finally, when compiling GoShimmer, just run the build script:
 
 ```bash
-go build -tags rocksdb
+./scripts/build.sh
+```
+
+If you also want to link the libraries statically (only on Linux) run this instead:
+```bash
+./scripts/build_goshimmer_rocksdb_builtin.sh
 ```
 
 ## Supporting the project
