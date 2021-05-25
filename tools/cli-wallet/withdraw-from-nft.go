@@ -87,7 +87,7 @@ func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) 
 		}
 		options = append(options, withdrawfromnftoptions.ToAddress(address.Base58()))
 	}
-
+	fmt.Println("Withdrawing funds from NFT...")
 	_, err = cliWallet.WithdrawFundsFromNFT(options...)
 	if err != nil {
 		printUsage(command, err.Error())

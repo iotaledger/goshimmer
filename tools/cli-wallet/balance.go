@@ -15,6 +15,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Fetching balance...")
 
 	// refresh wallet once
 	err = cliWallet.Refresh(true)

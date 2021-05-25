@@ -85,6 +85,8 @@ func setMessageFinalized(messageMetadata *tangle.MessageMetadata) (modified bool
 
 	setPayloadFinalized(messageMetadata.ID())
 
+	Tangle().ApprovalWeightManager.Events.MessageFinalized.Trigger(messageMetadata.ID())
+
 	return modified
 }
 

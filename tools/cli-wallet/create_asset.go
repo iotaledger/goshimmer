@@ -34,7 +34,7 @@ func execCreateAssetCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if *namePtr == "" {
 		printUsage(command, "you need to provide a name for you asset")
 	}
-
+	fmt.Println("Creating asset...")
 	assetColor, err := cliWallet.CreateAsset(wallet.Asset{
 		Name:   *namePtr,
 		Symbol: *symbolPtr,
