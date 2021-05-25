@@ -129,11 +129,11 @@ export class Visualizer extends React.Component<Props, any> {
                     <Col xs={{span: 5, offset: 2}}>
                         <p>                            
                             <Badge pill style={{background: "#b9b7bd", color: "white"}}>
-                                Non-TX Pending
+                                MSG Pending
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#6c71c4", color: "white"}}>
-                                Non-TX Confirmed
+                                MSG Confirmed
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#393e46", color: "white"}}>
