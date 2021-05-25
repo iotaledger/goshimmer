@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/cockroachdb/errors"
 )
@@ -103,10 +104,10 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusCreated {
-		switch contType := res.Header.Get(contentType); contType {
-		case contentTypeJSON:
+		switch contType := res.Header.Get(contentType); {
+		case strings.HasPrefix(contType, contentTypeJSON):
 			return json.Unmarshal(resBody, decodeTo)
-		case contentTypeCSV:
+		case strings.HasPrefix(contType, contentTypeCSV):
 			*decodeTo.(*csv.Reader) = *csv.NewReader(bufio.NewReader(bytes.NewReader(resBody)))
 			return nil
 		default:
