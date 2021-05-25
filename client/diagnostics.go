@@ -3,21 +3,43 @@ package client
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
 	"net/http"
+
+	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
 )
 
-// GetMessageDiagnostics runs full message diagnostics
+// GetDiagnosticsMessages runs full message diagnostics
+// Returns CSV with the following fields:
+//
+//	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime OpinionFormedTime
+//	FinalizedTime StrongParents WeakParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
+//	Eligible Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
+//	PayloadOpinionFormed TimestampOpinionFormed MessageOpinionFormed MessageOpinionTriggered TimestampOpinion
+//	TimestampLoK
 func (api *GoShimmerAPI) GetDiagnosticsMessages() (*csv.Reader, error) {
 	return api.diagnose(tools.RouteDiagnosticMessages)
 }
 
-// GetFirstWeakMessageReferencesDiagnostics runs diagnostics over weak references only.
+// GetDiagnosticsFirstWeakMessageReferences runs diagnostics over weak references only.
+// Returns CSV with the following fields:
+//
+//	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime OpinionFormedTime
+//	FinalizedTime StrongParents WeakParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
+//	Eligible Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
+//	PayloadOpinionFormed TimestampOpinionFormed MessageOpinionFormed MessageOpinionTriggered TimestampOpinion
+//	TimestampLoK
 func (api *GoShimmerAPI) GetDiagnosticsFirstWeakMessageReferences() (*csv.Reader, error) {
 	return api.diagnose(tools.RouteDiagnosticsFirstWeakMessageReferences)
 }
 
-// GetMessagesByRankDiagnostics run diagnostics for messages whose markers are equal or above a certain rank
+// GetDiagnosticsMessagesByRank run diagnostics for messages whose markers are equal or above a certain rank
+// Returns CSV with the following fields:
+//
+//	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime OpinionFormedTime
+//	FinalizedTime StrongParents WeakParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
+//	Eligible Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
+//	PayloadOpinionFormed TimestampOpinionFormed MessageOpinionFormed MessageOpinionTriggered TimestampOpinion
+//	TimestampLoK
 func (api *GoShimmerAPI) GetDiagnosticsMessagesByRank(rank uint64) (*csv.Reader, error) {
 	return api.diagnose(fmt.Sprintf("%s?rank=%d", tools.RouteDiagnosticMessages, rank))
 }
@@ -92,8 +114,11 @@ func (api *GoShimmerAPI) GetDiagnosticsWeakTips() (*csv.Reader, error) {
 	return api.diagnose(tools.RouteDiagnosticsWeakTips)
 }
 
-// GetDiagnosticsDrng GetDiagnosticsWeakTips runs diagnostics for DRNG
-// Returns csv
+// GetDiagnosticsDrng runs diagnostics for DRNG
+// Returns csv with the following fields:
+//
+// 	ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,BookedTime,OpinionFormedTime,
+//	dRNGPayloadType,InstanceID,Round,PreviousSignature,Signature,DistributedPK
 func (api *GoShimmerAPI) GetDiagnosticsDRNG() (*csv.Reader, error) {
 	return api.diagnose(tools.RouteDiagnosticsDRNG)
 }
