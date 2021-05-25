@@ -35,7 +35,7 @@ func initLog() *logger.Logger {
 func start(t *testing.T) (*utxodbledger.UtxoDBLedger, *Client) {
 	t.Helper()
 
-	ledger := utxodbledger.New()
+	ledger := utxodbledger.New(log)
 	t.Cleanup(ledger.Detach)
 
 	done := make(chan struct{})
