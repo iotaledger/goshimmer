@@ -43,6 +43,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 	approvalWeightManager = &ApprovalWeightManager{
 		Events: &ApprovalWeightManagerEvents{
 			MessageProcessed: events.NewEvent(MessageIDCaller),
+			MessageFinalized: events.NewEvent(MessageIDCaller),
 		},
 		tangle:               tangle,
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
@@ -576,6 +577,7 @@ var (
 // ApprovalWeightManagerEvents represents events happening in the ApprovalWeightManager.
 type ApprovalWeightManagerEvents struct {
 	MessageProcessed   *events.Event
+	MessageFinalized   *events.Event
 	BranchConfirmation *events.ThresholdEvent
 	MarkerConfirmation *events.ThresholdEvent
 }

@@ -60,7 +60,7 @@ export class Visualizer extends React.Component<Props, any> {
 
     render() {
         let {
-            vertices, confirmed_count, selected,
+            vertices, finalized_count, selected,
             selected_approvers_count, selected_approvees_count,
             verticesLimit, tips_count, paused, search
         } = this.props.visualizerStore;
@@ -133,11 +133,11 @@ export class Visualizer extends React.Component<Props, any> {
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#6c71c4", color: "white"}}>
-                                Non-TX Confirmed
+                                Non-TX Finalized
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#fad02c", color: "white"}}>
-                                TX Confirmed
+                                TX Finalized
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#cb4b16", color: "white"}}>
@@ -149,7 +149,7 @@ export class Visualizer extends React.Component<Props, any> {
                             </Badge>
                             <br/>
                             Vertices: {vertices.size}, Tips: {tips_count},
-                            Confirmed/UnConfirmed: {confirmed_count}/{vertices.size - confirmed_count},{' '}
+                            Finalized/UnFinalized: {finalized_count}/{vertices.size - finalized_count},{' '}
                             MPS: {last_mps_metric.mps}
                             <br/>
                             Selected: {selected ?
