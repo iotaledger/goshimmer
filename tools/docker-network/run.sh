@@ -29,7 +29,7 @@ elif [ $GRAFANA -ne 0 ]
 then
   MONGO_DB_ENABLED=false docker-compose -f docker-compose.yml -f docker-compose-grafana.yml up --scale peer_replica=$REPLICAS
 elif [ $DRNG -ne 0 ]
-then 
+then
   MONGO_DB_ENABLED=false docker-compose -f docker-compose.yml -f docker-compose-drng.yml up --scale peer_replica=$REPLICAS  
 else
   MONGO_DB_ENABLED=false docker-compose -f docker-compose.yml up --scale peer_replica=$REPLICAS

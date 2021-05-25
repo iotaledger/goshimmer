@@ -22,7 +22,7 @@ var (
 	visualizerWorkerPool      *workerpool.WorkerPool
 
 	msgHistoryMutex    sync.RWMutex
-	msgOpinionFormed   map[string]bool
+	msgFinalized       map[string]bool
 	msgHistory         []*tangle.Message
 	maxMsgHistorySize  = 1000
 	numHistoryToRemove = 100
@@ -33,7 +33,7 @@ type vertex struct {
 	ID              string   `json:"id"`
 	StrongParentIDs []string `json:"strongParentIDs"`
 	WeakParentIDs   []string `json:"weakParentIDs"`
-	IsOpinionFormed bool     `json:"is_confirmed"`
+	IsFinalized     bool     `json:"is_finalized"`
 	IsTx            bool     `json:"is_tx"`
 }
 
@@ -61,16 +61,16 @@ func configureVisualizer() {
 	}, workerpool.WorkerCount(visualizerWorkerCount), workerpool.QueueSize(visualizerWorkerQueueSize))
 
 	// configure msgHistory, msgSolid
-	msgOpinionFormed = make(map[string]bool, maxMsgHistorySize)
+	msgFinalized = make(map[string]bool, maxMsgHistorySize)
 	msgHistory = make([]*tangle.Message, 0, maxMsgHistorySize)
 }
 
-func sendVertex(msg *tangle.Message, confirmed bool) {
+func sendVertex(msg *tangle.Message, finalized bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:              msg.ID().Base58(),
 		StrongParentIDs: msg.StrongParents().ToStrings(),
 		WeakParentIDs:   msg.WeakParents().ToStrings(),
-		IsOpinionFormed: confirmed,
+		IsFinalized:     finalized,
 		IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 	}}, true)
 }
@@ -86,20 +86,9 @@ func runVisualizer() {
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-				confirmed := false
-
-				p := message.Payload()
-				if p.Type() == ledgerstate.TransactionType {
-					txID := p.(*ledgerstate.Transaction).ID()
-					txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(txID)
-					confirmed = txInclusionState == ledgerstate.Confirmed
-				} else {
-					confirmed = messageMetadata.IsEligible()
-				}
-
-				addToHistory(message, confirmed)
-
-				visualizerWorkerPool.TrySubmit(message, confirmed)
+				finalized := messageMetadata.IsFinalized()
+				addToHistory(message, finalized)
+				visualizerWorkerPool.TrySubmit(message, finalized)
 			})
 		})
 	})
@@ -121,8 +110,8 @@ func runVisualizer() {
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
 		defer messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)
-		messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(notifyNewMsg)
-		defer messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Detach(notifyNewMsg)
+		messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(notifyNewMsg)
+		defer messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Detach(notifyNewMsg)
 		messagelayer.Tangle().TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer messagelayer.Tangle().TipManager.Events.TipAdded.Detach(notifyNewTip)
 		messagelayer.Tangle().TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
@@ -151,7 +140,7 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 				ID:              msg.ID().Base58(),
 				StrongParentIDs: msg.StrongParents().ToStrings(),
 				WeakParentIDs:   msg.WeakParents().ToStrings(),
-				IsOpinionFormed: msgOpinionFormed[msg.ID().Base58()],
+				IsFinalized:     msgFinalized[msg.ID().Base58()],
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 			})
 		}
@@ -163,19 +152,19 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 func addToHistory(msg *tangle.Message, opinionFormed bool) {
 	msgHistoryMutex.Lock()
 	defer msgHistoryMutex.Unlock()
-	if _, exist := msgOpinionFormed[msg.ID().Base58()]; exist {
-		msgOpinionFormed[msg.ID().Base58()] = opinionFormed
+	if _, exist := msgFinalized[msg.ID().Base58()]; exist {
+		msgFinalized[msg.ID().Base58()] = opinionFormed
 		return
 	}
 
 	// remove 100 old msgs if the slice is full
 	if len(msgHistory) >= maxMsgHistorySize {
 		for i := 0; i < numHistoryToRemove; i++ {
-			delete(msgOpinionFormed, msgHistory[i].ID().Base58())
+			delete(msgFinalized, msgHistory[i].ID().Base58())
 		}
 		msgHistory = append(msgHistory[:0], msgHistory[numHistoryToRemove:maxMsgHistorySize]...)
 	}
 	// add new msg
 	msgHistory = append(msgHistory, msg)
-	msgOpinionFormed[msg.ID().Base58()] = opinionFormed
+	msgFinalized[msg.ID().Base58()] = opinionFormed
 }

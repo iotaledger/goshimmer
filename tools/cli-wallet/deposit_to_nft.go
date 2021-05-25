@@ -70,7 +70,7 @@ func execDepositToNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		}
 		depositBalance[initColor] = uint64(*amountPtr)
 	}
-
+	fmt.Println("Depositing funds into NFT...")
 	_, err = cliWallet.DepositFundsToNFT(
 		deposittonftoptions.Alias(aliasID.Base58()),
 		deposittonftoptions.Amount(depositBalance),
@@ -80,5 +80,5 @@ func execDepositToNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if err != nil {
 		printUsage(command, err.Error())
 	}
-	fmt.Println("Depositing funds into NFT ... [DONE]")
+	fmt.Println("Depositing funds into NFT... [DONE]")
 }

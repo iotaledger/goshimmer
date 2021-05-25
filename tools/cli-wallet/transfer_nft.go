@@ -48,7 +48,7 @@ func execTransferNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if err != nil {
 		printUsage(command, err.Error())
 	}
-
+	fmt.Println("Transferring NFT...")
 	_, err = cliWallet.TransferNFT(
 		transfernftoptions.Alias(aliasID.Base58()),
 		transfernftoptions.ToAddress(destinationAddress.Base58()),

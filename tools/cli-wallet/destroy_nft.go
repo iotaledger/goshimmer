@@ -37,7 +37,7 @@ func execDestroyNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if err != nil {
 		printUsage(command, err.Error())
 	}
-
+	fmt.Println("Destroying NFT...")
 	_, err = cliWallet.DestroyNFT(
 		destroynftoptions.Alias(aliasID.Base58()),
 		destroynftoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
