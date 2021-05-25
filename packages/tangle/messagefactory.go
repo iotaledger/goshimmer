@@ -85,6 +85,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	if err != nil {
 		err = errors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 
@@ -97,6 +98,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	if err != nil {
 		err = errors.Errorf("tips could not be selected: %w", err)
 		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 
@@ -113,6 +115,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		if err != nil {
 			err = errors.Errorf("tips could not be selected: %w", err)
 			f.Events.Error.Trigger(err)
+			f.issuanceMutex.Unlock()
 			return nil, err
 		}
 
@@ -123,6 +126,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	if err != nil {
 		err = errors.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 	f.issuanceMutex.Unlock()
