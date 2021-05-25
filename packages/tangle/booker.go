@@ -69,6 +69,12 @@ func (b *Booker) Setup() {
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			// don't book the same message more than once!
+			if messageMetadata.IsBooked() {
+				err = errors.Errorf("message already booked %s", messageID)
+				return
+			}
+
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)

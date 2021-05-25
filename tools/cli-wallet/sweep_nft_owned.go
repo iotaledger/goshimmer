@@ -97,6 +97,7 @@ func execSweepNFTOwnedNFTsCommand(command *flag.FlagSet, cliWallet *wallet.Walle
 	}
 
 	var sweptNFTs []*ledgerstate.AliasAddress
+	fmt.Println("Sweeping NFT owned NFTs...")
 	_, sweptNFTs, err = cliWallet.SweepNFTOwnedNFTs(options...)
 	if err != nil {
 		printUsage(command, err.Error())
