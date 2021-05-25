@@ -29,6 +29,7 @@ func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet
 	}
 
 	var txs []*ledgerstate.Transaction
+	fmt.Println("Consolidating funds... [this might take a while]")
 	txs, err = cliWallet.ConsolidateFunds(
 		consolidateoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
 		consolidateoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),

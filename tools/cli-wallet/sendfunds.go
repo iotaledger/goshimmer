@@ -99,7 +99,7 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		}
 		options = append(options, sendoptions.Fallback(fAddy, fDeadline))
 	}
-
+	fmt.Println("Sending funds...")
 	_, err = cliWallet.SendFunds(options...)
 	if err != nil {
 		printUsage(command, err.Error())
