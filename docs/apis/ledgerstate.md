@@ -35,7 +35,7 @@ Client lib APIs:
 * [client lib - `PostAddressUnspentOutputs()](#client-lib---postaddressunspentoutputs)
 
 ## `/ledgerstate/addresses/:address`
-Gets an address details for a given base58 encoded address ID.
+Get an address details for a given base58 encoded address ID, such as output types and balances. For the client library API call balances will not be directly available as values because they are stored as a raw message. Balance cann be read after retrieving `ledgerstate.Output` instance, as presented in the examples.
 
 ### Parameters
 | **Parameter**            | `addressID`      |
@@ -59,10 +59,10 @@ resp, err := goshimAPI.GetAddressOutputs("6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGy
 	if err != nil {
 		// return error
 	}
-	fmt.Println("otuput address: ", resp.Address)
+	fmt.Println("output address: ", resp.Address)
 	
 	for _, output := range resp.Outputs {
-		fmt.Println("otuputID: ", output.OutputID)
+		fmt.Println("outputID: ", output.OutputID)
 		fmt.Println("output type: ", output.Type)
 		// get output instance
 		out, err = output.ToLedgerstateOutput()
@@ -111,8 +111,9 @@ resp, err := goshimAPI.GetAddressOutputs("6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGy
 
 |Field | Type | Description|
 |:-----|:------|:------|
-| `outputID`  | OutputID | The indentifier of an output.   |
+| `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The full ID of a node.     |
+| `output` | string | An output raw message containing balances and corresponding addresses. |
 
 `OutputID`
 
@@ -148,10 +149,10 @@ resp, err := goshimAPI.GetAddressUnspentOutputs(address)
 if err != nil {
     // return error
 }
-fmt.Println("otuput address: ", resp.Address)
+fmt.Println("output address: ", resp.Address)
 
 for _, output := range resp.Outputs {
-    fmt.Println("otuputID: ", output.OutputID)
+    fmt.Println("outputID: ", output.OutputID)
     fmt.Println("output type: ", output.Type)
     // get output instance
     out, err = output.ToLedgerstateOutput()
@@ -200,7 +201,7 @@ for _, output := range resp.Outputs {
 
 |Field | Type | Description|
 |:-----|:------|:------|
-| `outputID`  | OutputID | The indentifier of an output.   |
+| `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The full ID of a node.     |
 | `output` | string | An output raw message containing balances and corresponding addresses |
 
@@ -239,7 +240,7 @@ if err != nil {
     // return error
 }
 fmt.Println("branch ID: ", resp.ID)
-fmt.Println("br                                                                                                        anch type: ", resp.Type)
+fmt.Println("branch type: ", resp.Type)
 fmt.Println("branch inclusion state: ", resp.InclusionState)
 fmt.Println("branch parents IDs: ", resp.Parents)
 fmt.Println("branch conflicts IDs: ", resp.ConflictIDs)
@@ -277,7 +278,7 @@ fmt.Printf("liked: %v, finalized: %v, monotonically liked: %v", resp.Liked, resp
 
 
 ## `/ledgerstate/branches/:branchID/children`
-Gets a branch details for all child branches of branch with given base58 encoded branch ID.
+Gets a list of all child branches for a branch with given base58 encoded branch ID.
 
 ### Parameters
 
@@ -339,7 +340,7 @@ for _, branch := range resp.ChildBranches {
 | `type`        | string | The type of the branch.  |
 
 ## `/ledgerstate/branches/:branchID/conflicts`
-Gets conflicting outputIDs and branchIDs for a 
+Get all conflicts for a given branch ID, their outputs and conflicting branches.
 
 ### Parameters
 
@@ -415,7 +416,8 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/conflicts \
 | `outputIndex`   | int | The index of an output.     |
 
 ## `/ledgerstate/outputs/:outputID`
-Get an output details for a given base58 encoded output ID.
+Get an output details for a given base58 encoded output ID, such as output types, addresses, and their corresponding balances.
+For the client library API call balances will not be directly available as values because they are stored as a raw message. 
 
 ### Parameters
 
@@ -468,7 +470,7 @@ fmt.Println("transactionID: ", resp.OutputID.TransactionID)
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `outputID`  | OutputID | The indentifier of an output.   |
+| `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The full ID of a node.     |
 | `output` | string | An output raw message containing balances and corresponding addresses |
 
@@ -481,7 +483,7 @@ fmt.Println("transactionID: ", resp.OutputID.TransactionID)
 | `outputIndex`   | int | The index of an output.     |
 
 ## `/ledgerstate/outputs/:outputID/consumers`
-Get a list of consumers for a given base58 encoded output ID.
+Get a list of consumers based on a provided base58 encoded output ID. Transactions that contains the output and information about its validity.
 
 ### Parameters
 
@@ -612,11 +614,11 @@ fmt.Println("solidification time: ",  time.Unix(resp.SolidificationTime, 0))
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `outputID`            | OutputID  | The output identifier encoded with base58.   |
-| `branchID`            | string    | The indentifier of the branch encoded with base58. |
-| `solid`               | bool      | The boolean indicatior if the message is solid. |
+| `branchID`            | string    | The identifier of the branch encoded with base58. |
+| `solid`               | bool      | The boolean indicator if the message is solid. |
 | `solidificationTime`  | int64     | The time of solidification of a message. |
 | `consumerCount`       | int       | The number of consumers. |
-| `firstConsumer`       | string    | The firs consumer of athe output. |
+| `firstConsumer`       | string    | The first consumer of the output. |
 | `finalized`           | bool      | The boolean indicator if the transaction . |
 
 
@@ -714,7 +716,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 |:-----|:------|:------|
 | `version`         | uint8  | The version of the transaction essence.   |
 | `timestamp`       | int64    | The issuing time of the transaction. |
-| `accessPledgeID`  | string      | The boolean indicatior if the message is solid. |
+| `accessPledgeID`  | string      | The boolean indicator if the message is solid. |
 | `consensusPledgeID`| string     | The time of solidification of a message. |
 | `inputs`          | []Input       | The number of consumers. |
 | `outputs`         | []Output    | The firs consumer of athe output. |
@@ -724,7 +726,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 `Input `
 |Field | Type | Description|
 |:-----|:------|:------|
-| `Type`  | strin | The type of an input.   |
+| `Type`  | string | The type of input.   |
 | `ReferencedOutputID`   | string | The output ID that is used as an input for the transaction.     |
 | `output` | Output | An output that is used as an input for the transaction |
 
@@ -732,7 +734,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 
 |Field | Type | Description|
 |:-----|:------|:------|
-| `outputID`  | OutputID | The indentifier of an output.   |
+| `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The full ID of a node.     |
 | `output` | string | An output raw message containing balances and corresponding addresses |
 
@@ -782,7 +784,7 @@ if err != nil {
 fmt.Println("transactionID:", resp.TransactionID)
 fmt.Println("branchID:", resp.BranchID)
 fmt.Printf("branch lazy booked: %v, solid: %v, finalized: %v\n", resp.LazyBooked, resp.Solid, resp.Finalized)
-fmt.Println("solidifiacation time:",  time.Unix(resp.SolidificationTime, 0))
+fmt.Println("solidification time:",  time.Unix(resp.SolidificationTime, 0))
 ```
 ### Response examples
 ```json
@@ -800,7 +802,7 @@ fmt.Println("solidifiacation time:",  time.Unix(resp.SolidificationTime, 0))
 |:-----|:------|:------|
 | `transactionID`         | string  | The transaction identifier encoded with base58.    |
 | `branchID`       | string    | The issuing time of the transaction. |
-| `solid`  | bool      | The boolean indicatior if the transaction is solid. |
+| `solid`  | bool      | The boolean indicator if the transaction is solid. |
 | `solidificationTime`          | uint64      | The time of solidification of the transaction. |
 | `finalized`         | bool    | The boolean indicator if the transaction is finalized. |
 | `lazyBooked`    | bool      | The boolean indicator if the transaction is lazily booked.|
@@ -847,10 +849,10 @@ fmt.Printf("conflicting: %v, confirmed: %v, rejected: %v, pending: %v\n", resp.C
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `transactionID`         | string  | The transaction identifier encoded with base58.  |
-| `pending`       | bool    | The boolean indicatior if the transaction is pending. |
-| `confirmed`  | bool      | The boolean indicatior if the transaction is confirmed. |
-| `rejected`          | bool      | The boolean indicatior if the transaction is rejected. |
-| `conflicting`         | bool    | The boolean indicator if the transaction is conflicting. |
+| `pending`       | bool    | The boolean indicating if the transaction has not yet been confirmed nor rejected. |
+| `confirmed`  | bool      | The boolean indicating if the transaction is confirmed. |
+| `rejected`          | bool      | The boolean indicating if the transaction was rejected and is booked to the rejected branch. |
+| `conflicting`         | bool    | The boolean indicating if the transaction is conflicting with some other transaction. |
 
 ## `/ledgerstate/transactions/:transactionID/consensus`
 Gets the fcob opinion associated with transaction based on a given base58 encoded transaction ID.
@@ -906,7 +908,7 @@ fmt.Println("fcob time 2:", time.Unix(resp.FCOBTime2, 0))
 | `fcobTime1`         | bool    | The fcob opinion's execution time.|
 | `fcobTime2`         | bool    | The fcob opinion's locally finalized execution time.|
 ## `/ledgerstate/transactions/:transactionID/attachments`
-Gets the list of messages IDs with attachements of the base58 encoded transaction ID.
+Gets the list of messages IDs with attachments of the base58 encoded transaction ID.
 
 ### Parameters
 | **Parameter**            | `transactionID`      |
@@ -949,7 +951,7 @@ for _, msgID := range resp.MessageIDs {
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `transactionID`   | string  | The transaction identifier encoded with base58.  |
-| `messageIDs`       | []string    | The messeges IDs that contains the requested transaction payload. |
+| `messageIDs`       | []string    | The messages IDs that contains the requested transaction payload. |
 ## `/ledgerstate/transactions`
 Sends transaction provided in form of a binary data, validates transaction before issuing the message payload. For more detail on how to prepare transaction bytes see the [tutorial]().
 
@@ -975,7 +977,7 @@ fmt.Println("Transaction sent, txID: ", resp.TransactionID)
 | `Error`   | error  | The error returned if transaction was not processed correctly, otherwise is nil.  |
 
 ## `/ledgerstate/addresses/unspentOutputs`
-Gets all unspent outputs for a list of addresses and returns them along with inclusion state details.
+Gets all unspent outputs for a list of addresses that were sent in the body message.  Returns the unspent outputs along with inclusion state and metadata for the wallet. 
 
 ### Request Body
 ```json
@@ -1007,12 +1009,52 @@ for _, outputs := range resp.UnspentOutputs {
     fmt.Println("address type:", outputs.Address.Type)
 
     for _, output := range outputs.Outputs {
-        fmt.Println("output ID:", output.Output.OutputID)
+        fmt.Println("output ID:", output.Output.OutputID.Base58)
         fmt.Println("output type:", output.Output.Type)
     }
 }
 ```
 
+### Response examples
+
+```json
+{
+    "unspentOutputs": [
+        {
+            "address": {
+                "type": "AddressTypeED25519",
+                "base58": "1Z4t5KEKU65fbeQCbNdztYTB1B4Cdxys1XRzTFrmvAf3"
+            },
+            "outputs": [
+                {
+                    "output": {
+                        "outputID": {
+                            "base58": "4eGoQWG7UDtBGK89vENQ5Ea1N1b8xF26VD2F8nigFqgyx5m",
+                            "transactionID": "BqzgVk4yY9PDZuDro2mvT36U52ZYbJDfM41Xng3yWoQK",
+                            "outputIndex": 0
+                        },
+                        "type": "SigLockedColoredOutputType",
+                        "output": {
+                            "balances": {
+                                "11111111111111111111111111111111": 1000000
+                            },
+                            "address": "1Z4t5KEKU65fbeQCbNdztYTB1B4Cdxys1XRzTFrmvAf3"
+                        }
+                    },
+                    "inclusionState": {
+                        "confirmed": true,
+                        "rejected": false,
+                        "conflicting": false
+                    },
+                    "metadata": {
+                        "timestamp": "2021-05-25T15:47:04.50470213+02:00"
+                    }
+                }
+            ]
+        }
+    ]
+}
+```
 ### Results
 
 |Return field | Type | Description|
@@ -1035,17 +1077,17 @@ for _, outputs := range resp.UnspentOutputs {
 `WalletOutput`
 |Field | Type | Description|
 |:-----|:------|:------|
-| `output`  | Output | The type of an address.   |
-| `inclusionState`| InclusionState   | The address encoded with base58.  |
-| `metadata`| WalletOutputMetadata   | The address encoded with base58.  |
+| `output`  | Output | The type of address.   |
+| `inclusionState`| InclusionState   | The inclusion state of the transaction containing the output.  |
+| `metadata`| WalletOutputMetadata   | The metadata of the output for the wallet lib.  |
 
 `Output`
 
 |Field | Type | Description|
 |:-----|:------|:------|
-| `outputID`  | OutputID | The indentifier of an output.   |
+| `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The full ID of a node.     |
-| `output` | string | An output raw message containing balances and corresponding addresses |
+| `output` | string | An outputs raw message containing balances and corresponding addresses |
 
 `OutputID`
 
@@ -1059,9 +1101,9 @@ for _, outputs := range resp.UnspentOutputs {
 
 |Field | Type | Description|
 |:-----|:------|:------|
-| `confirmed`  | bool |  The boolean indicatior if the transaction containing output is confirmed. |
-| `rejected`   | bool | The boolean indicatior if the transaction containing output is rejected.  |
-| `conflicting`   | bool | The boolean indicatior if the transaction containing output is conflicting. |
+| `confirmed`  | bool |  The boolean indicating if the transaction containing the output is confirmed. |
+| `rejected`   | bool | The boolean indicating if the transaction that contains the output was rejected and is booked to the rejected branch.   |
+| `conflicting`   | bool | The boolean indicating if the output is in conflicting transaction.|
 
 `WalletOutputMetadata`
 
