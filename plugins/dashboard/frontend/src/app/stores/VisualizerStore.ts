@@ -247,12 +247,17 @@ export class VisualizerStore {
         if (vert.is_tip) {
             return "#cb4b16";
         }
-        if (vert.is_tx && vert.is_finalized) {
-            return "#fad02c";
-        }
-        // non-tx message finalized
+        // finalized
         if (vert.is_finalized) {
+            if (vert.is_tx) {
+                return "#fad02c";
+            }
             return "#6c71c4"
+        }
+        
+        // pending
+        if (vert.is_tx) {
+            return "#393e46"
         }
         return "#b9b7bd";
     }
