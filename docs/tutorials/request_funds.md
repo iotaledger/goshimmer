@@ -28,24 +28,6 @@ addr := wallet.New(connector).Seed().Address(0)
 messageID, err := goshimAPI.SendFaucetRequest(addr.String(), 22)
 ```
 
-### Via the HTTP API directly
-The URI for POSTing faucet request messages is `http://<host>:<web-api-port>/faucet`. Refer to [faucet API methods](../apis/faucet) for more details.
-
-
-| Parameter | Required | Description | Type    |
-| --------- | -------- | ----------- | --- |
-| `address`      | Yes     | Destination address to which to send tokens to encoded in Base58        | string     |
-
-cURL example:
-```
-curl http://localhost:8080/faucet \
--X POST \
--H 'Content-Type: application/json' \
--d '{
-  "address": "JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY"
-}'
-```
-
 ### Via the wallet
 Currently, there is one cli-wallet that you can refer to the tutorial [Command Line Wallet
 ](./wallet.md) and two GUI wallets to use. One from the community member [Dr-Electron ElectricShimmer](https://github.com/Dr-Electron/ElectricShimmer) and another from the foundation [pollen-wallet](https://github.com/iotaledger/pollen-wallet/tree/master). You can request funds from the faucet with these two implementations.
