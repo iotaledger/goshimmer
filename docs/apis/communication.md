@@ -4,22 +4,22 @@ The communication layer represents the base Tangle layer where so called `Messag
 
 
 The API provides three functions to interact with this primitive layer:
-* [/messages/:messageID](#getmessage)
-* [/messages/:messageID/metadata](#getmessagemetadata)
-* [/messages/:messageID/consensus](#getmessageconsensus)
-* [/data](#senddata)
-* [/messages/payload](#sendpayload)
+* [/messages/:messageID](#messagesmessageid)
+* [/messages/:messageID/metadata](#messagesmessageidmetadata)
+* [/messages/:messageID/consensus](#messagesmessageidconsensus)
+* [/data](#data)
+* [/messages/payload](#messagespayload)
 
 Client lib APIs:
-* [GetMessage()](#getmessage)
-* [GetMessageMetadata()](#getmessagemetadata)
-* [Data()](#senddata)
-* [SendPayload()](#sendpayload)
+* [GetMessage()](#client-lib---getmessage)
+* [GetMessageMetadata()](#client-lib---getmessagemetadata)
+* [Data()](#client-lib---data)
+* [SendPayload()](#client-lib---sendpayload)
 
 
 ##  `/messages/:messageID`
 
-Return message.
+Return message from the tangle.
 
 ### Parameters
 
@@ -29,8 +29,6 @@ Return message.
 | **Description**          | ID of a message to retrieve   |
 | **Type**                 | string         |
 
-
-
 ### Examples
 
 #### cURL
@@ -39,9 +37,10 @@ Return message.
 curl --location --request GET 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc'
 ```
 
-#### Client lib
+#### Client lib - `GetMessage`
 
 Messages can be retrieved via `GetMessage(base58EncodedID string) (*jsonmodels.Message, error) `
+
 ```go
 message, err := goshimAPI.GetMessage(base58EncodedMessageID)
 if err != nil {
@@ -55,6 +54,7 @@ fmt.Println(string(message.Payload))
 Note that we're getting actual `Message` objects from this call which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that this will also return messages which contain a transactions or DRNG payloads.
 
 #### Response examples
+
 ```json
 {
     "id": "4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc",
@@ -78,6 +78,9 @@ Note that we're getting actual `Message` objects from this call which represent 
 ```
 
 #### Results
+
+* Returned type 
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID. |
@@ -115,7 +118,7 @@ Return message metadata.
 curl --location --request GET 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc/metadata'
 ```
 
-#### Client lib
+#### Client lib - `GetMessageMetadata`
 
 Message metadata can be retrieved via `GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error)`
 ```
@@ -129,6 +132,7 @@ fmt.Println(string(message.Finalized))
 ```
 
 #### Response examples
+
 ```json
 {
     "id": "4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc",
@@ -165,6 +169,9 @@ fmt.Println(string(message.Finalized))
 ```
 
 #### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID. |
@@ -200,7 +207,7 @@ Return message consensus info such as opinion and FCoB data.
 #### cURL
 
 ```shell
-curl --location --request POST 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc/consensus'
+curl --location --request GET 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc/consensus'
 ```
 
 #### Client lib
@@ -208,6 +215,7 @@ curl --location --request POST 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTf
 This method is not available in the client library.
 
 #### Response examples
+
 ```json
 {
   "id": "MessageID(4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc)",
@@ -222,6 +230,9 @@ This method is not available in the client library.
 ```
 
 #### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID. |
@@ -236,6 +247,9 @@ This method is not available in the client library.
 
 
 ## `/data`
+
+Method: `POST`
+
 A data message is simply a `Message` containing some raw data (literally bytes). This type of message has therefore no real functionality other than that it is retrievable via `GetMessage`.
 
 ### Parameters
@@ -265,9 +279,10 @@ curl --location --request POST 'http://localhost:8080/data' \
 --data-raw '{"payload": "dataBytes"}'
 ```
 
-#### Client lib
+#### Client lib - `Data`
 
 ##### `Data(data []byte) (string, error)`
+
 ```go
 messageID, err := goshimAPI.Data([]byte("Hello GoShimmer World"))
 if err != nil {
@@ -277,6 +292,7 @@ if err != nil {
 Note that there is no need to do any additional work, since things like tip-selection, PoW and other tasks are done by the node itself.
 
 ### Response examples
+
 ```json
 {
   "id": "messageID" 
@@ -284,6 +300,9 @@ Note that there is no need to do any additional work, since things like tip-sele
 ```
 
 ### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID of the message. Omitted if error. |
@@ -293,6 +312,9 @@ Note that there is no need to do any additional work, since things like tip-sele
 
 
 ## `/messages/payload`
+
+Method: `POST`
+
 `SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload and returns its `messageID`. Note, that the payload must be valid, otherwise an error is returned.
 
 ### Parameters
@@ -322,15 +344,17 @@ curl --location --request POST 'http://localhost:8080/messages/payload' \
 --data-raw '{"payload": "payloadBytes"}'
 ```
 
-#### Client lib
+#### Client lib - `SendPayload`
 
 ##### `SendPayload(payload []byte) (string, error)`
+
 ```go
 helloPayload := payload.NewData([]byte{"Hello Goshimmer World!"})
 messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 ```
 
 ### Response examples
+
 ```shell
 {
   "id": "messageID" 
@@ -338,6 +362,9 @@ messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 ```
 
 ### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID of the message. Omitted if error. |

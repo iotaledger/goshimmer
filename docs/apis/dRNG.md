@@ -3,14 +3,14 @@
 The dRNG APIs provide methods to retrieve basic info about dRNG committees and randomness as well as to broadcast collective randomness beacon.
 HTTP APIs:
 
-* [/drng/collectiveBeacon](#collectiveBeacon)
-* [/drng/info/committee](#infoCommittee)
-* [/drng/info/randomness](#infoRandomness)
+* [/drng/collectiveBeacon](#drngcollectivebeacon)
+* [/drng/info/committee](#drnginfocommittee)
+* [/drng/info/randomness](#drnginforandomness)
 
 Client lib APIs:
-* [BroadcastCollectiveBeacon()](#collectiveBeacon)
-* [GetRandomness()](#infoCommittee)
-* [GetCommittee()](#infoRandomness)
+* [BroadcastCollectiveBeacon()](#client-lib---broadcastcollectivebeacon)
+* [GetRandomness()](#client-lib---getrandomness)
+* [GetCommittee()](#client-lib---getcommittee)
 
 
 ## `/drng/collectiveBeacon`
@@ -46,9 +46,10 @@ curl --location --request POST 'http://localhost:8080/drng/collectiveBeacon' \
 --data-raw '{"payload": "collectiveBeaconBytes"}'
 ```
 
-#### Client lib
+#### Client lib -`BroadcastCollectiveBeacon`
 
-##### `BroadcastCollectiveBeacon` 
+Collective beacon can be broadcast using `BroadcastCollectiveBeacon(payload []byte) (string, error)`.
+
 ```go
 msgId, err := goshimAPI.BroadcastCollectiveBeacon(payload)
 if err != nil {
@@ -56,7 +57,8 @@ if err != nil {
 }
 ```
 
-### Response examples
+### Response example
+
 ```shell
 {
   "id": "messageID" 
@@ -64,6 +66,9 @@ if err != nil {
 ```
 
 ### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID of beacon message. Omitted if error. |
@@ -85,7 +90,9 @@ None.
 curl http://localhost:8080/drng/info/committee
 ```
 
-#### client lib - `GetCommittee()`
+#### Client lib - `GetCommittee`
+
+Available committees can be retrieved using `GetCommittee() (*jsonmodels.CommitteeResponse, error)`.
 
 ```go
 committees, err := goshimAPI.GetCommittee()
@@ -99,7 +106,8 @@ for _, m := range committees.Committees {
 }
 ```
 
-### Response examples
+### Response example
+
 ```shell
 {
     "committees": [
@@ -120,12 +128,15 @@ for _, m := range committees.Committees {
 ```
 
 ### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `committees`  | `[]Committee` | A list of DRNG committees.   |
 | `error` | `string` | Error message. Omitted if success.     |
 
-#### `Committee`
+* Type `Committee`
 
 |field | Type | Description|
 |:-----|:------|:------|
@@ -150,7 +161,10 @@ None.
 curl http://localhost:8080/drng/info/randomness
 ```
 
-#### client lib - `GetRandomness()`
+#### client lib - `GetRandomness`
+
+Current randomness from known committees can be retrieved using `GetRandomness() (*jsonmodels.RandomnessResponse, 
+error)`.
 
 ```go
 randomness, err := goshimAPI.GetRandomness()
@@ -164,7 +178,8 @@ for _, m := range randomness.Randomness {
 }
 ```
 
-### Response examples
+### Response example
+
 ```shell
 {
     "randomness": [
@@ -179,14 +194,15 @@ for _, m := range randomness.Randomness {
 ```
 
 ### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `randomness`  | `[]Randomness` | List of randomness  |
 | `error`   | `string` | Error message. Omitted if success.     |
 
-
-
-#### `Randomness`
+* Type `Randomness`
 
 |field | Type | Description|
 |:-----|:------|:------|

@@ -3,21 +3,18 @@
 Faucet endpoint allows requesting funds from the Faucet.
 
 The API provides three functions to interact with this primitive layer:
-* [/faucet](#faucetrequest)
+* [/faucet](#faucet)
 
 
 Client lib APIs:
-* [SendFaucetRequest()](#faucetrequest)
-
+* [SendFaucetRequest()](#client-lib---sendfaucetrequest)
 
 
 ## `/faucet`
 
+Method: `POST`
+
 POST request asking for funds from the faucet to be transferred to address in the request.
-
-### Method 
-
-`POST`
 
 ### Parameters
 
@@ -43,7 +40,7 @@ POST request asking for funds from the faucet to be transferred to address in th
 | **Parameter**            | `powTarget`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | target Proof of Work difficulty |
+| **Description**          | target Proof of Work difficulty, only used in client lib |
 | **Type**                 | int      |
 
 
@@ -72,7 +69,7 @@ curl --location --request POST 'http://localhost:8080/faucet' \
 }'
 ```
 
-#### Client lib
+#### Client lib - SendFaucetRequest
 
 ##### `SendFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels.FaucetResponse, error)`
 ```go
@@ -83,6 +80,7 @@ if err != nil {
 ```
 
 ### Response examples
+
 ```json
 {
   "id": "4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc" 
@@ -90,6 +88,9 @@ if err != nil {
 ```
 
 ### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID of the faucet request. Omitted if error. |

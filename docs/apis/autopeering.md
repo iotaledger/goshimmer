@@ -4,11 +4,11 @@ Peering API allows to retrieve basic information about peering as well as allows
 
 The API provides the following functions and endpoints:
 
-* [/autopeering/neighbors](#getneighbors)
+* [/autopeering/neighbors](#autopeeringneighbors)
 
 
 Client lib APIs:
-* [GetAutopeeringNeighbors()](#getneighbors)
+* [GetAutopeeringNeighbors()](#client-lib---getautopeeringneighbors)
 
 
 
@@ -34,7 +34,7 @@ Returns the chosen and accepted neighbors of the node.
 curl --location 'http://localhost:8080/autopeering/neighbors?known=1'
 ```
 
-#### Client lib
+#### Client lib - `GetAutopeeringNeighbors()`
 
 Messages can be retrieved via `GetAutopeeringNeighbors(knownPeers bool) (*jsonmodels.GetNeighborsResponse, error)`
 ```
@@ -94,6 +94,9 @@ fmt.Println(string(neighbors))
 ```
 
 #### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `known`  | `[]Neighbor` | List of known peers. Only returned when parameter is set. |
@@ -101,7 +104,7 @@ fmt.Println(string(neighbors))
 | `accepted`  | `[]Neighbor` | List of accepted peers. |
 | `error` | `string` | Error message. Omitted if success.     |
 
-`Neighbor`
+* Type `Neighbor`
 
 |field | Type | Description|
 |:-----|:------|:------|
@@ -109,7 +112,7 @@ fmt.Println(string(neighbors))
 | `publicKey`   | `string` | Public key used to verify signatures.   |
 | `services`   | `[]PeerService` | List of exposed services.     |
 
-`PeerService`
+* Type `PeerService`
 
 |field | Type | Description|
 |:-----|:------|:------|

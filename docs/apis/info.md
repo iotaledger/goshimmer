@@ -4,12 +4,11 @@ Info API returns basic info about the node
 
 The API provides the following functions and endpoints:
 
-* [/info](#getinfo)
-
+* [/info](#info)
+* [/healthz](#healthz)
 
 Client lib APIs:
-* [Info()](#getinfo)
-
+* [Info()](#client-lib---info)
 
 
 ##  `/info`
@@ -28,7 +27,7 @@ None.
 curl --location 'http://localhost:8080/info'
 ```
 
-#### Client lib
+#### Client lib - `Info`
 
 Information of a node can be retrieved via `Info() (*jsonmodels.InfoResponse, error)`
 ```go
@@ -41,7 +40,8 @@ if err != nil {
 fmt.Println(string(info))
 ```
 
-#### Response examples
+#### Response example
+
 ```json
 {
   "version": "v0.6.2",
@@ -126,6 +126,9 @@ fmt.Println(string(info))
 ```
 
 #### Results
+
+* Returned type
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `version`  | `String` | Version of GoShimmer. |
@@ -145,3 +148,66 @@ fmt.Println(string(info))
 | `scheduler`  | `Scheduler` |  Scheduler is the scheduler used.|
 | `rateSetter`  | `RateSetter` | RateSetter is the rate setter used. |
 | `error` | `string` | Error message. Omitted if success.     |
+
+* Type `TangleTime`
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `messageID`  | `string` | ID of the last confirmed message.  |
+| `time`   | `int64` | Issue timestamp of the last confirmed message.    |
+| `synced`   | `bool` | Flag indicating whether node is in sync.     |
+
+
+* Type `Scheduler`
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `running`  | `bool` | Flag indicating whether Scheduler has started.  |
+| `rate`   | `string` | Rate of the scheduler.    |
+| `nodeQueueSizes`   | `map[string]int` | The size for each node queue.     |
+
+* Type `RateSetter`
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `rate`  | `float64` | The rate of the rate setter..  |
+| `size`   | `int` | The size of the issuing queue.    |
+
+* Type `Mana`
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `access`  | `float64` | Access mana assigned to the node.  |
+| `accessTimestamp`   | `time.Time` | Time when the access mana was calculated.    |
+| `consensus`   | `float64` | Consensus mana assigned to the node.   |
+| `consensusTimestamp`   | `time.Time` | Time when the consensus mana was calculated.   |
+
+
+
+##  `/healthz`
+
+Returns HTTP code 200 if everything is running correctly.
+
+
+### Parameters
+None.
+
+### Examples
+
+#### cURL
+
+```shell
+curl --location 'http://localhost:8080/healthz'
+```
+
+#### Client lib
+
+This method is not available in client lib
+
+#### Response example
+
+HTTP response: `200 OK` 
+
+#### Results
+
+Empty response with HTTP 200 success code if everything is running correctly.
