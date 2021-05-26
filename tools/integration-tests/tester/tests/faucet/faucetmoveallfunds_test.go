@@ -22,19 +22,11 @@ func TestPrepareFaucet(t *testing.T) {
 		framework.ParaPoWDifficulty = prevPoWDiff
 		framework.ParaFaucetPreparedOutputsCount = prevFaucetPreparedOutputsCount
 	}()
-	n, err := f.CreateNetwork("faucet_testPrepareGenesis", 0, framework.CreateNetworkConfig{Faucet: true})
+	n, err := f.CreateNetwork("faucet_testPrepareGenesis", 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
-	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
-		Seed:           "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
-		Faucet:         true,
-		Mana:           true,
-		ActivityPlugin: true,
-		StartSynced:    true,
-	})
-	require.NoError(t, err)
-	time.Sleep(15 * time.Second)
+	faucet := n.Peers()[0]
 
 	// Tests genesis output is split into 10 outputs. [1,2,...10] and balance,
 	const genesisBalance = int64(1000000000000000)
@@ -61,22 +53,11 @@ func TestPrepareFaucet(t *testing.T) {
 	assert.Equal(t, true, exist)
 	assert.Equal(t, balance, int64(balanceValue))
 
-	// add 1 node to the network
-	peer, err := n.CreatePeerWithMana(framework.GoShimmerConfig{
-		Mana:           true,
-		ActivityPlugin: true,
-	})
-	require.NoError(t, err)
-
-	time.Sleep(5 * time.Second)
-	err = n.DoManualPeeringAndWait()
-	require.NoError(t, err)
-
-	time.Sleep(5 * time.Second)
+	peer := n.Peers()[1]
 
 	// issue 9 requests to consume the 1st 9 faucet prepared outputs.
-	for i = 1; i < 9; i++ {
-		addr := peer.Address(i).Address()
+	for i = 1; i <= 9; i++ {
+		addr := peer.Seed.Address(i).Address()
 		tests.SendFaucetRequest(t, peer, addr)
 	}
 	time.Sleep(5 * time.Second)
@@ -106,7 +87,7 @@ func TestPrepareFaucet(t *testing.T) {
 	tests.SendFaucetRequest(t, peer, addr)
 	addr = peer.Seed.Address(11).Address()
 	tests.SendFaucetRequest(t, peer, addr)
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// check split of balance [0] to [11...20]
 	_addr := faucet.Seed.Address(0).Address().Base58()
