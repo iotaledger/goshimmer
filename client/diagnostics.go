@@ -114,7 +114,7 @@ func (api *GoShimmerAPI) GetDiagnosticsWeakTips() (*csv.Reader, error) {
 	return api.diagnose(tools.RouteDiagnosticsWeakTips)
 }
 
-// GetDiagnosticsDrng runs diagnostics for DRNG
+// GetDiagnosticsDRNG runs diagnostics for DRNG
 // Returns csv with the following fields:
 //
 // 	ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,BookedTime,OpinionFormedTime,
