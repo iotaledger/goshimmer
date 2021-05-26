@@ -420,6 +420,7 @@ func (msg *MsgGetUnspentAliasOutput) Type() MessageType {
 func (msg *MsgOutput) Write(w *marshalutil.MarshalUtil) {
 	w.Write(msg.Address)
 	w.Write(msg.Output)
+	w.Write(msg.Output.ID()) // we need it because output ID is not persisted in the output itself
 	w.Write(msg.OutputMetadata)
 }
 
@@ -431,6 +432,11 @@ func (msg *MsgOutput) Read(m *marshalutil.MarshalUtil) error {
 	if msg.Output, err = ledgerstate.OutputFromMarshalUtil(m); err != nil {
 		return err
 	}
+	id, err := ledgerstate.OutputIDFromMarshalUtil(m)
+	if err != nil {
+		return err
+	}
+	msg.Output.SetID(id)
 	if msg.OutputMetadata, err = ledgerstate.OutputMetadataFromMarshalUtil(m); err != nil {
 		return err
 	}
@@ -445,6 +451,7 @@ func (msg *MsgOutput) Type() MessageType {
 func (msg *MsgUnspentAliasOutput) Write(w *marshalutil.MarshalUtil) {
 	w.Write(msg.AliasAddress)
 	w.Write(msg.AliasOutput)
+	w.Write(msg.AliasOutput.ID()) // we need it because output ID is not persisted in the output itself
 	w.WriteTime(msg.Timestamp)
 	w.Write(msg.OutputMetadata)
 }
@@ -457,6 +464,11 @@ func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	if msg.AliasOutput, err = ledgerstate.AliasOutputFromMarshalUtil(m); err != nil {
 		return err
 	}
+	id, err := ledgerstate.OutputIDFromMarshalUtil(m)
+	if err != nil {
+		return err
+	}
+	msg.AliasOutput.SetID(id)
 	if msg.Timestamp, err = m.ReadTime(); err != nil {
 		return err
 	}
