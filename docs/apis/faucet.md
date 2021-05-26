@@ -1,4 +1,4 @@
-# Faucet API
+# Faucet API Methods
 
 Faucet endpoint allows requesting funds from the Faucet.
 
@@ -85,13 +85,12 @@ if err != nil {
 ### Response examples
 ```json
 {
-  "id": "messageID" 
+  "id": "4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc" 
 }
 ```
 
 ### Results
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID of the message. Omitted if error. |
+| `id`  | `string` | Message ID of the faucet request. Omitted if error. |
 | `error`   | `string` | Error message. Omitted if success.    |
-

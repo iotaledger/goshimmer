@@ -36,13 +36,13 @@ Return message.
 #### cURL
 
 ```shell
-curl --location --request POST 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc'
+curl --location --request GET 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc'
 ```
 
 #### Client lib
 
 Messages can be retrieved via `GetMessage(base58EncodedID string) (*jsonmodels.Message, error) `
-```
+```go
 message, err := goshimAPI.GetMessage(base58EncodedMessageID)
 if err != nil {
     // return error
@@ -52,7 +52,7 @@ if err != nil {
 fmt.Println(string(message.Payload))
 ```
 
-Note that we're getting actual `Message` objects from this call which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that `FindMessageByID` will also return messages which contain value objects or DRNG payloads.
+Note that we're getting actual `Message` objects from this call which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that this will also return messages which contain a transactions or DRNG payloads.
 
 #### Response examples
 ```json
@@ -112,7 +112,7 @@ Return message metadata.
 #### cURL
 
 ```shell
-curl --location --request POST 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc/metadata'
+curl --location --request GET 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc/metadata'
 ```
 
 #### Client lib
@@ -293,7 +293,7 @@ Note that there is no need to do any additional work, since things like tip-sele
 
 
 ## `/messages/payload`
-`SendPayload()` takes a `payload` object of any type (data, value, drng, etc.) as a byte slice, issues a message with the given payload and returns its `messageID`. Note, that the payload must be valid, otherwise an error is returned.
+`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload and returns its `messageID`. Note, that the payload must be valid, otherwise an error is returned.
 
 ### Parameters
 

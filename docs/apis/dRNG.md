@@ -2,6 +2,7 @@
 
 The dRNG APIs provide methods to retrieve basic info about dRNG committees and randomness as well as to broadcast collective randomness beacon.
 HTTP APIs:
+
 * [/drng/collectiveBeacon](#collectiveBeacon)
 * [/drng/info/committee](#infoCommittee)
 * [/drng/info/randomness](#infoRandomness)
@@ -69,7 +70,7 @@ if err != nil {
 | `error`   | `string` | Error message. Omitted if success.    |
 
 
-## `/drng/info/randomness`
+## `/drng/info/committee`
 
 Returns the current DRNG committee used.
 
@@ -81,10 +82,10 @@ None.
 #### cURL
 
 ```shell
-curl http://localhost:8080/drng/info/randomness
+curl http://localhost:8080/drng/info/committee
 ```
 
-#### client lib - `GetAllMana()`
+#### client lib - `GetCommittee()`
 
 ```go
 committees, err := goshimAPI.GetCommittee()
@@ -157,8 +158,7 @@ if err != nil {
     // return error
 }
 
-// mana updated time
-// list committees
+// list randomness
 for _, m := range randomness.Randomness {
     fmt.Println("committee ID: ", m.InstanceID, "Randomness:", m.Randomness)
 }
@@ -191,7 +191,6 @@ for _, m := range randomness.Randomness {
 |field | Type | Description|
 |:-----|:------|:------|
 | `instanceID`  | `uint32` | The identifier of the dRAND instance.  |
-| `round`   | `uint64` | The c current DRNG round.    |
+| `round`   | `uint64` | The current DRNG round.    |
 | `timestamp`   | `time.Time` | The timestamp of the current randomness message     |
 | `randomness`   | `[]byte` | The current randomness as a slice of bytes    |
-

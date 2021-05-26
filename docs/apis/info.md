@@ -1,4 +1,4 @@
-# Info API
+# Info API Methods
 
 Info API returns basic info about the node
 
@@ -12,7 +12,7 @@ Client lib APIs:
 
 
 
-##  `/autopeering/neighbors`
+##  `/info`
 
 Returns basic info about the node.
 
@@ -30,8 +30,8 @@ curl --location 'http://localhost:8080/info'
 
 #### Client lib
 
-Messages can be retrieved via `Info() (*jsonmodels.InfoResponse, error)`
-```
+Information of a node can be retrieved via `Info() (*jsonmodels.InfoResponse, error)`
+```go
 info, err := goshimAPI.Info()
 if err != nil {
     // return error

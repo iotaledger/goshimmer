@@ -1,4 +1,4 @@
-# Peering APIs
+# Peering API Methods
 
 Peering API allows to retrieve basic information about peering as well as allows manual peering (TODO).
 
@@ -14,7 +14,7 @@ Client lib APIs:
 
 ##  `/autopeering/neighbors`
 
-Returns the chosen and accepted neighbors of the node
+Returns the chosen and accepted neighbors of the node.
 
 
 ### Parameters
@@ -22,7 +22,7 @@ Returns the chosen and accepted neighbors of the node
 | **Parameter**            | `known`      |
 |--------------------------|----------------|
 | **Required or Optional** | optional       |
-| **Description**          | Return all know peers, set to `1` (default: `0`)   |
+| **Description**          | Return all known peers, set to `1` (default: `0`)   |
 | **Type**                 | int         |
 
 
@@ -113,5 +113,5 @@ fmt.Println(string(neighbors))
 
 |field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | ID of the service.  |
+| `id`  | `string` | Type of service.  |
 | `address`   | `string` |  Network address of the service.   |
