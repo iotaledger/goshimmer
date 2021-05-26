@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -218,9 +217,6 @@ func (kp *knownPeer) setConnStatus(cs ConnectionStatus) {
 }
 
 func (m *Manager) addPeer(p *peer.Peer) error {
-	services := p.Services().CreateRecord()
-	services.Update(service.PeeringKey, "tcp", 343)
-	p = peer.NewPeer(p.Identity, p.IP(), services)
 	if !m.isStarted.IsSet() {
 		return errors.New("manualpeering manager hasn't been started yet")
 	}
