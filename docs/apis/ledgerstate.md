@@ -465,7 +465,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID \
 -H 'Content-Type: application/json'
 ```
 
-where :outputID is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
+where `:outputID` is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
 
 #### Client lib - `GetOutput()`
 ```Go
@@ -533,7 +533,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID/consumers \
 -H 'Content-Type: application/json'
 ```
 
-where :outputID is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
+where `:outputID` is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
 
 #### Client lib - `GetOutputConsumers()`
 ```Go
@@ -613,10 +613,10 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID/metadata \
 -X GET \
 -H 'Content-Type: application/json'
 
-
-where :outputID is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
-
 ```
+
+where `:outputID` is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
+
 #### Client lib - `GetOutputMetadata()`
 ```Go
 resp, err := goshimAPI.GetOutputMetadata("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
