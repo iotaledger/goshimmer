@@ -21,10 +21,10 @@ messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5f
 
 // get the given address from your wallet instance and 
 // use String() to get its Base58 representation
+connector := wallet.GenericConnector(wallet.NewWebConnector("http://localhost:8080"))
 //TODO add options and explain what they are
-addr := wallet.New().Seed().Address(0)
-//TODO add correct PowTarget 
-messageID, err := goshimAPI.SendFaucetRequest(addr.String())
+addr := wallet.New(connector).Seed().Address(0)
+messageID, err := goshimAPI.SendFaucetRequest(addr.String(), 22)
 ```
 
 ### Via the HTTP API directly
