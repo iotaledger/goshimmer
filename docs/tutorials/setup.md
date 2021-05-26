@@ -253,7 +253,7 @@ When the node starts for the first time, it must synchronize its state with the 
 #### Dashboard
 The dashboard of your GoShimmer node should be accessible via `http://<your-ip>:8081`. If your node is still synchronizing, you might see a higher inflow of MPS.
 
-![](https://i.imgur.com/8xAvi7X.png)
+![](https://user-images.githubusercontent.com/11289354/119599542-c3985e00-be17-11eb-8769-7e639f365ae5.png)
 
 After a while, your node's dashboard should also display up to 8 neighbors:
 ![](https://i.imgur.com/gAyAXK9.png)
@@ -263,31 +263,41 @@ After a while, your node's dashboard should also display up to 8 neighbors:
 GoShimmer also exposes an HTTP API. To check whether that works correctly, you can access it via `http://<your-ip>:8080/info` which should return a JSON response in the form of:
 ```
 {
-  "version": "v0.2.0",
-  "synced": true,
-  "identityID": "69RxiehGQ2c",
-  "publicKey": "52Gzw9bo7k2dARFi4yxtt3B8xMht5UeFQX7pWdLFnxV5",
+  "version": "v0.6.2",
+  "networkVersion": 30,
+  "tangleTime": {
+    "messageID": "6ndfmfogpH9H8C9X9Fbb7Jmuf8RJHQgSjsHNPdKUUhoJ",
+    "time": 1621879864032595415,
+    "synced": true
+  },
+  "identityID": "D9SPFofAGhA5V9QRDngc1E8qG9bTrnATmpZMdoyRiBoW",
+  "identityIDShort": "XBgY5DsUPng",
+  "publicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd",
+  "solidMessageCount": 74088,
+  "totalMessageCount": 74088,
   "enabledPlugins": [
-    "Analysis-Client",
-    "Autopeering",
-    "CLI",
-    "Config",
-    "DRNG",
-    "Dashboard",
-    "Database",
-    "Gossip",
     ...
-    "WebAPI info Endpoint",
-    "WebAPI message Endpoint"
   ],
   "disabledPlugins": [
-    "Analysis-Dashboard",
-    "Analysis-Server",
-    "Banner",
-    "Bootstrap",
-    "Faucet",
-    "WebAPI Auth"
-  ]
+    ...
+  ],
+  "mana": {
+    "access": 1,
+    "accessTimestamp": "2021-05-24T20:11:05.451224937+02:00",
+    "consensus": 10439991680906,
+    "consensusTimestamp": "2021-05-24T20:11:05.451228137+02:00"
+  },
+  "manaDelegationAddress": "1HMQic52dz3xLY2aeDXcDhX53LgbsHghdfD8eGXR1qVHy",
+  "mana_decay": 0.00003209,
+  "scheduler": {
+    "running": true,
+    "rate": "5ms",
+    "nodeQueueSizes": {}
+  },
+  "rateSetter": {
+    "rate": 20000,
+    "size": 0
+  }
 }
 ```
 
