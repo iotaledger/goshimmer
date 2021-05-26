@@ -38,8 +38,8 @@ const (
 var (
 	// ParaTangleTimeWindow defines the time window in which the node will consider itself in sync.
 	ParaTangleTimeWindow = 30 * time.Second
-	// ParaFCoBAverageNetworkDelay defines the configured avg. network delay (in seconds) for the FCOB rules.
-	ParaFCoBAverageNetworkDelay = 5
+	// ParaFCoBQuarantineTime defines the configured avg. network delay (in seconds) for the FCOB rules.
+	ParaFCoBQuarantineTime = 5
 	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
 	ParaOutboundUpdateIntervalMs = 100
 	// ParaFaucetTokensPerRequest defines the tokens to send up on each faucet request message.

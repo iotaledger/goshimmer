@@ -120,8 +120,8 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
 	}
 
-	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
-	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
+	fcob.LikedThreshold = time.Duration(Parameters.FCOB.QuarantineTime) * time.Second
+	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.QuarantineTime*2) * time.Second
 
 	configureApprovalWeight()
 }

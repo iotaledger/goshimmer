@@ -21,7 +21,7 @@ import (
 
 func TestConsensus(t *testing.T) {
 	// backupParaWaitToKill := framework.ParaWaitToKill
-	// framework.ParaWaitToKill = 2*framework.ParaFCoBAverageNetworkDelay + 10
+	// framework.ParaWaitToKill = 2*framework.ParaFCoBQuarantineTime + 10
 
 	const numberOfPeers = 6
 
@@ -61,8 +61,8 @@ func TestConsensus(t *testing.T) {
 
 	// sleep the avg. network delay so both partitions confirm their own first seen transaction
 	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
-		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay)
-	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
+		"preferred in their corresponding partition", framework.ParaFCoBQuarantineTime)
+	time.Sleep(time.Duration(framework.ParaFCoBQuarantineTime) * time.Second)
 
 	// issue one transaction per peer to pledge mana to nodes
 	// leave one unspent output from splitting genesis transaction for further conflict creation
@@ -92,8 +92,8 @@ func TestConsensus(t *testing.T) {
 	}
 	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
 	// and 1 avg delay more to make sure each node has mana
-	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBAverageNetworkDelay)
-	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*2*time.Second + 5*time.Second)
+	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBQuarantineTime)
+	time.Sleep(time.Duration(framework.ParaFCoBQuarantineTime)*2*time.Second + 5*time.Second)
 
 	resp1, err := n.Peers()[0].GoShimmerAPI.GetAllMana()
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestConsensus(t *testing.T) {
 		conflictingTxIDs[i] = resp.TransactionID
 
 		// sleep to prefer the first one
-		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
+		time.Sleep(time.Duration(framework.ParaFCoBQuarantineTime) * time.Second)
 	}
 
 	log.Println("waiting for transactions to be available on all peers...")
