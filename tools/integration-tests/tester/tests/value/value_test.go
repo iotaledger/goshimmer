@@ -38,7 +38,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultUpperBoundNetworkDelay)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -55,7 +55,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -107,7 +107,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(3 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(3 * messagelayer.DefaultUpperBoundNetworkDelay)
 
 	// check whether the transactions are available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -125,7 +125,7 @@ func TestValueColoredPersistence(t *testing.T) {
 		time.Sleep(2 * time.Second)
 	}
 	// wait for value messages to be gossiped
-	time.Sleep(3 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(3 * messagelayer.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{

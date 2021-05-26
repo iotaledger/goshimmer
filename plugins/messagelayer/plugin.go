@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	// DefaultAverageNetworkDelay contains the default average time it takes for a network to propagate through gossip.
-	DefaultAverageNetworkDelay = 5 * time.Second
+	// DefaultUpperBoundNetworkDelay contains the default upper bound duration it takes for a message to propagate through the network through gossip.
+	DefaultUpperBoundNetworkDelay = 5 * time.Second
 )
 
 var (
