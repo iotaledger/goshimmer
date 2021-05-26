@@ -14,6 +14,8 @@ func TestPayload(t *testing.T) {
 
 	abytes := a.Bytes()
 
+	t.Log(a.Type().String())
+
 	b, _, err := FromBytes(abytes)
 	require.NoError(t, err)
 
