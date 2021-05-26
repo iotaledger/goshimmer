@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/timeutil"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
@@ -51,6 +52,7 @@ type Tangle struct {
 
 	setupParserOnce sync.Once
 	fifoScheduling  typeutils.AtomicBool
+	shutdownSignal  chan struct{}
 }
 
 // New is the constructor for the Tangle.
@@ -61,6 +63,7 @@ func New(options ...Option) (tangle *Tangle) {
 			MessageInvalid:  events.NewEvent(MessageIDCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},
+		shutdownSignal: make(chan struct{}),
 	}
 
 	tangle.Configure(options...)
@@ -142,19 +145,25 @@ func (t *Tangle) Setup() {
 	// pass solid messages to the scheduler
 	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(t.schedule))
 
+	var switchSchedulerOnce sync.Once
 	// switch the scheduler, the first time we get synced
 	t.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(e *SyncChangedEvent) {
-		if !e.Synced {
+		// only switch, if we became synced and the FIFO scheduler is currently running
+		if !e.Synced || !t.fifoScheduling.IsSet() {
 			return
 		}
-		// switch the scheduler exactly once
-		if t.fifoScheduling.SetToIf(true, false) {
+		switchSchedulerOnce.Do(func() {
 			// switching the scheduler takes some time, so we must not do it directly in the event func
 			go func() {
-				t.FIFOScheduler.Shutdown() // schedule remaining messages
-				t.Scheduler.Start()        // start the actual scheduler
+				// delay the actual switch by the sync time windows, the SyncChange event will be triggered
+				// at least this duration before the most recent messages have been solidified
+				if timeutil.Sleep(t.Options.SyncTimeWindow, t.shutdownSignal) {
+					t.fifoScheduling.SetTo(false) // stop adding new messages to the FIFO scheduler
+					t.FIFOScheduler.Shutdown()    // schedule remaining messages
+					t.Scheduler.Start()           // start the actual scheduler
+				}
 			}()
-		}
+		})
 	}))
 }
 
@@ -206,6 +215,8 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
+	close(t.shutdownSignal)
+
 	t.MessageFactory.Shutdown()
 	t.RateSetter.Shutdown()
 	t.FIFOScheduler.Shutdown()
