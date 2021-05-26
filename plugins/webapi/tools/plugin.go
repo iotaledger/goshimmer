@@ -14,18 +14,29 @@ import (
 const PluginName = "WebAPI tools Endpoint"
 
 const (
-	routeDiagnostics                           = "tools/diagnostic"
-	RouteDiagnosticMessages                    = routeDiagnostics + "/messages"
+	routeDiagnostics = "tools/diagnostic"
+	// API route for message diagnostics
+	RouteDiagnosticMessages = routeDiagnostics + "/messages"
+	// API route for first weak message diagnostics
 	RouteDiagnosticsFirstWeakMessageReferences = RouteDiagnosticMessages + "/firstweakreferences"
-	RouteDiagnosticsMessageRank                = RouteDiagnosticMessages + "/rank/:rank"
-	RouteDiagnosticsUtxoDag                    = routeDiagnostics + "/utxodag"
-	RouteDiagnosticsBranches                   = routeDiagnostics + "/branches"
-	RouteDiagnosticsLazyBookedBranches         = RouteDiagnosticsBranches + "/lazybooked"
-	RouteDiagnosticsInvalidBranches            = RouteDiagnosticsBranches + "/invalid"
-	RouteDiagnosticsTips                       = routeDiagnostics + "/tips"
-	RouteDiagnosticsStrongTips                 = RouteDiagnosticsTips + "/strong"
-	RouteDiagnosticsWeakTips                   = RouteDiagnosticsTips + "/weak"
-	RouteDiagnosticsDRNG                       = routeDiagnostics + "/drng"
+	// API route for message diagnostics with a rank filter
+	RouteDiagnosticsMessageRank = RouteDiagnosticMessages + "/rank/:rank"
+	// API route for Utxo Dag diagnostics
+	RouteDiagnosticsUtxoDag = routeDiagnostics + "/utxodag"
+	// API route for branches diagnostics
+	RouteDiagnosticsBranches = routeDiagnostics + "/branches"
+	// API route for booked branches diagnostics
+	RouteDiagnosticsLazyBookedBranches = RouteDiagnosticsBranches + "/lazybooked"
+	// API route for invalid branches diagnostics
+	RouteDiagnosticsInvalidBranches = RouteDiagnosticsBranches + "/invalid"
+	// API route for tips diagnostics
+	RouteDiagnosticsTips = routeDiagnostics + "/tips"
+	// API route for strong tips diagnostics
+	RouteDiagnosticsStrongTips = RouteDiagnosticsTips + "/strong"
+	// API route for weak tips diagnostics
+	RouteDiagnosticsWeakTips = RouteDiagnosticsTips + "/weak"
+	// API route for DRNG diagnostics
+	RouteDiagnosticsDRNG = routeDiagnostics + "/drng"
 )
 
 var (
