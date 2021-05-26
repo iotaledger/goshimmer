@@ -30,6 +30,8 @@ Client lib APIs:
 * [GetConsensusEventLogs()](#client-lib---getconsensuseventlogs)
 * [GetAllowedManaPledgeNodeIDs()](#client-lib---getallowedmanapledgenodeids)
 
+<br />
+
 ## `/mana`
 
 Get the access and consensus mana of the node.
@@ -118,6 +120,7 @@ if err != nil {
 | `consensus`   | float64 | The amount of consensus mana.     |
 | `consensusTimestamp` | int64 | The timestamp of consensus mana updates.  |
 
+<br />
 
 ## `/mana/all`
 
@@ -196,6 +199,7 @@ for _, m := range manas.Consensus {
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of mana.     |
 
+<br />
 
 ## `/mana/percentile`
 
@@ -254,6 +258,7 @@ fmt.Println("consensus mana percentile: ", mana.Consensus, "consensus mana updat
 | `consensus`   | float64 | Access mana percentile of a node.     |
 | `consensusTimestamp` | int64 | The timestamp of consensus mana updates.  |
 
+<br />
 
 ## `/mana/access/online`
 
@@ -315,6 +320,7 @@ for _, m := accessMana.Online {
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of access mana.     |
 
+<br />
 
 ## `/mana/consensus/online`
 
@@ -376,6 +382,7 @@ for _, m := accessMana.Online {
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of consensus mana.     |
 
+<br />
 
 ## `/mana/access/nhighest`
 
@@ -441,6 +448,7 @@ for _, m := accessMana.Nodes {
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of mana.     |
 
+<br />
 
 ## `/mana/consensus/nhighest`
 
@@ -505,6 +513,7 @@ for _, m := consensusMana.Nodes {
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of mana.     |
 
+<br />
 
 ## `/mana/pending`
 
@@ -557,6 +566,7 @@ fmt.Println("the timestamp of the output (decay duration)", res.Timestamp)
 | `outputID`  | string | The output ID of the request.     |
 | `timestamp` | int64 | The timestamp of mana updates.  |
 
+<br />
 
 ## `/mana/consensus/past`
 
@@ -621,6 +631,7 @@ for _, m := range res.Consensus {
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of mana.     |
 
+<br />
 
 ## `/mana/consensus/logs`
 
@@ -745,6 +756,7 @@ for nodeID, e := range res.Logs {
 | `amount`   | float64 | The amount of revoked mana.    |
 | `inputID`   | string | The input ID of revoked mana.     |
 
+<br />
 
 ## `/mana/allowedManaPledge`
 
