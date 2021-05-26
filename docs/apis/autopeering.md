@@ -1,6 +1,6 @@
 # Peering API Methods
 
-Peering API allows to retrieve basic information about peering as well as allows manual peering (TODO).
+Peering API allows retrieving basic information about autopeering.
 
 The API provides the following functions and endpoints:
 

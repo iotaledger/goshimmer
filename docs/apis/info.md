@@ -204,10 +204,6 @@ curl --location 'http://localhost:8080/healthz'
 
 This method is not available in client lib
 
-#### Response example
-
-HTTP response: `200 OK` 
-
 #### Results
 
 Empty response with HTTP 200 success code if everything is running correctly.
