@@ -17,6 +17,7 @@ http://goshimmer.docs.iota.org/
   - [Create a static identity](./tutorials/static_identity.md)
   - [Set up a custom dRNG committee](./tutorials/custom_dRNG.md)
   - [Set up the Monitoring Dashboard](./tutorials/monitoring.md)
+  - [How to create and send transactions](./tutorials/send_transaction.md)
 
 - [Implementation design](./implementation_design.md)
   - [Event driven model](./implementation_design/event_driven_model.md)
