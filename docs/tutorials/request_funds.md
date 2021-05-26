@@ -21,7 +21,7 @@ messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5f
 
 // get the given address from your wallet instance and 
 // use String() to get its Base58 representation
-addr := wallet.Seed().Address(0)
+addr := wallet.New().Seed().Address(0)
 messageID, err := goshimAPI.SendFaucetRequest(addr.String())
 ```
 
