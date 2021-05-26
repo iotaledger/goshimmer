@@ -85,7 +85,7 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if data != nil {
 		options = append(options, createnftoptions.ImmutableData(data))
 	}
-
+	fmt.Println("Creating NFT...")
 	_, nftID, err := cliWallet.CreateNFT(options...)
 	if err != nil {
 		printUsage(command, err.Error())
@@ -93,5 +93,5 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	fmt.Println()
 	fmt.Println("Created NFT with ID: ", nftID.Base58())
-	fmt.Println("Creating NFT ... [DONE]")
+	fmt.Println("Creating NFT... [DONE]")
 }

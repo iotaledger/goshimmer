@@ -24,7 +24,7 @@ var Parameters = struct {
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
-	TangleTimeWindow time.Duration `default:"2m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+	TangleTimeWindow time.Duration `default:"1m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`
@@ -116,7 +116,7 @@ var RateSetterParameters = struct {
 // SchedulerParameters contains the configuration parameters used by the Scheduler.
 var SchedulerParameters = struct {
 	// MaxBufferSize defines the maximum buffer size (in bytes).
-	MaxBufferSize int `default:"10000000" usage:"maximum buffer size (in bytes)"`
+	MaxBufferSize int `default:"100000000" usage:"maximum buffer size (in bytes)"` // 100 MB
 	// SchedulerRate defines the frequency to schedule a message.
 	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
 }{}

@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -17,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/manualpeering"
 )
 
 // Network represents a complete GoShimmer network within Docker.
@@ -279,30 +282,88 @@ func (n *Network) Shutdown() error {
 	return nil
 }
 
+func (n *Network) DoManualPeeringAndWait(peers ...*Peer) error {
+	if err := n.DoManualPeering(peers...); err != nil {
+		return errors.WithStack(err)
+	}
+	if err := n.WaitForManualpeering(peers...); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (n *Network) DoManualPeering(peers ...*Peer) error {
+	if len(peers) == 0 {
+		peers = n.peers
+	}
+	for idx, p := range peers {
+		allOtherPeers := make([]*Peer, 0, len(peers)-1)
+		allOtherPeers = append(allOtherPeers, peers[:idx]...)
+		allOtherPeers = append(allOtherPeers, peers[idx+1:]...)
+		peersToAdd := ToPeerModels(allOtherPeers)
+		if err := p.AddManualPeers(peersToAdd); err != nil {
+			return errors.Wrap(err, "failed to add manual peers via API")
+		}
+	}
+	return nil
+}
+
 // WaitForAutopeering waits until all peers have reached the minimum amount of neighbors.
-// Returns error if this minimum is not reached after autopeeringMaxTries.
+// Returns error if this minimum is not reached after peeringMaxTries.
 func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
-	log.Printf("Waiting for autopeering...\n")
-	defer log.Printf("Waiting for autopeering... done\n")
+	getNeighborsFn := func(p *Peer) (int, error) {
+		resp, err := p.GetAutopeeringNeighbors(false)
+		if err != nil {
+			return 0, errors.Wrap(err, "client failed to return autopeering neighbors")
+		}
+		return len(resp.Chosen) + len(resp.Accepted), nil
+	}
+	err := n.waitForPeering(minimumNeighbors, getNeighborsFn)
+	return errors.WithStack(err)
+}
+
+// WaitForManualpeering waits until all peers have reached together as neighbors.
+func (n *Network) WaitForManualpeering(peers ...*Peer) error {
+	getNeighborsFn := func(p *Peer) (int, error) {
+		peers, err := p.GetManualKnownPeers(manualpeering.WithOnlyConnectedPeers())
+		if err != nil {
+			return 0, errors.Wrap(err, "client failed to return manually connected peers")
+		}
+		return len(peers), nil
+	}
+	if len(peers) == 0 {
+		peers = n.peers
+	}
+	err := n.waitForPeering(len(peers)-1, getNeighborsFn, peers...)
+	return errors.Wrap(err, "failed to wait for manual peering to succeed")
+}
+
+type getNeighborsNumberFunc func(p *Peer) (int, error)
+
+func (n *Network) waitForPeering(minimumNeighbors int, getNeighborsFn getNeighborsNumberFunc, peers ...*Peer) error {
+	log.Printf("Waiting for peering...\n")
+	defer log.Printf("Waiting for peering... done\n")
 
 	if minimumNeighbors == 0 {
 		return nil
 	}
+	if len(peers) == 0 {
+		peers = n.peers
+	}
 
-	for i := autopeeringMaxTries; i > 0; i-- {
-
-		for _, p := range n.peers {
-			if resp, err := p.GetAutopeeringNeighbors(false); err != nil {
+	for i := peeringMaxTries; i > 0; i-- {
+		for _, p := range peers {
+			if neighborsNumber, err := getNeighborsFn(p); err != nil {
 				log.Printf("request error: %v\n", err)
 			} else {
-				p.SetNeighbors(resp.Chosen, resp.Accepted)
+				p.SetNeighborsNumber(neighborsNumber)
 			}
 		}
 
 		// verify neighbor requirement
-		min := 100
+		min := math.MaxInt64
 		total := 0
-		for _, p := range n.peers {
+		for _, p := range peers {
 			neighbors := p.TotalNeighbors()
 			if neighbors < min {
 				min = neighbors
@@ -318,7 +379,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 		time.Sleep(5 * time.Second)
 	}
 
-	return fmt.Errorf("autopeering not successful")
+	return fmt.Errorf("peering not successful")
 }
 
 // WaitForMana waits until all peers have access mana.

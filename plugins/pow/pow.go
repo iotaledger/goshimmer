@@ -61,13 +61,13 @@ func DoPOW(msg []byte) (uint64, error) {
 	// get the PoW worker
 	worker := Worker()
 
-	log.Debugw("start PoW", "difficulty", difficulty, "numWorkers", numWorkers)
+	// log.Debugw("start PoW", "difficulty", difficulty, "numWorkers", numWorkers)
 
 	ctx, cancel := context.WithTimeout(context.Background(), parentsRefreshInterval)
 	defer cancel()
 	nonce, err := worker.Mine(ctx, content[:len(content)-pow.NonceBytes], difficulty)
 
-	log.Debugw("PoW stopped", "nonce", nonce, "err", err)
+	// log.Debugw("PoW stopped", "nonce", nonce, "err", err)
 
 	return nonce, err
 }

@@ -18,7 +18,7 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, framework.CreateNetworkConfig{
 		Faucet:      true,
 		Mana:        true,
 		StartSynced: true,
@@ -60,6 +60,8 @@ func TestFaucetPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check whether all issued messages are available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, false)
