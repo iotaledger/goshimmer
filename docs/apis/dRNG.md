@@ -1,6 +1,7 @@
 # dRNG API Methods
 
 The dRNG APIs provide methods to retrieve basic info about dRNG committees and randomness as well as to broadcast collective randomness beacon.
+
 HTTP APIs:
 
 * [/drng/collectiveBeacon](#drngcollectivebeacon)
@@ -8,6 +9,7 @@ HTTP APIs:
 * [/drng/info/randomness](#drnginforandomness)
 
 Client lib APIs:
+
 * [BroadcastCollectiveBeacon()](#client-lib---broadcastcollectivebeacon)
 * [GetRandomness()](#client-lib---getrandomness)
 * [GetCommittee()](#client-lib---getcommittee)
