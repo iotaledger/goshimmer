@@ -43,14 +43,14 @@ If you plan on running your GoShimmer node from home, please only do so if you k
 
 Lets first upgrade the packages on our system:
 ```
-$ apt update && apt dist-upgrade -y
+apt update && apt dist-upgrade -y
 ```
 
 #### Install Docker
 
 Install needed dependencies:
 ```
-$ apt-get install \
+apt-get install \
      apt-transport-https \
      ca-certificates \
      curl \
@@ -60,12 +60,12 @@ $ apt-get install \
 
 Add Docker’s official GPG key:
 ```
-$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
 ```
 
 Verify that the GPG key matches:
 ```
-$ apt-key fingerprint 0EBFCD88
+apt-key fingerprint 0EBFCD88
 pub   rsa4096 2017-02-22 [SCEA]
       9DC8 5822 9FC7 DD38 854A  E2D8 8D81 803C 0EBF CD88
 uid           [ unknown] Docker Release (CE deb) <docker@docker.com>
@@ -75,7 +75,7 @@ sub   rsa4096 2017-02-22 [S]
 
 Add the actual repository:
 ```
-$ add-apt-repository \
+add-apt-repository \
    "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
    $(lsb_release -cs) \
    stable"
@@ -83,23 +83,23 @@ $ add-apt-repository \
 
 Update the package index:
 ```
-$ apt-get update
+apt-get update
 ```
 
 And finally, install docker:
 ```
-$ apt-get install docker-ce docker-ce-cli containerd.io
+apt-get install docker-ce docker-ce-cli containerd.io
 ```
 
 On windows-subsystem for Linux (WSL2) it may be necessary to start docker seperately:
 ```
-$ /etc/init.d/docker start
+/etc/init.d/docker start
 ```
 Note, this may not work on WSL1.
 
 Check whether docker is running by executing `docker ps`:
 ```
-$ docker ps
+docker ps
 CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
 ```
 
@@ -108,17 +108,17 @@ Docker compose gives us the ability to define our services with `docker-compose.
 
 Download docker compose:
 ```
-$ curl -L "https://github.com/docker/compose/releases/download/1.26.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+curl -L "https://github.com/docker/compose/releases/download/1.26.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 ```
 
 Make it executable:
 ```
-$ chmod +x /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
 ```
 
 Check that docker compose works:
 ```
-$ docker-compose --version
+docker-compose --version
 docker-compose version 1.26.0, build d4451659
 ```
 
@@ -127,25 +127,25 @@ docker-compose version 1.26.0, build d4451659
 First, lets create a user defined bridged network. Unlike the already existing `bridge` network, the user defined one will have container name DNS resolution for containers within that network. This is useful if later we want to setup additional containers which need to speak with the GoShimmer container.
 
 ```
-$ docker network create --driver=bridge shimmer
+docker network create --driver=bridge shimmer
 c726034d295c3df66803b92c71ca517a0cf0e3c65c1c6d84ee5fa34ae76cbcd4
 ```
 
 Lets create a folder holding our `docker-compose.yml`:
 ```
-$ mkdir /opt/goshimmer
+mkdir /opt/goshimmer
 ```
 
 Lets create a folder holding our database:
 ```
-$ cd /opt/goshimmer
-$ mkdir db
-$ chmod 0777 db
+cd /opt/goshimmer
+mkdir db
+chmod 0777 db
 ```
 
 Finally, lets create our `docker-compose.yml`:
 ```
-$ nano docker-compose.yml
+nano docker-compose.yml
 ```
 
 and add following content:
@@ -229,7 +229,7 @@ It is important that the ports are correctly mapped so that the node for example
 
 Within the `/opt/goshimmer` folder where the `docker-compose.yml` resides, simply execute:
 ```
-$ docker-compose up -d
+docker-compose up -d
 Pulling goshimmer (iotaledger/goshimmer:0.2.0)...
 ...
 ```
@@ -243,7 +243,7 @@ CONTAINER ID        IMAGE               COMMAND                  CREATED        
 
 You can follow the log output of the node via:
 ```
-$ docker logs -f --since=1m goshimmer
+docker logs -f --since=1m goshimmer
 ```
 
 ### Syncing
@@ -305,31 +305,31 @@ GoShimmer also exposes an HTTP API. To check whether that works correctly, you c
 
 ##### Stopping the node
 ```
-$ docker-compose stop
+docker-compose stop
 ```
 
 ##### Resetting the node
 ```
-$ docker-compose down
+docker-compose down
 ```
 
 ##### Upgrading the node
 **Ensure that the image version in the `docker-compose.yml` is `latest`** then execute following commands:
 ```
-$ docker-compose down
-$ rm db/*
-$ docker-compose pull
-$ docker-compose up -d
+docker-compose down
+rm db/*
+docker-compose pull
+docker-compose up -d
 ```
 
 ##### Following log output
 ```
-$ docker logs -f --since=1m goshimmer
+docker logs -f --since=1m goshimmer
 ```
 
 ##### Create a log.txt
 ```
-$ docker logs goshimmer > log.txt
+docker logs goshimmer > log.txt
 ```
 ##### Update Grafana Dashboard
 If you set up the Grafana dashboard for your node according to the next section "Setting up the Grafana dashboard", the following method will help you to update when a new version is released.
@@ -337,12 +337,12 @@ If you set up the Grafana dashboard for your node according to the next section 
 You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
 Supposing you are at `/opt/goshimmer/`:
 ```
-$ wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
-$ cp local_dashboard.json grafana/dashboards
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
+cp local_dashboard.json grafana/dashboards
 ```
 Restart the grafana container:
 ```
-$ docker restart grafana
+docker restart grafana
 ```
 
 
@@ -386,12 +386,12 @@ Append the following to the previously described `docker-compose.yml` file (**ma
 #### Create Prometheus config
 1. Create a `prometheus/data` directory in `/opt/goshimmer`:
 ```
-$ cd /opt/goshimmer
-$ mkdir -p prometheus/data
+cd /opt/goshimmer
+mkdir -p prometheus/data
 ```
 2. Create a `prometheus.yml` in `prometheus` directory:
 ```
-$ nano prometheus/prometheus.yml
+nano prometheus/prometheus.yml
 ```
 The content of the file should be:
 ```yaml
@@ -404,17 +404,17 @@ scrape_configs:
 ```
 3. Add permissions to `prometheus` config directory:
 ```
-$ chmod -R 777 prometheus
+chmod -R 777 prometheus
 ```
 #### Create Grafana configs
 1. Create necessary config dirs in `/opt/goshimmer/`.
 ```
-$ mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers
-$ mkdir -p grafana/dashboards
+mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers
+mkdir -p grafana/dashboards
 ```
 2. Create a datasource configuration file in `grafana/provisioning/datasources`:
 ```
-$ nano grafana/provisioning/datasources/datasources.yaml
+nano grafana/provisioning/datasources/datasources.yaml
 ```
 With the following content:
 ```yaml
@@ -442,7 +442,7 @@ datasources:
 ```
 3. Create a dashboard configuration file in `grafana/provisioning/dashboards`:
 ```
-$ nano grafana/provisioning/dashboards/dashboards.yaml
+nano grafana/provisioning/dashboards/dashboards.yaml
 ```
 With the following content:
 ```yaml
@@ -464,16 +464,16 @@ providers:
 
 Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json).
 ```
-$ wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
-$ cp local_dashboard.json grafana/dashboards
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
+cp local_dashboard.json grafana/dashboards
 ```
 5. Add permissions to Grafana config folder
 ```
-$ chmod -R 777 grafana
+chmod -R 777 grafana
 ```
 #### Run GoShimmer with Prometheus and Grafana:
 ```
-$ docker-compose up -d
+docker-compose up -d
 ```
 
 The Grafana dashboard should be accessible at `http://<your-ip>:3000`.
