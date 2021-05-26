@@ -19,21 +19,21 @@
 
 
 ## Client lib APIs:
-* [`GetAddressOutputs()](#client-lib---getaddressoutputs)
-* [`GetAddressUnspentOutputs()](#client-lib---getaddressunspentoutputs)
-* [`GetBranch()](#client-lib---getbranch)
-* [`GetBranchChildren()](#client-lib---getbranchchildren)
-* [`GetBranchConflicts()](#client-lib---getbranchconflicts)
-* [`GetOutput()](#client-lib---getoutput)
-* [`GetOutputConsumers()](#client-lib---getoutputconsumers)
-* [`GetOutputMetadata()](#client-lib---getoutputmetadata)
-* [`GetTransaction()](#client-lib---gettransaction)
-* [`GetTransactionMetadata()](#client-lib---gettransactionmetadata)
-* [`GetTransactionInclusionState()](#client-lib---gettransactioninclusionstate)
-* [`GetTransactionConsensusMetadata()](#client-lib---gettransactionconsensusmetadata)
-* [`GetTransactionAttachments()](#client-lib---gettransactionattachments)
-* [`PostTransaction()](#client-lib---posttransaction)
-* [`PostAddressUnspentOutputs()](#client-lib---postaddressunspentoutputs)
+* [GetAddressOutputs()](#client-lib---getaddressoutputs)
+* [GetAddressUnspentOutputs()](#client-lib---getaddressunspentoutputs)
+* [GetBranch()](#client-lib---getbranch)
+* [GetBranchChildren()](#client-lib---getbranchchildren)
+* [GetBranchConflicts()](#client-lib---getbranchconflicts)
+* [GetOutput()](#client-lib---getoutput)
+* [GetOutputConsumers()](#client-lib---getoutputconsumers)
+* [GetOutputMetadata()](#client-lib---getoutputmetadata)
+* [GetTransaction()](#client-lib---gettransaction)
+* [GetTransactionMetadata()](#client-lib---gettransactionmetadata)
+* [GetTransactionInclusionState()](#client-lib---gettransactioninclusionstate)
+* [GetTransactionConsensusMetadata()](#client-lib---gettransactionconsensusmetadata)
+* [GetTransactionAttachments()](#client-lib---gettransactionattachments)
+* [PostTransaction()](#client-lib---posttransaction)
+* [PostAddressUnspentOutputs()](#client-lib---postaddressunspentoutputs)
 
 ## `/ledgerstate/addresses/:address`
 Get address details for a given base58 encoded address ID, such as output types and balances. For the client library API call balances will not be directly available as values because they are stored as a raw message. Balance can be read after retrieving `ledgerstate.Output` instance, as presented in the examples.
@@ -50,11 +50,14 @@ Get address details for a given base58 encoded address ID, such as output types 
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/addresses/6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK \
+curl http://localhost:8080/ledgerstate/addresses/:address \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetAddressOutputs()`
+
+where `:address` is the base58 encoded address, e.g. 6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK.
+
+#### Client lib - `GetAddressOutputs()`
 ```Go
 resp, err := goshimAPI.GetAddressOutputs("6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK")
 if err != nil {
@@ -102,14 +105,14 @@ for _, output := range resp.Outputs {
 | `address`  | Address | The address corresponding to provided outputID.   |
 | `outputs`   | Output | List of transactions' outputs.     |
 
-`Address`
+#### Type `Address`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `type`  | string | The type of an address.   |
 | `base58`| string   | The address encoded with base58.          |
 
-`Output`
+#### Type `Output`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -117,13 +120,15 @@ for _, output := range resp.Outputs {
 | `outputType`   | string | The type of the output.     |
 | `output` | string | An output raw message containing balances and corresponding addresses. |
 
-`OutputID`
+#### Type `OutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
+
+<br />
 
 ## `/ledgerstate/addresses/:address/unspentOutputs`
 Gets list of all unspent outputs for the address based on a given base58 encoded address ID.
@@ -140,11 +145,15 @@ Gets list of all unspent outputs for the address based on a given base58 encoded
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/addresses/6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK/unspentOutputs \
+curl http://localhost:8080/ledgerstate/addresses/:address/unspentOutputs \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetAddressUnspentOutputs()`
+
+where `:address` is the base58 encoded address, e.g. 6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK.
+
+#### Client lib - `GetAddressUnspentOutputs()`
+
 ```Go
 address := "6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK"
 resp, err := goshimAPI.GetAddressUnspentOutputs(address)
@@ -192,14 +201,14 @@ for _, output := range resp.Outputs {
 | `address`  | Address | The address corresponding to provided unspent outputID.   |
 | `outputs`   | Output | List of transactions' unspent outputs.     |
 
-`Address`
+#### Type `Address`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `type`  | string | The type of an address.   |
 | `base58`| string   | The address encoded with base58.          |
 
-`Output`
+#### Type `Output`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -207,13 +216,15 @@ for _, output := range resp.Outputs {
 | `outputType`   | string | The type of the output.    |
 | `output` | string | An output raw message containing balances and corresponding addresses |
 
-`OutputID`
+#### Type `OutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
+
+<br />
 
 ## `/ledgerstate/branches/:branchID`
 Gets a branch details for a given base58 encoded branch ID.
@@ -231,11 +242,14 @@ Gets a branch details for a given base58 encoded branch ID.
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/branches/2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ \
+curl http://localhost:8080/ledgerstate/branches/:branchID \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetBranch()`
+
+where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
+
+#### Client lib - `GetBranch()`
 ```Go
 resp, err := goshimAPI.GetBranch("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
@@ -278,6 +292,7 @@ fmt.Printf("liked: %v, finalized: %v, monotonically liked: %v", resp.Liked, resp
 | `finalized`   | bool | The boolean indicator if branch is finalized.   |
 | `inclusionState`   | string | Inclusion state of a branch.   |
 
+<br />
 
 ## `/ledgerstate/branches/:branchID/children`
 Gets a list of all child branches for a branch with given base58 encoded branch ID.
@@ -296,11 +311,14 @@ Gets a list of all child branches for a branch with given base58 encoded branch 
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/branches/2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ/children \
+curl http://localhost:8080/ledgerstate/branches/:branchID/children \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetBranchChildren()`
+
+where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
+
+#### Client lib - `GetBranchChildren()`
 ```Go
 resp, err := goshimAPI.GetBranchChildren("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
@@ -334,12 +352,14 @@ for _, branch := range resp.ChildBranches {
 | `childBranches`        | []ChildBranch | The child branches data.  |
 
 
-`ChildBranch`
+#### Type `ChildBranch`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `branchID`  | string | The branch identifier encoded with base58.   |
 | `type`        | string | The type of the branch.  |
+
+<br />
 
 ## `/ledgerstate/branches/:branchID/conflicts`
 Get all conflicts for a given branch ID, their outputs and conflicting branches.
@@ -358,11 +378,14 @@ Get all conflicts for a given branch ID, their outputs and conflicting branches.
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/branches/2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ/conflicts \
+curl http://localhost:8080/ledgerstate/branches/:branchID/conflicts \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetBranchConflicts()`
+
+where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
+
+#### Client lib - `GetBranchConflicts()`
 ```Go
 resp, err := goshimAPI.GetBranchConflicts("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
@@ -403,19 +426,21 @@ for _, branch := range resp.Conflicts {
 | `branchID`  | string | The branch identifier encoded with base58.   |
 | `conflicts` | []Conflict | The conflict data.  |
 
-`Conflict`
+#### Type `Conflict`
 |Field | Type | Description|
 |:-----|:------|:------|
 | `outputID`  | OutputID | The branch identifier encoded with base58.   |
 | `branchIDs` | []string | The identifiers of all related branches encoded in base58.  |
 
-`OutputID`
+#### Type `OutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
+
+<br />
 
 ## `/ledgerstate/outputs/:outputID`
 Get an output details for a given base58 encoded output ID, such as output types, addresses, and their corresponding balances.
@@ -435,11 +460,14 @@ For the client library API call balances will not be directly available as value
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/outputs/41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK \
+curl http://localhost:8080/ledgerstate/outputs/:outputID \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetOutput()`
+
+where :outputID is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
+
+#### Client lib - `GetOutput()`
 ```Go
 resp, err := goshimAPI.GetOutput("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
@@ -468,21 +496,21 @@ fmt.Println("transactionID: ", resp.OutputID.TransactionID)
 ```
 
 ### Results
-`Output`
-
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.     |
 | `output` | string | An output raw message containing balances and corresponding addresses |
 
-`OutputID`
+#### Type `OutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
+
+<br />
 
 ## `/ledgerstate/outputs/:outputID/consumers`
 Get a list of consumers based on a provided base58 encoded output ID. Transactions that contains the output and information about its validity.
@@ -500,11 +528,14 @@ Get a list of consumers based on a provided base58 encoded output ID. Transactio
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/outputs/41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK/consumers \
+curl http://localhost:8080/ledgerstate/outputs/:outputID/consumers \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetOutputConsumers()`
+
+where :outputID is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
+
+#### Client lib - `GetOutputConsumers()`
 ```Go
 resp, err := goshimAPI.GetOutputConsumers("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
@@ -545,7 +576,7 @@ for _, consumer := range resp.Consumers {
 | `consumers`        | []Consumer | Consumers of the requested output. |
 
 
-`OutputID`
+#### Type `OutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -553,13 +584,14 @@ for _, consumer := range resp.Consumers {
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
 
-`Consumers`
+#### Type `Consumers`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `transactionID`  | string | The transaction identifier encoded with base58.    |
 | `valid`   | string | The boolean indicator if the transaction is valid.   |
 
+<br />
 
 ## `/ledgerstate/outputs/:outputID/metadata`
 Gets an output metadata for a given base58 encoded output ID.
@@ -577,11 +609,15 @@ Gets an output metadata for a given base58 encoded output ID.
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/outputs/41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK/metadata \
+curl http://localhost:8080/ledgerstate/outputs/:outputID/metadata \
 -X GET \
 -H 'Content-Type: application/json'
+
+
+where :outputID is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
+
 ```
-#### client lib - `GetOutputMetadata()`
+#### Client lib - `GetOutputMetadata()`
 ```Go
 resp, err := goshimAPI.GetOutputMetadata("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
@@ -624,13 +660,15 @@ fmt.Println("solidification time: ",  time.Unix(resp.SolidificationTime, 0))
 | `finalized`           | bool      | The boolean indicator if the transaction . |
 
 
-`OutputID`
+#### Type `OutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `base58`  | string | The output identifier encoded with base58.    |
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
+
+<br />
 
 ## `/ledgerstate/transactions/:transactionID`
 Gets a transaction details for a given base58 encoded transaction ID.
@@ -647,11 +685,14 @@ Gets a transaction details for a given base58 encoded transaction ID.
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/transactions/41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK \
+curl http://localhost:8080/ledgerstate/transactions/:transactionID \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetTransaction()`
+
+where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
+
+#### Client lib - `GetTransaction()`
 ```Go
 resp, err := goshimAPI.GetTransaction("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
@@ -725,13 +766,13 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 | `unlockBlocks`    | []UnlockBlock      | The unlock block containing signatures unlocking the inputs or references to previous unlock blocks. |
 | `dataPayload` | []byte      | The raw data payload that can be attached to the transaction. |
 
-`Input `
+#### Type `Input `
 |Field | Type | Description|
 |:-----|:------|:------|
 | `Type`  | string | The type of input.   |
 | `ReferencedOutputID`   | ReferencedOutputID | The output ID that is used as an input for the transaction.     |
 
-`ReferencedOutputID`
+#### Type `ReferencedOutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -739,7 +780,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of a referenced output.     |
 
-`Output`
+#### Type `Output`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -747,7 +788,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 | `outputType`   | string | The type of the output.  |
 | `output` | string | An output raw message containing balances and corresponding addresses. |
 
-`OutputID`
+#### Type `OutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -755,7 +796,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
 
-`UnlockBlock`
+#### Type `UnlockBlock`
 |Field | Type | Description|
 |:-----|:------|:------|
 | `type`  | string |  The unlock block type: signature or reference. |
@@ -764,6 +805,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 | `publicKey`  | string |  The public key of a transaction owner. |
 | `signature`  | string | The string representation of a signature encoded with base58 signed over a transaction essence. |
 
+<br />
 
 ## `/ledgerstate/transactions/:transactionID/metadata`
 Gets a transaction metadata for a given base58 encoded transaction ID.
@@ -780,11 +822,14 @@ Gets a transaction metadata for a given base58 encoded transaction ID.
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/transactions/41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK/metadata \
+curl http://localhost:8080/ledgerstate/transactions/:transactionID/metadata \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetTransactionMetadata()`
+
+where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
+
+#### Client lib - `GetTransactionMetadata()`
 ```Go
 resp, err := goshimAPI.GetTransactionMetadata("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
@@ -815,6 +860,9 @@ fmt.Println("solidification time:",  time.Unix(resp.SolidificationTime, 0))
 | `solidificationTime`          | uint64      | The time of solidification of the transaction. |
 | `finalized`         | bool    | The boolean indicator if the transaction is finalized. |
 | `lazyBooked`    | bool      | The boolean indicator if the transaction is lazily booked.|
+
+<br />
+
 ## `/ledgerstate/transactions/:transactionID/inclusionState`
 Gets the fcob opinion associated with transaction based on a given base58 encoded transaction ID.
 
@@ -830,11 +878,14 @@ Gets the fcob opinion associated with transaction based on a given base58 encode
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/transactions/41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK/inclusionState \
+curl http://localhost:8080/ledgerstate/transactions/:transactionID/inclusionState \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetTransactionInclusionState()`
+
+where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
+
+#### Client lib - `GetTransactionInclusionState()`
 ```Go
 resp, err := goshimAPI.GetTransactionInclusionState("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
@@ -863,6 +914,8 @@ fmt.Printf("conflicting: %v, confirmed: %v, rejected: %v, pending: %v\n", resp.C
 | `rejected`          | bool      | The boolean indicating if the transaction was rejected and is booked to the rejected branch. |
 | `conflicting`         | bool    | The boolean indicating if the transaction is conflicting with some other transaction. |
 
+<br />
+
 ## `/ledgerstate/transactions/:transactionID/consensus`
 Gets the fcob opinion associated with transaction based on a given base58 encoded transaction ID.
 
@@ -877,11 +930,14 @@ Gets the fcob opinion associated with transaction based on a given base58 encode
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/transactions/DNSN8GaCeep6CVuUV6KXAabXkL3bv4PUP4NkTNKoZMqS/consensus \
+curl http://localhost:8080/ledgerstate/transactions/:transactionID/consensus \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetTransactionConsensusMetadata()`
+
+where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
+
+#### Client lib - `GetTransactionConsensusMetadata()`
 ```Go
 resp, err := goshimAPI.GetTransactionConsensusMetadata("DNSN8GaCeep6CVuUV6KXAabXkL3bv4PUP4NkTNKoZMqS")
 if err != nil {
@@ -916,6 +972,9 @@ fmt.Println("fcob time 2:", time.Unix(resp.FCOBTime2, 0))
 | `liked`  | bool      | The fcob opinion for the transaction. |
 | `fcobTime1`         | uint64    | The fcob opinion's execution time.|
 | `fcobTime2`         | uint64    | The fcob opinion's locally finalized execution time.|
+
+<br />
+
 ## `/ledgerstate/transactions/:transactionID/attachments`
 Gets the list of messages IDs with attachments of the base58 encoded transaction ID.
 
@@ -931,11 +990,14 @@ Gets the list of messages IDs with attachments of the base58 encoded transaction
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/transactions/DNSN8GaCeep6CVuUV6KXAabXkL3bv4PUP4NkTNKoZMqS/attachments \
+curl http://localhost:8080/ledgerstate/transactions/:transactionID/attachments \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-#### client lib - `GetTransactionAttachments()`
+
+where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
+
+#### Client lib - `GetTransactionAttachments()`
 ```Go
 resp, err := goshimAPI.GetTransactionAttachments("DNSN8GaCeep6CVuUV6KXAabXkL3bv4PUP4NkTNKoZMqS")
 if err != nil {
@@ -961,12 +1023,15 @@ for _, msgID := range resp.MessageIDs {
 |:-----|:------|:------|
 | `transactionID`   | string  | The transaction identifier encoded with base58.  |
 | `messageIDs`       | []string    | The messages IDs that contains the requested transaction. |
+
+<br />
+
 ## `/ledgerstate/transactions`
 Sends transaction provided in form of a binary data, validates transaction before issuing the message payload. For more detail on how to prepare transaction bytes see the [tutorial]().
 
 ### Examples
 
-#### client lib - `PostTransaction()`
+#### Client lib - `PostTransaction()`
 ```GO
 // prepare tx essence and signatures
 ...
@@ -984,6 +1049,8 @@ fmt.Println("Transaction sent, txID: ", resp.TransactionID)
 |:-----|:------|:------|
 | `transactionID`   | string  | The transaction identifier encoded with base58.  |
 | `Error`   | error  | The error returned if transaction was not processed correctly, otherwise is nil.  |
+
+<br />
 
 ## `/ledgerstate/addresses/unspentOutputs`
 Gets all unspent outputs for a list of addresses that were sent in the body message.  Returns the unspent outputs along with inclusion state and metadata for the wallet. 
@@ -1007,7 +1074,8 @@ curl http://localhost:8080/ledgerstate/addresses/unspentOutputs \
 -H 'Content-Type: application/json'
 --data-raw '{"addresses": ["18LhfKUkWt4M9YR6Q3au4LT8wWCERwzHaqn153K78Eixp"]}'
 ```
-#### client lib - `PostAddressUnspentOutputs()`
+
+#### Client lib - `PostAddressUnspentOutputs()`
 ```Go
 resp, err := goshimAPI.PostAddressUnspentOutputs([]string{"H36sZQkopfoEzP3WCMThSjUv5v9MLVYuaQ73tsKgVzXo"})
 if err != nil {
@@ -1070,27 +1138,29 @@ for _, outputs := range resp.UnspentOutputs {
 |:-----|:------|:------|
 | `unspentOutputs`   | WalletOutputsOnAddress  | Unspent outputs representation for wallet.  |
 
-`WalletOutputsOnAddress`
+#### Type `WalletOutputsOnAddress`
+
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `Address`   | Address  | The address corresponding to the unspent output.  |
 | `Outputs`   | []WalletOutput  | Unspent outputs representation for wallet.  |
 
-`Address`
+#### Type `Address`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `type`  | string | The type of an address.   |
 | `base58`| string   | The address encoded with base58.          |
 
-`WalletOutput`
+#### Type `WalletOutput`
+
 |Field | Type | Description|
 |:-----|:------|:------|
 | `output`  | Output | The unspent output.   |
 | `inclusionState`| InclusionState   | The inclusion state of the transaction containing the output.  |
 | `metadata`| WalletOutputMetadata   | The metadata of the output for the wallet lib.  |
 
-`Output`
+#### Type `Output`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -1098,7 +1168,7 @@ for _, outputs := range resp.UnspentOutputs {
 | `outputType`   | string |  The type of the output.     |
 | `output` | string | An outputs raw message containing balances and corresponding addresses |
 
-`OutputID`
+#### Type `OutputID`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -1106,7 +1176,7 @@ for _, outputs := range resp.UnspentOutputs {
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
 
-`InclusionState`
+#### Type `InclusionState`
 
 |Field | Type | Description|
 |:-----|:------|:------|
@@ -1114,7 +1184,7 @@ for _, outputs := range resp.UnspentOutputs {
 | `rejected`   | bool | The boolean indicating if the transaction that contains the output was rejected and is booked to the rejected branch.   |
 | `conflicting`   | bool | The boolean indicating if the output is in conflicting transaction.|
 
-`WalletOutputMetadata`
+#### Type `WalletOutputMetadata`
 
 |Field | Type | Description|
 |:-----|:------|:------|
