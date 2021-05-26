@@ -110,7 +110,7 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			options = append(options, delegateoptions.DelegateUntil(time.Unix(*timelockUntilPtr, 0)))
 		}
 	}
-
+	fmt.Println("Delegating funds...")
 	_, delegationIDs, err := cliWallet.DelegateFunds(options...)
 	if err != nil {
 		printUsage(command, err.Error())

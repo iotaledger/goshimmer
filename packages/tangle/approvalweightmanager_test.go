@@ -942,6 +942,7 @@ func newEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *e
 
 	// attach all events
 	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
+	e.attach(approvalWeightManager.Events.MessageFinalized, func(MessageID) {})
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
