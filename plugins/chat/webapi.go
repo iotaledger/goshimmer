@@ -1,45 +1,45 @@
 package chat
 
 import (
-	"math/rand"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 func configureWebAPI() {
-	webapi.Server().POST("chat", broadcastNetworkDelayObject)
+	webapi.Server().POST("chat", sendChatMessage)
 }
 
 // broadcastNetworkDelayObject creates a message with a network delay object and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
-func broadcastNetworkDelayObject(c echo.Context) error {
-	// generate random id
-	rand.Seed(time.Now().UnixNano())
-	var id [32]byte
-	if _, err := rand.Read(id[:]); err != nil {
-		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+func sendChatMessage(c echo.Context) error {
+	req := &Reuqest{}
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-
-	now := clock.SyncedTime().UnixNano()
-
-	obj := NewPayload(id, now)
+	obj := NewPayload(req.From, req.To, req.Message)
 
 	msg, err := messagelayer.Tangle().IssuePayload(obj)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, Response{ID: msg.ID().Base58()})
+	return c.JSON(http.StatusOK, Response{MessageID: msg.ID().Base58()})
+}
+
+// Request defines the chat message to send
+type Reuqest struct {
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Message string `json:"message"`
 }
 
 // Response contains the ID of the message sent.
 type Response struct {
-	ID    string `json:"id,omitempty"`
-	Error string `json:"error,omitempty"`
+	MessageID string `json:"messageID,omitempty"`
+	Error     string `json:"error,omitempty"`
 }

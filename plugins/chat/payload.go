@@ -7,7 +7,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -17,19 +16,14 @@ const (
 	ObjectName = "chat"
 )
 
-// ID represents a 32 byte ID of a network delay object.
-type ID [32]byte
-
-// String returns a human-friendly representation of the ID.
-func (id ID) String() string {
-	return base58.Encode(id[:])
-}
-
 // Payload represents the chat object type.
 type Payload struct {
-	From    string
-	To      string
-	Message string
+	From       string
+	FromLen    uint32
+	To         string
+	ToLen      uint32
+	Message    string
+	MessageLen uint32
 
 	bytes      []byte
 	bytesMutex sync.RWMutex
@@ -38,9 +32,12 @@ type Payload struct {
 // NewPayload creates a new chat object.
 func NewPayload(from, to, message string) *Payload {
 	return &Payload{
-		From:    from,
-		To:      to,
-		Message: message,
+		From:       from,
+		FromLen:    uint32(len([]byte(from))),
+		To:         to,
+		ToLen:      uint32(len([]byte(to))),
+		Message:    message,
+		MessageLen: uint32(len([]byte(message))),
 	}
 }
 
@@ -58,28 +55,59 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 	// read information that are required to identify the object from the outside
 	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = fmt.Errorf("failed to parse payload size of networkdelay object: %w", err)
+		err = fmt.Errorf("failed to parse payload size of chat payload: %w", err)
 		return
 	}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = fmt.Errorf("failed to parse payload type of networkdelay object: %w", err)
+		err = fmt.Errorf("failed to parse payload type of chat payload: %w", err)
 		return
 	}
 
-	// parse id
+	// parse From
 	result = &Payload{}
-	id, err := marshalUtil.ReadBytes(32)
+	fromLen, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = fmt.Errorf("failed to parse id of networkdelay object: %w", err)
+		err = fmt.Errorf("failed to parse fromLen field of chat payload: %w", err)
 		return
 	}
-	copy(result.id[:], id)
+	result.FromLen = fromLen
 
-	// parse sent time
-	if result.sentTime, err = marshalUtil.ReadInt64(); err != nil {
-		err = fmt.Errorf("failed to parse sent time of networkdelay object: %w", err)
+	from, err := marshalUtil.ReadBytes(int(fromLen))
+	if err != nil {
+		err = fmt.Errorf("failed to parse from field of chat payload: %w", err)
 		return
 	}
+	result.From = string(from)
+
+	// parse To
+	toLen, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to parse toLen field of chat payload: %w", err)
+		return
+	}
+	result.ToLen = toLen
+
+	to, err := marshalUtil.ReadBytes(int(toLen))
+	if err != nil {
+		err = fmt.Errorf("failed to parse to field of chat payload: %w", err)
+		return
+	}
+	result.To = string(to)
+
+	// parse Message
+	messageLen, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to parse messageLen field of chat payload: %w", err)
+		return
+	}
+	result.MessageLen = messageLen
+
+	message, err := marshalUtil.ReadBytes(int(messageLen))
+	if err != nil {
+		err = fmt.Errorf("failed to parse message field of chat payload: %w", err)
+		return
+	}
+	result.Message = string(message)
 
 	// store bytes, so we don't have to marshal manually
 	consumedBytes := marshalUtil.ReadOffset()
@@ -109,15 +137,19 @@ func (o *Payload) Bytes() (bytes []byte) {
 		return
 	}
 
-	objectLength := len(o.id) + marshalutil.Int64Size
+	payloadLength := int(o.FromLen + o.ToLen + o.MessageLen)
 	// initialize helper
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + objectLength)
+	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + payloadLength)
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(payload.TypeLength + uint32(objectLength))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(payloadLength))
 	marshalUtil.WriteBytes(Type.Bytes())
-	marshalUtil.WriteBytes(o.id[:])
-	marshalUtil.WriteInt64(o.sentTime)
+	marshalUtil.WriteUint32(o.FromLen)
+	marshalUtil.WriteBytes([]byte(o.From))
+	marshalUtil.WriteUint32(o.ToLen)
+	marshalUtil.WriteBytes([]byte(o.To))
+	marshalUtil.WriteUint32(o.MessageLen)
+	marshalUtil.WriteBytes([]byte(o.Message))
 
 	bytes = marshalUtil.Bytes()
 
@@ -126,9 +158,10 @@ func (o *Payload) Bytes() (bytes []byte) {
 
 // String returns a human-friendly representation of the Object.
 func (o *Payload) String() string {
-	return stringify.Struct("NetworkDelayObject",
-		stringify.StructField("id", o.id),
-		stringify.StructField("sentTime", uint64(o.sentTime)),
+	return stringify.Struct("ChatPayload",
+		stringify.StructField("from", o.From),
+		stringify.StructField("to", o.To),
+		stringify.StructField("Message", o.Message),
 	)
 }
 
