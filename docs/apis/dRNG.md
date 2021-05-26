@@ -48,7 +48,7 @@ curl --location --request POST 'http://localhost:8080/drng/collectiveBeacon' \
 --data-raw '{"payload": "collectiveBeaconBytes"}'
 ```
 
-#### Client lib -`BroadcastCollectiveBeacon`
+#### Client lib - `BroadcastCollectiveBeacon`
 
 Collective beacon can be broadcast using `BroadcastCollectiveBeacon(payload []byte) (string, error)`.
 

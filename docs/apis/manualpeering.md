@@ -4,14 +4,20 @@ Peering API allows retrieving basic information about autopeering.
 
 The API provides the following functions and endpoints:
 
-* [/manualpeering/peers (POST)](#autopeeringneighbors---add-peers)
-* [/manualpeering/peers (POST)](#autopeeringneighbors---remove-peers)
-* [/manualpeering/peers (POST)](#autopeeringneighbors---list-peers)
+* [/manualpeering/peers (POST)](#manualpeeringpeers---add-peers)
+* [/manualpeering/peers (DELETE)](#manualpeeringpeers---remove-peers)
+* [/manualpeering/peers (GET)](#manualpeeringpeers---list-peers)
 
-##  `/manualpeering/peers` - Add Peers
+Client lib APIs:
+
+* [AddManualPeers()](#client-lib---addmanualpeers)
+* [RemoveManualPeers()](#client-lib---removemanualpeers)
+* [GetManualKnownPeers()](#client-lib---getmanualknownpeers)
+
+
+## `/manualpeering/peers` - Add Peers
 
 Connects to the peers passed in the POST body.
-
 
 ### Parameters
 
@@ -64,7 +70,7 @@ curl --location --request POST 'http://localhost:8080//manualpeering/peers' \
 ]'
 ```
 
-#### Client lib - `AddManualPeers()`
+#### Client lib - `AddManualPeers`
 
 Peers can be removed via `AddManualPeers(peers []*peer.Peer)`
 ```
@@ -78,7 +84,7 @@ if err != nil {
 
 Empty response with HTTP 200 success code if peers were added correctly.
 
-##  `/manualpeering/peers` - Remove Peers
+## `/manualpeering/peers` - Remove Peers
 
 Method: `DELETE`
 
@@ -112,7 +118,7 @@ curl --location --request DELETE 'http://localhost:8080//manualpeering/peers' \
 ]'
 ```
 
-#### Client lib - `RemoveManualPeers()`
+#### Client lib - `RemoveManualPeers`
 
 Peers can be removed via `RemoveManualPeers(keys []ed25519.PublicKey)`
 ```
@@ -126,59 +132,7 @@ if err != nil {
 
 Empty response with HTTP 200 success code if peers were added correctly.
 
-##  `/manualpeering/peers` - Remove Peers
-
-Method: `DELETE`
-
-Removes peers passed in the DELETE body.
-
-### Parameters
-
-DELETE body in JSON format with information about peers in the following format.
-
-#### Body
-
-```json
-[
-  {
-    "publicKey": "8qN1yD95fhbfDZtKX49RYFEXqej5fvsXJ2NPmF1LCqbd"
-  }
-]
-```
-
-### Examples
-
-#### cURL
-
-```shell
-curl --location --request DELETE 'http://localhost:8080//manualpeering/peers' \
---header 'Content-Type: application/json' \
---data-raw '[
-  {
-    "publicKey": "8qN1yD95fhbfDZtKX49RYFEXqej5fvsXJ2NPmF1LCqbd"
-  }
-]'
-```
-
-#### Client lib - `GetManualKnownPeers()`
-
-Manually added peers can be retrieved via `GetManualKnownPeers(opts ...manualpeering.GetKnownPeersOption)`
-```
-neighbors, err := goshimAPI.GetManualKnownPeers(false)
-if err != nil {
-    // return error
-}
-
-// will print the response
-fmt.Println(string(neighbors))
-```
-
-#### Results
-
-Empty response with HTTP 200 success code if peers were added correctly.
-
-
-##  `/manualpeering/peers`
+##  `/manualpeering/peers` - List Peers
 
 Method: `GET`
 
@@ -202,7 +156,7 @@ Returns the peers of the node selected using manual peering.
 curl --location 'http://localhost:8080/manualpeering/peers?onlyConnected=true'
 ```
 
-#### Client lib - `GetManualKnownPeers()`
+#### Client lib - `GetManualKnownPeers`
 
 Manually added peers can be retrieved via `GetManualKnownPeers(opts ...manualpeering.GetKnownPeersOption)`
 ```

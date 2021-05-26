@@ -9,7 +9,7 @@ The API provides the following functions and endpoints:
 
 
 Client lib APIs:
-* [PastConeExist()](#client-lib---[pastconeexist])
+* [PastConeExist()](#client-lib---pastconeexist)
 * [Missing()](#client-lib---missing)
 
 
