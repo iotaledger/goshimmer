@@ -300,7 +300,7 @@ func (n *Network) DoManualPeering(peers ...*Peer) error {
 		allOtherPeers := make([]*Peer, 0, len(peers)-1)
 		allOtherPeers = append(allOtherPeers, peers[:idx]...)
 		allOtherPeers = append(allOtherPeers, peers[idx+1:]...)
-		peersToAdd := ToPeerModels(allOtherPeers)
+		peersToAdd := ToKnownPeers(allOtherPeers)
 		if err := p.AddManualPeers(peersToAdd); err != nil {
 			return errors.Wrap(err, "failed to add manual peers via API")
 		}

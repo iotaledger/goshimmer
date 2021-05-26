@@ -2,10 +2,13 @@ package manualpeering
 
 import (
 	"context"
+	"encoding/json"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -41,10 +44,46 @@ const (
 	ConnStatusConnected ConnectionStatus = "connected"
 )
 
+// KnownPeerToAdd defines a type that is used in .AddPeer() method.
+type KnownPeerToAdd struct {
+	PublicKey ed25519.PublicKey
+	Address   string
+}
+
+type knownPeerToAdd struct {
+	PublicKey string `json:"publicKey"`
+	Address   string `json:"address"`
+}
+
+// MarshalJSON encodes KnownPeerToAdd to JSON.
+func (pta *KnownPeerToAdd) MarshalJSON() ([]byte, error) {
+	data := &knownPeerToAdd{
+		PublicKey: pta.PublicKey.String(),
+		Address:   pta.Address,
+	}
+	return json.Marshal(data)
+}
+
+// UnMarshalJSON decodes JSON into KnownPeerToAdd.
+func (pta *KnownPeerToAdd) UnMarshalJSON(b []byte) error {
+	data := &knownPeerToAdd{}
+	if err := json.Unmarshal(b, data); err != nil {
+		return err
+	}
+	pta.Address = data.Address
+
+	var err error
+	pta.PublicKey, err = ed25519.PublicKeyFromString(data.PublicKey)
+	if err != nil {
+		return errors.Wrap(err, "couldn't parse public key")
+	}
+	return nil
+}
+
 // KnownPeer defines a peer record in the manualpeering layer.
-// This type contains the actual peer reference, connection direction and the gossip connection status.
 type KnownPeer struct {
-	Peer          *peer.Peer          `json:"peer"`
+	PublicKey     ed25519.PublicKey   `json:"publicKey"`
+	Address       string              `json:"address"`
 	ConnDirection ConnectionDirection `json:"connectionDirection"`
 	ConnStatus    ConnectionStatus    `json:"connectionStatus"`
 }
@@ -89,7 +128,7 @@ func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Mana
 }
 
 // AddPeer adds multiple peers to the list of known peers.
-func (m *Manager) AddPeer(peers ...*peer.Peer) error {
+func (m *Manager) AddPeer(peers ...*KnownPeerToAdd) error {
 	var resultErr error
 	for _, p := range peers {
 		if err := m.addPeer(p); err != nil {
@@ -153,7 +192,8 @@ func (m *Manager) GetKnownPeers(opts ...GetKnownPeersOption) []*KnownPeer {
 		connStatus := kp.getConnStatus()
 		if !conf.OnlyConnected || connStatus == ConnStatusConnected {
 			peers = append(peers, &KnownPeer{
-				Peer:          kp.peer,
+				PublicKey:     kp.peer.PublicKey(),
+				Address:       kp.peerAddress,
 				ConnDirection: kp.connDirection,
 				ConnStatus:    connStatus,
 			})
@@ -190,22 +230,31 @@ func (m *Manager) Stop() (err error) {
 
 type knownPeer struct {
 	peer          *peer.Peer
+	peerAddress   string
 	connDirection ConnectionDirection
 	connStatus    *atomic.Value
 	removeCh      chan struct{}
 	doneCh        chan struct{}
 }
 
-func newKnownPeer(p *peer.Peer, connDirection ConnectionDirection) *knownPeer {
+func newKnownPeer(p *KnownPeerToAdd, connDirection ConnectionDirection) (*knownPeer, error) {
+	tcpAddress, err := net.ResolveTCPAddr("tcp", p.Address)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse peer address")
+	}
+	services := service.New()
+	services.Update(service.PeeringKey, "tcp", 14626)
+	services.Update(service.GossipKey, tcpAddress.Network(), tcpAddress.Port)
 	kp := &knownPeer{
-		peer:          p,
+		peer:          peer.NewPeer(identity.New(p.PublicKey), tcpAddress.IP, services),
+		peerAddress:   p.Address,
 		connDirection: connDirection,
 		connStatus:    &atomic.Value{},
 		removeCh:      make(chan struct{}),
 		doneCh:        make(chan struct{}),
 	}
 	kp.setConnStatus(ConnStatusDisconnected)
-	return kp
+	return kp, nil
 }
 
 func (kp *knownPeer) getConnStatus() ConnectionStatus {
@@ -216,7 +265,7 @@ func (kp *knownPeer) setConnStatus(cs ConnectionStatus) {
 	kp.connStatus.Store(cs)
 }
 
-func (m *Manager) addPeer(p *peer.Peer) error {
+func (m *Manager) addPeer(p *KnownPeerToAdd) error {
 	if !m.isStarted.IsSet() {
 		return errors.New("manualpeering manager hasn't been started yet")
 	}
@@ -227,11 +276,14 @@ func (m *Manager) addPeer(p *peer.Peer) error {
 	}
 	m.knownPeersMutex.Lock()
 	defer m.knownPeersMutex.Unlock()
-	connDirection, err := m.connectionDirection(p)
+	connDirection, err := m.connectionDirection(p.PublicKey)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	kp := newKnownPeer(p, connDirection)
+	kp, err := newKnownPeer(p, connDirection)
+	if err != nil {
+		return errors.WithStack(err)
+	}
 	if _, exists := m.knownPeers[kp.peer.ID()]; exists {
 		return nil
 	}
@@ -342,18 +394,18 @@ func (m *Manager) changeNeighborStatus(neighbor *gossip.Neighbor, connStatus Con
 	kp.setConnStatus(connStatus)
 }
 
-func (m *Manager) connectionDirection(p *peer.Peer) (ConnectionDirection, error) {
-	localPK := m.local.PublicKey().String()
-	peerPK := p.PublicKey().String()
-	if localPK < peerPK {
+func (m *Manager) connectionDirection(peerPK ed25519.PublicKey) (ConnectionDirection, error) {
+	localPKStr := m.local.PublicKey().String()
+	peerPKStr := peerPK.String()
+	if localPKStr < peerPKStr {
 		return ConnDirectionOutbound, nil
-	} else if localPK > peerPK {
+	} else if localPKStr > peerPKStr {
 		return ConnDirectionInbound, nil
 	} else {
 		return "", errors.Newf(
 			"manualpeering: provided neighbor public key %s is the same as the local %s: can't compare lexicographically",
-			peerPK,
-			localPK,
+			peerPKStr,
+			localPKStr,
 		)
 	}
 }
