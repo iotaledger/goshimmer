@@ -243,6 +243,8 @@ func newKnownPeer(p *KnownPeerToAdd, connDirection ConnectionDirection) (*knownP
 		return nil, errors.Wrap(err, "failed to parse peer address")
 	}
 	services := service.New()
+	// Peering key is required in order to initialize a peer,
+	// but it's not used in both manualpeering and gossip layers so we just specify the default one.
 	services.Update(service.PeeringKey, "tcp", 14626)
 	services.Update(service.GossipKey, tcpAddress.Network(), tcpAddress.Port)
 	kp := &knownPeer{
