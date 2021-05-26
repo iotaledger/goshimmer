@@ -16,7 +16,7 @@ import (
 // and becomes synced again.
 func TestSynchronization(t *testing.T) {
 	initialPeers := 4
-	n, err := f.CreateNetworkWithMana("common_TestSynchronization", initialPeers, 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetworkWithMana("common_TestSynchronization", initialPeers, framework.CreateNetworkConfig{
 		Faucet:      true,
 		Mana:        true,
 		StartSynced: true,
@@ -39,6 +39,10 @@ func TestSynchronization(t *testing.T) {
 	log.Println("Spawning new node to sync...")
 	newPeer, err := n.CreatePeerWithMana(framework.GoShimmerConfig{Mana: true})
 	require.NoError(t, err)
+	time.Sleep(2*time.Second)
+	err=n.DoManualPeeringAndWait()
+	require.NoError(t, err)
+
 	// when the node has mana it must also be peered
 
 	// 3. issue some messages on old peers so that new peer can solidify
@@ -60,7 +64,8 @@ func TestSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	// wait for peer to start
 	time.Sleep(5 * time.Second)
-	err = n.WaitForAutopeering(2)
+
+	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
 	// note: this check is too dependent on the initial time a node sends bootstrap messages
