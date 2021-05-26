@@ -11,12 +11,11 @@ import (
 )
 
 func configureWebAPI() {
-	webapi.Server().POST("chat", sendChatMessage)
+	webapi.Server().POST("chat", SendChatMessage)
 }
 
-// broadcastNetworkDelayObject creates a message with a network delay object and
-// broadcasts it to the node's neighbors. It returns the message ID if successful.
-func sendChatMessage(c echo.Context) error {
+// SendChatMessage sends a chat message.
+func SendChatMessage(c echo.Context) error {
 	req := &Reuqest{}
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))

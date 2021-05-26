@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
+	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
@@ -125,6 +126,13 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case drng.PayloadType:
 		// drng payload
 		return processDrngPayload(p)
+	case chat.Type:
+		chatPayload := p.(*chat.Payload)
+		return chat.Reuqest{
+			From:    chatPayload.From,
+			To:      chatPayload.To,
+			Message: chatPayload.Message,
+		}
 	default:
 		// unknown payload
 		return BasicPayload{
