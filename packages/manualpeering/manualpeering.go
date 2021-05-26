@@ -64,8 +64,8 @@ func (pta *KnownPeerToAdd) MarshalJSON() ([]byte, error) {
 	return json.Marshal(data)
 }
 
-// UnMarshalJSON decodes JSON into KnownPeerToAdd.
-func (pta *KnownPeerToAdd) UnMarshalJSON(b []byte) error {
+// UnmarshalJSON decodes JSON into KnownPeerToAdd.
+func (pta *KnownPeerToAdd) UnmarshalJSON(b []byte) error {
 	data := &knownPeerToAdd{}
 	if err := json.Unmarshal(b, data); err != nil {
 		return err
