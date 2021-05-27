@@ -14,7 +14,7 @@ In this guide we are going to explain how to write a very simple chat dApp so th
 The complete source code of the application can be found [in the repository](https://github.com/iotaledger/goshimmer/tree/develop/plugins/chat). 
 
 ### Overview
-Our network delay dApp should help us to identify the time it takes for every active node to receive and process a message. That can be done in a few simple steps:
+Our chat dApp can be implemented in a few simple steps:
 1. A node sends via the Tangle a special message containing a chat payload.
 2. Upon receipt, every other node in the network process this message and trigger an event that a chat message has beein received.
 
