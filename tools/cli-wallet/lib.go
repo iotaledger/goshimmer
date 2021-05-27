@@ -3,22 +3,23 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"unsafe"
 
-	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/client/wallet"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/capossele/asset-registry/pkg/registryservice"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/client/wallet"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 )
 
 func printBanner() {
-	fmt.Println("IOTA Pollen CLI-Wallet 0.1")
+	fmt.Println("IOTA Pollen CLI-Wallet 0.2")
 }
 
 func loadWallet() *wallet.Wallet {
@@ -33,14 +34,33 @@ func loadWallet() *wallet.Wallet {
 		options = append(options, client.WithBasicAuth(config.BasicAuth.Credentials()))
 	}
 
-	return wallet.New(
+	if assetRegistry != nil {
+		// we do have an asset registry parsed
+		if config.AssetRegistryNetwork != assetRegistry.Network() && registryservice.Networks[config.AssetRegistryNetwork] {
+			assetRegistry = wallet.NewAssetRegistry(config.AssetRegistryNetwork)
+		}
+	} else if registryservice.Networks[config.AssetRegistryNetwork] {
+		// when asset registry is nil, this is the first time that we load the wallet.
+		// if config.AssetRegistryNetwork is not valid, we leave assetRegistry as nil, and
+		// wallet.New() will initialize it to the default value
+		assetRegistry = wallet.NewAssetRegistry(config.AssetRegistryNetwork)
+	}
+
+	walletOptions := []wallet.Option{
 		wallet.WebAPI(config.WebAPI, options...),
 		wallet.Import(seed, lastAddressIndex, spentAddresses, assetRegistry),
-	)
+	}
+	if config.ReuseAddresses {
+		walletOptions = append(walletOptions, wallet.ReusableAddress(true))
+	}
+
+	walletOptions = append(walletOptions, wallet.FaucetPowDifficulty(config.FaucetPowDifficulty))
+
+	return wallet.New(walletOptions...)
 }
 
 func importWalletStateFile(filename string) (seed *walletseed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
-	walletStateBytes, err := ioutil.ReadFile(filename)
+	walletStateBytes, err := os.ReadFile(filename)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return
@@ -114,7 +134,7 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 		}
 	}
 
-	err = ioutil.WriteFile(filename, wallet.ExportState(), 0644)
+	err = os.WriteFile(filename, wallet.ExportState(), 0o644)
 	if err != nil {
 		panic(err)
 	}
@@ -136,16 +156,44 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        show the balances held by this wallet")
 		fmt.Println("  send-funds")
 		fmt.Println("        initiate a value transfer")
-		fmt.Println("  create-asset")
-		fmt.Println("        create an asset in the form of colored coins")
-		fmt.Println("  address")
-		fmt.Println("        start the address manager of this wallet")
+		fmt.Println("  consolidate-funds")
+		fmt.Println("        consolidate available funds under one wallet address")
+		fmt.Println("  claim-conditional")
+		fmt.Println("        claim (move) conditionally owned funds into the wallet")
 		fmt.Println("  request-funds")
 		fmt.Println("        request funds from the testnet-faucet")
+		fmt.Println("  create-asset")
+		fmt.Println("        create an asset in the form of colored coins")
+		fmt.Println("  asset-info")
+		fmt.Println("        returns information about an asset")
+		fmt.Println("  delegate-funds")
+		fmt.Println("        delegate funds to an address")
+		fmt.Println("  reclaim-delegated")
+		fmt.Println("        reclaim previously delegated funds")
+		fmt.Println("  create-nft")
+		fmt.Println("        create an nft as an unforkable alias output")
+		fmt.Println("  transfer-nft")
+		fmt.Println("        transfer the ownership of an nft")
+		fmt.Println("  destroy-nft")
+		fmt.Println("        destroy an nft")
+		fmt.Println("  deposit-to-nft")
+		fmt.Println("        deposit funds into an nft")
+		fmt.Println("  withdraw-from-nft")
+		fmt.Println("        withdraw funds from an nft")
+		fmt.Println("  sweep-nft-owned-funds")
+		fmt.Println("        sweep all available funds owned by nft into the wallet")
+		fmt.Println("  sweep-nft-owned-nfts")
+		fmt.Println("        sweep all available nfts owned by nft into the wallet")
+		fmt.Println("  address")
+		fmt.Println("        start the address manager of this wallet")
 		fmt.Println("  init")
 		fmt.Println("        generate a new wallet using a random seed")
 		fmt.Println("  server-status")
 		fmt.Println("        display the server status")
+		fmt.Println("  pledge-id")
+		fmt.Println("        query allowed mana pledge nodeIDs")
+		fmt.Println("  pending-mana")
+		fmt.Println("        display current pending mana of all outputs in the wallet grouped by address")
 		fmt.Println("  help")
 		fmt.Println("        display this help screen")
 

@@ -3,13 +3,14 @@ package spammer
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/spammer"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/spammer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 var messageSpammer *spammer.Spammer
@@ -34,12 +35,12 @@ func Plugin() *node.Plugin {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	messageSpammer = spammer.New(issuer.IssuePayload)
+	messageSpammer = spammer.New(messagelayer.Tangle().IssuePayload)
 	webapi.Server().GET("spammer", handleRequest)
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("spammer", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 
 		messageSpammer.Shutdown()

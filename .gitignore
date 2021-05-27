@@ -7,6 +7,9 @@
 *.dat
 *.dat.bkp
 
+# Snapshots are stored in bin format
+# *.bin
+
 # cli-wallet config
 tools/cli-wallet/config.json
 
@@ -32,6 +35,9 @@ objectsdb/
 .DS_Store
 shimmer
 goshimmer
+
+# Docs
+book
 
 config.json
 .env

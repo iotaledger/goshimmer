@@ -1,19 +1,20 @@
-// Package database is a plugin that manages the badger database (e.g. garbage collection).
+// Package database is a plugin that manages the RocksDB database (e.g. garbage collection).
 package database
 
 import (
-	"errors"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the database plugin.

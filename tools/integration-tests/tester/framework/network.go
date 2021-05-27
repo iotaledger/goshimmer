@@ -4,15 +4,22 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
+	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
+
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/manualpeering"
 )
 
 // Network represents a complete GoShimmer network within Docker.
@@ -111,18 +118,13 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.Name = name
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
-	config.DisabledPlugins = func() string {
-		if !config.SyncBeaconFollower {
-			return disabledPluginsPeer + ",SyncBeaconFollower"
-		}
-		return disabledPluginsPeer
-	}()
+	config.DisabledPlugins = disabledPluginsPeer
 	config.SnapshotFilePath = snapshotFilePath
-	if config.SyncBeaconFollowNodes == "" {
-		config.SyncBeaconFollowNodes = syncBeaconPublicKey
+	if config.FPCRoundInterval == 0 {
+		config.FPCRoundInterval = 5
 	}
-	if config.SyncBeaconBroadcastInterval == 0 {
-		config.SyncBeaconBroadcastInterval = 5
+	if config.FPCTotalRoundsFinalization == 0 {
+		config.FPCTotalRoundsFinalization = 10
 	}
 
 	// create wallet
@@ -156,6 +158,28 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	return peer, nil
 }
 
+// CreatePeerWithMana creates a new peers/Goshimmer node in the network and returns it.
+// It requests funds from the faucet and pledges mana to itself.
+func (n *Network) CreatePeerWithMana(c GoShimmerConfig) (*Peer, error) {
+	peer, err := n.CreatePeer(c)
+	if err != nil {
+		return nil, err
+	}
+	time.Sleep(15 * time.Second)
+	addr := peer.Seed.Address(uint64(0)).Address()
+	ID := base58.Encode(peer.ID().Bytes())
+	_, err = n.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
+	if err != nil {
+		_ = peer.Stop()
+		return nil, fmt.Errorf("error sending faucet request... shutting down: %w", err)
+	}
+	err = n.WaitForMana(peer)
+	if err != nil {
+		return nil, err
+	}
+	return peer, nil
+}
+
 // Shutdown creates logs and removes network and containers.
 // Should always be called when a network is not needed anymore!
 func (n *Network) Shutdown() error {
@@ -164,13 +188,27 @@ func (n *Network) Shutdown() error {
 	if err != nil {
 		return err
 	}
-	for _, p := range n.peers {
-		err = p.Stop()
-		if err != nil {
-			return err
-		}
+	var wg sync.WaitGroup
+
+	wg.Add(len(n.peers))
+	errs := make([]error, len(n.peers))
+	for i := range n.peers {
+		go func(index int) {
+			defer wg.Done()
+			err = n.peers[index].Stop()
+			if err != nil {
+				errs[index] = err
+			}
+		}(i)
 	}
 
+	wg.Wait()
+
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
 	// delete all partitions
 	err = n.DeletePartitions()
 	if err != nil {
@@ -244,30 +282,88 @@ func (n *Network) Shutdown() error {
 	return nil
 }
 
+func (n *Network) DoManualPeeringAndWait(peers ...*Peer) error {
+	if err := n.DoManualPeering(peers...); err != nil {
+		return errors.WithStack(err)
+	}
+	if err := n.WaitForManualpeering(peers...); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (n *Network) DoManualPeering(peers ...*Peer) error {
+	if len(peers) == 0 {
+		peers = n.peers
+	}
+	for idx, p := range peers {
+		allOtherPeers := make([]*Peer, 0, len(peers)-1)
+		allOtherPeers = append(allOtherPeers, peers[:idx]...)
+		allOtherPeers = append(allOtherPeers, peers[idx+1:]...)
+		peersToAdd := ToKnownPeers(allOtherPeers)
+		if err := p.AddManualPeers(peersToAdd); err != nil {
+			return errors.Wrap(err, "failed to add manual peers via API")
+		}
+	}
+	return nil
+}
+
 // WaitForAutopeering waits until all peers have reached the minimum amount of neighbors.
-// Returns error if this minimum is not reached after autopeeringMaxTries.
+// Returns error if this minimum is not reached after peeringMaxTries.
 func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
-	log.Printf("Waiting for autopeering...\n")
-	defer log.Printf("Waiting for autopeering... done\n")
+	getNeighborsFn := func(p *Peer) (int, error) {
+		resp, err := p.GetAutopeeringNeighbors(false)
+		if err != nil {
+			return 0, errors.Wrap(err, "client failed to return autopeering neighbors")
+		}
+		return len(resp.Chosen) + len(resp.Accepted), nil
+	}
+	err := n.waitForPeering(minimumNeighbors, getNeighborsFn)
+	return errors.WithStack(err)
+}
+
+// WaitForManualpeering waits until all peers have reached together as neighbors.
+func (n *Network) WaitForManualpeering(peers ...*Peer) error {
+	getNeighborsFn := func(p *Peer) (int, error) {
+		peers, err := p.GetManualKnownPeers(manualpeering.WithOnlyConnectedPeers())
+		if err != nil {
+			return 0, errors.Wrap(err, "client failed to return manually connected peers")
+		}
+		return len(peers), nil
+	}
+	if len(peers) == 0 {
+		peers = n.peers
+	}
+	err := n.waitForPeering(len(peers)-1, getNeighborsFn, peers...)
+	return errors.Wrap(err, "failed to wait for manual peering to succeed")
+}
+
+type getNeighborsNumberFunc func(p *Peer) (int, error)
+
+func (n *Network) waitForPeering(minimumNeighbors int, getNeighborsFn getNeighborsNumberFunc, peers ...*Peer) error {
+	log.Printf("Waiting for peering...\n")
+	defer log.Printf("Waiting for peering... done\n")
 
 	if minimumNeighbors == 0 {
 		return nil
 	}
+	if len(peers) == 0 {
+		peers = n.peers
+	}
 
-	for i := autopeeringMaxTries; i > 0; i-- {
-
-		for _, p := range n.peers {
-			if resp, err := p.GetNeighbors(false); err != nil {
+	for i := peeringMaxTries; i > 0; i-- {
+		for _, p := range peers {
+			if neighborsNumber, err := getNeighborsFn(p); err != nil {
 				log.Printf("request error: %v\n", err)
 			} else {
-				p.SetNeighbors(resp.Chosen, resp.Accepted)
+				p.SetNeighborsNumber(neighborsNumber)
 			}
 		}
 
 		// verify neighbor requirement
-		min := 100
+		min := math.MaxInt64
 		total := 0
-		for _, p := range n.peers {
+		for _, p := range peers {
 			neighbors := p.TotalNeighbors()
 			if neighbors < min {
 				min = neighbors
@@ -283,7 +379,43 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 		time.Sleep(5 * time.Second)
 	}
 
-	return fmt.Errorf("autopeering not successful")
+	return fmt.Errorf("peering not successful")
+}
+
+// WaitForMana waits until all peers have access mana.
+// Returns error if all peers don't have mana after waitForManaMaxTries
+func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
+	log.Printf("Waiting for nodes to get at least %f access mana...\n", tangle.MinMana)
+	defer log.Printf("Waiting for nodes to get mana... done\n")
+
+	peers := n.peers
+	if len(optionalPeers) > 0 {
+		peers = optionalPeers
+	}
+	m := make(map[*Peer]struct{})
+	for _, peer := range peers {
+		m[peer] = struct{}{}
+	}
+	for i := waitForManaMaxTries; i > 0; i-- {
+		for peer := range m {
+			infoRes, err := peer.Info()
+			if err != nil {
+				log.Printf("err getting info for peer %s: %v", peer.ID(), err)
+				continue
+			}
+			log.Println("node: ", peer.ID().String(), " - mana: ", infoRes.Mana.Access)
+			if infoRes.Mana.Access >= tangle.MinMana {
+				delete(m, peer)
+			}
+		}
+		log.Println("remaining... ", len(m))
+		if len(m) == 0 {
+			return nil
+		}
+		log.Println("Not done yet. Try again in 5 seconds...")
+		time.Sleep(5 * time.Second)
+	}
+	return fmt.Errorf("waiting for mana not successful")
 }
 
 // namePrefix returns the suffix prefixed with the name.

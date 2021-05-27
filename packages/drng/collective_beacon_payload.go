@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/stringify"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -130,7 +131,7 @@ func (p *CollectiveBeaconPayload) Bytes() (bytes []byte) {
 	// marshal fields
 	payloadLength := HeaderLength + marshalutil.Uint64Size + SignatureSize*2 + PublicKeySize
 	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + payloadLength)
-	marshalUtil.WriteUint32(uint32(payloadLength))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(payloadLength))
 	marshalUtil.WriteBytes(PayloadType.Bytes())
 	marshalUtil.WriteBytes(p.Header.Bytes())
 	marshalUtil.WriteUint64(p.Round)

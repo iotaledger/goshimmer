@@ -1,27 +1,26 @@
 package gossip
 
 import (
-	"errors"
 	"net"
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
+	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var (
-	// ErrMessageNotFound is returned when a message could not be found in the Tangle.
-	ErrMessageNotFound = errors.New("message not found")
-)
+// ErrMessageNotFound is returned when a message could not be found in the Tangle.
+var ErrMessageNotFound = errors.New("message not found")
 
 var (
 	mgr     *gossip.Manager
@@ -76,27 +75,53 @@ func start(shutdownSignal <-chan struct{}) {
 	defer srv.Close()
 
 	mgr.Start(srv)
-	defer mgr.Close()
-
-	// trigger start of the autopeering selection
-	go func() { autopeering.StartSelection() }()
+	defer mgr.Stop()
 
 	log.Infof("%s started: age-threshold=%v bind-address=%s", PluginName, ageThreshold, localAddr.String())
 
 	<-shutdownSignal
 	log.Info("Stopping " + PluginName + " ...")
-
-	// assure that the autopeering selection is always stopped before the gossip manager
-	autopeering.Selection().Close()
 }
 
 // loads the given message from the message layer and returns it or an error if not found.
 func loadMessage(msgID tangle.MessageID) ([]byte, error) {
-	cachedMessage := messagelayer.Tangle().Message(msgID)
+	cachedMessage := messagelayer.Tangle().Storage.Message(msgID)
 	defer cachedMessage.Release()
 	if !cachedMessage.Exists() {
 		return nil, ErrMessageNotFound
 	}
 	msg := cachedMessage.Unwrap()
 	return msg.Bytes(), nil
+}
+
+// requestedMessages represents a list of requested messages that will not be gossiped.
+type requestedMessages struct {
+	sync.Mutex
+
+	msgs map[tangle.MessageID]types.Empty
+}
+
+func newRequestedMessages() *requestedMessages {
+	return &requestedMessages{
+		msgs: make(map[tangle.MessageID]types.Empty),
+	}
+}
+
+func (r *requestedMessages) append(msgID tangle.MessageID) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.msgs[msgID] = types.Void
+}
+
+func (r *requestedMessages) delete(msgID tangle.MessageID) (deleted bool) {
+	r.Lock()
+	defer r.Unlock()
+
+	if _, exist := r.msgs[msgID]; exist {
+		delete(r.msgs, msgID)
+		return true
+	}
+
+	return false
 }

@@ -1,10 +1,11 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/syncutils"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/vote"
 )
 
 var (
@@ -88,7 +89,7 @@ func processFinalized(ctx vote.Context) {
 	finalizedConflictCount.Inc()
 }
 
-func processFailed(ctx vote.Context) {
+func processFailed(_ vote.Context) {
 	failedConflictCount.Inc()
 }
 

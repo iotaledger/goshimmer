@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/stretchr/testify/require"
 )
 
 // TestFaucetPersistence sends funds by faucet request.
@@ -17,7 +18,11 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetwork("faucet_TestPersistence", 5, 2)
+	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, framework.CreateNetworkConfig{
+		Faucet:      true,
+		Mana:        true,
+		StartSynced: true,
+	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -30,34 +35,36 @@ func TestFaucetPersistence(t *testing.T) {
 	ids, addrBalance := tests.SendFaucetRequestOnRandomPeer(t, peers[1:], 10)
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether all issued messages are available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 
 	// wait for transactions to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)
 
 	// stop all nodes
-	for _, peer := range n.Peers() {
+	for _, peer := range n.Peers()[1:] {
 		err = peer.Stop()
 		require.NoError(t, err)
 	}
 
 	// start all nodes
-	for _, peer := range n.Peers() {
+	for _, peer := range n.Peers()[1:] {
 		err = peer.Start()
 		require.NoError(t, err)
 	}
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check whether all issued messages are available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, false)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)

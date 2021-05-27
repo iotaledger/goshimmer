@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 func configureWebAPI() {
@@ -27,11 +28,18 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 
 	now := clock.SyncedTime().UnixNano()
 
-	msg, err := issuer.IssuePayload(NewObject(id, now))
+	obj := NewObject(id, now)
+
+	nowWithoutClock := time.Now()
+
+	msg, err := messagelayer.Tangle().IssuePayload(obj)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, Response{ID: msg.ID().String()})
+
+	sendPoWInfo(obj, time.Since(nowWithoutClock))
+
+	return c.JSON(http.StatusOK, Response{ID: msg.ID().Base58()})
 }
 
 // Response contains the ID of the message sent.

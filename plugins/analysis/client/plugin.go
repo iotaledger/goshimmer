@@ -4,15 +4,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 const (
@@ -47,7 +48,7 @@ func Plugin() *node.Plugin {
 }
 
 func run(_ *node.Plugin) {
-	finalized = make(map[string]vote.Opinion)
+	finalized = make(map[string]opinion.Opinion)
 	log = logger.NewLogger(PluginName)
 	conn = NewConnector("tcp", config.Node().String(CfgServerAddress))
 
@@ -56,12 +57,12 @@ func run(_ *node.Plugin) {
 		defer conn.Stop()
 
 		onFinalizedClosure := events.NewClosure(onFinalized)
-		valuetransfers.Voter().Events().Finalized.Attach(onFinalizedClosure)
-		defer valuetransfers.Voter().Events().Finalized.Detach(onFinalizedClosure)
+		messagelayer.Voter().Events().Finalized.Attach(onFinalizedClosure)
+		defer messagelayer.Voter().Events().Finalized.Detach(onFinalizedClosure)
 
 		onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
-		valuetransfers.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
-		defer valuetransfers.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
+		messagelayer.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
+		defer messagelayer.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
 
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()

@@ -3,14 +3,20 @@ package data
 import (
 	"net/http"
 	"sync"
+	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
+
+const maxIssuedAwaitTime = 5 * time.Second
 
 // PluginName is the name of the web API data endpoint plugin.
 const PluginName = "WebAPI data Endpoint"
@@ -38,26 +44,21 @@ func configure(plugin *node.Plugin) {
 // broadcastData creates a message of the given payload and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
 func broadcastData(c echo.Context) error {
-	var request Request
+	var request jsonmodels.DataRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
 
-	msg, err := issuer.IssuePayload(payload.NewGenericDataPayload(request.Data))
+	issueData := func() (*tangle.Message, error) {
+		return messagelayer.Tangle().IssuePayload(payload.NewGenericDataPayload(request.Data))
+	}
+
+	// await MessageScheduled event to be triggered.
+	msg, err := messagelayer.AwaitMessageToBeIssued(issueData, messagelayer.Tangle().Options.Identity.PublicKey(), maxIssuedAwaitTime)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, Response{ID: msg.ID().String()})
-}
 
-// Response contains the ID of the message sent.
-type Response struct {
-	ID    string `json:"id,omitempty"`
-	Error string `json:"error,omitempty"`
-}
-
-// Request contains the data of the message to send.
-type Request struct {
-	Data []byte `json:"data"`
+	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: msg.ID().Base58()})
 }

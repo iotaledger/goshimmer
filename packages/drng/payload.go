@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -49,7 +51,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 
 	// read information that are required to identify the payload from the outside
 	result = &Payload{}
-	len, err := marshalUtil.ReadUint32()
+	length, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = fmt.Errorf("failed to parse payload size of drng payload: %w", err)
 		return
@@ -67,7 +69,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	}
 
 	// parse data
-	if result.Data, err = marshalUtil.ReadBytes(int(len - HeaderLength)); err != nil {
+	if result.Data, err = marshalUtil.ReadBytes(int(length - payload.TypeLength - HeaderLength)); err != nil {
 		err = fmt.Errorf("failed to parse data of drng payload: %w", err)
 		return
 	}
@@ -105,10 +107,10 @@ func (p *Payload) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(uint32(len(p.Data) + HeaderLength))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(len(p.Data)+HeaderLength))
 	marshalUtil.WriteBytes(PayloadType.Bytes())
 	marshalUtil.WriteBytes(p.Header.Bytes())
-	marshalUtil.WriteBytes(p.Data[:])
+	marshalUtil.WriteBytes(p.Data)
 
 	bytes = marshalUtil.Bytes()
 
@@ -127,7 +129,14 @@ func (p *Payload) String() string {
 
 // PayloadType defines the type of the drng payload.
 var PayloadType = payload.NewType(111, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-	payload, _, err = FromBytes(data)
+	var consumedBytes int
+	payload, consumedBytes, err = FromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, errors.New("not all payload bytes were consumed")
+	}
 
 	return
 })

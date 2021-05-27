@@ -3,13 +3,15 @@ package drng
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PluginName is the name of the DRNG plugin.
@@ -21,13 +23,16 @@ var (
 	pluginOnce sync.Once
 	instance   *drng.DRNG
 	once       sync.Once
-	log        *logger.Logger
+
+	inbox     chan tangle.MessageID
+	inboxSize = 100
 )
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+		inbox = make(chan tangle.MessageID, inboxSize)
 	})
 	return plugin
 }
@@ -36,7 +41,44 @@ func configure(_ *node.Plugin) {
 	configureEvents()
 }
 
-func run(*node.Plugin) {}
+func run(*node.Plugin) {
+	if err := daemon.BackgroundWorker("dRNG-plugin", func(shutdownSignal <-chan struct{}) {
+	loop:
+		for {
+			select {
+			case <-shutdownSignal:
+				plugin.LogInfof("Stopping %s ...", "dRNG-plugin")
+				break loop
+			case messageID := <-inbox:
+				messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+					if msg.Payload().Type() != drng.PayloadType {
+						return
+					}
+					if len(msg.Payload().Bytes()) < drng.HeaderLength {
+						return
+					}
+					marshalUtil := marshalutil.New(msg.Payload().Bytes())
+					parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
+					if err != nil {
+						// TODO: handle error
+						plugin.LogDebug(err)
+						return
+					}
+					if err := instance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
+						// TODO: handle error
+						plugin.LogDebug(err)
+						return
+					}
+					plugin.LogDebug("New randomness: ", instance.State[parsedPayload.InstanceID].Randomness())
+				})
+			}
+		}
+
+		plugin.LogInfof("Stopping %s ... done", "dRNG-plugin")
+	}, shutdown.PriorityFPC); err != nil {
+		plugin.Panicf("Failed to start as daemon: %s", err)
+	}
+}
 
 func configureEvents() {
 	// skip the event configuration if no committee has been configured.
@@ -44,29 +86,21 @@ func configureEvents() {
 		return
 	}
 
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
+	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		select {
+		case inbox <- messageID:
+		default:
+		}
+	}))
 
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
-			if msg.Payload().Type() != drng.PayloadType {
-				return
+	messagelayer.SetDRNGState(Instance().LoadState(messagelayer.FPCParameters.DRNGInstanceID))
+
+	// Section to update the randomness for the dRNG ticker used by FPC.
+	Instance().Events.Randomness.Attach(events.NewClosure(func(state *drng.State) {
+		if state.Committee().InstanceID == messagelayer.FPCParameters.DRNGInstanceID {
+			if ticker := messagelayer.DRNGTicker(); ticker != nil {
+				ticker.UpdateRandomness(state.Randomness())
 			}
-			if len(msg.Payload().Bytes()) < drng.HeaderLength {
-				return
-			}
-			marshalUtil := marshalutil.New(msg.Payload().Bytes())
-			parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
-			if err != nil {
-				//TODO: handle error
-				log.Debug(err)
-				return
-			}
-			if err := instance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
-				//TODO: handle error
-				log.Debug(err)
-				return
-			}
-			log.Debug("New randomness: ", instance.State[parsedPayload.InstanceID].Randomness())
-		})
+		}
 	}))
 }

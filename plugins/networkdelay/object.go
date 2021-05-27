@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -110,7 +112,7 @@ func (o *Object) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + objectLength)
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(uint32(objectLength))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(objectLength))
 	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteBytes(o.id[:])
 	marshalUtil.WriteInt64(o.sentTime)
@@ -132,8 +134,14 @@ func (o *Object) String() string {
 
 // Type represents the identifier which addresses the network delay Object type.
 var Type = payload.NewType(189, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-	payload, _, err = FromBytes(data)
-
+	var consumedBytes int
+	payload, consumedBytes, err = FromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, errors.New("not all payload bytes were consumed")
+	}
 	return
 })
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -90,7 +91,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < neighborQueueSize; i++ {
 			l, err := neighborA.Write(testData)
-			if err == ErrNeighborQueueFull || l == 0 {
+			if errors.Is(err, ErrNeighborQueueFull) || l == 0 {
 				continue
 			}
 			assert.NoError(t, err)
@@ -102,7 +103,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < neighborQueueSize; i++ {
 			l, err := neighborA.Write(testData)
-			if err == ErrNeighborQueueFull || l == 0 {
+			if errors.Is(err, ErrNeighborQueueFull) || l == 0 {
 				continue
 			}
 			assert.NoError(t, err)
@@ -120,7 +121,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 }
 
 func newTestNeighbor(name string, conn net.Conn) *Neighbor {
-	return NewNeighbor(newTestPeer(name, conn), conn, log.Named(name))
+	return NewNeighbor(newTestPeer(name, conn), NeighborsGroupAuto, conn, log.Named(name))
 }
 
 func newTestPeer(name string, conn net.Conn) *peer.Peer {

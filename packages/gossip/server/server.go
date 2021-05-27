@@ -2,8 +2,7 @@ package server
 
 import (
 	"bytes"
-	"container/list"
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -12,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	pb "github.com/iotaledger/hive.go/autopeering/server/proto"
@@ -26,6 +26,8 @@ import (
 var (
 	// ErrTimeout is returned when an expected incoming connection was not received in time.
 	ErrTimeout = errors.New("accept timeout")
+	// ErrDuplicateAccept is returned when the server already registered an accept request for that peer ID.
+	ErrDuplicateAccept = errors.New("accept request for that peer already exists")
 	// ErrClosed means that the server was shut down before a response could be received.
 	ErrClosed = errors.New("server closed")
 	// ErrInvalidHandshake is returned when no correct handshake could be established.
@@ -36,10 +38,9 @@ var (
 
 // connection timeouts
 const (
-	dialTimeout       = 1 * time.Second                    // timeout for net.Dial
-	handshakeTimeout  = 500 * time.Millisecond             // read/write timeout of the handshake packages
-	acceptTimeout     = 3 * time.Second                    // timeout to accept incoming connections
-	connectionTimeout = acceptTimeout + 2*handshakeTimeout // timeout after which the connection must be established
+	defaultDialTimeout   = 1 * time.Second                    // timeout for net.Dial
+	handshakeTimeout     = 500 * time.Millisecond             // read/write timeout of the handshake packages
+	defaultAcceptTimeout = 3*time.Second + 2*handshakeTimeout // timeout after which the connection must be accepted.
 
 	maxHandshakePacketSize = 256
 )
@@ -53,24 +54,28 @@ type TCP struct {
 	listener *net.TCPListener
 	log      *zap.SugaredLogger
 
-	addAcceptMatcher chan *acceptMatcher
-	acceptReceived   chan accept
+	acceptReceivedCh chan accept
+	matchersMap      map[identity.ID]*acceptMatcher
+	matchersMutex    sync.RWMutex
 
 	closeOnce sync.Once
 	wg        sync.WaitGroup
 	closing   chan struct{} // if this channel gets closed all pending waits should terminate
 }
 
-// connect contains the result of an incoming connection.
-type connect struct {
+// connectResult contains the result of an incoming connection.
+type connectResult struct {
 	c   net.Conn
 	err error
 }
 
 type acceptMatcher struct {
-	peer      *peer.Peer   // connecting peer
-	deadline  time.Time    // deadline for the incoming call
-	connected chan connect // result of the connection is signaled here
+	peer      *peer.Peer // connecting peer
+	connectCh chan connectResult
+}
+
+func newAcceptMatcher(p *peer.Peer) *acceptMatcher {
+	return &acceptMatcher{peer: p, connectCh: make(chan connectResult, 1)}
 }
 
 type accept struct {
@@ -85,8 +90,8 @@ func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogg
 		local:            local,
 		listener:         listener,
 		log:              log,
-		addAcceptMatcher: make(chan *acceptMatcher),
-		acceptReceived:   make(chan accept),
+		acceptReceivedCh: make(chan accept),
+		matchersMap:      map[identity.ID]*acceptMatcher{},
 		closing:          make(chan struct{}),
 	}
 
@@ -94,7 +99,6 @@ func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogg
 		"network", listener.Addr().Network(),
 		"address", listener.Addr().String(),
 	)
-
 	t.wg.Add(2)
 	go t.run()
 	go t.listenLoop()
@@ -118,9 +122,34 @@ func (t *TCP) LocalAddr() net.Addr {
 	return t.listener.Addr()
 }
 
+// ConnectPeerOption defines an option for the DialPeer and AcceptPeer methods.
+type ConnectPeerOption func(conf *connectPeerConfig)
+
+type connectPeerConfig struct {
+	useDefaultTimeout bool
+}
+
+func buildConnectPeerConfig(opts []ConnectPeerOption) *connectPeerConfig {
+	conf := &connectPeerConfig{
+		useDefaultTimeout: true,
+	}
+	for _, o := range opts {
+		o(conf)
+	}
+	return conf
+}
+
+// WithNoDefaultTimeout returns a ConnectPeerOption that disables the default timeout for dial or accept.
+func WithNoDefaultTimeout() ConnectPeerOption {
+	return func(conf *connectPeerConfig) {
+		conf.useDefaultTimeout = false
+	}
+}
+
 // DialPeer establishes a gossip connection to the given peer.
 // If the peer does not accept the connection or the handshake fails, an error is returned.
-func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
+func (t *TCP) DialPeer(ctx context.Context, p *peer.Peer, opts ...ConnectPeerOption) (net.Conn, error) {
+	conf := buildConnectPeerConfig(opts)
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
@@ -130,7 +159,11 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 	if err := backoff.Retry(dialRetryPolicy, func() error {
 		var err error
 		address := net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port()))
-		conn, err = net.DialTimeout("tcp", address, dialTimeout)
+		dialer := &net.Dialer{}
+		if conf.useDefaultTimeout {
+			dialer.Timeout = defaultDialTimeout
+		}
+		conn, err = dialer.DialContext(ctx, "tcp", address)
 		if err != nil {
 			return fmt.Errorf("dial %s / %s failed: %w", address, p.ID(), err)
 		}
@@ -152,34 +185,53 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 
 // AcceptPeer awaits an incoming connection from the given peer.
 // If the peer does not establish the connection or the handshake fails, an error is returned.
-func (t *TCP) AcceptPeer(p *peer.Peer) (net.Conn, error) {
+func (t *TCP) AcceptPeer(ctx context.Context, p *peer.Peer, opts ...ConnectPeerOption) (net.Conn, error) {
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
 	// wait for the connection
-	connected := <-t.acceptPeer(p)
-	if connected.err != nil {
-		return nil, fmt.Errorf("accept %s / %s failed: %w", net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port())), p.ID(), connected.err)
+	conn, err := t.acceptPeer(ctx, p, opts)
+	if err != nil {
+		return nil, fmt.Errorf("accept %s / %s failed: %w", net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port())), p.ID(), err)
 	}
 
 	t.log.Debugw("incoming connection established",
 		"id", p.ID(),
-		"addr", connected.c.RemoteAddr(),
+		"addr", conn.RemoteAddr(),
 	)
-	return connected.c, nil
+	return conn, nil
 }
 
-func (t *TCP) acceptPeer(p *peer.Peer) <-chan connect {
-	connected := make(chan connect, 1)
-	// add the matcher
-	select {
-	case t.addAcceptMatcher <- &acceptMatcher{peer: p, connected: connected}:
-	case <-t.closing:
-		connected <- connect{nil, ErrClosed}
+func (t *TCP) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (net.Conn, error) {
+	t.wg.Add(1)
+	defer t.wg.Done()
+	conf := buildConnectPeerConfig(opts)
+	if conf.useDefaultTimeout {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultAcceptTimeout)
+		defer cancel()
 	}
-	return connected
+	am := newAcceptMatcher(p)
+	if ok := t.setAcceptMatcher(am); !ok {
+		return nil, errors.WithStack(ErrDuplicateAccept)
+	}
+	defer t.removeAcceptMatcher(am)
+	select {
+	case connect := <-am.connectCh:
+		return connect.c, errors.WithStack(connect.err)
+	case <-ctx.Done():
+		err := ctx.Err()
+		if errors.Is(err, context.DeadlineExceeded) {
+			t.log.Debugw("accept timeout", "id", am.peer.ID())
+			return nil, errors.WithStack(ErrTimeout)
+		}
+		t.log.Debugw("context error", "id", am.peer.ID(), "err", err)
+		return nil, errors.WithStack(err)
+	case <-t.closing:
+		return nil, errors.WithStack(ErrClosed)
+	}
 }
 
 func (t *TCP) closeConnection(c net.Conn) {
@@ -190,86 +242,62 @@ func (t *TCP) closeConnection(c net.Conn) {
 
 func (t *TCP) run() {
 	defer t.wg.Done()
-
-	var (
-		matcherList = list.New()
-		timeout     = time.NewTimer(0)
-	)
-	defer timeout.Stop()
-
-	<-timeout.C // ignore first timeout
-
 	for {
-
-		// Set the timer so that it fires when the next accept expires
-		if e := matcherList.Front(); e != nil {
-			// the first element always has the closest deadline
-			m := e.Value.(*acceptMatcher)
-			timeout.Reset(time.Until(m.deadline))
-		} else {
-			timeout.Stop()
-		}
-
 		select {
-
-		// add a new matcher to the list
-		case m := <-t.addAcceptMatcher:
-			m.deadline = time.Now().Add(connectionTimeout)
-			matcherList.PushBack(m)
-
 		// on accept received, check all matchers for a fit
-		case a := <-t.acceptReceived:
-			matched := false
-			for e := matcherList.Front(); e != nil; e = e.Next() {
-				m := e.Value.(*acceptMatcher)
-				if m.peer.ID() == a.fromID {
-					matched = true
-					matcherList.Remove(e)
-					// finish the handshake
-					go t.matchAccept(m, a.req, a.conn)
-				}
-			}
+		case a := <-t.acceptReceivedCh:
+			matched := t.matchNewConnection(a)
 			// close the connection if not matched
 			if !matched {
 				t.log.Debugw("unexpected connection", "id", a.fromID, "addr", a.conn.RemoteAddr())
 				t.closeConnection(a.conn)
 			}
-
-		// on timeout, check for expired matchers
-		case <-timeout.C:
-			now := time.Now()
-
-			// notify and remove any expired matchers
-			for e := matcherList.Front(); e != nil; e = e.Next() {
-				m := e.Value.(*acceptMatcher)
-				if now.After(m.deadline) || now.Equal(m.deadline) {
-					t.log.Debugw("accept timeout", "id", m.peer.ID())
-					m.connected <- connect{nil, ErrTimeout}
-					matcherList.Remove(e)
-				}
-			}
-
-		// on close, notify all the matchers
 		case <-t.closing:
-			for e := matcherList.Front(); e != nil; e = e.Next() {
-				e.Value.(*acceptMatcher).connected <- connect{nil, ErrClosed}
-			}
 			return
-
 		}
 	}
 }
 
-func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
+func (t *TCP) matchNewConnection(a accept) bool {
+	t.matchersMutex.RLock()
+	defer t.matchersMutex.RUnlock()
+	m, ok := t.matchersMap[a.fromID]
+	if !ok {
+		return false
+	}
+	// finish the handshake
 	t.wg.Add(1)
+	go t.matchAccept(m, a.req, a.conn)
+	return true
+}
+
+func (t *TCP) setAcceptMatcher(m *acceptMatcher) bool {
+	t.matchersMutex.Lock()
+	defer t.matchersMutex.Unlock()
+	_, exists := t.matchersMap[m.peer.ID()]
+	if exists {
+		return false
+	}
+	t.matchersMap[m.peer.ID()] = m
+	return true
+}
+
+func (t *TCP) removeAcceptMatcher(m *acceptMatcher) {
+	t.matchersMutex.Lock()
+	defer t.matchersMutex.Unlock()
+	delete(t.matchersMap, m.peer.ID())
+}
+
+func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
 	defer t.wg.Done()
 
 	if err := t.writeHandshakeResponse(req, conn); err != nil {
-		m.connected <- connect{nil, fmt.Errorf("incoming handshake failed: %w", err)}
+		m.connectCh <- connectResult{nil, fmt.Errorf("incoming handshake failed: %w", err)}
+
 		t.closeConnection(conn)
 		return
 	}
-	m.connected <- connect{conn, nil}
+	m.connectCh <- connectResult{conn, nil}
 }
 
 func (t *TCP) listenLoop() {
@@ -298,7 +326,7 @@ func (t *TCP) listenLoop() {
 		}
 
 		select {
-		case t.acceptReceived <- accept{
+		case t.acceptReceivedCh <- accept{
 			fromID: identity.NewID(key),
 			req:    req,
 			conn:   conn,

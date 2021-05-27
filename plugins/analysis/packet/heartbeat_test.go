@@ -2,17 +2,20 @@ package packet_test
 
 import (
 	"crypto/sha256"
-	"errors"
 	"testing"
 
-	. "github.com/iotaledger/goshimmer/plugins/analysis/packet"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	. "github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )
 
-var ownID = sha256.Sum256([]byte{'A'})
-var networkID = []byte("v0.2.0")
+var (
+	ownID     = sha256.Sum256([]byte{'A'})
+	networkID = []byte("v0.2.0")
+)
 
 func TestNewHeartbeatMessage(t *testing.T) {
 	testCases := []struct {
@@ -120,11 +123,11 @@ func TestNewHeartbeatMessage(t *testing.T) {
 		assert.EqualValues(t, MessageTypeHeartbeat, serializedHb[0], "expected heartbeat message type tlv header value as first byte")
 		assert.EqualValues(t, len(networkID), int(serializedHb[tlvHeaderLength]), "expected network id to have length %d", len(networkID))
 		ownIDOffset := tlvHeaderLength + HeartbeatPacketNetworkIDBytesCountSize + len(networkID)
-		assert.EqualValues(t, hb.OwnID[:], serializedHb[ownIDOffset:ownIDOffset+HeartbeatPacketPeerIDSize], "expected own peer id to be within range of %d:%d", ownIDOffset, ownIDOffset+HeartbeatPacketPeerIDSize)
+		assert.EqualValues(t, hb.OwnID, serializedHb[ownIDOffset:ownIDOffset+HeartbeatPacketPeerIDSize], "expected own peer id to be within range of %d:%d", ownIDOffset, ownIDOffset+HeartbeatPacketPeerIDSize)
 		assert.EqualValues(t, len(hb.OutboundIDs), serializedHb[ownIDOffset+HeartbeatPacketPeerIDSize], "expected outbound IDs count of %d", len(hb.OutboundIDs))
 
 		// after the outbound IDs count, the outbound IDs are serialized
-		offset := int(tlvHeaderLength) + HeartbeatPacketMinSize + len(networkID)
+		offset := tlvHeaderLength + HeartbeatPacketMinSize + len(networkID)
 		for i := 0; i < len(hb.OutboundIDs); i++ {
 			assert.EqualValues(t, hb.OutboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "outbound ID at the given position doesn't match")
 		}
@@ -135,7 +138,6 @@ func TestNewHeartbeatMessage(t *testing.T) {
 			assert.EqualValues(t, hb.InboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "inbound ID at the given position doesn't match")
 		}
 	}
-
 }
 
 func TestParseHeartbeat(t *testing.T) {

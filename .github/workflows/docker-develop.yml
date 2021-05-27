@@ -1,0 +1,26 @@
+name: Develop Docker Image
+
+on:
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - 'docs/**'
+
+jobs:
+
+  docker:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_BUILDKIT: 1
+    steps:
+      -   name: Checkout repository
+          uses: actions/checkout@v2
+
+      -   name: Publish to Docker Hub
+          uses: docker/build-push-action@92e71463491f2d026a477188b8ad3a0fdd9d672c
+          with:
+            repository: iotaledger/goshimmer
+            username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
+            password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
+            tags: develop

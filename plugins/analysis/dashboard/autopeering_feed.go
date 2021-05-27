@@ -2,14 +2,14 @@ package dashboard
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 )
 
 var (
@@ -72,7 +72,8 @@ func sendAddNode(eventStruct *analysisserver.AddNodeEvent) {
 		Data: &addNode{
 			NetworkVersion: eventStruct.NetworkVersion,
 			ID:             eventStruct.NodeID,
-		}}, true)
+		},
+	}, true)
 }
 
 // send a removeNode msg to all connected ws clients
@@ -82,7 +83,8 @@ func sendRemoveNode(eventStruct *analysisserver.RemoveNodeEvent) {
 		Data: &removeNode{
 			NetworkVersion: eventStruct.NetworkVersion,
 			ID:             eventStruct.NodeID,
-		}}, true)
+		},
+	}, true)
 }
 
 // send a connectNodes msg to all connected ws clients
@@ -93,7 +95,8 @@ func sendConnectNodes(eventStruct *analysisserver.ConnectNodesEvent) {
 			NetworkVersion: eventStruct.NetworkVersion,
 			Source:         eventStruct.SourceID,
 			Target:         eventStruct.TargetID,
-		}}, true)
+		},
+	}, true)
 }
 
 // send disconnectNodes to all connected ws clients
@@ -104,7 +107,8 @@ func sendDisconnectNodes(eventStruct *analysisserver.DisconnectNodesEvent) {
 			NetworkVersion: eventStruct.NetworkVersion,
 			Source:         eventStruct.SourceID,
 			Target:         eventStruct.TargetID,
-		}}, true)
+		},
+	}, true)
 }
 
 // runs autopeering feed to propagate autopeering events from analysis server to frontend
@@ -161,7 +165,8 @@ func createAddNodeCallback(ws *websocket.Conn) func(event *analysisserver.AddNod
 			Data: &addNode{
 				NetworkVersion: event.NetworkVersion,
 				ID:             event.NodeID,
-			}}
+			},
+		}
 		if err := sendJSON(ws, wsMessage); err != nil {
 			log.Error(err.Error())
 		}
@@ -176,7 +181,8 @@ func createRemoveNodeCallback(ws *websocket.Conn) func(event *analysisserver.Rem
 			Data: &removeNode{
 				NetworkVersion: event.NetworkVersion,
 				ID:             event.NodeID,
-			}}
+			},
+		}
 		if err := sendJSON(ws, wsMessage); err != nil {
 			log.Error(err.Error())
 		}
@@ -192,7 +198,8 @@ func createConnectNodesCallback(ws *websocket.Conn) func(event *analysisserver.C
 				NetworkVersion: event.NetworkVersion,
 				Source:         event.SourceID,
 				Target:         event.TargetID,
-			}}
+			},
+		}
 		if err := sendJSON(ws, wsMessage); err != nil {
 			log.Error(err.Error())
 		}
@@ -208,19 +215,10 @@ func createDisconnectNodesCallback(ws *websocket.Conn) func(event *analysisserve
 				NetworkVersion: event.NetworkVersion,
 				Source:         event.SourceID,
 				Target:         event.TargetID,
-			}}
+			},
+		}
 		if err := sendJSON(ws, wsMessage); err != nil {
 			log.Error(err.Error())
 		}
 	}
-}
-
-func sendJSON(ws *websocket.Conn, msg *wsmsg) error {
-	if err := ws.WriteJSON(msg); err != nil {
-		return err
-	}
-	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
-		return err
-	}
-	return nil
 }

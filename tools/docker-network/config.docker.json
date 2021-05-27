@@ -30,10 +30,15 @@
     "directory": "mainnetdb"
   },
   "drng": {
-    "instanceId": 1,
-    "threshold": 3,
-    "distributedPubKey": "",
-    "committeeMembers": []
+    "custom": {
+      "instanceId": 111,
+      "threshold": 3,
+      "distributedPubKey": "",
+      "committeeMembers": ["EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"]
+    }
+  },
+  "fpc": {
+    "drngInstanceID": 111
   },
   "gossip": {
     "port": 14666
@@ -51,6 +56,9 @@
       "serverAddress": "remotelog.goshimmer.iota.cafe:5213"
     }
   },
+  "metrics":{
+    "manaUpdateInterval": 5
+  },
   "network": {
     "bindAddress": "0.0.0.0",
     "externalAddress": "auto"
@@ -62,7 +70,8 @@
   "pow": {
     "difficulty": 2,
     "numThreads": 1,
-    "timeout": "10s"
+    "timeout": "10s",
+    "parentsRefreshInterval": "300ms"
   },
   "webapi": {
     "basic_auth": {
@@ -71,5 +80,8 @@
       "password": "goshimmer"
     },
     "bindAddress": "0.0.0.0:8080"
+  },
+  "faucet": {
+    "powDifficulty": 12
   }
 }

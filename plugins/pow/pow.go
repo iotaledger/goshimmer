@@ -4,29 +4,29 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
-	"errors"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/logger"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
+
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-var (
-	// ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
-	ErrMessageTooSmall = errors.New("message too small")
-)
+// ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
+var ErrMessageTooSmall = errors.New("message too small")
 
 // parameters
 var (
 	hash = crypto.BLAKE2b_512
 
 	// configured via parameters
-	difficulty int
-	numWorkers int
-	timeout    time.Duration
+	difficulty             int
+	numWorkers             int
+	timeout                time.Duration
+	parentsRefreshInterval time.Duration
 )
 
 var (
@@ -44,6 +44,7 @@ func Worker() *pow.Worker {
 		difficulty = config.Node().Int(CfgPOWDifficulty)
 		numWorkers = config.Node().Int(CfgPOWNumThreads)
 		timeout = config.Node().Duration(CfgPOWTimeout)
+		parentsRefreshInterval = config.Node().Duration(CfgPOWParentsRefreshInterval)
 		// create the worker
 		worker = pow.New(hash, numWorkers)
 	})
@@ -60,13 +61,13 @@ func DoPOW(msg []byte) (uint64, error) {
 	// get the PoW worker
 	worker := Worker()
 
-	log.Debugw("start PoW", "difficulty", difficulty, "numWorkers", numWorkers)
+	// log.Debugw("start PoW", "difficulty", difficulty, "numWorkers", numWorkers)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), parentsRefreshInterval)
 	defer cancel()
 	nonce, err := worker.Mine(ctx, content[:len(content)-pow.NonceBytes], difficulty)
 
-	log.Debugw("PoW stopped", "nonce", nonce, "err", err)
+	// log.Debugw("PoW stopped", "nonce", nonce, "err", err)
 
 	return nonce, err
 }

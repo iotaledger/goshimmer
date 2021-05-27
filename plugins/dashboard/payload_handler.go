@@ -1,14 +1,15 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/faucet"
-	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
+
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/vote/statement"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // BasicPayload contains content title and bytes
@@ -22,11 +23,6 @@ type BasicPayload struct {
 type BasicStringPayload struct {
 	ContentTitle string `json:"content_title"`
 	Content      string `json:"content"`
-}
-
-// SyncBeaconPayload contains sent time of a sync beacon.
-type SyncBeaconPayload struct {
-	SentTime int64 `json:"sent_time"`
 }
 
 // DrngPayload contains the subtype of drng payload, instance ID
@@ -45,31 +41,64 @@ type DrngCollectiveBeaconPayload struct {
 	Dpk     []byte `json:"dpk"`
 }
 
-// ValuePayload contains the transaction information
-type ValuePayload struct {
-	ID        string          `json:"payload_id"`
-	Parent1ID string          `json:"parent1_id"`
-	Parent2ID string          `json:"parent2_id"`
-	TxID      string          `json:"tx_id"`
-	Input     []InputContent  `json:"inputs"`
-	Output    []OutputContent `json:"outputs"`
-	Data      []byte          `json:"data"`
+// TransactionPayload contains the transaction information.
+type TransactionPayload struct {
+	TxID        string                  `json:"txID"`
+	Transaction *jsonmodels.Transaction `json:"transaction"`
+}
+
+// Essence contains the transaction essence information.
+type Essence struct {
+	Version           uint8                `json:"version"`
+	Timestamp         int                  `json:"timestamp"`
+	AccessPledgeID    string               `json:"access_pledge_id"`
+	ConsensusPledgeID string               `json:"cons_pledge_id"`
+	Inputs            []*jsonmodels.Output `json:"inputs"`
+	Outputs           []*jsonmodels.Output `json:"outputs"`
+	Data              string               `json:"data"`
+}
+
+// StatementPayload is a JSON serializable statement payload.
+type StatementPayload struct {
+	Conflicts  []Conflict  `json:"conflicts"`
+	Timestamps []Timestamp `json:"timestamps"`
+}
+
+// Conflict is a JSON serializable conflict.
+type Conflict struct {
+	ID      string `json:"tx_id"`
+	Opinion `json:"opinion"`
+}
+
+// Timestamp is a JSON serializable Timestamp.
+type Timestamp struct {
+	ID      string `json:"msg_id"`
+	Opinion `json:"opinion"`
+}
+
+// Opinion is a JSON serializable opinion.
+type Opinion struct {
+	Value string `json:"value"`
+	Round uint8  `json:"round"`
 }
 
 // InputContent contains the inputs of a transaction
 type InputContent struct {
-	Address string `json:"address"`
+	OutputID string    `json:"output_id"`
+	Address  string    `json:"address"`
+	Balances []Balance `json:"balance"`
 }
 
 // OutputContent contains the outputs of a transaction
 type OutputContent struct {
+	OutputID string    `json:"output_id"`
 	Address  string    `json:"address"`
 	Balances []Balance `json:"balance"`
 }
 
 // Balance contains the amount of specific color token
 type Balance struct {
-	Value int64  `json:"value"`
+	Value uint64 `json:"value"`
 	Color string `json:"color"`
 }
 
@@ -83,20 +112,19 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "GenericDataPayload",
 			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
+	case ledgerstate.TransactionType:
+		return processTransactionPayload(p)
+	case statement.StatementType:
+		return processStatementPayload(p)
 	case faucet.Type:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucet.Request).Address().String(),
+			Content:      p.(*faucet.Request).Address().Base58(),
 		}
 	case drng.PayloadType:
 		// drng payload
 		return processDrngPayload(p)
-	case syncbeaconpayload.Type:
-		// sync beacon payload
-		return processSyncBeaconPayload(p)
-	case valuepayload.Type:
-		return processValuePayload(p)
 	default:
 		// unknown payload
 		return BasicPayload{
@@ -136,63 +164,48 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	}
 }
 
-// processDrngPayload handles the subtypes of Drng payload
-func processSyncBeaconPayload(p payload.Payload) (dp SyncBeaconPayload) {
-	syncBeaconPayload, ok := p.(*syncbeaconpayload.Payload)
-	if !ok {
-		log.Info("could not cast payload to sync beacon object")
+// processTransactionPayload handles Value payload
+func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
+	tx, _, err := ledgerstate.TransactionFromBytes(p.Bytes())
+	if err != nil {
 		return
 	}
 
-	return SyncBeaconPayload{
-		SentTime: syncBeaconPayload.SentTime(),
+	tp.TxID = tx.ID().Base58()
+	tp.Transaction = jsonmodels.NewTransaction(tx)
+	// add consumed inputs
+	for i, input := range tx.Essence().Inputs() {
+		refOutputID := input.(*ledgerstate.UTXOInput).ReferencedOutputID()
+		messagelayer.Tangle().LedgerState.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
+			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
+		})
 	}
+
+	return
 }
 
-// processValuePayload handles Value payload
-func processValuePayload(p payload.Payload) (vp ValuePayload) {
-	marshalUtil := marshalutil.New(p.Bytes())
-	v, _ := valuepayload.Parse(marshalUtil)
+func processStatementPayload(p payload.Payload) (sp StatementPayload) {
+	tmp := p.(*statement.Statement)
 
-	var inputs []InputContent
-	var outputs []OutputContent
-
-	// TODO: retrieve balance
-	v.Transaction().Inputs().ForEachAddress(func(currentAddress address.Address) bool {
-		inputs = append(inputs, InputContent{Address: currentAddress.String()})
-		return true
-	})
-
-	// Get outputs address and balance
-	v.Transaction().Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		var b []Balance
-		for _, bal := range balances {
-			color := bal.Color.String()
-			if bal.Color == balance.ColorNew {
-				color = v.Transaction().ID().String()
-			}
-
-			b = append(b, Balance{
-				Value: bal.Value,
-				Color: color,
-			})
+	for _, c := range tmp.Conflicts {
+		sc := Conflict{
+			ID: c.ID.String(),
+			Opinion: Opinion{
+				Value: c.Value.String(),
+				Round: c.Round,
+			},
 		}
-		t := OutputContent{
-			Address:  address.String(),
-			Balances: b,
-		}
-		outputs = append(outputs, t)
-
-		return true
-	})
-
-	return ValuePayload{
-		ID:        v.ID().String(),
-		Parent1ID: v.Parent1ID().String(),
-		Parent2ID: v.Parent2ID().String(),
-		TxID:      v.Transaction().ID().String(),
-		Input:     inputs,
-		Output:    outputs,
-		Data:      v.Transaction().GetDataPayload(),
+		sp.Conflicts = append(sp.Conflicts, sc)
 	}
+	for _, t := range tmp.Timestamps {
+		st := Timestamp{
+			ID: t.ID.Base58(),
+			Opinion: Opinion{
+				Value: t.Value.String(),
+				Round: t.Round,
+			},
+		}
+		sp.Timestamps = append(sp.Timestamps, st)
+	}
+	return
 }

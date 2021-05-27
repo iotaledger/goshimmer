@@ -3,16 +3,18 @@ package gracefulshutdown
 import (
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the graceful shutdown plugin.
@@ -59,6 +61,7 @@ func configure(*node.Plugin) {
 					log.Warnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", waitToKillTimeInSeconds-int(secondsSinceStart), processList)
 				} else {
 					log.Error("Background processes did not terminate in time! Forcing shutdown ...")
+					pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
 					os.Exit(1)
 				}
 			}

@@ -4,9 +4,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/shirou/gopsutil/cpu"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/metrics"
 )
 
 var (
@@ -24,7 +25,7 @@ func measureCPUUsage() {
 	// Percent calculates the percentage of cpu used either per CPU or combined.
 	// TODO: use func PercentWithContext for more detailed info.
 	percent, err := cpu.Percent(time.Second, false)
-	if err == nil {
+	if err == nil && len(percent) > 0 {
 		p = percent[0]
 	}
 	metrics.Events().CPUUsage.Trigger(p)

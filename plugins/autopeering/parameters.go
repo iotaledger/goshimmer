@@ -1,17 +1,21 @@
 package autopeering
 
-import (
-	flag "github.com/spf13/pflag"
-)
+import "github.com/iotaledger/hive.go/configuration"
 
-const (
-	// CfgEntryNodes defines the config flag of the entry nodes.
-	CfgEntryNodes = "autopeering.entryNodes"
-	// CfgNetworkVersion defines the config flag of the network version.
-	CfgNetworkVersion = "autopeering.networkVersion"
-)
+// Parameters contains the configuration parameters used by the autopeering layer.
+var Parameters = struct {
+	// Mana defines the config flag of mana in the autopeering.
+	Mana bool `default:"true" usage:"enable/disable mana in the autopeering"`
+
+	// R defines the config flag of R.
+	R int `default:"40" usage:"R parameter"`
+
+	// Ro defines the config flag of Ro.
+	Ro float64 `default:"2." usage:"Ro parameter"`
+
+	EnableGossipIntegration bool `default:"true" usage:"enable/disable autopeering for gossip layer"`
+}{}
 
 func init() {
-	flag.StringSlice(CfgEntryNodes, []string{"2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626", "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entrynode.alphanet.tanglebay.org:14656"}, "list of trusted entry nodes for auto peering")
-	flag.Int(CfgNetworkVersion, 8, "autopeering network version")
+	configuration.BindParameters(&Parameters, "autopeering")
 }

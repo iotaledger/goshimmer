@@ -3,12 +3,12 @@ package shutdown
 const (
 	// PriorityDatabase defines the shutdown priority for the database.
 	PriorityDatabase = iota
-	// PriorityFPC defines the shutdown priority for FPC.
-	PriorityFPC
+	// PriorityMana defines the shutdown priority for the mana plugin.
+	PriorityMana
 	// PriorityTangle defines the shutdown priority for the tangle.
 	PriorityTangle
-	// PriorityMissingMessagesMonitoring defines the shutdown priority for missing message monitor.
-	PriorityMissingMessagesMonitoring
+	// PriorityFPC defines the shutdown priority for the FPC.
+	PriorityFPC
 	// PriorityFaucet defines the shutdown priority for the faucet.
 	PriorityFaucet
 	// PriorityRemoteLog defines the shutdown priority for remote log.
@@ -19,18 +19,26 @@ const (
 	PriorityPrometheus
 	// PriorityMetrics defines the shutdown priority for metrics server.
 	PriorityMetrics
-	// PriorityAutopeering defines the shutdown priority for autopeering.
-	PriorityAutopeering
 	// PriorityGossip defines the shutdown priority for gossip.
 	PriorityGossip
+	// PriorityAutopeering defines the shutdown priority for autopeering.
+	PriorityAutopeering
+	// PriorityManualpeering defines the shutdown priority for manualpeering.
+	PriorityManualpeering
 	// PriorityWebAPI defines the shutdown priority for webapi.
 	PriorityWebAPI
 	// PriorityDashboard defines the shutdown priority for dashboard.
 	PriorityDashboard
 	// PrioritySynchronization defines the shutdown priority for synchronization.
 	PrioritySynchronization
+	// PriorityManaRefresher defines the shutdown priority for the manarefresher plugin.
+	PriorityManaRefresher
+	// PriorityActivity defines the shutdown priority for the activity plugin.
+	PriorityActivity
 	// PrioritySpammer defines the shutdown priority for spammer.
 	PrioritySpammer
 	// PriorityBootstrap defines the shutdown priority for bootstrap.
 	PriorityBootstrap
+	// PriorityTXStream defines the shutdown priority for realtime.
+	PriorityTXStream
 )

@@ -55,12 +55,12 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	if *receivePtr {
 		fmt.Println()
-		fmt.Println("Latest Receive Address: " + cliWallet.ReceiveAddress().String())
+		fmt.Println("Latest Receive Address: " + cliWallet.ReceiveAddress().Address().Base58())
 	}
 
 	if *newReceiveAddressPtr {
 		fmt.Println()
-		fmt.Println("New Receive Address: " + cliWallet.NewReceiveAddress().String())
+		fmt.Println("New Receive Address: " + cliWallet.NewReceiveAddress().Address().Base58())
 	}
 
 	if *listPtr {
@@ -76,7 +76,7 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 		addressPrinted := false
 		for _, addr := range cliWallet.AddressManager().Addresses() {
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.String(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
+			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.Base58(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
 
 			addressPrinted = true
 		}
@@ -122,7 +122,7 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 		addressPrinted := false
 		for _, addr := range cliWallet.AddressManager().SpentAddresses() {
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.String(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
+			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.Base58(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
 
 			addressPrinted = true
 		}

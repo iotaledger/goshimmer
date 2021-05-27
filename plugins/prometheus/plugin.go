@@ -6,15 +6,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/gin-gonic/gin"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
 // PluginName is the name of the prometheus plugin.
@@ -61,10 +63,15 @@ func configure(plugin *node.Plugin) {
 		registerNetworkMetrics()
 		registerProcessMetrics()
 		registerTangleMetrics()
+		registerManaMetrics()
 	}
 
 	if config.Node().Bool(metrics.CfgMetricsGlobal) {
 		registerClientsMetrics()
+	}
+
+	if config.Node().Bool(metrics.CfgMetricsManaResearch) {
+		registerManaResearchMetrics()
 	}
 }
 
@@ -101,7 +108,7 @@ func run(plugin *node.Plugin) {
 
 		go func() {
 			log.Infof("You can now access the Prometheus exporter using: http://%s/metrics", bindAddr)
-			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Error("Stopping Prometheus exporter due to an error ... done")
 			}
 		}()

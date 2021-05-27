@@ -4,13 +4,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 // TestPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("message_TestPersistence", 4, 2)
+	n, err := f.CreateNetworkWithMana("message_TestPersistence", 4, framework.CreateNetworkConfig{
+		Faucet:      true,
+		Mana:        true,
+		StartSynced: true,
+	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -24,7 +30,7 @@ func TestPersistence(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// 2. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 
 	// 3. stop all nodes
 	for _, peer := range n.Peers() {
@@ -41,6 +47,9 @@ func TestPersistence(t *testing.T) {
 	// wait for peers to start
 	time.Sleep(10 * time.Second)
 
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
+
 	// 5. check whether all issued messages are persistently available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, false)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, false)
 }

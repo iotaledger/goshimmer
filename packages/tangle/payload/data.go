@@ -1,10 +1,10 @@
 package payload
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 )
 
 // GenericDataPayloadType is the Type of a generic GenericDataPayload.
@@ -12,7 +12,14 @@ var GenericDataPayloadType = NewType(0, "GenericDataPayloadType", GenericDataPay
 
 // GenericDataPayloadUnmarshaler is the UnmarshalerFunc of the GenericDataPayload which is also used as a unmarshaler for unknown Types.
 func GenericDataPayloadUnmarshaler(data []byte) (Payload, error) {
-	return GenericDataPayloadFromMarshalUtil(marshalutil.New(data))
+	payload, consumedBytes, err := GenericDataPayloadFromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, errors.New("not all payload bytes were consumed")
+	}
+	return payload, nil
 }
 
 // GenericDataPayload represents a payload which just contains a blob of data.
@@ -33,7 +40,7 @@ func NewGenericDataPayload(data []byte) *GenericDataPayload {
 func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataPayload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if genericDataPayload, err = GenericDataPayloadFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse GenericDataPayload from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse GenericDataPayload from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -45,17 +52,17 @@ func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataP
 func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (genericDataPayload *GenericDataPayload, err error) {
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	genericDataPayload = &GenericDataPayload{}
 	if genericDataPayload.payloadType, err = TypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
-	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize)); err != nil {
-		err = xerrors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize) - TypeLength); err != nil {
+		err = errors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -75,7 +82,7 @@ func (g *GenericDataPayload) Blob() []byte {
 // Bytes returns a marshaled version of the Payload.
 func (g *GenericDataPayload) Bytes() []byte {
 	return marshalutil.New().
-		WriteUint32(uint32(len(g.data))).
+		WriteUint32(TypeLength + uint32(len(g.data))).
 		WriteBytes(g.Type().Bytes()).
 		WriteBytes(g.Blob()).
 		Bytes()

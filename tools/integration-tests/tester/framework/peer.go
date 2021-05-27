@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/goshimmer/packages/manualpeering"
 )
 
 // Peer represents a GoShimmer node inside the Docker network
@@ -28,8 +29,7 @@ type Peer struct {
 	// Seed
 	*walletseed.Seed
 
-	chosen   []autopeering.Neighbor
-	accepted []autopeering.Neighbor
+	neighborsNumber int
 }
 
 // newPeer creates a new instance of Peer with the given information.
@@ -57,14 +57,25 @@ func (p *Peer) String() string {
 
 // TotalNeighbors returns the total number of neighbors the peer has.
 func (p *Peer) TotalNeighbors() int {
-	return len(p.chosen) + len(p.accepted)
+	return p.neighborsNumber
 }
 
-// SetNeighbors sets the neighbors of the peer accordingly.
-func (p *Peer) SetNeighbors(chosen, accepted []autopeering.Neighbor) {
-	p.chosen = make([]autopeering.Neighbor, len(chosen))
-	copy(p.chosen, chosen)
+// SetNeighborsNumber sets the number of neighbors of the peer.
+func (p *Peer) SetNeighborsNumber(number int) {
+	p.neighborsNumber = number
+}
 
-	p.accepted = make([]autopeering.Neighbor, len(accepted))
-	copy(p.accepted, accepted)
+func (p *Peer) ToKnownPeer() *manualpeering.KnownPeerToAdd {
+	return &manualpeering.KnownPeerToAdd{
+		PublicKey: p.PublicKey(),
+		Address:   fmt.Sprintf("%s:14666", p.ip),
+	}
+}
+
+func ToKnownPeers(peers []*Peer) []*manualpeering.KnownPeerToAdd {
+	models := make([]*manualpeering.KnownPeerToAdd, len(peers))
+	for i, p := range peers {
+		models[i] = p.ToKnownPeer()
+	}
+	return models
 }

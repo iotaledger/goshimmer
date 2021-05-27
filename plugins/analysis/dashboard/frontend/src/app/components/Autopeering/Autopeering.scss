@@ -97,5 +97,31 @@
     background: $dark-gray;
     overflow: hidden;
     z-index: -1;
+
+    .mana-legend{
+      position: absolute;
+      left: 50%;
+      margin-left: -150px;
+      margin-top: 10px;
+      color: white;
+      width: 300px;
+
+      .bar{
+        height: 10px;
+        background: linear-gradient(to right, hsl(180, 100%, 50%), hsl(120, 100%, 50%), hsl(60, 100%, 50%), hsl(0, 100%, 50%));
+      }
+    }
+
+    .controls {
+      position: absolute;
+      right: 3%;
+      color: white;
+      float: right;
+      padding-top: 20px;
+      padding-right: 10px;
+    }
   }
+
+
+
 }

@@ -5,35 +5,30 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const storeSequenceInterval = 100
 
-var (
-	// ZeroWorker is a PoW worker that always returns 0 as the nonce.
-	ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
-)
-
-// A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
-type TipSelector interface {
-	Tips() (parent1 MessageID, parent2 MessageID)
-}
-
-// A Worker performs the PoW for the provided message in serialized byte form.
-type Worker interface {
-	DoPOW([]byte) (nonce uint64, err error)
-}
+// region MessageFactory ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
-	Events        *MessageFactoryEvents
+	Events *MessageFactoryEvents
+
+	tangle        *Tangle
 	sequence      *kvstore.Sequence
 	localIdentity *identity.LocalIdentity
 	selector      TipSelector
+	powTimeout    time.Duration
 
 	worker        Worker
 	workerMutex   sync.RWMutex
@@ -41,18 +36,24 @@ type MessageFactory struct {
 }
 
 // NewMessageFactory creates a new message factory.
-func NewMessageFactory(store kvstore.KVStore, sequenceKey []byte, localIdentity *identity.LocalIdentity, selector TipSelector) *MessageFactory {
-	sequence, err := kvstore.NewSequence(store, sequenceKey, storeSequenceInterval)
+func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
+	sequence, err := kvstore.NewSequence(tangle.Options.Store, []byte(DBSequenceNumber), storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
 	}
 
 	return &MessageFactory{
-		Events:        newMessageFactoryEvents(),
+		Events: &MessageFactoryEvents{
+			MessageConstructed: events.NewEvent(messageEventHandler),
+			Error:              events.NewEvent(events.ErrorCaller),
+		},
+
+		tangle:        tangle,
 		sequence:      sequence,
-		localIdentity: localIdentity,
+		localIdentity: tangle.Options.Identity,
 		selector:      selector,
 		worker:        ZeroWorker,
+		powTimeout:    0 * time.Second,
 	}
 }
 
@@ -63,10 +64,15 @@ func (f *MessageFactory) SetWorker(worker Worker) {
 	f.worker = worker
 }
 
+// SetTimeout sets the timeout for PoW.
+func (f *MessageFactory) SetTimeout(timeout time.Duration) {
+	f.powTimeout = timeout
+}
+
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
+func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -75,32 +81,63 @@ func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
 	}
 
 	f.issuanceMutex.Lock()
-	defer f.issuanceMutex.Unlock()
+
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
-		err = fmt.Errorf("could not create sequence number: %w", err)
+		err = errors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 
-	parent1ID, parent2ID := f.selector.Tips()
-	issuingTime := time.Now()
+	countStrongParents := 2
+	if len(parentsCount) > 0 {
+		countStrongParents = parentsCount[0]
+	}
+	strongParents, weakParents, err := f.selector.Tips(p, countStrongParents, 2)
+	if err != nil {
+		err = errors.Errorf("tips could not be selected: %w", err)
+		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
+		return nil, err
+	}
+	issuingTime := f.getIssuingTime(strongParents, weakParents)
+
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := f.doPOW(parent1ID, parent2ID, issuingTime, issuerPublicKey, sequenceNumber, p)
-	if err != nil {
-		err = fmt.Errorf("pow failed: %w", err)
-		f.Events.Error.Trigger(err)
-		return nil, err
+	startTime := time.Now()
+
+	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	for err != nil && time.Since(startTime) < f.powTimeout {
+		if p.Type() != ledgerstate.TransactionType {
+			strongParents, weakParents, err = f.selector.Tips(p, countStrongParents, 2)
+			if err != nil {
+				err = errors.Errorf("tips could not be selected: %w", err)
+				f.Events.Error.Trigger(err)
+				f.issuanceMutex.Unlock()
+				return nil, err
+			}
+		}
+
+		issuingTime = f.getIssuingTime(strongParents, weakParents)
+		nonce, err = f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
+	if err != nil {
+		err = errors.Errorf("pow failed: %w", err)
+		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
+		return nil, err
+	}
+	f.issuanceMutex.Unlock()
+
 	// create the signature
-	signature := f.sign(parent1ID, parent2ID, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := NewMessage(
-		parent1ID,
-		parent2ID,
+		strongParents,
+		weakParents,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -112,6 +149,28 @@ func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
 	return msg, nil
 }
 
+func (f *MessageFactory) getIssuingTime(strongParents, weakParents MessageIDs) time.Time {
+	issuingTime := clock.SyncedTime()
+
+	// due to the ParentAge check we must ensure that we set the right issuing time.
+
+	for _, parent := range strongParents {
+		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
+			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+				issuingTime = msg.IssuingTime()
+			}
+		})
+	}
+	for _, parent := range weakParents {
+		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
+			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+				issuingTime = msg.IssuingTime()
+			}
+		})
+	}
+	return issuingTime
+}
+
 // Shutdown closes the MessageFactory and persists the sequence number.
 func (f *MessageFactory) Shutdown() {
 	if err := f.sequence.Release(); err != nil {
@@ -119,31 +178,74 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(parent1ID, parent2ID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
+	dummy := NewMessage(strongParents, weakParents, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(parent1ID, parent2ID, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
+	dummy := NewMessage(strongParents, weakParents, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
 	return f.localIdentity.Sign(dummyBytes[:contentLength])
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageFactoryEvents represents events happening on a message factory.
+type MessageFactoryEvents struct {
+	// Fired when a message is built including tips, sequence number and other metadata.
+	MessageConstructed *events.Event
+
+	// Fired when an error occurred.
+	Error *events.Event
+}
+
+func messageEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*Message))(params[0].(*Message))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TipSelector //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
+type TipSelector interface {
+	Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
+
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func() (MessageID, MessageID)
+type TipSelectorFunc func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips() (MessageID, MessageID) {
-	return f()
+func (f TipSelectorFunc) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+	return f(p, countStrongParents, countWeakParents)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Worker ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// A Worker performs the PoW for the provided message in serialized byte form.
+type Worker interface {
+	DoPOW([]byte) (nonce uint64, err error)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region WorkerFunc ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // The WorkerFunc type is an adapter to allow the use of ordinary functions as a PoW performer.
 type WorkerFunc func([]byte) (uint64, error)
@@ -152,3 +254,12 @@ type WorkerFunc func([]byte) (uint64, error)
 func (f WorkerFunc) DoPOW(msg []byte) (uint64, error) {
 	return f(msg)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ZeroWorker ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ZeroWorker is a PoW worker that always returns 0 as the nonce.
+var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

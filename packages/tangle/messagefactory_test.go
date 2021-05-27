@@ -4,55 +4,62 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
+	"crypto/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
-	sequenceKey   = "seq"
 	targetPOW     = 10
+	powTimeout    = 10 * time.Second
 	totalMessages = 2000
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	msgFactory := NewMessageFactory(
-		mapdb.NewMapDB(),
-		[]byte(sequenceKey),
-		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }),
+	selfLocalIdentity := identity.GenerateLocalIdentity()
+	tangle := newTestTangle(Identity(selfLocalIdentity))
+	defer tangle.Shutdown()
+
+	tangle.MessageFactory = NewMessageFactory(
+		tangle,
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+			return []MessageID{EmptyMessageID}, []MessageID{}, nil
+		}),
 	)
-	defer msgFactory.Shutdown()
+	tangle.MessageFactory.SetTimeout(powTimeout)
+	defer tangle.MessageFactory.Shutdown()
 
 	// keep track of sequence numbers
 	sequenceNumbers := sync.Map{}
 
 	// attach to event and count
 	countEvents := uint64(0)
-	msgFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
+	tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
 		atomic.AddUint64(&countEvents, 1)
 	}))
 
 	t.Run("CheckProperties", func(t *testing.T) {
 		p := payload.NewGenericDataPayload([]byte("TestCheckProperties"))
-		msg, err := msgFactory.IssuePayload(p)
+		msg, err := tangle.MessageFactory.IssuePayload(p)
 		require.NoError(t, err)
 
-		assert.NotNil(t, msg.Parent1ID())
-		assert.NotNil(t, msg.Parent2ID())
+		// TODO: approval switch: make test case with weak parents
+		assert.NotEmpty(t, msg.StrongParents())
 
 		// time in range of 0.1 seconds
-		assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
+		assert.InDelta(t, clock.SyncedTime().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
 
 		// check payload
 		assert.Equal(t, p, msg.Payload())
@@ -71,14 +78,14 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				t.Parallel()
 
 				p := payload.NewGenericDataPayload([]byte("TestParallelCreation"))
-				msg, err := msgFactory.IssuePayload(p)
+				msg, err := tangle.MessageFactory.IssuePayload(p)
 				require.NoError(t, err)
 
-				assert.NotNil(t, msg.Parent1ID())
-				assert.NotNil(t, msg.Parent2ID())
+				// TODO: approval switch: make test case with weak parents
+				assert.NotEmpty(t, msg.StrongParents())
 
 				// time in range of 0.1 seconds
-				assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
+				assert.InDelta(t, clock.SyncedTime().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
 
 				// check payload
 				assert.Equal(t, p, msg.Payload())
@@ -112,11 +119,14 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
+	tangle := newTestTangle()
+	defer tangle.Shutdown()
+
 	msgFactory := NewMessageFactory(
-		mapdb.NewMapDB(),
-		[]byte(sequenceKey),
-		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }),
+		tangle,
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+			return []MessageID{EmptyMessageID}, []MessageID{}, nil
+		}),
 	)
 	defer msgFactory.Shutdown()
 
@@ -126,7 +136,7 @@ func TestMessageFactory_POW(t *testing.T) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return worker.Mine(context.Background(), content, targetPOW)
 	}))
-
+	msgFactory.SetTimeout(powTimeout)
 	msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 
@@ -139,11 +149,21 @@ func TestMessageFactory_POW(t *testing.T) {
 }
 
 func TestWorkerFunc_PayloadSize(t *testing.T) {
+	testTangle := newTestTangle()
+	defer testTangle.Shutdown()
+
 	msgFactory := NewMessageFactory(
-		mapdb.NewMapDB(),
-		[]byte(sequenceKey),
-		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }),
+		testTangle,
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+			result := make(MessageIDs, 0, MaxParentsCount)
+			for i := 0; i < MaxParentsCount; i++ {
+				b := make([]byte, MessageIDLength)
+				_, _ = rand.Read(b)
+				randID, _, _ := MessageIDFromBytes(b)
+				result = append(result, randID)
+			}
+			return result, MessageIDs{}, nil
+		}),
 	)
 	defer msgFactory.Shutdown()
 

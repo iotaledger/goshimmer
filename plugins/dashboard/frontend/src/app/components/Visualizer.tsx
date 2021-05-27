@@ -60,7 +60,7 @@ export class Visualizer extends React.Component<Props, any> {
 
     render() {
         let {
-            vertices, solid_count, selected,
+            vertices, finalized_count, selected,
             selected_approvers_count, selected_approvees_count,
             verticesLimit, tips_count, paused, search
         } = this.props.visualizerStore;
@@ -127,13 +127,21 @@ export class Visualizer extends React.Component<Props, any> {
                         </InputGroup>
                     </Col>
                     <Col xs={{span: 5, offset: 2}}>
-                        <p>
-                            <Badge pill style={{background: "#6c71c4", color: "white"}}>
-                                Solid
+                        <p>                            
+                            <Badge pill style={{background: "#b9b7bd", color: "white"}}>
+                                MSG Pending
                             </Badge>
                             {' '}
-                            <Badge pill style={{background: "#2aa198", color: "white"}}>
-                                Unsolid
+                            <Badge pill style={{background: "#6c71c4", color: "white"}}>
+                                MSG Confirmed
+                            </Badge>
+                            {' '}
+                            <Badge pill style={{background: "#393e46", color: "white"}}>
+                                TX Pending
+                            </Badge>
+                            {' '}
+                            <Badge pill style={{background: "#fad02c", color: "white"}}>
+                                TX Confirmed
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#cb4b16", color: "white"}}>
@@ -145,7 +153,7 @@ export class Visualizer extends React.Component<Props, any> {
                             </Badge>
                             <br/>
                             Vertices: {vertices.size}, Tips: {tips_count},
-                            Solid/Unsolid: {solid_count}/{vertices.size - solid_count},{' '}
+                            Confirmed/UnConfirmed: {finalized_count}/{vertices.size - finalized_count},{' '}
                             MPS: {last_mps_metric.mps}
                             <br/>
                             Selected: {selected ?
@@ -158,17 +166,27 @@ export class Visualizer extends React.Component<Props, any> {
                             <span>{selected_approvers_count}/{selected_approvees_count}</span>
                             : '-/-'}
                             <br/>
-                            Parent1/Parent2:{' '}
+                            Strong/Weak:{' '}
                             {
-                                selected && selected.parent1_id && selected.parent2_id ?
+                                selected && selected.strongParentIDs && selected.weakParentIDs ?
                                     <span>
-                                        <Link to={` / explorer / message /${selected.parent1_id}`}>
-                                            {selected.parent1_id.substr(0, 10)}
-                                        </Link>
+                                        {selected.strongParentIDs.map((parent) => {
+                                            return (
+                                                <Link to={`/explorer/message/${parent}`}>
+                                                    {parent.substr(0, 10) + " "}
+                                                </Link>
+                                            )
+
+                                        })}
                                         /
-                                        <Link to={` / explorer / message /${selected.parent2_id}`}>
-                                            {selected.parent2_id.substr(0, 10)}
-                                        </Link>
+                                        {selected.weakParentIDs.map((parent) => {
+                                            return (
+                                                <Link to={`/explorer/message/${parent}`}>
+                                                    {parent.substr(0, 10) + " "}
+                                                </Link>
+                                            )
+
+                                        })}
                                     </span>
                                     : "-"}
                         </p>
