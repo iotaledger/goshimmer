@@ -46,7 +46,6 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 			app.LogError(err)
 			return
 		}
-		// chatPayload := message.Payload().(*Payload)
 
 		chatEvent = &ChatEvent{
 			From:      chatPayload.From,

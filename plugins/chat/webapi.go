@@ -20,9 +20,9 @@ func SendChatMessage(c echo.Context) error {
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	obj := NewPayload(req.From, req.To, req.Message)
+	chatPayload := NewPayload(req.From, req.To, req.Message)
 
-	msg, err := messagelayer.Tangle().IssuePayload(obj)
+	msg, err := messagelayer.Tangle().IssuePayload(chatPayload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

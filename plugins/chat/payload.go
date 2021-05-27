@@ -168,7 +168,7 @@ func (p *Payload) String() string {
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
-// Type represents the identifier which addresses the network delay Object type.
+// Type represents the identifier which addresses the chat payload type.
 var Type = payload.NewType(payloadType, PayloadName, func(data []byte) (payload payload.Payload, err error) {
 	var consumedBytes int
 	payload, consumedBytes, err = FromBytes(data)
