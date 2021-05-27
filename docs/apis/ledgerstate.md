@@ -657,7 +657,7 @@ fmt.Println("solidification time: ",  time.Unix(resp.SolidificationTime, 0))
 | `solidificationTime`  | int64     | The time of solidification of a message. |
 | `consumerCount`       | int       | The number of consumers. |
 | `firstConsumer`       | string    | The first consumer of the output. |
-| `finalized`           | bool      | The boolean indicator if the transaction . |
+| `finalized`           | bool      | The boolean indicator if the transaction is finalized. |
 
 
 #### Type `OutputID`
