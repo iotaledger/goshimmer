@@ -1,7 +1,8 @@
 # How to obtain tokens from the faucet
 
 ## The faucet dApp
-The faucet is a dApp built on top of the [value and communication layer](../concepts/layers.md). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing an address encoded in Base58, and it is retrievable via [`FindMessageByID()`](../apis/communication.md).
+The faucet is a dApp built on top of the [value and communication layer](../concepts/layers.md). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing a special payload with an address encoded in Base58, the aManaPledgeID, the cManaPledgeID and a nonce as a proof that some Proof Of Work has been computed. The PoW is just a way to rate limit and avoid abuse of the Faucet. The Faucet has an additional protection by means of granting request to a given address only once. That means that, in order to receive funds from the Faucet multuple times, the address must be different.
+
 After sending a faucet request message, you can check your balances via [`GetAddressUnspentOutputs()`](../apis/ledgerstate.md).
 
 ## Obtain tokens from the faucet
