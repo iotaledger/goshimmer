@@ -36,7 +36,6 @@ func configure(_ *node.Plugin) {
 
 func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 	var chatEvent *ChatEvent
-
 	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		if message.Payload().Type() != Type {
 			return
@@ -63,5 +62,5 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 	}
 
 	app.LogInfo(chatEvent)
-	Events.ReceivedChatMessage.Trigger(chatEvent)
+	Events.MessageReceived.Trigger(chatEvent)
 }

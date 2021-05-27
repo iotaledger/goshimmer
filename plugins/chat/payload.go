@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	// ObjectName defines the name of the chat object.
-	ObjectName  = "chat"
+	// PayloadName defines the name of the chat payload.
+	PayloadName = "chat"
 	payloadType = 989
 )
 
@@ -169,7 +169,7 @@ func (p *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the network delay Object type.
-var Type = payload.NewType(payloadType, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+var Type = payload.NewType(payloadType, PayloadName, func(data []byte) (payload payload.Payload, err error) {
 	var consumedBytes int
 	payload, consumedBytes, err = FromBytes(data)
 	if err != nil {

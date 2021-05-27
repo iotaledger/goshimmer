@@ -9,15 +9,8 @@ import (
 
 func TestPayload(t *testing.T) {
 	a := NewPayload("me", "you", "ciao")
-
-	t.Log(a)
-
 	abytes := a.Bytes()
-
-	t.Log(a.Type().String())
-
 	b, _, err := FromBytes(abytes)
 	require.NoError(t, err)
-
 	assert.Equal(t, a, b)
 }

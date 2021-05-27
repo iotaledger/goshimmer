@@ -57,14 +57,14 @@ func runChatLiveFeed() {
 			default:
 			}
 		})
-		chat.Events.ReceivedChatMessage.Attach(notifyNewMessages)
+		chat.Events.MessageReceived.Attach(notifyNewMessages)
 
 		chatLiveFeedWorkerPool.Start()
 		defer chatLiveFeedWorkerPool.Stop()
 
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[ChatUpdater] ...")
-		chat.Events.ReceivedChatMessage.Detach(notifyNewMessages)
+		chat.Events.MessageReceived.Detach(notifyNewMessages)
 		log.Info("Stopping Dashboard[ChatUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

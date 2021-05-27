@@ -9,12 +9,12 @@ import (
 // Events defines the events of the plugin.
 var Events = pluginEvents{
 	// ReceivedChatMessage triggers upon reception of a chat message.
-	ReceivedChatMessage: events.NewEvent(chatEventCaller),
+	MessageReceived: events.NewEvent(chatEventCaller),
 }
 
 type pluginEvents struct {
 	// Fired when a chat message is received.
-	ReceivedChatMessage *events.Event
+	MessageReceived *events.Event
 }
 
 // ChatEvent defines the information passed when a chat event fires.
