@@ -16,15 +16,21 @@ Follow the instructions in [Use the API](../apis/api.md) to set up the API insta
 
 Example:
 ```go
-// provide your Base58 encoded destination address
-messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY")
+// provide your Base58 encoded destination address,
+// the proof of work difficulty,
+// the optional aManaPledgeID (Base58 encoded),
+// the optional cManaPledgeID (Base58 encoded)
+messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY", 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
 
 ---- or
 
 // get the given address from your wallet instance and 
 // use String() to get its Base58 representation
+// the proof of work difficulty,
+// the optional aManaPledgeID (Base58 encoded),
+// the optional cManaPledgeID (Base58 encoded)
 addr := wallet.Seed().Address(0)
-messageID, err := goshimAPI.SendFaucetRequest(addr.String())
+messageID, err := goshimAPI.SendFaucetRequest(addr.String(), 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
 ```
 
 ### Via the HTTP API directly
@@ -34,6 +40,9 @@ The URI for POSTing faucet request messages is `http://<host>:<web-api-port>/fau
 | Parameter | Required | Description | Type    |
 | --------- | -------- | ----------- | --- |
 | `address`      | Yes     | Destination address to which to send tokens to encoded in Base58        | string     |
+| `accessManaPledgeID`      | Yes     | Node ID to pledge access mana to encoded in Base58        | string     |
+| `consensusManaPledgeID`      | Yes     | Node ID to pledge consensus mana to encoded in Base58        | string     |
+| `nonce`      | Yes     | uint32 proof of the PoW being done       | uint32     |
 
 cURL example:
 ```
@@ -41,7 +50,10 @@ curl http://localhost:8080/faucet \
 -X POST \
 -H 'Content-Type: application/json' \
 -d '{
-  "address": "JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY"
+  "address": "JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY",
+  "accessManaPledgeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
+  "consensusManaPledgeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
+  "nonce": 24578
 }'
 ```
 
