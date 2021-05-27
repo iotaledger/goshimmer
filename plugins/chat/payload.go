@@ -13,7 +13,8 @@ import (
 
 const (
 	// ObjectName defines the name of the chat object.
-	ObjectName = "chat"
+	ObjectName  = "chat"
+	payloadType = 989
 )
 
 // Payload represents the chat object type.
@@ -113,7 +114,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 	consumedBytes := marshalUtil.ReadOffset()
 	copy(result.bytes, marshalUtil.Bytes()[:consumedBytes])
 
-	return
+	return result, nil
 }
 
 // Bytes returns a marshaled version of this Object.
@@ -153,7 +154,7 @@ func (o *Payload) Bytes() (bytes []byte) {
 
 	bytes = marshalUtil.Bytes()
 
-	return
+	return bytes
 }
 
 // String returns a human-friendly representation of the Object.
@@ -168,7 +169,7 @@ func (o *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the network delay Object type.
-var Type = payload.NewType(989, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+var Type = payload.NewType(payloadType, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 	var consumedBytes int
 	payload, consumedBytes, err = FromBytes(data)
 	if err != nil {

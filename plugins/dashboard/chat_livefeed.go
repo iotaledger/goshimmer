@@ -11,6 +11,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/chat"
 )
 
+const (
+	rate = time.Second / 100
+)
+
 var (
 	chatLiveFeedWorkerCount     = 1
 	chatLiveFeedWorkerQueueSize = 50
@@ -43,7 +47,7 @@ func configureChatLiveFeed() {
 
 func runChatLiveFeed() {
 	if err := daemon.BackgroundWorker("Dashboard[ChatUpdater]", func(shutdownSignal <-chan struct{}) {
-		newMsgRateLimiter := time.NewTicker(time.Second / 100)
+		newMsgRateLimiter := time.NewTicker(rate)
 		defer newMsgRateLimiter.Stop()
 
 		notifyNewMessages := events.NewClosure(func(chatEvent *chat.ChatEvent) {

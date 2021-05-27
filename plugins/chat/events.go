@@ -17,6 +17,7 @@ type pluginEvents struct {
 	ReceivedChatMessage *events.Event
 }
 
+// ChatEvent defines the information passed when a chat event fires.
 type ChatEvent struct {
 	From      string
 	To        string

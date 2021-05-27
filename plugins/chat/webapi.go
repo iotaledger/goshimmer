@@ -16,7 +16,7 @@ func configureWebAPI() {
 
 // SendChatMessage sends a chat message.
 func SendChatMessage(c echo.Context) error {
-	req := &Reuqest{}
+	req := &Request{}
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -31,7 +31,7 @@ func SendChatMessage(c echo.Context) error {
 }
 
 // Request defines the chat message to send
-type Reuqest struct {
+type Request struct {
 	From    string `json:"from"`
 	To      string `json:"to"`
 	Message string `json:"message"`

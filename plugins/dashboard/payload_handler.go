@@ -128,7 +128,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 		return processDrngPayload(p)
 	case chat.Type:
 		chatPayload := p.(*chat.Payload)
-		return chat.Reuqest{
+		return chat.Request{
 			From:    chatPayload.From,
 			To:      chatPayload.To,
 			Message: chatPayload.Message,
