@@ -118,39 +118,39 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 }
 
 // Bytes returns a marshaled version of this Object.
-func (o *Payload) Bytes() (bytes []byte) {
+func (p *Payload) Bytes() (bytes []byte) {
 	// acquire lock for reading bytes
-	o.bytesMutex.RLock()
+	p.bytesMutex.RLock()
 
 	// return if bytes have been determined already
-	if bytes = o.bytes; bytes != nil {
-		o.bytesMutex.RUnlock()
+	if bytes = p.bytes; bytes != nil {
+		p.bytesMutex.RUnlock()
 		return
 	}
 
 	// switch to write lock
-	o.bytesMutex.RUnlock()
-	o.bytesMutex.Lock()
-	defer o.bytesMutex.Unlock()
+	p.bytesMutex.RUnlock()
+	p.bytesMutex.Lock()
+	defer p.bytesMutex.Unlock()
 
 	// return if bytes have been determined in the mean time
-	if bytes = o.bytes; bytes != nil {
+	if bytes = p.bytes; bytes != nil {
 		return
 	}
 
-	payloadLength := int(o.FromLen + o.ToLen + o.MessageLen + marshalutil.Uint32Size*3)
+	payloadLength := int(p.FromLen + p.ToLen + p.MessageLen + marshalutil.Uint32Size*3)
 	// initialize helper
 	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + payloadLength)
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(payload.TypeLength + uint32(payloadLength))
 	marshalUtil.WriteBytes(Type.Bytes())
-	marshalUtil.WriteUint32(o.FromLen)
-	marshalUtil.WriteBytes([]byte(o.From))
-	marshalUtil.WriteUint32(o.ToLen)
-	marshalUtil.WriteBytes([]byte(o.To))
-	marshalUtil.WriteUint32(o.MessageLen)
-	marshalUtil.WriteBytes([]byte(o.Message))
+	marshalUtil.WriteUint32(p.FromLen)
+	marshalUtil.WriteBytes([]byte(p.From))
+	marshalUtil.WriteUint32(p.ToLen)
+	marshalUtil.WriteBytes([]byte(p.To))
+	marshalUtil.WriteUint32(p.MessageLen)
+	marshalUtil.WriteBytes([]byte(p.Message))
 
 	bytes = marshalUtil.Bytes()
 
@@ -158,11 +158,11 @@ func (o *Payload) Bytes() (bytes []byte) {
 }
 
 // String returns a human-friendly representation of the Object.
-func (o *Payload) String() string {
+func (p *Payload) String() string {
 	return stringify.Struct("ChatPayload",
-		stringify.StructField("from", o.From),
-		stringify.StructField("to", o.To),
-		stringify.StructField("Message", o.Message),
+		stringify.StructField("from", p.From),
+		stringify.StructField("to", p.To),
+		stringify.StructField("Message", p.Message),
 	)
 }
 
@@ -182,7 +182,7 @@ var Type = payload.NewType(payloadType, ObjectName, func(data []byte) (payload p
 })
 
 // Type returns the type of the Object.
-func (o *Payload) Type() payload.Type {
+func (p *Payload) Type() payload.Type {
 	return Type
 }
 
