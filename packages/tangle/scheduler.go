@@ -273,9 +273,12 @@ func (s *Scheduler) schedule() *Message {
 	now := clock.SyncedTime()
 	for q := start; ; {
 		msg := q.Front()
+		// a message can be scheduled, if it is ready and its issuing time is not in the future
 		if msg != nil && !now.Before(msg.IssuingTime()) {
+			// compute how often the deficit needs to be incremented until the message can be scheduled
 			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
 			r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
+			// find the first node that will be allowed to schedule a message
 			if r < rounds {
 				rounds = r
 				schedulingNode = q
