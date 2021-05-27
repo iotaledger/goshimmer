@@ -1,6 +1,7 @@
 package manualpeering
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net"
@@ -397,17 +398,16 @@ func (m *Manager) changeNeighborStatus(neighbor *gossip.Neighbor, connStatus Con
 }
 
 func (m *Manager) connectionDirection(peerPK ed25519.PublicKey) (ConnectionDirection, error) {
-	localPKStr := m.local.PublicKey().String()
-	peerPKStr := peerPK.String()
-	if localPKStr < peerPKStr {
+	result := bytes.Compare(m.local.PublicKey().Bytes(), peerPK.Bytes())
+	if result < 0 {
 		return ConnDirectionOutbound, nil
-	} else if localPKStr > peerPKStr {
+	} else if result > 0 {
 		return ConnDirectionInbound, nil
 	} else {
 		return "", errors.Newf(
 			"manualpeering: provided neighbor public key %s is the same as the local %s: can't compare lexicographically",
-			peerPKStr,
-			localPKStr,
+			peerPK,
+			m.local.PublicKey(),
 		)
 	}
 }
