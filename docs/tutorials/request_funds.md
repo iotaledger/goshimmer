@@ -42,7 +42,7 @@ The URI for POSTing faucet request messages is `http://<host>:<web-api-port>/fau
 | `address`      | Yes     | Destination address to which to send tokens to encoded in Base58        | string     |
 | `accessManaPledgeID`      | Yes     | Node ID to pledge access mana to encoded in Base58        | string     |
 | `consensusManaPledgeID`      | Yes     | Node ID to pledge consensus mana to encoded in Base58        | string     |
-| `nonce`      | Yes     | uint32 proof of the PoW being done       | uint32     |
+| `nonce`      | Yes     | uint64 proof of the PoW being done       | uint64     |
 
 cURL example:
 ```
