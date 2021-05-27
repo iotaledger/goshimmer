@@ -49,7 +49,7 @@ export class ChatSend extends React.Component<Props, any> {
               infoMessage: null,
               error: false
             });
-          }, 2000);
+          }, 10000);
         })
         .catch((e) => {
           // if there was an error, we dont clean the input and display an error message
@@ -63,7 +63,7 @@ export class ChatSend extends React.Component<Props, any> {
               infoMessage: null,
               error: false
             });
-          }, 2000);
+          }, 10000);
         });
     };
     componentWillUnmount() {
