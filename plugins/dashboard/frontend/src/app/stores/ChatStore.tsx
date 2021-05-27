@@ -66,7 +66,7 @@ export class ChatStore {
     };
 
     sendMessage = async (message: string) => {
-        this.updateSendLoading(true);
+        // this.updateQueryLoading(true);
         try {
             let res = await fetch(`/api/chat`, {
                 method: 'POST',
@@ -77,15 +77,16 @@ export class ChatStore {
                 body: JSON.stringify({from: this.nodeStore.status.id, to: 'all', message: message})
             });
             if (res.status === 400) {
-                this.updateSendError("failed to send message");
+                this.updateSendError("Not able to send");
                 return;
             }
             const msg = await res.json();
             this.updateSending(false);
             console.log(msg);
         } catch (err) {
-            this.updateSendError(err);
+            // this.updateQueryError(err);
             console.log(err);
+            throw new Error(err);
         }
     };
 
