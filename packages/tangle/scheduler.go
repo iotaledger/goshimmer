@@ -241,30 +241,57 @@ func (s *Scheduler) schedule() *Message {
 		return nil
 	}
 
-	readyNode := false
+	// cache the access mana retrieval
+	manas := make(map[identity.ID]float64, s.buffer.NumActiveNodes())
+	getCachedMana := func(id identity.ID) float64 {
+		if mana, ok := manas[id]; ok {
+			return mana
+		}
+		mana := math.Max(s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(id), MinMana)
+		manas[id] = mana
+		return mana
+	}
+
+	var schedulingNode *schedulerutils.NodeQueue
+	rounds := math.MaxInt32
 	now := clock.SyncedTime()
 	for q := start; ; {
 		msg := q.Front()
-		// a message can be scheduled, if it is ready and its issuing time is not in the future
-		hasReady := msg != nil && !now.Before(msg.IssuingTime())
-		// if the current node has enough deficit and the first message in its outbox is valid, we are done
-		if hasReady && s.getDeficit(q.NodeID()) >= float64(msg.Size()) {
-			break
-		}
-		// otherwise increase its deficit
-		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(q.NodeID())
-		// assure that the deficit increase is never too small
-		s.updateDeficit(q.NodeID(), math.Max(mana, MinMana))
-		if hasReady {
-			readyNode = true
+		if msg != nil && !now.Before(msg.IssuingTime()) {
+			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
+			r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
+			if r < rounds {
+				rounds = r
+				schedulingNode = q
+			}
 		}
 
-		// progress tho the next node that has ready messages
 		q = s.buffer.Next()
-		// if we reached the first node again without seeing any eligible nodes, break to prevent infinite loops
-		if !readyNode && q == start {
-			return nil
+		if q == start {
+			break
 		}
+	}
+
+	// if there is no node with a ready message, we cannot schedule anything
+	if schedulingNode == nil {
+		return nil
+	}
+
+	if rounds > 0 {
+		// increment every node's deficit for the required number of rounds
+		for q := start; ; {
+			s.updateDeficit(q.NodeID(), float64(rounds)*getCachedMana(q.NodeID()))
+
+			q = s.buffer.Next()
+			if q == start {
+				break
+			}
+		}
+	}
+
+	// increment the deficit for all nodes before schedulingNode one more time
+	for q := start; q != schedulingNode; q = s.buffer.Next() {
+		s.updateDeficit(q.NodeID(), getCachedMana(q.NodeID()))
 	}
 
 	// remove the message from the buffer and adjust node's deficit
