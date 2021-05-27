@@ -106,18 +106,6 @@ func (s *Scheduler) Shutdown() {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {}
 
-// SubmitAndReady submits the message to the scheduler and marks it ready right away.
-func (s *Scheduler) SubmitAndReady(messageID MessageID) error {
-	// submit the message to the scheduler and marks it ready right away
-	if err := s.Submit(messageID); err != nil {
-		return err
-	}
-	if err := s.Ready(messageID); err != nil {
-		return err
-	}
-	return nil
-}
-
 // SetRate sets the rate of the scheduler.
 func (s *Scheduler) SetRate(rate time.Duration) {
 	// only update the ticker when the scheduler is running
@@ -164,27 +152,7 @@ func (s *Scheduler) Submit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-
-		if s.stopped.IsSet() {
-			err = ErrNotRunning
-			return
-		}
-
-		nodeID := identity.NewID(message.IssuerPublicKey())
-		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
-		if mana < MinMana {
-			err = errors.Errorf("%w: id=%s, mana=%f", schedulerutils.ErrInsufficientMana, nodeID, mana)
-			s.Events.MessageDiscarded.Trigger(messageID)
-			return
-		}
-
-		err = s.buffer.Submit(message, mana)
-		if err != nil {
-			s.Events.MessageDiscarded.Trigger(messageID)
-		}
-		if errors.Is(err, schedulerutils.ErrInboxExceeded) {
-			s.Events.NodeBlacklisted.Trigger(nodeID)
-		}
+		err = s.submit(message)
 	}) {
 		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
@@ -197,7 +165,8 @@ func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		s.buffer.Unsubmit(message)
+
+		s.unsubmit(message)
 	}) {
 		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
@@ -210,7 +179,24 @@ func (s *Scheduler) Ready(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		s.buffer.Ready(message)
+
+		s.ready(message)
+	}) {
+		err = errors.Errorf("failed to get message '%x' from storage", messageID)
+	}
+	return err
+}
+
+// SubmitAndReady submits the message to the scheduler and marks it ready right away.
+func (s *Scheduler) SubmitAndReady(messageID MessageID) (err error) {
+	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		err = s.submit(message)
+		if err == nil {
+			s.ready(message)
+		}
 	}) {
 		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
@@ -229,6 +215,36 @@ func (s *Scheduler) Clear() {
 			s.Events.MessageDiscarded.Trigger(MessageID(id))
 		}
 	}
+}
+
+func (s *Scheduler) submit(message *Message) error {
+	if s.stopped.IsSet() {
+		return ErrNotRunning
+	}
+
+	nodeID := identity.NewID(message.IssuerPublicKey())
+	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
+	if mana < MinMana {
+		s.Events.MessageDiscarded.Trigger(message.ID())
+		return errors.Errorf("%w: id=%s, mana=%f", schedulerutils.ErrInsufficientMana, nodeID, mana)
+	}
+
+	err := s.buffer.Submit(message, mana)
+	if err != nil {
+		s.Events.MessageDiscarded.Trigger(message.ID())
+	}
+	if errors.Is(err, schedulerutils.ErrInboxExceeded) {
+		s.Events.NodeBlacklisted.Trigger(nodeID)
+	}
+	return err
+}
+
+func (s *Scheduler) unsubmit(message *Message) {
+	s.buffer.Unsubmit(message)
+}
+
+func (s *Scheduler) ready(message *Message) {
+	s.buffer.Ready(message)
 }
 
 func (s *Scheduler) schedule() *Message {
