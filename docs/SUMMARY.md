@@ -12,6 +12,7 @@ http://goshimmer.docs.iota.org/
 - [Tutorials](./tutorials.md)
   - [Set up a node](./tutorials/setup.md)
   - [Obtain tokens](./tutorials/request_funds.md)
+  - [Send transaction](./tutorials/send_funds.md)
   - [Wallet library](./tutorials/wallet.md)
   - [Write a dApp](./tutorials/dApp.md)
   - [Create a static identity](./tutorials/static_identity.md)
