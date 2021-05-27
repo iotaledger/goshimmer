@@ -39,10 +39,10 @@
 Get address details for a given base58 encoded address ID, such as output types and balances. For the client library API call balances will not be directly available as values because they are stored as a raw message. Balance can be read after retrieving `ledgerstate.Output` instance, as presented in the examples.
 
 ### Parameters
-| **Parameter**            | `addressID`      |
+| **Parameter**            | `address`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | The address ID encoded in base58. |
+| **Description**          | The address encoded in base58. |
 | **Type**                 | string         |
 
 ### Examples
@@ -135,10 +135,10 @@ Gets list of all unspent outputs for the address based on a given base58 encoded
 
 ### Parameters
 
-| **Parameter**            | `addressID`      |
+| **Parameter**            | `address`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | The address ID encoded in base58. |
+| **Description**          | The address encoded in base58. |
 | **Type**                 | string         |
 ### Examples
 
