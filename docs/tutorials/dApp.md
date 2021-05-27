@@ -27,16 +27,16 @@ First, we need to decide what data our chat payload should contain and define th
 In our case we need a `From` field to identify the sender of the message (e.g., a nickname, the ID of the node); a `To` field to identify an optional recipient of the message (e.g., a chat room ID, a nickname); a `Message` field containing the actual chat message.
 Therefore, we can define the byte layout as follows:
 ```
-length<uint32-4bytes> // every object has to have this
-type<uint32-4bytes> // every object has to have this
+length<uint32-4bytes> // every payload has to have this
+type<uint32-4bytes> // every payload has to have this
 From<string>
 To<string>
 Message<string>
 ```
 
-Next, we need to fulfill the `Payload` interface and provide the functionality to read/write an object from/to bytes. The [`hive.go/marshalutil`](https://github.com/iotaledger/hive.go/tree/master/marshalutil) package simplifies this step tremendously.
+Next, we need to fulfill the `Payload` interface and provide the functionality to read/write a payload from/to bytes. The [`hive.go/marshalutil`](https://github.com/iotaledger/hive.go/tree/master/marshalutil) package simplifies this step tremendously.
 ```Go
-// Payload represents the generic interface for an object that can be embedded in Messages of the Tangle.
+// Payload represents the generic interface for a payload that can be embedded in Messages of the Tangle.
 type Payload interface {
     // Type returns the Type of the Payload.
     Type() Type
@@ -130,28 +130,28 @@ The complete source code of the application can be found [in the repository](htt
 
 ### Overview
 Our network delay dApp should help us to identify the time it takes for every active node to receive and process a message. That can be done in a few simple steps:
-1. A (known) node sends a special message containing a network delay object.
+1. A (known) node sends a special message containing a network delay payload.
 2. Upon receipt, every other node in the network answers to the special message by posting its current time to our remote logger.
 3. For simplicity, we gather the information in an [ELK stack](https://www.elastic.co/what-is/elk-stack). This helps us to easily interpret and analyze the data.
 
-Within GoShimmer we need 3 components to realize this undertaking. First, we need to **define and register a network delay object type**. Second, we need a way to **initiate a message** with a network delay object via the web API. And lastly, we need to **listen** for network delay objects and take appropriate action.
+Within GoShimmer we need 3 components to realize this undertaking. First, we need to **define and register a network delay payload type**. Second, we need a way to **initiate a message** with a network delay payload via the web API. And lastly, we need to **listen** for network delay payloads and take appropriate action.
 
 If a node does not have our dApp installed and activated, the message will be simply treated as a raw data message without any particular meaning. In general that means that in order for a dApp to be useful, node owners need to explicitly install it. In our case we simply ship it with GoShimmer as a [plugin](../implementation_design/plugin.md).
 
 ### Define & Register The Network Delay Object
-First, we need to decide what data our network delay object should contain and define the byte layout accordingly.
+First, we need to decide what data our network delay payload should contain and define the byte layout accordingly.
 In our case we need an `ID` to identify a network delay message and the `sent time` of the initiator. 
 Therefore, we can define the byte layout as follows:
 ```
-length<uint32-4bytes> // every object has to have this
-type<uint32-4bytes> // every object has to have this
+length<uint32-4bytes> // every payload has to have this
+type<uint32-4bytes> // every payload has to have this
 id<32bytes>
 sentTime<int64-8bytes>
 ```
 
-Next, we need to fulfill the `Payload` interface and provide the functionality to read/write an object from/to bytes. The [`hive.go/marshalutil`](https://github.com/iotaledger/hive.go/tree/master/marshalutil) package simplifies this step tremendously.
+Next, we need to fulfill the `Payload` interface and provide the functionality to read/write a payload from/to bytes. The [`hive.go/marshalutil`](https://github.com/iotaledger/hive.go/tree/master/marshalutil) package simplifies this step tremendously.
 ```Go
-// Payload represents the generic interface for an object that can be embedded in Messages of the Tangle.
+// Payload represents the generic interface for a payload that can be embedded in Messages of the Tangle.
 type Payload interface {
     // Type returns the Type of the Payload.
     Type() Type
@@ -164,7 +164,7 @@ type Payload interface {
 }
 ```
 
-Finally, we need to create and register our network delay object type so that it can be properly unmarshalled. 
+Finally, we need to create and register our network delay payload type so that it can be properly unmarshalled. 
 ```Go
 // Type represents the identifier which addresses the network delay Object type.
 var Type = payload.NewType(189, ObjectName, func(data []byte) (payload payload.Payload, err error) {
@@ -181,7 +181,7 @@ var Type = payload.NewType(189, ObjectName, func(data []byte) (payload payload.P
 ```
 
 ### Create The Web API Endpoints
-In order to issue a message with our newly created network delay object, we need to create a web API endpoint. Here we simply create a random `ID` and the `sentTime` and then issue a message with `issuer.IssuePayload()`. This plugin takes care of all the specifics and employs the `MessageFactory` to, i.a., select tips and sign the message.
+In order to issue a message with our newly created network delay payload, we need to create a web API endpoint. Here we simply create a random `ID` and the `sentTime` and then issue a message with `issuer.IssuePayload()`. This plugin takes care of all the specifics and employs the `MessageFactory` to, i.a., select tips and sign the message.
 
 ```Go
 webapi.Server.POST("networkdelay", broadcastNetworkDelayObject)
@@ -203,8 +203,8 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 ```
 
 
-### Listen for network delay objects
-Every dApp listens for messages from the *communication layer* and when its data type is detected, takes appropriate action. For us that means listening for network delay objects and sending messages to our remote logger if we encounter any. Of course in this context, we only want to react to network delay objects which were issued by our analysis/entry node server. Therefore, matching the message signer's public key with a configured public key lets us only react to the appropriate network delay objects.
+### Listen for network delay payloads
+Every dApp listens for messages from the *communication layer* and when its data type is detected, takes appropriate action. For us that means listening for network delay payloads and sending messages to our remote logger if we encounter any. Of course in this context, we only want to react to network delay payloads which were issued by our analysis/entry node server. Therefore, matching the message signer's public key with a configured public key lets us only react to the appropriate network delay payloads.
 
 ```Go
 func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
@@ -222,7 +222,7 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
         
         networkDelayObject, ok := messagePayload.(*Object)
         if !ok {
-            app.LogInfo("could not cast payload to network delay object")
+            app.LogInfo("could not cast payload to network delay payload")
             return
         }
         
