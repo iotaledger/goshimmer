@@ -17,16 +17,21 @@ interface Props {
 @inject("chatStore")
 @observer
 export class ChatSend extends React.Component<Props, any> {
+    componentWillUnmount() {
+        this.props.chatStore.reset();
+    }
+    
     message: string;
 
     updateSend = (e) => {
-        this.message =e.target.value;
+        this.message = e.target.value;
     };
 
     sendMessage = (e: KeyboardEvent) => {
         if (e.key !== 'Enter') return;
         this.props.chatStore.sendMessage(this.message);
         this.message = "";
+        document.getElementById('formSend').innerText = '';
     };
 
     render() {
@@ -39,9 +44,10 @@ export class ChatSend extends React.Component<Props, any> {
                     <h6>Send a message via the Tangle</h6>
                         <InputGroup className="mb-3">
                             <FormControl
-                                placeholder="Send Message"
+                                placeholder={"Send Message"}
                                 aria-label="Send Message"
                                 aria-describedby="basic-addon1"
+                                id="formSend"
                                 value={this.message} onChange={this.updateSend}
                                 onKeyUp={this.sendMessage}
                                 disabled={sending}

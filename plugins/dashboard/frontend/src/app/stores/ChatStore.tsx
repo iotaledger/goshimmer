@@ -19,8 +19,13 @@ export class ChatStore {
     // live feed
     @observable latest_msgs: Array<ChatMessage> = [];
     @observable msg: ChatMessage = null;
-    @observable sending: boolean = false;
+    
+    // loading
+    @observable send_loading: boolean = false;
+    @observable send_err: any = null;
+    
     @observable message: string = "";
+    @observable sending: boolean = false;
 
     routerStore: RouterStore;
     nodeStore: NodeStore;
@@ -50,8 +55,18 @@ export class ChatStore {
     @action
     updateSending = (sending: boolean) => this.sending = sending;
 
+    @action
+    updateSendLoading = (loading: boolean) => this.send_loading = loading;
+
+    @action
+    updateSendError = (err: any) => {
+        this.send_err = err;
+        this.send_loading = false;
+        this.sending = false;
+    };
+
     sendMessage = async (message: string) => {
-        // this.updateQueryLoading(true);
+        this.updateSendLoading(true);
         try {
             let res = await fetch(`/api/chat`, {
                 method: 'POST',
@@ -61,20 +76,24 @@ export class ChatStore {
                 },
                 body: JSON.stringify({from: this.nodeStore.status.id, to: 'all', message: message})
             });
-            
-            
-            // if (res.status === 404) {
-            //     this.updateQueryError(QueryError.NotFound);
-            //     return;
-            // }
+            if (res.status === 400) {
+                this.updateSendError("failed to send message");
+                return;
+            }
             const msg = await res.json();
             this.updateSending(false);
             console.log(msg);
         } catch (err) {
-            // this.updateQueryError(err);
+            this.updateSendError(err);
             console.log(err);
         }
     };
+
+    reset() {
+        this.message = "";
+        this.send_loading = false;
+        this.sending = false;
+    }
 
     @computed
     get msgsLiveFeed() {
