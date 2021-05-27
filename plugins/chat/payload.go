@@ -17,7 +17,7 @@ const (
 	payloadType = 989
 )
 
-// Payload represents the chat object type.
+// Payload represents the chat payload type.
 type Payload struct {
 	From       string
 	FromLen    uint32
@@ -30,7 +30,7 @@ type Payload struct {
 	bytesMutex sync.RWMutex
 }
 
-// NewPayload creates a new chat object.
+// NewPayload creates a new chat payload.
 func NewPayload(from, to, message string) *Payload {
 	return &Payload{
 		From:       from,
@@ -42,8 +42,8 @@ func NewPayload(from, to, message string) *Payload {
 	}
 }
 
-// FromBytes parses the marshaled version of an Object into a Go object.
-// It either returns a new Object or fills an optionally provided Object with the parsed information.
+// FromBytes parses the marshaled version of a Payload into a Go object.
+// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil)
@@ -52,9 +52,9 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	return
 }
 
-// Parse unmarshals an Object using the given marshalUtil (for easier marshaling/unmarshaling).
+// Parse unmarshals an Payload using the given marshalUtil (for easier marshaling/unmarshaling).
 func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
-	// read information that are required to identify the object from the outside
+	// read information that are required to identify the payloa from the outside
 	if _, err = marshalUtil.ReadUint32(); err != nil {
 		err = fmt.Errorf("failed to parse payload size of chat payload: %w", err)
 		return
@@ -117,7 +117,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 	return result, nil
 }
 
-// Bytes returns a marshaled version of this Object.
+// Bytes returns a marshaled version of this Payload.
 func (p *Payload) Bytes() (bytes []byte) {
 	// acquire lock for reading bytes
 	p.bytesMutex.RLock()
@@ -157,7 +157,7 @@ func (p *Payload) Bytes() (bytes []byte) {
 	return bytes
 }
 
-// String returns a human-friendly representation of the Object.
+// String returns a human-friendly representation of the Payload.
 func (p *Payload) String() string {
 	return stringify.Struct("ChatPayload",
 		stringify.StructField("from", p.From),
@@ -181,7 +181,7 @@ var Type = payload.NewType(payloadType, PayloadName, func(data []byte) (payload 
 	return
 })
 
-// Type returns the type of the Object.
+// Type returns the type of the Payload.
 func (p *Payload) Type() payload.Type {
 	return Type
 }
