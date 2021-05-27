@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
@@ -12,7 +11,7 @@ import (
 )
 
 // AddManualPeers adds the provided list of peers to the manual peering layer.
-func (api *GoShimmerAPI) AddManualPeers(peers []*peer.Peer) error {
+func (api *GoShimmerAPI) AddManualPeers(peers []*manualpeering.KnownPeerToAdd) error {
 	if err := api.do(http.MethodPost, plugin.RouteManualPeers, peers, nil); err != nil {
 		return errors.Wrap(err, "failed to add manual peers via the HTTP API")
 	}

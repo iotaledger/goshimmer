@@ -36,9 +36,9 @@ http://goshimmer.docs.iota.org/
   - [Client Lib](./apis/api.md)
   - [WebAPI](./apis/webAPI.md)
   - [Mana](./apis/mana.md)
+  - [Ledgerstate](./apis/ledgerstate.md)
   - [dRNG](./apis/dRNG.md)
   - [Communication](./apis/communication.md)
-  - [Value layer](./apis/value.md)
 
 - [Tooling](./tooling.md)
   - [Docker private network](./tooling/docker_private_network.md)

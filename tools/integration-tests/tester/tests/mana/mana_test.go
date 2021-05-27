@@ -17,7 +17,7 @@ import (
 )
 
 func TestManaPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("mana_TestPersistence", 1, 0, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetwork("mana_TestPersistence", 1, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -46,6 +46,8 @@ func TestManaPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(5 * time.Second)
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	info, err = peers[0].Info()
 	require.NoError(t, err)
@@ -56,7 +58,7 @@ func TestManaPersistence(t *testing.T) {
 
 func TestPledgeFilter(t *testing.T) {
 	numPeers := 2
-	n, err := f.CreateNetwork("mana_TestAPI", 0, 0, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetwork("mana_TestAPI", 0, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -89,9 +91,10 @@ func TestPledgeFilter(t *testing.T) {
 		ActivityPlugin:                    true,
 		StartSynced:                       true,
 	})
-
 	require.NoError(t, err)
-	err = n.WaitForAutopeering(2)
+
+	time.Sleep(5 * time.Second)
+	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
 	time.Sleep(10 * time.Second)
@@ -145,9 +148,12 @@ func TestApis(t *testing.T) {
 	defer func() {
 		framework.ParaManaOnEveryNode = prevParaManaOnEveryNode
 	}()
-	n, err := f.CreateNetwork("mana_TestAPI", 4, 3, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetwork("mana_TestAPI", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
+
+	err = tests.AwaitSync(t, n.Peers(), 20*time.Second)
+	require.NoError(t, err)
 
 	emptyNodeID := identity.ID{}
 
@@ -181,12 +187,12 @@ func TestApis(t *testing.T) {
 	peer1ID := base58.Encode(peers[1].ID().Bytes())
 	_, err = peers[0].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer1ID, peer1ID)
 	require.NoError(t, err)
-	time.Sleep(10 * time.Second)
+	time.Sleep(30 * time.Second)
 	// send funds to node 2
 	peer2ID := base58.Encode(peers[2].ID().Bytes())
 	_, err = peers[0].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), framework.ParaPoWFaucetDifficulty, peer2ID, peer2ID)
 	require.NoError(t, err)
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	require.NoError(t, err)
 	allManaResp, err := peers[0].GoShimmerAPI.GetAllMana()
@@ -260,7 +266,7 @@ func TestApis(t *testing.T) {
 	fmt.Println("pending mana: ", resp8.Mana)
 	assert.Greater(t, resp8.Mana, 0.0)
 
-	//Test /mana/allowedManaPledge
+	// Test /mana/allowedManaPledge
 	pledgeList, err := peers[0].GoShimmerAPI.GetAllowedManaPledgeNodeIDs()
 	require.NoError(t, err, "Error occurred while testing allowed mana pledge api")
 	assert.Equal(t, false, pledgeList.Access.IsFilterEnabled, "/mana/allowedManaPledge: FilterEnabled field for access mana is not as expected")

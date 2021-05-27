@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	autopeeringMaxTries = 50
+	peeringMaxTries     = 50
 	waitForManaMaxTries = 50
 
 	apiPort = "8080"
@@ -101,6 +101,8 @@ type GoShimmerConfig struct {
 	DRNGThreshold int
 
 	Faucet bool
+
+	EnableAutopeeringForGossip bool
 
 	ActivityPlugin   bool
 	ActivityInterval int
