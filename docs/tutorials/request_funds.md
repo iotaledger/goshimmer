@@ -47,7 +47,7 @@ curl http://localhost:8080/faucet \
 Currently, there is one cli-wallet that you can refer to the tutorial [Command Line Wallet
 ](./wallet.md) and two GUI wallets to use. One from the community member [Dr-Electron ElectricShimmer](https://github.com/Dr-Electron/ElectricShimmer) and another from the foundation [pollen-wallet](https://github.com/iotaledger/pollen-wallet/tree/master). You can request funds from the faucet with these two implementations.
 
-As for pollen-wallet, follow the instructions in [pollen-wallet](https://github.com/iotaledger/pollen-wallet/tree/master) to build and execute the wallet, or download executable file directly in [pollen wallet release](https://github.com/iotaledger/pollen-wallet/releases).
+As for pollen-wallet, follow the instructions in [pollen-wallet](https://github.com/iotaledger/pollen-wallet/tree/master) to build and execute the wallet, or download executable file directly in [Goshimmer wallet release](https://github.com/iotaledger/pollen-wallet/releases).
 
 You can request funds by pressing the `Request Funds` in the wallet.
 

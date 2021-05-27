@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	// Pollen defines the instance ID of the Pollen drng committee.
+	// Pollen defines the instance ID of the Goshimmer drng committee.
 	Pollen = 1
 
 	// XTeam defines the instance ID of the X-Team drng committee.
@@ -29,7 +29,7 @@ var ErrParsingCommitteeMember = errors.New("cannot parse committee member")
 func configureDRNG() *drng.DRNG {
 	c := make(map[uint32][]drng.Option)
 
-	// Pollen dRNG configuration
+	// Goshimmer dRNG configuration
 	// parse identities of the committee members
 	committeeMembers, err := parseCommitteeMembers(config.Node().Strings(CfgDRNGCommitteeMembers))
 	if err != nil {
@@ -42,7 +42,7 @@ func configureDRNG() *drng.DRNG {
 		plugin.LogWarn(err)
 	}
 
-	// configure pollen committee
+	// configure Goshimmer committee
 	pollenConf := &drng.Committee{
 		InstanceID:    Pollen,
 		Threshold:     uint8(config.Node().Int(CfgDRNGThreshold)),

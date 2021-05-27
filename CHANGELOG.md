@@ -6,7 +6,7 @@
 * Fix locking management on message factory
 * Fix several visualizer bugs
 * Update Grafana pie charts
-* Update snapshot file with Pollen UTXO at 2021-05-25 16:54 UTC
+* Update snapshot file with Goshimmer UTXO at 2021-05-25 16:54 UTC
 * **Breaking**: bumps network and database versions
 
 # v0.6.2 - 2021-05-24
@@ -165,7 +165,7 @@
 * Add Mana (currently not used by any of the modules)
 * Add Mana APIs
 * Add Mana section to the local dashboard
-* Add Mana section to the Pollen Analyzer dashboard
+* Add Mana section to the Goshimmer Analyzer dashboard
 * Add Mana section to the Grafana dashboard
 * Refactor the Consensus Manager to be independent from the concrete consensus mechanism implemented  
 * Improve Tangle visualizer
