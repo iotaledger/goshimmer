@@ -69,8 +69,6 @@ if err != nil {
 
 ### Results
 
-* Returned type
-
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID of beacon message. Omitted if error. |
@@ -130,8 +128,6 @@ for _, m := range committees.Committees {
 ```
 
 ### Results
-
-* Returned type
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -196,8 +192,6 @@ for _, m := range randomness.Randomness {
 ```
 
 ### Results
-
-* Returned type
 
 |Return field | Type | Description|
 |:-----|:------|:------|

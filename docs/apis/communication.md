@@ -3,7 +3,7 @@
 The communication layer represents the base Tangle layer where so called `Messages` are gossiped around. A `Message` contains payloads and it is up to upper layers to interpret and derive functionality out of them.
 
 
-The API provides three functions to interact with this primitive layer:
+The API provides the following functions to interact with this primitive layer:
 * [/messages/:messageID](#messagesmessageid)
 * [/messages/:messageID/metadata](#messagesmessageidmetadata)
 * [/messages/:messageID/consensus](#messagesmessageidconsensus)
@@ -80,8 +80,6 @@ Note that we're getting actual `Message` objects from this call which represent 
 
 #### Results
 
-* Returned type 
-
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID. |
@@ -110,7 +108,6 @@ Return message metadata.
 | **Type**                 | string         |
 
 
-
 ### Examples
 
 #### cURL
@@ -123,7 +120,7 @@ where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z
 #### Client lib - `GetMessageMetadata`
 
 Message metadata can be retrieved via `GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error)`
-```
+```go
 message, err := goshimAPI.GetMessageMetadata(base58EncodedMessageID)
 if err != nil {
     // return error
@@ -171,8 +168,6 @@ fmt.Println(string(message.Finalized))
 ```
 
 #### Results
-
-* Returned type
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -233,8 +228,6 @@ This method is not available in the client library.
 ```
 
 #### Results
-
-* Returned type
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -304,21 +297,17 @@ Note that there is no need to do any additional work, since things like tip-sele
 
 ### Results
 
-* Returned type
-
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID of the message. Omitted if error. |
 | `error`   | `string` | Error message. Omitted if success.    |
 
 
-
-
 ## `/messages/payload`
 
 Method: `POST`
 
-`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload and returns its `messageID`. Note, that the payload must be valid, otherwise an error is returned.
+`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload and returns its `messageID`. Note that the payload must be valid, otherwise an error is returned.
 
 ### Parameters
 
@@ -365,8 +354,6 @@ messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 ```
 
 ### Results
-
-* Returned type
 
 |Return field | Type | Description|
 |:-----|:------|:------|

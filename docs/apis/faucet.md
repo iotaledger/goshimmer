@@ -89,8 +89,6 @@ if err != nil {
 
 ### Results
 
-* Returned type
-
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Message ID of the faucet request. Omitted if error. |

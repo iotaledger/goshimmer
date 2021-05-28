@@ -127,8 +127,6 @@ fmt.Println(string(info))
 
 #### Results
 
-* Returned type
-
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `version`  | `String` | Version of GoShimmer. |
@@ -207,3 +205,4 @@ This method is not available in client lib
 #### Results
 
 Empty response with HTTP 200 success code if everything is running correctly.
+Error message is returned if failed.

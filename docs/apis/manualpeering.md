@@ -73,7 +73,7 @@ curl --location --request POST 'http://localhost:8080//manualpeering/peers' \
 #### Client lib - `AddManualPeers`
 
 Peers can be added via `AddManualPeers(peers []*peer.Peer)`
-```
+```go
 err := goshimAPI.AddManualPeers(false)
 if err != nil {
     // return error
@@ -83,6 +83,7 @@ if err != nil {
 #### Results
 
 Empty response with HTTP 200 success code if peers were added correctly.
+Error message is returned if failed.
 
 ## `/manualpeering/peers` - Remove Peers
 
@@ -121,7 +122,7 @@ curl --location --request DELETE 'http://localhost:8080//manualpeering/peers' \
 #### Client lib - `RemoveManualPeers`
 
 Peers can be removed via `RemoveManualPeers(keys []ed25519.PublicKey)`
-```
+```go
 err := goshimAPI.RemoveManualPeers(false)
 if err != nil {
     // return error
@@ -131,6 +132,7 @@ if err != nil {
 #### Results
 
 Empty response with HTTP 200 success code if peers were removed correctly.
+Error message is returned if failed.
 
 ##  `/manualpeering/peers` - List Peers
 
@@ -159,7 +161,7 @@ curl --location 'http://localhost:8080/manualpeering/peers?onlyConnected=true'
 #### Client lib - `GetManualKnownPeers`
 
 Manually added peers can be retrieved via `GetManualKnownPeers(opts ...manualpeering.GetKnownPeersOption)`
-```
+```go
 neighbors, err := goshimAPI.GetManualKnownPeers(false)
 if err != nil {
     // return error
@@ -216,8 +218,6 @@ fmt.Println(string(neighbors))
 ```
 
 #### Results
-
-* Returned type
 
 |Return field | Type | Description|
 |:-----|:------|:------|

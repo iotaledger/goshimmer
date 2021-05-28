@@ -71,8 +71,6 @@ fmt.Println(res.Message)
 
 #### Results
 
-* Returned type
-
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `message`  | `string` | Message with resulting message. |
