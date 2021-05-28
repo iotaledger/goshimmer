@@ -40,9 +40,14 @@ POST request asking for funds from the faucet to be transferred to address in th
 | **Parameter**            | `powTarget`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | target Proof of Work difficulty, only used in client lib |
-| **Type**                 | int      |
+| **Description**          | proof of the PoW being done, **only used in HTTP api** |
+| **Type**                 | uint64      |
 
+| **Parameter**            | `nonce`      |
+|--------------------------|----------------|
+| **Required or Optional** | required       |
+| **Description**          | target Proof of Work difficulty,**only used in client lib** |
+| **Type**                 | uint64      |
 
 #### Body
 
@@ -50,7 +55,8 @@ POST request asking for funds from the faucet to be transferred to address in th
 {
   "address": "target address",
   "accessManaPledgeID": "nodeID",
-  "consensusManaPledgeID": "nodeID"
+  "consensusManaPledgeID": "nodeID",
+  "nonce": 50
 }
 
 ```
@@ -65,7 +71,8 @@ curl --location --request POST 'http://localhost:8080/faucet' \
 --data-raw '{
 	"address": "target address",
 	"accessManaPledgeID": "nodeID",
-	"consensusManaPledgeID": "nodeID"
+	"consensusManaPledgeID": "nodeID",
+  "nonce": 50
 }'
 ```
 
