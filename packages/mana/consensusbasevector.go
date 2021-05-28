@@ -139,8 +139,7 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 			oldMana := *c.vector[pledgeNodeID]
 			// revoke BM1
 			err := c.vector[pledgeNodeID].revoke(inputInfo.Amount)
-			switch err {
-			case ErrBaseManaNegative:
+			if errors.Is(err, ErrBaseManaNegative) {
 				panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
 			}
 			// save events for later triggering
