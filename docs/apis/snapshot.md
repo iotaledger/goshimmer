@@ -24,7 +24,7 @@ curl --location 'http://localhost:8080/snapshot'
 
 #### Client lib 
 
-Method not available in client library.
+Method not available in the client library.
 
 
 #### Results
