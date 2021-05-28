@@ -348,7 +348,9 @@ func GetTransactionInclusionState(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID))
+	conflicting := len(messagelayer.Tangle().LedgerState.ConflictSet(transactionID)) != 0
+
+	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID, conflicting))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

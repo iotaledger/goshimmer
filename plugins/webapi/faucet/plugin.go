@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	faucetpkg "github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
@@ -74,7 +75,7 @@ func requestFunds(c echo.Context) error {
 		}
 	}
 
-	faucetPayload := faucet.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
+	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
 
 	// verify PoW
 	leadingZeroes, err := powVerifier.LeadingZeros(faucetPayload.Bytes())
