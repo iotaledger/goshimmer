@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
@@ -35,9 +34,6 @@ var (
 	app  *node.Plugin
 	once sync.Once
 
-	// log holds a reference to the logger used by this app.
-	log *logger.Logger
-
 	remoteLogger *remotelog.RemoteLoggerConn
 
 	myID            string
@@ -61,9 +57,6 @@ func App() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	// configure logger
-	log = logger.NewLogger(PluginName)
-
 	remoteLogger = remotelog.RemoteLogger()
 
 	if local.GetInstance() != nil {
@@ -74,11 +67,11 @@ func configure(_ *node.Plugin) {
 	// get origin public key from config
 	bytes, err := base58.Decode(config.Node().String(CfgNetworkDelayOriginPublicKey))
 	if err != nil {
-		log.Fatalf("could not parse %s config entry as base58. %v", CfgNetworkDelayOriginPublicKey, err)
+		app.LogFatalf("could not parse %s config entry as base58. %v", CfgNetworkDelayOriginPublicKey, err)
 	}
 	originPublicKey, _, err = ed25519.PublicKeyFromBytes(bytes)
 	if err != nil {
-		log.Fatalf("could not parse %s config entry as public key. %v", CfgNetworkDelayOriginPublicKey, err)
+		app.LogFatalf("could not parse %s config entry as public key. %v", CfgNetworkDelayOriginPublicKey, err)
 	}
 
 	configureWebAPI()
@@ -104,7 +97,7 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 
 		networkDelayObject, ok := messagePayload.(*Object)
 		if !ok {
-			log.Info("could not cast payload to network delay object")
+			app.LogInfo("could not cast payload to network delay object")
 
 			return
 		}
@@ -114,7 +107,7 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 		// abort if message was sent more than 1min ago
 		// this should only happen due to a node resyncing
 		if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
-			log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
+			app.LogDebugf("Received network delay message with >1min delay\n%s", networkDelayObject)
 			return
 		}
 

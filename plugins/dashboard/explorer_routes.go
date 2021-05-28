@@ -8,10 +8,10 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 )
