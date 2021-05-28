@@ -1,7 +1,8 @@
 # How to obtain tokens from the faucet
 
 ## The faucet dApp
-The faucet is a dApp built on top of the [value and communication layer](../concepts/layers.md). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing an address encoded in Base58, and it is retrievable via [`FindMessageByID()`](../apis/communication.md).
+The faucet is a dApp built on top of the [value and communication layer](../concepts/layers.md). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing a special payload with an address encoded in Base58, the aManaPledgeID, the cManaPledgeID and a nonce as a proof that some Proof Of Work has been computed. The PoW is just a way to rate limit and avoid abuse of the Faucet. The Faucet has an additional protection by means of granting request to a given address only once. That means that, in order to receive funds from the Faucet multuple times, the address must be different.
+
 After sending a faucet request message, you can check your balances via [`GetAddressUnspentOutputs()`](../apis/ledgerstate.md).
 
 ## Obtain tokens from the faucet
@@ -15,15 +16,21 @@ Follow the instructions in [Use the API](../apis/api.md) to set up the API insta
 
 Example:
 ```go
-// provide your Base58 encoded destination address
-messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY")
+// provide your Base58 encoded destination address,
+// the proof of work difficulty,
+// the optional aManaPledgeID (Base58 encoded),
+// the optional cManaPledgeID (Base58 encoded)
+messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY", 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
 
 ---- or
 
 // get the given address from your wallet instance and 
 // use String() to get its Base58 representation
+// the proof of work difficulty,
+// the optional aManaPledgeID (Base58 encoded),
+// the optional cManaPledgeID (Base58 encoded)
 addr := wallet.Seed().Address(0)
-messageID, err := goshimAPI.SendFaucetRequest(addr.String())
+messageID, err := goshimAPI.SendFaucetRequest(addr.String(), 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
 ```
 
 ### Via the HTTP API directly
@@ -33,6 +40,9 @@ The URI for POSTing faucet request messages is `http://<host>:<web-api-port>/fau
 | Parameter | Required | Description | Type    |
 | --------- | -------- | ----------- | --- |
 | `address`      | Yes     | Destination address to which to send tokens to encoded in Base58        | string     |
+| `accessManaPledgeID`      | No     | Node ID to pledge access mana to encoded in Base58        | string     |
+| `consensusManaPledgeID`      | No     | Node ID to pledge consensus mana to encoded in Base58        | string     |
+| `nonce`      | Yes     | Proof of the PoW being done       | uint64     |
 
 cURL example:
 ```
@@ -40,7 +50,10 @@ curl http://localhost:8080/faucet \
 -X POST \
 -H 'Content-Type: application/json' \
 -d '{
-  "address": "JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY"
+  "address": "JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY",
+  "accessManaPledgeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
+  "consensusManaPledgeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
+  "nonce": 24578
 }'
 ```
 
@@ -64,5 +77,4 @@ This may take a while to receive funds:
 When the faucet request is successful, you can check the received balances:
 
 <img src="https://user-images.githubusercontent.com/11289354/88525478-38024500-d02d-11ea-92c7-25c80eb6a947.png" width="450">
-
 
