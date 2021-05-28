@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"crypto"
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/cockroachdb/errors"
@@ -11,6 +10,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/faucet"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
@@ -26,7 +26,7 @@ var (
 )
 
 // SendFaucetRequest requests funds from faucet nodes by sending a faucet request payload message.
-func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels2.FaucetResponse, error) {
+func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels.FaucetResponse, error) {
 	var aManaPledgeID identity.ID
 	var cManaPledgeID identity.ID
 	if len(pledgeIDs) > 1 {
@@ -50,9 +50,9 @@ func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, powTarget i
 		return nil, errors.Errorf("could not compute faucet PoW: %w", err)
 	}
 
-	res := &jsonmodels2.FaucetResponse{}
+	res := &jsonmodels.FaucetResponse{}
 	if err := api.do(http.MethodPost, routeFaucet,
-		&jsonmodels2.FaucetRequest{
+		&jsonmodels.FaucetRequest{
 			Address:               base58EncodedAddr,
 			AccessManaPledgeID:    base58.Encode(aManaPledgeID.Bytes()),
 			ConsensusManaPledgeID: base58.Encode(cManaPledgeID.Bytes()),

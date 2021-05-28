@@ -1,9 +1,10 @@
 package client
 
 import (
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 	"strings"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 const (

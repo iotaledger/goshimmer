@@ -2,7 +2,6 @@ package message
 
 import (
 	"fmt"
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 	"sync"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -49,11 +49,11 @@ func Plugin() *node.Plugin {
 func GetMessage(c echo.Context) (err error) {
 	messageID, err := messageIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		err = c.JSON(http.StatusOK, jsonmodels2.Message{
+		err = c.JSON(http.StatusOK, jsonmodels.Message{
 			ID:              message.ID().Base58(),
 			StrongParents:   message.StrongParents().ToStrings(),
 			WeakParents:     message.WeakParents().ToStrings(),
@@ -77,7 +77,7 @@ func GetMessage(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load Message with %s", messageID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Message with %s", messageID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +88,7 @@ func GetMessage(c echo.Context) (err error) {
 func GetMessageMetadata(c echo.Context) (err error) {
 	messageID, err := messageIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
@@ -97,22 +97,22 @@ func GetMessageMetadata(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load MessageMetadata with %s", messageID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MessageMetadata with %s", messageID)))
 }
 
 // NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
-func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels2.MessageMetadata {
+func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMetadata {
 	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(metadata.ID())
 	if err != nil {
 		branchID = ledgerstate.BranchID{}
 	}
 
-	return jsonmodels2.MessageMetadata{
+	return jsonmodels.MessageMetadata{
 		ID:                 metadata.ID().Base58(),
 		ReceivedTime:       metadata.ReceivedTime().Unix(),
 		Solid:              metadata.IsSolid(),
 		SolidificationTime: metadata.SolidificationTime().Unix(),
-		StructureDetails:   jsonmodels2.NewStructureDetails(metadata.StructureDetails()),
+		StructureDetails:   jsonmodels.NewStructureDetails(metadata.StructureDetails()),
 		BranchID:           branchID.String(),
 		Scheduled:          metadata.Scheduled(),
 		Booked:             metadata.IsBooked(),
@@ -131,21 +131,21 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels2.MessageMet
 func GetMessageConsensusMetadata(c echo.Context) (err error) {
 	messageID, err := messageIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	consensusMechanism := messagelayer.Tangle().Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
 	if consensusMechanism != nil {
 		if consensusMechanism.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *fcob.MessageMetadata) {
 			consensusMechanism.Storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *fcob.TimestampOpinion) {
-				err = c.JSON(http.StatusOK, jsonmodels2.NewMessageConsensusMetadata(messageMetadata, timestampOpinion))
+				err = c.JSON(http.StatusOK, jsonmodels.NewMessageConsensusMetadata(messageMetadata, timestampOpinion))
 			})
 		}) {
 			return
 		}
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load MessageConsensusMetadata with %s", messageID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MessageConsensusMetadata with %s", messageID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -154,23 +154,23 @@ func GetMessageConsensusMetadata(c echo.Context) (err error) {
 
 // PostPayload is the handler for the /messages/payload endpoint.
 func PostPayload(c echo.Context) error {
-	var request jsonmodels2.PostPayloadRequest
+	var request jsonmodels.PostPayloadRequest
 	if err := c.Bind(&request); err != nil {
 		Plugin().LogInfo(err.Error())
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	parsedPayload, _, err := payload.FromBytes(request.Payload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	msg, err := messagelayer.Tangle().IssuePayload(parsedPayload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels2.NewPostPayloadResponse(msg))
+	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(msg))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

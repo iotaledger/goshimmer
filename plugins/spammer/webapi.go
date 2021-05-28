@@ -1,17 +1,18 @@
 package spammer
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 func handleRequest(c echo.Context) error {
-	var request jsonmodels2.SpammerRequest
+	var request jsonmodels.SpammerRequest
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.SpammerResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.SpammerResponse{Error: err.Error()})
 	}
 
 	switch request.Cmd {
@@ -31,12 +32,12 @@ func handleRequest(c echo.Context) error {
 		messageSpammer.Shutdown()
 		messageSpammer.Start(request.MPM, time.Minute, request.IMIF)
 		log.Infof("Started spamming messages with %d MPM and %s inter-message issuing function", request.MPM, request.IMIF)
-		return c.JSON(http.StatusOK, jsonmodels2.SpammerResponse{Message: "started spamming messages"})
+		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Message: "started spamming messages"})
 	case "stop":
 		messageSpammer.Shutdown()
 		log.Info("Stopped spamming messages")
-		return c.JSON(http.StatusOK, jsonmodels2.SpammerResponse{Message: "stopped spamming messages"})
+		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Message: "stopped spamming messages"})
 	default:
-		return c.JSON(http.StatusBadRequest, jsonmodels2.SpammerResponse{Error: "invalid cmd in request"})
+		return c.JSON(http.StatusBadRequest, jsonmodels.SpammerResponse{Error: "invalid cmd in request"})
 	}
 }

@@ -1,12 +1,12 @@
 package mana
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -25,17 +25,17 @@ func getNHighestConsensusHandler(c echo.Context) error {
 func nHighestHandler(c echo.Context, manaType mana.Type) error {
 	number, err := strconv.ParseUint(c.QueryParam("number"), 10, 32)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.GetNHighestResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}
 	highestNodes, t, err := manaPlugin.GetHighestManaNodes(manaType, uint(number))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.GetNHighestResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}
 	var res []mana.NodeStr
 	for _, n := range highestNodes {
 		res = append(res, n.ToNodeStr())
 	}
-	return c.JSON(http.StatusOK, jsonmodels2.GetNHighestResponse{
+	return c.JSON(http.StatusOK, jsonmodels.GetNHighestResponse{
 		Nodes:     res,
 		Timestamp: t.Unix(),
 	})

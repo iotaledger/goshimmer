@@ -3,7 +3,6 @@ package faucet
 import (
 	"crypto"
 	"fmt"
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 	"sync"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/labstack/echo"
 
 	faucetpkg "github.com/iotaledger/goshimmer/packages/faucet"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
@@ -45,10 +45,10 @@ func configure(plugin *node.Plugin) {
 // requestFunds creates a faucet request (0-value) message with the given destination address and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
 func requestFunds(c echo.Context) error {
-	var request jsonmodels2.FaucetRequest
+	var request jsonmodels.FaucetRequest
 	if err := c.Bind(&request); err != nil {
 		plugin.LogInfo(err.Error())
-		return c.JSON(http.StatusBadRequest, jsonmodels2.FaucetResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: err.Error()})
 	}
 
 	plugin.LogInfo("Received - address:", request.Address)
@@ -56,7 +56,7 @@ func requestFunds(c echo.Context) error {
 
 	addr, err := ledgerstate.AddressFromBase58EncodedString(request.Address)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.FaucetResponse{Error: "Invalid address"})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid address"})
 	}
 
 	var accessManaPledgeID identity.ID
@@ -64,14 +64,14 @@ func requestFunds(c echo.Context) error {
 	if request.AccessManaPledgeID != "" {
 		accessManaPledgeID, err = mana.IDFromStr(request.AccessManaPledgeID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, jsonmodels2.FaucetResponse{Error: "Invalid access mana node ID"})
+			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid access mana node ID"})
 		}
 	}
 
 	if request.ConsensusManaPledgeID != "" {
 		consensusManaPledgeID, err = mana.IDFromStr(request.ConsensusManaPledgeID)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, jsonmodels2.FaucetResponse{Error: "Invalid consensus mana node ID"})
+			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid consensus mana node ID"})
 		}
 	}
 
@@ -81,18 +81,18 @@ func requestFunds(c echo.Context) error {
 	leadingZeroes, err := powVerifier.LeadingZeros(faucetPayload.Bytes())
 	if err != nil {
 		plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
-		return c.JSON(http.StatusBadRequest, jsonmodels2.FaucetResponse{Error: "Could not verify PoW"})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Could not verify PoW"})
 	}
 
 	if leadingZeroes < targetPoWDifficulty {
 		plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
-		return c.JSON(http.StatusBadRequest, jsonmodels2.FaucetResponse{Error: "Funding request doesn't fulfill PoW requirement"})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Funding request doesn't fulfill PoW requirement"})
 	}
 
 	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, jsonmodels2.FaucetResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
+		return c.JSON(http.StatusInternalServerError, jsonmodels.FaucetResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels2.FaucetResponse{ID: msg.ID().Base58()})
+	return c.JSON(http.StatusOK, jsonmodels.FaucetResponse{ID: msg.ID().Base58()})
 }

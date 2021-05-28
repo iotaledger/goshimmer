@@ -1,8 +1,9 @@
 package client
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 const (
@@ -10,8 +11,8 @@ const (
 )
 
 // Info gets the info of the node.
-func (api *GoShimmerAPI) Info() (*jsonmodels2.InfoResponse, error) {
-	res := &jsonmodels2.InfoResponse{}
+func (api *GoShimmerAPI) Info() (*jsonmodels.InfoResponse, error) {
+	res := &jsonmodels.InfoResponse{}
 	if err := api.do(http.MethodGet, routeInfo, nil, res); err != nil {
 		return nil, err
 	}

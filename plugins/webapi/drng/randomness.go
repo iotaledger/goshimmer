@@ -1,20 +1,20 @@
 package drng
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 )
 
 // randomnessHandler returns the current DRNG randomness used.
 func randomnessHandler(c echo.Context) error {
-	randomness := []jsonmodels2.Randomness{}
+	randomness := []jsonmodels.Randomness{}
 	for _, state := range drng.Instance().State {
 		randomness = append(randomness,
-			jsonmodels2.Randomness{
+			jsonmodels.Randomness{
 				InstanceID: state.Committee().InstanceID,
 				Round:      state.Randomness().Round,
 				Randomness: state.Randomness().Randomness,
@@ -22,7 +22,7 @@ func randomnessHandler(c echo.Context) error {
 			})
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels2.RandomnessResponse{
+	return c.JSON(http.StatusOK, jsonmodels.RandomnessResponse{
 		Randomness: randomness,
 	})
 }

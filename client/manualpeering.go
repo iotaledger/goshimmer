@@ -1,12 +1,12 @@
 package client
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
 )
 
@@ -24,9 +24,9 @@ func (api *GoShimmerAPI) AddManualPeers(peers []*manualpeering.KnownPeerToAdd) e
 
 // RemoveManualPeers remove the provided list of peers from the manual peering layer.
 func (api *GoShimmerAPI) RemoveManualPeers(keys []ed25519.PublicKey) error {
-	peersToRemove := make([]*jsonmodels2.PeerToRemove, len(keys))
+	peersToRemove := make([]*jsonmodels.PeerToRemove, len(keys))
 	for i, key := range keys {
-		peersToRemove[i] = &jsonmodels2.PeerToRemove{PublicKey: key.String()}
+		peersToRemove[i] = &jsonmodels.PeerToRemove{PublicKey: key.String()}
 	}
 	if err := api.do(http.MethodDelete, routeManualPeers, peersToRemove, nil); err != nil {
 		return errors.Wrap(err, "failed to remove manual peers via the HTTP API")

@@ -1,7 +1,6 @@
 package info
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 	"sort"
 	goSync "sync"
@@ -11,6 +10,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -97,7 +97,7 @@ func getInfo(c echo.Context) error {
 
 	// get TangleTime
 	lcm := messagelayer.Tangle().TimeManager.LastConfirmedMessage()
-	tangleTime := jsonmodels2.TangleTime{
+	tangleTime := jsonmodels.TangleTime{
 		Synced:    messagelayer.Tangle().TimeManager.Synced(),
 		Time:      lcm.Time.UnixNano(),
 		MessageID: lcm.MessageID.Base58(),
@@ -106,7 +106,7 @@ func getInfo(c echo.Context) error {
 	t := time.Now()
 	accessMana, tAccess, _ := messagelayer.GetAccessMana(local.GetInstance().ID(), t)
 	consensusMana, tConsensus, _ := messagelayer.GetConsensusMana(local.GetInstance().ID(), t)
-	nodeMana := jsonmodels2.Mana{
+	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
 		Consensus:          consensusMana,
@@ -124,7 +124,7 @@ func getInfo(c echo.Context) error {
 		nodeQueueSizes[nodeID.String()] = size
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels2.InfoResponse{
+	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          discovery.NetworkVersion(),
 		TangleTime:              tangleTime,
@@ -139,12 +139,12 @@ func getInfo(c echo.Context) error {
 		Mana:                    nodeMana,
 		ManaDelegationAddress:   delegationAddressString,
 		ManaDecay:               mana.Decay,
-		Scheduler: jsonmodels2.Scheduler{
+		Scheduler: jsonmodels.Scheduler{
 			Running:        messagelayer.Tangle().Scheduler.Running(),
 			Rate:           messagelayer.Tangle().Scheduler.Rate().String(),
 			NodeQueueSizes: nodeQueueSizes,
 		},
-		RateSetter: jsonmodels2.RateSetter{
+		RateSetter: jsonmodels.RateSetter{
 			Rate: messagelayer.Tangle().RateSetter.Rate(),
 			Size: messagelayer.Tangle().RateSetter.Size(),
 		},

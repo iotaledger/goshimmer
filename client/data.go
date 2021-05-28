@@ -1,8 +1,9 @@
 package client
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 const (
@@ -11,9 +12,9 @@ const (
 
 // Data sends the given data (payload) by creating a message in the backend.
 func (api *GoShimmerAPI) Data(data []byte) (string, error) {
-	res := &jsonmodels2.DataResponse{}
+	res := &jsonmodels.DataResponse{}
 	if err := api.do(http.MethodPost, routeData,
-		&jsonmodels2.DataRequest{Data: data}, res); err != nil {
+		&jsonmodels.DataRequest{Data: data}, res); err != nil {
 		return "", err
 	}
 

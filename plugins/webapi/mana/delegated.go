@@ -1,11 +1,11 @@
 package mana
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 )
 
@@ -32,17 +32,17 @@ func GetDelegatedOutputs(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusNotFound, &GetDelegatedOutputsResponse{Error: err.Error()})
 	}
-	delegatedOutputsJSON := make([]*jsonmodels2.Output, len(outputs))
+	delegatedOutputsJSON := make([]*jsonmodels.Output, len(outputs))
 	for i, o := range outputs {
-		delegatedOutputsJSON[i] = jsonmodels2.NewOutput(o)
+		delegatedOutputsJSON[i] = jsonmodels.NewOutput(o)
 	}
 	return c.JSON(http.StatusOK, &GetDelegatedOutputsResponse{Outputs: delegatedOutputsJSON})
 }
 
 // GetDelegatedOutputsResponse is the response struct for the GetDelegatedOutputs endpoint.
 type GetDelegatedOutputsResponse struct {
-	Outputs []*jsonmodels2.Output `json:"delegatedOutputs"`
-	Error   string                `json:"error,omitempty"`
+	Outputs []*jsonmodels.Output `json:"delegatedOutputs"`
+	Error   string               `json:"error,omitempty"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,11 +1,11 @@
 package dashboard
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/faucet"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
@@ -43,19 +43,19 @@ type DrngCollectiveBeaconPayload struct {
 
 // TransactionPayload contains the transaction information.
 type TransactionPayload struct {
-	TxID        string                   `json:"txID"`
-	Transaction *jsonmodels2.Transaction `json:"transaction"`
+	TxID        string                  `json:"txID"`
+	Transaction *jsonmodels.Transaction `json:"transaction"`
 }
 
 // Essence contains the transaction essence information.
 type Essence struct {
-	Version           uint8                 `json:"version"`
-	Timestamp         int                   `json:"timestamp"`
-	AccessPledgeID    string                `json:"access_pledge_id"`
-	ConsensusPledgeID string                `json:"cons_pledge_id"`
-	Inputs            []*jsonmodels2.Output `json:"inputs"`
-	Outputs           []*jsonmodels2.Output `json:"outputs"`
-	Data              string                `json:"data"`
+	Version           uint8                `json:"version"`
+	Timestamp         int                  `json:"timestamp"`
+	AccessPledgeID    string               `json:"access_pledge_id"`
+	ConsensusPledgeID string               `json:"cons_pledge_id"`
+	Inputs            []*jsonmodels.Output `json:"inputs"`
+	Outputs           []*jsonmodels.Output `json:"outputs"`
+	Data              string               `json:"data"`
 }
 
 // StatementPayload is a JSON serializable statement payload.
@@ -172,12 +172,12 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	}
 
 	tp.TxID = tx.ID().Base58()
-	tp.Transaction = jsonmodels2.NewTransaction(tx)
+	tp.Transaction = jsonmodels.NewTransaction(tx)
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*ledgerstate.UTXOInput).ReferencedOutputID()
 		messagelayer.Tangle().LedgerState.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
-			tp.Transaction.Inputs[i].Output = jsonmodels2.NewOutput(output)
+			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
 		})
 	}
 

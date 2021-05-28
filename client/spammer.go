@@ -2,8 +2,9 @@ package client
 
 import (
 	"fmt"
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 const (
@@ -11,8 +12,8 @@ const (
 )
 
 // ToggleSpammer toggles the node internal spammer.
-func (api *GoShimmerAPI) ToggleSpammer(enable bool, mpm int) (*jsonmodels2.SpammerResponse, error) {
-	res := &jsonmodels2.SpammerResponse{}
+func (api *GoShimmerAPI) ToggleSpammer(enable bool, mpm int) (*jsonmodels.SpammerResponse, error) {
+	res := &jsonmodels.SpammerResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		if enable {
 			return fmt.Sprintf("%s?cmd=start&mpm=%d", routeSpammer, mpm)

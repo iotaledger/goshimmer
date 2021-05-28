@@ -2,28 +2,28 @@ package drng
 
 import (
 	"encoding/hex"
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 )
 
 // committeeHandler returns the current DRNG committee used.
 func committeeHandler(c echo.Context) error {
-	committees := []jsonmodels2.Committee{}
+	committees := []jsonmodels.Committee{}
 	for _, state := range drng.Instance().State {
-		committees = append(committees, jsonmodels2.Committee{
+		committees = append(committees, jsonmodels.Committee{
 			InstanceID:    state.Committee().InstanceID,
 			Threshold:     state.Committee().Threshold,
 			Identities:    identitiesToString(state.Committee().Identities),
 			DistributedPK: hex.EncodeToString(state.Committee().DistributedPK),
 		})
 	}
-	return c.JSON(http.StatusOK, jsonmodels2.CommitteeResponse{
+	return c.JSON(http.StatusOK, jsonmodels.CommitteeResponse{
 		Committees: committees,
 	})
 }

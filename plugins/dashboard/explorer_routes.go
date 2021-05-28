@@ -2,13 +2,13 @@ package dashboard
 
 import (
 	"fmt"
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -116,12 +116,12 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID             *jsonmodels2.OutputID       `json:"id"`
-	Output         *jsonmodels2.Output         `json:"output"`
-	Metadata       *jsonmodels2.OutputMetadata `json:"metadata"`
-	InclusionState ExplorerInclusionState      `json:"inclusionState"`
-	TxTimestamp    int                         `json:"txTimestamp"`
-	PendingMana    float64                     `json:"pendingMana"`
+	ID             *jsonmodels.OutputID       `json:"id"`
+	Output         *jsonmodels.Output         `json:"output"`
+	Metadata       *jsonmodels.OutputMetadata `json:"metadata"`
+	InclusionState ExplorerInclusionState     `json:"inclusionState"`
+	TxTimestamp    int                        `json:"txTimestamp"`
+	PendingMana    float64                    `json:"pendingMana"`
 }
 
 // ExplorerInclusionState defines the struct for storing inclusion states for ExplorerOutput
@@ -261,9 +261,9 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
 		outputs = append(outputs, ExplorerOutput{
-			ID:             jsonmodels2.NewOutputID(output.ID()),
-			Output:         jsonmodels2.NewOutput(output),
-			Metadata:       jsonmodels2.NewOutputMetadata(metaData),
+			ID:             jsonmodels.NewOutputID(output.ID()),
+			Output:         jsonmodels.NewOutput(output),
+			Metadata:       jsonmodels.NewOutputMetadata(metaData),
 			InclusionState: inclusionState,
 			TxTimestamp:    int(timestamp),
 			PendingMana:    pendingMana,

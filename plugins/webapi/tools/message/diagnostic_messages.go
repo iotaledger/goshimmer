@@ -3,7 +3,6 @@ package message
 import (
 	"encoding/csv"
 	"fmt"
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -36,7 +36,7 @@ func DiagnosticMessagesOnlyFirstWeakReferencesHandler(c echo.Context) (err error
 func DiagnosticMessagesRankHandler(c echo.Context) (err error) {
 	rank, err := rankFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 	return runDiagnosticMessages(c, rank)
 }
