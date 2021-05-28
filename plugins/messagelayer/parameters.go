@@ -110,7 +110,7 @@ var ManaParameters = struct {
 // RateSetterParameters contains the configuration parameters used by the Rate Setter.
 var RateSetterParameters = struct {
 	// Initial defines the initial rate of rate setting.
-	Initial float64 `default:"20000" usage:"the initial rate of rate setting"`
+	Initial float64 `default:"100000" usage:"the initial rate of rate setting"`
 }{}
 
 // SchedulerParameters contains the configuration parameters used by the Scheduler.
