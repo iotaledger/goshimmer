@@ -21,7 +21,7 @@ import (
 
 var (
 	manaFeedWorkerCount     = 1
-	manaFeedWorkerQueueSize = 50
+	manaFeedWorkerQueueSize = 500
 	manaFeedWorkerPool      *workerpool.WorkerPool
 	manaBuffer              *ManaBuffer
 	manaBufferOnce          sync.Once
