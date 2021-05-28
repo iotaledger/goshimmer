@@ -1,7 +1,8 @@
 # How to obtain tokens from the faucet
 
 ## The faucet dApp
-The faucet is a dApp built on top of the [value and communication layer](../concepts/layers.md). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing an address encoded in Base58, you can retieve the faucet message and check your balances via API methods.
+The faucet is a dApp built on top of the [value and communication layer](../concepts/layers.md). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing an address encoded in Base58, and it is retrievable via [`FindMessageByID()`](../apis/communication.md).
+After sending a faucet request message, you can check your balances via [`GetAddressUnspentOutputs()`](../apis/ledgerstate.md).
 
 ## Obtain tokens from the faucet
 There are 3 ways to send a faucet request message to obtain IOTA tokens:

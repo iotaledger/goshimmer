@@ -5,7 +5,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 
@@ -28,22 +27,12 @@ An example of the HTTP JSON request:
 [
     {
         "publicKey": "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
-        "ip": "172.19.0.3",
-        "services": {
-            "peering":{
-                "network":"TCP",
-                "port":14626
-            },
-            "gossip": {
-                "network": "TCP",
-                "port": 14666
-            }
-        }
+        "address": "172.19.0.3:14666"
     }
 ]
 */
 func addPeersHandler(c echo.Context) error {
-	var peers []*peer.Peer
+	var peers []*manualpeering.KnownPeerToAdd
 	if err := webapi.ParseJSONRequest(c, &peers); err != nil {
 		plugin.Logger().Errorw("Failed to parse peers from the request", "err", err)
 		return c.JSON(
