@@ -61,8 +61,8 @@ func configure(plugin *node.Plugin) {
 		})
 	}))
 
-	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent) {
-		plugin.LogInfof("message rejected in Parser: %s", ev.Message.ID().Base58())
+	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent, err error) {
+		plugin.LogInfof("message with %s rejected in Parser: %v", ev.Message.ID().Base58(), err)
 	}))
 
 	Tangle().FIFOScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
