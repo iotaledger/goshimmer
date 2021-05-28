@@ -51,7 +51,7 @@ The Tangle represents a growing partially-ordered set of messages, linked with e
 - **Past cone**: All messages that are directly or indirectly referenced by a message are called its past cone.
 - **Future cone**: All messages that directly or indirectly reference a message are called its future cone.
 - **Solidity**: A message is marked as solid if its entire past cone until the Genesis (or the latest snapshot) is known.
-- **Parents**: A message directly references between 1-8 previous messages that we call its **parents**. A parent can be either **strong** or **weak** [TODO: LINK TO THE APPROVAL SWITCH SPEC].
+- **Parents**: A message directly references between 1-8 previous messages that we call its **parents**. A parent can be either **strong** or **weak** (see [approval switch](#orphanage--approval-switch)).
 - **Approvers**: Parents are approved by their referencing messages called **approvers**. It is thus a reverse mapping of parents. As in the parents' definition, an approver might be either **strong** or **weak**.
 
 ## Messages
