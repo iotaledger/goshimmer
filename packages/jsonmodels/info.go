@@ -36,8 +36,6 @@ type InfoResponse struct {
 	ManaDecay float64 `json:"mana_decay"`
 	// Scheduler is the scheduler.
 	Scheduler Scheduler `json:"scheduler"`
-	// RateSetter is the rate setter.
-	RateSetter RateSetter `json:"rateSetter"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }

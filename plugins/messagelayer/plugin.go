@@ -78,10 +78,6 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("node %s is blacklisted in FIFOScheduler", nodeID.String())
 	}))
 
-	Tangle().RateSetter.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message discarded in RateSetter: %s", messageID.Base58())
-	}))
-
 	Tangle().Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		plugin.LogInfof("message rejected in Scheduler: %s", messageID.Base58())
 	}))
