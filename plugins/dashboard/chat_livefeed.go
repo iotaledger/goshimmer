@@ -1,18 +1,12 @@
 package dashboard
 
 import (
-	"time"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/chat"
-)
-
-const (
-	rate = time.Second / 100
 )
 
 var (
@@ -47,15 +41,8 @@ func configureChatLiveFeed() {
 
 func runChatLiveFeed() {
 	if err := daemon.BackgroundWorker("Dashboard[ChatUpdater]", func(shutdownSignal <-chan struct{}) {
-		newMsgRateLimiter := time.NewTicker(rate)
-		defer newMsgRateLimiter.Stop()
-
 		notifyNewMessages := events.NewClosure(func(chatEvent *chat.ChatEvent) {
-			select {
-			case <-newMsgRateLimiter.C:
-				chatLiveFeedWorkerPool.TrySubmit(chatEvent)
-			default:
-			}
+			chatLiveFeedWorkerPool.TrySubmit(chatEvent)
 		})
 		chat.Events.MessageReceived.Attach(notifyNewMessages)
 
