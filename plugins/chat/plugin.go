@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	// App is the "plugin" instance of the network delay application.
+	// App is the "plugin" instance of the chat application.
 	app  *node.Plugin
 	once sync.Once
 )

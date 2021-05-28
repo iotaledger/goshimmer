@@ -15,8 +15,8 @@ The complete source code of the application can be found [in the repository](htt
 
 ### Overview
 Our chat dApp can be implemented in a few simple steps:
-1. A node sends via the Tangle a special message containing a chat payload.
-2. Upon receipt, every other node in the network process this message and trigger an event that a chat message has beein received.
+1. A node sends a special message containing a chat payload via the Tangle.
+2. Upon receipt, every other node in the network processes this message and - if the chat dApp/plugin is enabled - triggers an event that a chat message has been received.
 
 Within GoShimmer we need 3 components to realize this undertaking. First, we need to **define and register a chat payload type**. Second, we need a way to **initiate a message** with a chat payload via the web API. And lastly, we need to **listen** for chat payloads and take appropriate action.
 
