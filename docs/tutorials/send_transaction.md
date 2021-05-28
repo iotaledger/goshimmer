@@ -252,15 +252,15 @@ func postTransactionViaClientLib() (res string , err error) {
 #### Post via web API
 First, get the transaction bytes.
 ```go
-	// build tx from previous step
-	tx, err := buildTransaction()
-	if err != nil {
-		return
-	}
-    bytes := tx.Bytes()
-    
-    // print bytes
-    fmt.Println(string(bytes))
+// build tx from previous step
+tx, err := buildTransaction()
+if err != nil {
+    return
+}
+bytes := tx.Bytes()
+
+// print bytes
+fmt.Println(string(bytes))
 ```
 
 Then, post the bytes.
