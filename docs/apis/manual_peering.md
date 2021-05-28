@@ -4,15 +4,15 @@ The manual peering APIs allows managing the list of known peers of the node.
 
 HTTP APIs:
 
-* POST [/manualpeering/peers](#postpeers)
-* GET [/manualpeering/peers](#getpeers)
-* DELETE [/manualpeering/peers](#deletepeers)
+* POST [/manualpeering/peers](#post-manualpeeringpeers)
+* GET [/manualpeering/peers](#get-manualpeeringpeers)
+* DELETE [/manualpeering/peers](#delete-manualpeeringpeers)
 
 Client lib APIs:
 
-* [AddManualPeers()](#client-lib---addmanualpeers)
-* [GetManualPeers()](#client-lib---getmanualpeers)
-* [RemoveManualPeers()](#client-lib---removemanualpeers)
+* [AddManualPeers()](#client-library---addmanualpeers)
+* [GetManualPeers()](#client-library---getmanualpeers)
+* [RemoveManualPeers()](#client-library---removemanualpeers)
 
 <br />
 
