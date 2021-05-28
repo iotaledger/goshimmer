@@ -51,7 +51,7 @@ curl --location 'http://localhost:8080/tools/message/pastcone?ID=4MSkwAPzGwnjCJm
 
 Past cone can be checked using `PastConeExist(base58EncodedMessageID string) (*jsonmodels.PastconeResponse, error)`
 
-```
+```go
 pastConeCheck, err := goshimAPI.PastConeExist(base58EncodedMessageID)
 if err != nil {
     // return error
@@ -71,12 +71,10 @@ fmt.Println(string(pastConeCheck.PastConeSize))
 
 #### Results
 
-* Returned type
-
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `exist`  | `bool` | List of known peers. Only returned when parameter is set. |
-| `pastConeSize`  | `int` | List of chosen peers. |
+| `exist`  | `bool` | A boolean indicates if the message and its past cone exist. |
+| `pastConeSize`  | `int` | Size of the past cone of the given message. |
 | `error` | `string` | Error message. Omitted if success.     |
 
 
@@ -100,7 +98,7 @@ curl --location 'http://localhost:8080/tools/message/missing'
 
 Missing messages can be retrieved using `Missing() (*jsonmodels.MissingResponse, error)`.
 
-```
+```go
 missingMsgs, err := goshimAPI.Missing()
 if err != nil {
     // return error
@@ -119,8 +117,6 @@ fmt.Println(string(missingMsgs.Count))
 ```
 
 #### Results
-
-* Returned type
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -245,8 +241,9 @@ Returns a list of messages with rank >= of the given rank parameter.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/messages/rank/20
+curl --location 'http://localhost:8080/tools/diagnostic/messages/rank/:rank
 ```
+where `:rank` is the uint64, e.g. 20.
 
 #### Response examples
 The response is written in a csv file.

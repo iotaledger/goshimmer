@@ -2,7 +2,7 @@
 
 Faucet endpoint allows requesting funds from the Faucet.
 
-The API provides three functions to interact with this primitive layer:
+The API provides the following functions and endpoints:
 * [/faucet](#faucet)
 
 

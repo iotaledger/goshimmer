@@ -34,8 +34,9 @@ Return message from the tangle.
 #### cURL
 
 ```shell
-curl --location --request GET 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc'
+curl --location --request GET 'http://localhost:8080/messages/:messageID'
 ```
+where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
 #### Client lib - `GetMessage`
 
@@ -115,8 +116,9 @@ Return message metadata.
 #### cURL
 
 ```shell
-curl --location --request GET 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc/metadata'
+curl --location --request GET 'http://localhost:8080/messages/:messageID/metadata'
 ```
+where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
 #### Client lib - `GetMessageMetadata`
 
@@ -207,8 +209,9 @@ Return message consensus info such as opinion and FCoB data.
 #### cURL
 
 ```shell
-curl --location --request GET 'http://localhost:8080/messages/4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc/consensus'
+curl --location --request GET 'http://localhost:8080/messages/:messageID/consensus'
 ```
+where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
 #### Client lib
 

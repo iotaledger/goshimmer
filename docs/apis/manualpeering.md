@@ -72,7 +72,7 @@ curl --location --request POST 'http://localhost:8080//manualpeering/peers' \
 
 #### Client lib - `AddManualPeers`
 
-Peers can be removed via `AddManualPeers(peers []*peer.Peer)`
+Peers can be added via `AddManualPeers(peers []*peer.Peer)`
 ```
 err := goshimAPI.AddManualPeers(false)
 if err != nil {
@@ -130,7 +130,7 @@ if err != nil {
 
 #### Results
 
-Empty response with HTTP 200 success code if peers were added correctly.
+Empty response with HTTP 200 success code if peers were removed correctly.
 
 ##  `/manualpeering/peers` - List Peers
 

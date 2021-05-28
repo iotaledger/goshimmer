@@ -1,6 +1,7 @@
 # Spammer API Methods
 
 The Spammer tool lets you add messages to the tangle when running GoShimmer.
+**Note:** Make sure you enable the **spammer plugin** before interacting with the API.
 
 The API provides the following functions and endpoints:
 
@@ -19,17 +20,17 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 | **Parameter**            | `cmd`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | Action to perform. One of two possible values: `start` and `shutdown`.   |
+| **Description**          | Action to perform. One of two possible values: `start` and `stop`.   |
 | **Type**                 | `string`         |
 
 
 | **Parameter**            | `mpm`      |
 |--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | Messages per minute. Only applicable when `cmd=start`.   |
+| **Required or Optional** | optional       |
+| **Description**          | Messages per minute. Only applicable when `cmd=start`. (default: 1)  |
 | **Type**                 | `int`         |
 
-| **Parameter**            | `imif`      |
+| **Parameter**            | `imif` (Inter Message Issuing Function)     |
 |--------------------------|----------------|
 | **Required or Optional** | optional       |
 | **Description**          | Parameter indicating time interval between issued messages. Possible values: `poisson`, `uniform`. Field only available in HTTP API. |
@@ -51,8 +52,8 @@ curl --location 'http://localhost:8080/spammer?cmd=shutdown'
 
 #### Client lib - `ToggleSpammer()`
 
-Messages can be retrieved via `ToggleSpammer(enable bool, mpm int) (*jsonmodels.SpammerResponse, error)`
-```
+Spaammer can be enabled and disabled via `ToggleSpammer(enable bool, mpm int) (*jsonmodels.SpammerResponse, error)`
+```go
 res, err := goshimAPI.ToggleSpammer(true, 100)
 if err != nil {
     // return error

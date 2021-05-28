@@ -79,7 +79,7 @@ if err != nil {
 
 ## `/drng/info/committee`
 
-Returns the current DRNG committee used.
+Returns the current dRNG committee used.
 
 ### Parameters
 None.

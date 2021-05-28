@@ -1,6 +1,6 @@
 # Peering API Methods
 
-Peering API allows retrieving basic information about autopeering.
+The peering API allows retrieving basic information about autopeering.
 
 The API provides the following functions and endpoints:
 
