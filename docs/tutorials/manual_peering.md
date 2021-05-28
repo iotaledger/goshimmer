@@ -1,10 +1,10 @@
 # Manual Peering
 
 With manual peering, it's possible to connect only with a static list of known peers that the user has provided
-and don't depend on the autopeering. There are two ways to give the list of known peers to the node:
+and don't depend on the autopeering. There are two ways to work with the list of known peers of the node:
 
-1. Using the JSON config file
-2. Via the HTTP web API of the node
+1. Add known peers using the JSON config file
+2. Add/View/Delete via the web API of the node
 
 ## How Manual Peering Works
 
@@ -14,7 +14,7 @@ To establish the connection with a peer, the other peer should have our local pe
 So the condition for peers to connect is that they should have each other in their known peers lists.
 In case of network failure the node will keep reconnecting with known peers until it succeeds.
 
-The only thing that users have to do to be connected via manual peering is to exchange their IP address
+In other words, the only thing that users have to do to be connected via manual peering is to exchange their IP address
 and public key and set that information to known peers of their nodes and machines will do the rest.
 
 ## How to Set Known Peers via Config File
@@ -26,18 +26,8 @@ Add the following record to the root of your JSON config file that you use to ru
  "manualPeering": {
    "knownPeers": [
      {
-       "publicKey": "<public key of the other peer>",
-       "ip": "<IP address of the other peer>",
-       "services": {
-         "peering":{
-           "network":"TCP",
-           "port":14626 // autopeering port of the other peer.
-         },
-         "gossip": {
-           "network": "TCP",
-           "port": 14666 // gossip port of the other peer.
-         }
-       }
+       "publicKey": "CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3", // Public key of the other peer.
+       "address": "127.0.0.1:14666" // IP address of the other peer with its gossip port.
      }
    ]
  }, 
@@ -46,7 +36,7 @@ Add the following record to the root of your JSON config file that you use to ru
 ```
 
 
-## How to Set Known Peers via HTTP web API
+## How to manage Known Peers via web API
 
 See manual peering API docs [page](./../apis/manual_peering.md)
 for information on how to manage the known peers list via web API.
