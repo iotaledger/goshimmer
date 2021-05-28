@@ -16,6 +16,7 @@ import {Explorer404} from "app/components/Explorer404";
 import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
 import {Drng} from "app/components/Drng";
+import {Chat} from "app/components/Chat";
 import {Mana} from "app/components/Mana";
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerOutputQueryResult} from "app/components/ExplorerOutputQueryResult";
@@ -74,6 +75,11 @@ export class Root extends React.Component<Props, any> {
                                 Mana
                             </Nav.Link>
                         </LinkContainer>
+                        <LinkContainer to="/chat">
+                            <Nav.Link>
+                                Chat
+                            </Nav.Link>
+                        </LinkContainer>
                     </Nav>
                     <Navbar.Collapse className="justify-content-end">
                         <NavExplorerSearchbar/>
@@ -94,6 +100,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/branch/:id" component={ExplorerBranchQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/drng" component={Drng}/>
+                    <Route exact path="/chat" component={Chat}/>
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/visualizer/history" component={Visualizer}/>
