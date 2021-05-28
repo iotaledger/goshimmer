@@ -609,7 +609,7 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	aMana               = 100.0
+	aMana               = 1.0
 	totalAMana          = 1000.0
 	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000

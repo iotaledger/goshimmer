@@ -18,6 +18,7 @@ import (
 	"go.uber.org/atomic"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
@@ -133,7 +134,7 @@ func configure(*node.Plugin) {
 
 	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
 		msg := task.Param(0).(*tangle.Message)
-		addr := msg.Payload().(*Request).Address()
+		addr := msg.Payload().(*faucet.Request).Address()
 		msg, txID, err := Faucet().FulFillFundingRequest(msg)
 		if err != nil {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
@@ -245,10 +246,10 @@ func configureEvents() {
 			return
 		}
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			if !IsFaucetReq(message) {
+			if !faucet.IsFaucetReq(message) {
 				return
 			}
-			fundingRequest := message.Payload().(*Request)
+			fundingRequest := message.Payload().(*faucet.Request)
 			addr := fundingRequest.Address()
 
 			// verify PoW

@@ -9,11 +9,11 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/faucet"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/plugins/faucet"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
