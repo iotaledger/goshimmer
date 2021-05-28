@@ -1,9 +1,8 @@
 package client
 
 import (
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
-
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
@@ -14,9 +13,9 @@ const (
 
 // BroadcastCollectiveBeacon sends the given collective beacon (payload) by creating a message in the backend.
 func (api *GoShimmerAPI) BroadcastCollectiveBeacon(payload []byte) (string, error) {
-	res := &jsonmodels.CollectiveBeaconResponse{}
+	res := &jsonmodels2.CollectiveBeaconResponse{}
 	if err := api.do(http.MethodPost, routeCollectiveBeacon,
-		&jsonmodels.CollectiveBeaconRequest{Payload: payload}, res); err != nil {
+		&jsonmodels2.CollectiveBeaconRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 
@@ -24,8 +23,8 @@ func (api *GoShimmerAPI) BroadcastCollectiveBeacon(payload []byte) (string, erro
 }
 
 // GetRandomness gets the current randomness.
-func (api *GoShimmerAPI) GetRandomness() (*jsonmodels.RandomnessResponse, error) {
-	res := &jsonmodels.RandomnessResponse{}
+func (api *GoShimmerAPI) GetRandomness() (*jsonmodels2.RandomnessResponse, error) {
+	res := &jsonmodels2.RandomnessResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return routeRandomness
 	}(), nil, res); err != nil {
@@ -35,8 +34,8 @@ func (api *GoShimmerAPI) GetRandomness() (*jsonmodels.RandomnessResponse, error)
 }
 
 // GetCommittee gets the current committee.
-func (api *GoShimmerAPI) GetCommittee() (*jsonmodels.CommitteeResponse, error) {
-	res := &jsonmodels.CommitteeResponse{}
+func (api *GoShimmerAPI) GetCommittee() (*jsonmodels2.CommitteeResponse, error) {
+	res := &jsonmodels2.CommitteeResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return routeCommittee
 	}(), nil, res); err != nil {

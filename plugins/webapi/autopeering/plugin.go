@@ -1,6 +1,7 @@
 package autopeering
 
 import (
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net"
 	"net/http"
 	"strconv"
@@ -14,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
@@ -40,9 +40,9 @@ func Plugin() *node.Plugin {
 
 // getNeighbors returns the chosen and accepted neighbors of the node
 func getNeighbors(c echo.Context) error {
-	var chosen []jsonmodels.Neighbor
-	var accepted []jsonmodels.Neighbor
-	var knownPeers []jsonmodels.Neighbor
+	var chosen []jsonmodels2.Neighbor
+	var accepted []jsonmodels2.Neighbor
+	var knownPeers []jsonmodels2.Neighbor
 
 	if c.QueryParam("known") == "1" {
 		for _, p := range discovery.Discovery().GetVerifiedPeers() {
@@ -57,11 +57,11 @@ func getNeighbors(c echo.Context) error {
 		accepted = append(accepted, createNeighborFromPeer(p))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.GetNeighborsResponse{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
+	return c.JSON(http.StatusOK, jsonmodels2.GetNeighborsResponse{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
 }
 
-func createNeighborFromPeer(p *peer.Peer) jsonmodels.Neighbor {
-	n := jsonmodels.Neighbor{
+func createNeighborFromPeer(p *peer.Peer) jsonmodels2.Neighbor {
+	n := jsonmodels2.Neighbor{
 		ID:        p.ID().String(),
 		PublicKey: p.PublicKey().String(),
 	}
@@ -70,13 +70,13 @@ func createNeighborFromPeer(p *peer.Peer) jsonmodels.Neighbor {
 	return n
 }
 
-func getServices(p *peer.Peer) []jsonmodels.PeerService {
-	var services []jsonmodels.PeerService
+func getServices(p *peer.Peer) []jsonmodels2.PeerService {
+	var services []jsonmodels2.PeerService
 
 	host := p.IP().String()
 	peeringService := p.Services().Get(service.PeeringKey)
 	if peeringService != nil {
-		services = append(services, jsonmodels.PeerService{
+		services = append(services, jsonmodels2.PeerService{
 			ID:      "peering",
 			Address: net.JoinHostPort(host, strconv.Itoa(peeringService.Port())),
 		})
@@ -84,7 +84,7 @@ func getServices(p *peer.Peer) []jsonmodels.PeerService {
 
 	gossipService := p.Services().Get(service.GossipKey)
 	if gossipService != nil {
-		services = append(services, jsonmodels.PeerService{
+		services = append(services, jsonmodels2.PeerService{
 			ID:      "gossip",
 			Address: net.JoinHostPort(host, strconv.Itoa(gossipService.Port())),
 		})
@@ -92,7 +92,7 @@ func getServices(p *peer.Peer) []jsonmodels.PeerService {
 
 	fpcService := p.Services().Get(service.FPCKey)
 	if fpcService != nil {
-		services = append(services, jsonmodels.PeerService{
+		services = append(services, jsonmodels2.PeerService{
 			ID:      "FPC",
 			Address: net.JoinHostPort(host, strconv.Itoa(fpcService.Port())),
 		})

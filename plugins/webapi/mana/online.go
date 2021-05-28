@@ -1,6 +1,7 @@
 package mana
 
 import (
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/labstack/echo"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 func getOnlineAccessHandler(c echo.Context) error {
@@ -23,11 +23,11 @@ func getOnlineConsensusHandler(c echo.Context) error {
 func getOnlineHandler(c echo.Context, manaType mana.Type) error {
 	onlinePeersMana, t, err := manaPlugin.GetOnlineNodes(manaType)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, jsonmodels.GetOnlineResponse{Error: err.Error()})
+		return c.JSON(http.StatusNotFound, jsonmodels2.GetOnlineResponse{Error: err.Error()})
 	}
-	resp := make([]jsonmodels.OnlineNodeStr, 0)
+	resp := make([]jsonmodels2.OnlineNodeStr, 0)
 	for index, value := range onlinePeersMana {
-		resp = append(resp, jsonmodels.OnlineNodeStr{
+		resp = append(resp, jsonmodels2.OnlineNodeStr{
 			OnlineRank: index + 1,
 			ShortID:    value.ID.String(),
 			ID:         base58.Encode(value.ID.Bytes()),
@@ -35,7 +35,7 @@ func getOnlineHandler(c echo.Context, manaType mana.Type) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.GetOnlineResponse{
+	return c.JSON(http.StatusOK, jsonmodels2.GetOnlineResponse{
 		Online:    resp,
 		Timestamp: t.Unix(),
 	})

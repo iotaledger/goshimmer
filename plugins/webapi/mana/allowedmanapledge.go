@@ -1,6 +1,7 @@
 package mana
 
 import (
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/iotaledger/hive.go/identity"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // Handler handles the request.
@@ -20,7 +20,7 @@ func allowedManaPledgeHandler(c echo.Context) error {
 		accessNodes = append(accessNodes, base58.Encode(element.(identity.ID).Bytes()))
 	})
 	if len(accessNodes) == 0 {
-		return c.JSON(http.StatusNotFound, jsonmodels.AllowedManaPledgeResponse{Error: "No access mana pledge IDs are accepted"})
+		return c.JSON(http.StatusNotFound, jsonmodels2.AllowedManaPledgeResponse{Error: "No access mana pledge IDs are accepted"})
 	}
 
 	consensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
@@ -29,15 +29,15 @@ func allowedManaPledgeHandler(c echo.Context) error {
 		consensusNodes = append(consensusNodes, base58.Encode(element.(identity.ID).Bytes()))
 	})
 	if len(consensusNodes) == 0 {
-		return c.JSON(http.StatusNotFound, jsonmodels.AllowedManaPledgeResponse{Error: "No consensus mana pledge IDs are accepted"})
+		return c.JSON(http.StatusNotFound, jsonmodels2.AllowedManaPledgeResponse{Error: "No consensus mana pledge IDs are accepted"})
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.AllowedManaPledgeResponse{
-		Access: jsonmodels.AllowedPledge{
+	return c.JSON(http.StatusOK, jsonmodels2.AllowedManaPledgeResponse{
+		Access: jsonmodels2.AllowedPledge{
 			IsFilterEnabled: access.IsFilterEnabled,
 			Allowed:         accessNodes,
 		},
-		Consensus: jsonmodels.AllowedPledge{
+		Consensus: jsonmodels2.AllowedPledge{
 			IsFilterEnabled: consensus.IsFilterEnabled,
 			Allowed:         consensusNodes,
 		},

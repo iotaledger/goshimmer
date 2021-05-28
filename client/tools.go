@@ -1,11 +1,10 @@
 package client
 
 import (
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/cockroachdb/errors"
-
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
@@ -17,13 +16,13 @@ const (
 
 // PastConeExist checks that all of the messages in the past cone of a message are existing on the node
 // down to the genesis. Returns the number of messages in the past cone as well.
-func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*jsonmodels.PastconeResponse, error) {
-	res := &jsonmodels.PastconeResponse{}
+func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*jsonmodels2.PastconeResponse, error) {
+	res := &jsonmodels2.PastconeResponse{}
 
 	if err := api.do(
 		http.MethodGet,
 		routePastCone,
-		&jsonmodels.PastconeRequest{ID: base58EncodedMessageID},
+		&jsonmodels2.PastconeRequest{ID: base58EncodedMessageID},
 		res,
 	); err != nil {
 		return nil, err
@@ -36,8 +35,8 @@ func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*jsonmode
 }
 
 // Missing returns all the missing messages and their count.
-func (api *GoShimmerAPI) Missing() (*jsonmodels.MissingResponse, error) {
-	res := &jsonmodels.MissingResponse{}
+func (api *GoShimmerAPI) Missing() (*jsonmodels2.MissingResponse, error) {
+	res := &jsonmodels2.MissingResponse{}
 	if err := api.do(http.MethodGet, routeMissing, nil, res); err != nil {
 		return nil, err
 	}

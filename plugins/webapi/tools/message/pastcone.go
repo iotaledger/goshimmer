@@ -3,26 +3,26 @@ package message
 import (
 	"container/list"
 	"fmt"
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // PastconeHandler process a pastcone request.
 func PastconeHandler(c echo.Context) error {
 	var checkedMessageCount int
-	var request jsonmodels.PastconeRequest
+	var request jsonmodels2.PastconeRequest
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.PastconeResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels2.PastconeResponse{Error: err.Error()})
 	}
 
 	msgID, err := tangle.NewMessageID(request.ID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.PastconeResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels2.PastconeResponse{Error: err.Error()})
 	}
 
 	// create a new stack that hold messages to check
@@ -45,7 +45,7 @@ func PastconeHandler(c echo.Context) error {
 		msgMetadataObject := messagelayer.Tangle().Storage.MessageMetadata(currentMsgID)
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
-			return c.JSON(http.StatusOK, jsonmodels.PastconeResponse{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})
+			return c.JSON(http.StatusOK, jsonmodels2.PastconeResponse{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})
 		}
 
 		// get parent1 and parent2
@@ -75,5 +75,5 @@ func PastconeHandler(c echo.Context) error {
 		msgObject.Release()
 		msgMetadataObject.Release()
 	}
-	return c.JSON(http.StatusOK, jsonmodels.PastconeResponse{Exist: true, PastConeSize: checkedMessageCount})
+	return c.JSON(http.StatusOK, jsonmodels2.PastconeResponse{Exist: true, PastConeSize: checkedMessageCount})
 }

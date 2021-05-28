@@ -1,6 +1,7 @@
 package drng
 
 import (
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"net/http"
 
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -9,26 +10,25 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // collectiveBeaconHandler gets the current DRNG committee.
 func collectiveBeaconHandler(c echo.Context) error {
-	var request jsonmodels.CollectiveBeaconRequest
+	var request jsonmodels2.CollectiveBeaconRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return c.JSON(http.StatusBadRequest, jsonmodels.CollectiveBeaconResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels2.CollectiveBeaconResponse{Error: err.Error()})
 	}
 
 	marshalUtil := marshalutil.New(request.Payload)
 	parsedPayload, err := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.CollectiveBeaconResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels2.CollectiveBeaconResponse{Error: err.Error()})
 	}
 
 	msg, err := messagelayer.Tangle().IssuePayload(parsedPayload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.CollectiveBeaconResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels2.CollectiveBeaconResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, jsonmodels.CollectiveBeaconResponse{ID: msg.ID().Base58()})
+	return c.JSON(http.StatusOK, jsonmodels2.CollectiveBeaconResponse{ID: msg.ID().Base58()})
 }
