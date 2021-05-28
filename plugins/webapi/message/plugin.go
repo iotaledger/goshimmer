@@ -9,12 +9,12 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -92,12 +92,35 @@ func GetMessageMetadata(c echo.Context) (err error) {
 	}
 
 	if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewMessageMetadata(messageMetadata))
+		err = c.JSON(http.StatusOK, NewMessageMetadata(messageMetadata))
 	}) {
 		return
 	}
 
 	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MessageMetadata with %s", messageID)))
+}
+
+// NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
+func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMetadata {
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(metadata.ID())
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
+
+	return jsonmodels.MessageMetadata{
+		ID:                 metadata.ID().Base58(),
+		ReceivedTime:       metadata.ReceivedTime().Unix(),
+		Solid:              metadata.IsSolid(),
+		SolidificationTime: metadata.SolidificationTime().Unix(),
+		StructureDetails:   jsonmodels.NewStructureDetails(metadata.StructureDetails()),
+		BranchID:           branchID.String(),
+		Scheduled:          metadata.Scheduled(),
+		Booked:             metadata.IsBooked(),
+		Eligible:           metadata.IsEligible(),
+		Invalid:            metadata.IsInvalid(),
+		Finalized:          metadata.IsFinalized(),
+		FinalizedTime:      metadata.FinalizedTime().Unix(),
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

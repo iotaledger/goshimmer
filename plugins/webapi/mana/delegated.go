@@ -5,8 +5,8 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/manarefresher"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // region GetDelegatedMana /////////////////////////////////////////////////////////////////////////////////////////////
