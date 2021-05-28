@@ -62,32 +62,37 @@ func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNod
 
 // Book books mana for a transaction.
 func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
-	a.Lock()
-	defer a.Unlock()
-	pledgeNodeID := txInfo.PledgeID[a.Type()]
-	if _, exist := a.vector[pledgeNodeID]; !exist {
-		// first time we see this node
-		a.vector[pledgeNodeID] = &AccessBaseMana{}
-	}
-	// save it for proper event trigger
-	oldMana := *a.vector[pledgeNodeID]
-	// actually pledge and update
-	pledged := a.vector[pledgeNodeID].pledge(txInfo)
-
+	var pledgeEvent *PledgedEvent
+	var updateEvent *UpdatedEvent
+	func() {
+		a.Lock()
+		defer a.Unlock()
+		pledgeNodeID := txInfo.PledgeID[a.Type()]
+		if _, exist := a.vector[pledgeNodeID]; !exist {
+			// first time we see this node
+			a.vector[pledgeNodeID] = &AccessBaseMana{}
+		}
+		// save it for proper event trigger
+		oldMana := *a.vector[pledgeNodeID]
+		// actually pledge and update
+		pledged := a.vector[pledgeNodeID].pledge(txInfo)
+		pledgeEvent = &PledgedEvent{
+			NodeID:        pledgeNodeID,
+			Amount:        pledged,
+			Time:          txInfo.TimeStamp,
+			ManaType:      a.Type(),
+			TransactionID: txInfo.TransactionID,
+		}
+		updateEvent = &UpdatedEvent{
+			NodeID:   pledgeNodeID,
+			OldMana:  &oldMana,
+			NewMana:  a.vector[pledgeNodeID],
+			ManaType: a.Type(),
+		}
+	}()
 	// trigger events
-	Events().Pledged.Trigger(&PledgedEvent{
-		NodeID:        pledgeNodeID,
-		Amount:        pledged,
-		Time:          txInfo.TimeStamp,
-		ManaType:      a.Type(),
-		TransactionID: txInfo.TransactionID,
-	})
-	Events().Updated.Trigger(&UpdatedEvent{
-		NodeID:   pledgeNodeID,
-		OldMana:  &oldMana,
-		NewMana:  a.vector[pledgeNodeID],
-		ManaType: a.Type(),
-	})
+	Events().Pledged.Trigger(pledgeEvent)
+	Events().Updated.Trigger(updateEvent)
 }
 
 // Update updates the mana entries for a particular node wrt time.
