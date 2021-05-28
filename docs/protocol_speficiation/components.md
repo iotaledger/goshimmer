@@ -32,7 +32,7 @@ The extended Unspent Transaction Output (UTXO) model with the Parallel Reality L
 
 ### Consensus
 
-Decentralized random number generator to provide security, fast voting algorithm to provide quick conflict resolutions  and effective finality criteria to fit all applications needs. 
+Decentralized random number generator to provide security, fast voting algorithms through FPC and FCoB to provide quick conflict resolutions and effective finality criteria through approval weight. 
 
 
 ## Additional modules:
