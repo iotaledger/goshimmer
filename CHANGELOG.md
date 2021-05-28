@@ -6,7 +6,7 @@
 * Fix locking management on message factory
 * Fix several visualizer bugs
 * Update Grafana pie charts
-* Update snapshot file with Goshimmer UTXO at 2021-05-25 16:54 UTC
+* Update snapshot file with Pollen UTXO at 2021-05-25 16:54 UTC
 * **Breaking**: bumps network and database versions
 
 # v0.6.2 - 2021-05-24
