@@ -99,7 +99,7 @@ func removePeers(peers []*PeerToRemove) error {
 }
 
 func getPeersHandler(c echo.Context) error {
-	conf := &manualpeering.GetKnownPeersConfig{}
+	conf := &manualpeering.GetPeersConfig{}
 	if err := webapi.ParseJSONRequest(c, conf); err != nil {
 		plugin.Logger().Errorw("Failed to parse get peers config from the request", "err", err)
 		return c.JSON(
@@ -107,6 +107,6 @@ func getPeersHandler(c echo.Context) error {
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid get peers request")),
 		)
 	}
-	peers := Manager().GetKnownPeers(conf.ToOptions()...)
+	peers := Manager().GetPeers(conf.ToOptions()...)
 	return c.JSON(http.StatusOK, peers)
 }
