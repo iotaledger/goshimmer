@@ -40,9 +40,9 @@ The URI for POSTing faucet request messages is `http://<host>:<web-api-port>/fau
 | Parameter | Required | Description | Type    |
 | --------- | -------- | ----------- | --- |
 | `address`      | Yes     | Destination address to which to send tokens to encoded in Base58        | string     |
-| `accessManaPledgeID`      | Yes     | Node ID to pledge access mana to encoded in Base58        | string     |
-| `consensusManaPledgeID`      | Yes     | Node ID to pledge consensus mana to encoded in Base58        | string     |
-| `nonce`      | Yes     | uint64 proof of the PoW being done       | uint64     |
+| `accessManaPledgeID`      | No     | Node ID to pledge access mana to encoded in Base58        | string     |
+| `consensusManaPledgeID`      | No     | Node ID to pledge consensus mana to encoded in Base58        | string     |
+| `nonce`      | Yes     | Proof of the PoW being done       | uint64     |
 
 cURL example:
 ```
@@ -77,5 +77,4 @@ This may take a while to receive funds:
 When the faucet request is successful, you can check the received balances:
 
 <img src="https://user-images.githubusercontent.com/11289354/88525478-38024500-d02d-11ea-92c7-25c80eb6a947.png" width="450">
-
 
