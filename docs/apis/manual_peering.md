@@ -10,9 +10,9 @@ HTTP APIs:
 
 Client lib APIs:
 
-* [AddManualPeers()](#client-library---addmanualpeers)
-* [GetManualPeers()](#client-library---getmanualpeers)
-* [RemoveManualPeers()](#client-library---removemanualpeers)
+* [AddManualPeers()](#addmanualpeers)
+* [GetManualPeers()](#getmanualpeers)
+* [RemoveManualPeers()](#removemanualpeers)
 
 <br />
 
