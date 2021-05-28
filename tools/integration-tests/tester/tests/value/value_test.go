@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -38,7 +37,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * messagelayer.DefaultUpperBoundNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -55,7 +54,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * messagelayer.DefaultUpperBoundNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -108,7 +107,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(3 * messagelayer.DefaultUpperBoundNetworkDelay)
+	time.Sleep(3 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether the transactions are available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -126,7 +125,7 @@ func TestValueColoredPersistence(t *testing.T) {
 		time.Sleep(2 * time.Second)
 	}
 	// wait for value messages to be gossiped
-	time.Sleep(3 * messagelayer.DefaultUpperBoundNetworkDelay)
+	time.Sleep(3 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{

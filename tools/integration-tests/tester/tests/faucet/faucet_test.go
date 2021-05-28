@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -35,13 +34,13 @@ func TestFaucetPersistence(t *testing.T) {
 	ids, addrBalance := tests.SendFaucetRequestOnRandomPeer(t, peers[1:], 10)
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * messagelayer.DefaultUpperBoundNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued messages are available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 
 	// wait for transactions to be gossiped
-	time.Sleep(2 * messagelayer.DefaultUpperBoundNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)

@@ -21,11 +21,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const (
-	// DefaultUpperBoundNetworkDelay contains the default upper bound duration it takes for a message to propagate through the network through gossip.
-	DefaultUpperBoundNetworkDelay = 5 * time.Second
-)
-
 var (
 	// ErrMessageWasNotBookedInTime is returned if a message did not get booked within the defined await time.
 	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
