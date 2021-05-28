@@ -55,10 +55,10 @@ func configureManaFeed() {
 
 func runManaFeed() {
 	notifyManaPledge := events.NewClosure(func(ev *mana.PledgedEvent) {
-		manaFeedWorkerPool.Submit(MsgTypeManaPledge, ev)
+		manaFeedWorkerPool.TrySubmit(MsgTypeManaPledge, ev)
 	})
 	notifyManaRevoke := events.NewClosure(func(ev *mana.RevokedEvent) {
-		manaFeedWorkerPool.Submit(MsgTypeManaRevoke, ev)
+		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(shutdownSignal <-chan struct{}) {
 		mana.Events().Pledged.Attach(notifyManaPledge)
@@ -74,9 +74,9 @@ func runManaFeed() {
 				log.Info("Stopping Dashboard[ManaUpdater] ... done")
 				return
 			case <-manaTicker.C:
-				manaFeedWorkerPool.Submit(MsgTypeManaValue)
-				manaFeedWorkerPool.Submit(MsgTypeManaMapOverall)
-				manaFeedWorkerPool.Submit(MsgTypeManaMapOnline)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaValue)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOverall)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOnline)
 			}
 		}
 	}, shutdown.PriorityDashboard); err != nil {
