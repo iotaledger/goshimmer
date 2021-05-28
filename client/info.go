@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 const (

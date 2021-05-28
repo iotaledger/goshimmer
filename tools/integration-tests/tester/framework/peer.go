@@ -2,16 +2,14 @@ package framework
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/manualpeering"
 )
 
 // Peer represents a GoShimmer node inside the Docker network
@@ -67,21 +65,17 @@ func (p *Peer) SetNeighborsNumber(number int) {
 	p.neighborsNumber = number
 }
 
-func (p *Peer) ToPeerModel() *peer.Peer {
-	services := service.New()
-	const defaultFPCPort = 10895
-	services.Update(service.FPCKey, "TCP", defaultFPCPort)
-	const defaultPeeringPort = 14626
-	services.Update(service.PeeringKey, "TCP", defaultPeeringPort)
-	const defaultGossipPort = 14666
-	services.Update(service.GossipKey, "TCP", defaultGossipPort)
-	return peer.NewPeer(p.Identity, net.ParseIP(p.ip), services)
+func (p *Peer) ToKnownPeer() *manualpeering.KnownPeerToAdd {
+	return &manualpeering.KnownPeerToAdd{
+		PublicKey: p.PublicKey(),
+		Address:   fmt.Sprintf("%s:14666", p.ip),
+	}
 }
 
-func ToPeerModels(peers []*Peer) []*peer.Peer {
-	models := make([]*peer.Peer, len(peers))
+func ToKnownPeers(peers []*Peer) []*manualpeering.KnownPeerToAdd {
+	models := make([]*manualpeering.KnownPeerToAdd, len(peers))
 	for i, p := range peers {
-		models[i] = p.ToPeerModel()
+		models[i] = p.ToKnownPeer()
 	}
 	return models
 }

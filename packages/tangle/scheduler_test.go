@@ -4,15 +4,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 )
 
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
@@ -366,6 +366,23 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 
 	// wait for all messages to have a formed opinion
 	assert.Eventually(t, func() bool { return totalScheduled.Load() == totalMsgCount }, 5*time.Minute, 100*time.Millisecond)
+}
+
+func BenchmarkScheduler(b *testing.B) {
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
+
+	msg := newMessage(selfNode.PublicKey())
+	tangle.Storage.StoreMessage(msg)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := tangle.Scheduler.SubmitAndReady(msg.ID()); err != nil {
+			b.Fatal(err)
+		}
+		tangle.Scheduler.schedule()
+	}
+	b.StopTimer()
 }
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {

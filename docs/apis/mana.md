@@ -30,6 +30,8 @@ Client lib APIs:
 * [GetConsensusEventLogs()](#client-lib---getconsensuseventlogs)
 * [GetAllowedManaPledgeNodeIDs()](#client-lib---getallowedmanapledgenodeids)
 
+<br />
+
 ## `/mana`
 
 Get the access and consensus mana of the node.
@@ -118,6 +120,7 @@ if err != nil {
 | `consensus`   | float64 | The amount of consensus mana.     |
 | `consensusTimestamp` | int64 | The timestamp of consensus mana updates.  |
 
+<br />
 
 ## `/mana/all`
 
@@ -136,7 +139,7 @@ curl http://localhost:8080/mana/all \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetAllMana()` 
+#### Client lib - `GetAllMana()` 
 
 ```go
 manas, err := goshimAPI.GetAllMana()
@@ -189,13 +192,14 @@ for _, m := range manas.Consensus {
 | `consensus`   | mana.NodeStr | A list of node that has access mana.     |
 | `consensusTimestamp` | int64 | The timestamp of consensus mana updates.  |
 
-#### `mana.NodeStr`
+#### Type `mana.NodeStr`
 |field | Type | Description|
 |:-----|:------|:------|
 | `shortNodeID`  | string | The short ID of a node.   |
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of mana.     |
 
+<br />
 
 ## `/mana/percentile`
 
@@ -219,7 +223,7 @@ curl http://localhost:8080/mana/percentile?2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKts
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetManaPercentile()`
+#### Client lib - `GetManaPercentile()`
 
 ```go
 mana, err := goshimAPI.GetManaPercentile("2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
@@ -254,6 +258,7 @@ fmt.Println("consensus mana percentile: ", mana.Consensus, "consensus mana updat
 | `consensus`   | float64 | Access mana percentile of a node.     |
 | `consensusTimestamp` | int64 | The timestamp of consensus mana updates.  |
 
+<br />
 
 ## `/mana/access/online`
 
@@ -272,7 +277,7 @@ curl http://localhost:8080/mana/access/online \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetOnlineAccessMana()`
+#### Client lib - `GetOnlineAccessMana()`
 
 ```go
 // online access mana
@@ -307,7 +312,7 @@ for _, m := accessMana.Online {
 | `online`  | OnlineNodeStr | The access mana information of online nodes.   |
 | `timestamp` | int64 | The timestamp of mana updates.  |
 
-#### `OnlineNodeStr`
+#### Type `OnlineNodeStr`
 |Field | Type | Description|
 |:-----|:------|:------|
 | `rank`  | int | The rank of a node. |
@@ -315,6 +320,7 @@ for _, m := accessMana.Online {
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of access mana.     |
 
+<br />
 
 ## `/mana/consensus/online`
 
@@ -333,7 +339,7 @@ curl http://localhost:8080/mana/consensus/online \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetOnlineConsensusMana()`
+#### Client lib - `GetOnlineConsensusMana()`
 
 ```go
 // online access mana
@@ -368,7 +374,7 @@ for _, m := accessMana.Online {
 | `online`  | OnlineNodeStr | The consensus mana information of online nodes.   |
 | `timestamp` | int64 | The timestamp of mana updates.  |
 
-#### `OnlineNodeStr`
+#### Type `OnlineNodeStr`
 |Field | Type | Description|
 |:-----|:------|:------|
 | `rank`  | int | The rank of a node. |
@@ -376,6 +382,7 @@ for _, m := accessMana.Online {
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of consensus mana.     |
 
+<br />
 
 ## `/mana/access/nhighest`
 
@@ -400,7 +407,7 @@ curl http://localhost:8080/mana/access/nhighest?number=5 \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetNHighestAccessMana()`
+#### Client lib - `GetNHighestAccessMana()`
 
 ```go
 // get the top 5 highest access mana nodes
@@ -434,13 +441,14 @@ for _, m := accessMana.Nodes {
 | `nodes`  | mana.NodeStr | The N highest access mana nodes.   |
 | `timestamp` | int64 | The timestamp of mana updates.  |
 
-#### `mana.NodeStr`
+#### Type `mana.NodeStr`
 |field | Type | Description|
 |:-----|:------|:------|
 | `shortNodeID`  | string | The short ID of a node.   |
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of mana.     |
 
+<br />
 
 ## `/mana/consensus/nhighest`
 
@@ -464,7 +472,7 @@ curl http://localhost:8080/mana/consensus/nhighest?number=5 \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetNHighestConsensusMana()`
+#### Client lib - `GetNHighestConsensusMana()`
 
 ```go
 // get the top 5 highest consensus mana nodes
@@ -498,13 +506,14 @@ for _, m := consensusMana.Nodes {
 | `nodes`  | mana.NodeStr | The N highest consensus mana nodes.   |
 | `timestamp` | int64 | The timestamp of mana updates.  |
 
-#### `mana.NodeStr`
+#### Type `mana.NodeStr`
 |field | Type | Description|
 |:-----|:------|:------|
 | `shortNodeID`  | string | The short ID of a node.   |
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of mana.     |
 
+<br />
 
 ## `/mana/pending`
 
@@ -528,7 +537,7 @@ curl http://localhost:8080/mana/pending?outputid="4a5KkxVfsdFVbf1NBGeGTCjP8Ppsje
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetPending()`
+#### Client lib - `GetPending()`
 
 ```go
 res, err := goshimAPI.GetPending("4a5KkxVfsdFVbf1NBGeGTCjP8Ppsje4YFQg9bu5YGNMSJK1")
@@ -557,6 +566,7 @@ fmt.Println("the timestamp of the output (decay duration)", res.Timestamp)
 | `outputID`  | string | The output ID of the request.     |
 | `timestamp` | int64 | The timestamp of mana updates.  |
 
+<br />
 
 ## `/mana/consensus/past`
 
@@ -580,7 +590,7 @@ curl http://localhost:8080/mana/consensus/past?timestamp=1614924295 \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetPastConsensusManaVector()`
+#### Client lib - `GetPastConsensusManaVector()`
 
 ```go
 res, err := goshimAPI.GetPastConsensusManaVector(1614924295)
@@ -614,13 +624,14 @@ for _, m := range res.Consensus {
 | `consensus`   | mana.NodeStr | The consensus mana of nodes.     |
 | `timestamp` | int64 | The timestamp of mana updates.  |
 
-#### `mana.NodeStr`
+#### Type `mana.NodeStr`
 |field | Type | Description|
 |:-----|:------|:------|
 | `shortNodeID`  | string | The short ID of a node.   |
 | `nodeID`   | string | The full ID of a node.     |
 | `mana`   | float64 | The amount of mana.     |
 
+<br />
 
 ## `/mana/consensus/logs`
 
@@ -650,7 +661,7 @@ curl http://localhost:8080/mana/consensus/logs \
 }'
 ```
 
-#### client lib - `GetConsensusEventLogs()`
+#### Client lib - `GetConsensusEventLogs()`
 
 ```go
 res, err := goshimAPI.GetConsensusEventLogs([]string{"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5"})
@@ -720,13 +731,13 @@ for nodeID, e := range res.Logs {
 | `startTime` | int64 | The starting time of collecting logs.  |
 | `endTime` | int64 | The ending time of collecting logs.  |
 
-#### `EventLogsJSON`
+#### Type `EventLogsJSON`
 |field | Type | Description|
 |:-----|:------|:------|
 | `pledge`  | PledgedEventJSON | Pledged event logs.   |
 | `revoke`   | RevokedEventJSON | Revoked event logs.     |
 
-#### `PledgedEventJSON`
+#### Type `PledgedEventJSON`
 |field | Type | Description|
 |:-----|:------|:------|
 | `manaType`  | string | Type of mana.   |
@@ -735,7 +746,7 @@ for nodeID, e := range res.Logs {
 | `txID`   | string | The transaction ID of pledged mana.     |
 | `amount`   | float64 | The amount of pledged mana.    |
 
-#### `RevokedEventJSON`
+#### Type `RevokedEventJSON`
 |field | Type | Description|
 |:-----|:------|:------|
 | `manaType`  | string | Type of mana.   |
@@ -745,6 +756,7 @@ for nodeID, e := range res.Logs {
 | `amount`   | float64 | The amount of revoked mana.    |
 | `inputID`   | string | The input ID of revoked mana.     |
 
+<br />
 
 ## `/mana/allowedManaPledge`
 
@@ -763,7 +775,7 @@ curl http://localhost:8080/mana/allowedManaPledge \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetAllowedManaPledgeNodeIDs()`
+#### Client lib - `GetAllowedManaPledgeNodeIDs()`
 
 ```go
 res, err := goshimAPI.GetAllowedManaPledgeNodeIDs()
@@ -806,7 +818,7 @@ for _, id := range res.Consensus.Allowed {
 | `accessMana`   | AllowedPledge | A list of nodes that allow to pledge access mana.     |
 | `consensusMana` | AllowedPledge | A list of nodes that allow to pledge consensus mana.  |
 
-#### `AllowedPledge`
+#### Type `AllowedPledge`
 |field | Type | Description|
 |:-----|:------|:------|
 | `isFilterEnabled`  | bool | A flag shows that if mana pledge filter is enabled.   |

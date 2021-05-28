@@ -5,14 +5,13 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // getManaHandler handles the request.
