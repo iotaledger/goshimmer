@@ -4,14 +4,12 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/errors"
-
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // RouteManualPeers defines the HTTP path for manualpeering peers endpoint.
@@ -28,22 +26,12 @@ An example of the HTTP JSON request:
 [
     {
         "publicKey": "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
-        "ip": "172.19.0.3",
-        "services": {
-            "peering":{
-                "network":"TCP",
-                "port":14626
-            },
-            "gossip": {
-                "network": "TCP",
-                "port": 14666
-            }
-        }
+        "address": "172.19.0.3:14666"
     }
 ]
 */
 func addPeersHandler(c echo.Context) error {
-	var peers []*peer.Peer
+	var peers []*manualpeering.KnownPeerToAdd
 	if err := webapi.ParseJSONRequest(c, &peers); err != nil {
 		plugin.Logger().Errorw("Failed to parse peers from the request", "err", err)
 		return c.JSON(
@@ -61,12 +49,6 @@ func addPeersHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// PeerToRemove holds the data that uniquely identifies the peer to be removed, e.g. public key or ID.
-// Only public key is supported for now.
-type PeerToRemove struct {
-	PublicKey string `json:"publicKey"`
-}
-
 /*
 An example of the HTTP JSON request:
 [
@@ -76,7 +58,7 @@ An example of the HTTP JSON request:
 ]
 */
 func removePeersHandler(c echo.Context) error {
-	var peersToRemove []*PeerToRemove
+	var peersToRemove []*jsonmodels.PeerToRemove
 	if err := webapi.ParseJSONRequest(c, &peersToRemove); err != nil {
 		plugin.Logger().Errorw("Failed to parse peers to remove from the request", "err", err)
 		return c.JSON(
@@ -94,7 +76,7 @@ func removePeersHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func removePeers(peers []*PeerToRemove) error {
+func removePeers(peers []*jsonmodels.PeerToRemove) error {
 	keys := make([]ed25519.PublicKey, len(peers))
 	for i, ntd := range peers {
 		publicKey, err := ed25519.PublicKeyFromString(ntd.PublicKey)

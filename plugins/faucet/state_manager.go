@@ -13,6 +13,7 @@ import (
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -212,7 +213,7 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	s.Lock()
 	defer s.Unlock()
 
-	faucetReq := requestMsg.Payload().(*Request)
+	faucetReq := requestMsg.Payload().(*faucet.Request)
 
 	// get an output that we can spend
 	fundingOutput, fErr := s.getFundingOutput()
