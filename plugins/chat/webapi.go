@@ -5,9 +5,9 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 func configureWebAPI() {
