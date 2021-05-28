@@ -1,6 +1,6 @@
 # Manual Peering API methods
 
-The manual peering APIs allows managing the list of known peers of the node.
+The manual peering APIs allow managing the list of known peers of the node.
 
 HTTP APIs:
 
@@ -112,8 +112,8 @@ HTTP status code: 200 OK
 |:-----|:------|
 | `publicKey` | The public key of the peer node. |
 | `address` | IP address of the peer's node and its gossip port. |
-| `connectionDirection` | Enum, possible values: "inbound", "outbound". Inbound means that the local node accepts the connection, on the other side, the other peer node dials and it will have "outbound" connectionDirection.  |
-| `connectionStatus` | Enum, possible values: "disconnected", "connected". Whether the actual tcp connection has been established between peers. |
+| `connectionDirection` | Enum, possible values: "inbound", "outbound". Inbound means that the local node accepts the connection. On the other side, the other peer node dials, and it will have "outbound" connectionDirection.  |
+| `connectionStatus` | Enum, possible values: "disconnected", "connected". Whether the actual TCP connection has been established between peers. |
 
 ### Examples
 
