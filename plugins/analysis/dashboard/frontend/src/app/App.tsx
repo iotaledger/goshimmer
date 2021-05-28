@@ -23,7 +23,7 @@ class App extends React.Component<AppProps, unknown> {
                 <header>
                     <Link className="brand" to="/">
                         <img src="/assets/logo-header.svg" alt="Pollen Analyzer" />
-                        <h1>Goshimmer Analyzer</h1>
+                        <h1>Pollen Analyzer</h1>
                     </Link>
                     <div className="badge-container">
                         {!this.props.autopeeringStore.websocketConnected &&
