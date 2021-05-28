@@ -15,6 +15,7 @@ import (
 const (
 	// PayloadName defines the name of the networkdelay payload.
 	PayloadName = "networkdelay"
+	payloadType = 189
 )
 
 // ID represents a 32 byte ID of a network delay payload.
@@ -133,7 +134,7 @@ func (p *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the network delay Payload type.
-var Type = payload.NewType(189, PayloadName, func(data []byte) (payload payload.Payload, err error) {
+var Type = payload.NewType(payloadType, PayloadName, func(data []byte) (payload payload.Payload, err error) {
 	var consumedBytes int
 	payload, consumedBytes, err = FromBytes(data)
 	if err != nil {
