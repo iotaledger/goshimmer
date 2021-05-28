@@ -24,7 +24,7 @@ var Parameters = struct {
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
-	TangleTimeWindow time.Duration `default:"1m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+	TangleTimeWindow time.Duration `default:"2m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`
@@ -110,7 +110,7 @@ var ManaParameters = struct {
 // RateSetterParameters contains the configuration parameters used by the Rate Setter.
 var RateSetterParameters = struct {
 	// Initial defines the initial rate of rate setting.
-	Initial float64 `default:"20000" usage:"the initial rate of rate setting"`
+	Initial float64 `default:"100000" usage:"the initial rate of rate setting"`
 }{}
 
 // SchedulerParameters contains the configuration parameters used by the Scheduler.
