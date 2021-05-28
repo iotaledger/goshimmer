@@ -78,12 +78,8 @@ func removePeersHandler(c echo.Context) error {
 
 func removePeers(peers []*jsonmodels.PeerToRemove) error {
 	keys := make([]ed25519.PublicKey, len(peers))
-	for i, ntd := range peers {
-		publicKey, err := ed25519.PublicKeyFromString(ntd.PublicKey)
-		if err != nil {
-			return errors.Wrapf(err, "failed to parse public key %s from HTTP request", publicKey)
-		}
-		keys[i] = publicKey
+	for i, p := range peers {
+		keys[i] = p.PublicKey
 	}
 	if err := Manager().RemovePeer(keys...); err != nil {
 		return errors.Wrap(err, "manualpeering manager failed to remove some peers")
