@@ -8,10 +8,10 @@ For the ready code examples you can go directly to [Code examples](send_transact
 To create a transaction, firstly we need to be in possession of tokens. We can receive them from other network users or request them from the faucet. For more details on how to request funds, see [this](./request_funds.md) tutorial.
 
 ## Preparing transaction
-A transaction is build from two main parts: a transaction essence, and an unlock block. The transaction essence contains all crucial information on how many and where the funds should be sent. The unlock block makes sure that only the owner of the destination address will be able to spend outputs of this transaction.
+A transaction is built from two parts: a transaction essence, and the unlock blocks. The transaction essence contains, among other information, the amount, the origin and where the funds should be sent. The unlock block makes sure that only the owner of the funds being transferred is allowed to successfully perform this transaction.
 
 ### Seed
-In order to send funds we need to have private key that can unlock our funds. If you want to use an existing seed from one of your wallets, just use the backup seed showed during a wallet creation. With this, we can decode the string with `base58` library and create the `seed.Seed` instance. That will allow us to retrieve wallet addresses (`mySeed.Address()`) and their corresponding private and public keys (`mySeed.KeyPair()`).
+In order to send funds we need to have a private key that can be used to prove that we own the funds and consequently unlock them. If you want to use an existing seed from one of your wallets, just use the backup seed showed during a wallet creation. With this, we can decode the string with the `base58` library and create the `seed.Seed` instance. That will allow us to retrieve the wallet addresses (`mySeed.Address()`) and the corresponding private and public keys (`mySeed.KeyPair()`).
 ```Go
 seedBytes, _ := base58.Decode("BoDjAh57RApeqCnoGnHXBHj6wPwmnn5hwxToKX5PfFg7") // ignoring error
 mySeed := walletseed.NewSeed(seedBytes)
@@ -114,7 +114,7 @@ outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(balance,
 The same as in case of inputs we need to adapt it with `ledgerstate.NewOutputs()` before passing to the `NewTransactionEssence` function.
 
 ### Signing transaction
-After preparing the transaction essence there is a time to sign it and put the signature to the unlock block part of the transaction.
+After preparing the transaction essence, we should sign it and put the signature to the unlock block part of the transaction.
 We can retrieve private and public key pairs from the seed by providing it with indexes corresponding to the addresses that holds the unspent output that we want to use in our transaction.
 ```Go
 keyPair := *mySeed.KeyPair(0)
@@ -135,7 +135,7 @@ tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock
 
 ## Sending transaction
 There are two web API methods that allows us to send the transaction:
-PostTransaction() and IssuePayload(). The second one is more general method that sends the attached payload. We are going to use the first one that will additionally checks the transaction validity before issuing and wait with sending the response until the message is booked.
+`PostTransaction()` and `IssuePayload()`. The second one is a more general method that sends the attached payload. We are going to use the first one that will additionally check the transaction validity before issuing and wait with sending the response until the message is booked.
 The method accepts a byte array, so we need to call `Bytes()`.
 If the transaction will be booked without any problems, we should be able to get the transaction ID from the API response.
 
