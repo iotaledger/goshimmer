@@ -165,7 +165,7 @@
 * Add Mana (currently not used by any of the modules)
 * Add Mana APIs
 * Add Mana section to the local dashboard
-* Add Mana section to the Goshimmer Analyzer dashboard
+* Add Mana section to the Pollen Analyzer dashboard
 * Add Mana section to the Grafana dashboard
 * Refactor the Consensus Manager to be independent from the concrete consensus mechanism implemented  
 * Improve Tangle visualizer
