@@ -60,6 +60,5 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 		return
 	}
 
-	app.LogInfo(chatEvent)
 	Events.MessageReceived.Trigger(chatEvent)
 }
