@@ -1,7 +1,7 @@
 # Manual Peering
 
-With manual peering, it's possible to connect only with a static list of known peers that the user has provided
-and don't depend on the autopeering. There are two ways to work with the list of known peers of the node:
+Manual peering enables node operators to exchange their nodes' information and let them peer with each other, orthogonal to autopeering. It can be an additional protection against eclipse attacks as the manual peering is completely in the hands of the node operator based on real world trust. Furthermore, it allows to operate nodes without exposing their IP address to the network.
+There are two ways to configure the list of known peers of the node:
 
 1. Add known peers using the JSON config file
 2. Add/View/Delete via the web API of the node
