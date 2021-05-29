@@ -119,18 +119,18 @@ func (m *Manager) RemovePeer(keys ...ed25519.PublicKey) error {
 	return resultErr
 }
 
-// GetKnownPeersConfig holds optional parameters for the GetKnownPeers method.
-type GetKnownPeersConfig struct {
-	// If true, GetKnownPeers returns peers that have actual connection established in the gossip layer.
+// GetPeersConfig holds optional parameters for the GetPeers method.
+type GetPeersConfig struct {
+	// If true, GetPeers returns peers that have actual connection established in the gossip layer.
 	OnlyConnected bool `json:"onlyConnected"`
 }
 
-// GetKnownPeersOption defines a single option for GetKnownPeers method.
-type GetKnownPeersOption func(conf *GetKnownPeersConfig)
+// GetPeersOption defines a single option for GetPeers method.
+type GetPeersOption func(conf *GetPeersConfig)
 
-// BuildGetKnownPeersConfig builds GetKnownPeersConfig struct from a list of options.
-func BuildGetKnownPeersConfig(opts []GetKnownPeersOption) *GetKnownPeersConfig {
-	conf := &GetKnownPeersConfig{}
+// BuildGetPeersConfig builds GetPeersConfig struct from a list of options.
+func BuildGetPeersConfig(opts []GetPeersOption) *GetPeersConfig {
+	conf := &GetPeersConfig{}
 	for _, o := range opts {
 		o(conf)
 	}
@@ -138,23 +138,23 @@ func BuildGetKnownPeersConfig(opts []GetKnownPeersOption) *GetKnownPeersConfig {
 }
 
 // ToOptions translates config struct to a list of corresponding options.
-func (c *GetKnownPeersConfig) ToOptions() (opts []GetKnownPeersOption) {
+func (c *GetPeersConfig) ToOptions() (opts []GetPeersOption) {
 	if c.OnlyConnected {
 		opts = append(opts, WithOnlyConnectedPeers())
 	}
 	return opts
 }
 
-// WithOnlyConnectedPeers returns a GetKnownPeersOption that sets OnlyConnected field to true.
-func WithOnlyConnectedPeers() GetKnownPeersOption {
-	return func(conf *GetKnownPeersConfig) {
+// WithOnlyConnectedPeers returns a GetPeersOption that sets OnlyConnected field to true.
+func WithOnlyConnectedPeers() GetPeersOption {
+	return func(conf *GetPeersConfig) {
 		conf.OnlyConnected = true
 	}
 }
 
-// GetKnownPeers returns the list of known peers.
-func (m *Manager) GetKnownPeers(opts ...GetKnownPeersOption) []*KnownPeer {
-	conf := BuildGetKnownPeersConfig(opts)
+// GetPeers returns the list of known peers.
+func (m *Manager) GetPeers(opts ...GetPeersOption) []*KnownPeer {
+	conf := BuildGetPeersConfig(opts)
 	m.knownPeersMutex.RLock()
 	defer m.knownPeersMutex.RUnlock()
 	peers := make([]*KnownPeer, 0, len(m.knownPeers))
