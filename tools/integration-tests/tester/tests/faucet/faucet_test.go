@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -18,7 +17,7 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, framework.CreateNetworkConfig{
 		Faucet:      true,
 		Mana:        true,
 		StartSynced: true,
@@ -35,13 +34,13 @@ func TestFaucetPersistence(t *testing.T) {
 	ids, addrBalance := tests.SendFaucetRequestOnRandomPeer(t, peers[1:], 10)
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued messages are available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 
 	// wait for transactions to be gossiped
-	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)
@@ -60,6 +59,8 @@ func TestFaucetPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check whether all issued messages are available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, false)

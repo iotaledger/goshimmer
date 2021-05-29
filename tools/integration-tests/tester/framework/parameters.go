@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	autopeeringMaxTries = 50
+	peeringMaxTries     = 50
 	waitForManaMaxTries = 50
 
 	apiPort = "8080"
@@ -38,8 +38,10 @@ const (
 var (
 	// ParaTangleTimeWindow defines the time window in which the node will consider itself in sync.
 	ParaTangleTimeWindow = 30 * time.Second
-	// ParaFCoBAverageNetworkDelay defines the configured avg. network delay (in seconds) for the FCOB rules.
-	ParaFCoBAverageNetworkDelay = 5
+	// ParaFCoBQuarantineTime defines the configured expected upper bound for messages being delivered, and is used for the FCOB rules.
+	ParaFCoBQuarantineTime time.Duration = 5 * time.Second
+	// DefaultUpperBoundNetworkDelay contains the default upper bound duration it takes for a message to propagate through the network through gossip.
+	DefaultUpperBoundNetworkDelay time.Duration = 5 * time.Second
 	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
 	ParaOutboundUpdateIntervalMs = 100
 	// ParaFaucetTokensPerRequest defines the tokens to send up on each faucet request message.
@@ -101,6 +103,8 @@ type GoShimmerConfig struct {
 	DRNGThreshold int
 
 	Faucet bool
+
+	EnableAutopeeringForGossip bool
 
 	ActivityPlugin   bool
 	ActivityInterval int

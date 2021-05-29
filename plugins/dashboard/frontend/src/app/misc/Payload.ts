@@ -4,6 +4,7 @@ export enum PayloadType {
     Faucet = 2,
     Statement = 3,
     Drng = 111,
+    Chat = 989,
 }
 
 export enum DrngSubtype {
@@ -35,6 +36,13 @@ export class DrngCbPayload {
 export class TransactionPayload {
     txID: string;
     transaction: Transaction;
+}
+
+// Chat payload
+export class ChatPayload {
+    from: string;
+    to: string;
+    message: string;
 }
 
 export class Transaction {
@@ -148,6 +156,8 @@ export function getPayloadType(p: number){
             return "Drng"
         case PayloadType.Faucet:
             return "Faucet"
+        case PayloadType.Chat:
+            return "Chat"
         default:
             return "Unknown"
     }

@@ -78,7 +78,7 @@ Note, that the record length of the files might differ, since the approval check
 
 The Spammer tool lets you add messages to the tangle when running GoShimmer in a Docker network.
 In order to start the spammer, you need to send GET requests to a `/spammer` API endpoint with the following parameters:
-* `cmd` - one of two possible values: `start` and `shutdown`.
+* `cmd` - one of two possible values: `start` and `stop`.
 * `mpm` - messages per minute. Only applicable when `cmd=start`. 
 * `imif` - (*optional*) parameter indicating time interval between issued messages. Possible values:
     * `poisson` - emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
@@ -90,7 +90,7 @@ Example requests:
 http://localhost:8080/spammer?cmd=start&mpm=1000
 
 http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform
-http://localhost:8080/spammer?cmd=shutdown
+http://localhost:8080/spammer?cmd=stop
 ```
 
 ## Tangle width

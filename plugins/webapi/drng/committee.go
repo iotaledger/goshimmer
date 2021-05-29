@@ -8,8 +8,8 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // committeeHandler returns the current DRNG committee used.

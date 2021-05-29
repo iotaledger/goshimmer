@@ -5,7 +5,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 const (

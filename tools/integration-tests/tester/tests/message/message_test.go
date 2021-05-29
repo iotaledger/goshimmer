@@ -12,7 +12,7 @@ import (
 
 // TestPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestPersistence(t *testing.T) {
-	n, err := f.CreateNetworkWithMana("message_TestPersistence", 4, 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetworkWithMana("message_TestPersistence", 4, framework.CreateNetworkConfig{
 		Faucet:      true,
 		Mana:        true,
 		StartSynced: true,
@@ -46,6 +46,9 @@ func TestPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(10 * time.Second)
+
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// 5. check whether all issued messages are persistently available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, false)

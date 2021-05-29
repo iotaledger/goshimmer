@@ -12,12 +12,12 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -348,7 +348,9 @@ func GetTransactionInclusionState(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID))
+	conflicting := len(messagelayer.Tangle().LedgerState.ConflictSet(transactionID)) != 0
+
+	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID, conflicting))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

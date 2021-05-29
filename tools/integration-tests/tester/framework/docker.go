@@ -83,7 +83,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
 			"--logger.level=debug",
-			fmt.Sprintf("--messageLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
+			fmt.Sprintf("--messageLayer.fcob.quarantineTime=%d", ParaFCoBQuarantineTime/time.Second),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
@@ -115,6 +115,12 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
+			func() string {
+				if !config.EnableAutopeeringForGossip {
+					return "--autopeering.enableGossipIntegration=false"
+				}
+				return ""
+			}(),
 			fmt.Sprintf("--fpc.roundInterval=%d", config.FPCRoundInterval),
 			fmt.Sprintf("--fpc.listen=%v", config.FPCListen),
 			fmt.Sprintf("--fpc.totalRoundsFinalization=%d", config.FPCTotalRoundsFinalization),
