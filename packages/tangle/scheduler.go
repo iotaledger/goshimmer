@@ -332,7 +332,11 @@ loop:
 		case <-s.ticker.C:
 			// TODO: pause the ticker, if there are no ready messages
 			if msg := s.schedule(); msg != nil {
-				s.Events.MessageScheduled.Trigger(msg.ID())
+				s.tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
+					if messageMetadata.SetScheduled(true) {
+						s.Events.MessageScheduled.Trigger(msg.ID())
+					}
+				})
 			}
 
 		// on close, exit the loop

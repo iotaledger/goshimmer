@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
@@ -77,7 +76,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(messagelayer.DefaultAverageNetworkDelay*2 + messagelayer.DefaultAverageNetworkDelay/2)
+	time.Sleep(framework.DefaultUpperBoundNetworkDelay*2 + framework.DefaultUpperBoundNetworkDelay/2)
 
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
@@ -130,7 +129,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// wait again some network delays for the transactions to materialize
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(messagelayer.DefaultAverageNetworkDelay*2 + messagelayer.DefaultAverageNetworkDelay/2)
+	time.Sleep(framework.DefaultUpperBoundNetworkDelay*2 + framework.DefaultUpperBoundNetworkDelay/2)
 	log.Println("checking that first set of addresses contain no UTXOs")
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
 
