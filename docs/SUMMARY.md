@@ -27,7 +27,7 @@ http://goshimmer.docs.iota.org/
 
 - [Protocol specification](./protocol_specification.md)
   - [Protocol high level overview](./protocol_speficiation/protocol.md)
-  - [Components](/protocol_specification/components.md)
+  - [Components](./protocol_specification/components.md)
   - [Layers](./protocol_specification/layers.md)
   - [Glossary](./protocol_specification/glossary.md)
 
@@ -44,7 +44,7 @@ http://goshimmer.docs.iota.org/
   - [Integration tests](./tooling/integration_tests.md)
 
 - [Team Resources](./team_resources.md)
-  - [How to do a release](teamresources/release.md)
+  - [How to do a release](./teamresources/release.md)
   - [Code Guidelines](./teamresources/guidelines.md)
   - [Local development](./teamresources/local_development.md)  
   - [Modify the Analysis dashboard](../plugins/analysis/dashboard/frontend/README.md)
