@@ -26,7 +26,7 @@ func (api *GoShimmerAPI) AddManualPeers(peers []*manualpeering.KnownPeerToAdd) e
 func (api *GoShimmerAPI) RemoveManualPeers(keys []ed25519.PublicKey) error {
 	peersToRemove := make([]*jsonmodels.PeerToRemove, len(keys))
 	for i, key := range keys {
-		peersToRemove[i] = &jsonmodels.PeerToRemove{PublicKey: key.String()}
+		peersToRemove[i] = &jsonmodels.PeerToRemove{PublicKey: key}
 	}
 	if err := api.do(http.MethodDelete, routeManualPeers, peersToRemove, nil); err != nil {
 		return errors.Wrap(err, "failed to remove manual peers via the HTTP API")

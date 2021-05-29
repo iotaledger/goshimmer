@@ -3,7 +3,6 @@ package manualpeering
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -47,38 +46,8 @@ const (
 
 // KnownPeerToAdd defines a type that is used in .AddPeer() method.
 type KnownPeerToAdd struct {
-	PublicKey ed25519.PublicKey
-	Address   string
-}
-
-type knownPeerToAdd struct {
-	PublicKey string `json:"publicKey"`
+	PublicKey ed25519.PublicKey `json:"publicKey"`
 	Address   string `json:"address"`
-}
-
-// MarshalJSON encodes KnownPeerToAdd to JSON.
-func (pta *KnownPeerToAdd) MarshalJSON() ([]byte, error) {
-	data := &knownPeerToAdd{
-		PublicKey: pta.PublicKey.String(),
-		Address:   pta.Address,
-	}
-	return json.Marshal(data)
-}
-
-// UnmarshalJSON decodes JSON into KnownPeerToAdd.
-func (pta *KnownPeerToAdd) UnmarshalJSON(b []byte) error {
-	data := &knownPeerToAdd{}
-	if err := json.Unmarshal(b, data); err != nil {
-		return err
-	}
-	pta.Address = data.Address
-
-	var err error
-	pta.PublicKey, err = ed25519.PublicKeyFromString(data.PublicKey)
-	if err != nil {
-		return errors.Wrap(err, "couldn't parse public key")
-	}
-	return nil
 }
 
 // KnownPeer defines a peer record in the manualpeering layer.
