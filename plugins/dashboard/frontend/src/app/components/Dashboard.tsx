@@ -4,7 +4,6 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Uptime from "app/components/Uptime";
 import Version from "app/components/Version";
-import Synced from "app/components/Synced";
 import MPSChart from "app/components/MPSChart";
 import TipsChart from "app/components/TipsChart";
 import NodeStore from "app/stores/NodeStore";
@@ -12,7 +11,8 @@ import {inject, observer} from "mobx-react";
 import ListGroup from "react-bootstrap/ListGroup";
 import Card from "react-bootstrap/Card";
 import MemChart from "app/components/MemChart";
-
+import ComponentCounterChart from "app/components/ComponentCounterChart";
+import TangleTime from "app/components/TangleTime";
 interface Props {
     nodeStore?: NodeStore;
 }
@@ -46,13 +46,16 @@ export class Dashboard extends React.Component<Props, any> {
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
-                    <Col><Synced/></Col>
+                    <Col><TangleTime/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><MPSChart/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><TipsChart/></Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col><ComponentCounterChart/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><MemChart/></Col>

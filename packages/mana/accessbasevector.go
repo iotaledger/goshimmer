@@ -5,8 +5,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // AccessBaseManaVector represents a base mana vector.
@@ -35,34 +37,62 @@ func (a *AccessBaseManaVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
-// Book books mana for a transaction.
-func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
+// LoadSnapshot loads the initial mana state into the base mana vector.
+func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
 	a.Lock()
 	defer a.Unlock()
-	pledgeNodeID := txInfo.PledgeID[a.Type()]
-	if _, exist := a.vector[pledgeNodeID]; !exist {
-		// first time we see this node
-		a.vector[pledgeNodeID] = &AccessBaseMana{}
-	}
-	// save it for proper event trigger
-	oldMana := *a.vector[pledgeNodeID]
-	// actually pledge and update
-	pledged := a.vector[pledgeNodeID].pledge(txInfo)
 
+	// pledging aMana to nodes present in the snapshot as if all was pledged at Timestamp
+	for nodeID, record := range snapshot {
+		a.vector[nodeID] = &AccessBaseMana{
+			BaseMana2:          record.AccessMana.Value,
+			EffectiveBaseMana2: record.AccessMana.Value,
+			LastUpdated:        record.AccessMana.Timestamp,
+		}
+		// trigger events
+		Events().Pledged.Trigger(&PledgedEvent{
+			NodeID:   nodeID,
+			Amount:   record.AccessMana.Value,
+			Time:     record.AccessMana.Timestamp,
+			ManaType: a.Type(),
+			// TransactionID: record.TxID,
+		})
+	}
+}
+
+// Book books mana for a transaction.
+func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
+	var pledgeEvent *PledgedEvent
+	var updateEvent *UpdatedEvent
+	func() {
+		a.Lock()
+		defer a.Unlock()
+		pledgeNodeID := txInfo.PledgeID[a.Type()]
+		if _, exist := a.vector[pledgeNodeID]; !exist {
+			// first time we see this node
+			a.vector[pledgeNodeID] = &AccessBaseMana{}
+		}
+		// save it for proper event trigger
+		oldMana := *a.vector[pledgeNodeID]
+		// actually pledge and update
+		pledged := a.vector[pledgeNodeID].pledge(txInfo)
+		pledgeEvent = &PledgedEvent{
+			NodeID:        pledgeNodeID,
+			Amount:        pledged,
+			Time:          txInfo.TimeStamp,
+			ManaType:      a.Type(),
+			TransactionID: txInfo.TransactionID,
+		}
+		updateEvent = &UpdatedEvent{
+			NodeID:   pledgeNodeID,
+			OldMana:  &oldMana,
+			NewMana:  a.vector[pledgeNodeID],
+			ManaType: a.Type(),
+		}
+	}()
 	// trigger events
-	Events().Pledged.Trigger(&PledgedEvent{
-		NodeID:        pledgeNodeID,
-		Amount:        pledged,
-		Time:          txInfo.TimeStamp,
-		ManaType:      a.Type(),
-		TransactionID: txInfo.TransactionID,
-	})
-	Events().Updated.Trigger(&UpdatedEvent{
-		NodeID:   pledgeNodeID,
-		OldMana:  &oldMana,
-		NewMana:  a.vector[pledgeNodeID],
-		ManaType: a.Type(),
-	})
+	Events().Pledged.Trigger(pledgeEvent)
+	Events().Updated.Trigger(updateEvent)
 }
 
 // Update updates the mana entries for a particular node wrt time.
@@ -148,6 +178,53 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.T
 	return
 }
 
+// GetHighestManaNodesFraction returns the highest mana that own 'p' percent of total mana.
+// It also updates the mana values for each node.
+// If p is zero or greater than one, it returns all nodes.
+func (a *AccessBaseManaVector) GetHighestManaNodesFraction(p float64) (res []Node, t time.Time, err error) {
+	totalMana := 0.0
+	err = func() error {
+		// don't lock the vector after this func returns
+		a.Lock()
+		defer a.Unlock()
+		t = time.Now()
+		for ID := range a.vector {
+			var mana float64
+			mana, _, err = a.getMana(ID, t)
+			if err != nil {
+				return err
+			}
+			res = append(res, Node{
+				ID:   ID,
+				Mana: mana,
+			})
+			totalMana += mana
+		}
+		return nil
+	}()
+	if err != nil {
+		return nil, t, err
+	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Mana > res[j].Mana
+	})
+
+	// how much mana is p percent of total mana
+	manaThreshold := p * totalMana
+	// include nodes as long as their counted mana is less than the threshold
+	manaCounted := 0.0
+	var n uint
+	for n = 0; int(n) < len(res) && manaCounted < manaThreshold; n++ {
+		manaCounted += res[n].Mana
+	}
+
+	if n == 0 || int(n) >= len(res) {
+		return
+	}
+	res = res[:n]
+	return res, t, err
+}
+
 // SetMana sets the base mana for a node.
 func (a *AccessBaseManaVector) SetMana(nodeID identity.ID, bm BaseMana) {
 	a.Lock()
@@ -188,15 +265,15 @@ func (a *AccessBaseManaVector) ToPersistables() []*PersistableBaseMana {
 // FromPersistable fills the AccessBaseManaVector from persistable mana objects.
 func (a *AccessBaseManaVector) FromPersistable(p *PersistableBaseMana) (err error) {
 	if p.ManaType != AccessMana {
-		err = xerrors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), AccessMana.String())
+		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), AccessMana.String())
 		return
 	}
 	if len(p.BaseValues) != 1 {
-		err = xerrors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
+		err = errors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
 		return
 	}
 	if len(p.EffectiveValues) != 1 {
-		err = xerrors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues))
+		err = errors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues))
 		return
 	}
 	a.Lock()
@@ -241,7 +318,7 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := a.vector[nodeID]; !exist {
-		return 0.0, t, ErrNodeNotFoundInBaseManaVector
+		return tangle.MinMana, t, nil
 	}
 	if len(optionalUpdateTime) > 0 {
 		t = optionalUpdateTime[0]
@@ -249,5 +326,9 @@ func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ..
 	_ = a.update(nodeID, t)
 
 	baseMana := a.vector[nodeID]
-	return baseMana.EffectiveValue(), t, nil
+	effectiveValue := baseMana.EffectiveValue()
+	if effectiveValue < tangle.MinMana {
+		effectiveValue = tangle.MinMana
+	}
+	return effectiveValue, t, nil
 }

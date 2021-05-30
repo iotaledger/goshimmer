@@ -11,14 +11,14 @@ import (
 )
 
 func TestNetworkSplit(t *testing.T) {
-	n, err := f.CreateNetworkWithPartitions("autopeering_TestNetworkSplit", 6, 2, 2, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetworkWithPartitions("autopeering_TestNetworkSplit", 6, 2, 2, framework.CreateNetworkConfig{StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
 	// test that nodes only have neighbors from same partition
 	for _, partition := range n.Partitions() {
 		for _, peer := range partition.Peers() {
-			resp, err := peer.GetNeighbors(false)
+			resp, err := peer.GetAutopeeringNeighbors(false)
 			require.NoError(t, err)
 
 			// check that all neighbors are indeed in the same partition

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -19,7 +20,6 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -63,7 +63,7 @@ func testSortParents(parents []MessageID) {
 func TestNewMessageID(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		randID := randomMessageID()
-		randIDString := randID.String()
+		randIDString := randID.Base58()
 
 		result, err := NewMessageID(randIDString)
 		assert.NoError(t, err)
@@ -78,10 +78,7 @@ func TestNewMessageID(t *testing.T) {
 	})
 
 	t.Run("CASE: Too long string", func(t *testing.T) {
-		randID := randomMessageID()
-		randIDString := randID.String()
-
-		result, err := NewMessageID(randIDString + "1")
+		result, err := NewMessageID(base58.Encode(randomBytes(MessageIDLength + 1)))
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "length of base58 formatted message id is wrong"))
 		assert.Equal(t, EmptyMessageID, result)
@@ -173,6 +170,12 @@ func TestMessageID_UnmarshalBinary(t *testing.T) {
 func TestMessageID_String(t *testing.T) {
 	randID := randomMessageID()
 	randIDString := randID.String()
+	assert.Equal(t, "MessageID("+base58.Encode(randID.Bytes())+")", randIDString)
+}
+
+func TestMessageID_Base58(t *testing.T) {
+	randID := randomMessageID()
+	randIDString := randID.Base58()
 	assert.Equal(t, base58.Encode(randID.Bytes()), randIDString)
 }
 
@@ -191,7 +194,7 @@ func TestMessage_VerifySignature(t *testing.T) {
 }
 
 func TestMessage_UnmarshalTransaction(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	testMessage := NewMessage(randomParents(1),
@@ -209,7 +212,7 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	testMessage, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
@@ -691,7 +694,7 @@ func TestMessageFromBytes(t *testing.T) {
 		msgBytes = append(msgBytes, []byte{0, 1, 2, 3, 4}...)
 		_, _, err := MessageFromBytes(msgBytes)
 		assert.Error(t, err)
-		assert.True(t, xerrors.Is(err, cerrors.ErrParseBytesFailed))
+		assert.True(t, errors.Is(err, cerrors.ErrParseBytesFailed))
 	})
 }
 

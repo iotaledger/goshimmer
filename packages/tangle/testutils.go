@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -20,15 +21,17 @@ import (
 // MessageTestFramework implements a framework for conveniently issuing messages in a tangle as part of unit tests in a
 // simplified way.
 type MessageTestFramework struct {
-	tangle           *Tangle
-	messagesByAlias  map[string]*Message
-	walletsByAlias   map[string]wallet
-	walletsByAddress map[ledgerstate.Address]wallet
-	inputsByAlias    map[string]ledgerstate.Input
-	outputsByAlias   map[string]ledgerstate.Output
-	outputsByID      map[ledgerstate.OutputID]ledgerstate.Output
-	options          *MessageTestFrameworkOptions
-	messagesBookedWG sync.WaitGroup
+	tangle                   *Tangle
+	messagesByAlias          map[string]*Message
+	walletsByAlias           map[string]wallet
+	walletsByAddress         map[ledgerstate.Address]wallet
+	inputsByAlias            map[string]ledgerstate.Input
+	outputsByAlias           map[string]ledgerstate.Output
+	outputsByID              map[ledgerstate.OutputID]ledgerstate.Output
+	options                  *MessageTestFrameworkOptions
+	oldIncreaseIndexCallback markers.IncreaseIndexCallback
+	messagesBookedWG         sync.WaitGroup
+	approvalWeightProcessed  sync.WaitGroup
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -46,11 +49,15 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 	messageTestFramework.createGenesisOutputs()
 
-	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.messagesBookedWG.Done()
 	}))
-	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
+		messageTestFramework.approvalWeightProcessed.Done()
+	}))
+	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.messagesBookedWG.Done()
+		messageTestFramework.approvalWeightProcessed.Done()
 	}))
 
 	return
@@ -61,17 +68,43 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
 
 	if transaction := m.buildTransaction(options); transaction != nil {
-		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessage(transaction, m.strongParentIDs(options), m.weakParentIDs(options))
-		return m.messagesByAlias[messageAlias]
+		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
+	} else {
+		m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
 	}
 
-	m.messagesByAlias[messageAlias] = newTestParentsDataMessage(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options))
+	RegisterMessageIDAlias(m.messagesByAlias[messageAlias].ID(), messageAlias)
+
 	return m.messagesByAlias[messageAlias]
+}
+
+// IncreaseMarkersIndexCallback is the IncreaseMarkersIndexCallback that the MessageTestFramework uses to determine when
+// to assign new Markers to messages.
+func (m *MessageTestFramework) IncreaseMarkersIndexCallback(markers.SequenceID, markers.Index) bool {
+	return false
+}
+
+// PreventNewMarkers disables the generation of new Markers for the given Messages.
+func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFramework {
+	if enabled && m.oldIncreaseIndexCallback == nil {
+		m.oldIncreaseIndexCallback = m.tangle.Options.IncreaseMarkersIndexCallback
+		m.tangle.Options.IncreaseMarkersIndexCallback = m.IncreaseMarkersIndexCallback
+		return m
+	}
+
+	if !enabled && m.oldIncreaseIndexCallback != nil {
+		m.tangle.Options.IncreaseMarkersIndexCallback = m.oldIncreaseIndexCallback
+		m.oldIncreaseIndexCallback = nil
+		return m
+	}
+
+	return m
 }
 
 // IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
 func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
 	m.messagesBookedWG.Add(len(messageAliases))
+	m.approvalWeightProcessed.Add(len(messageAliases))
 
 	for _, messageAlias := range messageAliases {
 		m.tangle.Storage.StoreMessage(m.messagesByAlias[messageAlias])
@@ -81,8 +114,17 @@ func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageT
 }
 
 // WaitMessagesBooked waits for all Messages to be processed by the Booker.
-func (m *MessageTestFramework) WaitMessagesBooked() {
+func (m *MessageTestFramework) WaitMessagesBooked() *MessageTestFramework {
 	m.messagesBookedWG.Wait()
+
+	return m
+}
+
+// WaitApprovalWeightProcessed waits for all Messages to be processed by the ApprovalWeightManager.
+func (m *MessageTestFramework) WaitApprovalWeightProcessed() *MessageTestFramework {
+	m.approvalWeightProcessed.Wait()
+
+	return m
 }
 
 // Message retrieves the Messages that is associated with the given alias.
@@ -90,8 +132,41 @@ func (m *MessageTestFramework) Message(alias string) (message *Message) {
 	return m.messagesByAlias[alias]
 }
 
+// MessageMetadata retrieves the MessageMetadata that is associated with the given alias.
+func (m *MessageTestFramework) MessageMetadata(alias string) (messageMetadata *MessageMetadata) {
+	m.tangle.Storage.MessageMetadata(m.messagesByAlias[alias].ID()).Consume(func(msgMetadata *MessageMetadata) {
+		messageMetadata = msgMetadata
+	})
+
+	return
+}
+
+// TransactionID returns the TransactionID of the Transaction contained in the Message associated with the given alias.
+func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.TransactionID {
+	messagePayload := m.messagesByAlias[messageAlias].Payload()
+	if messagePayload.Type() != ledgerstate.TransactionType {
+		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
+	}
+
+	return messagePayload.(*ledgerstate.Transaction).ID()
+}
+
+// BranchID returns the BranchID of the Transaction contained in the Message associated with the given alias.
+func (m *MessageTestFramework) BranchID(messageAlias string) ledgerstate.BranchID {
+	messagePayload := m.messagesByAlias[messageAlias].Payload()
+	if messagePayload.Type() != ledgerstate.TransactionType {
+		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
+	}
+
+	return ledgerstate.NewBranchID(messagePayload.(*ledgerstate.Transaction).ID())
+}
+
 // createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
 func (m *MessageTestFramework) createGenesisOutputs() {
+	if len(m.options.genesisOutputs) == 0 {
+		return
+	}
+
 	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
 
 	for alias, balance := range m.options.genesisOutputs {
@@ -113,13 +188,43 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
 	}
 
-	m.tangle.LedgerState.LoadSnapshot(map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: genesisOutputs,
-	})
+	outputs := []ledgerstate.Output{}
+	unspentOutputs := []bool{}
+
+	for address, balance := range genesisOutputs {
+		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
+		unspentOutputs = append(unspentOutputs, true)
+	}
+
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Now(),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(outputs...),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: unspentOutputs,
+			},
+		},
+	}
+
+	fmt.Println("............... snapshot: ")
+	fmt.Println(snapshot)
+
+	m.tangle.LedgerState.LoadSnapshot(snapshot)
 
 	for alias := range m.options.genesisOutputs {
-		m.tangle.LedgerState.utxoDAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.utxoDAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.LedgerState.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
 				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(addressOutputMapping.OutputID())
@@ -128,8 +233,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	for alias := range m.options.coloredGenesisOutputs {
-		m.tangle.LedgerState.utxoDAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.utxoDAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.LedgerState.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
 			})
@@ -207,7 +312,7 @@ func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMess
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) (weakParentIDs MessageIDs) {
 	weakParentIDs = make(MessageIDs, 0)
-	for weakParentAlias := range options.strongParents {
+	for weakParentAlias := range options.weakParents {
 		if weakParentAlias == "Genesis" {
 			weakParentIDs = append(weakParentIDs, EmptyMessageID)
 
@@ -291,6 +396,7 @@ type MessageTestFrameworkMessageOptions struct {
 	coloredOutputs map[string]map[ledgerstate.Color]uint64
 	strongParents  map[string]types.Empty
 	weakParents    map[string]types.Empty
+	issuer         ed25519.PublicKey
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
@@ -354,6 +460,13 @@ func WithWeakParents(messageAliases ...string) MessageOption {
 	}
 }
 
+// WithIssuer returns a MessageOption that is used to define the issuer of the Message.
+func WithIssuer(issuer ed25519.PublicKey) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.issuer = issuer
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -372,20 +485,32 @@ func newTestDataMessage(payloadString string) *Message {
 	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
+func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
+	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+}
+
 func newTestParentsDataMessage(payloadString string, strongParents, weakParents []MessageID) *Message {
 	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+}
+
+func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
+	return NewMessage(strongParents, weakParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
 func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
 	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
-func newTestParentsPayloadMessage(payload payload.Payload, strongParents, weakParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload, 0, ed25519.Signature{})
+func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents []MessageID) *Message {
+	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
 
-func newTestParentsPayloadWithTimestamp(payload payload.Payload, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload, 0, ed25519.Signature{})
+func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
+	return NewMessage(strongParents, weakParents, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+}
+
+func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
+	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
 
 type wallet struct {
@@ -445,14 +570,7 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 }
 
 func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	if !tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		branchID = messageMetadata.BranchID()
-		// fmt.Println(messageID)
-		// fmt.Println(messageMetadata.StructureDetails())
-	}) {
-		return branchID, fmt.Errorf("missing message metadata")
-	}
-	return
+	return tangle.Booker.MessageBranchID(messageID)
 }
 
 func transactionBranchID(tangle *Tangle, transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID, err error) {
@@ -489,3 +607,34 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var (
+	aMana               = 1.0
+	totalAMana          = 1000.0
+	testMaxBuffer       = 1 * 1024 * 1024
+	testRate            = time.Second / 5000
+	noAManaNode         = identity.GenerateIdentity()
+	testSchedulerParams = SchedulerParams{
+		MaxBufferSize:               testMaxBuffer,
+		Rate:                        testRate,
+		AccessManaRetrieveFunc:      accessManaRetriever,
+		TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
+	}
+)
+
+func accessManaRetriever(id identity.ID) float64 {
+	if id == noAManaNode.ID() {
+		return 0
+	}
+	return aMana
+}
+
+func totalAccessManaRetriever() float64 {
+	return totalAMana
+}
+
+// newTestTangle returns a Tangle instance with a testing schedulerConfig
+func newTestTangle(options ...Option) *Tangle {
+	options = append(options, SchedulerConfig(testSchedulerParams))
+	return New(options...)
+}

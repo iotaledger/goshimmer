@@ -1,9 +1,9 @@
 #!/bin/bash
 
-TEST_NAMES='autopeering common drng message value consensus faucet syncbeacon mana'
+TEST_NAMES='autopeering common drng message value consensus faucet mana'
 
-DOCKER_BUILDKIT=1
-COMPOSE_DOCKER_CLI_BUILD=1
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
 
@@ -14,10 +14,9 @@ docker pull gaiadocker/iproute2:latest
 
 echo "Run integration tests"
 
-for name in $TEST_NAMES
-do
+for name in $TEST_NAMES; do
   TEST_NAME=$name docker-compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-  docker logs tester &> logs/"$name"_tester.log
+  docker logs tester &>logs/"$name"_tester.log
 done
 
 echo "Clean up"

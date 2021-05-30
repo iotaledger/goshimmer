@@ -9,14 +9,18 @@ We provide a tool at `tools/docker-network` with which a local test network can 
 
 In the docker network run for example
 ```
-./run.sh 5 1
+./run.sh 5 1 1
 ```
 
 The command `./run.sh` spins up a GoShimmer network within Docker as schematically shown in the figure above. The first integer input defines the number of `peer_replicas` `N`. The second argument is optional for activating the Grafana dashboard, where 
 * default (no argument) or 0: Grafana disabled
 * 1: Grafana enabled
 
-More details on how to set up the dashboard can be found [here](https://github.com/iotaledger/goshimmer/wiki/Setup-up-a-GoShimmer-node-(Joining-the-pollen-testnet)#setting-up-the-grafana-dashboard).
+More details on how to set up the dashboard can be found [here](../tutorials/setup.md).
+
+The third argument is optional for activating a dRNG committee, where
+* default (no argument) or 0: dRNG disabled
+* 1: dRNG enabled
 
 The peers can communicate freely within the Docker network 
 while the analysis and visualizer dashboard, as well as the `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
@@ -40,6 +44,8 @@ It is therefore possible to send messages to the local network via the `master_p
 docker logs --follow CONTAINERNAME
 ```
 
+## Snapshot tool
+A snapshot tool is provided in the tools folder. The snapshot file that is created must be moved into the `integration-tests/assets` folder. There, rename and replace the existing bin file (`7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`). After restarting the docker network the snapshot file will be loaded.
 
 ## How to use message approval check tool
 
@@ -72,7 +78,7 @@ Note, that the record length of the files might differ, since the approval check
 
 The Spammer tool lets you add messages to the tangle when running GoShimmer in a Docker network.
 In order to start the spammer, you need to send GET requests to a `/spammer` API endpoint with the following parameters:
-* `cmd` - one of two possible values: `start` and `shutdown`.
+* `cmd` - one of two possible values: `start` and `stop`.
 * `mpm` - messages per minute. Only applicable when `cmd=start`. 
 * `imif` - (*optional*) parameter indicating time interval between issued messages. Possible values:
     * `poisson` - emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
@@ -84,7 +90,7 @@ Example requests:
 http://localhost:8080/spammer?cmd=start&mpm=1000
 
 http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform
-http://localhost:8080/spammer?cmd=shutdown
+http://localhost:8080/spammer?cmd=stop
 ```
 
 ## Tangle width

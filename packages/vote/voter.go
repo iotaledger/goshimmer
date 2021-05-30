@@ -1,9 +1,9 @@
 package vote
 
 import (
-	"errors"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
@@ -27,7 +27,7 @@ type Voter interface {
 type DRNGRoundBasedVoter interface {
 	Voter
 	// Round starts a new round.
-	Round(rand float64) error
+	Round(rand float64, delayedRoundStart ...time.Duration) error
 }
 
 // Events defines events which happen on a Voter.

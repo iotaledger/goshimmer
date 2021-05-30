@@ -24,12 +24,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 func BenchmarkVerifyDataMessages(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
@@ -62,7 +63,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 }
 
 func BenchmarkVerifySignature(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
@@ -97,7 +98,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 }
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
@@ -119,14 +120,10 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 }
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
-	messageTangle := New()
-	messageTangle.Setup()
+	messageTangle := newTestTangle()
+	messageTangle.Storage.Setup()
+	messageTangle.Solidifier.Setup()
 	defer messageTangle.Shutdown()
-	if err := messageTangle.Prune(); err != nil {
-		t.Error(err)
-
-		return
-	}
 
 	var storedMessages, solidMessages, invalidMessages int32
 
@@ -179,7 +176,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
-	messageTangle := New()
+	messageTangle := newTestTangle()
 	defer messageTangle.Shutdown()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
@@ -215,17 +212,17 @@ func TestTangle_StoreMessage(t *testing.T) {
 
 func TestTangle_MissingMessages(t *testing.T) {
 	const (
-		messageCount = 20000
+		messageCount = 2000
 		tangleWidth  = 250
 		storeDelay   = 5 * time.Millisecond
 	)
 
-	// create badger store
-	badger, err := testutil.BadgerDB(t)
+	// create rocksdb store
+	rocksdb, err := testutil.RocksDB(t)
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := New(Store(badger))
+	tangle := newTestTangle(Store(rocksdb))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -323,11 +320,11 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := New()
+	messageTangle := newTestTangle()
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
+	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{})
 	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
 	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
 
@@ -350,12 +347,14 @@ func TestRetrieveAllTips(t *testing.T) {
 }
 
 func TestTangle_Flow(t *testing.T) {
+	CacheTime = 0
+
 	const (
 		testNetwork = "udp"
 		testPort    = 8000
 		targetPOW   = 2
 
-		solidMsgCount   = 20000
+		solidMsgCount   = 2000
 		invalidMsgCount = 10
 		tangleWidth     = 250
 		networkDelay    = 5 * time.Millisecond
@@ -368,8 +367,8 @@ func TestTangle_Flow(t *testing.T) {
 		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 		messageWorkerQueueSize = 1000
 	)
-	// create badger store
-	badger, err := testutil.BadgerDB(t)
+	// create rocksdb store
+	rocksdb, err := testutil.RocksDB(t)
 	require.NoError(t, err)
 
 	// map to keep track of the tips
@@ -377,7 +376,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := New(Store(badger))
+	tangle := newTestTangle(Store(rocksdb))
 	defer tangle.Shutdown()
 
 	// create local peer
@@ -407,7 +406,7 @@ func TestTangle_Flow(t *testing.T) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return testWorker.Mine(context.Background(), content, targetPOW)
 	}))
-
+	tangle.MessageFactory.SetTimeout(powTimeout)
 	// create a helper function that creates the messages
 	createNewMessage := func(invalidTS bool) *Message {
 		var msg *Message
@@ -478,25 +477,25 @@ func TestTangle_Flow(t *testing.T) {
 	)
 
 	// filter rejected events
-	tangle.Parser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
+	tangle.Parser.Events.MessageRejected.AttachAfter(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
-		t.Logf("rejected by message filter messages %d/%d", n, totalMsgCount)
+		t.Logf("rejected by message filter messages %d/%d - %s", n, totalMsgCount, msgRejectedEvent.Message.ID())
 	}))
 
-	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	tangle.Parser.Events.MessageParsed.AttachAfter(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
-		t.Logf("parsed messages %d/%d", n, totalMsgCount)
+		t.Logf("parsed messages %d/%d - %s", n, totalMsgCount, msgParsedEvent.Message.ID())
 	}))
 
 	// message invalid events
-	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&invalidMessages, 1)
-		t.Logf("invalid messages %d/%d", n, totalMsgCount)
+		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(MessageID) {
+	tangle.Storage.Events.MessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&storedMessages, 1)
-		t.Logf("stored messages %d/%d", n, totalMsgCount)
+		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
 	// increase the counter when a missing message was detected
@@ -508,35 +507,40 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(MessageID) {
+	tangle.Storage.Events.MissingMessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&missingMessages, -1)
-		t.Logf("missing messages %d", n)
+		t.Logf("missing messages %d - %s", n, messageID)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
+	tangle.Solidifier.Events.MessageSolid.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&solidMessages, 1)
-		t.Logf("solid messages %d/%d", n, totalMsgCount)
+		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Scheduler.Events.MessageScheduled.AttachAfter(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&scheduledMessages, 1)
+		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, messageID)
+	}))
+
+	tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&scheduledMessages, 1)
 		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
 	}))
 
-	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&bookedMessages, 1)
-		t.Logf("booked messages %d/%d", n, totalMsgCount)
+		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.ConsensusManager.Events.MessageOpinionFormed.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&opinionFormedMessages, 1)
 		t.Logf("opinion formed messages %d/%d", n, totalMsgCount)
 	}))
 
 	// data messages should not trigger this event
-	tangle.ConsensusManager.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.LedgerState.UTXODAG.Events.TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
-		t.Logf("opinion formed transaction %d/%d", n, totalMsgCount)
+		t.Logf("opinion formed transaction %d/%d - %s", n, totalMsgCount, transactionID)
 	}))
 
 	tangle.Events.Error.Attach(events.NewClosure(func(err error) {

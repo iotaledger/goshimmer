@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"math"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -53,14 +53,19 @@ func TestWorker_Cancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	var err error
 	go func() {
+		defer wg.Done()
 		_, err = testWorker.Mine(ctx, nil, math.MaxInt32)
 	}()
 	time.Sleep(10 * time.Millisecond)
 	cancel()
 
-	assert.Eventually(t, func() bool { return xerrors.Is(err, ErrCancelled) }, time.Second, 10*time.Millisecond)
+	wg.Wait()
+
+	assert.ErrorIs(t, err, ErrCancelled)
 }
 
 func BenchmarkWorker(b *testing.B) {

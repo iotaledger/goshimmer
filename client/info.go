@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	webapi_info "github.com/iotaledger/goshimmer/plugins/webapi/info"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 const (
@@ -11,8 +11,8 @@ const (
 )
 
 // Info gets the info of the node.
-func (api *GoShimmerAPI) Info() (*webapi_info.Response, error) {
-	res := &webapi_info.Response{}
+func (api *GoShimmerAPI) Info() (*jsonmodels.InfoResponse, error) {
+	res := &jsonmodels.InfoResponse{}
 	if err := api.do(http.MethodGet, routeInfo, nil, res); err != nil {
 		return nil, err
 	}

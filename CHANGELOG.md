@@ -1,3 +1,147 @@
+# v0.6.4 - 2021-05-29
+* Add simple chat dApp
+* Improve client lib
+* Improve manual peering and add tutorial
+* Improve docs and tutorials
+* Improve congestion control
+* Fix mana dashboard deadlock
+* Fix several bugs
+* Update snapshot file with Pollen UTXO at 2021-05-29 10:22 UTC
+* Update JS dependencies
+* Update lo latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.6.3 - 2021-05-25
+* Improve congestion control
+* Fix builds
+* Fix dRNG shutdown deadlock
+* Fix panic on booking
+* Fix locking management on message factory
+* Fix several visualizer bugs
+* Update Grafana pie charts
+* Update snapshot file with Pollen UTXO at 2021-05-25 16:54 UTC
+* **Breaking**: bumps network and database versions
+
+# v0.6.2 - 2021-05-24
+* Add Congestion Control
+* Add global snapshot
+* Add Central Asset Registry to cli-wallet
+* Switch to RocksDB instead of BadgerDB
+* Enhance manual peering
+* Improve gossip
+* Improve APIs
+* Fix several dashboard bugs
+* Update lo latest hive.go
+* Update snapshot file 
+* **Breaking**: bumps network and database versions
+
+# v0.6.1 - 2021-05-19
+* Change Faucet default parameters
+* **Breaking**: bumps network and database versions
+
+# v0.6.0 - 2021-05-19
+* Add first iteration of the tokenization framework
+* Add aMana refresher
+* Add CORS to middleware Dashboard server
+* Allow specifying parents count when issuing messages 
+* Move PoW for Faucet requests to client
+* Remove Faucet requests from Node's Dashboard
+* Improve cli-wallet
+* Improve APIs
+* Improve integration tests
+* Refactor statement remote logging  
+* Display full messageID in explorer feed
+* Update JS dependencies
+* Update documentation
+* **Breaking**: bumps network and database versions
+
+# v0.5.9 - 2021-05-11
+* Replace sync beacons with Tangle Time
+* Fix approval weight manager persistence
+* Fix non positive ticker
+* Fix marker issues
+* Fix solidification issues
+* Fix concurrency-related issues
+* Improve FPC metrics logging
+* Improve clock synchronization handling
+* Improve dRNG plugin
+* Improve integration tests
+* Update JS dependencies
+* Update to latest hive.go
+* Update documentation
+* **Breaking**: bumps network and database versions
+
+# v0.5.8 - 2021-05-07
+* Integrate FPC with the X-Team committee
+* Enable finality via approval weight
+* Add Tangle Time
+* Add sync status monitoring
+* Add activity plugin
+* Add manual peering support
+* Add markers info to message view
+* Remove moving average for cMana
+* Replace epochs with weight provider using Tangle Time
+* Fix marker issues
+* Fix sync issues
+* Disable past-cone check when booking transactions
+* Improve integration tests
+* Refactor error handling
+* Update snapshot
+* Update JS dependencies
+* Update to latest hive.go
+* Update documentation
+* **Breaking**: bumps network and database versions
+
+# v0.5.7 - 2021-04-23
+* Add approval weight manager (soft launch)
+* Add epochs
+* Add debug APIs for epochs
+* Update local dashboard to show finalization based on approval weight
+* Improve FPC
+* Improve markers manager
+* Improve integration tests
+* Improve payload unmarshaling
+* Remove unless-stopped option from Docker default config
+* Increase CfgGossipAgeThreshold parameter
+* Fix several bugs on hive.go
+* Fix mana event storage pruning
+* Fix mana leaderboard and explorer live feed scroll view
+* Update snapshot with initial mana state
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.6 - 2021-04-03
+* Fix childBranchType
+* Fix FPC empty round increase
+* Make reading of FPC statements less strict
+* Fix aggregated branch diagnostic API and dashboard page  
+* **Breaking**: bumps network and database versions
+
+# v0.5.5 - 2021-04-01
+* Integrate Mana with FPC
+* Integrate Mana with the Autopeering
+* Add several FPC optimizations
+* Add dRNG diagnostic API
+* Simplify memory usage of dashboard and align to Grafana
+* Add a chart for stored, solidifier, scheduler and booker MPS
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.4 - 2021-03-29
+* Add new diagnostic APIs
+* Add new docs sections
+* Add branch inclusion state check before issuing new transactions
+* Refactor the Faucet plugin
+* Optimize transaction's past cone check
+* Make issued messages pass through the parser filters
+* Fix Faucet time usage
+* Fix markers issue
+* Fix max inputs count check
+* Fix nil pointer in diagnostic API
+* Update to latest hive.go 
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
 # v0.5.3 - 2021-03-25
 * Added new API endpoints
 * Added models navigation through the Dashboard Explorer

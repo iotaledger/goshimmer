@@ -13,7 +13,7 @@ import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {TransactionPayload} from 'app/components/TransactionPayload'
-import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
+import {ChatPayload} from 'app/components/ChatPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
 import {resolveBase58BranchID} from "app/utils/branch";
@@ -63,9 +63,9 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                 return <StatementPayload/>
             case PayloadType.Data:
                 return <BasicPayload/>
-            case PayloadType.SyncBeacon:
-                return <SyncBeaconPayload/>
             case PayloadType.Faucet:
+            case PayloadType.Chat:
+                return <ChatPayload/>
             default:
                 return <BasicPayload/>
         }
@@ -145,15 +145,51 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                     <ListGroup.Item>
                                         Invalid: {msg.invalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Finalized: {msg.finalized ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
                                 </ListGroup>
                             </Col>
                         </Row>
+
+                        {
+                            !!msg.rank &&
+                            <Row className={"mb-3"}>
+                                <Col>
+                                    <h5>Markers</h5>
+                                    <ListGroup>
+                                        <ListGroup.Item>
+                                            Rank: {msg.rank}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            SequenceID: {msg.sequenceID}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            PastMarkerGap: {msg.pastMarkerGap}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            IsPastMarker: {msg.isPastMarker ? 'Yes' : 'No'}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            Past markers: {msg.pastMarkers}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            Future markers: {msg.futureMarkers}
+                                        </ListGroup.Item>
+                                    </ListGroup>
+                                </Col>
+                            </Row>
+                        }
+
 
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
                                     <ListGroup.Item>
                                         Issuer Public Key: {msg.issuer_public_key}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Issuer NodeID: {msg.issuer_short_id}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Message Signature: {msg.signature}
@@ -237,19 +273,14 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                             </Col>
                         </Row>
 
-                        <Row className={"mb-3"}>
+                        <Row className={"mb-3"} style={{marginTop: "20px", marginBottom: "20px"}}>
                             <Col>
-                                <h4>Payload</h4>
+                                <h3>Payload</h3>
                             </Col>
                         </Row>
-
                         <Row className={"mb-3"}>
                             <Col>
-                                <ListGroup>
-                                    <ListGroup.Item className="text-break">
-                                        {this.renderPayload()}
-                                    </ListGroup.Item>
-                                </ListGroup>
+                                {this.renderPayload()}
                             </Col>
                         </Row>
                     </React.Fragment>

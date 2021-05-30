@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -128,7 +129,14 @@ func (p *Payload) String() string {
 
 // PayloadType defines the type of the drng payload.
 var PayloadType = payload.NewType(111, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-	payload, _, err = FromBytes(data)
+	var consumedBytes int
+	payload, consumedBytes, err = FromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, errors.New("not all payload bytes were consumed")
+	}
 
 	return
 })

@@ -12,23 +12,29 @@ import DrngStore from "app/stores/DrngStore";
 import FaucetStore from "app/stores/FaucetStore";
 import VisualizerStore from "app/stores/VisualizerStore";
 import ManaStore from "app/stores/ManaStore";
+import {EpochStore} from "app/stores/EpochStore";
+import ChatStore from "app/stores/ChatStore";
 
 // prepare MobX stores
 const routerStore = new RouterStore();
 const nodeStore = new NodeStore();
 const explorerStore = new ExplorerStore(routerStore);
 const drngStore = new DrngStore(routerStore);
+const chatStore = new ChatStore(routerStore, nodeStore);
 const faucetStore = new FaucetStore(routerStore);
 const visualizerStore = new VisualizerStore(routerStore);
 const manaStore = new ManaStore();
+const epochStore = new EpochStore();
 const stores = {
     "routerStore": routerStore,
     "nodeStore": nodeStore,
     "explorerStore": explorerStore,
     "drngStore": drngStore,
+    "chatStore": chatStore,
     "faucetStore": faucetStore,
     "visualizerStore": visualizerStore,
     "manaStore": manaStore,
+    "epochStore": epochStore
 };
 
 const browserHistory = createBrowserHistory();

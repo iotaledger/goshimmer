@@ -2,58 +2,74 @@ package spammer
 
 import (
 	"math/rand"
-	"sync/atomic"
+	"sync"
 	"time"
 
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // IssuePayloadFunc is a function which issues a payload.
-type IssuePayloadFunc = func(payload payload.Payload) (*tangle.Message, error)
+type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*tangle.Message, error)
 
 // Spammer spams messages with a static data payload.
 type Spammer struct {
 	issuePayloadFunc IssuePayloadFunc
-	processID        int64
+	log              *logger.Logger
+	running          typeutils.AtomicBool
+	wg               sync.WaitGroup
 }
 
 // New creates a new spammer.
-func New(issuePayloadFunc IssuePayloadFunc) *Spammer {
+func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger) *Spammer {
 	return &Spammer{
 		issuePayloadFunc: issuePayloadFunc,
+		log:              log,
 	}
 }
 
 // Start starts the spammer to spam with the given messages per time unit,
 // according to a inter message issuing function (IMIF)
-func (spammer *Spammer) Start(rate int, timeUnit time.Duration, imif string) {
-	go spammer.run(rate, timeUnit, atomic.AddInt64(&spammer.processID, 1), imif)
+func (s *Spammer) Start(rate int, timeUnit time.Duration, imif string) {
+	// only start if not yet running
+	if s.running.SetToIf(false, true) {
+		s.wg.Add(1)
+		go s.run(rate, timeUnit, imif)
+	}
 }
 
 // Shutdown shuts down the spammer.
-func (spammer *Spammer) Shutdown() {
-	atomic.AddInt64(&spammer.processID, 1)
+func (s *Spammer) Shutdown() {
+	s.running.SetTo(false)
+	s.wg.Wait()
 }
 
-func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64, imif string) {
+func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
+	defer s.wg.Done()
+
 	// emit messages every msgInterval interval, when IMIF is other than exponential
 	msgInterval := time.Duration(timeUnit.Nanoseconds() / int64(rate))
-
 	for {
 		start := time.Now()
 
-		if atomic.LoadInt64(&spammer.processID) != processID {
+		if !s.running.IsSet() {
+			// the spammer has stopped
 			return
 		}
 
 		// we don't care about errors or the actual issued message
-		_, err := spammer.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-		if xerrors.Is(err, tangle.ErrNotSynced) {
-			// can't issue msg because node not in sync
+		_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
+		if errors.Is(err, tangle.ErrNotSynced) {
+			s.log.Info("Stopped spamming messages because node lost sync")
+			s.running.SetTo(false)
 			return
+		}
+		if err != nil {
+			s.log.Warnf("could not issue spam payload: %s", err)
 		}
 
 		currentInterval := time.Since(start)

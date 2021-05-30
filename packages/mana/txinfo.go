@@ -41,3 +41,29 @@ type InputInfo struct {
 	// InputID is the input consumed.
 	InputID ledgerstate.OutputID
 }
+
+// SnapshotNode defines the record for the mana snapshot of one node.
+type SnapshotNode struct {
+	AccessMana       AccessManaSnapshot
+	SortedTxSnapshot SortedTxSnapshot
+}
+
+// AccessManaSnapshot defines the record for the aMana snapshot of one node
+type AccessManaSnapshot struct {
+	Value     float64
+	Timestamp time.Time
+}
+
+// TxSnapshot defines the record of one transaction.
+type TxSnapshot struct {
+	Value     float64
+	TxID      ledgerstate.TransactionID
+	Timestamp time.Time
+}
+
+// SortedTxSnapshot defines a list of SnapshotInfo sorted by timestamp.
+type SortedTxSnapshot []*TxSnapshot
+
+func (s SortedTxSnapshot) Len() int           { return len(s) }
+func (s SortedTxSnapshot) Less(i, j int) bool { return s[i].Timestamp.Before(s[j].Timestamp) }
+func (s SortedTxSnapshot) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

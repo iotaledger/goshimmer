@@ -46,10 +46,15 @@ type wsclient struct {
 
 func configureWebSocketWorkerPool() {
 	wsSendWorkerPool = workerpool.New(func(task workerpool.Task) {
-		broadcastWsMessage(&wsmsg{MsgTypeMPSMetric, task.Param(0).(uint64)})
-		broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
-		broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
-		broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, messagelayer.Tangle().TipManager.StrongTipCount()})
+		switch x := task.Param(0).(type) {
+		case uint64:
+			broadcastWsMessage(&wsmsg{MsgTypeMPSMetric, x})
+			broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
+			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
+			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, messagelayer.Tangle().TipManager.StrongTipCount()})
+		case *componentsmetric:
+			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
+		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 }
@@ -58,9 +63,19 @@ func runWebSocketStreams() {
 	updateStatus := events.NewClosure(func(mps uint64) {
 		wsSendWorkerPool.TrySubmit(mps)
 	})
+	updateComponentCounterStatus := events.NewClosure(func(componentStatus map[metrics.ComponentType]uint64) {
+		updateStatus := &componentsmetric{
+			Store:      componentStatus[metrics.Store],
+			Solidifier: componentStatus[metrics.Solidifier],
+			Scheduler:  componentStatus[metrics.Scheduler],
+			Booker:     componentStatus[metrics.Booker],
+		}
+		wsSendWorkerPool.TrySubmit(updateStatus)
+	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(shutdownSignal <-chan struct{}) {
 		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
+		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
 		wsSendWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
@@ -124,16 +139,16 @@ func sendInitialData(ws *websocket.Conn) error {
 	if err := sendAllowedManaPledge(ws); err != nil {
 		return err
 	}
-	if err := manaBuffer.SendEvents(ws); err != nil {
+	if err := ManaBufferInstance().SendEvents(ws); err != nil {
 		return err
 	}
-	if err := manaBuffer.SendValueMsgs(ws); err != nil {
+	if err := ManaBufferInstance().SendValueMsgs(ws); err != nil {
 		return err
 	}
-	if err := manaBuffer.SendMapOverall(ws); err != nil {
+	if err := ManaBufferInstance().SendMapOverall(ws); err != nil {
 		return err
 	}
-	if err := manaBuffer.SendMapOnline(ws); err != nil {
+	if err := ManaBufferInstance().SendMapOnline(ws); err != nil {
 		return err
 	}
 	return nil

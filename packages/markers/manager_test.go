@@ -153,7 +153,7 @@ func TestManager(t *testing.T) {
 	}
 }
 
-func messageReferencesMessage(laterMessage *message, earlierMessage *message, messageDB map[string]*message) types.TriBool {
+func messageReferencesMessage(laterMessage, earlierMessage *message, messageDB map[string]*message) types.TriBool {
 	for _, parentID := range laterMessage.parents {
 		if parentID == earlierMessage.id {
 			return types.True
@@ -180,7 +180,7 @@ func inheritPastMarkers(message *message, manager *Manager, messageDB map[string
 	// inherit new past Markers
 	message.markers, _ = manager.InheritStructureDetails(pastMarkers, increaseIndex(message), message.sequenceAlias)
 	if message.markers.IsPastMarker {
-		pastMarkerToPropagate = message.markers.PastMarkers.FirstMarker()
+		pastMarkerToPropagate = message.markers.PastMarkers.Marker()
 	}
 
 	return

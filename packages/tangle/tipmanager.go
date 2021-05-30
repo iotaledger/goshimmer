@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 	"github.com/iotaledger/hive.go/types"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -206,7 +206,14 @@ func (t *TipManager) AddTip(message *Message) {
 
 	// if branch is monotonically liked: strong message
 	// if branch is not monotonically liked: weak message
-	t.tangle.LedgerState.BranchDAG.Branch(messageMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+
+	messageBranchID, err := t.tangle.Booker.MessageBranchID(messageID)
+	if err != nil {
+		// TODO: ALTERNATIVE ERROR HANDLING
+		panic(err)
+	}
+
+	t.tangle.LedgerState.BranchDAG.Branch(messageBranchID).Consume(func(branch ledgerstate.Branch) {
 		if branch.MonotonicallyLiked() {
 			if t.strongTips.Set(messageID, messageID) {
 				t.Events.TipAdded.Trigger(&TipEvent{
@@ -275,7 +282,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 		tries := 5
 		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents...) {
 			if tries == 0 {
-				err = xerrors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
+				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
 				return nil, nil, err
 			}
 			tries--
@@ -383,6 +390,25 @@ func (t *TipManager) selectWeakTips(count int) (parents MessageIDs) {
 	}
 
 	return
+}
+
+// AllWeakTips returns a list of all weak tips that are stored in the TipManger.
+func (t *TipManager) AllWeakTips() MessageIDs {
+	return retrieveAllTips(t.weakTips)
+}
+
+// AllStrongTips returns a list of all strong tips that are stored in the TipManger.
+func (t *TipManager) AllStrongTips() MessageIDs {
+	return retrieveAllTips(t.strongTips)
+}
+
+func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDs {
+	mapKeys := tipsMap.Keys()
+	tips := make(MessageIDs, len(mapKeys))
+	for i, key := range mapKeys {
+		tips[i] = key.(MessageID)
+	}
+	return tips
 }
 
 // StrongTipCount the amount of strong tips.

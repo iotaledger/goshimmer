@@ -5,12 +5,14 @@ import (
 	"time"
 
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 func handleRequest(c echo.Context) error {
-	var request Request
+	var request jsonmodels.SpammerRequest
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.SpammerResponse{Error: err.Error()})
 	}
 
 	switch request.Cmd {
@@ -30,25 +32,12 @@ func handleRequest(c echo.Context) error {
 		messageSpammer.Shutdown()
 		messageSpammer.Start(request.MPM, time.Minute, request.IMIF)
 		log.Infof("Started spamming messages with %d MPM and %s inter-message issuing function", request.MPM, request.IMIF)
-		return c.JSON(http.StatusOK, Response{Message: "started spamming messages"})
+		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Message: "started spamming messages"})
 	case "stop":
 		messageSpammer.Shutdown()
 		log.Info("Stopped spamming messages")
-		return c.JSON(http.StatusOK, Response{Message: "stopped spamming messages"})
+		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Message: "stopped spamming messages"})
 	default:
-		return c.JSON(http.StatusBadRequest, Response{Error: "invalid cmd in request"})
+		return c.JSON(http.StatusBadRequest, jsonmodels.SpammerResponse{Error: "invalid cmd in request"})
 	}
-}
-
-// Response is the HTTP response of a spammer request.
-type Response struct {
-	Message string `json:"message"`
-	Error   string `json:"error"`
-}
-
-// Request contains the parameters of a spammer request.
-type Request struct {
-	Cmd  string `json:"cmd"`
-	IMIF string `json:"imif"`
-	MPM  int    `json:"mpm"`
 }

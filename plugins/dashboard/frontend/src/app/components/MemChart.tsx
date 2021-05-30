@@ -58,12 +58,12 @@ export default class MemChart extends React.Component<Props, any> {
                 <Card.Body>
                     <Card.Title>
                         Memory Usage{' '}
-                        {prettysize(mem.heap_inuse + (mem.heap_idle - mem.heap_released) + mem.m_span_inuse + mem.m_cache_inuse+mem.stack_sys)}
+                        {prettysize(mem.heap_alloc)}
                     </Card.Title>
                     <small>
                         GC Cycles: {mem.num_gc} (Last Cycle: {mem.last_pause_gc / 1000000}ms) - {' '}
                         Heap: {' '}
-                        [Obj: {mem.heap_objects}, In-Use: {prettysize(mem.heap_inuse)},
+                        [Obj: {mem.heap_objects}, In-Use: {prettysize(mem.heap_sys-mem.heap_idle)},
                         Retained: {prettysize(mem.heap_idle - mem.heap_released)}]
                     </small>
                     <Line height={50}

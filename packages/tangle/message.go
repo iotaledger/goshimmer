@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -128,9 +128,36 @@ func (id MessageID) Bytes() []byte {
 	return id[:]
 }
 
-// String returns the base58 encode of the MessageID.
-func (id MessageID) String() string {
+// Base58 returns a base58 encoded version of the MessageID.
+func (id MessageID) Base58() string {
 	return base58.Encode(id[:])
+}
+
+// String returns a human readable representation of the MessageID.
+func (id MessageID) String() string {
+	if id == EmptyMessageID {
+		return "MessageID(EmptyMessageID)"
+	}
+
+	if messageIDAlias, exists := messageIDAliases[id]; exists {
+		return "MessageID(" + messageIDAlias + ")"
+	}
+
+	return "MessageID(" + base58.Encode(id[:]) + ")"
+}
+
+// messageIDAliases contains a list of aliases registered for a set of MessageIDs.
+var messageIDAliases = make(map[MessageID]string)
+
+// RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
+// readable string instead of the base58 encoded version of itself.
+func RegisterMessageIDAlias(messageID MessageID, alias string) {
+	messageIDAliases[messageID] = alias
+}
+
+// UnregisterMessageIDAliases removes all aliases registered through the RegisterMessageIDAlias function.
+func UnregisterMessageIDAliases() {
+	messageIDAliases = make(map[MessageID]string)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,7 +171,7 @@ type MessageIDs []MessageID
 func (ids MessageIDs) ToStrings() []string {
 	result := make([]string, 0, len(ids))
 	for _, id := range ids {
-		result = append(result, id.String())
+		result = append(result, id.Base58())
 	}
 	return result
 }
@@ -237,7 +264,7 @@ func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err err
 	consumedBytes = marshalUtil.ReadOffset()
 
 	if len(bytes) != consumedBytes {
-		err = xerrors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
 	}
 	return
 }
@@ -250,27 +277,27 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 	// parse information
 	result = &Message{}
 	if result.version, err = marshalUtil.ReadByte(); err != nil {
-		err = xerrors.Errorf("failed to parse message version from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse message version from MarshalUtil: %w", err)
 		return
 	}
 
 	var parentsCount uint8
 	if parentsCount, err = marshalUtil.ReadByte(); err != nil {
-		err = xerrors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		return
 	}
 	if parentsCount < MinParentsCount || parentsCount > MaxParentsCount {
-		err = xerrors.Errorf("parents count %d not allowed: %w", parentsCount, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parents count %d not allowed: %w", parentsCount, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	var parentTypes uint8
 	if parentTypes, err = marshalUtil.ReadByte(); err != nil {
-		err = xerrors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
 		return
 	}
 	if bits.OnesCount8(parentTypes) < 1 {
-		err = xerrors.Errorf("invalid parent types, no strong parent specified: %b", parentTypes)
+		err = errors.Errorf("invalid parent types, no strong parent specified: %b", parentTypes)
 		return
 	}
 	bitMask := bitmask.BitMask(parentTypes)
@@ -279,7 +306,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 	for i := 0; i < int(parentsCount); i++ {
 		var parentID MessageID
 		if parentID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse parent %d from MarshalUtil: %w", i, err)
+			err = errors.Errorf("failed to parse parent %d from MarshalUtil: %w", i, err)
 			return
 		}
 		if bitMask.HasBit(uint(i)) {
@@ -291,14 +318,14 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		// verify that parents are sorted lexicographically ASC and unique
 		// if parentID is EmptyMessageID, bytes.Compare returns 0 in the first iteration
 		if bytes.Compare(previousParent.Bytes(), parentID.Bytes()) > 0 {
-			err = xerrors.Errorf("parents not sorted lexicographically ascending: %w", cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("parents not sorted lexicographically ascending: %w", cerrors.ErrParseBytesFailed)
 			return
 		}
 		previousParent = parentID
 	}
 
 	if len(result.strongParents) < MinStrongParentsCount {
-		err = xerrors.Errorf("strong parents count %d not allowed: %w", len(result.strongParents), cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("strong parents count %d not allowed: %w", len(result.strongParents), cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -396,6 +423,11 @@ func (m *Message) ID() (result MessageID) {
 	result = *m.id
 	m.idMutex.RUnlock()
 	return
+}
+
+// IDBytes implements Element interface in scheduler NodeQueue that returns the MessageID of the message in bytes.
+func (m *Message) IDBytes() []byte {
+	return m.ID().Bytes()
 }
 
 // Version returns the message version.
@@ -534,6 +566,11 @@ func (m *Message) Bytes() []byte {
 	return m.bytes
 }
 
+// Size returns the message size in bytes.
+func (m *Message) Size() int {
+	return len(m.Bytes())
+}
+
 // ObjectStorageKey returns the key of the stored message object.
 // This returns the bytes of the message ID.
 func (m *Message) ObjectStorageKey() []byte {
@@ -636,6 +673,8 @@ type MessageMetadata struct {
 	bookedTime         time.Time
 	eligible           bool
 	invalid            bool
+	finalized          bool
+	finalizedTime      time.Time
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
@@ -647,6 +686,8 @@ type MessageMetadata struct {
 	bookedTimeMutex         sync.RWMutex
 	eligibleMutex           sync.RWMutex
 	invalidMutex            sync.RWMutex
+	finalizedMutex          sync.RWMutex
+	finalizedTimeMutex      sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -687,11 +728,11 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		return
 	}
 	if result.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
 	if result.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
@@ -716,6 +757,14 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
+		return
+	}
+	if result.finalized, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse finalizedApprovalWeight flag of message metadata: %w", err)
+		return
+	}
+	if result.finalizedTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse finalized time of message metadata: %w", err)
 		return
 	}
 
@@ -955,6 +1004,43 @@ func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
 	return
 }
 
+// SetFinalized sets the message associated with this metadata as finalized by approval weight.
+// It returns true if the finalized status is modified. False otherwise.
+func (m *MessageMetadata) SetFinalized(finalized bool) (modified bool) {
+	m.finalizedMutex.Lock()
+	m.finalizedTimeMutex.Lock()
+	defer m.finalizedMutex.Unlock()
+	defer m.finalizedTimeMutex.Unlock()
+
+	if m.finalized == finalized {
+		return false
+	}
+
+	m.finalized = finalized
+	m.finalizedTime = clock.SyncedTime()
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// IsFinalized returns true if the message represented by this metadata is finalized by approval weight.
+// False otherwise.
+func (m *MessageMetadata) IsFinalized() (result bool) {
+	m.finalizedMutex.RLock()
+	defer m.finalizedMutex.RUnlock()
+
+	return m.finalized
+}
+
+// FinalizedTime returns the time when the message represented by this metadata was finalized.
+func (m *MessageMetadata) FinalizedTime() time.Time {
+	m.finalizedTimeMutex.RLock()
+	defer m.finalizedTimeMutex.RUnlock()
+
+	return m.finalizedTime
+}
+
 // Bytes returns a marshaled version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
@@ -981,6 +1067,8 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.BookedTime()).
 		WriteBool(m.IsEligible()).
 		WriteBool(m.IsInvalid()).
+		WriteBool(m.IsFinalized()).
+		WriteTime(m.FinalizedTime()).
 		Bytes()
 }
 
@@ -1005,6 +1093,8 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("eligible", m.IsEligible()),
 		stringify.StructField("invalid", m.IsInvalid()),
+		stringify.StructField("finalized", m.IsFinalized()),
+		stringify.StructField("finalizedTime", m.FinalizedTime()),
 	)
 }
 

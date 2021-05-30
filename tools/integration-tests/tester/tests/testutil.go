@@ -1,30 +1,33 @@
 package tests
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
 var (
 	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
 	ErrTransactionStateNotSameInTime = errors.New("transaction state did not materialize in time")
+	ErrNotSynced                     = errors.New("peers not synced")
 )
 
 const maxRetry = 50
@@ -59,7 +62,7 @@ func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMess
 	}
 
 	for i := 0; i < numMessages; i++ {
-		data := []byte(fmt.Sprintf("Test%d", i))
+		data := []byte(fmt.Sprintf("Test: %d", i))
 
 		peer := peers[rand.Intn(len(peers))]
 		id, sent := SendDataMessage(t, peer, data, i)
@@ -103,9 +106,16 @@ func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMes
 	return ids, addrBalance
 }
 
-// SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Address) (string, DataMessageSent) {
-	resp, err := peer.SendFaucetRequest(addr.Base58())
+// SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct. By default,
+// it pledges mana to the peer making the request.
+func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
+	peerID := base58.Encode(peer.ID().Bytes())
+	aManaPledgeID, cManaPledgeID := peerID, peerID
+	if len(manaPledgeIDs) > 1 {
+		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
+	}
+
+	resp, err := peer.SendFaucetRequest(addr.Base58(), framework.ParaPoWFaucetDifficulty, aManaPledgeID, cManaPledgeID)
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
 	sent := DataMessageSent{
@@ -123,7 +133,7 @@ func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[st
 			// check that the peer sees itself as synchronized
 			info, err := peer.Info()
 			require.NoError(t, err)
-			assert.Truef(t, info.Synced, "Node %s is not synced", peer)
+			assert.Truef(t, info.TangleTime.Synced, "Node %s is not synced", peer)
 		}
 
 		var idsSlice []string
@@ -164,15 +174,22 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	}
 
 	faucetPeer := peers[0]
+
+	// faucet keeps remaining amount on address 0
+	addrBalance[faucetPeer.Seed.Address(0).Address().Base58()][ledgerstate.ColorIOTA] = int64(framework.GenesisTokenAmount - framework.ParaFaucetPreparedOutputsCount*int(framework.ParaFaucetTokensPerRequest))
 	var i uint64
-	// faucet has split genesis output into n bits of 1337 each and remainder on n + 1
+	// faucet has split genesis output into n bits of 1337 each and remainder on 0
 	for i = 1; i < uint64(len(peers)); i++ {
 		faucetAddrStr := faucetPeer.Seed.Address(i).Address().Base58()
 		addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
 		// get faucet balances
-		unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{faucetAddrStr})
+		unspentOutputs, err := faucetPeer.PostAddressUnspentOutputs([]string{faucetAddrStr})
 		require.NoErrorf(t, err, "could not get unspent outputs on %s", faucetPeer.String())
-		addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
+		out, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
+		require.NoError(t, err)
+		balanceValue, exist := out.Balances().Get(ledgerstate.ColorIOTA)
+		assert.Equal(t, true, exist)
+		addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = int64(balanceValue)
 
 		// send funds to other peers
 		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{
@@ -225,23 +242,27 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
 	// prepare inputs
-	resp, err := from.GetUnspentOutputs([]string{inputAddr.Base58()})
+	resp, err := from.PostAddressUnspentOutputs([]string{inputAddr.Base58()})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", from.String())
 
 	// abort if no unspent outputs
-	if len(resp.UnspentOutputs[0].OutputIDs) == 0 {
+	if len(resp.UnspentOutputs[0].Outputs) == 0 {
 		return true, ""
 	}
-	availableValue := resp.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
+	out, err := resp.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
+	require.NoError(t, err)
+	balanceValue, exist := out.Balances().Get(ledgerstate.ColorIOTA)
+	assert.Equal(t, true, exist)
+	availableValue := int64(balanceValue)
 
 	// abort if the balance is not enough
 	if availableValue < sentValue {
 		return true, ""
 	}
 
-	out, err := ledgerstate.OutputIDFromBase58(resp.UnspentOutputs[0].OutputIDs[0].ID)
+	out, err = resp.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
 	require.NoErrorf(t, err, "invalid unspent outputs ID on %s", from.String())
-	input := ledgerstate.NewUTXOInput(out)
+	input := ledgerstate.NewUTXOInput(out.ID())
 	if inputAddr == outputAddr {
 		sentValue = availableValue
 	}
@@ -266,15 +287,14 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
 	// send transaction
-	txId, err = from.SendTransaction(txn.Bytes())
+	respTx, err := from.PostTransaction(txn.Bytes())
 	if err != nil {
 		fmt.Println(fmt.Errorf("could not send transaction on %s: %w", from.String(), err).Error())
 		return true, ""
 	}
-
+	txId = respTx.TransactionID
 	addrBalance[inputAddr.Base58()][ledgerstate.ColorIOTA] -= sentValue
 	addrBalance[outputAddr.Base58()][ledgerstate.ColorIOTA] += sentValue
-
 	return false, txId
 }
 
@@ -289,17 +309,17 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
 	// prepare inputs
-	resp, err := from.GetUnspentOutputs([]string{inputAddr.Base58()})
+	resp, err := from.PostAddressUnspentOutputs([]string{inputAddr.Base58()})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", from.String())
 
 	// abort if no unspent outputs
-	if len(resp.UnspentOutputs[0].OutputIDs) == 0 {
+	if len(resp.UnspentOutputs[0].Outputs) == 0 {
 		return false, ""
 	}
 
-	out, err := ledgerstate.OutputIDFromBase58(resp.UnspentOutputs[0].OutputIDs[0].ID)
-	require.NoErrorf(t, err, "invalid unspent outputs ID on %s", from.String())
-	input := ledgerstate.NewUTXOInput(out)
+	out, err := resp.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
+	require.NoError(t, err)
+	input := ledgerstate.NewUTXOInput(out.ID())
 
 	// prepare output
 	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
@@ -330,11 +350,12 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 	})
 
 	// send transaction
-	txId, err = from.SendTransaction(txn.Bytes())
+	respTx, err := from.PostTransaction(txn.Bytes())
 	if err != nil {
 		fmt.Println(fmt.Errorf("could not send transaction on %s: %w", from.String(), err).Error())
 		return true, ""
 	}
+	txId = respTx.TransactionID
 
 	// update balance list
 	updateBalanceList(addrBalance, balanceList, inputAddr.Base58(), outputAddr.Base58(), txn.Essence().Outputs()[0])
@@ -380,16 +401,18 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 	for _, peer := range peers {
 		for addr, b := range addrBalance {
 			sum := make(map[ledgerstate.Color]int64)
-			resp, err := peer.GetUnspentOutputs([]string{addr})
+			resp, err := peer.PostAddressUnspentOutputs([]string{addr})
 			require.NoError(t, err)
-			assert.Equal(t, addr, resp.UnspentOutputs[0].Address)
+			assert.Equal(t, addr, resp.UnspentOutputs[0].Address.Base58)
 
 			// calculate the balances of each colored coin
-			for _, unspents := range resp.UnspentOutputs[0].OutputIDs {
-				for _, respBalance := range unspents.Balances {
-					color := getColorFromString(respBalance.Color)
-					sum[color] += respBalance.Value
-				}
+			for _, unspents := range resp.UnspentOutputs[0].Outputs {
+				out, err2 := unspents.Output.ToLedgerstateOutput()
+				require.NoError(t, err2)
+				out.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+					sum[color] += int64(balance)
+					return true
+				})
 			}
 			// check balances
 			for color, value := range sum {
@@ -403,11 +426,10 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 // the given addresses have no UTXOs.
 func CheckAddressOutputsFullyConsumed(t *testing.T, peers []*framework.Peer, addrs []string) {
 	for _, peer := range peers {
-		resp, err := peer.GetUnspentOutputs(addrs)
+		resp, err := peer.PostAddressUnspentOutputs(addrs)
 		assert.NoError(t, err)
-		assert.Len(t, resp.Error, 0)
 		for i, utxos := range resp.UnspentOutputs {
-			assert.Len(t, utxos.OutputIDs, 0, "address %s should not have any UTXOs", addrs[i])
+			assert.Len(t, utxos.Outputs, 0, "address %s should not have any UTXOs", addrs[i])
 		}
 	}
 }
@@ -446,12 +468,11 @@ func False() *bool {
 // ExpectedTransaction defines the expected data of a transaction.
 // All fields are optional.
 type ExpectedTransaction struct {
-	// The optional input IDs to check against.
-	Inputs *[]valueutils.Input
+	Inputs []*jsonmodels.Input
 	// The optional outputs to check against.
-	Outputs *[]valueutils.Output
+	Outputs []*jsonmodels.Output
 	// The optional unlock blocks to check against.
-	UnlockBlocks *[]valueutils.UnlockBlock
+	UnlockBlocks []*jsonmodels.UnlockBlock
 }
 
 // CheckTransactions performs checks to make sure that all peers have received all transactions.
@@ -463,45 +484,53 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 			// check that the peer sees itself as synchronized
 			info, err := peer.Info()
 			require.NoError(t, err)
-			require.Truef(t, info.Synced, "peer '%s' not synced", peer)
+			require.Truef(t, info.TangleTime.Synced, "peer '%s' not synced", peer)
 		}
 
 		for txId, expectedTransaction := range transactionIDs {
-			resp, err := peer.GetTransactionByID(txId)
+			transaction, err := peer.GetTransaction(txId)
+			require.NoError(t, err)
+
+			inclusionState, err := peer.GetTransactionInclusionState(txId)
+			require.NoError(t, err)
+
+			metadata, err := peer.GetTransactionMetadata(txId)
+			require.NoError(t, err)
+
+			consensusData, err := peer.GetTransactionConsensusMetadata(txId)
 			require.NoError(t, err)
 
 			// check inclusion state
 			if expectedInclusionState.Confirmed != nil {
-				assert.Equal(t, *expectedInclusionState.Confirmed, resp.InclusionState.Confirmed, "confirmed state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Confirmed, inclusionState.Confirmed, "confirmed state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Conflicting != nil {
-				assert.Equal(t, *expectedInclusionState.Conflicting, resp.InclusionState.Conflicting, "conflict state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Conflicting, inclusionState.Conflicting, "conflict state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Solid != nil {
-				assert.Equal(t, *expectedInclusionState.Solid, resp.InclusionState.Solid, "solid state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Solid, metadata.Solid, "solid state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Rejected != nil {
-				assert.Equal(t, *expectedInclusionState.Rejected, resp.InclusionState.Rejected, "rejected state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Rejected, inclusionState.Rejected, "rejected state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Liked != nil {
-				assert.Equal(t, *expectedInclusionState.Liked, resp.InclusionState.Liked, "liked state doesn't match - tx %s - peer '%s'", txId, peer)
-			}
-			if expectedInclusionState.Preferred != nil {
-				assert.Equal(t, *expectedInclusionState.Preferred, resp.InclusionState.Preferred, "preferred state doesn't match - tx %s - peer '%s'", txId, peer)
+				assert.Equal(t, *expectedInclusionState.Liked, consensusData.Liked, "liked state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 
 			if expectedTransaction != nil {
 				if expectedTransaction.Inputs != nil {
-					assert.Equal(t, *expectedTransaction.Inputs, resp.Transaction.Inputs, "inputs do not match - tx %s - peer '%s'", txId, peer)
+					assert.Equal(t, expectedTransaction.Inputs, transaction.Inputs, "inputs do not match - tx %s - peer '%s'", txId, peer)
 				}
 				if expectedTransaction.Outputs != nil {
-					assert.Equal(t, *expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match - tx %s - peer '%s'", txId, peer)
+					assert.Equal(t, expectedTransaction.Outputs, transaction.Outputs, "outputs do not match - tx %s - peer '%s'", txId, peer)
 				}
 				if expectedTransaction.UnlockBlocks != nil {
-					assert.Equal(t, *expectedTransaction.UnlockBlocks, resp.Transaction.UnlockBlocks, "signatures do not match - tx %s - peer '%s'", txId, peer)
+					assert.Equal(t, expectedTransaction.UnlockBlocks, transaction.UnlockBlocks, "signatures do not match - tx %s - peer '%s'", txId, peer)
 				}
 			}
 		}
+		// Transaction metadata
+
 	}
 }
 
@@ -520,7 +549,7 @@ func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []stri
 			go func(p *framework.Peer) {
 				defer wg.Done()
 				for _, txID := range transactionIDs {
-					_, err := p.GetTransactionByID(txID)
+					_, err := p.GetTransaction(txID)
 					if err == nil {
 						missingMu.Lock()
 						m, has := missing[p.ID().String()]
@@ -568,30 +597,35 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 			go func(p *framework.Peer) {
 				defer wg.Done()
 				for txID := range transactionIDs {
-					tx, err := p.GetTransactionByID(txID)
+					inclusionState, err := p.GetTransactionInclusionState(txID)
+					if err != nil {
+						continue
+					}
+					metadata, err := p.GetTransactionMetadata(txID)
+					if err != nil {
+						continue
+					}
+					consensusData, err := p.GetTransactionConsensusMetadata(txID)
 					if err != nil {
 						continue
 					}
 					expInclState := transactionIDs[txID]
-					if expInclState.Confirmed != nil && *expInclState.Confirmed != tx.InclusionState.Confirmed {
+					if expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed {
 						continue
 					}
-					if expInclState.Conflicting != nil && *expInclState.Conflicting != tx.InclusionState.Conflicting {
+					if expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting {
 						continue
 					}
-					if expInclState.Finalized != nil && *expInclState.Finalized != tx.InclusionState.Finalized {
+					if expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized {
 						continue
 					}
-					if expInclState.Liked != nil && *expInclState.Liked != tx.InclusionState.Liked {
+					if expInclState.Liked != nil && *expInclState.Liked != consensusData.Liked {
 						continue
 					}
-					if expInclState.Preferred != nil && *expInclState.Preferred != tx.InclusionState.Preferred {
+					if expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected {
 						continue
 					}
-					if expInclState.Rejected != nil && *expInclState.Rejected != tx.InclusionState.Rejected {
-						continue
-					}
-					if expInclState.Solid != nil && *expInclState.Solid != tx.InclusionState.Solid {
+					if expInclState.Solid != nil && *expInclState.Solid != metadata.Solid {
 						continue
 					}
 					atomic.AddInt32(&counter, -1)
@@ -605,6 +639,24 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 		}
 	}
 	return ErrTransactionStateNotSameInTime
+}
+
+// AwaitSync waits until the given peers are in synced.
+func AwaitSync(t *testing.T, peers []*framework.Peer, maxAwait time.Duration) error {
+	s := time.Now()
+	for ; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
+		// check that the peer sees itself as synchronized
+		allSynced := true
+		for _, peer := range peers {
+			info, err := peer.Info()
+			require.NoError(t, err)
+			allSynced = allSynced && info.TangleTime.Synced
+		}
+		if allSynced {
+			return nil
+		}
+	}
+	return ErrNotSynced
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
@@ -632,4 +684,16 @@ func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 		}
 	}
 	return
+}
+
+func GetSnapshot() *ledgerstate.Snapshot {
+	snapshot := &ledgerstate.Snapshot{}
+	f, err := os.Open("/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin")
+	if err != nil {
+		panic(fmt.Sprintln("can not open snapshot file: ", err))
+	}
+	if _, err := snapshot.ReadFrom(f); err != nil {
+		panic(fmt.Sprintln("could not read snapshot file: ", err))
+	}
+	return snapshot
 }

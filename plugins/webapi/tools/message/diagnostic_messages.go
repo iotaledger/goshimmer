@@ -1,32 +1,34 @@
 package message
 
 import (
+	"encoding/csv"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // DiagnosticMessagesHandler runs the diagnostic over the Tangle.
 func DiagnosticMessagesHandler(c echo.Context) (err error) {
-	runDiagnosticMessages(c)
-	return
+	return runDiagnosticMessages(c)
 }
 
 // DiagnosticMessagesOnlyFirstWeakReferencesHandler runs the diagnostic over the Tangle.
 func DiagnosticMessagesOnlyFirstWeakReferencesHandler(c echo.Context) (err error) {
-	runDiagnosticMessagesOnFirstWeakReferences(c)
-	return
+	return runDiagnosticMessagesOnFirstWeakReferences(c)
 }
 
 // DiagnosticMessagesRankHandler runs the diagnostic over the Tangle
@@ -36,20 +38,19 @@ func DiagnosticMessagesRankHandler(c echo.Context) (err error) {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	runDiagnosticMessages(c, rank)
-	return
+	return runDiagnosticMessages(c, rank)
 }
 
 // region DiagnosticMessages code implementation /////////////////////////////////////////////////////////////////////////////////
 
-func runDiagnosticMessages(c echo.Context, rank ...uint64) {
+func runDiagnosticMessages(c echo.Context, rank ...uint64) (err error) {
 	// write Header and table description
 	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
 	c.Response().WriteHeader(http.StatusOK)
 
-	_, err := fmt.Fprintln(c.Response(), strings.Join(DiagnosticMessagesTableDescription, ","))
-	if err != nil {
-		panic(err)
+	csvWriter := csv.NewWriter(c.Response())
+	if err := csvWriter.Write(DiagnosticMessagesTableDescription); err != nil {
+		return errors.Errorf("failed to write table description row: %w", err)
 	}
 
 	startRank := uint64(0)
@@ -57,54 +58,58 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) {
 	if len(rank) > 0 {
 		startRank = rank[0]
 	}
-
+	var writeErr error
 	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
 		messageInfo := getDiagnosticMessageInfo(messageID)
 
 		if messageInfo.Rank >= startRank {
-			_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
-			if err != nil {
-				panic(err)
+			if err := csvWriter.Write(messageInfo.toCSVRow()); err != nil {
+				writeErr = errors.Errorf("failed to write message diagnostic info row: %w", err)
+				return
 			}
-			c.Response().Flush()
 		}
 
 		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
+	if writeErr != nil {
+		return writeErr
+	}
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		return errors.Errorf("csv writer failed after flush: %w", err)
+	}
 
-	c.Response().Flush()
+	return nil
 }
 
-func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) {
+func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 	// write Header and table description
 	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
 	c.Response().WriteHeader(http.StatusOK)
 
-	_, err := fmt.Fprintln(c.Response(), strings.Join(DiagnosticMessagesTableDescription, ","))
-	if err != nil {
-		panic(err)
+	csvWriter := csv.NewWriter(c.Response())
+	if err := csvWriter.Write(DiagnosticMessagesTableDescription); err != nil {
+		return errors.Errorf("failed to write table description row: %w", err)
 	}
-
+	var writeErr error
 	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
 		messageInfo := getDiagnosticMessageInfo(messageID)
 
 		if len(messageInfo.WeakApprovers) > 0 {
-			_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
-			if err != nil {
-				panic(err)
+			if err := csvWriter.Write(messageInfo.toCSVRow()); err != nil {
+				writeErr = errors.Errorf("failed to write message diagnostic info row: %w", err)
+				return
 			}
-			c.Response().Flush()
 
 			messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 				message.ForEachParent(func(parent tangle.Parent) {
-					messageInfo = getDiagnosticMessageInfo(parent.ID)
-					_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
-					if err != nil {
-						panic(err)
+					parentMessageInfo := getDiagnosticMessageInfo(parent.ID)
+					if err := csvWriter.Write(parentMessageInfo.toCSVRow()); err != nil {
+						writeErr = errors.Errorf("failed to write parent message diagnostic info row: %w", err)
+						return
 					}
-					c.Response().Flush()
 				})
 			})
 
@@ -118,8 +123,16 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) {
 			}
 		})
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
+	if writeErr != nil {
+		return writeErr
+	}
 
-	c.Response().Flush()
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		return errors.Errorf("csv writer failed after flush: %w", err)
+	}
+
+	return nil
 }
 
 // DiagnosticMessagesTableDescription holds the description of the diagnostic messages.
@@ -133,6 +146,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"ScheduledTime",
 	"BookedTime",
 	"OpinionFormedTime",
+	"FinalizedTime",
 	"StrongParents",
 	"WeakParents",
 	"StrongApprovers",
@@ -143,6 +157,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"Booked",
 	"Eligible",
 	"Invalid",
+	"Finalized",
 	"Rank",
 	"IsPastMarker",
 	"PastMarkers",
@@ -153,6 +168,12 @@ var DiagnosticMessagesTableDescription = []string{
 	"FMLI",
 	"PayloadType",
 	"TransactionID",
+	"PayloadOpinionFormed",
+	"TimestampOpinionFormed",
+	"MessageOpinionFormed",
+	"MessageOpinionTriggered",
+	"TimestampOpinion",
+	"TimestampLoK",
 }
 
 // DiagnosticMessagesInfo holds the information of a message.
@@ -166,6 +187,7 @@ type DiagnosticMessagesInfo struct {
 	ScheduledTime     time.Time
 	BookedTime        time.Time
 	OpinionFormedTime time.Time
+	FinalizedTime     time.Time
 	StrongParents     tangle.MessageIDs
 	WeakParents       tangle.MessageIDs
 	StrongApprovers   tangle.MessageIDs
@@ -176,6 +198,7 @@ type DiagnosticMessagesInfo struct {
 	Booked            bool
 	Eligible          bool
 	Invalid           bool
+	Finalized         bool
 	Rank              uint64
 	IsPastMarker      bool
 	PastMarkers       string // PastMarkers
@@ -186,11 +209,18 @@ type DiagnosticMessagesInfo struct {
 	FMLI              uint64 // FutureMarkers Lowest Index
 	PayloadType       string
 	TransactionID     string
+	// Consensus information
+	PayloadOpinionFormed    bool
+	TimestampOpinionFormed  bool
+	MessageOpinionFormed    bool
+	MessageOpinionTriggered bool
+	TimestampOpinion        string
+	TimestampLoK            string
 }
 
-func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo {
-	msgInfo := DiagnosticMessagesInfo{
-		ID: messageID.String(),
+func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInfo {
+	msgInfo := &DiagnosticMessagesInfo{
+		ID: messageID.Base58(),
 	}
 
 	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
@@ -205,28 +235,33 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo
 		}
 	})
 
-	branchID := ledgerstate.BranchID{}
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
 	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
-		msgInfo.BranchID = metadata.BranchID().String()
+		msgInfo.BranchID = branchID.String()
 		msgInfo.Scheduled = metadata.Scheduled()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
 		msgInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(messageID)
+		msgInfo.FinalizedTime = metadata.FinalizedTime()
 		msgInfo.Booked = metadata.IsBooked()
 		msgInfo.Eligible = metadata.IsEligible()
 		msgInfo.Invalid = metadata.IsInvalid()
-		msgInfo.Rank = metadata.StructureDetails().Rank
-		msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
-		msgInfo.PastMarkers = metadata.StructureDetails().PastMarkers.SequenceToString()
-		msgInfo.PMHI = uint64(metadata.StructureDetails().PastMarkers.HighestIndex())
-		msgInfo.PMLI = uint64(metadata.StructureDetails().PastMarkers.LowestIndex())
-		msgInfo.FutureMarkers = metadata.StructureDetails().FutureMarkers.SequenceToString()
-		msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
-		msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
-
-		branchID = metadata.BranchID()
+		msgInfo.Finalized = metadata.IsFinalized()
+		if metadata.StructureDetails() != nil {
+			msgInfo.Rank = metadata.StructureDetails().Rank
+			msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
+			msgInfo.PastMarkers = metadata.StructureDetails().PastMarkers.SequenceToString()
+			msgInfo.PMHI = uint64(metadata.StructureDetails().PastMarkers.HighestIndex())
+			msgInfo.PMLI = uint64(metadata.StructureDetails().PastMarkers.LowestIndex())
+			msgInfo.FutureMarkers = metadata.StructureDetails().FutureMarkers.SequenceToString()
+			msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
+			msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
+		}
 	}, false)
 
 	msgInfo.StrongApprovers = messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover)
@@ -234,11 +269,27 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo
 
 	msgInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(branchID).String()
 
+	// add consensus information
+	consensusMechanism := messagelayer.Tangle().Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
+	if consensusMechanism != nil {
+		consensusMechanism.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *fcob.MessageMetadata) {
+			msgInfo.PayloadOpinionFormed = messageMetadata.PayloadOpinionFormed()
+			msgInfo.TimestampOpinionFormed = messageMetadata.TimestampOpinionFormed()
+			msgInfo.MessageOpinionFormed = messageMetadata.MessageOpinionFormed()
+			msgInfo.MessageOpinionTriggered = messageMetadata.MessageOpinionTriggered()
+		})
+
+		consensusMechanism.Storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *fcob.TimestampOpinion) {
+			msgInfo.TimestampOpinion = timestampOpinion.Value.String()
+			msgInfo.TimestampLoK = timestampOpinion.LoK.String()
+		})
+	}
+
 	return msgInfo
 }
 
-func (d DiagnosticMessagesInfo) toCSV() (result string) {
-	row := []string{
+func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
+	row = []string{
 		d.ID,
 		d.IssuerID,
 		d.IssuerPublicKey,
@@ -268,11 +319,15 @@ func (d DiagnosticMessagesInfo) toCSV() (result string) {
 		fmt.Sprint(d.FMLI),
 		d.PayloadType,
 		d.TransactionID,
+		fmt.Sprint(d.PayloadOpinionFormed),
+		fmt.Sprint(d.TimestampOpinionFormed),
+		fmt.Sprint(d.MessageOpinionFormed),
+		fmt.Sprint(d.MessageOpinionTriggered),
+		d.TimestampOpinion,
+		d.TimestampLoK,
 	}
 
-	result = strings.Join(row, ",")
-
-	return
+	return row
 }
 
 // rankFromContext determines the marker rank from the rank parameter in an echo.Context.

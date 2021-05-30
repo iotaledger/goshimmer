@@ -1,12 +1,12 @@
-// Package database is a plugin that manages the pebble database (e.g. garbage collection).
+// Package database is a plugin that manages the RocksDB database (e.g. garbage collection).
 package database
 
 import (
-	"errors"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"

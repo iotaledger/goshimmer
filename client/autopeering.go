@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"net/http"
 
-	webapi_autopeering "github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
 const (
-	routeGetNeighbors = "autopeering/neighbors"
+	routeGetAutopeeringNeighbors = "autopeering/neighbors"
 )
 
-// GetNeighbors gets the chosen/accepted neighbors.
+// GetAutopeeringNeighbors gets the chosen/accepted neighbors.
 // If knownPeers is set, also all known peers to the node are returned additionally.
-func (api *GoShimmerAPI) GetNeighbors(knownPeers bool) (*webapi_autopeering.Response, error) {
-	res := &webapi_autopeering.Response{}
+func (api *GoShimmerAPI) GetAutopeeringNeighbors(knownPeers bool) (*jsonmodels.GetNeighborsResponse, error) {
+	res := &jsonmodels.GetNeighborsResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		if !knownPeers {
-			return routeGetNeighbors
+			return routeGetAutopeeringNeighbors
 		}
-		return fmt.Sprintf("%s?known=1", routeGetNeighbors)
+		return fmt.Sprintf("%s?known=1", routeGetAutopeeringNeighbors)
 	}(), nil, res); err != nil {
 		return nil, err
 	}

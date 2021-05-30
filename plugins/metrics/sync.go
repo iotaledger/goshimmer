@@ -7,14 +7,14 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var isSynced atomic.Bool
+var isTangleTimeSynced atomic.Bool
 
 func measureSynced() {
-	s := messagelayer.Tangle().Synced()
-	metrics.Events().Synced.Trigger(s)
+	tts := messagelayer.Tangle().TimeManager.Synced()
+	metrics.Events().TangleTimeSynced.Trigger(tts)
 }
 
-// Synced returns if the node is synced.
-func Synced() bool {
-	return isSynced.Load()
+// TangleTimeSynced returns if the node is synced based on tangle time.
+func TangleTimeSynced() bool {
+	return isTangleTimeSynced.Load()
 }

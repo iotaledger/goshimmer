@@ -1,6 +1,10 @@
 package messagelayer
 
-import "github.com/iotaledger/hive.go/configuration"
+import (
+	"time"
+
+	"github.com/iotaledger/hive.go/configuration"
+)
 
 // Parameters contains the configuration parameters used by the message layer.
 var Parameters = struct {
@@ -14,10 +18,16 @@ var Parameters = struct {
 		GenesisNode string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24" usage:"the node (base58 public key) that is allowed to attach to the genesis message"`
 	}
 
-	// FCOB contains parameters related to the fast consensus of barcelona.
+	// FCOB contains parameters related to the transaction quarantine time before applying (if necessary) FPC.
 	FCOB struct {
-		AverageNetworkDelay int `default:"5" usage:"the avg. network delay to use for FCoB rules"`
+		QuarantineTime int `default:"2" usage:"the duration for the first half of the quarantine time of the FCoB rule in sec"`
 	}
+
+	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
+	TangleTimeWindow time.Duration `default:"2m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+
+	// StartSynced defines if the node should start as synced.
+	StartSynced bool `default:"false" usage:"start as synced"`
 }{}
 
 // FPCParameters contains the configuration parameters used by the FPC consensus.
@@ -33,6 +43,18 @@ var FPCParameters = struct {
 
 	// QuerySampleSize defines how many nodes will be queried each round.
 	QuerySampleSize int `default:"21" usage:"Size of the voting quorum (k)"`
+
+	// TotalRoundsFinalization defines the amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
+	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)"`
+
+	// DRNGInstanceID the instanceID of the dRNG to be used with FPC
+	DRNGInstanceID uint32 `default:"1339" usage:"The instanceID of the dRNG to be used with FPC"`
+
+	// AwaitOffset defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
+	AwaitOffset int64 `default:"3" usage:"The max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed"`
+
+	// DefaultRandomness defines default randomness used by FPC when no random is received from the dRNG
+	DefaultRandomness float64 `default:"0.5" usage:"The default randomness used by FPC when no random is received from the dRNG"`
 }{}
 
 // StatementParameters contains the configuration parameters used by the FPC statements in the tangle.
@@ -41,10 +63,13 @@ var StatementParameters = struct {
 	WaitForStatement int `default:"5" usage:"the time in seconds for which the node wait for receiving the new statement"`
 
 	// WriteStatement defines if the node should write statements.
-	WriteStatement bool `default:"false" usage:"if the node should make statements"`
+	WriteStatement bool `default:"true" usage:"if the node should make statements"`
 
-	// ManaThreshold defines the Mana threshold to accept/write a statement.
-	ManaThreshold float64 `default:"1" usage:"Mana threshold to accept/write a statement"`
+	// ReadManaThreshold defines the Mana threshold to accept a statement.
+	ReadManaThreshold float64 `default:"1.0" usage:"Value describing the percentage of top mana nodes to accept a statement from"`
+
+	// WriteManaThreshold defines the Mana threshold to write a statement.
+	WriteManaThreshold float64 `default:"0.7" usage:"Value describing the percentage of top mana nodes that can write a statement"`
 
 	// CleanInterval defines the time interval [in minutes] for cleaning the statement registry.
 	CleanInterval int `default:"5" usage:"the time in minutes after which the node cleans the statement registry"`
@@ -53,27 +78,54 @@ var StatementParameters = struct {
 	DeleteAfter int `default:"5" usage:"the time in minutes after which older statements are deleted from the registry"`
 }{}
 
-// SyncBeaconFollowerParameters contains the configuration parameters used by the syncbeacon follower plugin.
-var SyncBeaconFollowerParameters = struct {
-	// FollowNodes defines the list of nodes this node should follow to determine its sync status.
-	FollowNodes []string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24,9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd" usage:"list of trusted nodes to follow their sync status"`
+// ManaParameters contains the configuration parameters used by the mana plugin.
+var ManaParameters = struct {
+	// EmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
+	EmaCoefficient1 float64 `default:"0.00003209" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
+	// EmaCoefficient2 defines the coefficient used for Effective Base Mana 2 (moving average) calculation.
+	EmaCoefficient2 float64 `default:"0.0057762265" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
+	// Decay defines the decay coefficient used for Base Mana 2 calculation.
+	Decay float64 `default:"0.00003209" usage:"decay coefficient used for Base Mana 2 calculation"`
+	// AllowedAccessPledge defines the list of nodes that access mana is allowed to be pledged to.
+	AllowedAccessPledge []string `usage:"list of nodes that access mana is allowed to be pledged to"`
+	// AllowedAccessFilterEnabled defines if access mana pledge filter is enabled.
+	AllowedAccessFilterEnabled bool `default:"false" usage:"list of nodes that consensus mana is allowed to be pledge to"`
+	// AllowedConsensusPledge defines the list of nodes that consensus mana is allowed to be pledged to.
+	AllowedConsensusPledge []string `usage:"list of nodes that consensus mana is allowed to be pledge to"`
+	// AllowedConsensusFilterEnabled defines if consensus mana pledge filter is enabled.
+	AllowedConsensusFilterEnabled bool `default:"false" usage:"if filtering on consensus mana pledge nodes is enabled"`
+	// EnableResearchVectors determines if research mana vector should be used or not. To use the Mana Research
+	// Grafana Dashboard, this should be set to true.
+	EnableResearchVectors bool `default:"false" usage:"enable mana research vectors"`
+	// PruneConsensusEventLogsInterval defines the interval to check and prune consensus event logs storage.
+	PruneConsensusEventLogsInterval time.Duration `default:"5m" usage:"interval to check and prune consensus event storage"`
+	// VectorsCleanupInterval defines the interval to clean empty mana nodes from the base mana vectors.
+	VectorsCleanupInterval time.Duration `default:"30m" usage:"interval to cleanup empty mana nodes from the mana vectors"`
+	// DebuggingEnabled defines if the mana plugin responds to queries while not being in sync or not.
+	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
+	// SnapshotResetTime defines if the aMana Snapshot should be reset to the current Time.
+	SnapshotResetTime bool `default:"false" usage:"when loading snapshot reset to current time when true"`
+}{}
 
-	// MaxTimeWindowSec defines the maximum time window for which a sync payload would be considerable.
-	MaxTimeWindowSec int `default:"10" usage:"the maximum time window for which a sync payload would be considerable"`
+// RateSetterParameters contains the configuration parameters used by the Rate Setter.
+var RateSetterParameters = struct {
+	// Initial defines the initial rate of rate setting.
+	Initial float64 `default:"100000" usage:"the initial rate of rate setting"`
+}{}
 
-	// MaxTimeOffline defines the maximum time a beacon node can stay without receiving updates.
-	MaxTimeOffline int `default:"70" usage:"the maximum time the node should stay synced without receiving updates"`
-
-	// CleanupInterval defines the interval that old beacon status are cleaned up.
-	CleanupInterval int `default:"10" usage:"the interval at which cleanups are done"`
-
-	// SyncPercentage defines the percentage of following nodes that have to be synced.
-	SyncPercentage float64 `default:"0.5" usage:"percentage of nodes being followed that need to be synced in order to consider the node synced"`
+// SchedulerParameters contains the configuration parameters used by the Scheduler.
+var SchedulerParameters = struct {
+	// MaxBufferSize defines the maximum buffer size (in bytes).
+	MaxBufferSize int `default:"100000000" usage:"maximum buffer size (in bytes)"` // 100 MB
+	// SchedulerRate defines the frequency to schedule a message.
+	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
 }{}
 
 func init() {
 	configuration.BindParameters(&Parameters, "messageLayer")
 	configuration.BindParameters(&FPCParameters, "fpc")
 	configuration.BindParameters(&StatementParameters, "statement")
-	configuration.BindParameters(&SyncBeaconFollowerParameters, "syncbeaconfollower")
+	configuration.BindParameters(&ManaParameters, "mana")
+	configuration.BindParameters(&RateSetterParameters, "rateSetter")
+	configuration.BindParameters(&SchedulerParameters, "scheduler")
 }

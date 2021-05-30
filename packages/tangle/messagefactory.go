@@ -5,13 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -27,6 +28,7 @@ type MessageFactory struct {
 	sequence      *kvstore.Sequence
 	localIdentity *identity.LocalIdentity
 	selector      TipSelector
+	powTimeout    time.Duration
 
 	worker        Worker
 	workerMutex   sync.RWMutex
@@ -51,6 +53,7 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
 		localIdentity: tangle.Options.Identity,
 		selector:      selector,
 		worker:        ZeroWorker,
+		powTimeout:    0 * time.Second,
 	}
 }
 
@@ -61,10 +64,15 @@ func (f *MessageFactory) SetWorker(worker Worker) {
 	f.worker = worker
 }
 
+// SetTimeout sets the timeout for PoW.
+func (f *MessageFactory) SetTimeout(timeout time.Duration) {
+	f.powTimeout = timeout
+}
+
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message, error) {
+func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -73,44 +81,56 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	}
 
 	f.issuanceMutex.Lock()
-	defer f.issuanceMutex.Unlock()
+
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
-		err = xerrors.Errorf("could not create sequence number: %w", err)
+		err = errors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 
-	strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
+	countStrongParents := 2
+	if len(parentsCount) > 0 {
+		countStrongParents = parentsCount[0]
+	}
+	strongParents, weakParents, err := f.selector.Tips(p, countStrongParents, 2)
 	if err != nil {
-		err = xerrors.Errorf("tips could not be selected: %w", err)
+		err = errors.Errorf("tips could not be selected: %w", err)
 		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
 		return nil, err
 	}
-
-	issuingTime := clock.SyncedTime()
-
-	// due to the ParentAge check we must ensure that we set the right issuing time.
-	if t != nil {
-		for _, parent := range strongParents {
-			t[0].Storage.Message(parent).Consume(func(msg *Message) {
-				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
-					time.Sleep(msg.IssuingTime().Sub(issuingTime) + 1*time.Nanosecond)
-					issuingTime = clock.SyncedTime()
-				}
-			})
-		}
-	}
+	issuingTime := f.getIssuingTime(strongParents, weakParents)
 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
+	startTime := time.Now()
+
 	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	for err != nil && time.Since(startTime) < f.powTimeout {
+		if p.Type() != ledgerstate.TransactionType {
+			strongParents, weakParents, err = f.selector.Tips(p, countStrongParents, 2)
+			if err != nil {
+				err = errors.Errorf("tips could not be selected: %w", err)
+				f.Events.Error.Trigger(err)
+				f.issuanceMutex.Unlock()
+				return nil, err
+			}
+		}
+
+		issuingTime = f.getIssuingTime(strongParents, weakParents)
+		nonce, err = f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	}
+
 	if err != nil {
-		err = xerrors.Errorf("pow failed: %w", err)
+		err = errors.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
 		return nil, err
 	}
+	f.issuanceMutex.Unlock()
 
 	// create the signature
 	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
@@ -127,6 +147,28 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	)
 	f.Events.MessageConstructed.Trigger(msg)
 	return msg, nil
+}
+
+func (f *MessageFactory) getIssuingTime(strongParents, weakParents MessageIDs) time.Time {
+	issuingTime := clock.SyncedTime()
+
+	// due to the ParentAge check we must ensure that we set the right issuing time.
+
+	for _, parent := range strongParents {
+		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
+			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+				issuingTime = msg.IssuingTime()
+			}
+		})
+	}
+	for _, parent := range weakParents {
+		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
+			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+				issuingTime = msg.IssuingTime()
+			}
+		})
+	}
+	return issuingTime
 }
 
 // Shutdown closes the MessageFactory and persists the sequence number.

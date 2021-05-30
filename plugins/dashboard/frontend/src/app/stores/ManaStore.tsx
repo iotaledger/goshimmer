@@ -14,7 +14,7 @@ class ManaMsg {
     time: number;
 }
 
-class Node {
+export class Node {
     shortNodeID: string;
     nodeID: string;
     mana: number;
@@ -517,7 +517,10 @@ export class ManaStore {
                             <Popover.Title as="h3">Mana Pledged</Popover.Title>
                             <Popover.Content>
                                 <div>Base Mana: <strong>+{displayManaUnit(ev.amount)}</strong></div>
-                                <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
+                                <div>With Transaction: <strong><a
+                                    onClick={() => navigator.clipboard.writeText(ev.txID)}
+                                    href={`/explorer/transaction/${ev.txID}`}
+                                >{ev.txID}</a></strong></div>
                                 <div>To NodeID:  <strong>{ev.nodeID}</strong></div>
                                 <div>Time of Pledge:  <strong>{ev.time.toLocaleTimeString()}</strong></div>
                             </Popover.Content>
@@ -556,7 +559,10 @@ export class ManaStore {
                             <Popover.Title as="h3">Mana Revoked</Popover.Title>
                             <Popover.Content>
                                 <div>Base Mana 1: <strong>-{displayManaUnit(ev.amount)}</strong></div>
-                                <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
+                                <div>With Transaction: <strong><a
+                                    onClick={() => navigator.clipboard.writeText(ev.txID)}
+                                    href={`/explorer/transaction/${ev.txID}`}
+                                >{ev.txID}</a></strong></div>
                                 <div>From NodeID:  <strong>{ev.nodeID}</strong></div>
                                 <div>Time of Revoke:  <strong>{ev.time.toLocaleTimeString()}</strong></div>
                             </Popover.Content>

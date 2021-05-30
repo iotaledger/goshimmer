@@ -18,13 +18,6 @@
     ],
     "port": 14626
   },
-  "syncbeaconfollower": {
-    "followNodes": [
-      "Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24",
-      "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
-    ],
-    "syncPercentage": 0.5
-  },
   "dashboard": {
     "bindAddress": "127.0.0.1:8081",
     "dev": false,
@@ -118,6 +111,7 @@
     "difficulty": 22,
     "numThreads": 1,
     "timeout": "1m"
+
   },
   "profiling": {
     "bindAddress": "127.0.0.1:6061"

@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/http"
 	"runtime"
@@ -10,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -23,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
@@ -59,6 +59,7 @@ func configure(plugin *node.Plugin) {
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
 	configureDrngLiveFeed()
+	configureChatLiveFeed()
 	configureVisualizer()
 	configureManaFeed()
 	configureServer()
@@ -66,6 +67,11 @@ func configure(plugin *node.Plugin) {
 
 func configureServer() {
 	server = echo.New()
+	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		Skipper:      middleware.DefaultSkipper,
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
+	}))
 	server.HideBanner = true
 	server.HidePort = true
 	server.Use(middleware.Recover())
@@ -94,6 +100,10 @@ func run(*node.Plugin) {
 	// run dRNG live feed if dRNG plugin is enabled
 	if !node.IsSkipped(drng.Plugin()) {
 		runDrngLiveFeed()
+	}
+	// run chat live feed if chat app is enabled
+	if !node.IsSkipped(chat.App()) {
+		runChatLiveFeed()
 	}
 
 	log.Infof("Starting %s ...", PluginName)
@@ -149,6 +159,8 @@ const (
 	MsgTypeMessage
 	// MsgTypeNeighborMetric is the type of the NeighborMetric message.
 	MsgTypeNeighborMetric
+	// MsgTypeComponentCounterMetric is the type of the component counter triggered per second.
+	MsgTypeComponentCounterMetric
 	// MsgTypeDrng is the type of the dRNG message.
 	MsgTypeDrng
 	// MsgTypeTipsMetric is the type of the TipsMetric message.
@@ -179,6 +191,8 @@ const (
 	MsgManaDashboardAddress
 	// MsgTypeMsgOpinionFormed defines a tip info message.
 	MsgTypeMsgOpinionFormed
+	// MsgTypeChat defines a chat message.
+	MsgTypeChat
 )
 
 type wsmsg struct {
@@ -193,31 +207,25 @@ type msg struct {
 }
 
 type nodestatus struct {
-	ID      string            `json:"id"`
-	Version string            `json:"version"`
-	Uptime  int64             `json:"uptime"`
-	Synced  bool              `json:"synced"`
-	Beacons map[string]Beacon `json:"beacons"`
-	Mem     *memmetrics       `json:"mem"`
+	ID         string      `json:"id"`
+	Version    string      `json:"version"`
+	Uptime     int64       `json:"uptime"`
+	Mem        *memmetrics `json:"mem"`
+	TangleTime tangleTime  `json:"tangleTime"`
 }
 
-// Beacon contains a sync beacons detailed status.
-type Beacon struct {
-	MsgID    string `json:"msg_id"`
-	SentTime int64  `json:"sent_time"`
-	Synced   bool   `json:"synced"`
+type tangleTime struct {
+	Synced    bool   `json:"synced"`
+	Time      int64  `json:"time"`
+	MessageID string `json:"messageID"`
 }
 
 type memmetrics struct {
-	Sys          uint64 `json:"sys"`
 	HeapSys      uint64 `json:"heap_sys"`
-	HeapInuse    uint64 `json:"heap_inuse"`
+	HeapAlloc    uint64 `json:"heap_alloc"`
 	HeapIdle     uint64 `json:"heap_idle"`
 	HeapReleased uint64 `json:"heap_released"`
 	HeapObjects  uint64 `json:"heap_objects"`
-	MSpanInuse   uint64 `json:"m_span_inuse"`
-	MCacheInuse  uint64 `json:"m_cache_inuse"`
-	StackSys     uint64 `json:"stack_sys"`
 	NumGC        uint32 `json:"num_gc"`
 	LastPauseGC  uint64 `json:"last_pause_gc"`
 }
@@ -228,6 +236,13 @@ type neighbormetric struct {
 	ConnectionOrigin string `json:"connection_origin"`
 	BytesRead        uint64 `json:"bytes_read"`
 	BytesWritten     uint64 `json:"bytes_written"`
+}
+
+type componentsmetric struct {
+	Store      uint64 `json:"store"`
+	Solidifier uint64 `json:"solidifier"`
+	Scheduler  uint64 `json:"scheduler"`
+	Booker     uint64 `json:"booker"`
 }
 
 func neighborMetrics() []neighbormetric {
@@ -265,39 +280,30 @@ func neighborMetrics() []neighbormetric {
 func currentNodeStatus() *nodestatus {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	status := &nodestatus{
-		Beacons: make(map[string]Beacon),
-	}
+	status := &nodestatus{}
 	status.ID = local.GetInstance().ID().String()
 
 	// node status
 	status.Version = banner.AppVersion
 	status.Uptime = time.Since(nodeStartAt).Milliseconds()
 
-	var beacons map[ed25519.PublicKey]messagelayer.Status
-	status.Synced, beacons = messagelayer.SyncStatus()
-
-	for publicKey, s := range beacons {
-		status.Beacons[publicKey.String()] = Beacon{
-			MsgID:    s.MsgID.String(),
-			SentTime: s.SentTime,
-			Synced:   s.Synced,
-		}
-	}
-
 	// memory metrics
 	status.Mem = &memmetrics{
-		Sys:          m.Sys,
 		HeapSys:      m.HeapSys,
-		HeapInuse:    m.HeapInuse,
+		HeapAlloc:    m.HeapAlloc,
 		HeapIdle:     m.HeapIdle,
 		HeapReleased: m.HeapReleased,
 		HeapObjects:  m.HeapObjects,
-		MSpanInuse:   m.MSpanInuse,
-		MCacheInuse:  m.MCacheInuse,
-		StackSys:     m.StackSys,
 		NumGC:        m.NumGC,
 		LastPauseGC:  m.PauseNs[(m.NumGC+255)%256],
+	}
+
+	// get TangleTime
+	lcm := messagelayer.Tangle().TimeManager.LastConfirmedMessage()
+	status.TangleTime = tangleTime{
+		Synced:    messagelayer.Tangle().TimeManager.Synced(),
+		Time:      lcm.Time.UnixNano(),
+		MessageID: lcm.MessageID.Base58(),
 	}
 	return status
 }

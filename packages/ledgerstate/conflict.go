@@ -5,14 +5,15 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
-	"golang.org/x/xerrors"
 )
 
 // region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,7 +35,7 @@ func NewConflictID(outputID OutputID) (conflictID ConflictID) {
 func ConflictIDFromBytes(bytes []byte) (conflictID ConflictID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -46,12 +47,12 @@ func ConflictIDFromBytes(bytes []byte) (conflictID ConflictID, consumedBytes int
 func ConflictIDFromBase58(base58String string) (conflictID ConflictID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded ConflictID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded ConflictID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if conflictID, _, err = ConflictIDFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse ConflictID from bytes: %w", err)
+		err = errors.Errorf("failed to parse ConflictID from bytes: %w", err)
 		return
 	}
 
@@ -62,10 +63,17 @@ func ConflictIDFromBase58(base58String string) (conflictID ConflictID, err error
 func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
 	conflictIDBytes, err := marshalUtil.ReadBytes(ConflictIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ConflictID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse ConflictID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(conflictID[:], conflictIDBytes)
+
+	return
+}
+
+// ConflictIDFromRandomness returns a random ConflictID which can for example be used for unit tests.
+func ConflictIDFromRandomness() (conflictID ConflictID) {
+	crypto.Randomness.Read(conflictID[:])
 
 	return
 }
@@ -116,7 +124,7 @@ func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs)
 func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictIDs, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ConflictIDs from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ConflictIDs from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -128,7 +136,7 @@ func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes 
 func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
 	conflictIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -136,7 +144,7 @@ func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictI
 	for i := uint64(0); i < conflictIDsCount; i++ {
 		conflictID, conflictIDErr := ConflictIDFromMarshalUtil(marshalUtil)
 		if conflictIDErr != nil {
-			err = xerrors.Errorf("failed to parse ConflictID: %w", conflictIDErr)
+			err = errors.Errorf("failed to parse ConflictID: %w", conflictIDErr)
 			return
 		}
 
@@ -216,7 +224,7 @@ func NewConflict(conflictID ConflictID) *Conflict {
 func ConflictFromBytes(bytes []byte) (conflict *Conflict, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflict, err = ConflictFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -228,12 +236,12 @@ func ConflictFromBytes(bytes []byte) (conflict *Conflict, consumedBytes int, err
 func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
 	conflict = &Conflict{}
 	if conflict.id, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 		return
 	}
 	memberCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	conflict.memberCount = int(memberCount)
@@ -244,7 +252,7 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Co
 // ConflictFromObjectStorage restores a Conflict object that was stored in the ObjectStorage.
 func ConflictFromObjectStorage(key []byte, data []byte) (conflict objectstorage.StorableObject, err error) {
 	if conflict, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse Conflict from bytes: %w", err)
+		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
 		return
 	}
 
@@ -407,7 +415,7 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 func ConflictMemberFromBytes(bytes []byte) (conflictMember *ConflictMember, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictMember, err = ConflictMemberFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -419,11 +427,11 @@ func ConflictMemberFromBytes(bytes []byte) (conflictMember *ConflictMember, cons
 func ConflictMemberFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
 	conflictMember = &ConflictMember{}
 	if conflictMember.conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 		return
 	}
 	if conflictMember.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID: %w", err)
+		err = errors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
 
@@ -434,7 +442,7 @@ func ConflictMemberFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 // object storage. It is used by the object storage, to create new instances of this entity.
 func ConflictMemberFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = ConflictMemberFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse ConflictMember from bytes: %w", err)
+		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
 		return
 	}
 
@@ -560,7 +568,7 @@ func (c CachedConflictMembers) Unwrap() (unwrappedConflictMembers []*ConflictMem
 // Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
 // is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
 // least one object was consumed.
-func (c CachedConflictMembers) Consume(consumer func(childBranch *ConflictMember), forceRelease ...bool) (consumed bool) {
+func (c CachedConflictMembers) Consume(consumer func(conflictMember *ConflictMember), forceRelease ...bool) (consumed bool) {
 	for _, cachedConflictMember := range c {
 		consumed = cachedConflictMember.Consume(func(output *ConflictMember) {
 			consumer(output)

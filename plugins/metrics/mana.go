@@ -8,7 +8,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/manarefresher"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PledgeLog is a log of base mana 1 and 2 pledges.
@@ -68,6 +70,9 @@ var (
 	// internal metrics for neighbor's mana
 	averageNeighborsAccess    atomic.Float64
 	averageNeighborsConsensus atomic.Float64
+
+	// internal metrics for delegated mana
+	delegationAmount atomic.Uint64
 
 	// internal metrics for pledges
 	pledges     = NodePledgeMap{}
@@ -145,6 +150,11 @@ func AveragePledgeAccess() mana.NodeMap {
 	return result
 }
 
+// DelegatedMana returns how much mana is currently delegated to the node.
+func DelegatedMana() uint64 {
+	return delegationAmount.Load()
+}
+
 // addPledge populates the pledge logs for the node.
 func addPledge(event *mana.PledgedEvent) {
 	pledgesLock.Lock()
@@ -174,8 +184,8 @@ func measureMana() {
 	consensusMap = tmp[mana.ConsensusMana]
 	cPer, _ := consensusMap.GetPercentile(local.GetInstance().ID())
 	consensusPercentile.Store(cPer)
-
-	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana)
+	neighbors := gossip.Manager().AllNeighbors()
+	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana, neighbors)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range neighborAccessMap {
 		accessSum += v
@@ -185,7 +195,7 @@ func measureMana() {
 	}
 	averageNeighborsAccess.Store(accessAvg)
 
-	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana)
+	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana, neighbors)
 	consensusSum, consensusAvg := 0.0, 0.0
 	for _, v := range neighborConsensusMap {
 		consensusSum += v
@@ -194,4 +204,6 @@ func measureMana() {
 		consensusAvg = consensusSum / float64(len(neighborConsensusMap))
 	}
 	averageNeighborsConsensus.Store(consensusAvg)
+
+	delegationAmount.Store(manarefresher.TotalDelegatedFunds())
 }

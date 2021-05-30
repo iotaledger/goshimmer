@@ -1,6 +1,6 @@
 package mana
 
-import "errors"
+import "github.com/cockroachdb/errors"
 
 var (
 	// ErrAlreadyUpdated is returned if mana is tried to be updated at a later time.

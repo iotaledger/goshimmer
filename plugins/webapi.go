@@ -13,8 +13,9 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana"
 	"github.com/iotaledger/goshimmer/plugins/webapi/message"
+	"github.com/iotaledger/goshimmer/plugins/webapi/snapshot"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/weightprovider"
 )
 
 // WebAPI contains the webapi endpoint plugins of a GoShimmer node.
@@ -27,8 +28,9 @@ var WebAPI = node.Plugins(
 	message.Plugin(),
 	autopeering.Plugin(),
 	info.Plugin(),
-	value.Plugin(),
 	tools.Plugin(),
 	mana.Plugin(),
 	ledgerstate.Plugin(),
+	snapshot.Plugin(),
+	weightprovider.Plugin(),
 )

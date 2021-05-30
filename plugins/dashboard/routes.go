@@ -1,12 +1,12 @@
 package dashboard
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
+	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 	"github.com/markbates/pkger"
 
@@ -92,7 +92,6 @@ func setupRoutes(e *echo.Echo) {
 	apiRoutes := e.Group("/api")
 
 	setupExplorerRoutes(apiRoutes)
-	setupFaucetRoutes(apiRoutes)
 	setupVisualizerRoutes(apiRoutes)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {

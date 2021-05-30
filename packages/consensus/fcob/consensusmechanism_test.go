@@ -19,13 +19,27 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
+var schedulerParams = tangle.SchedulerParams{
+	Rate:                        100 * time.Millisecond,
+	AccessManaRetrieveFunc:      getAccessMana,
+	TotalAccessManaRetrieveFunc: getTotalAccessMana,
+}
+
+func getAccessMana(_ identity.ID) float64 {
+	return 800
+}
+
+func getTotalAccessMana() float64 {
+	return 2000
+}
+
 func TestOpinionFormer_Scenario2(t *testing.T) {
 	LikedThreshold = 2 * time.Second
 	LocallyFinalizedThreshold = 2 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams))
 	defer testTangle.Shutdown()
 	testTangle.Setup()
 
@@ -51,9 +65,25 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 3,
 		})
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets["GENESIS"].address: genesisBalance,
+
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(tangle.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 
@@ -66,7 +96,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
 
 	// Message 1
-	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
 	outputs["A"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["A"].address)
 	outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
 	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
@@ -166,15 +196,19 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	payloadLiked[messages["9"].ID()] = false
 
 	testTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		t.Log("Message solid:", messageID)
+		t.Log("Message solid: ", messageID)
 	}))
 
 	testTangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		t.Log("Message scheduled:", messageID)
+		t.Log("Message scheduled: ", messageID)
 	}))
 
 	testTangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		t.Log("Message Booked:", messageID)
+		t.Log("Message Booked: ", messageID)
+	}))
+
+	testTangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Log("Tangle Error: ", err)
 	}))
 
 	var wg sync.WaitGroup
@@ -208,25 +242,42 @@ func TestOpinionFormer(t *testing.T) {
 
 	consensusProvider := NewConsensusMechanism()
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams))
 	defer testTangle.Shutdown()
 
 	messageA := newTestDataMessage("A")
 
 	wallets := createWallets(2)
 
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets[0].address: ledgerstate.NewColoredBalances(
-				map[ledgerstate.Color]uint64{
-					ledgerstate.ColorIOTA: 10000,
-				}),
+	genesisBalance := ledgerstate.NewColoredBalances(
+		map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 10000,
+		})
+
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(tangle.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets[0].address)),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)
 
-	input := ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	input := ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
 	output := ledgerstate.NewSigLockedSingleOutput(10000, wallets[0].address)
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 	tx1 := ledgerstate.NewTransaction(txEssence, wallets[0].unlockBlocks(txEssence))

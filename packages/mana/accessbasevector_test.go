@@ -411,12 +411,12 @@ func TestAccessBaseManaVector_GetMana(t *testing.T) {
 	assert.NoError(t, err)
 	randID := randNodeID()
 	mana, _, err := bmv.GetMana(randID)
-	assert.Equal(t, 0.0, mana)
-	assert.Error(t, err)
+	assert.Equal(t, 1.0, mana)
+	assert.NoError(t, err)
 
 	bmv.SetMana(randID, &AccessBaseMana{})
 	mana, _, err = bmv.GetMana(randID)
-	assert.Equal(t, 0.0, mana)
+	assert.Equal(t, 1.0, mana)
 	assert.NoError(t, err)
 
 	bmv.SetMana(randID, &AccessBaseMana{
@@ -533,7 +533,60 @@ func TestAccessBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	result, _, err = bmv.GetHighestManaNodes(20)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, len(result))
+	for index, value := range result[:8] {
+		assert.Equal(t, nodeIDs[9-index], value.ID)
+	}
+}
+
+func TestAccessBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
+
+	nodeIDs := make([]identity.ID, 10)
+
+	baseTime = time.Now()
+
+	for i := 0; i < 10; i++ {
+		nodeIDs[i] = randNodeID()
+		bmv.SetMana(nodeIDs[i], &AccessBaseMana{
+			BaseMana2:          float64(i),
+			EffectiveBaseMana2: float64(i),
+			LastUpdated:        baseTime,
+		})
+	}
+
+	// requesting minus value
+	result, _, err := bmv.GetHighestManaNodesFraction(-0.1)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(result))
+	assert.Equal(t, nodeIDs[9], result[0].ID)
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
+
+	// requesting the holders of top 5% of mana
+	result, _, err = bmv.GetHighestManaNodesFraction(0.1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, nodeIDs[9], result[0].ID)
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
+
+	// requesting holders of top 50% of mana
+	result, _, err = bmv.GetHighestManaNodesFraction(0.5)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(result))
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
 	for index, value := range result {
+		if index < 2 {
+			// it's greater than the next one
+			assert.True(t, value.Mana > result[index+1].Mana)
+		}
+		assert.Equal(t, nodeIDs[9-index], value.ID)
+	}
+
+	// requesting more, than there currently are in the vector
+	result, _, err = bmv.GetHighestManaNodesFraction(1.1)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(result))
+	for index, value := range result[:8] {
 		assert.Equal(t, nodeIDs[9-index], value.ID)
 	}
 }

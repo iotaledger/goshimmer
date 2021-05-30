@@ -30,7 +30,6 @@ goshimmer:
       context: ./
       dockerfile: Dockerfile
     container_name: iota_goshimmer
-    restart: unless-stopped
     command: >
       --node.enablePlugins=prometheus
       --autopeering.seed="base64:gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSyY="

@@ -3,6 +3,7 @@ export enum WSMsgType {
     MPSMetrics,
     Message,
     NeighborStats,
+    ComponentCounterMetrics,
     Drng,
     TipsMetrics,
     Vertex,
@@ -15,8 +16,10 @@ export enum WSMsgType {
     ManaInitPledge,
     ManaRevoke,
     ManaInitRevoke,
-    ManaInitDone
-
+    ManaInitDone,
+    MsgManaDashboardAddress,
+    MsgTypeMsgOpinionFormed,
+    Chat
 }
 
 export interface WSMessage {

@@ -5,27 +5,37 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 )
+
+// maxVerticesWithoutFutureMarker defines the amount of vertices in the DAG are allowed to have no future marker before
+// we spawn a new Sequence for the same SequenceAlias.
+const maxVerticesWithoutFutureMarker = 3000
 
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Sequence represents a set of ever increasing Indexes that are encapsulating a certain part of the DAG.
 type Sequence struct {
-	id                SequenceID
-	parentReferences  *ParentReferences
-	rank              uint64
-	lowestIndex       Index
-	highestIndex      Index
-	highestIndexMutex sync.RWMutex
+	id                               SequenceID
+	referencedMarkers                *ReferencedMarkers
+	referencingMarkers               *ReferencingMarkers
+	rank                             uint64
+	lowestIndex                      Index
+	highestIndex                     Index
+	newSequenceTrigger               uint64
+	maxPastMarkerGap                 uint64
+	verticesWithoutFutureMarker      uint64
+	verticesWithoutFutureMarkerMutex sync.RWMutex
+	highestIndexMutex                sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -35,11 +45,12 @@ func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequen
 	initialIndex := referencedMarkers.HighestIndex() + 1
 
 	return &Sequence{
-		id:               id,
-		parentReferences: NewParentReferences(referencedMarkers),
-		rank:             rank,
-		lowestIndex:      initialIndex,
-		highestIndex:     initialIndex,
+		id:                 id,
+		referencedMarkers:  NewReferencedMarkers(referencedMarkers),
+		referencingMarkers: NewReferencingMarkers(),
+		rank:               rank,
+		lowestIndex:        initialIndex,
+		highestIndex:       initialIndex,
 	}
 }
 
@@ -47,7 +58,7 @@ func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequen
 func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
 	if sequence, err = SequenceFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -59,23 +70,39 @@ func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes 
 func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
 	sequence = &Sequence{}
 	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
-	if sequence.parentReferences, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ParentReferences from MarshalUtil: %w", err)
+	if sequence.referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
+		return
+	}
+	if sequence.referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.newSequenceTrigger, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse newSequenceTrigger (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.maxPastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse maxPastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.highestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
 		return
 	}
 
@@ -83,9 +110,9 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 }
 
 // SequenceFromObjectStorage restores an Sequence that was stored in the object storage.
-func SequenceFromObjectStorage(key []byte, data []byte) (sequence objectstorage.StorableObject, err error) {
+func SequenceFromObjectStorage(key, data []byte) (sequence objectstorage.StorableObject, err error) {
 	if sequence, _, err = SequenceFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse Sequence from bytes: %w", err)
+		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
 		return
 	}
 
@@ -97,14 +124,14 @@ func (s *Sequence) ID() SequenceID {
 	return s.id
 }
 
-// ParentSequences returns the SequenceIDs of the parent Sequences in the Sequence DAG.
-func (s *Sequence) ParentSequences() SequenceIDs {
-	return s.parentReferences.SequenceIDs()
+// ReferencedMarkers returns a collection of Markers that were referenced by the given Index.
+func (s *Sequence) ReferencedMarkers(index Index) *Markers {
+	return s.referencedMarkers.Get(index)
 }
 
-// HighestReferencedParentMarkers returns a collection of Markers that were referenced by the given Index.
-func (s *Sequence) HighestReferencedParentMarkers(index Index) *Markers {
-	return s.parentReferences.HighestReferencedMarkers(index)
+// ReferencingMarkers returns a collection of Markers that reference the given Index.
+func (s *Sequence) ReferencingMarkers(index Index) *Markers {
+	return s.referencingMarkers.Get(index)
 }
 
 // Rank returns the rank of the Sequence (maximum distance from the root of the Sequence DAG).
@@ -143,7 +170,7 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 		if referencedMarkers.Size() > 1 {
 			referencedMarkers.Delete(s.id)
 
-			s.parentReferences.AddReferences(referencedMarkers, s.highestIndex)
+			s.referencedMarkers.Add(s.highestIndex, referencedMarkers)
 		}
 
 		s.SetModified()
@@ -153,13 +180,20 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 	return
 }
 
+// AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
+func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
+	s.referencingMarkers.Add(index, referencingMarker)
+
+	s.SetModified()
+}
+
 // String returns a human readable version of the Sequence.
 func (s *Sequence) String() string {
 	return stringify.Struct("Sequence",
 		stringify.StructField("ID", s.ID()),
-		stringify.StructField("ID", s.Rank()),
-		stringify.StructField("ID", s.LowestIndex()),
-		stringify.StructField("ID", s.HighestIndex()),
+		stringify.StructField("Rank", s.Rank()),
+		stringify.StructField("LowestIndex", s.LowestIndex()),
+		stringify.StructField("HighestIndex", s.HighestIndex()),
 	)
 }
 
@@ -169,7 +203,7 @@ func (s *Sequence) Bytes() []byte {
 }
 
 // Update is required to match the StorableObject interface but updates of the object are disabled.
-func (s *Sequence) Update(other objectstorage.StorableObject) {
+func (s *Sequence) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -182,12 +216,71 @@ func (s *Sequence) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Sequence into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the object storage.
 func (s *Sequence) ObjectStorageValue() []byte {
+	s.verticesWithoutFutureMarkerMutex.RLock()
+	defer s.verticesWithoutFutureMarkerMutex.RUnlock()
+
 	return marshalutil.New().
-		Write(s.parentReferences).
+		Write(s.referencedMarkers).
+		Write(s.referencingMarkers).
 		WriteUint64(s.rank).
+		WriteUint64(s.newSequenceTrigger).
+		WriteUint64(s.maxPastMarkerGap).
+		WriteUint64(s.verticesWithoutFutureMarker).
 		Write(s.lowestIndex).
 		Write(s.HighestIndex()).
 		Bytes()
+}
+
+func (s *Sequence) increaseVerticesWithoutFutureMarker() {
+	s.verticesWithoutFutureMarkerMutex.Lock()
+	defer s.verticesWithoutFutureMarkerMutex.Unlock()
+
+	s.verticesWithoutFutureMarker++
+
+	s.SetModified()
+}
+
+func (s *Sequence) decreaseVerticesWithoutFutureMarker() {
+	s.verticesWithoutFutureMarkerMutex.Lock()
+	defer s.verticesWithoutFutureMarkerMutex.Unlock()
+
+	s.verticesWithoutFutureMarker--
+
+	s.SetModified()
+}
+
+func (s *Sequence) newSequenceRequired(pastMarkerGap uint64) (newSequenceRequired bool) {
+	s.verticesWithoutFutureMarkerMutex.Lock()
+	defer s.verticesWithoutFutureMarkerMutex.Unlock()
+
+	s.SetModified()
+
+	// decrease the maxPastMarkerGap threshold with every processed message so it ultimately goes back to a healthy
+	// level after the triggering
+	if s.maxPastMarkerGap > 0 {
+		s.maxPastMarkerGap--
+	}
+
+	if pastMarkerGap > s.maxPastMarkerGap {
+		s.maxPastMarkerGap = pastMarkerGap
+	}
+
+	if s.verticesWithoutFutureMarker < maxVerticesWithoutFutureMarker {
+		return false
+	}
+
+	if s.newSequenceTrigger == 0 {
+		s.newSequenceTrigger = s.maxPastMarkerGap
+		return false
+	}
+
+	if pastMarkerGap < s.newSequenceTrigger {
+		return false
+	}
+
+	s.newSequenceTrigger = 0
+
+	return true
 }
 
 // code contract (make sure the type implements all required methods)
@@ -235,6 +328,9 @@ func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease
 
 // region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// SequenceIDLength represents the amount of bytes of a marshaled SequenceID.
+const SequenceIDLength = marshalutil.Uint64Size
+
 // SequenceID is the type of the identifier of a Sequence.
 type SequenceID uint64
 
@@ -242,7 +338,7 @@ type SequenceID uint64
 func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceIDBytes)
 	if sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -254,7 +350,7 @@ func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consume
 func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID SequenceID, err error) {
 	untypedSequenceID, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SequenceID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	sequenceID = SequenceID(untypedSequenceID)
@@ -293,7 +389,7 @@ func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
 func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceIDBytes)
 	if sequenceIDs, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceIDs from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceIDs from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -305,14 +401,14 @@ func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, cons
 func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceIDs SequenceIDs, err error) {
 	sequenceIDsCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SequenceIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SequenceIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	sequenceIDs = make(SequenceIDs, sequenceIDsCount)
 	for i := uint32(0); i < sequenceIDsCount; i++ {
 		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
 		if sequenceIDErr != nil {
-			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
+			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
 			return
 		}
 		sequenceIDs[sequenceID] = types.Void
@@ -353,11 +449,14 @@ func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
 // String returns a human readable version of the SequenceIDs.
 func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 	result := "SequenceIDs("
+	firstItem := true
 	for sequenceID := range s {
-		if len(result) != 12 {
+		if !firstItem {
 			result += ", "
 		}
 		result += strconv.FormatUint(uint64(sequenceID), 10)
+
+		firstItem = false
 	}
 	result += ")"
 
@@ -383,7 +482,7 @@ func NewSequenceAlias(bytes []byte) SequenceAlias {
 func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequencesID SequenceAlias, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(aggregatedSequencesIDBytes)
 	if aggregatedSequencesID, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -395,12 +494,12 @@ func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequen
 func SequenceAliasFromBase58(base58String string) (aggregatedSequencesID SequenceAlias, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded Alias (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded Alias (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if aggregatedSequencesID, _, err = SequenceAliasFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse Alias from bytes: %w", err)
+		err = errors.Errorf("failed to parse Alias from bytes: %w", err)
 		return
 	}
 
@@ -411,7 +510,7 @@ func SequenceAliasFromBase58(base58String string) (aggregatedSequencesID Sequenc
 func SequenceAliasFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedSequencesID SequenceAlias, err error) {
 	aggregatedSequencesIDBytes, err := marshalUtil.ReadBytes(SequenceAliasLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Alias (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Alias (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(aggregatedSequencesID[:], aggregatedSequencesIDBytes)
@@ -448,7 +547,7 @@ func (a SequenceAlias) String() (humanReadableSequenceAlias string) {
 // SequenceAliasMapping represents the mapping between a SequenceAlias and its SequenceID.
 type SequenceAliasMapping struct {
 	sequenceAlias SequenceAlias
-	sequenceID    SequenceID
+	sequenceIDs   *orderedmap.OrderedMap
 
 	objectstorage.StorableObjectFlags
 }
@@ -457,7 +556,7 @@ type SequenceAliasMapping struct {
 func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasMapping, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(mappingBytes)
 	if mapping, err = SequenceAliasMappingFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceAliasMapping from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceAliasMapping from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -467,23 +566,37 @@ func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasM
 
 // SequenceAliasMappingFromMarshalUtil unmarshals a SequenceAliasMapping using a MarshalUtil (for easier unmarshaling).
 func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mapping *SequenceAliasMapping, err error) {
-	mapping = &SequenceAliasMapping{}
+	mapping = &SequenceAliasMapping{
+		sequenceIDs: orderedmap.New(),
+	}
+
 	if mapping.sequenceAlias, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
 		return
 	}
-	if mapping.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+
+	sequenceIDCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = errors.Errorf("failed to SequenceID count from MarshalUtil (%v): %w", err, cerrors.ErrFatal)
 		return
+	}
+	for i := uint64(0); i < sequenceIDCount; i++ {
+		currentSequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
+		if sequenceIDErr != nil {
+			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
+			return
+		}
+
+		mapping.sequenceIDs.Set(currentSequenceID, types.Void)
 	}
 
 	return
 }
 
 // SequenceAliasMappingFromObjectStorage restores a SequenceAlias that was stored in the object storage.
-func SequenceAliasMappingFromObjectStorage(key []byte, data []byte) (mapping objectstorage.StorableObject, err error) {
+func SequenceAliasMappingFromObjectStorage(key, data []byte) (mapping objectstorage.StorableObject, err error) {
 	if mapping, _, err = SequenceAliasMappingFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceAliasMapping from bytes: %w", err)
+		err = errors.Errorf("failed to parse SequenceAliasMapping from bytes: %w", err)
 		return
 	}
 
@@ -496,8 +609,45 @@ func (s *SequenceAliasMapping) SequenceAlias() (sequenceAlias SequenceAlias) {
 }
 
 // SequenceID returns the SequenceID of the SequenceAliasMapping.
-func (s *SequenceAliasMapping) SequenceID() (sequenceID SequenceID) {
-	return s.sequenceID
+func (s *SequenceAliasMapping) SequenceID(referencedMarkers *Markers) (sequenceID SequenceID) {
+	s.sequenceIDs.ForEachReverse(func(key, value interface{}) bool {
+		if _, exists := referencedMarkers.Get(key.(SequenceID)); exists {
+			sequenceID = key.(SequenceID)
+			return false
+		}
+
+		return true
+	})
+
+	if sequenceID != 0 {
+		return
+	}
+
+	lastSequenceID, _, _ := s.sequenceIDs.Tail()
+	sequenceID = lastSequenceID.(SequenceID)
+
+	return
+}
+
+// RegisterMapping adds a mapping to a new SequenceID from the current SequenceAlias.
+func (s *SequenceAliasMapping) RegisterMapping(sequenceID SequenceID) (updated bool) {
+	if updated = s.sequenceIDs.Set(sequenceID, types.Void); updated {
+		s.SetModified()
+	}
+
+	return
+}
+
+// UnregisterMapping removed a mapping to a SequenceID from the current SequenceAlias.
+func (s *SequenceAliasMapping) UnregisterMapping(sequenceID SequenceID) (updated, emptied bool) {
+	if updated = s.sequenceIDs.Delete(sequenceID); !updated {
+		return
+	}
+
+	s.SetModified()
+	emptied = s.sequenceIDs.Size() == 0
+
+	return
 }
 
 // Bytes returns a marshaled version of the SequenceAliasMapping.
@@ -506,9 +656,16 @@ func (s *SequenceAliasMapping) Bytes() (marshaledSequenceAliasMapping []byte) {
 }
 
 func (s *SequenceAliasMapping) String() string {
+	sequenceIDs := make(SequenceIDs)
+	s.sequenceIDs.ForEach(func(key, value interface{}) bool {
+		sequenceIDs[key.(SequenceID)] = value.(types.Empty)
+
+		return true
+	})
+
 	return stringify.Struct("SequenceAliasMapping",
 		stringify.StructField("sequenceAlias", s.sequenceAlias),
-		stringify.StructField("sequenceID", s.sequenceID),
+		stringify.StructField("sequenceIDs", sequenceIDs),
 	)
 }
 
@@ -526,7 +683,15 @@ func (s *SequenceAliasMapping) ObjectStorageKey() (objectStorageKey []byte) {
 // ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
 // used as a key in the object storage.
 func (s *SequenceAliasMapping) ObjectStorageValue() (objectStorageValue []byte) {
-	return s.sequenceID.Bytes()
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint64(uint64(s.sequenceIDs.Size()))
+
+	s.sequenceIDs.ForEach(func(key, _ interface{}) bool {
+		marshalUtil.Write(key.(SequenceID))
+		return true
+	})
+
+	return marshalUtil.Bytes()
 }
 
 // code contract (make sure the type implements all required methods)
