@@ -300,7 +300,7 @@ func (n *Network) DoManualPeering(peers ...*Peer) error {
 		allOtherPeers := make([]*Peer, 0, len(peers)-1)
 		allOtherPeers = append(allOtherPeers, peers[:idx]...)
 		allOtherPeers = append(allOtherPeers, peers[idx+1:]...)
-		peersToAdd := ToPeerModels(allOtherPeers)
+		peersToAdd := ToKnownPeers(allOtherPeers)
 		if err := p.AddManualPeers(peersToAdd); err != nil {
 			return errors.Wrap(err, "failed to add manual peers via API")
 		}
@@ -325,7 +325,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 // WaitForManualpeering waits until all peers have reached together as neighbors.
 func (n *Network) WaitForManualpeering(peers ...*Peer) error {
 	getNeighborsFn := func(p *Peer) (int, error) {
-		peers, err := p.GetManualKnownPeers(manualpeering.WithOnlyConnectedPeers())
+		peers, err := p.GetManualPeers(manualpeering.WithOnlyConnectedPeers())
 		if err != nil {
 			return 0, errors.Wrap(err, "client failed to return manually connected peers")
 		}

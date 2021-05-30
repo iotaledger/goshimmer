@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
@@ -20,15 +20,7 @@ import (
 )
 
 func TestConsensus(t *testing.T) {
-	// backupParaWaitToKill := framework.ParaWaitToKill
-	// framework.ParaWaitToKill = 2*framework.ParaFCoBAverageNetworkDelay + 10
-
 	const numberOfPeers = 6
-
-	// // reset framework paras
-	// defer func() {
-	// 	framework.ParaWaitToKill = backupParaWaitToKill
-	// }()
 
 	// create two partitions with their own peers
 	n, err := f.CreateNetworkWithMana("conflict", numberOfPeers, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
@@ -61,8 +53,8 @@ func TestConsensus(t *testing.T) {
 
 	// sleep the avg. network delay so both partitions confirm their own first seen transaction
 	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
-		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay)
-	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
+		"preferred in their corresponding partition", framework.ParaFCoBQuarantineTime/time.Second)
+	time.Sleep(framework.ParaFCoBQuarantineTime)
 
 	// issue one transaction per peer to pledge mana to nodes
 	// leave one unspent output from splitting genesis transaction for further conflict creation
@@ -92,8 +84,8 @@ func TestConsensus(t *testing.T) {
 	}
 	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
 	// and 1 avg delay more to make sure each node has mana
-	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBAverageNetworkDelay)
-	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*2*time.Second + 5*time.Second)
+	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBQuarantineTime/time.Second)
+	time.Sleep(framework.ParaFCoBQuarantineTime*2 + 5*time.Second)
 
 	resp1, err := n.Peers()[0].GoShimmerAPI.GetAllMana()
 	require.NoError(t, err)
@@ -121,7 +113,7 @@ func TestConsensus(t *testing.T) {
 		conflictingTxIDs[i] = resp.TransactionID
 
 		// sleep to prefer the first one
-		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
+		time.Sleep(framework.ParaFCoBQuarantineTime)
 	}
 
 	log.Println("waiting for transactions to be available on all peers...")

@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
@@ -58,6 +59,7 @@ func configure(plugin *node.Plugin) {
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
 	configureDrngLiveFeed()
+	configureChatLiveFeed()
 	configureVisualizer()
 	configureManaFeed()
 	configureServer()
@@ -98,6 +100,10 @@ func run(*node.Plugin) {
 	// run dRNG live feed if dRNG plugin is enabled
 	if !node.IsSkipped(drng.Plugin()) {
 		runDrngLiveFeed()
+	}
+	// run chat live feed if chat app is enabled
+	if !node.IsSkipped(chat.App()) {
+		runChatLiveFeed()
 	}
 
 	log.Infof("Starting %s ...", PluginName)
@@ -185,6 +191,8 @@ const (
 	MsgManaDashboardAddress
 	// MsgTypeMsgOpinionFormed defines a tip info message.
 	MsgTypeMsgOpinionFormed
+	// MsgTypeChat defines a chat message.
+	MsgTypeChat
 )
 
 type wsmsg struct {

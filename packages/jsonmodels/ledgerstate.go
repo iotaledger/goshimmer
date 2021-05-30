@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
@@ -782,13 +780,13 @@ type TransactionInclusionState struct {
 }
 
 // NewTransactionInclusionState returns the TransactionInclusionState from the given ledgerstate.InclusionState.
-func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, id ledgerstate.TransactionID) *TransactionInclusionState {
+func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, id ledgerstate.TransactionID, conflicting bool) *TransactionInclusionState {
 	return &TransactionInclusionState{
 		TransactionID: id.Base58(),
 		Pending:       inclusionState == ledgerstate.Pending,
 		Confirmed:     inclusionState == ledgerstate.Confirmed,
 		Rejected:      inclusionState == ledgerstate.Rejected,
-		Conflicting:   len(messagelayer.Tangle().LedgerState.ConflictSet(id)) != 0,
+		Conflicting:   conflicting,
 	}
 }
 
