@@ -1,18 +1,22 @@
 # Consensus Mechanism
 
-- comparison to longest chain rule -> heaviest branch, deciding on conflicts
-- virtual voting
-- also finality/confirmation on individual messages/transactions  
 - workings together with FCoB (opinion setting) / FPC (pre-consensus, metastability breaker)
-- 
+- leaderless consensus
 
 ## FCoB
 
 ## FPC
 
-## Approval Weight
+## Approval Weight (AW)
+Approval weight represents the [weight](#active-consensus-mana) of branches (and messages), similar to the longest chain rule in Nakamoto consensus. However, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). This process is also known as virtual voting, and has been previously described as [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
+
+If a node realizes its opinion according to FCoB/FPC differs from that of the majority of weight, it has to do a reorg of its perception according to the heavier branch. In that way, all nodes will eventually converge to the heaviest branches, and, thus, resolve conflicts efficiently. 
+
+AW also serves as a probabilistic finality tool for individual messages and their payloads, i.e., transactions.
 
 ### Finalization
+TODO: add finality for branches?
+
 Finality must always be considered as a probabilistic finality in the sense that a message is included in the ledger with a very high probability. Two qualities desired from a finality criteria are fast confirmation rate and a high probability of non-reversibility. 
 A message is considered finalized or confirmed if one of the following holds:
 
@@ -22,7 +26,6 @@ A message is considered finalized or confirmed if one of the following holds:
 Conversely, a message that does not gather enough AW will not be finalized, and, thus, will be pending until it might be orphaned if not reachable via current tips anymore.
 
 ### Detailed Design
-
 Approval weight is tracked with the help of supporters that cast votes for branches and messages by means of making statements. This is necessary due to the changing nature of cMana over time, which prevents simply counting the AW per branch or message. 
 
 #### Definitions
