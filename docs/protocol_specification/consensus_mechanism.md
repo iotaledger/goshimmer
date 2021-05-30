@@ -94,4 +94,7 @@ AW(M) = supporters(B) dot supporters(M) dot 'active cMana nodes' / 'total active
 It is then evaluated whether it fulfills the [finalization](#finalization) criterion. If so, the marker's message is set to *confirmed* as well as all messages in its past cone.
 
 
-## Active Consensus Mana?
+## Active Consensus Mana
+It is important to track the currently *active* consensus mana in the system, such that the AW of a given message and/or branch reflects an up-to-date measure of cumulative weight. Specifically, the system must be resilient against a long-range attack.
+
+The active consensus mana tracks the set of the active nodes with some conensus mana. A node is considered to be active if it has issued any message in the last 30 minutes with respect to the TangleTime. The total active consensus mana is, therefore, the sum of all the consensus mana of each active node.  
