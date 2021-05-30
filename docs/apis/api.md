@@ -12,7 +12,6 @@ go get github.com/iotaledger/goshimmer/client
 ```
 
 Init the API by passing in the API URI of your GoShimmer node:
-// TODO add what the possible options are, either here or in the go docs
 ```
 goshimAPI := client.NewGoShimmerAPI("http://mynode:8080")
 ```

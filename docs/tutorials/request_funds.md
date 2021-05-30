@@ -24,7 +24,6 @@ messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5f
 
 ---- or
 
-//TODO add options and explain what they are
 // invoke go get github.com/iotaledger/goshimmer/client/wallet for wallet usage
 // get the given address from a wallet instance and
 connector := wallet.GenericConnector(wallet.NewWebConnector("http://localhost:8080"))
