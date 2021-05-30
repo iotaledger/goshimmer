@@ -4,7 +4,7 @@
 
 Nodes receive rewards for being good actors in a system that secures the network and provides Sybil protection. 
 
-For more details see the [Goshimmer mana specs](./001-mana.md).
+For more details see the [Goshimmer mana specs](./mana.md).
 
 ### Message layout
 
@@ -41,4 +41,4 @@ Decentralized random number generator to provide security, fast voting algorithm
 
 The **marker** tool is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle that needs to be traversed.
 
-For more details see the [Goshimmer marker specs](./003-markers.md).
+For more details see the [Goshimmer marker specs](./markers.md).
