@@ -213,14 +213,14 @@ func (c *Connection) txSubscribedAddresses(tx *ledgerstate.Transaction) map[[led
 // it parses SC transaction incoming from the ledger. Forwards it to the client if subscribed
 func (c *Connection) processConfirmedTransaction(tx *ledgerstate.Transaction) {
 	for _, addr := range c.txSubscribedAddresses(tx) {
-		c.log.Debugf("confirmed tx -> client -- addr: %s txid: %s", addr.Base58(), tx.ID().String())
+		c.log.Debugf("confirmed tx -> client -- addr: %s txid: %s", addr.Base58(), tx.ID().Base58())
 		c.pushTransaction(tx.ID(), addr)
 	}
 }
 
 func (c *Connection) processBookedTransaction(tx *ledgerstate.Transaction) {
 	for _, addr := range c.txSubscribedAddresses(tx) {
-		c.log.Debugf("booked tx -> client -- addr: %s. txid: %s", addr.Base58(), tx.ID().String())
+		c.log.Debugf("booked tx -> client -- addr: %s. txid: %s", addr.Base58(), tx.ID().Base58())
 		c.sendTxInclusionState(tx.ID(), addr, ledgerstate.Pending)
 	}
 }

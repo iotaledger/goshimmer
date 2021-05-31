@@ -1,68 +1,208 @@
-The dRNG module provides API to retrieve both information on the committees as well as the latest randomness.
+# dRNG API Methods
 
-```bash
-curl --request GET \
-  --url http://<address>:<port>/drng/info/committee
-```
+The dRNG APIs provide methods to retrieve basic info about dRNG committees and randomness as well as to broadcast collective randomness beacon.
 
-Should give a similar output:
+HTTP APIs:
 
-```json
-{
-  "committees": [
-    {
-      "instanceID": 1339,
-      "threshold": 4,
-      "identities": [
-        "GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo",
-        "68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt",
-        "Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1",
-        "75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs",
-        "CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf",
-        "7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16",
-        "CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx"
-      ],
-      "distributedPK": "901b0def227621364c784124cfa54a1e9b582a3867004511e6810307a8985ef84ff02541a9de4f30b8ff2d0b2972735c"
-    },
-    {
-      "instanceID": 1,
-      "threshold": 3,
-      "identities": [
-        "AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG",
-        "FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z",
-        "GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P",
-        "4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7",
-        "64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga"
-      ],
-      "distributedPK": "884bc65f1d023d84e2bd2e794320dc29600290ca7c83fefb2455dae2a07f2ae4f969f39de6b67b8005e3a328bb0196de"
-    }
-  ]
-}
-```
+* [/drng/collectiveBeacon](#drngcollectivebeacon)
+* [/drng/info/committee](#drnginfocommittee)
+* [/drng/info/randomness](#drnginforandomness)
+
+Client lib APIs:
+
+* [BroadcastCollectiveBeacon()](#client-lib---broadcastcollectivebeacon)
+* [GetRandomness()](#client-lib---getrandomness)
+* [GetCommittee()](#client-lib---getcommittee)
 
 
-```bash
-curl --request GET \
-  --url http://<address>:<port>/drng/info/randomness
-```
+## `/drng/collectiveBeacon`
 
-Should give a similar output:
+Method: `POST`
+
+Sends the given collective beacon (payload) by creating a message in the backend.
+
+### Parameters
+
+| **Parameter**            | `payload`      |
+|--------------------------|----------------|
+| **Required or Optional** | required       |
+| **Description**          | collective beacon payload   |
+| **Type**                 | base64 serialized bytes         |
+
+
+#### Body
 
 ```json
 {
-  "randomness": [
-    {
-      "instanceID": 1,
-      "round": 489295,
-      "timestamp": "2020-10-08T09:40:30.291940965Z",
-      "randomness": "Dh62wImUx3zQ7sjZ6ulje+NvvPY1DYaUFrTmCP7gOWLQIHHcAF5o9bvRy0tanoHb3q3OlNHKO/DmpDc+SB6A1g=="
-    },
-    {
-      "instanceID": 1339,
-      "round": 229624,
-      "timestamp": "2020-10-08T09:40:30.253587073Z",
-      "randomness": "EfQLVEwGlKrHhPAuZPd+JYXl19ZH03MW9m+D07UHjqnO/AuthbCYFY8AsVe4wu0s3P63HQ5N0dv5X+N5kvrIWw=="
-    }
-  ]
+  "payload": "collectiveBeaconBytes"
 }
 ```
+
+### Examples
+
+#### cURL
+
+```shell
+curl --location --request POST 'http://localhost:8080/drng/collectiveBeacon' \
+--header 'Content-Type: application/json' \
+--data-raw '{"payload": "collectiveBeaconBytes"}'
+```
+
+#### Client lib - `BroadcastCollectiveBeacon`
+
+Collective beacon can be broadcast using `BroadcastCollectiveBeacon(payload []byte) (string, error)`.
+
+```go
+msgId, err := goshimAPI.BroadcastCollectiveBeacon(payload)
+if err != nil {
+    // return error
+}
+```
+
+### Response example
+
+```shell
+{
+  "id": "messageID" 
+}
+```
+
+### Results
+
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `id`  | `string` | Message ID of beacon message. Omitted if error. |
+| `error`   | `string` | Error message. Omitted if success.    |
+
+
+## `/drng/info/committee`
+
+Returns the current dRNG committee used.
+
+### Parameters
+None.
+
+### Examples
+
+#### cURL
+
+```shell
+curl http://localhost:8080/drng/info/committee
+```
+
+#### Client lib - `GetCommittee`
+
+Available committees can be retrieved using `GetCommittee() (*jsonmodels.CommitteeResponse, error)`.
+
+```go
+committees, err := goshimAPI.GetCommittee()
+if err != nil {
+    // return error
+}
+
+// list committees
+for _, m := range committees.Committees {
+    fmt.Println("committee ID: ", m.InstanceID, "distributed PK:", m.DistributedPK)
+}
+```
+
+### Response example
+
+```shell
+{
+    "committees": [
+        {
+            "instanceID": 1,
+            "threshold": 3,
+            "identities": [
+                "AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG",
+                "FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z",
+                "GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P",
+                "4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7",
+                "64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga"
+            ],
+            "distributedPK": "884bc65f1d023d84e2bd2e794320dc29600290ca7c83fefb2455dae2a07f2ae4f969f39de6b67b8005e3a328bb0196de"
+        }
+    ]
+}
+```
+
+### Results
+
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `committees`  | `[]Committee` | A list of DRNG committees.   |
+| `error` | `string` | Error message. Omitted if success.     |
+
+* Type `Committee`
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `instanceID`  | `string` | The identifier of the dRAND instance.  |
+| `threshold`   | `string` | The threshold of the secret sharing protocol.    |
+| `identities`   | `float64` | The nodes' identities of the committee members.     |
+| `distributedPK`   | `string` | Distributed Public Key of the committee     |
+
+
+## `/drng/info/randomness`
+
+Returns the current DRNG randomness used.
+
+### Parameters
+None.
+
+### Examples
+
+#### cURL
+
+```shell
+curl http://localhost:8080/drng/info/randomness
+```
+
+#### client lib - `GetRandomness`
+
+Current randomness from known committees can be retrieved using `GetRandomness() (*jsonmodels.RandomnessResponse, 
+error)`.
+
+```go
+randomness, err := goshimAPI.GetRandomness()
+if err != nil {
+    // return error
+}
+
+// list randomness
+for _, m := range randomness.Randomness {
+    fmt.Println("committee ID: ", m.InstanceID, "Randomness:", m.Randomness)
+}
+```
+
+### Response example
+
+```shell
+{
+    "randomness": [
+        {
+            "instanceID": 1,
+            "round": 2461530,
+            "timestamp": "2021-05-24T18:06:20.394849622+02:00",
+            "randomness": "Kr5buSEtgLuPxZrax0HfoiougcOXS/75JOBu2Ld6peO77qdKiNyjDueXQZlPE0UCTKkVhehEvfIXhESK9DF3aQ=="
+        }
+    ]
+}
+```
+
+### Results
+
+|Return field | Type | Description|
+|:-----|:------|:------|
+| `randomness`  | `[]Randomness` | List of randomness  |
+| `error`   | `string` | Error message. Omitted if success.     |
+
+* Type `Randomness`
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `instanceID`  | `uint32` | The identifier of the dRAND instance.  |
+| `round`   | `uint64` | The current DRNG round.    |
+| `timestamp`   | `time.Time` | The timestamp of the current randomness message     |
+| `randomness`   | `[]byte` | The current randomness as a slice of bytes    |

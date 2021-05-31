@@ -40,7 +40,7 @@ func (u *UtxoDBLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	}
 	err := u.AddTransaction(tx)
 	if err == nil {
-		u.txConfirmedEvent.Trigger(tx)
+		go u.txConfirmedEvent.Trigger(tx)
 	}
 	return err
 }

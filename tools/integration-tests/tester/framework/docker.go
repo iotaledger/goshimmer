@@ -85,6 +85,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			"--logger.level=debug",
 			fmt.Sprintf("--messageLayer.fcob.quarantineTime=%d", ParaFCoBQuarantineTime/time.Second),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
+			fmt.Sprintf("--node.enablePlugins=%s", config.EnabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
 			fmt.Sprintf("--faucet.preparedOutputsCounts=%d", ParaFaucetPreparedOutputsCount),
