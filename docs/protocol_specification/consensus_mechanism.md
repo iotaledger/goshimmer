@@ -1,8 +1,6 @@
 # Consensus Mechanism
 
-- workings together with FCoB (opinion setting) / FPC (pre-consensus, metastability breaker)
-- leaderless consensus
-
+The consensus mechanism is necessary to achieve agreement among the nodes of the network. In case of a double spend, one way to decide which transaction should be considered valid would be to order them and pick the oldest one. However, the Tangle is only partially ordered. To tackle this problem in the context of the Tangle, we have designed an open and leaderless consensus mechanism. It combines a binary voting protocol (FPC) used as a pre-consensus to prevent metastable states and a virtual voting protcol (Approval Weigth) that provides finality similarly to the longest chain rule in Nakamoto consensus (i.e., heaviest branch).
 
 ## FPC
 
