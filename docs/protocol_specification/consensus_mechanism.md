@@ -8,20 +8,21 @@
 ## FPC
 
 ## Approval Weight (AW)
-Approval weight represents the [weight](#active-consensus-mana) of branches (and messages), similar to the longest chain rule in Nakamoto consensus. However, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). This process is also known as virtual voting, and has been previously described as [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
+Approval weight represents the [weight](#active-consensus-mana) of branches (and messages), similar to the longest chain rule in Nakamoto consensus. However, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). This process is also known as virtual voting, and has been previously described in [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
 
-If a node realizes its opinion according to FCoB/FPC differs from that of the majority of weight, it has to do a reorg of its perception according to the heavier branch. In that way, all nodes will eventually converge to the heaviest branches, and, thus, resolve conflicts efficiently. 
+If a node realizes its opinion according to FCoB/FPC differs from that of the majority of weight, it has to do a reorg of its perception according to the heavier branch. In that way, all nodes will eventually converge to the heaviest branches, and, thus, come to consensus efficiently. 
 
 AW also serves as a probabilistic finality tool for individual messages and their payloads, i.e., transactions.
 
 ### Finalization
-TODO: add finality for branches?
-
 Finality must always be considered as a probabilistic finality in the sense that a message is included in the ledger with a very high probability. Two qualities desired from a finality criteria are fast confirmation rate and a high probability of non-reversibility. 
-A message is considered finalized or confirmed if one of the following holds:
 
-1. Its approval weight is higher than *0.5*, and it belongs to the *MasterBranch*.
-2. It belongs to a branch *B* with conflicting branches, but the approval weight of any of those conflicting branches is at least *0.5* lower than *B*.
+A branch is considered finalized/confirmed if one of the following holds:
+1. It is the *MasterBranch*.
+2. Its approval weight is at least *0.5* higher than any of its conflicting branches. 
+
+A message is considered finalized/confirmed if the following holds:
+1. Its approval weight is higher than *0.5*, and its branch is confirmed.
 
 Conversely, a message that does not gather enough AW will not be finalized, and, thus, will be pending until it might be orphaned if not reachable via current tips anymore.
 
