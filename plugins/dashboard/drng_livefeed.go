@@ -36,7 +36,7 @@ func configureDrngLiveFeed() {
 		var name string
 		switch newRandomness.Committee().InstanceID {
 		case drng.Pollen:
-			name = "Pollen"
+			name = "DevNet"
 		case drng.XTeam:
 			name = "X-Team"
 		case drng.Community:
