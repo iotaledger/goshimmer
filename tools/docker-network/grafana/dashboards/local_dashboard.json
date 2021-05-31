@@ -16,8 +16,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 1,
-  "iteration": 1622218449596,
+  "id": 2,
+  "iteration": 1622490308556,
   "links": [],
   "panels": [
     {
@@ -4638,8 +4638,8 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "goshimmer:9311",
-          "value": "goshimmer:9311"
+          "text": "peer_master:9311",
+          "value": "peer_master:9311"
         },
         "datasource": "Prometheus",
         "definition": "label_values(iota_info_app, instance)",
@@ -4669,8 +4669,8 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "cRRMxLaa7XX",
-          "value": "cRRMxLaa7XX"
+          "text": "4AeXyZ26e4G",
+          "value": "4AeXyZ26e4G"
         },
         "datasource": "Prometheus",
         "definition": "label_values(iota_info_app, nodeID)",
@@ -4718,5 +4718,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 6
+  "version": 8
 }
