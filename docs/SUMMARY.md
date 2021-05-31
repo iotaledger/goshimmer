@@ -36,7 +36,7 @@ http://goshimmer.docs.iota.org/
   - [WebAPI](./apis/webAPI.md)
   - [Node info](./apis/info.md)
   - [Autopeering](./apis/autopeering.md)
-  - [Manual peering](./apis/manualpeering.md)
+  - [Manual peering](./apis/manual_peering.md)
   - [Communication layer](./apis/communication.md)
   - [Ledgerstate](./apis/ledgerstate.md)
   - [Mana](./apis/mana.md)
