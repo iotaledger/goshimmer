@@ -2,38 +2,47 @@ package diagnostics
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 var (
-	messageHeader = []string{"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
+	messageHeader = []string{
+		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
 		"ScheduledTime", "BookedTime", "OpinionFormedTime", "FinalizedTime", "StrongParents", "WeakParents",
 		"StrongApprovers", "WeakApprovers", "BranchID", "InclusionState", "Scheduled", "Booked", "Eligible", "Invalid",
 		"Finalized", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI", "PayloadType",
 		"TransactionID", "PayloadOpinionFormed", "TimestampOpinionFormed", "MessageOpinionFormed",
-		"MessageOpinionTriggered", "TimestampOpinion", "TimestampLoK"}
+		"MessageOpinionTriggered", "TimestampOpinion", "TimestampLoK",
+	}
 
 	tipsHeader = append([]string{"tipType"}, messageHeader...)
 
-	branchesHeader = []string{"ID", "ConflictSet", "IssuanceTime", "SolidTime", "OpinionFormedTime", "Liked",
-		"MonotonicallyLiked", "InclusionState", "Finalized", "LazyBooked", "TransactionLiked"}
+	branchesHeader = []string{
+		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "OpinionFormedTime", "Liked",
+		"MonotonicallyLiked", "InclusionState", "Finalized", "LazyBooked", "TransactionLiked",
+	}
 
-	utxoDagHeader = []string{"ID", "IssuanceTime", "SolidTime", "OpinionFormedTime", "AccessManaPledgeID",
+	utxoDagHeader = []string{
+		"ID", "IssuanceTime", "SolidTime", "OpinionFormedTime", "AccessManaPledgeID",
 		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "BranchLiked", "BranchMonotonicallyLiked",
-		"Conflicting", "InclusionState", "Finalized", "LazyBooked", "Liked", "LoK", "FCOB1Time", "FCOB2Time"}
+		"Conflicting", "InclusionState", "Finalized", "LazyBooked", "Liked", "LoK", "FCOB1Time", "FCOB2Time",
+	}
 
-	drngHeader = []string{"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
+	drngHeader = []string{
+		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
 		"ScheduledTime", "BookedTime", "OpinionFormedTime", "dRNGPayloadType", "InstanceID", "Round",
-		"PreviousSignature", "Signature", "DistributedPK"}
+		"PreviousSignature", "Signature", "DistributedPK",
+	}
 )
 
 func TestDiagnosticApis(t *testing.T) {
-	n, err := f.CreateNetwork("diagnostics_TestAPI", 1, 0, framework.CreateNetworkConfig{Faucet: false, Mana: false})
+	n, err := f.CreateNetwork("diagnostics_TestAPI", 1, framework.CreateNetworkConfig{Faucet: false, Mana: false})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 	time.Sleep(10 * time.Second)
@@ -113,5 +122,4 @@ func TestDiagnosticApis(t *testing.T) {
 	records, err = drng.ReadAll()
 	require.NoError(t, err, "error while reading tools/diagnostic/drng csv")
 	require.Equal(t, records[0], drngHeader, "unexpected drngHeader header")
-
 }
