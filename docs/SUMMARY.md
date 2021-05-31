@@ -28,6 +28,8 @@ http://goshimmer.docs.iota.org/
 - [Protocol specification](./protocol_specification.md)
   - [Protocol high level overview](./protocol_specification/protocol.md)
   - [Components](./protocol_specification/components.md)
+    - [Mana](./protocol_specification/mana.md)
+    - [Markers](./protocol_specification/markers.md)
   - [Layers](./protocol_specification/layers.md)
   - [Glossary](./protocol_specification/glossary.md)
 
