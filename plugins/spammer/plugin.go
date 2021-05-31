@@ -35,7 +35,7 @@ func Plugin() *node.Plugin {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	messageSpammer = spammer.New(messagelayer.Tangle().IssuePayload)
+	messageSpammer = spammer.New(messagelayer.Tangle().IssuePayload, log)
 	webapi.Server().GET("spammer", handleRequest)
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
@@ -174,6 +175,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
 	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
 	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
+	routeGroup.POST("/chat", chat.SendChatMessage)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")
