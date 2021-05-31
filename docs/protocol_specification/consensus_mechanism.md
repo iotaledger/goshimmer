@@ -15,16 +15,20 @@ The FPC is agnostic about the rest of the protocol, particularly when FPC should
 2. If only a sub set of nodes participate in FPC, they are more vulnerable to attack since the consensus mana held by this collection of nodes is potentially much smaller.
 Thus, since it cannot vote on everything, it must use subjective criterion to trigger voting which does not leave any group vulnerable to attack.
 
-For these reasons, we use FCoB to manage FPC.
+For these reasons, we use [FCoB](#FCoB) to manage FPC.
+
+
 
 ### FCoB
+
+The following flow diagram shows the current implemention of the FCoB protocol.
 
 ![FCoB](FCOB.png)
 
 Each opinion is associated to a *Level of Knowledge* (LoK) that defines how confident a node is with respect to the value of the opinion. We can distinguish 3 levels:
-- LoK 1: the node is able to form a local opinion but cannot be sure about the rest of the network;
-- LoK 2: the node has formed an opinion that shares with high probability with the rest of the network;
-- LoK 3: the node has finalized its opinion based on the confirmation given by the approval weight.
+* Level 1 means that the node only knows that it holds this opinion.
+* Level 2 means that the node knows that all nodes have this opinion too (with high probability).
+* Level 3 means that the node knows that all nodes have level 2 knowledge (with high probability).
 
 Within FCoB, there are three cases which are treated:
 1. No conflicts have been detected
