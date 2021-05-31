@@ -28,7 +28,7 @@ Keeps spammers from harming the network and allocates bandwidth during congested
 
 ### Ledger state
 
-The extended Unspent Transaction Output (UTXO) model with the Parallel Reality Ledger State enables nodes to efficiently keep track and update all the balances while managing potential conflicts.
+The Unspent Transaction Output (UTXO) model together with the Parallel Reality Ledger State enables nodes to efficiently keep track and update all the balances while managing potential conflicts.
 
 ### Consensus
 
