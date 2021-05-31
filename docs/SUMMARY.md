@@ -26,7 +26,7 @@ http://goshimmer.docs.iota.org/
   - [Object storage](./implementation_design/object_storage.md)
 
 - [Protocol specification](./protocol_specification.md)
-  - [Protocol high level overview](./protocol_speficiation/protocol.md)
+  - [Protocol high level overview](./protocol_specification/protocol.md)
   - [Components](./protocol_specification/components.md)
   - [Layers](./protocol_specification/layers.md)
   - [Glossary](./protocol_specification/glossary.md)
