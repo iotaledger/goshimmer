@@ -166,17 +166,17 @@ FOR p IN pSorted
 ```
 
 More specifically, after sending a peering request a node *shall*:
-* wait to get a [Peering Response](#Peering_Response) that could be positive or negative. 
+* wait to get a *Peering Response* that could be positive or negative. 
     * If positive, add the peer to its chosen neighbor list
     * If negative, filter out the peer from future requests until the next salt update or the end of the list of potential neighbors is reached.
     * If after `responseTimeout` no response is received, try again for a fixed `maxPeeringAttempts`. If not successful, filter out the peer from future requests until the next salt update or the end of the list of potential neighbors is reached.
 
 Similar to the previous case, in order to accept neighbors, every node with ID ownID *shall* generate a private salt `privSalt`.
 
-Upon reception of a [Peering Request](#Peering_Request), a peer *shall* make a decision to accept, reject or discard the request by:
-* verifying that the signature of the [Peering Request](#Peering_Request) is valid and discard the request otherwise;
+Upon reception of a *Peering Request*, a peer *shall* make a decision to accept, reject or discard the request by:
+* verifying that the signature of the *Peering Request* is valid and discard the request otherwise;
 * checking that the `timestamp` field is valid (i.e., not older than a given threshold `requestExpirationTime` specified by the node) and discard the request otherwise;
-* checking that the *mana* of the requester peer is within the own [Mana rank](#Mana_rank) and send back a *negative* [Peering Response](#Peering_Response) otherwise;
+* checking that the *mana* of the requester peer is within the own [Mana rank](#Mana_rank) and send back a *negative* *Peering Response* otherwise;
 * checking that the requestor salt matches its hash chain by:
     * taking the difference between the timestamp of the peering request and the time the initial salt was set, and then dividing this number by `saltUpdateInterval`, rounding down;
     * hashing the requester public salt as many times as the number of salt changes;
@@ -184,9 +184,9 @@ Upon reception of a [Peering Request](#Peering_Request), a peer *shall* make a d
 * applying a statistical test to the request defined as *s(remoteID, ownID, ζ_remote) < θ* for a fixed threshold θ, and discard it otherwise. 
     * this test determines the effectiveness of the brute force attack when an attacker tries to establish a connection with a desired peer;
     * with θ set to 0.01 an attacker has only 1% of chance of being successful;
-* accept the peering request by sending back a *positive* [Peering Response](#Peering_Response) if either one of the following conditions is satisfied, and send back a *negative* [Peering Response](#Peering_Response) otherwise:
+* accept the peering request by sending back a *positive* *Peering Response* if either one of the following conditions is satisfied, and send back a *negative* *Peering Response* otherwise:
     * the current size of the accepted neighbors list is smaller than *Floor(k/2)*; 
-    * the score defined as *s(ownID, remoteID, privSalt)* is lower than the current highest score among accepted neighbors. In this case, send a [Peering Drop](#Peering_Drop) to drop the accepted neighbor with the highest score replaced by the requester peer. 
+    * the score defined as *s(ownID, remoteID, privSalt)* is lower than the current highest score among accepted neighbors. In this case, send a *Peering Drop* to drop the accepted neighbor with the highest score replaced by the requester peer. 
 
 ### Neighbor Removal
 
@@ -195,4 +195,4 @@ Neighbor removal can occur for several reasons:
 * From the gossip layer, the connection with a neighbor is lost;
 * If some form of reputation or bad behavior is being monitored, a neighbor could be dropped in case of misbehavior. For example, a node could respond to the peering request but choose not to gossip received messages.
 
-Independently from the reason, when a peer drops a neighbor *shall* send a [Peering Drop](#Peering_Drop) and remove the neighbor from its requested/accepted neighbor list. Upon reception of a [Peering Drop](#Peering_Drop), the peer *shall* remove the dropping neighbor from its requested/accepted neighbor list.
+Independently from the reason, when a peer drops a neighbor *shall* send a *Peering Drop* and remove the neighbor from its requested/accepted neighbor list. Upon reception of a *Peering Drop*, the peer *shall* remove the dropping neighbor from its requested/accepted neighbor list.
