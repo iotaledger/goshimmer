@@ -1,7 +1,6 @@
 package diagnostics
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -15,11 +14,9 @@ var f *framework.Framework
 func TestMain(m *testing.M) {
 	var err error
 	f, err = framework.Instance()
-	// call the tests
-	code := m.Run()
-	err = f.DestroyFramework()
 	if err != nil {
-		fmt.Printf("error destroying framework: %v", err)
+		panic(err)
 	}
-	os.Exit(code)
+	// call the tests
+	os.Exit(m.Run())
 }
