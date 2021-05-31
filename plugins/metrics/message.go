@@ -86,7 +86,7 @@ var (
 	messageCountPerPayloadMutex syncutils.RWMutex
 
 	// Number of messages per component (store, scheduler, booker) type since start of the node.
-	//One for dashboard (reset every time is read), other for grafana with cumulative value.
+	// One for dashboard (reset every time is read), other for grafana with cumulative value.
 	messageCountPerComponentDashboard = make(map[ComponentType]uint64)
 	messageCountPerComponentGrafana   = make(map[ComponentType]uint64)
 
@@ -205,7 +205,6 @@ func increasePerComponentCounter(c ComponentType) {
 	// increase cumulative metrics
 	messageCountPerComponentDashboard[c]++
 	messageCountPerComponentGrafana[c]++
-
 }
 
 // measures the Component Counter value per second
