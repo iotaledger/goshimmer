@@ -21,11 +21,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const (
-	// DefaultAverageNetworkDelay contains the default average time it takes for a network to propagate through gossip.
-	DefaultAverageNetworkDelay = 5 * time.Second
-)
-
 var (
 	// ErrMessageWasNotBookedInTime is returned if a message did not get booked within the defined await time.
 	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
@@ -66,8 +61,8 @@ func configure(plugin *node.Plugin) {
 		})
 	}))
 
-	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent) {
-		plugin.LogInfof("message rejected in Parser: %s", ev.Message.ID().Base58())
+	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent, err error) {
+		plugin.LogInfof("message with %s rejected in Parser: %v", ev.Message.ID().Base58(), err)
 	}))
 
 	Tangle().FIFOScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -76,10 +71,6 @@ func configure(plugin *node.Plugin) {
 
 	Tangle().FIFOScheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
 		plugin.LogInfof("node %s is blacklisted in FIFOScheduler", nodeID.String())
-	}))
-
-	Tangle().RateSetter.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message discarded in RateSetter: %s", messageID.Base58())
 	}))
 
 	Tangle().Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -120,8 +111,8 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
 	}
 
-	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
-	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
+	fcob.LikedThreshold = time.Duration(Parameters.FCOB.QuarantineTime) * time.Second
+	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.QuarantineTime+Parameters.FCOB.QuarantineTime) * time.Second
 
 	configureApprovalWeight()
 }

@@ -9,11 +9,11 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second

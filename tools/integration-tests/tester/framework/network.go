@@ -119,6 +119,7 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
 	config.DisabledPlugins = disabledPluginsPeer
+	config.EnabledPlugins = enabledPluginsPeer
 	config.SnapshotFilePath = snapshotFilePath
 	if config.FPCRoundInterval == 0 {
 		config.FPCRoundInterval = 5
@@ -325,7 +326,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 // WaitForManualpeering waits until all peers have reached together as neighbors.
 func (n *Network) WaitForManualpeering(peers ...*Peer) error {
 	getNeighborsFn := func(p *Peer) (int, error) {
-		peers, err := p.GetManualKnownPeers(manualpeering.WithOnlyConnectedPeers())
+		peers, err := p.GetManualPeers(manualpeering.WithOnlyConnectedPeers())
 		if err != nil {
 			return 0, errors.Wrap(err, "client failed to return manually connected peers")
 		}

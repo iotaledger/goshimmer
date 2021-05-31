@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"

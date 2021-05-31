@@ -33,9 +33,11 @@ func TestRateSetter_Submit(t *testing.T) {
 
 	tangle := newTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 	defer tangle.Shutdown()
+	rateSetter := NewRateSetter(tangle)
+	defer rateSetter.Shutdown()
 
 	msg := newMessage(localNode.PublicKey())
-	assert.NoError(t, tangle.RateSetter.Issue(msg))
+	assert.NoError(t, rateSetter.Issue(msg))
 	time.Sleep(100 * time.Millisecond)
 }
 
@@ -45,10 +47,12 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 
 	tangle := newTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 	defer tangle.Shutdown()
+	rateSetter := NewRateSetter(tangle)
+	defer rateSetter.Shutdown()
 
 	messageDiscarded := make(chan MessageID, 1)
 	discardedCounter := events.NewClosure(func(id MessageID) { messageDiscarded <- id })
-	tangle.RateSetter.Events.MessageDiscarded.Attach(discardedCounter)
+	rateSetter.Events.MessageDiscarded.Attach(discardedCounter)
 
 	msg := NewMessage(
 		[]MessageID{EmptyMessageID},
@@ -60,7 +64,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 		0,
 		ed25519.Signature{},
 	)
-	assert.NoError(t, tangle.RateSetter.Issue(msg))
+	assert.NoError(t, rateSetter.Issue(msg))
 
 	assert.Eventually(t, func() bool {
 		select {

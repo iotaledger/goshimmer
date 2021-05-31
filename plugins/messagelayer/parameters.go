@@ -18,13 +18,13 @@ var Parameters = struct {
 		GenesisNode string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24" usage:"the node (base58 public key) that is allowed to attach to the genesis message"`
 	}
 
-	// FCOB contains parameters related to the fast consensus of barcelona.
+	// FCOB contains parameters related to the transaction quarantine time before applying (if necessary) FPC.
 	FCOB struct {
-		AverageNetworkDelay int `default:"2" usage:"the avg. network delay to use for FCoB rules"`
+		QuarantineTime int `default:"2" usage:"the duration for the first half of the quarantine time of the FCoB rule in sec"`
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
-	TangleTimeWindow time.Duration `default:"1m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+	TangleTimeWindow time.Duration `default:"2m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`
@@ -110,7 +110,7 @@ var ManaParameters = struct {
 // RateSetterParameters contains the configuration parameters used by the Rate Setter.
 var RateSetterParameters = struct {
 	// Initial defines the initial rate of rate setting.
-	Initial float64 `default:"20000" usage:"the initial rate of rate setting"`
+	Initial float64 `default:"100000" usage:"the initial rate of rate setting"`
 }{}
 
 // SchedulerParameters contains the configuration parameters used by the Scheduler.

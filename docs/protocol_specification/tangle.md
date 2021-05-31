@@ -303,11 +303,11 @@ In order to enable snapshotting based on time constraints rather than special me
 
 Having consensus on the creation time of messages enables not only total ordering but also new applications that require certain guarantees regarding time. Specifically, we use message timestamps to enforce timestamps in transactions, which may also be used in computing the Mana associated to a particular node ID.
 
-In this document, we propose a mechanism to achieve consensus on message timestamps by combining a synchronous and an asynchronous approach. While online nodes may leverage FPC to vote on timestamps, nodes that join the network at a later time use an approach based on the *approval weight* (described in section X.X) to determine the validity of timestamps. 
+In this document, we propose a mechanism to achieve consensus on message timestamps by combining a synchronous and an asynchronous approach. While online nodes may leverage FPC to vote on timestamps, nodes that join the network at a later time use an approach based on the *approval weight* (described in section X.X) to determine the validity of timestamps.
 
 
 ### 4.2.2.5 Clock synchronization
-Nodes need to share a reasonably similar perception of time in order to effectively judge the accuracy of timestamps. Therefore, we propose that nodes synchronize their clock on startup and resynchronize periodically every `60min` to counter [drift](https://en.wikipedia.org/wiki/Clock_drift) of local clocks. Instead of changing a nodes' system clock, we introduce an `offset` parameter to adjust for differences between *network time* and local time of a node. Initially, the [Network Time Protocol (NTP)](https://en.wikipedia.org/wiki/Network_Time_Protocol) ([Go implementation](https://github.com/beevik/ntp)) may be used to achieve this task. 
+Nodes need to share a reasonably similar perception of time in order to effectively judge the accuracy of timestamps. Therefore, we propose that nodes synchronize their clock on startup and resynchronize periodically every `60min` to counter [drift](https://en.wikipedia.org/wiki/Clock_drift) of local clocks. Instead of changing a nodes' system clock, we introduce an `offset` parameter to adjust for differences between *network time* and local time of a node. Initially, the [Network Time Protocol (NTP)](https://en.wikipedia.org/wiki/Network_Time_Protocol) ([Go implementation](https://github.com/beevik/ntp)) may be used to achieve this task.
 
 
 
@@ -372,7 +372,7 @@ What about the converse situation? Being out of sync will only delay the arrival
 
 Note that the resync mechanism only works because we only dislike a message if it is too old.  If we disliked messages whose timestamps were in the future, then it is possible that some nodes would like it, and others disliked it.  Suppose for example at 11:00:00 a node issues a message `X` with timestamp 12:00:00, and that then all nodes rejected this timestamp for being too far in the future.  Now suppose at 12:00:00 a new node `N` joins the network at receives `X`.  According to node `N`, the timestamp of `X` is accurate, and will accept it, while other nodes will reject it.  The resynchronization mechanism fails in this case.
 
-To protect against messages with a timestamp that is issued in the future, the [congestion control algorithm](Link) does not schedule the message until the timestamp is less than or equal to `CurrentTime`. Thus messages from the future will not be added to the Tangle until the appropriate time. If an attacker sends too many future messages, these messages may overload the scheduler's queues. However, this is a standard type of attack that the congestion control algorithm is prepared to handle.  
+To protect against messages with a timestamp that is issued in the future, the [congestion control algorithm](Link) does not schedule the message until the timestamp is less than or equal to `CurrentTime`. Thus messages from the future will not be added to the Tangle until the appropriate time. If an attacker sends too many future messages, these messages may overload the scheduler's queues. However, this is a standard type of attack that the congestion control algorithm is prepared to handle.
 
 
 ##  4.2.5 Tangle Time

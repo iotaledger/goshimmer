@@ -95,9 +95,9 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 			return
 		}
 
-		networkDelayObject, ok := messagePayload.(*Object)
+		networkDelayObject, ok := messagePayload.(*Payload)
 		if !ok {
-			app.LogInfo("could not cast payload to network delay object")
+			app.LogInfo("could not cast payload to network delay payload")
 
 			return
 		}
@@ -115,7 +115,7 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 	})
 }
 
-func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
+func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 	m := networkDelay{
 		NodeID:      myID,
 		ID:          networkDelayObject.id.String(),
@@ -129,10 +129,10 @@ func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
 	_ = remoteLogger.Send(m)
 }
 
-func sendPoWInfo(object *Object, powDelta time.Duration) {
+func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 	m := networkDelay{
 		NodeID:      myID,
-		ID:          object.id.String(),
+		ID:          payload.id.String(),
 		SentTime:    0,
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),

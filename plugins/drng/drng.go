@@ -42,7 +42,7 @@ func configureDRNG() *drng.DRNG {
 		plugin.LogWarn(err)
 	}
 
-	// configure pollen committee
+	// configure Pollen committee
 	pollenConf := &drng.Committee{
 		InstanceID:    Pollen,
 		Threshold:     uint8(config.Node().Int(CfgDRNGThreshold)),
