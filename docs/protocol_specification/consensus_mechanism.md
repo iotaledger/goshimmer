@@ -17,8 +17,6 @@ Thus, since it cannot vote on everything, it must use subjective criterion to tr
 
 For these reasons, we use [FCoB](#FCoB) to manage FPC.
 
-
-
 ### FCoB
 
 The following flow diagram shows the current implemention of the FCoB protocol.
@@ -42,6 +40,52 @@ Case 2 is an important special case of the FCoB rule. To see the need for this m
 Case 3 is the simplest case: since conflicts have been detected, we set the opinion according to the FCOB rule.  Then level is set according to the difference of `transaction.arrivalTime + Quarantine` and  `conflictTime`, the oldest arrival time of a conflicting transaction.  Essentially, the level measures how many network delays there are between these two values.   
 
 To prevent the FCoB rule from locking funds, we modify it to the following: a transaction `X` satisfied the FCoB rule if all transactions `Y` conflicting with `X`  before `arrivalTime(X)+Quarantine` has been rejected, i.e. has has opinion false and level 2 or 3.  With this rule, any conflicts which are rejected will not affect the opinion on future conflicts.  For simplicity case, all transactions falling under this case are treated as level 1.
+
+### FPC statements
+
+The FPC protocol requires nodes to directly query randomly selected nodes for conflict resolution. However, the information produced during such a voting mechanism is not stored in the Tangle, rather only lives within the node's local metadata. This can be a problem for nodes joining the network at a later stage, specifically when a conflict is considered marked as level of knowledge 3 by the majority of the network, a new node cannot query it anymore. 
+Moreover, since the quorum to query is randomly formed proportionally to cMana, the highest cMana nodes would need to reply to too many queries, as their probability to be included in the quorum of each node is high. 
+We propose an optimization of the protocol that, in turn, should solve both of the above issues. The idea is to let each node be free to choose whether writing its opinion on a given conflict and a given FPC round on the Tangle. 
+
+#### Payload
+We need to first define the FPC Statement payload:
+
+ ```go
+ type Statement struct {
+    ConflictsCount  uint32
+ 	Conflicts       Conflicts
+ 	TimestampsCount uint32
+ 	Timestamps      Timestamps
+ }
+ type Conflict struct {
+ 	ID transaction.ID
+ 	Opinion
+ }
+ type Timestamp struct {
+ 	ID tangle.MessageID
+ 	Opinion
+ }
+ ```
+
+#### Registry
+We also define an Opinion Registry where nodes can store and keep track of the opinions from each node after parsing FPC Statements.
+
+```go
+type Registry struct {
+    nodesView map[identity.ID]*View
+}
+type View struct {
+	NodeID     identity.ID
+	Conflicts  map[transaction.ID]Opinions
+	Timestamps map[tangle.MessageID]Opinions
+}
+```
+
+Given a nodeID and a ConflictID (or a messageID for timestamps), a node can check if it has the required opinion in its registry, and thus use that during its FPC round, or if not, send a traditional query to the node.
+
+#### Broadcasting an FPC Statement
+A node, after forming its opinion for 1 or more conflicts during an FPC round, can prepare an FPC statement containing the result of that round and issue it on the Tangle.
+Currently, any node that belongs to the top 70% cMana issues FPC statements. This parameter is local to the node and can be changed by the node operator.
 
 ## Approval Weight (AW)
 Approval weight represents the [weight](#active-consensus-mana) of branches (and messages), similar to the longest chain rule in Nakamoto consensus. However, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). This process is also known as virtual voting, and has been previously described in [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
