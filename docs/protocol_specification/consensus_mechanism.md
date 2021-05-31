@@ -3,9 +3,45 @@
 - workings together with FCoB (opinion setting) / FPC (pre-consensus, metastability breaker)
 - leaderless consensus
 
-## FCoB
 
 ## FPC
+
+The [Fast Probabilistic Consensus](https://arxiv.org/abs/1905.10895) (FPC) protocol is a binary voting protocol where each node starts with an initial opinion (a nulled boolean) on an object.  Nodes then exchange queries and responses about their opinions during several rounds, until each node terminates with a final boolean value.  
+
+FPC votes on two specific objects types: messages, in order to enforce timestamps (currently not yet enabled in GoShimmer), and transactions, in order to decide double spends. Additionally, applications can use FPC to query opinions about their opinion on other object types, although there is no guarantee that they will get a response.  
+
+The FPC is agnostic about the rest of the protocol, particularly when FPC should run and how the initial opinions are set. Deciding when FPC should run is a delicate question for two reasons.
+1. It is inefficient for FPC to vote on every single transaction.
+2. If only a sub set of nodes participate in FPC, they are more vulnerable to attack since the consensus mana held by this collection of nodes is potentially much smaller.
+Thus, since it cannot vote on everything, it must use subjective criterion to trigger voting which does not leave any group vulnerable to attack.
+
+For these reasons, we use [FCoB](#FCoB) to manage FPC.
+
+
+
+### FCoB
+
+The following flow diagram shows the current implemention of the FCoB protocol.
+
+![FCoB](FCOB.png)
+
+Each opinion is associated to a *Level of Knowledge* (LoK) that defines how confident a node is with respect to the value of the opinion. We can distinguish 3 levels:
+* Level 1 means that the node only knows that it holds this opinion.
+* Level 2 means that the node knows that all nodes have this opinion too (with high probability).
+* Level 3 means that the node knows that all nodes have level 2 knowledge (with high probability).
+
+Within FCoB, there are three cases which are treated:
+1. No conflicts have been detected
+2. Conflicts have been detected but have been rejected
+3. Conflicts have been detected are either pending or have been confirmed
+
+In Case 1 is the most common because conflicts will never arrive for most transactions. Without conflicts, the opinion can be only set provisionally since it might change if a conflict arrives later. The opinion is set to true, but the level is set as if a conflict arrived at that time.   For example, after a given `Quarantine` time has elapsed since arrival time, if a conflict does arrive the opinion will remain true with level at least 2.  
+
+Case 2 is an important special case of the FCoB rule. To see the need for this modification consider the following example.  Suppose someone issues a pair of conflicting transactions where both transactions are rejected by FPC. Then, if someone ever issues a new transaction consuming those funds, FCoB, strictly speaking would reject the new transaction, since it would conflict with a previous transaction.  Thus, if a pair of double spends are rejected, the funds would be locked.  This is undesirable and impractical behavior: an honest but malfunctioning wallet can issue double spends.  Moreover, tracking the locked funds would be onerous. 
+
+Case 3 is the simplest case: since conflicts have been detected, we set the opinion according to the FCOB rule.  Then level is set according to the difference of `transaction.arrivalTime + Quarantine` and  `conflictTime`, the oldest arrival time of a conflicting transaction.  Essentially, the level measures how many network delays there are between these two values.   
+
+To prevent the FCoB rule from locking funds, we modify it to the following: a transaction `X` satisfied the FCoB rule if all transactions `Y` conflicting with `X`  before `arrivalTime(X)+Quarantine` has been rejected, i.e. has has opinion false and level 2 or 3.  With this rule, any conflicts which are rejected will not affect the opinion on future conflicts.  For simplicity case, all transactions falling under this case are treated as level 1.
 
 ## Approval Weight (AW)
 Approval weight represents the [weight](#active-consensus-mana) of branches (and messages), similar to the longest chain rule in Nakamoto consensus. However, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). This process is also known as virtual voting, and has been previously described in [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
