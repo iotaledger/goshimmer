@@ -55,7 +55,7 @@ func execReclaimDelegatedFundsCommand(command *flag.FlagSet, cliWallet *wallet.W
 	if toAddress != nil {
 		options = append(options, reclaimoptions.ToAddress(toAddress.Base58()))
 	}
-
+	fmt.Println("Reclaiming delegated fund...")
 	_, err = cliWallet.ReclaimDelegatedFunds(options...)
 
 	if err != nil {

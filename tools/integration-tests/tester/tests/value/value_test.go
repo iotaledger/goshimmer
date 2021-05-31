@@ -16,14 +16,13 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 // TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestTransactionPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("transaction_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetwork("transaction_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -38,7 +37,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -55,7 +54,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -79,7 +78,8 @@ func TestTransactionPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, false, tests.ExpectedInclusionState{
@@ -92,7 +92,7 @@ func TestTransactionPersistence(t *testing.T) {
 
 // TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
 func TestValueColoredPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -107,7 +107,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(3 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(3 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether the transactions are available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -125,7 +125,7 @@ func TestValueColoredPersistence(t *testing.T) {
 		time.Sleep(2 * time.Second)
 	}
 	// wait for value messages to be gossiped
-	time.Sleep(3 * messagelayer.DefaultAverageNetworkDelay)
+	time.Sleep(3 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -149,7 +149,8 @@ func TestValueColoredPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -162,7 +163,7 @@ func TestValueColoredPersistence(t *testing.T) {
 
 // TestAlias_Persistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
 func TestAlias_Persistence(t *testing.T) {
-	n, err := f.CreateNetworkWithMana("alias_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetworkWithMana("alias_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -220,8 +221,9 @@ func TestAlias_Persistence(t *testing.T) {
 	}
 
 	// wait for peers to start
-	time.Sleep(20 * time.Second)
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 20*time.Second))
+	time.Sleep(5 * time.Second)
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
@@ -263,7 +265,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 // TestAlias_Delegation tests if a delegation output can be used to refresh mana.
 func TestAlias_Delegation(t *testing.T) {
-	n, err := f.CreateNetworkWithMana("alias_TestDelegation", 4, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetworkWithMana("alias_TestDelegation", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

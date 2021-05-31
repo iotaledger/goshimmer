@@ -106,18 +106,6 @@ func (s *Scheduler) Shutdown() {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {}
 
-// SubmitAndReady submits the message to the scheduler and marks it ready right away.
-func (s *Scheduler) SubmitAndReady(messageID MessageID) error {
-	// submit the message to the scheduler and marks it ready right away
-	if err := s.Submit(messageID); err != nil {
-		return err
-	}
-	if err := s.Ready(messageID); err != nil {
-		return err
-	}
-	return nil
-}
-
 // SetRate sets the rate of the scheduler.
 func (s *Scheduler) SetRate(rate time.Duration) {
 	// only update the ticker when the scheduler is running
@@ -164,27 +152,7 @@ func (s *Scheduler) Submit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-
-		if s.stopped.IsSet() {
-			err = ErrNotRunning
-			return
-		}
-
-		nodeID := identity.NewID(message.IssuerPublicKey())
-		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
-		if mana < MinMana {
-			err = errors.Errorf("%w: id=%s, mana=%f", schedulerutils.ErrInsufficientMana, nodeID, mana)
-			s.Events.MessageDiscarded.Trigger(messageID)
-			return
-		}
-
-		err = s.buffer.Submit(message, mana)
-		if err != nil {
-			s.Events.MessageDiscarded.Trigger(messageID)
-		}
-		if errors.Is(err, schedulerutils.ErrInboxExceeded) {
-			s.Events.NodeBlacklisted.Trigger(nodeID)
-		}
+		err = s.submit(message)
 	}) {
 		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
@@ -197,7 +165,8 @@ func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		s.buffer.Unsubmit(message)
+
+		s.unsubmit(message)
 	}) {
 		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
@@ -210,7 +179,24 @@ func (s *Scheduler) Ready(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		s.buffer.Ready(message)
+
+		s.ready(message)
+	}) {
+		err = errors.Errorf("failed to get message '%x' from storage", messageID)
+	}
+	return err
+}
+
+// SubmitAndReady submits the message to the scheduler and marks it ready right away.
+func (s *Scheduler) SubmitAndReady(messageID MessageID) (err error) {
+	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		err = s.submit(message)
+		if err == nil {
+			s.ready(message)
+		}
 	}) {
 		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
@@ -231,6 +217,36 @@ func (s *Scheduler) Clear() {
 	}
 }
 
+func (s *Scheduler) submit(message *Message) error {
+	if s.stopped.IsSet() {
+		return ErrNotRunning
+	}
+
+	nodeID := identity.NewID(message.IssuerPublicKey())
+	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
+	if mana < MinMana {
+		s.Events.MessageDiscarded.Trigger(message.ID())
+		return errors.Errorf("%w: id=%s, mana=%f", schedulerutils.ErrInsufficientMana, nodeID, mana)
+	}
+
+	err := s.buffer.Submit(message, mana)
+	if err != nil {
+		s.Events.MessageDiscarded.Trigger(message.ID())
+	}
+	if errors.Is(err, schedulerutils.ErrInboxExceeded) {
+		s.Events.NodeBlacklisted.Trigger(nodeID)
+	}
+	return err
+}
+
+func (s *Scheduler) unsubmit(message *Message) {
+	s.buffer.Unsubmit(message)
+}
+
+func (s *Scheduler) ready(message *Message) {
+	s.buffer.Ready(message)
+}
+
 func (s *Scheduler) schedule() *Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -241,30 +257,60 @@ func (s *Scheduler) schedule() *Message {
 		return nil
 	}
 
-	readyNode := false
+	// cache the access mana retrieval
+	manas := make(map[identity.ID]float64, s.buffer.NumActiveNodes())
+	getCachedMana := func(id identity.ID) float64 {
+		if mana, ok := manas[id]; ok {
+			return mana
+		}
+		mana := math.Max(s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(id), MinMana)
+		manas[id] = mana
+		return mana
+	}
+
+	var schedulingNode *schedulerutils.NodeQueue
+	rounds := math.MaxInt32
 	now := clock.SyncedTime()
 	for q := start; ; {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready and its issuing time is not in the future
-		hasReady := msg != nil && !now.Before(msg.IssuingTime())
-		// if the current node has enough deficit and the first message in its outbox is valid, we are done
-		if hasReady && s.getDeficit(q.NodeID()) >= float64(msg.Size()) {
-			break
-		}
-		// otherwise increase its deficit
-		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(q.NodeID())
-		// assure that the deficit increase is never too small
-		s.updateDeficit(q.NodeID(), math.Max(mana, MinMana))
-		if hasReady {
-			readyNode = true
+		if msg != nil && !now.Before(msg.IssuingTime()) {
+			// compute how often the deficit needs to be incremented until the message can be scheduled
+			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
+			r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
+			// find the first node that will be allowed to schedule a message
+			if r < rounds {
+				rounds = r
+				schedulingNode = q
+			}
 		}
 
-		// progress tho the next node that has ready messages
 		q = s.buffer.Next()
-		// if we reached the first node again without seeing any eligible nodes, break to prevent infinite loops
-		if !readyNode && q == start {
-			return nil
+		if q == start {
+			break
 		}
+	}
+
+	// if there is no node with a ready message, we cannot schedule anything
+	if schedulingNode == nil {
+		return nil
+	}
+
+	if rounds > 0 {
+		// increment every node's deficit for the required number of rounds
+		for q := start; ; {
+			s.updateDeficit(q.NodeID(), float64(rounds)*getCachedMana(q.NodeID()))
+
+			q = s.buffer.Next()
+			if q == start {
+				break
+			}
+		}
+	}
+
+	// increment the deficit for all nodes before schedulingNode one more time
+	for q := start; q != schedulingNode; q = s.buffer.Next() {
+		s.updateDeficit(q.NodeID(), getCachedMana(q.NodeID()))
 	}
 
 	// remove the message from the buffer and adjust node's deficit
@@ -286,7 +332,11 @@ loop:
 		case <-s.ticker.C:
 			// TODO: pause the ticker, if there are no ready messages
 			if msg := s.schedule(); msg != nil {
-				s.Events.MessageScheduled.Trigger(msg.ID())
+				s.tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
+					if messageMetadata.SetScheduled(true) {
+						s.Events.MessageScheduled.Trigger(msg.ID())
+					}
+				})
 			}
 
 		// on close, exit the loop

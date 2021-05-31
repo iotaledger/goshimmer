@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -143,10 +143,6 @@ func getInfo(c echo.Context) error {
 			Running:        messagelayer.Tangle().Scheduler.Running(),
 			Rate:           messagelayer.Tangle().Scheduler.Rate().String(),
 			NodeQueueSizes: nodeQueueSizes,
-		},
-		RateSetter: jsonmodels.RateSetter{
-			Rate: messagelayer.Tangle().RateSetter.Rate(),
-			Size: messagelayer.Tangle().RateSetter.Size(),
 		},
 	})
 }

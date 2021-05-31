@@ -8,7 +8,7 @@ export class Vertex {
     strongParentIDs: Array<string>;
     weakParentIDs: Array<string>;
     is_tip: boolean;
-    is_confirmed: boolean;
+    is_finalized: boolean;
     is_tx: boolean;
 }
 
@@ -26,7 +26,7 @@ const vertexSize = 20;
 export class VisualizerStore {
     @observable vertices = new ObservableMap<string, Vertex>();
     @observable verticesLimit = 1500;
-    @observable confirmed_count = 0;
+    @observable finalized_count = 0;
     @observable tips_count = 0;
     verticesIncomingOrder = [];
     draw: boolean = false;
@@ -109,9 +109,9 @@ export class VisualizerStore {
     addVertex = (vert: Vertex) => {        
         let existing = this.vertices.get(vert.id);
         if (existing) {
-            if (!existing.is_confirmed && vert.is_confirmed) {
-                existing.is_confirmed = true;
-                this.confirmed_count++;
+            if (!existing.is_finalized && vert.is_finalized) {
+                existing.is_finalized = true;
+                this.finalized_count++;
             }
             // update parent1 and parent2 ids since we might be dealing
             // with a vertex obj only created from a tip info
@@ -119,8 +119,8 @@ export class VisualizerStore {
             existing.weakParentIDs = vert.weakParentIDs;
             vert = existing;
         } else {
-            if (vert.is_confirmed) {
-                this.confirmed_count++;
+            if (vert.is_finalized) {
+                this.finalized_count++;
             }
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
@@ -166,8 +166,8 @@ export class VisualizerStore {
             if (!vert) {
                 continue;
             }
-            if (vert.is_confirmed) {
-                this.confirmed_count--;
+            if (vert.is_finalized) {
+                this.finalized_count--;
             }
             if (vert.is_tip) {
                 this.tips_count--;
@@ -191,8 +191,8 @@ export class VisualizerStore {
             if (this.selected && approveeId === this.selected.id) {
                 this.clearSelected();
             }
-            if (approvee.is_confirmed) {
-                this.confirmed_count--;
+            if (approvee.is_finalized) {
+                this.finalized_count--;
             }
             if (approvee.is_tip) {
                 this.tips_count--;
@@ -247,12 +247,17 @@ export class VisualizerStore {
         if (vert.is_tip) {
             return "#cb4b16";
         }
-        if (vert.is_tx && vert.is_confirmed) {
-            return "#fad02c";
-        }
-        // non-tx message confirmed
-        if (vert.is_confirmed) {
+        // finalized
+        if (vert.is_finalized) {
+            if (vert.is_tx) {
+                return "#fad02c";
+            }
             return "#6c71c4"
+        }
+        
+        // pending
+        if (vert.is_tx) {
+            return "#393e46"
         }
         return "#b9b7bd";
     }

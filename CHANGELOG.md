@@ -1,3 +1,27 @@
+# v0.6.4 - 2021-05-29
+* Add simple chat dApp
+* Improve client lib
+* Improve manual peering and add tutorial
+* Improve docs and tutorials
+* Improve congestion control
+* Fix mana dashboard deadlock
+* Fix several bugs
+* Update snapshot file with Pollen UTXO at 2021-05-29 10:22 UTC
+* Update JS dependencies
+* Update lo latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.6.3 - 2021-05-25
+* Improve congestion control
+* Fix builds
+* Fix dRNG shutdown deadlock
+* Fix panic on booking
+* Fix locking management on message factory
+* Fix several visualizer bugs
+* Update Grafana pie charts
+* Update snapshot file with Pollen UTXO at 2021-05-25 16:54 UTC
+* **Breaking**: bumps network and database versions
+
 # v0.6.2 - 2021-05-24
 * Add Congestion Control
 * Add global snapshot

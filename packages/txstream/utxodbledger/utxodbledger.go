@@ -1,11 +1,12 @@
 package utxodbledger
 
 import (
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
-
-	"github.com/iotaledger/hive.go/events"
-	"golang.org/x/xerrors"
 )
 
 // UtxoDBLedger implements txstream.Ledger by wrapping UTXODB
@@ -13,6 +14,7 @@ type UtxoDBLedger struct {
 	*utxodb.UtxoDB
 	txConfirmedEvent *events.Event
 	txBookedEvent    *events.Event
+	log              *logger.Logger
 }
 
 var txEventHandler = func(f interface{}, params ...interface{}) {
@@ -20,16 +22,22 @@ var txEventHandler = func(f interface{}, params ...interface{}) {
 }
 
 // New creates a new empty ledger
-func New() *UtxoDBLedger {
+func New(log *logger.Logger) *UtxoDBLedger {
 	return &UtxoDBLedger{
 		UtxoDB:           utxodb.New(),
 		txConfirmedEvent: events.NewEvent(txEventHandler),
 		txBookedEvent:    events.NewEvent(txEventHandler),
+		log:              log.Named("txstream/UtxoDBLedger"),
 	}
 }
 
 // PostTransaction posts a transaction to the ledger
 func (u *UtxoDBLedger) PostTransaction(tx *ledgerstate.Transaction) error {
+	_, ok := u.UtxoDB.GetTransaction(tx.ID())
+	if ok {
+		u.log.Debugf("PostTransaction: tx already in ledger: %s", tx.ID().Base58())
+		return nil
+	}
 	err := u.AddTransaction(tx)
 	if err == nil {
 		u.txConfirmedEvent.Trigger(tx)

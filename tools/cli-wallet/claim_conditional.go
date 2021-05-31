@@ -27,6 +27,7 @@ func execClaimConditionalCommand(command *flag.FlagSet, cliWallet *wallet.Wallet
 		printUsage(command)
 	}
 
+	fmt.Println("Claiming conditionally owned funds... [this might take a while]")
 	_, err = cliWallet.ClaimConditionalFunds(
 		claimconditionaloptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
 		claimconditionaloptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),

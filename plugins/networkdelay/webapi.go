@@ -13,12 +13,12 @@ import (
 )
 
 func configureWebAPI() {
-	webapi.Server().POST("networkdelay", broadcastNetworkDelayObject)
+	webapi.Server().POST("networkdelay", broadcastNetworkDelayPayload)
 }
 
-// broadcastNetworkDelayObject creates a message with a network delay object and
+// broadcastNetworkDelayPayload creates a message with a network delay object and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
-func broadcastNetworkDelayObject(c echo.Context) error {
+func broadcastNetworkDelayPayload(c echo.Context) error {
 	// generate random id
 	rand.Seed(time.Now().UnixNano())
 	var id [32]byte
@@ -28,16 +28,16 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 
 	now := clock.SyncedTime().UnixNano()
 
-	obj := NewObject(id, now)
+	payload := NewPayload(id, now)
 
 	nowWithoutClock := time.Now()
 
-	msg, err := messagelayer.Tangle().IssuePayload(obj)
+	msg, err := messagelayer.Tangle().IssuePayload(payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	sendPoWInfo(obj, time.Since(nowWithoutClock))
+	sendPoWInfo(payload, time.Since(nowWithoutClock))
 
 	return c.JSON(http.StatusOK, Response{ID: msg.ID().Base58()})
 }

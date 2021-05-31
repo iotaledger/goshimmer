@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/timeutil"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
@@ -43,7 +44,6 @@ type Tangle struct {
 	TipManager            *TipManager
 	Requester             *Requester
 	MessageFactory        *MessageFactory
-	RateSetter            *RateSetter
 	LedgerState           *LedgerState
 	Utils                 *Utils
 	WeightProvider        WeightProvider
@@ -51,6 +51,7 @@ type Tangle struct {
 
 	setupParserOnce sync.Once
 	fifoScheduling  typeutils.AtomicBool
+	shutdownSignal  chan struct{}
 }
 
 // New is the constructor for the Tangle.
@@ -61,6 +62,7 @@ func New(options ...Option) (tangle *Tangle) {
 			MessageInvalid:  events.NewEvent(MessageIDCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},
+		shutdownSignal: make(chan struct{}),
 	}
 
 	tangle.Configure(options...)
@@ -79,7 +81,6 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
-	tangle.RateSetter = NewRateSetter(tangle)
 	tangle.Orderer = NewOrderer(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
@@ -119,7 +120,6 @@ func (t *Tangle) Setup() {
 	t.TimeManager.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
-	t.RateSetter.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
@@ -142,19 +142,25 @@ func (t *Tangle) Setup() {
 	// pass solid messages to the scheduler
 	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(t.schedule))
 
+	var switchSchedulerOnce sync.Once
 	// switch the scheduler, the first time we get synced
 	t.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(e *SyncChangedEvent) {
-		if !e.Synced {
+		// only switch, if we became synced and the FIFO scheduler is currently running
+		if !e.Synced || !t.fifoScheduling.IsSet() {
 			return
 		}
-		// switch the scheduler exactly once
-		if t.fifoScheduling.SetToIf(true, false) {
+		switchSchedulerOnce.Do(func() {
 			// switching the scheduler takes some time, so we must not do it directly in the event func
 			go func() {
-				t.FIFOScheduler.Shutdown() // schedule remaining messages
-				t.Scheduler.Start()        // start the actual scheduler
+				// delay the actual switch by the sync time windows, the SyncChange event will be triggered
+				// at least this duration before the most recent messages have been solidified
+				if timeutil.Sleep(t.Options.SyncTimeWindow, t.shutdownSignal) {
+					t.fifoScheduling.SetTo(false) // stop adding new messages to the FIFO scheduler
+					t.FIFOScheduler.Shutdown()    // schedule remaining messages
+					t.Scheduler.Start()           // start the actual scheduler
+				}
 			}()
-		}
+		})
 	}))
 }
 
@@ -206,8 +212,9 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
+	close(t.shutdownSignal)
+
 	t.MessageFactory.Shutdown()
-	t.RateSetter.Shutdown()
 	t.FIFOScheduler.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()
@@ -233,19 +240,9 @@ func (t *Tangle) schedule(id MessageID) {
 		return
 	}
 
-	t.Storage.Message(id).Consume(func(msg *Message) {
-		// if we issued the message submit it to the rate setter
-		if identity.NewID(msg.IssuerPublicKey()) == t.Options.Identity.ID() {
-			if err := t.RateSetter.Issue(msg); err != nil {
-				t.Events.Error.Trigger(errors.Errorf("failed to issue to rate setter: %w", err))
-			}
-			return
-		}
-		// otherwise the message needs to be scheduled
-		if err := t.Scheduler.SubmitAndReady(msg.ID()); err != nil {
-			t.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
-		}
-	})
+	if err := t.Scheduler.SubmitAndReady(id); err != nil {
+		t.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
