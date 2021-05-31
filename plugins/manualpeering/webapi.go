@@ -4,13 +4,12 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/errors"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // RouteManualPeers defines the HTTP path for manualpeering peers endpoint.
@@ -50,12 +49,6 @@ func addPeersHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// PeerToRemove holds the data that uniquely identifies the peer to be removed, e.g. public key or ID.
-// Only public key is supported for now.
-type PeerToRemove struct {
-	PublicKey string `json:"publicKey"`
-}
-
 /*
 An example of the HTTP JSON request:
 [
@@ -65,7 +58,7 @@ An example of the HTTP JSON request:
 ]
 */
 func removePeersHandler(c echo.Context) error {
-	var peersToRemove []*PeerToRemove
+	var peersToRemove []*jsonmodels.PeerToRemove
 	if err := webapi.ParseJSONRequest(c, &peersToRemove); err != nil {
 		plugin.Logger().Errorw("Failed to parse peers to remove from the request", "err", err)
 		return c.JSON(
@@ -83,14 +76,10 @@ func removePeersHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func removePeers(peers []*PeerToRemove) error {
+func removePeers(peers []*jsonmodels.PeerToRemove) error {
 	keys := make([]ed25519.PublicKey, len(peers))
-	for i, ntd := range peers {
-		publicKey, err := ed25519.PublicKeyFromString(ntd.PublicKey)
-		if err != nil {
-			return errors.Wrapf(err, "failed to parse public key %s from HTTP request", publicKey)
-		}
-		keys[i] = publicKey
+	for i, p := range peers {
+		keys[i] = p.PublicKey
 	}
 	if err := Manager().RemovePeer(keys...); err != nil {
 		return errors.Wrap(err, "manualpeering manager failed to remove some peers")
@@ -99,7 +88,7 @@ func removePeers(peers []*PeerToRemove) error {
 }
 
 func getPeersHandler(c echo.Context) error {
-	conf := &manualpeering.GetKnownPeersConfig{}
+	conf := &manualpeering.GetPeersConfig{}
 	if err := webapi.ParseJSONRequest(c, conf); err != nil {
 		plugin.Logger().Errorw("Failed to parse get peers config from the request", "err", err)
 		return c.JSON(
@@ -107,6 +96,6 @@ func getPeersHandler(c echo.Context) error {
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid get peers request")),
 		)
 	}
-	peers := Manager().GetKnownPeers(conf.ToOptions()...)
+	peers := Manager().GetPeers(conf.ToOptions()...)
 	return c.JSON(http.StatusOK, peers)
 }

@@ -2,7 +2,7 @@
 ## Summary
 In order to know whether a message in the Tangle is orphaned or not, we introduce **grades of finality** to interpret the status of a message. The higher grade of finality is determined by the **approval weight**, which is the proportion of active consensus mana approving a given message.
 
-In order to compute the approval weight of a given message  we need to traverse the Tangle from the message to the tips and sum up the active consensus mana of all the messages in its future cone. A **marker** is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle we need to walk, and which finally results in the grade of finality.
+To compute the approval weight of a given message we need to traverse the Tangle from the message to the tips and sum up the active consensus mana of all the messages in its future cone. The **marker** tool is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle that needs to be traversed, and which finally results in the grade of finality.
 
 **Note**: *Markers* is not a core module of the Coordicide project.
 
