@@ -24,37 +24,15 @@ messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5f
 
 ---- or
 
-// get the given address from your wallet instance and 
-// use String() to get its Base58 representation
+// invoke go get github.com/iotaledger/goshimmer/client/wallet for wallet usage
+// get the given address from a wallet instance and
+connector := wallet.GenericConnector(wallet.NewWebConnector("http://localhost:8080"))
+addr := wallet.New(connector).Seed().Address(0)
+// use String() to get base58 representation
 // the proof of work difficulty,
 // the optional aManaPledgeID (Base58 encoded),
 // the optional cManaPledgeID (Base58 encoded)
-addr := wallet.Seed().Address(0)
 messageID, err := goshimAPI.SendFaucetRequest(addr.String(), 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
-```
-
-### Via the HTTP API directly
-The URI for POSTing faucet request messages is `http://<host>:<web-api-port>/faucet`. Refer to [faucet API methods](../apis/faucet) for more details.
-
-
-| Parameter | Required | Description | Type    |
-| --------- | -------- | ----------- | --- |
-| `address`      | Yes     | Destination address to which to send tokens to encoded in Base58        | string     |
-| `accessManaPledgeID`      | No     | Node ID to pledge access mana to encoded in Base58        | string     |
-| `consensusManaPledgeID`      | No     | Node ID to pledge consensus mana to encoded in Base58        | string     |
-| `nonce`      | Yes     | Proof of the PoW being done       | uint64     |
-
-cURL example:
-```
-curl http://localhost:8080/faucet \
--X POST \
--H 'Content-Type: application/json' \
--d '{
-  "address": "JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY",
-  "accessManaPledgeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
-  "consensusManaPledgeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
-  "nonce": 24578
-}'
 ```
 
 ### Via the wallet
