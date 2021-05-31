@@ -119,6 +119,7 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
 	config.DisabledPlugins = disabledPluginsPeer
+	config.EnabledPlugins = enabledPluginsPeer
 	config.SnapshotFilePath = snapshotFilePath
 	if config.FPCRoundInterval == 0 {
 		config.FPCRoundInterval = 5

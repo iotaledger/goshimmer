@@ -45,10 +45,10 @@ class RevokeEvent extends ManaEvent{
 const emptyRow = (<tr><td colSpan={4}>There are no nodes to view with the current search parameters.</td></tr>)
 const emptyListItem = (<ListGroupItem>There are no events to view with the current search parameters.</ListGroupItem>)
 
-// every 10 seconds, a new value arrives, so this is roughly 166 mins
-const maxStoredManaValues = 1000;
+// every 10 seconds, a new value arrives, so this is roughly 17 mins
+const maxStoredManaValues = 100;
 // number of previous pledge/revoke events we keep track of. (/2 of plugins/dashboard/maxManaEventsBufferSize)
-const maxEventsStored = 1000;
+const maxEventsStored = 100;
 
 export class ManaStore {
     // mana values (total network)

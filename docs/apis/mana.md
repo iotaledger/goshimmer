@@ -13,7 +13,7 @@ HTTP APIs:
 * [/mana/pending](#manapending)
 * [/mana/consensus/past](#manaconsensuspast)
 * [/mana/consensus/logs](#manaconsensuslogs)
-* [/value/allowedManaPledge](#valueallowedmanapledge)
+* [/mana/allowedManaPledge](#manaallowedmanapledge)
 
 Client lib APIs:
 * [GetOwnMana()](#getownmana)

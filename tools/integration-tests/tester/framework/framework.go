@@ -59,6 +59,15 @@ func newFramework() (*Framework, error) {
 	return f, nil
 }
 
+// Removes the tester container and close the docker client
+func (f *Framework) DestroyFramework() error {
+	err := f.tester.Remove()
+	if err != nil {
+		return err
+	}
+	return f.dockerClient.Close()
+}
+
 // CreateNetwork creates and returns a (Docker) Network that contains `peers` GoShimmer nodes.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
 // The first peer automatically starts with the bootstrap plugin enabled.

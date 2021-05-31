@@ -374,7 +374,7 @@ following content:
   }
 }
 ```
-The above JSON file is just a template, you can aby define binary data that fits the size limit to be attached to the NFT.
+The above JSON file is just a template, you can define any binary data that fits the size limit to be attached to the NFT.
 
 To create the NFT, simply execute:
 ```bash
