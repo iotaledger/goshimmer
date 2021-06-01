@@ -38,7 +38,8 @@ The wallet can be configured by creating a `config.json` file in the directory o
 	  "password": "goshimmer"
 	},
 	"reuse_addresses": false,
-	"faucetPowDifficulty": 25
+	"faucetPowDifficulty": 25,
+	"assetRegistryNetwork": "nectar"
 }
 ```
  - The `WebAPI` tells the wallet which node API to communicate with. Set it to the url of a node API.
@@ -46,6 +47,8 @@ The wallet can be configured by creating a `config.json` file in the directory o
  - The `resuse_addresses` option specifies if the wallet should treat addresses as reusable, or whether it should try to
    spend from any wallet address only once.
  - `faucetPowDifficulty` defines the difficulty of the faucet request POW the wallet should do.
+ - `assetRegistryNetwork` defines which asset registry network to use for pushing/fetching asset metadata to/from the registry.
+   By default, the wallet chooses the `nectar` network.
    
 To perform the wallet initialization, run the `init` command of the wallet:
 ```bash
