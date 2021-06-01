@@ -20,7 +20,7 @@ Disclaimer: The command line wallet and this tutorial is intended for developer 
 
 ## Initializing the wallet
 
-- Download the latest cli-wallet for the system of your choice from the [Goshimmer GitHub Releases](https://github.com/iotaledger/goshimmer/releases) page.
+- Download the latest cli-wallet for the system of your choice from the [GoShimmer GitHub Releases](https://github.com/iotaledger/goshimmer/releases) page.
 - If needed, make the downloaded binary executable (`chmod +x <downloaded-binary>` on linux).
 - For simplicity, we renamed the binary to `cli-wallet` in this tutorial.
 

@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// TangleLedger imlpements txstream.TangleLedger with the Goshimmer tangle as backend
+// TangleLedger imlpements txstream.TangleLedger with the GoShimmer tangle as backend
 type TangleLedger struct {
 	txConfirmedClosure *events.Closure
 	txBookedClosure    *events.Closure
