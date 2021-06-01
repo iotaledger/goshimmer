@@ -86,7 +86,9 @@ var (
 	messageCountPerPayloadMutex syncutils.RWMutex
 
 	// Number of messages per component (store, scheduler, booker) type since start of the node.
-	messageCountPerComponent = make(map[ComponentType]uint64)
+	// One for dashboard (reset every time is read), other for grafana with cumulative value.
+	messageCountPerComponentDashboard = make(map[ComponentType]uint64)
+	messageCountPerComponentGrafana   = make(map[ComponentType]uint64)
 
 	// protect map from concurrent read/write.
 	messageCountPerComponentMutex syncutils.RWMutex
@@ -116,14 +118,28 @@ func MessageCountSinceStartPerPayload() map[payload.Type]uint64 {
 	return clone
 }
 
-// MessageCountSinceStartPerComponent returns a map of message count per component types and their count since the start of the node.
-func MessageCountSinceStartPerComponent() map[ComponentType]uint64 {
+// MessageCountSinceStartPerComponentGrafana returns a map of message count per component types and their count since the start of the node.
+func MessageCountSinceStartPerComponentGrafana() map[ComponentType]uint64 {
 	messageCountPerComponentMutex.RLock()
 	defer messageCountPerComponentMutex.RUnlock()
 
 	// copy the original map
 	clone := make(map[ComponentType]uint64)
-	for key, element := range messageCountPerComponent {
+	for key, element := range messageCountPerComponentGrafana {
+		clone[key] = element
+	}
+
+	return clone
+}
+
+// MessageCountSinceStartPerComponentDashboard returns a map of message count per component types and their count since last time the value was read.
+func MessageCountSinceStartPerComponentDashboard() map[ComponentType]uint64 {
+	messageCountPerComponentMutex.RLock()
+	defer messageCountPerComponentMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[ComponentType]uint64)
+	for key, element := range messageCountPerComponentDashboard {
 		clone[key] = element
 	}
 
@@ -187,18 +203,19 @@ func increasePerComponentCounter(c ComponentType) {
 	defer messageCountPerComponentMutex.Unlock()
 
 	// increase cumulative metrics
-	messageCountPerComponent[c]++
+	messageCountPerComponentDashboard[c]++
+	messageCountPerComponentGrafana[c]++
 }
 
 // measures the Component Counter value per second
 func measurePerComponentCounter() {
 	// sample the current counter value into a measured MPS value
-	componentCounters := MessageCountSinceStartPerComponent()
+	componentCounters := MessageCountSinceStartPerComponentDashboard()
 
 	// reset the counter
 	messageCountPerComponentMutex.Lock()
-	for key := range messageCountPerComponent {
-		messageCountPerComponent[key] = 0
+	for key := range messageCountPerComponentDashboard {
+		messageCountPerComponentDashboard[key] = 0
 	}
 	messageCountPerComponentMutex.Unlock()
 

@@ -225,7 +225,7 @@ func buildTransaction() (tx *ledgerstate.Transaction, err error) {
 
 There are 2 available options to post the created transaction.
 
- - Goshimmer client lib
+ - GoShimmer client lib
  - Web API
  
 #### Post via client lib

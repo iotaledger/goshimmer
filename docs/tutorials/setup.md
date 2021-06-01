@@ -1,6 +1,6 @@
 # Setting up a GoShimmer node 
 
-This page describes how to setup your own GoShimmer node in the Goshimmer testnet with Docker.
+This page describes how to setup your own GoShimmer node in the GoShimmer testnet with Docker.
 
 > DISCLAIMER: **Note that there will be breaking changes frequently (approx. bi-weekly) where the entire network needs to upgrade. If you don't have time to continuously monitor and upgrade your node, then running a GoShimmer node might not be for you.**  We want to emphasize that running a GoShimmer node requires proper knowledge in Linux and IT related topics such as networking and so on. It is not meant as a node to be run by people with little experience in the mentioned fields. **Do not plan to run any production level services on your node/network.**
 
@@ -14,7 +14,7 @@ This page describes how to setup your own GoShimmer node in the Goshimmer testne
 
 ## Why you should run a node
 
-Running a node in the Goshimmer testnet helps us in the following ways:
+Running a node in the GoShimmer testnet helps us in the following ways:
 * It increases the amount of nodes in the network and thus lets it form a more realistic network.
 * Your node will be configured to send debug log messages to a centralized logger from which we can assess and debug research questions and occurring problems.
 * Your node is configured to send metric data to a centralized analysis server where we store information such as resource consumption, traffic, FPC vote context processing and so on. This data helps us further fostering the development of GoShimmer and assessing network behavior.
@@ -460,7 +460,7 @@ providers:
     options:
       path: /var/lib/grafana/dashboards
 ```
-4. Add predefined Goshimmer Local Metrics Dashboard.
+4. Add predefined GoShimmer Local Metrics Dashboard.
 
 Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json).
 ```

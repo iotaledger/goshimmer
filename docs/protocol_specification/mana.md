@@ -161,7 +161,7 @@ In case of a large database, initial synching and solidification is a computatio
 of messages in the tangle. Mana calculation only adds to this burden. It will be determined through testing if additional
 "weight lifting" mechanism is needed (for example delaying mana calculation).
 
-In Goshimmer test network, all funds are initially held by the faucet node, therefore all mana present at bootstrap belong
+In the GoShimmer test network, all funds are initially held by the faucet node, therefore all mana present at bootstrap belong
 to this node. Whenever a transaction is requested from the faucet, it pledges mana to the requesting node, helping other
 nodes to increase their mana.
 
@@ -556,7 +556,7 @@ data but can only visualize time series. Therefore, both of these ways will be u
 
  ##### Global Perception
 
-Additionally, the Goshimmer Analyzer (analysis server) could be updated:
+Additionally, the GoShimmer Analyzer (analysis server) could be updated:
  - Autopeering node graph, where size of a node corresponds to its mana value.
  - Some previously described metrics could be visualized here as well, to give the chance to people without
    a node to take a look. As an input, a high mana node's perception should be used.

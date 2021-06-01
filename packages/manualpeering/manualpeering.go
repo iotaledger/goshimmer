@@ -47,7 +47,7 @@ const (
 // KnownPeerToAdd defines a type that is used in .AddPeer() method.
 type KnownPeerToAdd struct {
 	PublicKey ed25519.PublicKey `json:"publicKey"`
-	Address   string `json:"address"`
+	Address   string            `json:"address"`
 }
 
 // KnownPeer defines a peer record in the manualpeering layer.
