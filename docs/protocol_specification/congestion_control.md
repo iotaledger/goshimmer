@@ -6,6 +6,8 @@ Every network has to deal with its intrinsic limited resources in terms of bandw
 *   _Fairness_. Nodes can obtain a share of the available throughput depending on their access Mana. Throughput is shared in such a way that an attempt to increase the allocation of any node necessarily results in the decrease in the allocation of some other node with an equal or smaller allocation (max-min fairness).
 *   _Security_. Malicious nodes shall be unable to interfere with either of the above requirements.
 
+![Congestion Control](./congestion_control_algorithm_infographic.png)
+
 Further information can be found in the paper [Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach](https://arxiv.org/abs/2005.07778).
 
 ## Detailed design
