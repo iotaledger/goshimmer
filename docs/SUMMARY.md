@@ -29,6 +29,7 @@ http://goshimmer.docs.iota.org/
 - [Protocol specification](./protocol_specification.md)
   - [Protocol high level overview](./protocol_specification/protocol.md)
   - [Components](./protocol_specification/components.md)
+    - [Tangle](./protocol_specification/tangle.md)
     - [Autopeering](./protocol_specification/autopeering.md)
     - [Mana](./protocol_specification/mana.md)
     - [Consensus mechanism](./protocol_specification/consensus_mechanism.md)
