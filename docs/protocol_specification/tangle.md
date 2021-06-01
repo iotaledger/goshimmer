@@ -40,6 +40,7 @@
 - `MAX_MESSAGE_SIZE=64 KB` The maximum allowed message size.
 - `MAX_PAYLOAD_SIZE=65157 B` The maximum allowed payload size.
 - `MIN_STRONG_PARENTS=1` The minimum amount of strong parents a message needs to reference.
+- `MAX_PARENTS=8` The maximum amount of parents a message can reference.
 
 ## General concept
 ![Tangle](https://i.ibb.co/RyqbZzN/tangle.png)
@@ -53,6 +54,7 @@ The Tangle represents a growing partially-ordered set of messages, linked with e
 - **Solidity**: A message is marked as solid if its entire past cone until the Genesis (or the latest snapshot) is known.
 - **Parents**: A message directly references between 1-8 previous messages that we call its **parents**. A parent can be either **strong** or **weak** (see [approval switch](#orphanage--approval-switch)).
 - **Approvers**: Parents are approved by their referencing messages called **approvers**. It is thus a reverse mapping of parents. As in the parents' definition, an approver might be either **strong** or **weak**.
+- **Branch**: A version of the ledger that temporarily coexists with other versions, each spawned by conflicting transactions. 
 
 ## Messages
 Messages are created and signed by nodes. Next to several fields of metadata, they carry a **payload**. The maximum message size is `MAX_MESSAGE_SIZE`.
