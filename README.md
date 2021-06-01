@@ -34,7 +34,7 @@ This repository, called GoShimmer, is where the IOTA Foundation's Research Depar
 
 GoShimmer is first and foremost a research prototype. As such, braking changes can often happen. We invite researchers and developers to make use of this project as you see fit. Running experiments, test out new ideas, build PoC are all very welcome initiatives.
 
-For a documentation, including tutorials and resources, we refer to the [Documentation](http://goshimmer.docs.iota.org/).
+For a documentation, including tutorials and resources, we refer to the [Documentation](http://goshimmer.docs.iota.org/) (Github [link](https://github.com/iotaledger/goshimmer/blob/develop/docs/SUMMARY.md)).
 
 ## Design
 The code in GoShimmer is modular, where each module represents either one of the *IOTA 2.0 components* or a basic node function such as the gossip, ledger state, API just to mention a few.  
