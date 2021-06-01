@@ -342,7 +342,7 @@ curl --location --request POST 'http://localhost:8080/messages/payload' \
 ##### `SendPayload(payload []byte) (string, error)`
 
 ```go
-helloPayload := payload.NewData([]byte{"Hello Goshimmer World!"})
+helloPayload := payload.NewData([]byte{"Hello GoShimmer World!"})
 messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 ```
 
