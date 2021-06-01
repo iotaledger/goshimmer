@@ -293,3 +293,9 @@ Interestingly, minting an IOTA NFT costs you only the minimum required deposit b
 you can take back when you destroy the NFT. This is required so that NFTs are not minted out of thin air, and there are
 some IOTAs backing the output. Otherwise, the ledger database could be easily spammed.
 Transferring NFTs is also feeless, just like any other transaction in IOTA.
+
+## Goshimmer Implementation
+
+If you are interested, here you can find the GoShimmer implementation in [output.go](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go):
+ - [AliasOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L947), and
+ - [ExtendedLockedOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L1840)
