@@ -179,14 +179,19 @@ Let's illustrate this through a simple example. Alice wants to send 10 Mi to Bob
 spend the 10 Mi from his alias account to a his address account.
 
 1. Bob creates an alias where `aliasID=BobAliasID` with Transaction A.
-   ![](https://i.imgur.com/FqVB0aY.png)
+
+![](https://i.imgur.com/FqVB0aY.png)
+
 2. Bob shares `BobAliasID` with Alice.
 3. Alice sends 10 Mi to Bob by sending Transaction B that creates an `ExtendedLockedOutput`, specifying the balance,
    and `aliasID=BobAliasID`.
-   ![](https://i.imgur.com/HOxUhlp.png)
+
+![](https://i.imgur.com/HOxUhlp.png)
+
 4. Bob can spend the outputs created by Alice by creating Transaction C that moves his `BobAlias` (to the very same
    address), and including the  `ExtendedLockedOutput` with `aliasID=BobAliasID`.
-   ![](https://i.imgur.com/PdjXVKG.png)
+
+![](https://i.imgur.com/PdjXVKG.png)
 
 In a simple scenario, a user wishing to send a request to a smart contract creates an extended output. The output
 contains the AliasID of the smart contract chain account, the layer 2 request as metadata, and some tokens to pay
