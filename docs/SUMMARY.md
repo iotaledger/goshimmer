@@ -29,6 +29,7 @@ http://goshimmer.docs.iota.org/
 - [Protocol specification](./protocol_specification.md)
   - [Protocol high level overview](./protocol_specification/protocol.md)
   - [Components](./protocol_specification/components.md)
+    - [Autopeering](./protocol_specification/autopeering.md)
     - [Mana](./protocol_specification/mana.md)
     - [UTXO and Ledgerstate](./protocol_specification/ledgerstate.md)
     - [Markers](./protocol_specification/markers.md)
