@@ -37,7 +37,7 @@ GoShimmer is first and foremost a research prototype. As such, braking changes c
 For a documentation, including tutorials and resources, we refer to the [Documentation](http://goshimmer.docs.iota.org/).
 
 ## Design
-The code in GoShimmer is modular, where each module represents either one of the [Coordicide components](https://coordicide.iota.org/) or a basic node function such as the gossip, ledger state, API just to mention a few.  
+The code in GoShimmer is modular, where each module represents either one of the *IOTA 2.0 components* or a basic node function such as the gossip, ledger state, API just to mention a few.  
 
 ![Layers](docs/protocol_specification/layers.png)
 
