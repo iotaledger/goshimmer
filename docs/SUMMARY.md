@@ -32,6 +32,7 @@ http://goshimmer.docs.iota.org/
   - [Components](./protocol_specification/components.md)
     - [Autopeering](./protocol_specification/autopeering.md)
     - [Mana](./protocol_specification/mana.md)
+    - [Congestion Control](./protocol_specification/congestion_control.md)
     - [Consensus mechanism](./protocol_specification/consensus_mechanism.md)
     - [UTXO and Ledgerstate](./protocol_specification/ledgerstate.md)
     - [Markers](./protocol_specification/markers.md)
