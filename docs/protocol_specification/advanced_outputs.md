@@ -37,7 +37,7 @@ or check out this [presentation](https://youtu.be/T1CJFr6gz8I).
 - An account shall have only one valid state in the ledger.
 - Smart contract chain state transitions are triggered by requests in the ledger.
 - A request is a ledger entity belonging to the account with tokens and data.
-- The account can identifiy and control requests.
+- The account can identify and control requests.
 - Fallback mechanism needs to be in place in case the requests are not picked up.
 - When request is completed in a state transition, it should be atomically removed from the ledger.
 
@@ -48,7 +48,7 @@ Previously, the account concept in the ledger was realized with cryptographic en
 by public and private key pairs. Addresses are present in the ledger through outputs and define who can spend this
 output by providing a digital signature.
 
-Addresses are not able to provide the neccesary functionality needed for smart contract chain accounts, because:
+Addresses are not able to provide the necessary functionality needed for smart contract chain accounts, because:
 - addresses change with the rotation of the controlling body (committee),
 - and there is no notion of separate control levels for an address account.
 
@@ -58,7 +58,7 @@ The alias account defines two to controlling entities: a state controller and a 
 controller can transition the account into a new state, and can manipulate account balances. The governance controller
 can change the state controller or the governance controller.
 
-An alias is is not a cryptographic entity, but it is controlled via either regular addresses or other aliases.
+An alias is not a cryptographic entity, but it is controlled via either regular addresses or other aliases.
 
 ### Representing a Smart Contract Chain Account in Ledger
 An alias is translated into the ledger as a distinct output type, called **AliasOutput**. The output contains:
@@ -82,7 +82,7 @@ alias output. The new transaction output specifies the state and governance cont
 is assigned by the protocol once the transaction is processed. Once the output is booked, aliasID becomes the hash of
 the outputID that created it.
 
-An alias output can only be destroyed by the goverance controller by simply consuming it as an input but not creating
+An alias output can only be destroyed by the governance controller by simply consuming it as an input but not creating
 a corresponding output in the transaction.
 
 The alias account is transitioned into a new state by spending its alias output in a transaction and creating an
@@ -136,7 +136,7 @@ for smart contracts:
 - Requests might be scheduled by the user by specifying a time locking condition on the output. The output can not be
   spent before the time locking period expires.
 
-As we can see, there are couple new concepts with regards to outputs that we need to support for the smart contract use case:
+As we can see, there are couple new concepts regarding outputs that we need to support for the smart contract use case:
 - **alias locking**
 - **metadata tied to the output**
 - **fallback unlocking mechanism**
@@ -176,7 +176,7 @@ from this output. The owner of the alias account can spend aforementioned alias 
 alias in the very same transaction. We will use the term `ExtendedLockedOutput` for outputs that support alias locking.
 
 Let's illustrate this through a simple example. Alice wants to send 10 Mi to Bob's alias account. Bob then wants to
-spend the 10 Mi from his alias account to a his address account.
+spend the 10 Mi from his alias account to his address account.
 
 1. Bob creates an alias where `aliasID=BobAliasID` with Transaction A.
 
@@ -228,18 +228,18 @@ additional constraints also have to be met.
 
 ## How does it work for ISCP?
 
-- The new output types are completly orthogonal to colored coins, ISCP will not rely on them any more.
+- The new output types are completely orthogonal to colored coins, ISCP will not rely on them anymore.
 - The Alias output functions as a chain constraint to allow building a non-forkable chain of transactions in the
   ledger by the state controller. The alias output holds tokens, that are the balance of the smart contract chain.
   The hash of the smart contract chain state is stored in the alias output, registering each state transition as a
   transaction on the ledger.
-- The governance controller of an alias output can change the state controller, meaning that a committe rotation can
+- The governance controller of an alias output can change the state controller, meaning that a committee rotation can
   be carried out without changing the smart contract chain account, aliasID.
     - A smart contract chain can be self governed, if the state and governance controllers coincide.
     - A smart contract chain can be governed by an address account, or by another smart contract chain through an 
       alias account.
 - Each Extended Output is a request which is “sent” to the alias account. The ISCP can retrieve the backlog of requests
-  by retrieving all outputs for the aliasID. Consuming the Extended Output output means it is atomically removed from
+  by retrieving all outputs for the aliasID. Consuming the Extended Output means it is atomically removed from
   the backlog. It can only be done by the state controller, i.e. the committee of the smart contract chain.
 - Fallback parameters prevent from losing funds if the committee is inactive for some timeout. After timeout the 
   Extended Output can be unlocked by FallbackAccount, an address or another alias.
@@ -260,7 +260,7 @@ without losing control over them.
    shall be `ownAccount`.
 2. An entity in need of mana generated by the locked funds can purchase the right from the governance controller to
    move the alias output, generating mana.
-3. Once purchased, the governance controller updates the alais output by specifying the state controller to be
+3. Once purchased, the governance controller updates the alias output by specifying the state controller to be
    `buyerAccount`.
 4. `buyerAccount` now can move the alias output, but only to its own account. Each move generates (access) mana.
 5. Since `ownAccount` is the governance controller, it can revoke `buyerAccount`'s state controlling right at any point
@@ -269,11 +269,11 @@ without losing control over them.
 
 Notes:
 - The state controller can redeem funds from the alias output up to the point where only `minimum allowed amount` is
-  present in the alias output. Therefore, wihtout additional mechanism, it would only make sense to lock
+  present in the alias output. Therefore, without additional mechanism, it would only make sense to lock
   `minimum allowed amount` into an alias by the governance controller. This is obviously a drawback, users should not
-  be restricted in how much funds they would like to delegate.
+  be restricted in how many funds they would like to delegate.
 - A governance controller can destroy the alias output at any time, which is not desired from the buyer perspective.
-  The buyer should be able to buy the right to move the fund sfor a pre-defined amount of time.
+  The buyer should be able to buy the right to move the funds for a pre-defined amount of time.
 
 To solve above problems, the `AliasOutput` currently implemented in GoShimmer supports the delegation use case by
 introducing two new fields in the output:
@@ -281,7 +281,7 @@ introducing two new fields in the output:
 - `delegationTimelock`.
 
 When an alias is delegated, the state controller cannot modify token balances, and the governor can destroy the
-output with an balance. However, when delegation time lock is present, the governor is not allowed to unlock the
+output with any balance. However, when delegation time lock is present, the governor is not allowed to unlock the
 output until the delegation time expires.
 
 ### Non-Fungible Tokens
@@ -302,5 +302,5 @@ Transferring NFTs is also feeless, just like any other transaction in IOTA.
 ## Goshimmer Implementation
 
 If you are interested, here you can find the GoShimmer implementation in [output.go](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go):
- - [AliasOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L947), and
+ - [AliasOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L947) and
  - [ExtendedLockedOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L1840)
