@@ -36,6 +36,7 @@ http://goshimmer.docs.iota.org/
     - [Congestion Control](./protocol_specification/congestion_control.md)
     - [Consensus mechanism](./protocol_specification/consensus_mechanism.md)
     - [UTXO and Ledgerstate](./protocol_specification/ledgerstate.md)
+    - [Advanced Outputs (Experimental)](./protocol_specification/advanced_outputs.md)
     - [Markers](./protocol_specification/markers.md)
   - [Layers](./protocol_specification/layers.md)
   - [Glossary](./protocol_specification/glossary.md)
