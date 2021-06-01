@@ -37,7 +37,6 @@ http://goshimmer.docs.iota.org/
     - [Consensus mechanism](./protocol_specification/consensus_mechanism.md)
     - [UTXO and Ledgerstate](./protocol_specification/ledgerstate.md)
     - [Markers](./protocol_specification/markers.md)
-  - [Layers](./protocol_specification/layers.md)
   - [Glossary](./protocol_specification/glossary.md)
 
 - [API](./api.md)
