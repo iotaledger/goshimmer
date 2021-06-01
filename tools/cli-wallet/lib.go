@@ -19,7 +19,7 @@ import (
 )
 
 func printBanner() {
-	fmt.Println("IOTA Goshimmer CLI-Wallet 0.2")
+	fmt.Println("IOTA 2.0 DevNet CLI-Wallet 0.2")
 }
 
 func loadWallet() *wallet.Wallet {
