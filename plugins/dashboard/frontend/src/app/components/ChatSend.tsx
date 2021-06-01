@@ -87,6 +87,7 @@ export class ChatSend extends React.Component<Props, any> {
                   onChange={this.updateSend}
                   onKeyUp={this.sendMessage}
                   disabled={sending}
+                  maxlength="1000"
                 />
               </InputGroup>
               {this.state.infoMessage && (

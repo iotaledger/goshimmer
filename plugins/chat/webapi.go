@@ -10,6 +10,11 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
+const (
+	maxFromToLength  = 100
+	maxMessageLength = 1000
+)
+
 func configureWebAPI() {
 	webapi.Server().POST("chat", SendChatMessage)
 }
@@ -20,8 +25,18 @@ func SendChatMessage(c echo.Context) error {
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	chatPayload := NewPayload(req.From, req.To, req.Message)
 
+	if len(req.From) > maxFromToLength {
+		return c.JSON(http.StatusBadRequest, Response{Error: "sender is too long"})
+	}
+	if len(req.To) > maxFromToLength {
+		return c.JSON(http.StatusBadRequest, Response{Error: "receiver is too long"})
+	}
+	if len(req.Message) > maxMessageLength {
+		return c.JSON(http.StatusBadRequest, Response{Error: "message is too long"})
+	}
+
+	chatPayload := NewPayload(req.From, req.To, req.Message)
 	msg, err := messagelayer.Tangle().IssuePayload(chatPayload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
