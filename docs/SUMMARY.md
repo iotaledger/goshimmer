@@ -14,6 +14,7 @@ http://goshimmer.docs.iota.org/
   - [Obtain tokens](./tutorials/request_funds.md)
   - [Wallet library](./tutorials/wallet.md)
   - [Write a dApp](./tutorials/dApp.md)
+  - [Manual peering](./tutorials/manual_peering.md)
   - [Create a static identity](./tutorials/static_identity.md)
   - [Set up a custom dRNG committee](./tutorials/custom_dRNG.md)
   - [Set up the Monitoring Dashboard](./tutorials/monitoring.md)
