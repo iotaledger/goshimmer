@@ -17,6 +17,6 @@ const (
 
 func init() {
 	flag.Int(CfgGossipPort, 14666, "tcp port for gossip connection")
-	flag.Duration(CfgGossipAgeThreshold, 1*time.Minute, "message age threshold for gossip")
+	flag.Duration(CfgGossipAgeThreshold, 30*time.Minute, "message age threshold for gossip")
 	flag.Duration(CfgGossipTipsBroadcastInterval, 10*time.Second, "the interval in which the oldest known tip is re-broadcast")
 }

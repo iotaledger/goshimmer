@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// TangleLedger imlpements txstream.TangleLedger with the Goshimmer tangle as backend
+// TangleLedger imlpements txstream.TangleLedger with the GoShimmer tangle as backend
 type TangleLedger struct {
 	txConfirmedClosure *events.Closure
 	txBookedClosure    *events.Closure
@@ -27,14 +27,6 @@ var txEventHandler = func(f interface{}, params ...interface{}) {
 	f.(func(tx *ledgerstate.Transaction))(params[0].(*ledgerstate.Transaction))
 }
 
-func extractTransaction(id tangle.MessageID, ev *events.Event) {
-	messagelayer.Tangle().Storage.Message(id).Consume(func(msg *tangle.Message) {
-		if payload := msg.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
-			ev.Trigger(payload)
-		}
-	})
-}
-
 // New returns an implementation for txstream.Ledger
 func New() *TangleLedger {
 	t := &TangleLedger{
@@ -44,13 +36,17 @@ func New() *TangleLedger {
 
 	t.txConfirmedClosure = events.NewClosure(func(id ledgerstate.TransactionID) {
 		messagelayer.Tangle().LedgerState.UTXODAG.CachedTransaction(id).Consume(func(transaction *ledgerstate.Transaction) {
-			t.txConfirmedEvent.Trigger(transaction)
+			go t.txConfirmedEvent.Trigger(transaction)
 		})
 	})
 	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(t.txConfirmedClosure)
 
 	t.txBookedClosure = events.NewClosure(func(id tangle.MessageID) {
-		extractTransaction(id, t.txBookedEvent)
+		messagelayer.Tangle().Storage.Message(id).Consume(func(msg *tangle.Message) {
+			if payload := msg.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
+				go t.txBookedEvent.Trigger(payload)
+			}
+		})
 	})
 	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(t.txBookedClosure)
 

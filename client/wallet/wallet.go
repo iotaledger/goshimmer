@@ -38,7 +38,7 @@ const (
 	DefaultConfirmationTimeout = 150000 // in ms
 	milliSeconds               = 1000   // miliseconds in a second
 	// DefaultAssetRegistryNetwork is the default asset registry network.
-	DefaultAssetRegistryNetwork = "test"
+	DefaultAssetRegistryNetwork = "nectar"
 )
 
 // ErrTooManyOutputs is an error returned when the number of outputs/inputs exceeds the protocol wide constant

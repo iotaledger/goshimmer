@@ -30,24 +30,18 @@
 
 ## About
 
-This repository is where the IOTA Foundation's Research Department tests the Coordicide modules to study and evaluate their performance.
+This repository, called GoShimmer, is where the IOTA Foundation's Research Department tests the IOTA 2.0 modules to study and evaluate their performance.
 
-The aim of this open repository is to give the community the opportunity to follow developments, take part in testing, and learn  more about [Coordicide](https://coordicide.iota.org/).
+GoShimmer is first and foremost a research prototype. As such, braking changes can often happen. We invite researchers and developers to make use of this project as you see fit. Running experiments, test out new ideas, build PoC are all very welcome initiatives.
 
 For a documentation, including tutorials and resources, we refer to the [Documentation](http://goshimmer.docs.iota.org/) (Github [link](https://github.com/iotaledger/goshimmer/blob/develop/docs/SUMMARY.md)).
 
-**Note:** You can find details about future development plans on our [roadmap](https://roadmap.iota.org).
-
 ## Design
-The code in GoShimmer is modular, where each module represents either one of the [Coordicide components](https://coordicide.iota.org/) or a basic node function such as the gossip, ledger state, API just to mention a few.  
+The code in GoShimmer is modular, where each module represents either one of the *IOTA 2.0 components* or a basic node function such as the gossip, ledger state, and API - just to mention a few.  
 
-![Layers](images/layers.jpg)
+![Layers](docs/protocol_specification/layers.png)
 
-GoShimmer modularity is based on a combination of event-driven and layer-based approaches.
-
-Each module is defined in the `packages` directory, with the exceptions for the dApps (e.g., value transfer, network delay and the faucet) that are under the `dapps` folder. Each module can be enabled using the `plugins` directory.
-
-**Note:** See the `main.go` file to see which plugins are currently supported.
+GoShimmer's modularity is based on a combination of event-driven and layer-based approaches.
 
 ## Client-Library and HTTP API reference
 
