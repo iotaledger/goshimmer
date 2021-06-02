@@ -4,10 +4,10 @@ This section provides a high-level description of the interaction between compon
 ![](layers.png)
 
 ## Network Layer
-The network is maintained by the network layer modules, which can be characterized as a pure P2P overlay network, meaning that it is a system that runs on top of another network (e.g., the internet), and where all nodes have the same roles and perform the same actions (in contrast to client-server systems). GoShimmer's Network Layer consists of three basic modules: the [peer discovery](./autopeering.md#peer-discovery) module (which provides a list of nodes actively using the network), and the [neighbor selection](./autopeering.md#neighbor-selection) module (also known as autopeering), which actually select peers. Finally, the P2P Communication manages a node's neighbors, either selected via [autopeering](autopeering.md) or [manual peering](../tutorials/manual_peering.md).
+The network is maintained by the network layer modules, which can be characterized as a pure P2P overlay network, meaning that it is a system that runs on top of another network (e.g., the internet), and where all nodes have the same roles and perform the same actions (in contrast to client-server systems). GoShimmer's Network Layer consists of three basic modules: the [peer discovery](./autopeering.md#peer-discovery) module (which provides a list of nodes actively using the network), and the [neighbor selection](./autopeering.md#neighbor-selection) module (also known as autopeering), which actually selects peers. Finally, the P2P Communication manages a node's neighbors, either selected via [autopeering](autopeering.md) or [manual peering](../tutorials/manual_peering.md).
 
 ## Communication Layer
-The communication layer concerns the information propagated through the network layer, which is contained in objects called messages. This layer forms a DAG with messages as vertices called [The Tangle](./tangle.md): a replicated, shared and distributed data structure that emerges through a combination of deterministic rules, cooperation, and (either direct or virtual) voting—as FPC and approval weight based finality.
+The communication layer concerns the information propagated through the network layer, which is contained in objects called messages. This layer forms a DAG with messages as vertices called the [Tangle](./tangle.md): a replicated, shared and distributed data structure that emerges—through a combination of deterministic rules, cooperation, and (either direct or virtual) voting—as FPC and approval weight based finality.
 Since nodes have finite capabilities, the number of messages that the network can process is limited. Thus, the network might become overloaded, either simply because of honest heavy usage or because of malicious (spam) attacks. To protect the network from halting or even from getting inconsistent, the rate control (currently a static PoW) and [congestion control](./congestion_control.md) modules control when and how many messages can be gossiped.
 
 ## (Decentralized) Application Layer
@@ -19,17 +19,17 @@ The consensus mechanism implemented in GoShimmer is leaderless and consists out 
 2. A virtual [voting protocol (Approval Weight)](./consensus_mechanism.md#approval-weight-aw) that provides finality similarly to the longest chain rule in Nakamoto consensus (i.e., heaviest branch) for branches and messages.
 
 
-## Data flow - Overview
+## Data Flow - Overview
 The diagram below represents the interaction between the different modules in the protocol ([event driven](../implementation_design/event_driven_model.md)). Each blue box represents a component of the [Tangle codebase](https://github.com/iotaledger/goshimmer/tree/develop/packages/tangle), which has events (in yellow boxes) that belong to it. Those events will trigger methods (the green boxes), that can also trigger other methods. This triggering is represented by the arrows in the diagram. Finally, the purple boxes represent events that do not belong to the component that triggered them.
 
 As an example, take the Parser component. The function `ProcessGossipMessage` will trigger the method `Parse`, which is the only entry to the component. There are three possible outcomes to the `Parser`: triggering a `ParsingFailed` event, a `MessageRejected` event, or a `MessageParsed` event. In the last case, the event will trigger the `StoreMessage` method (which is the entry to the Storage component), whereas the first two events do not trigger any other component.
 
 ![](data-flow.png)
 
-We call this the data flow, i.e., the life cycle of a message, from message reception (meaning that we focus here on the point of view of a node receiving a message issued by another node) up until acceptance in the Tangle. Notice that any message, either created locally by the node or received from a neighbor needs to pass through the data flow.
+We call this the data flow, i.e., the [life cycle of a message](../protocol_specification/protocol.html), from message reception (meaning that we focus here on the point of view of a node receiving a message issued by another node) up until acceptance in the Tangle. Notice that any message, either created locally by the node or received from a neighbor needs to pass through the data flow.
 
 ### Message Factory
-The IssuePayload function creates a valid payload which is provided to the CreateMessage method, along with a set of parents chosen with the Tip Selection Algorithm. Then, the Message Factory component is responsible to find a nonce compatible with the PoW requirements defined by the rate control module. Finally, the message is signed. Notice that the message generation should follow the rates imposed by the rate setter, as defined in [rate setting](./congestion_control.md#rate-setting).
+The IssuePayload function creates a valid payload which is provided to the `CreateMessage` method, along with a set of parents chosen with the Tip Selection Algorithm. Then, the Message Factory component is responsible to find a nonce compatible with the PoW requirements defined by the rate control module. Finally, the message is signed. Notice that the message generation should follow the rates imposed by the rate setter, as defined in [rate setting](./congestion_control.md#rate-setting).
 
 ### Parser
 The first step after the arrival of the message to the message inbox is the parsing, which consists of the following different filtering processes (meaning that the messages that don't pass these steps will not be stored):
@@ -42,7 +42,7 @@ Followed by the bytes filters, the received bytes are parsed into a message and 
 
 **Message filter**:
 1. Signature check: it checks if the message signature is valid.
-2. [Timestamp Difference Check for transactions](./tangle.md#message -timestamp-vs-transaction-timestamp): it checks if the timestamps of the payload, and the message are consistent with each other
+2. [Timestamp Difference Check for transactions](./tangle.md#message-timestamp-vs-transaction-timestamp): it checks if the timestamps of the payload, and the message are consistent with each other
 
 
 ### Storage

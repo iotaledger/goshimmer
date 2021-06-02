@@ -51,7 +51,7 @@ You can find more info about this on our [client-lib](https://goshimmer.docs.iot
 
 ## Getting started
 
-You can find tutorials on how to [setup a GoShimmer node](https://goshimmer.docs.iota.org/tutorials/setup.html), [writing a dApp](https://goshimmer.docs.iota.org/tutorials/dApp.html), [obtaining tokens from the faucet](https://goshimmer.docs.iota.org/tutorials/request_funds.html) and more on our [GitHub Page](https://goshimmer.docs.iota.org/goshimmer.html).
+You can find tutorials on how to [setup a GoShimmer node](https://goshimmer.docs.iota.org/tutorials/setup.html), [writing a dApp](https://goshimmer.docs.iota.org/tutorials/dApp.html), [obtaining tokens from the faucet](https://goshimmer.docs.iota.org/tutorials/request_funds.html) and more in the [GoShimmer documentation](https://goshimmer.docs.iota.org/goshimmer.html).
 
 ### Compiling from source
 
