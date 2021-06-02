@@ -229,9 +229,8 @@ ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,Boo
 Returns a list of messages with rank >= of the given rank parameter.
 ### Parameters
 
-| | |
-|-|-|
-| **Parameter**  | `rank`          |
+| **Parameter**            | `rank`      |
+|--------------------------|----------------|
 | **Required or Optional**   | Required     |
 | **Description**   | message rank      |
 | **Type**      | uint64      |

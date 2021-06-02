@@ -23,6 +23,7 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 | **Description**          | Action to perform. One of two possible values: `start` and `stop`.   |
 | **Type**                 | `string`         |
 
+</br>
 
 | **Parameter**            | `mpm`      |
 |--------------------------|----------------|
@@ -30,11 +31,14 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 | **Description**          | Messages per minute. Only applicable when `cmd=start`. (default: 1)  |
 | **Type**                 | `int`         |
 
+</br>
+
 | **Parameter**            | `imif` (Inter Message Issuing Function)     |
 |--------------------------|----------------|
 | **Required or Optional** | optional       |
 | **Description**          | Parameter indicating time interval between issued messages. Possible values: `poisson`, `uniform`. Field only available in HTTP API. |
 | **Type**                 | `string`         |
+
 
 Description of `imif` values:
 * `poisson` - emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate

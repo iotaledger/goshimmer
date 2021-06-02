@@ -24,6 +24,7 @@ POST request asking for funds from the faucet to be transferred to address in th
 | **Description**          | address to pledge funds to  |
 | **Type**                 | string      |
 
+</br>
 
 | **Parameter**            | `accessManaPledgeID`      |
 |--------------------------|----------------|
@@ -31,17 +32,23 @@ POST request asking for funds from the faucet to be transferred to address in th
 | **Description**          | node ID to pledge access mana to  |
 | **Type**                 | string      |
 
+</br>
+
 | **Parameter**            | `consensusManaPledgeID`      |
 |--------------------------|----------------|
 | **Required or Optional** | optional       |
 | **Description**          | node ID to pledge consensus mana to  |
 | **Type**                 | string      |
 
+</br>
+
 | **Parameter**            | `powTarget`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
 | **Description**          | proof of the PoW being done, **only used in HTTP api** |
 | **Type**                 | uint64      |
+
+</br>
 
 | **Parameter**            | `nonce`      |
 |--------------------------|----------------|
