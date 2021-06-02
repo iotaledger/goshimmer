@@ -46,7 +46,7 @@ The voting protocol used here is the FPC (or **Fast Probabilistic Consensus**), 
 The FPC begins with each node having an initial opinion, set using the node's local time perception and ordering of the messages. The nodes must set opinions about two subjects: 
 
 1. **The legitimacy of the timestamp of the message**: Whenever a node issues a message, it adds a timestamp to it, which should represent the local time of issuance (as seen by the issuer node). The other nodes will judge if this timestamp is reasonable, by checking if it is too far away from their own local clock.
-2. In the case of a value transfer, **whether it is a conflict**: We use the [**FCoB Rule**](./consensus_mechanism.md). Roughly, the node will have a positive opinion about a transaction A if and only if all its conflicts arrived later than a certain time interval after A's arrival. 
+2. In the case of a value transfer, **whether it is a conflict**: We use the [**FCoB Rule**](./consensus_mechanism.md#fcob). Roughly, the node will have a positive opinion about a transaction A if and only if all its conflicts arrived later than a certain time interval after A's arrival. 
 
 In each round, nodes randomly choose other nodes to query about their opinions about one of the subjects above. 
 The querying node changes its own opinion if the number of responses with a different opinion than it is greater than a certain threshold. 
@@ -64,7 +64,7 @@ Unless the attacker controls more than 1/3 of the Consensus Mana in the system, 
 ![title](Protocol_overview_consensus.png)
 
 Analogously to Bitcoin's [six blocks rule](https://en.bitcoin.it/wiki/Confirmation), our protocol has certain measures of the probability of a certain message being considered valid permanently by all nodes. 
-This is achieved by the use of the [**Approval Weight**](./consensus_mechanism.md). 
+This is achieved by the use of the [**Approval Weight**](./consensus_mechanism.md#approval-weight-aw). 
 The Approval weight represents the *weight* of branches (and messages). 
 Different to the classical Nakamoto consensus, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). 
 This process is also known as virtual voting, and has been previously described in [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 

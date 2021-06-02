@@ -19,7 +19,7 @@ These output types are experimental: the IOTA 2.0 DevNet serves as their testing
 guarantee that they will not change as the protocol evolves.
 
 It will be demonstrated later that these outputs can also be used for enhanced cryptocurrency payment application, such
-as conditional payments ot time locked sending, but also open up the world of native non-fungible tokens (NFTs).
+as conditional payments or time locked sending, but also open up the world of native non-fungible tokens (NFTs).
 
 ## Functional Requirements of ISCP
 
@@ -53,7 +53,7 @@ Addresses are not able to provide the necessary functionality needed for smart c
 - and there is no notion of separate control levels for an address account.
 
 We define a new account type in the ledger, called **Alias**, to represent smart contract chain accounts. An alias
-account can can hold token balances, but also has state metadata, which stores the state of the smart contract chain. 
+account can hold token balances, but also has state metadata, which stores the state of the smart contract chain. 
 The alias account defines two to controlling entities: a state controller and a governance controller. The state 
 controller can transition the account into a new state, and can manipulate account balances. The governance controller
 can change the state controller or the governance controller.

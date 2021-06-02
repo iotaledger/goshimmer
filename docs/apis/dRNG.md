@@ -108,7 +108,7 @@ for _, m := range committees.Committees {
 
 ### Response example
 
-```shell
+```json
 {
     "committees": [
         {
@@ -178,7 +178,7 @@ for _, m := range randomness.Randomness {
 
 ### Response example
 
-```shell
+```json
 {
     "randomness": [
         {
