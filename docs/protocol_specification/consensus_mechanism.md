@@ -13,7 +13,7 @@ The FPC is agnostic about the rest of the protocol, particularly when FPC should
 2. If only a sub set of nodes participate in FPC, they are more vulnerable to attack since the consensus mana held by this collection of nodes is potentially much smaller.
 Thus, since it cannot vote on everything, it must use subjective criterion to trigger voting which does not leave any group vulnerable to attack.
 
-For these reasons, we use [FCoB](#FCoB) to manage FPC.
+For these reasons, we use [FCoB](#fcob) to manage FPC.
 
 ### FCoB
 
@@ -175,7 +175,7 @@ It is then evaluated whether it fulfills the [finalization](#finalization) crite
 **Reorg**: In case the node confirmed another branch of the conflict set first, e.g., because of a difference in perception of the ledger state, it will have to do reorg. This means, the node needs to adjust its perception of the ledger state, so that, eventually, all nodes converge and follow the heaviest branch by active cMana.
 
 #### Markers
-It would be computationally expensive to track the AW for each message individually. Instead, we approximate the AW with the help of [markers](003-markers.md). Once a marker fulfills the [finalization](#finalization) criterion, the confirmation is propagated into its past cone until all the messages are confirmed.
+It would be computationally expensive to track the AW for each message individually. Instead, we approximate the AW with the help of [markers](./markers.md). Once a marker fulfills the [finalization](#finalization) criterion, the confirmation is propagated into its past cone until all the messages are confirmed.
 
 Rather than keeping a list of supporters for each marker and collecting supporters for each marker (which would also be expensive), we keep a list of supporters along with its approved marker index for each marker sequence. This approach provides a simple and fast look-up for marker supporters making use of the Tangle structure as mapped by the markers.
 

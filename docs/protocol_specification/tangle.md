@@ -12,29 +12,13 @@
 | string | A dynamically sized array of an UTF-8 encoded string. A uint16 denotes its length.   |
 | time    | Unix time in nanoseconds stored as `int64`, i.e., the number of nanoseconds elapsed since January 1, 1970 UTC. |
 
-<summary>Subschema Notation</summary>
-<table>
-    <tr>
-        <th>Name</th>
-        <th>Description</th>
-    </tr>
-    <tr>
-        <td><code>oneOf</code></td>
-        <td>One of the listed subschemas.</td>
-    </tr>
-    <tr>
-        <td><code>optOneOf</code></td>
-        <td>Optionally one of the listed subschemas.</td>
-    </tr>
-    <tr>
-        <td><code>anyOf</code></td>
-        <td>Any (one or more) of the listed subschemas.</td>
-    </tr>
-    <tr>
-        <td><code>between(x,y)</code></td>
-        <td>Between (but including) x and y of the listed subschemas.</td>
-    </tr>
-</table>
+## Subschema Notation
+| Name   | Description   |
+| :------ | :------------- |
+| oneOf  | One of the listed subschemas. |
+| optOneOf | Optionally one of the listed subschemas. |
+| anyOf | Any (one or more) of the listed subschemas. |
+| <code>between(x,y)</code> | Between (but including) x and y of the listed subschemas. |
 
 ## Parameters
 - `MAX_MESSAGE_SIZE=64 KB` The maximum allowed message size.

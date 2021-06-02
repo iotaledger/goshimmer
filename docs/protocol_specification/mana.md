@@ -44,12 +44,12 @@ Given a value transaction, Base Mana 1 and Base Mana 2 are determined as follows
 
 An example `Base Mana Vector` for `Access Mana` could look like this:
 
- | 		    | Node 1 | Node 2 | ... | Node k
- |  ------- | --------- | ---------- | ------ | ---
- | Base Mana 1 			|0	| 1 	|...|  100.54
- | Effective Base Mana 1	|0	| 0.5 	|...|  120.7
- | Base Mana 2 			|0	| 1.2	|...|  0.01
- | Effective Base Mana 2	|0	| 0.6 	|...|  0.015
+ | 		    | Node 1 | Node 2 | ... | Node k |
+ |  ------- | --------- | ---------- | ------ | --- |
+ | Base Mana 1 			|0	| 1 	|...|  100.54 |
+ | Effective Base Mana 1	|0	| 0.5 	|...|  120.7 |
+ | Base Mana 2 			|0	| 1.2	|...|  0.01 |
+ | Effective Base Mana 2	|0	| 0.6 	|...|  0.015 |
 
 `Base Mana` is pledged or revoked at discrete times, which results in `Base Mana` being discontinuous function over time.
 In order to make mana "smoother" and continuous, an exponential moving average is applied to the `Base Mana` values,
