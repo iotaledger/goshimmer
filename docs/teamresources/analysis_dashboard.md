@@ -14,9 +14,9 @@ The Analysis Dashboard is hot-reload enabled.
 
 ### Pack your changes
 
-We are using [packr2](https://github.com/gobuffalo/packr/tree/master/v2) to wrap all built frontend files into Go files.
+We are using [pkger](https://github.com/markbates/pkger) to wrap all built frontend files into Go files.
 
-1. [Install `packr2`](https://github.com/gobuffalo/packr/tree/master/v2#binary-installation) if not already done.
+1. [Install `pkger`](https://github.com/markbates/pkger) if not already done.
 2. Check that the correct webpack-cli (version v3.3.11) is installed: 
 
    2.1 `yarn webpack-cli --version`
@@ -26,4 +26,6 @@ We are using [packr2](https://github.com/gobuffalo/packr/tree/master/v2) to wrap
 4. Navigate to the root of the repo.
 5. Run `pkger` in the root of the repo.
 6. `pkged.go` should have been modified.
-7. Done. Now you can build goShimmer and your Analysis Dashboard changes will be included within the binary.
+7. Done. Now you can build GoShimmer and your Analysis Dashboard changes will be included within the binary.
+
+The above steps can also be done by running the `scripts/pkger.sh` script from the root folder.
