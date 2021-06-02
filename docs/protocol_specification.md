@@ -1,6 +1,6 @@
 # Protocol specification
 
-> DISCLAIMER: The following sections describe how things are implemented in GoShimmer. They might not reflect final IOTA 2.0 specification or implementations.
+> DISCLAIMER: The following sections describe how things are implemented in GoShimmer. They might not reflect the final IOTA 2.0 specification or implementation.
 
 In this chapter we provide an overview of the various protocol components.
 
