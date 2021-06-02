@@ -64,5 +64,5 @@ http://goshimmer.docs.iota.org/
   - [How to do a release](./teamresources/release.md)
   - [Code Guidelines](./teamresources/guidelines.md)
   - [Local development](./teamresources/local_development.md)  
-  - [Modify the Analysis dashboard](../plugins/analysis/dashboard/frontend/README.md)
+  - [Modify the Analysis dashboard](./teamresources/analysis_dashboard.md)
 
