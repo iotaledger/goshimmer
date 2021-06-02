@@ -104,7 +104,7 @@ and token balances must be at least a protocol defined constant.
 
 #### Unlocking via Governance Controller
 
-The state controller is either and address, or another alias. In the former case, unlocking is done via the regular
+The governance controller is either an address, or another alias. In the former case, unlocking is done via the regular
 signature. In the latter case, unlocking is done by providing a reference to the unlocked governance alias within the
 transaction.
 
@@ -124,8 +124,8 @@ which essentially gives the control of the funds of the output to the owner of t
 corresponding private key.
 
 In order to make alias accounts (smart contract chains) able to receive funds, we need to define a new fund locking
-mechanism, called alias locking. An alias locked output can be unlocked by unlocking (state or governance?) the given
-alias output in the very same transaction.
+mechanism, called alias locking. An alias locked output can be unlocked by unlocking the given alias output for
+state transition in the very same transaction.
 
 An alias account (smart contract chain) can receive funds now, but there are additional requirements to be satisfied 
 for smart contracts:
@@ -138,7 +138,7 @@ for smart contracts:
 
 As we can see, there are couple new concepts regarding outputs that we need to support for the smart contract use case:
 - **alias locking**
-- **metadata tied to the output**
+- **metadata tied to output**
 - **fallback unlocking mechanism**
 - **time locking**
 
@@ -205,9 +205,9 @@ be lost forever?
 
 ### Unlocking via Fallback
 
-Extended outputs must also define a fallback account and a fallback deadline. After the fallback deadline, the fallback
-account is also authorized to unlock the extended output. The fallback deadline can not be smaller than a protocol wide
-constant to give enough time to the smart contract chain to pick up the request.
+Extended outputs can also define a fallback account and a fallback deadline. After the fallback deadline, only the
+fallback account is authorized to unlock the extended output. Fallback deadline cannot be smaller than a protocol
+wide constant to give enough time to the smart contract chain to pick up the request.
 
 Fallback unlocking can either be done via signature unlocking or alias unlocking, depending on the type  of account
 specified.
@@ -238,9 +238,9 @@ additional constraints also have to be met.
     - A smart contract chain can be self governed, if the state and governance controllers coincide.
     - A smart contract chain can be governed by an address account, or by another smart contract chain through an 
       alias account.
-- Each Extended Output is a request which is “sent” to the alias account. The ISCP can retrieve the backlog of requests
-  by retrieving all outputs for the aliasID. Consuming the Extended Output means it is atomically removed from
-  the backlog. It can only be done by the state controller, i.e. the committee of the smart contract chain.
+- Each Extended Output is a request which is “sent” to the alias account. The ISCP can retrieve the backlog of
+  requests by retrieving all outputs for the aliasID. Consuming the Extended Output means it is atomically removed
+  from the backlog. It can only be done by the state controller, i.e. the committee of the smart contract chain.
 - Fallback parameters prevent from losing funds if the committee is inactive for some timeout. After timeout the 
   Extended Output can be unlocked by FallbackAccount, an address or another alias.
 
@@ -301,6 +301,7 @@ Transferring NFTs is also feeless, just like any other transaction in IOTA.
 
 ## Goshimmer Implementation
 
-If you are interested, here you can find the GoShimmer implementation in [output.go](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go):
+If you are interested, you can find the GoShimmer implementation of the new ouput types in
+[output.go](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go):
  - [AliasOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L947) and
  - [ExtendedLockedOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L1840)
