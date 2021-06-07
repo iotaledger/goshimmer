@@ -50,6 +50,10 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
 
+	if len(request.Data) == 0 {
+		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no data provided"})
+	}
+
 	issueData := func() (*tangle.Message, error) {
 		return messagelayer.Tangle().IssuePayload(payload.NewGenericDataPayload(request.Data))
 	}

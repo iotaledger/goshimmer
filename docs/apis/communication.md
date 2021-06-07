@@ -251,7 +251,7 @@ A data message is simply a `Message` containing some raw data (literally bytes).
 
 ### Parameters
 
-| **Parameter**            | `payload`      |
+| **Parameter**            | `data`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
 | **Description**          | data bytes   |
@@ -262,7 +262,7 @@ A data message is simply a `Message` containing some raw data (literally bytes).
 
 ```json
 {
-  "payload": "dataBytes"
+  "data": "dataBytes"
 }
 ```
 
@@ -273,7 +273,7 @@ A data message is simply a `Message` containing some raw data (literally bytes).
 ```shell
 curl --location --request POST 'http://localhost:8080/data' \
 --header 'Content-Type: application/json' \
---data-raw '{"payload": "dataBytes"}'
+--data-raw '{"data": "dataBytes"}'
 ```
 
 #### Client lib - `Data`
@@ -342,7 +342,7 @@ curl --location --request POST 'http://localhost:8080/messages/payload' \
 ##### `SendPayload(payload []byte) (string, error)`
 
 ```go
-helloPayload := payload.NewData([]byte{"Hello Goshimmer World!"})
+helloPayload := payload.NewData([]byte{"Hello GoShimmer World!"})
 messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 ```
 

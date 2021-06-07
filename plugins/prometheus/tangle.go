@@ -97,7 +97,7 @@ func collectTangleMetrics() {
 	for payloadType, count := range msgCountPerPayload {
 		messagePerTypeCount.WithLabelValues(payloadType.String()).Set(float64(count))
 	}
-	msgCountPerComponent := metrics.MessageCountSinceStartPerComponent()
+	msgCountPerComponent := metrics.MessageCountSinceStartPerComponentGrafana()
 	for component, count := range msgCountPerComponent {
 		messagePerComponentCount.WithLabelValues(component.String()).Set(float64(count))
 	}

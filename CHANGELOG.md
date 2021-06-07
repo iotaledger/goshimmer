@@ -1,3 +1,15 @@
+# v0.7.0 - 2021-06-02
+* Add client diagnostic API
+* Improve docs and tutorials
+* Improve congestion control
+* Improve dashboard
+* Improve Grafana dashboard
+* Limit chat fields length
+* Fix several bugs
+* Reset snapshot file
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
 # v0.6.4 - 2021-05-29
 * Add simple chat dApp
 * Improve client lib

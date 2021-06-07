@@ -37,7 +37,7 @@ curl --location 'http://localhost:8080/autopeering/neighbors?known=1'
 #### Client lib - `GetAutopeeringNeighbors`
 
 Messages can be retrieved via `GetAutopeeringNeighbors(knownPeers bool) (*jsonmodels.GetNeighborsResponse, error)`
-```
+```go
 neighbors, err := goshimAPI.GetAutopeeringNeighbors(false)
 if err != nil {
     // return error

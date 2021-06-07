@@ -20,7 +20,7 @@ Disclaimer: The command line wallet and this tutorial is intended for developer 
 
 ## Initializing the wallet
 
-- Download the latest cli-wallet for the system of your choice from the [Goshimmer GitHub Releases](https://github.com/iotaledger/goshimmer/releases) page.
+- Download the latest cli-wallet for the system of your choice from the [GoShimmer GitHub Releases](https://github.com/iotaledger/goshimmer/releases) page.
 - If needed, make the downloaded binary executable (`chmod +x <downloaded-binary>` on linux).
 - For simplicity, we renamed the binary to `cli-wallet` in this tutorial.
 
@@ -171,9 +171,9 @@ Network                         test
 Funds in IOTA are tied to addresses. Only the owner of the private key behind the address is able to spend (move) the funds,
 let them be IOTA tokens or digital assets. In previous steps, we have requested funds from the faucet, which actually sent
 these tokens to an address provided by our wallet. When we created `MyUniqueToken`, the wallet internally generated a new address
-to hold the assets. You may examine the addresses used by the wallet by executing the `addresses -list` command:
+to hold the assets. You may examine the addresses used by the wallet by executing the `address -list` command:
 ```bash
-./cli-wallet addresses -list
+./cli-wallet address -list
 ```
 Output:
 ```

@@ -6,7 +6,7 @@ GoShimmer is a research and engineering project from the IOTA Foundation seeking
 ### What kind of confirmation time can I expect?
 Since non conflicting transactions aren't even voted up on, they materialize after 2x the average network delay parameter we set. This means that a transaction usually confirms within a time boundary of ~10 seconds.
 
-### Where can I see the state of the Goshimmer testnet?
+### Where can I see the state of the GoShimmer testnet?
 You can access the global analysis dashboard [here](http://ressims.iota.cafe:28080/autopeering) showcasing the network graph and active ongoing votes on conflicts.
 
 ### How much TPS can GoShimmer sustain?
