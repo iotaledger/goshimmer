@@ -56,7 +56,7 @@ curl --location 'http://localhost:8080/spammer?cmd=shutdown'
 
 #### Client lib - `ToggleSpammer()`
 
-Spaammer can be enabled and disabled via `ToggleSpammer(enable bool, mpm int) (*jsonmodels.SpammerResponse, error)`
+Spammer can be enabled and disabled via `ToggleSpammer(enable bool, mpm int) (*jsonmodels.SpammerResponse, error)`
 ```go
 res, err := goshimAPI.ToggleSpammer(true, 100)
 if err != nil {
