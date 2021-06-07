@@ -242,8 +242,8 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 		case <-exit:
 		}
 	})
-	Tangle().Booker.Events.MessageBooked.Attach(closure)
-	defer Tangle().Booker.Events.MessageBooked.Detach(closure)
+	Tangle().Scheduler.Events.MessageScheduled.Attach(closure)
+	defer Tangle().Scheduler.Events.MessageScheduled.Detach(closure)
 
 	// then issue the message with the tx
 

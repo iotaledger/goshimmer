@@ -65,8 +65,11 @@ func (f *ConsensusMechanism) Setup() {
 		f.SetTransactionLiked(branchDAGEvent.Branch.ID().TransactionID(), false)
 	}))
 
-	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.Evaluate))
-	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.EvaluateTimestamp))
+	f.tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(f.Evaluate))
+	f.tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(f.EvaluateTimestamp))
+
+	f.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(f.Evaluate))
+	f.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(f.EvaluateTimestamp))
 }
 
 // TransactionLiked returns a boolean value indicating whether the given Transaction is liked.

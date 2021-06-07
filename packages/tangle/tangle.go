@@ -139,8 +139,8 @@ func (t *Tangle) Setup() {
 		t.Scheduler.Start()
 	}
 
-	// pass solid messages to the scheduler
-	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(t.schedule))
+	// pass booked messages to the scheduler
+	t.Booker.Events.MessageBooked.Attach(events.NewClosure(t.schedule))
 
 	var switchSchedulerOnce sync.Once
 	// switch the scheduler, the first time we get synced

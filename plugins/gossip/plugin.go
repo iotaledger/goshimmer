@@ -60,7 +60,6 @@ func run(*node.Plugin) {
 	}
 }
 
-
 func configureLogging() {
 	// assure that the Manager is instantiated
 	mgr := Manager()
@@ -86,8 +85,7 @@ func configureMessageLayer() {
 		messagelayer.Tangle().ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
-	// configure flow of outgoing messages (gossip after booking)
-	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	gossipClosure := func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 				if clock.Since(messageMetadata.ReceivedTime()) > ageThreshold {
@@ -101,7 +99,11 @@ func configureMessageLayer() {
 				mgr.SendMessage(message.Bytes())
 			})
 		})
-	}))
+	}
+
+	// configure flow of outgoing messages (gossip after booking)
+	messagelayer.Tangle().FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(gossipClosure))
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(gossipClosure))
 
 	// request missing messages
 	messagelayer.Tangle().Requester.Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {

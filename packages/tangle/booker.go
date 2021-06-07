@@ -51,7 +51,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID MessageID) {
+	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
 		if err := b.BookMessage(messageID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to book message with %s: %w", messageID, err))
 		}

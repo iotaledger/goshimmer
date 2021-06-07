@@ -17,6 +17,7 @@ func TestFifoScheduler(t *testing.T) {
 	// setup tangle up till the FIFOScheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
+	tangle.Booker.Setup()
 	tangle.FIFOScheduler.Setup()
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(tangle.FIFOScheduler.Schedule))
 	tangle.FIFOScheduler.Start()

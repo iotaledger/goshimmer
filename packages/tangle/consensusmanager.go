@@ -32,9 +32,11 @@ func NewConsensusManager(tangle *Tangle) (opinionFormer *ConsensusManager) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (o *ConsensusManager) Setup() {
 	if o.tangle.Options.ConsensusMechanism == nil {
-		o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+		closure := func(messageID MessageID) {
 			o.Events.MessageOpinionFormed.Trigger(messageID)
-		}))
+		}
+		o.tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(closure))
+		o.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(closure))
 		return
 	}
 

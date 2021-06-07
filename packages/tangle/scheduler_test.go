@@ -211,6 +211,7 @@ func TestScheduler_Issue(t *testing.T) {
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
+	tangle.Booker.Setup()
 	tangle.Scheduler.Setup()
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
 		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
@@ -252,6 +253,7 @@ func TestSchedulerFlow(t *testing.T) {
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
+	tangle.Booker.Setup()
 	tangle.Scheduler.Setup()
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
 		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
@@ -325,6 +327,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
+	tangle.Booker.Setup()
 	tangle.Scheduler.Setup()
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
 		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
