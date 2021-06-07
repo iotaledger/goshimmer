@@ -63,6 +63,10 @@ type TransactionMetrics struct {
 	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
 	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
 	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
+	DeltaSolid         int64     `json:"deltaSolid"`
+	DeltaScheduled     int64     `json:"deltaArrival"`
+	DeltaBooked        int64     `json:"deltaBooked"`
+	DeltaConfirmed     int64     `json:"deltaConfirmed"`
 }
 
 // DRNGMetrics defines the DRNG metrics record to sent be to remote logger.
@@ -72,6 +76,7 @@ type DRNGMetrics struct {
 	Round             uint64    `json:"round" bson:"round"`
 	IssuedTimestamp   time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
 	ReceivedTimestamp time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
+	DeltaReceived     int64     `json:"deltaReceived"  bson:"deltaReceived"`
 }
 
 // StatementLog defines the statement metrics record to sent be to remote logger.

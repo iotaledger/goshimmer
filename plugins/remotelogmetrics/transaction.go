@@ -29,12 +29,16 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 	})
 	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		record.ScheduledTimestamp = messageMetadata.ScheduledTime()
+		record.DeltaSolid = messageMetadata.ScheduledTime().Sub(record.IssuedTimestamp).Nanoseconds()
 		record.BookedTimestamp = messageMetadata.BookedTime()
+		record.DeltaBooked = messageMetadata.BookedTime().Sub(record.IssuedTimestamp).Nanoseconds()
 		record.ConfirmedTimestamp = messageMetadata.FinalizedTime()
+		record.DeltaConfirmed = messageMetadata.FinalizedTime().Sub(record.IssuedTimestamp).Nanoseconds()
 	})
 
 	messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		record.SolidTimestamp = transactionMetadata.SolidificationTime()
+		record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
 	})
 
 	if err := remotelog.RemoteLogger().Send(record); err != nil {
