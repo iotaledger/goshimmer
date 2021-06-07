@@ -171,9 +171,9 @@ Network                         test
 Funds in IOTA are tied to addresses. Only the owner of the private key behind the address is able to spend (move) the funds,
 let them be IOTA tokens or digital assets. In previous steps, we have requested funds from the faucet, which actually sent
 these tokens to an address provided by our wallet. When we created `MyUniqueToken`, the wallet internally generated a new address
-to hold the assets. You may examine the addresses used by the wallet by executing the `addresses -list` command:
+to hold the assets. You may examine the addresses used by the wallet by executing the `address -list` command:
 ```bash
-./cli-wallet addresses -list
+./cli-wallet address -list
 ```
 Output:
 ```
