@@ -426,7 +426,6 @@ func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err err
 const maxBookedAwaitTime = 5 * time.Second
 
 var (
-	sendTxMu sync.Mutex
 	// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
 	ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to node")
 )
