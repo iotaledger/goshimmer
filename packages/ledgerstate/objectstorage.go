@@ -3,6 +3,8 @@ package ledgerstate
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
@@ -38,66 +40,76 @@ const (
 	PrefixAddressOutputMappingStorage
 )
 
+// block of default cache time
+const (
+	branchCacheTime      = 60 * time.Second
+	conflictCacheTime    = 60 * time.Second
+	transactionCacheTime = 10 * time.Second
+	outputCacheTime      = 10 * time.Second
+	consumerCacheTime    = 10 * time.Second
+	addressCacheTime     = 10 * time.Second
+)
+
 // branchStorageOptions contains a list of default settings for the Branch object storage.
 var branchStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(60 * time.Second),
+	database.CacheTime(branchCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // childBranchStorageOptions contains a list of default settings for the ChildBranch object storage.
 var childBranchStorageOptions = []objectstorage.Option{
 	ChildBranchKeyPartition,
-	objectstorage.CacheTime(60 * time.Second),
+	database.CacheTime(branchCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // conflictStorageOptions contains a list of default settings for the Conflict object storage.
 var conflictStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(60 * time.Second),
+	database.CacheTime(consumerCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // conflictMemberStorageOptions contains a list of default settings for the ConflictMember object storage.
 var conflictMemberStorageOptions = []objectstorage.Option{
 	ConflictMemberKeyPartition,
-	objectstorage.CacheTime(60 * time.Second),
+	database.CacheTime(conflictCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // transactionStorageOptions contains a list of default settings for the Transaction object storage.
 var transactionStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
+	database.CacheTime(transactionCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // transactionMetadataStorageOptions contains a list of default settings for the TransactionMetadata object storage.
 var transactionMetadataStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
+	database.CacheTime(transactionCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // outputStorageOptions contains a list of default settings for the Output object storage.
 var outputStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
+	database.CacheTime(outputCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // outputMetadataStorageOptions contains a list of default settings for the OutputMetadata object storage.
 var outputMetadataStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
+	database.CacheTime(outputCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // consumerStorageOptions contains a list of default settings for the OutputMetadata object storage.
 var consumerStorageOptions = []objectstorage.Option{
 	ConsumerPartitionKeys,
-	objectstorage.CacheTime(10 * time.Second),
+	database.CacheTime(consumerCacheTime),
 	objectstorage.LeakDetectionEnabled(false),
 }
 
 // addressOutputMappingStorageOptions contains a list of default settings for the AddressOutputMapping object storage.
 var addressOutputMappingStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
+	database.CacheTime(addressCacheTime),
 	objectstorage.PartitionKey(AddressLength, OutputIDLength),
 	objectstorage.LeakDetectionEnabled(false),
 }

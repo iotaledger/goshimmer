@@ -35,9 +35,9 @@ func NewStorage(store kvstore.KVStore) (storage *Storage) {
 
 	storage = &Storage{
 		store:                   store,
-		opinionStorage:          osFactory.New(PrefixOpinion, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		timestampOpinionStorage: osFactory.New(PrefixTimestampOpinion, TimestampOpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage:  osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		opinionStorage:          osFactory.New(PrefixOpinion, OpinionFromObjectStorage, database.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		timestampOpinionStorage: osFactory.New(PrefixTimestampOpinion, TimestampOpinionFromObjectStorage, database.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage:  osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, database.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 	}
 
 	genesis := NewMessageMetadata(tangle.EmptyMessageID)
