@@ -54,7 +54,6 @@ func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + PluginName + " ... done")
 
 	lPeer := local.GetInstance()
-
 	// use the port of the gossip service
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
