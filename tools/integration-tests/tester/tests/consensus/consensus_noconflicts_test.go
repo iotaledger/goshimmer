@@ -21,7 +21,7 @@ import (
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetworkWithMana("consensus_TestConsensusNoConflicts", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

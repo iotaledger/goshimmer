@@ -293,14 +293,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config.Seed = privKeys[i].Seed().String()
-		if _, e := drng.CreatePeer(func() GoShimmerConfig {
-			if i == 0 {
-				faucetConfig := config
-				faucetConfig.Faucet = true
-				return faucetConfig
-			}
-			return config
-		}(), pubKeys[i]); e != nil {
+		if _, e := drng.CreatePeer(config, pubKeys[i]); e != nil {
 			return nil, e
 		}
 	}
@@ -310,22 +303,6 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 	err = drng.network.DoManualPeeringAndWait(drng.network.peers...)
 	if err != nil {
 		return nil, errors.WithStack(err)
-	}
-
-	// get mana from faucet
-	for i := 1; i < peers; i++ {
-		peer := drng.network.peers[i]
-		addr := peer.Seed.Address(uint64(0)).Address()
-		ID := base58.Encode(peer.ID().Bytes())
-		_, err := drng.network.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
-		if err != nil {
-			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
-		}
-		time.Sleep(2 * time.Second)
-	}
-	err = drng.network.WaitForMana(drng.network.peers[1:]...)
-	if err != nil {
-		return nil, err
 	}
 
 	return drng, nil

@@ -17,7 +17,7 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork("common_TestSynchronization", 5, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
 	})

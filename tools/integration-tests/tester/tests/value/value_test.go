@@ -163,7 +163,7 @@ func TestValueColoredPersistence(t *testing.T) {
 
 // TestAlias_Persistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
 func TestAlias_Persistence(t *testing.T) {
-	n, err := f.CreateNetworkWithMana("alias_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+	n, err := f.CreateNetwork("alias_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -265,7 +265,7 @@ func TestAlias_Persistence(t *testing.T) {
 
 // TestAlias_Delegation tests if a delegation output can be used to refresh mana.
 func TestAlias_Delegation(t *testing.T) {
-	n, err := f.CreateNetworkWithMana("alias_TestDelegation", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+	n, err := f.CreateNetwork("alias_TestDelegation", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
