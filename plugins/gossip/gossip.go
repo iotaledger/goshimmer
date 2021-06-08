@@ -58,7 +58,6 @@ func start(shutdownSignal <-chan struct{}) {
 	// use the port of the gossip service
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
-
 	// resolve the bind address
 	address := net.JoinHostPort(config.Node().String(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
