@@ -3,7 +3,6 @@ package client
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
 	"net/http"
 )
 
@@ -42,7 +41,7 @@ const (
 //	PayloadOpinionFormed TimestampOpinionFormed MessageOpinionFormed MessageOpinionTriggered TimestampOpinion
 //	TimestampLoK
 func (api *GoShimmerAPI) GetDiagnosticsMessages() (*csv.Reader, error) {
-	return api.diagnose(tools.RouteDiagnosticMessages)
+	return api.diagnose(RouteDiagnosticMessages)
 }
 
 // GetDiagnosticsFirstWeakMessageReferences runs diagnostics over weak references only.
