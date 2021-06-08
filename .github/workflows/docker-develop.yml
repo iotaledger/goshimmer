@@ -40,6 +40,8 @@ jobs:
       - name: Publish to Docker Hub
         uses: docker/build-push-action@v2.5.0
         with:
+          build-args: |
+            mount='id=go_build_cache_mount,type=bind,source=/tmp/foo'
           tags: iotaledger/goshimmer:develop
           push: true
           cache-from: type=local,src=/tmp/.buildx-cache

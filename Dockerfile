@@ -26,7 +26,7 @@ RUN go mod verify
 # 3. Build the binary
 # 4. Verify that goshimmer binary is statically linked
 RUN --mount=target=. \
-    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,id=go_build_cache_mount,target=/root/.cache/go-build \
     GOOS=linux GOARCH=amd64 go build \
     -tags="$BUILD_TAGS" \
     -ldflags='-w -s -extldflags "-static"' \
