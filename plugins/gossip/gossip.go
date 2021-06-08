@@ -66,7 +66,6 @@ func start(shutdownSignal <-chan struct{}) {
 		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
 	}
 
-
 	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
 	if err != nil {
 		log.Fatalf("Error listening: %v", err)
