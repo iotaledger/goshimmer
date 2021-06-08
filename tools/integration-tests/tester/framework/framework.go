@@ -103,13 +103,7 @@ func (f *Framework) CreateNetwork(name string, peers int, config CreateNetworkCo
 				}
 				return ""
 			}(i),
-			Faucet: config.Faucet && i == 0,
-			Mana: func(i int) bool {
-				if ParaManaOnEveryNode {
-					return true
-				}
-				return config.Mana && i == 0
-			}(i),
+			Faucet:                     config.Faucet && i == 0,
 			StartSynced:                config.StartSynced,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
@@ -183,7 +177,6 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 				return ""
 			}(i),
 			Faucet:                     config.Faucet && i == 0,
-			Mana:                       config.Mana,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,
@@ -294,7 +287,6 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 		DRNGThreshold: 3,
 		DRNGDistKey:   hex.EncodeToString(drng.distKey),
 		DRNGCommittee: drngCommittee,
-		Mana:          true,
 		StartSynced:   true,
 	}
 
@@ -344,9 +336,6 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 func (f *Framework) CreateNetworkWithMana(name string, peers int, config CreateNetworkConfig) (*Network, error) {
 	if !config.Faucet {
 		return nil, fmt.Errorf("faucet is required")
-	}
-	if !config.Mana {
-		return nil, fmt.Errorf("mana plugin is required to load mana snapshot")
 	}
 
 	n, err := f.CreateNetwork(name, peers, config)

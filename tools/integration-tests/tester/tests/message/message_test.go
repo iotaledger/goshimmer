@@ -14,7 +14,6 @@ import (
 func TestPersistence(t *testing.T) {
 	n, err := f.CreateNetworkWithMana("message_TestPersistence", 4, framework.CreateNetworkConfig{
 		Faucet:      true,
-		Mana:        true,
 		StartSynced: true,
 	})
 	require.NoError(t, err)

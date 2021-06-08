@@ -111,7 +111,6 @@ type GoShimmerConfig struct {
 	ActivityPlugin   bool
 	ActivityInterval int
 
-	Mana                              bool
 	ManaAllowedAccessFilterEnabled    bool
 	ManaAllowedConsensusFilterEnabled bool
 	ManaAllowedAccessPledge           []string
@@ -135,6 +134,5 @@ type NetworkConfig struct {
 // CreateNetworkConfig is the config for optional plugins passed through createNetwork.
 type CreateNetworkConfig struct {
 	Faucet      bool
-	Mana        bool
 	StartSynced bool
 }

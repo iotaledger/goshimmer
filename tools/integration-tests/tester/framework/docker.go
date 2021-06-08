@@ -98,9 +98,6 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				if config.ActivityPlugin {
 					plugins = append(plugins, "activity")
 				}
-				if config.Mana {
-					plugins = append(plugins, "Mana")
-				}
 				return strings.Join(plugins[:], ",")
 			}()),
 			// define the faucet seed in case the faucet dApp is enabled

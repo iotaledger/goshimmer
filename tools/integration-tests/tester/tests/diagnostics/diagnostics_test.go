@@ -42,7 +42,7 @@ var (
 )
 
 func TestDiagnosticApis(t *testing.T) {
-	n, err := f.CreateNetwork("diagnostics_TestAPI", 1, framework.CreateNetworkConfig{Faucet: false, Mana: false})
+	n, err := f.CreateNetwork("diagnostics_TestAPI", 1, framework.CreateNetworkConfig{Faucet: false})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 	time.Sleep(10 * time.Second)
