@@ -33,7 +33,7 @@ func TestSynchronizationPersistence(t *testing.T) {
 	log.Println("Spawning new node to sync...")
 	newPeer, err := n.CreatePeer(framework.GoShimmerConfig{})
 	require.NoError(t, err)
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
@@ -41,7 +41,7 @@ func TestSynchronizationPersistence(t *testing.T) {
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10, ids)
 
 	// 4. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true, 30*time.Second)
 
 	// 5. shut down newly added peer
 	err = newPeer.Stop()
@@ -53,7 +53,7 @@ func TestSynchronizationPersistence(t *testing.T) {
 	err = newPeer.Start()
 	require.NoError(t, err)
 	// wait for peer to start
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
@@ -62,5 +62,5 @@ func TestSynchronizationPersistence(t *testing.T) {
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10, ids)
 
 	// 9. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true, 30*time.Second)
 }

@@ -128,9 +128,10 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 	return resp.ID, sent
 }
 
-// CheckForMessageIDs performs checks to make sure that all peers received all given messages defined in ids.
-func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool) {
-	missing, err := AwaitMessageAvailability(peers, messageIDs, 30*time.Second)
+// CheckForMessageIDs first waits for all messages to be available, and then performs checks to make sure that all peers received all given messages with
+// their correct information.
+func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool, waitFor time.Duration) {
+	missing, err := AwaitMessageAvailability(peers, messageIDs, waitFor)
 	if err != nil {
 		assert.NoError(t, err, "messages should have been available")
 		for p, missingOnPeer := range missing {
@@ -178,6 +179,9 @@ func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[st
 	}
 }
 
+// AwaitMessageAvailability awaits until the given message IDs become available on all given peers or
+// the max duration is reached. Returns a map of missing messages per peer. An error is returned if at least
+// one peer does not have all specified messages available.
 func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]DataMessageSent, waitFor time.Duration) (missing map[identity.ID]map[string]types.Empty, err error) {
 	s := time.Now()
 	missing = map[identity.ID]map[string]types.Empty{}
