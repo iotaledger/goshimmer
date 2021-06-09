@@ -43,6 +43,7 @@ func (ml *fpcMetricsLogger) onVoteRoundExecuted(roundStats *vote.RoundStats) {
 			Outcome:              ml.getOutcome(conflictID),
 			Time:                 clock.SyncedTime(),
 			ConflictCreationTime: conflictContext.ConflictCreationTime,
+			Delta:                clock.Since(conflictContext.ConflictCreationTime).Nanoseconds(),
 		}
 		if err := remotelog.RemoteLogger().Send(record); err != nil {
 			plugin.Logger().Errorw("Failed to send FPC conflict record on round executed event", "err", err)

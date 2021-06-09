@@ -51,6 +51,7 @@ type FPCConflictRecord struct {
 	Time time.Time `json:"datetime" bson:"datetime"`
 	// ConflictCreationTime points to time when the context has been created
 	ConflictCreationTime time.Time `json:"conflictStart" bson:"conflictStart"`
+	Delta                int64     `json:"delta"`
 }
 
 // TransactionMetrics defines the transaction metrics record to sent be to remote logger.
