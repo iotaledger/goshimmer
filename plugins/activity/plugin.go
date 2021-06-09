@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	delayOffset  = 10
-	parentsCount = 8
+	delayOffset                 = 10 // time between activity messages
+	parentsCountActivityMessage = 2  // number of parents (if possible) of the activity messages
 )
 
 var (
@@ -41,7 +41,7 @@ func configure(_ *node.Plugin) {
 // broadcastActivityMessage broadcasts a sync beacon via communication layer.
 func broadcastActivityMessage() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
-	msg, err := messagelayer.Tangle().IssuePayload(activityPayload, parentsCount)
+	msg, err := messagelayer.Tangle().IssuePayload(activityPayload, parentsCountActivityMessage)
 	if err != nil {
 		plugin.LogWarnf("error issuing activity message: %s", err)
 		return
