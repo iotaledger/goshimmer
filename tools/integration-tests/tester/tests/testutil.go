@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"sync"
@@ -25,6 +26,7 @@ import (
 )
 
 var (
+	ErrMessageNotAvailableInTime     = errors.New("message was not available in time")
 	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
 	ErrTransactionStateNotSameInTime = errors.New("transaction state did not materialize in time")
 	ErrNotSynced                     = errors.New("peers not synced")
@@ -128,6 +130,18 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 
 // CheckForMessageIDs performs checks to make sure that all peers received all given messages defined in ids.
 func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool) {
+	missing, err := AwaitMessageAvailability(peers, messageIDs, 30*time.Second)
+	if err != nil {
+		assert.NoError(t, err, "messages should have been available")
+		for p, missingOnPeer := range missing {
+			log.Printf("missing on peer %s:", p)
+			for missingMessage := range missingOnPeer {
+				log.Println("message id: ", missingMessage)
+			}
+		}
+		return
+	}
+
 	for _, peer := range peers {
 		if checkSynchronized {
 			// check that the peer sees itself as synchronized
@@ -162,6 +176,50 @@ func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[st
 		// check that all messages are present in response
 		assert.ElementsMatchf(t, idsSlice, respIDs, "messages do not match sent in %s", peer.String())
 	}
+}
+
+func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]DataMessageSent, waitFor time.Duration) (missing map[identity.ID]map[string]types.Empty, err error) {
+	s := time.Now()
+	missing = map[identity.ID]map[string]types.Empty{}
+
+	for ; time.Since(s) < waitFor; time.Sleep(500 * time.Millisecond) {
+		var wg sync.WaitGroup
+		wg.Add(len(peers))
+		counter := int32(len(peers) * len(messageIDs))
+
+		for _, p := range peers {
+			go func(p *framework.Peer) {
+				defer wg.Done()
+				for messageID := range messageIDs {
+					_, err := p.GetMessage(messageID)
+					if err == nil {
+						m, has := missing[p.ID()]
+						if has {
+							delete(m, messageID)
+							if len(m) == 0 {
+								delete(missing, p.ID())
+							}
+						}
+						atomic.AddInt32(&counter, -1)
+						continue
+					}
+					m, has := missing[p.ID()]
+					if !has {
+						m = map[string]types.Empty{}
+					}
+					m[messageID] = types.Void
+					missing[p.ID()] = m
+				}
+			}(p)
+		}
+		wg.Wait()
+
+		if counter == 0 {
+			// everything available
+			return missing, nil
+		}
+	}
+	return missing, ErrMessageNotAvailableInTime
 }
 
 // SendTransactionFromFaucet sends funds to peers from the faucet, sends back the remainder to faucet, and returns the transaction ID.
