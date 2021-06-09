@@ -44,8 +44,6 @@ type Manager struct {
 	events          Events
 	neighborsEvents map[NeighborsGroup]NeighborsEvents
 
-	wg sync.WaitGroup
-
 	server      *server.TCP
 	serverMutex sync.RWMutex
 
@@ -53,9 +51,9 @@ type Manager struct {
 	neighborsMutex sync.RWMutex
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
-	messageWorkerPool *workerpool.WorkerPool
+	messageWorkerPool *workerpool.NonBlockingQueuedWorkerPool
 
-	messageRequestWorkerPool *workerpool.WorkerPool
+	messageRequestWorkerPool *workerpool.NonBlockingQueuedWorkerPool
 }
 
 // NewManager creates a new Manager.
@@ -75,13 +73,13 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 		server:    nil,
 	}
 
-	m.messageWorkerPool = workerpool.New(func(task workerpool.Task) {
+	m.messageWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		m.processPacketMessage(task.Param(0).([]byte), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
 
-	m.messageRequestWorkerPool = workerpool.New(func(task workerpool.Task) {
+	m.messageRequestWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		m.processMessageRequest(task.Param(0).([]byte), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
@@ -96,9 +94,6 @@ func (m *Manager) Start(srv *server.TCP) {
 	defer m.serverMutex.Unlock()
 
 	m.server = srv
-
-	m.messageWorkerPool.Start()
-	m.messageRequestWorkerPool.Start()
 }
 
 // Stop stops the manager and closes all established connections.

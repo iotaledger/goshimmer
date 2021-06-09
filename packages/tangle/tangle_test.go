@@ -439,13 +439,12 @@ func TestTangle_Flow(t *testing.T) {
 	tangle.Parser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
 
 	// create inboxWP to act as the gossip layer
-	inboxWP := workerpool.New(func(task workerpool.Task) {
+	inboxWP := workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		time.Sleep(networkDelay)
 		tangle.ProcessGossipMessage(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
-	inboxWP.Start()
 	defer inboxWP.Stop()
 
 	// generate the messages we want to solidify
