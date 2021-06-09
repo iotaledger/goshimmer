@@ -29,7 +29,7 @@ func TestPrepareFaucet(t *testing.T) {
 	faucet := n.Peers()[0]
 
 	// Tests genesis output is split into 10 outputs. [1,2,...10] and balance,
-	const genesisBalance = int64(1000000000000000)
+	const genesisBalance = int64(framework.GenesisTokenAmount)
 	var totalSplit int64
 	var i uint64
 	for i = 1; i <= 10; i++ {

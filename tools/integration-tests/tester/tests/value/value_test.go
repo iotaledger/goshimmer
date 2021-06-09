@@ -26,28 +26,17 @@ func TestTransactionPersistence(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
-	// wait for peers to change their state to synchronized
-	time.Sleep(15 * time.Second)
-
-	// master node sends funds to all peers in the network
-	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
-	txIds := make(map[string]*tests.ExpectedTransaction)
-	for _, txID := range txIdsSlice {
-		txIds[txID] = nil
-	}
+	// request funds from faucet
+	_, addrBalance := tests.SendFaucetRequestOnAllPeers(t, n.Peers())
 
 	// wait for messages to be gossiped
 	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
-
-	// check whether the first issued transaction is available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send value message randomly
+	txIds := make(map[string]*tests.ExpectedTransaction)
 	randomTxIds := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10, 100)
 	for _, randomTxId := range randomTxIds {
 		txIds[randomTxId] = nil
@@ -96,36 +85,26 @@ func TestValueColoredPersistence(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
-	// wait for peers to change their state to synchronized
-	time.Sleep(15 * time.Second)
-
-	// master node sends funds to all peers in the network
-	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
-	txIds := make(map[string]*tests.ExpectedTransaction)
-	for _, txID := range txIdsSlice {
-		txIds[txID] = nil
-	}
-
+	// request funds from faucet
+	_, addrBalance := tests.SendFaucetRequestOnAllPeers(t, n.Peers())
+	fmt.Println(addrBalance)
 	// wait for messages to be gossiped
-	time.Sleep(3 * framework.DefaultUpperBoundNetworkDelay)
-
-	// check whether the transactions are available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
-	// send funds to node 2
+	// send funds to faucet
+	txIds := make(map[string]*tests.ExpectedTransaction)
 	for _, peer := range n.Peers()[1:] {
 		fail, txId := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
 		require.False(t, fail)
 		txIds[txId] = nil
 		time.Sleep(2 * time.Second)
 	}
+
 	// wait for value messages to be gossiped
-	time.Sleep(3 * framework.DefaultUpperBoundNetworkDelay)
+	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -148,7 +127,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for peers to start
-	time.Sleep(20 * time.Second)
+	time.Sleep(5 * time.Second)
 	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
@@ -269,9 +248,6 @@ func TestAlias_Delegation(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
-	// wait for peers to change their state to synchronized
-	time.Sleep(10 * time.Second)
-
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
 
@@ -280,7 +256,7 @@ func TestAlias_Delegation(t *testing.T) {
 
 	dumbWallet := createWallets(1)[0]
 	delegationAddress := dumbWallet.address
-	tx, delegationIDs, err := w.DelegateFunds(
+	_, delegationIDs, err := w.DelegateFunds(
 		delegateoptions.Destination(address.Address{AddressBytes: delegationAddress.Array()}, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 1000}),
 		delegateoptions.WaitForConfirmation(true),
 	)
@@ -322,7 +298,7 @@ func TestAlias_Delegation(t *testing.T) {
 		aManaReceiver, cManaReceiver,
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(delegatedAliasOutputID)),
 		ledgerstate.NewOutputs(nextOutput))
-	tx = ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
+	tx := ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
 	_, err = n.RandomPeer().PostTransaction(tx.Bytes())
 	require.NoError(t, err)
 	// give enough time to all peers

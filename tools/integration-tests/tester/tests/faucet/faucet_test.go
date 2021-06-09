@@ -30,7 +30,7 @@ func TestFaucetPersistence(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// master node sends funds to all peers in the network
-	ids, addrBalance := tests.SendFaucetRequestOnRandomPeer(t, peers[1:], 10)
+	ids, addrBalance := tests.SendFaucetRequestOnAllPeers(t, peers[1:])
 
 	// wait for messages to be gossiped
 	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
