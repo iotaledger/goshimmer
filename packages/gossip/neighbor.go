@@ -91,7 +91,6 @@ func (n *Neighbor) Close() error {
 	// wait for everything to finish
 	n.wg.Wait()
 
-	n.log.Info("Connection closed")
 	return err
 }
 
@@ -104,6 +103,7 @@ func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
 		close(n.closing)
 		err = n.BufferedConnection.Close()
+		n.log.Info("Connection closed")
 	})
 	return
 }
@@ -119,7 +119,7 @@ func (n *Neighbor) writeLoop() {
 			}
 			if _, err := n.BufferedConnection.Write(msg); err != nil {
 				n.log.Warnw("Write error", "err", err)
-				_ = n.BufferedConnection.Close()
+				_ = n.disconnect()
 				return
 			}
 		case <-n.closing:
@@ -140,7 +140,7 @@ func (n *Neighbor) readLoop() {
 			numReadErrors++
 			if numReadErrors > maxNumReadErrors {
 				n.log.Warnw("Too many read errors", "err", err)
-				_ = n.BufferedConnection.Close()
+				_ = n.disconnect()
 				return
 			}
 			continue
@@ -150,7 +150,7 @@ func (n *Neighbor) readLoop() {
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 				n.log.Warnw("Permanent error", "err", err)
 			}
-			_ = n.BufferedConnection.Close()
+			_ = n.disconnect()
 			return
 		}
 	}
