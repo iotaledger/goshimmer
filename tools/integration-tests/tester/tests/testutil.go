@@ -189,7 +189,6 @@ func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]Dat
 	for ; time.Since(s) < waitFor; time.Sleep(500 * time.Millisecond) {
 		var wg sync.WaitGroup
 		wg.Add(len(peers))
-		counter := int32(len(peers) * len(messageIDs))
 
 		for _, p := range peers {
 			go func(p *framework.Peer) {
@@ -197,14 +196,12 @@ func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]Dat
 				for messageID := range messageIDs {
 					_, err := p.GetMessage(messageID)
 					if err == nil {
-						m, has := missing[p.ID()]
-						if has {
+						if m, has := missing[p.ID()]; has {
 							delete(m, messageID)
 							if len(m) == 0 {
 								delete(missing, p.ID())
 							}
 						}
-						atomic.AddInt32(&counter, -1)
 						continue
 					}
 					m, has := missing[p.ID()]
@@ -218,8 +215,7 @@ func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]Dat
 		}
 		wg.Wait()
 
-		if counter == 0 {
-			// everything available
+		if len(missing) == 0 {
 			return missing, nil
 		}
 	}
