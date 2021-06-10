@@ -23,8 +23,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-// TODO: implement mana metrics
-
 // PluginName is the name of the metrics plugin.
 const PluginName = "Metrics"
 

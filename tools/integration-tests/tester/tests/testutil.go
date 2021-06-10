@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"sync"
@@ -25,6 +26,7 @@ import (
 )
 
 var (
+	ErrMessageNotAvailableInTime     = errors.New("message was not available in time")
 	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
 	ErrTransactionStateNotSameInTime = errors.New("transaction state did not materialize in time")
 	ErrNotSynced                     = errors.New("peers not synced")
@@ -129,8 +131,21 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 	return resp.ID, sent
 }
 
-// CheckForMessageIDs performs checks to make sure that all peers received all given messages defined in ids.
-func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool) {
+// CheckForMessageIDs first waits for all messages to be available, and then performs checks to make sure that all peers received all given messages with
+// their correct information.
+func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool, waitFor time.Duration) {
+	missing, err := AwaitMessageAvailability(peers, messageIDs, waitFor)
+	if err != nil {
+		assert.NoError(t, err, "messages should have been available")
+		for p, missingOnPeer := range missing {
+			log.Printf("missing on peer %s:", p)
+			for missingMessage := range missingOnPeer {
+				log.Println("message id: ", missingMessage)
+			}
+		}
+		return
+	}
+
 	for _, peer := range peers {
 		if checkSynchronized {
 			// check that the peer sees itself as synchronized
@@ -165,6 +180,110 @@ func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[st
 		// check that all messages are present in response
 		assert.ElementsMatchf(t, idsSlice, respIDs, "messages do not match sent in %s", peer.String())
 	}
+}
+
+// AwaitMessageAvailability awaits until the given message IDs become available on all given peers or
+// the max duration is reached. Returns a map of missing messages per peer. An error is returned if at least
+// one peer does not have all specified messages available.
+func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]DataMessageSent, waitFor time.Duration) (missing map[identity.ID]map[string]types.Empty, err error) {
+	s := time.Now()
+	var missingMu sync.RWMutex
+	missing = map[identity.ID]map[string]types.Empty{}
+
+	for i := 0; time.Since(s) < waitFor; time.Sleep(500 * time.Millisecond) {
+		var wg sync.WaitGroup
+		wg.Add(len(peers))
+
+		for _, p := range peers {
+			go func(p *framework.Peer) {
+				defer wg.Done()
+
+				missingMu.RLock()
+				m, has := missing[p.ID()]
+				missingMu.RUnlock()
+
+				// do not request messages again for this peer if a previous iteration did not yield any missing messages
+				if i > 0 && !has {
+					return
+				}
+
+				for messageID := range messageIDs {
+					_, err := p.GetMessage(messageID)
+					if err == nil {
+						if has {
+							delete(m, messageID)
+							if len(m) == 0 {
+								missingMu.Lock()
+								delete(missing, p.ID())
+								missingMu.Unlock()
+							}
+						}
+						continue
+					}
+
+					if !has {
+						m = map[string]types.Empty{}
+					}
+					m[messageID] = types.Void
+
+					missingMu.Lock()
+					missing[p.ID()] = m
+					missingMu.Unlock()
+				}
+			}(p)
+		}
+		wg.Wait()
+
+		if len(missing) == 0 {
+			return missing, nil
+		}
+		i++
+	}
+	return missing, ErrMessageNotAvailableInTime
+}
+
+// SendTransactionFromFaucet sends funds to peers from the faucet, sends back the remainder to faucet, and returns the transaction ID.
+func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue int64) (txIds []string, addrBalance map[string]map[ledgerstate.Color]int64) {
+	// initiate addrBalance map
+	addrBalance = make(map[string]map[ledgerstate.Color]int64)
+	for _, p := range peers {
+		addr := p.Seed.Address(0).Address().Base58()
+		addrBalance[addr] = make(map[ledgerstate.Color]int64)
+	}
+
+	faucetPeer := peers[0]
+
+	// faucet keeps remaining amount on address 0
+	addrBalance[faucetPeer.Seed.Address(0).Address().Base58()][ledgerstate.ColorIOTA] = int64(framework.GenesisTokenAmount - framework.ParaFaucetPreparedOutputsCount*int(framework.ParaFaucetTokensPerRequest))
+	var i uint64
+	// faucet has split genesis output into n bits of 1337 each and remainder on 0
+	for i = 1; i < uint64(len(peers)); i++ {
+		faucetAddrStr := faucetPeer.Seed.Address(i).Address().Base58()
+		addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
+		// get faucet balances
+		unspentOutputs, err := faucetPeer.PostAddressUnspentOutputs([]string{faucetAddrStr})
+		require.NoErrorf(t, err, "could not get unspent outputs on %s", faucetPeer.String())
+		out, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
+		require.NoError(t, err)
+		balanceValue, exist := out.Balances().Get(ledgerstate.ColorIOTA)
+		assert.Equal(t, true, exist)
+		addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = int64(balanceValue)
+
+		// send funds to other peers
+		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{
+			FromAddressIndex:      i,
+			ToAddressIndex:        0,
+			AccessManaPledgeID:    peers[i].ID(),
+			ConsensusManaPledgeID: peers[i].ID(),
+		})
+		require.False(t, fail)
+		txIds = append(txIds, txId)
+
+		// let the transaction propagate
+		time.Sleep(3 * time.Second)
+	}
+
+	return
 }
 
 // SendTransactionOnRandomPeer sends sentValue amount of IOTA tokens from/to a random peer, mutates the given balance map and returns the transaction IDs.
