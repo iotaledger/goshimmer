@@ -265,7 +265,7 @@ without losing control over them.
 4. `buyerAccount` now can move the alias output, but only to its own account. Each move generates (access) mana.
 5. Since `ownAccount` is the governance controller, it can revoke `buyerAccount`'s state controlling right at any point
    in time.
-6. `buyerAccount` can also destroy the alias and "free" the locked funds.
+6. `ownAccount` can also destroy the alias and "free" the locked funds.
 
 Notes:
 - The state controller can redeem funds from the alias output up to the point where only `minimum allowed amount` is
