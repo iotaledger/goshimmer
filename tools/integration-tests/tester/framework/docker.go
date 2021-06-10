@@ -65,6 +65,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsEntryNode),
 			"--autopeering.entryNodes=",
 			fmt.Sprintf("--autopeering.seed=base58:%s", seed),
+			fmt.Sprintf("--database.globalCacheTime=%d", noCache),
 		},
 	}
 
@@ -144,6 +145,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--mana.allowedConsensusPledge=%s", func() string {
 				return strings.Join(config.ManaAllowedConsensusPledge[:], ",")
 			}()),
+			fmt.Sprintf("--database.globalCacheTime=%d", config.GlobalCacheTime),
 		},
 	}
 
