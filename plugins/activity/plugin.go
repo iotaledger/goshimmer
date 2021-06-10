@@ -14,11 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-const (
-	delayOffset                 = 10 // time between activity messages
-	parentsCountActivityMessage = 2  // number of parents (if possible) of the activity messages
-)
-
 var (
 	// plugin is the plugin instance of the activity plugin.
 	plugin *node.Plugin
@@ -41,7 +36,7 @@ func configure(_ *node.Plugin) {
 // broadcastActivityMessage broadcasts a sync beacon via communication layer.
 func broadcastActivityMessage() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
-	msg, err := messagelayer.Tangle().IssuePayload(activityPayload, parentsCountActivityMessage)
+	msg, err := messagelayer.Tangle().IssuePayload(activityPayload, Parameters.ParentsCount)
 	if err != nil {
 		plugin.LogWarnf("error issuing activity message: %s", err)
 		return
