@@ -49,7 +49,7 @@ func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Activity-plugin", func(shutdownSignal <-chan struct{}) {
 		// start with initial delay
 		rand.NewSource(time.Now().UnixNano())
-		initialDelay := rand.Intn(delayOffset)
+		initialDelay := rand.Intn(Parameters.DelayOffset)
 		time.Sleep(time.Duration(initialDelay) * time.Second)
 
 		if Parameters.BroadcastIntervalSec > 0 {
