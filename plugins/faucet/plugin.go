@@ -45,7 +45,7 @@ const (
 	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
 	CfgFaucetBlacklistCapacity = "faucet.blacklistCapacity"
 	// CfgFaucetPreparedOutputsCount is the number of outputs the faucet prepares for requests.
-	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCounts"
+	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCount"
 	// CfgFaucetStartIndex defines from which address index the faucet should start gathering outputs.
 	CfgFaucetStartIndex = "faucet.startIndex"
 )
