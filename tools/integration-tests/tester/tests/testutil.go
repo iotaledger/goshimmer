@@ -184,32 +184,48 @@ func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[st
 // one peer does not have all specified messages available.
 func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]DataMessageSent, waitFor time.Duration) (missing map[identity.ID]map[string]types.Empty, err error) {
 	s := time.Now()
+	var missingMu sync.RWMutex
 	missing = map[identity.ID]map[string]types.Empty{}
 
-	for ; time.Since(s) < waitFor; time.Sleep(500 * time.Millisecond) {
+	for i := 0; time.Since(s) < waitFor; time.Sleep(500 * time.Millisecond) {
 		var wg sync.WaitGroup
 		wg.Add(len(peers))
 
 		for _, p := range peers {
 			go func(p *framework.Peer) {
 				defer wg.Done()
+
+				missingMu.RLock()
+				m, has := missing[p.ID()]
+				missingMu.RUnlock()
+
+				// do not request messages again for this peer if a previous iteration did not yield any missing messages
+				if i > 0 && !has {
+					return
+				}
+
 				for messageID := range messageIDs {
 					_, err := p.GetMessage(messageID)
 					if err == nil {
-						if m, has := missing[p.ID()]; has {
+						if has {
 							delete(m, messageID)
 							if len(m) == 0 {
+								missingMu.Lock()
 								delete(missing, p.ID())
+								missingMu.Unlock()
 							}
 						}
 						continue
 					}
-					m, has := missing[p.ID()]
+
 					if !has {
 						m = map[string]types.Empty{}
 					}
 					m[messageID] = types.Void
+
+					missingMu.Lock()
 					missing[p.ID()] = m
+					missingMu.Unlock()
 				}
 			}(p)
 		}
@@ -218,6 +234,7 @@ func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]Dat
 		if len(missing) == 0 {
 			return missing, nil
 		}
+		i++
 	}
 	return missing, ErrMessageNotAvailableInTime
 }
