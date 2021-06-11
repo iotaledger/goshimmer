@@ -21,7 +21,7 @@ import (
 
 var maxAwaitDuration = 30 * time.Second
 
-// TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
+// TestTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
 func TestTransactionPersistence(t *testing.T) {
 	n, err := f.CreateNetwork("transaction_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
 	require.NoError(t, err)
@@ -52,6 +52,19 @@ func TestTransactionPersistence(t *testing.T) {
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
+	// send colored funds to faucet
+	for _, peer := range n.Peers()[1:] {
+		fail, txID := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
+		require.False(t, fail)
+		txIds[txID] = tests.ExpectedInclusionState{
+			Confirmed: tests.True(),
+		}
+	}
+
+	// check whether all issued transactions are persistently available on all nodes, and confirmed
+	err = tests.AwaitTransactionInclusionState(n.Peers(), txIds, maxAwaitDuration)
+	require.NoError(t, err)
+
 	// 3. stop all nodes
 	for _, peer := range n.Peers()[1:] {
 		err = peer.Stop()
@@ -69,62 +82,6 @@ func TestTransactionPersistence(t *testing.T) {
 	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
-	err = tests.AwaitTransactionInclusionState(n.Peers(), txIds, maxAwaitDuration)
-	require.NoError(t, err)
-
-	// 5. check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
-}
-
-// TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
-func TestValueColoredPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
-
-	// request funds from faucet
-	_, addrBalance := tests.SendFaucetRequestOnAllPeers(t, n.Peers())
-	// wait for messages to be gossiped
-	tests.AwaitPeerGetFundsFromFaucet(n.Peers(), maxAwaitDuration)
-
-	// check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
-
-	// send colored funds to faucet
-	txIds := make(map[string]tests.ExpectedInclusionState)
-	for _, peer := range n.Peers()[1:] {
-		fail, txId := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
-		require.False(t, fail)
-		txIds[txId] = tests.ExpectedInclusionState{
-			Confirmed: tests.True(),
-		}
-	}
-
-	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	err = tests.AwaitTransactionInclusionState(n.Peers(), txIds, maxAwaitDuration)
-	require.NoError(t, err)
-
-	// check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
-
-	// stop all nodes
-	for _, peer := range n.Peers()[1:] {
-		err = peer.Stop()
-		require.NoError(t, err)
-	}
-
-	// start all nodes
-	for _, peer := range n.Peers()[1:] {
-		err = peer.Start()
-		require.NoError(t, err)
-	}
-
-	// wait for peers to start
-	time.Sleep(5 * time.Second)
-	err = n.DoManualPeeringAndWait()
-	require.NoError(t, err)
-
-	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	err = tests.AwaitTransactionInclusionState(n.Peers(), txIds, maxAwaitDuration)
 	require.NoError(t, err)
 
