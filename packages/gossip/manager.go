@@ -211,6 +211,7 @@ func (m *Manager) getRandomNeighbors(amount int) []*Neighbor {
 	}
 	return sample
 }
+
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 	m.neighborsMutex.RLock()
