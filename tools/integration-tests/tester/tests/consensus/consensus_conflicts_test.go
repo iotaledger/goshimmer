@@ -121,7 +121,7 @@ func TestConsensus(t *testing.T) {
 	if err != nil {
 		assert.NoError(t, err, "transactions should have been available")
 		for p, missingOnPeer := range missing {
-			log.Printf("missing on peer %s:", p)
+			log.Printf("missing on peer %s:", p.String())
 			for missingTx := range missingOnPeer {
 				log.Println("tx id: ", missingTx)
 			}

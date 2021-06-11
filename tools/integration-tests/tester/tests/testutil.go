@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"os"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,9 +25,12 @@ import (
 )
 
 var (
+	retryInterval = time.Duration(500 * time.Millisecond)
+
 	ErrMessageNotAvailableInTime     = errors.New("message was not available in time")
 	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
 	ErrTransactionStateNotSameInTime = errors.New("transaction state did not materialize in time")
+	ErrFundsNotAvailableInTime       = errors.New("peer does not get funds from faucet in time")
 	ErrNotSynced                     = errors.New("peers not synced")
 )
 
@@ -190,7 +192,7 @@ func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]Dat
 	var missingMu sync.RWMutex
 	missing = map[identity.ID]map[string]types.Empty{}
 
-	for i := 0; time.Since(s) < waitFor; time.Sleep(500 * time.Millisecond) {
+	for i := 0; time.Since(s) < waitFor; time.Sleep(retryInterval) {
 		var wg sync.WaitGroup
 		wg.Add(len(peers))
 
@@ -304,9 +306,6 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 
 		// attach tx id
 		txIds = append(txIds, txId)
-
-		// let the transaction propagate
-		time.Sleep(3 * time.Second)
 	}
 
 	return
@@ -614,48 +613,102 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 	}
 }
 
-// AwaitTransactionAvailability awaits until the given transaction IDs become available on all given peers or
-// the max duration is reached. Returns a map of missing transactions per peer. An error is returned if at least
-// one peer does not have all specified transactions available.
-func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []string, maxAwait time.Duration) (missing map[string]map[string]types.Empty, err error) {
+// AwaitPeerGetFundsFromFaucet awaits until the given peers get the requested funds from the faucet.
+func AwaitPeerGetFundsFromFaucet(peers []*framework.Peer, maxAwait time.Duration) (err error) {
 	s := time.Now()
-	var missingMu sync.Mutex
-	missing = map[string]map[string]types.Empty{}
-	for ; time.Since(s) < maxAwait; time.Sleep(500 * time.Millisecond) {
+	var noFundsMu sync.Mutex
+	noFunds := make(map[identity.ID]types.Empty)
+
+	for i := 0; time.Since(s) < maxAwait; time.Sleep(retryInterval) {
 		var wg sync.WaitGroup
 		wg.Add(len(peers))
-		counter := int32(len(peers) * len(transactionIDs))
+
 		for _, p := range peers {
 			go func(p *framework.Peer) {
 				defer wg.Done()
+
+				_, has := noFunds[p.ID()]
+				if i > 0 && !has {
+					return
+				}
+
+				addr := p.Seed.Address(0).Address().Base58()
+				outputs, err := p.PostAddressUnspentOutputs([]string{addr})
+				if err == nil && len(outputs.UnspentOutputs) > 0 {
+					noFundsMu.Lock()
+					delete(noFunds, p.ID())
+					noFundsMu.Unlock()
+					return
+				}
+
+				noFundsMu.Lock()
+				noFunds[p.ID()] = types.Void
+				noFundsMu.Unlock()
+			}(p)
+		}
+		wg.Wait()
+
+		if len(noFunds) == 0 {
+			return nil
+		}
+		i++
+	}
+	return ErrFundsNotAvailableInTime
+}
+
+// AwaitTransactionAvailability awaits until the given transaction IDs become available on all given peers or
+// the max duration is reached. Returns a map of missing transactions per peer. An error is returned if at least
+// one peer does not have all specified transactions available.
+func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []string, maxAwait time.Duration) (missing map[identity.ID]map[string]types.Empty, err error) {
+	s := time.Now()
+	var missingMu sync.Mutex
+	missing = map[identity.ID]map[string]types.Empty{}
+
+	for i := 0; time.Since(s) < maxAwait; time.Sleep(retryInterval) {
+		var wg sync.WaitGroup
+		wg.Add(len(peers))
+
+		for _, p := range peers {
+			go func(p *framework.Peer) {
+				defer wg.Done()
+
+				missingMu.Lock()
+				_, has := missing[p.ID()]
+				missingMu.Unlock()
+				if i > 0 && !has {
+					return
+				}
+
 				for _, txID := range transactionIDs {
 					_, err := p.GetTransaction(txID)
 					if err == nil {
 						missingMu.Lock()
-						m, has := missing[p.ID().String()]
+						m, has := missing[p.ID()]
 						if has {
 							delete(m, txID)
 							if len(m) == 0 {
-								delete(missing, p.ID().String())
+								delete(missing, p.ID())
 							}
 						}
 						missingMu.Unlock()
-						atomic.AddInt32(&counter, -1)
 						continue
 					}
 					missingMu.Lock()
-					m, has := missing[p.ID().String()]
+					m, has := missing[p.ID()]
 					if !has {
 						m = map[string]types.Empty{}
 					}
 					m[txID] = types.Empty{}
-					missing[p.ID().String()] = m
+					missing[p.ID()] = m
 					missingMu.Unlock()
 				}
 			}(p)
+
+			i++
 		}
+
 		wg.Wait()
-		if counter == 0 {
+		if len(missing) == 0 {
 			// everything available
 			return missing, nil
 		}
@@ -669,13 +722,32 @@ func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []stri
 // the the transactions exist beforehand.
 func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[string]ExpectedInclusionState, maxAwait time.Duration) error {
 	s := time.Now()
-	for ; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
+	var unmatchedMu sync.Mutex
+	unmatched := make(map[identity.ID]map[string]types.Empty)
+	// the element will be removod if a peer has the message with the given inclusion state
+	for _, p := range peers {
+		m := make(map[string]types.Empty, len(transactionIDs))
+		for tx := range transactionIDs {
+			m[tx] = types.Void
+		}
+		unmatched[p.ID()] = m
+	}
+
+	for i := 0; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
 		var wg sync.WaitGroup
 		wg.Add(len(peers))
-		counter := int32(len(peers) * len(transactionIDs))
+
 		for _, p := range peers {
 			go func(p *framework.Peer) {
 				defer wg.Done()
+
+				unmatchedMu.Lock()
+				_, has := unmatched[p.ID()]
+				unmatchedMu.Unlock()
+				if i > 0 && !has {
+					return
+				}
+
 				for txID := range transactionIDs {
 					inclusionState, err := p.GetTransactionInclusionState(txID)
 					if err != nil {
@@ -708,17 +780,34 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 					if expInclState.Solid != nil && *expInclState.Solid != metadata.Solid {
 						continue
 					}
-					atomic.AddInt32(&counter, -1)
+					unmatchedMu.Lock()
+					delete(unmatched[p.ID()], txID)
+					if len(unmatched[p.ID()]) == 0 {
+						delete(unmatched, p.ID())
+					}
+					unmatchedMu.Unlock()
 				}
 			}(p)
 		}
+
 		wg.Wait()
-		if counter == 0 {
+		if len(unmatched) == 0 {
 			// everything available
 			return nil
 		}
+
+		i++
 	}
 	return ErrTransactionStateNotSameInTime
+}
+
+// AwaitCheck waits until the given peers are in synced.
+func AwaitCheck(f func(t *testing.T, peers []*framework.Peer), maxAwait time.Duration) error {
+	s := time.Now()
+	for ; time.Since(s) < maxAwait; time.Sleep(retryInterval) {
+
+	}
+	return ErrNotSynced
 }
 
 // AwaitSync waits until the given peers are in synced.

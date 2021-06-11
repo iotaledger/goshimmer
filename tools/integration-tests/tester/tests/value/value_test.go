@@ -1,7 +1,6 @@
 package value
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -20,6 +19,8 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
+var maxAwaitDuration = 30 * time.Second
+
 // TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestTransactionPersistence(t *testing.T) {
 	n, err := f.CreateNetwork("transaction_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
@@ -30,25 +31,23 @@ func TestTransactionPersistence(t *testing.T) {
 	_, addrBalance := tests.SendFaucetRequestOnAllPeers(t, n.Peers())
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
+	err = tests.AwaitPeerGetFundsFromFaucet(n.Peers(), maxAwaitDuration)
+	require.NoError(t, err)
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
-	// send value message randomly
-	txIds := make(map[string]*tests.ExpectedTransaction)
+	// send transaction randomly
+	txIds := make(map[string]tests.ExpectedInclusionState)
 	randomTxIds := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10, 100)
 	for _, randomTxId := range randomTxIds {
-		txIds[randomTxId] = nil
+		txIds[randomTxId] = tests.ExpectedInclusionState{
+			Confirmed: tests.True(),
+		}
 	}
 
-	// wait for messages to be gossiped
-	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
-
-	// check whether all issued transactions are available on all nodes and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
+	err = tests.AwaitTransactionInclusionState(n.Peers(), txIds, maxAwaitDuration)
+	require.NoError(t, err)
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -66,14 +65,12 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for peers to start
-	time.Sleep(20 * time.Second)
+	time.Sleep(5 * time.Second)
 	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
-	// check whether all issued transactions are available on all nodes and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, false, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
+	err = tests.AwaitTransactionInclusionState(n.Peers(), txIds, maxAwaitDuration)
+	require.NoError(t, err)
 
 	// 5. check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -87,29 +84,25 @@ func TestValueColoredPersistence(t *testing.T) {
 
 	// request funds from faucet
 	_, addrBalance := tests.SendFaucetRequestOnAllPeers(t, n.Peers())
-	fmt.Println(addrBalance)
 	// wait for messages to be gossiped
-	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
+	tests.AwaitPeerGetFundsFromFaucet(n.Peers(), maxAwaitDuration)
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
-	// send funds to faucet
-	txIds := make(map[string]*tests.ExpectedTransaction)
+	// send colored funds to faucet
+	txIds := make(map[string]tests.ExpectedInclusionState)
 	for _, peer := range n.Peers()[1:] {
 		fail, txId := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
 		require.False(t, fail)
-		txIds[txId] = nil
-		time.Sleep(2 * time.Second)
+		txIds[txId] = tests.ExpectedInclusionState{
+			Confirmed: tests.True(),
+		}
 	}
 
-	// wait for value messages to be gossiped
-	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
-
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
+	err = tests.AwaitTransactionInclusionState(n.Peers(), txIds, maxAwaitDuration)
+	require.NoError(t, err)
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -132,9 +125,8 @@ func TestValueColoredPersistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
+	err = tests.AwaitTransactionInclusionState(n.Peers(), txIds, maxAwaitDuration)
+	require.NoError(t, err)
 
 	// 5. check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -145,9 +137,6 @@ func TestAlias_Persistence(t *testing.T) {
 	n, err := f.CreateNetwork("alias_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
-
-	// wait for peers to change their state to synchronized
-	time.Sleep(15 * time.Second)
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(n.Peers()[1].BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
@@ -160,32 +149,16 @@ func TestAlias_Persistence(t *testing.T) {
 		createnftoptions.WaitForConfirmation(true),
 	)
 	require.NoError(t, err)
-	aliasOutputID := ledgerstate.OutputID{}
 
-	for i, peer := range n.Peers() {
-		inclusionState, err := peer.GetTransactionInclusionState(tx.ID().Base58())
-		require.NoError(t, err)
-		require.True(t, inclusionState.Confirmed)
-		require.False(t, inclusionState.Rejected)
-		require.False(t, inclusionState.Pending)
+	err = tests.AwaitTransactionInclusionState(n.Peers(), map[string]tests.ExpectedInclusionState{
+		tx.ID().Base58(): {
+			Confirmed: tests.True(),
+			Rejected:  tests.False(),
+		},
+	}, maxAwaitDuration)
+	require.NoError(t, err)
 
-		resp, err := peer.GetAddressUnspentOutputs(aliasID.Base58())
-		require.NoError(t, err)
-		// there should be only this output
-		require.True(t, len(resp.Outputs) == 1)
-		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
-		require.NoError(t, err)
-		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
-		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
-		require.True(t, ok)
-		require.Equal(t, aliasID.Base58(), alias.GetAliasAddress().Base58())
-		switch i {
-		case 0:
-			aliasOutputID = alias.ID()
-		default:
-			require.Equal(t, aliasOutputID.Base58(), alias.ID().Base58())
-		}
-	}
+	aliasOutputID := checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
 	// stop all nodes
 	for _, peer := range n.Peers()[1:] {
@@ -205,29 +178,21 @@ func TestAlias_Persistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
-	for _, peer := range n.Peers() {
-		inclusionState, err := peer.GetTransactionInclusionState(tx.ID().Base58())
-		require.NoError(t, err)
-		require.True(t, inclusionState.Confirmed)
-		require.False(t, inclusionState.Rejected)
-		require.False(t, inclusionState.Pending)
+	err = tests.AwaitTransactionInclusionState(n.Peers(), map[string]tests.ExpectedInclusionState{
+		tx.ID().Base58(): {
+			Confirmed: tests.True(),
+			Rejected:  tests.False(),
+		},
+	}, maxAwaitDuration)
+	require.NoError(t, err)
 
-		resp, err := peer.GetAddressUnspentOutputs(aliasID.Base58())
-		require.NoError(t, err)
-		// there should be only this output
-		require.True(t, len(resp.Outputs) == 1)
-		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
-		require.NoError(t, err)
-		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
-		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
-		require.True(t, ok)
-		require.Equal(t, aliasID.Base58(), alias.GetAliasAddress().Base58())
-	}
+	checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
 	_, err = w.DestroyNFT(destroynftoptions.Alias(aliasID.Base58()), destroynftoptions.WaitForConfirmation(true))
 	require.NoError(t, err)
 	// give enough time to all peers
-	time.Sleep(20 * time.Second)
+	time.Sleep(2 * time.Second)
+
 	// check if all nodes destroyed it
 	for _, peer := range n.Peers() {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
@@ -262,7 +227,7 @@ func TestAlias_Delegation(t *testing.T) {
 	)
 	require.NoError(t, err)
 	// give enough time to all peers
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	delegatedAliasOutputID := ledgerstate.OutputID{}
 	delegatedAliasOutput := &ledgerstate.AliasOutput{}
@@ -292,6 +257,7 @@ func TestAlias_Delegation(t *testing.T) {
 	require.NoError(t, err)
 	cManaReceiver, err := identity.RandomID()
 	require.NoError(t, err)
+
 	// let's try to "refresh mana"
 	nextOutput := delegatedAliasOutput.NewAliasOutputNext(false)
 	essence := ledgerstate.NewTransactionEssence(0, time.Now(),
@@ -301,26 +267,12 @@ func TestAlias_Delegation(t *testing.T) {
 	tx := ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
 	_, err = n.RandomPeer().PostTransaction(tx.Bytes())
 	require.NoError(t, err)
-	// give enough time to all peers
-	time.Sleep(5 * time.Second)
 
-	confirmed := false
-	timeout := 150 // seconds
-	timeoutCounter := 0
-	for !confirmed {
-		inc, err := n.RandomPeer().GetTransactionInclusionState(tx.ID().Base58())
-		require.NoError(t, err)
-		if inc.Confirmed {
-			confirmed = true
-		} else {
-			time.Sleep(time.Second)
-			timeoutCounter++
-			if timeoutCounter >= timeout {
-				break
-			}
-		}
-	}
-	require.True(t, confirmed, fmt.Sprintf("mana refersh tx didn't confirm in %d seconds", timeout))
+	err = tests.AwaitTransactionInclusionState(n.Peers(), map[string]tests.ExpectedInclusionState{
+		tx.ID().Base58(): {
+			Confirmed: tests.True(),
+		},
+	}, maxAwaitDuration)
 
 	aManaReceiverCurrMana, err := n.RandomPeer().GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
 	require.NoError(t, err)
@@ -330,6 +282,30 @@ func TestAlias_Delegation(t *testing.T) {
 	// check that the pledge actually worked
 	require.True(t, aManaReceiverCurrMana.Access > 0)
 	require.True(t, cManaReceiverCurrMana.Consensus > 0)
+}
+
+func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Peer, aliasAddr *ledgerstate.AliasAddress) ledgerstate.OutputID {
+	aliasOutputID := ledgerstate.OutputID{}
+
+	for i, peer := range peers {
+		resp, err := peer.GetAddressUnspentOutputs(aliasAddr.Base58())
+		require.NoError(t, err)
+		// there should be only this output
+		require.True(t, len(resp.Outputs) == 1)
+		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
+		require.NoError(t, err)
+		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
+		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
+		require.True(t, ok)
+		require.Equal(t, aliasAddr.Base58(), alias.GetAliasAddress().Base58())
+		switch i {
+		case 0:
+			aliasOutputID = alias.ID()
+		default:
+			require.Equal(t, aliasOutputID.Base58(), alias.ID().Base58())
+		}
+	}
+	return aliasOutputID
 }
 
 type simpleWallet struct {
