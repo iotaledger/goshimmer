@@ -29,7 +29,7 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 	})
 	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		record.ScheduledTimestamp = messageMetadata.ScheduledTime()
-		record.DeltaSolid = messageMetadata.ScheduledTime().Sub(record.IssuedTimestamp).Nanoseconds()
+		record.DeltaScheduled = messageMetadata.ScheduledTime().Sub(record.IssuedTimestamp).Nanoseconds()
 		record.BookedTimestamp = messageMetadata.BookedTime()
 		record.DeltaBooked = messageMetadata.BookedTime().Sub(record.IssuedTimestamp).Nanoseconds()
 		record.ConfirmedTimestamp = messageMetadata.FinalizedTime()
