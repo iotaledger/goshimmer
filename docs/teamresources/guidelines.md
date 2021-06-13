@@ -75,3 +75,26 @@ func main() {
     }
 }
 ```
+
+## Tests
+
+Every folder that has a unit test should have a `test_main.go` file inside. This allows to easily add local setup and
+teardown functions. The `test_main.go` should also reference functions from a `testhelper.go` that provides logic to
+the tests that should be global to the project. A `test_main.go` should look like this:
+
+```go
+import (
+	"os"
+	"testing"
+
+	. "github.com/iotaledger/goshimmer/packages/testhelper"
+)
+
+// TestMain will setup and teardown any unit test
+func TestMain(m *testing.M) {
+	GlobalSetup()
+	code := m.Run()
+	GlobalTeardown()
+	os.Exit(code)
+}
+```
