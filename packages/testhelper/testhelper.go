@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// GlobalSetup setups global environment and parameters for any unit test
 func GlobalSetup() {
 	err := os.Setenv("GOSHIMMER_ENV", "testing")
 	if err != nil {
@@ -12,7 +13,7 @@ func GlobalSetup() {
 	}
 }
 
-// TestTeardown resets all the changes the test made
+// GlobalTeardown resets all the changes the test made
 func GlobalTeardown() {
 	err := os.Setenv("GOSHIMMER_ENV", "")
 	if err != nil {
