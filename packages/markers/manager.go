@@ -39,6 +39,7 @@ func NewManager(store kvstore.KVStore) (newManager *Manager) {
 		}
 	}
 
+	initobjectStorageOptions()
 	osFactory := objectstorage.NewFactory(store, database.PrefixMarkers)
 	newManager = &Manager{
 		store:                     store,
