@@ -85,7 +85,7 @@ type Storage struct {
 	shutdown chan struct{}
 }
 
-// NewStorage creates a new Storage with configurable cache usage
+// NewStorage creates a new Storage.
 func NewStorage(tangle *Tangle) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixTangle)
 
