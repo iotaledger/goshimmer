@@ -1,9 +1,10 @@
 package database
 
 import (
-	"flag"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/testhelper"
 
 	"github.com/iotaledger/hive.go/objectstorage"
 )
@@ -16,7 +17,7 @@ var (
 // CacheTime returns a CacheTime option. Duration may be overridden if GlobalCacheTime parameter is a non-negative integer
 func CacheTime(duration time.Duration) objectstorage.Option {
 	// if test just disable cache
-	if flag.Lookup("test.v") != nil {
+	if testhelper.IsTest() {
 		return objectstorage.CacheTime(0)
 	}
 	if globalCacheTime >= 0 {
