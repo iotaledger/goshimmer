@@ -125,3 +125,16 @@ func (r *requestedMessages) delete(msgID tangle.MessageID) (deleted bool) {
 
 	return false
 }
+
+func (r *requestedMessages) shrink() {
+	r.Lock()
+	defer r.Unlock()
+
+	newMsgs := make(map[tangle.MessageID]types.Empty, len(r.msgs))
+
+	for messageID := range r.msgs {
+		newMsgs[messageID] = types.Void
+	}
+
+	r.msgs = newMsgs
+}

@@ -104,4 +104,11 @@ func configureMessageLayer() {
 
 	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
 	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) { requestedMsgs.delete(messageID) }))
+
+	// shrink the requestedMsgs as maps in go are always growing no matter if elements get deleted.
+	messagelayer.Tangle().TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(e *tangle.SyncChangedEvent) {
+		if e.Synced {
+			requestedMsgs.shrink()
+		}
+	}))
 }
