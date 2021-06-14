@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"crypto"
 	"fmt"
 	"net/http"
 	"sync"
@@ -25,7 +24,7 @@ var (
 	// plugin is the plugin instance of the web API info endpoint plugin.
 	plugin              *node.Plugin
 	once                sync.Once
-	powVerifier         = pow.New(crypto.BLAKE2b_512)
+	powVerifier         = pow.New()
 	targetPoWDifficulty int
 )
 

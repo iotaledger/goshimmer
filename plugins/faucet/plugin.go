@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"crypto"
 	"runtime"
 	"sync"
 	"time"
@@ -67,7 +66,7 @@ var (
 	_faucet                *StateManager
 	faucetOnce             sync.Once
 	log                    *logger.Logger
-	powVerifier            = pow.New(crypto.BLAKE2b_512)
+	powVerifier            = pow.New()
 	fundingWorkerPool      *workerpool.WorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
 	fundingWorkerQueueSize = 500
