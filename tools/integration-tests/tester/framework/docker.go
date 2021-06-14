@@ -88,7 +88,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--node.enablePlugins=%s", config.EnabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
-			fmt.Sprintf("--faucet.preparedOutputsCounts=%d", ParaFaucetPreparedOutputsCount),
+			fmt.Sprintf("--faucet.preparedOutputsCount=%d", ParaFaucetPreparedOutputsCount),
 			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string
