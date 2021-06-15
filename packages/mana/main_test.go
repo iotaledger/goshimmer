@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	. "github.com/iotaledger/goshimmer/packages/testhelper"
+	"github.com/iotaledger/goshimmer/packages/testhelper"
 )
 
 // TestMain will setup and teardown any unit test
