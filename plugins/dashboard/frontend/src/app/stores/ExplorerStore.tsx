@@ -267,19 +267,18 @@ export class ExplorerStore {
             }
             let tx = await res.json()
             for(let i = 0; i < tx.inputs.length; i++) {
-                if (tx.inputs[i].referencedOutputID.transactionID === GenesisTransactionID) {
-                    let genOutput = new Output();
-                    genOutput.output = new SigLockedSingleOutput();
-                    genOutput.output.balance = 0;
-                    genOutput.output.address = "GENESIS";
-                    genOutput.type = "SigLockedSingleOutputType";
-                    genOutput.outputID = tx.inputs[i].referencedOutputID;
-                    tx.inputs[i].output = genOutput;
-                    continue;
-                }
                 let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
                 try{
                     let referencedOutputRes = await fetch(`/api/output/${inputID}`)
+                    if (referencedOutputRes.status === 404){
+                        let genOutput = new Output();
+                        genOutput.output = new SigLockedSingleOutput();
+                        genOutput.output.balance = 0;
+                        genOutput.output.address = "LOADED FROM SNAPSHOT";
+                        genOutput.type = "SigLockedSingleOutputType";
+                        genOutput.outputID = tx.inputs[i].referencedOutputID;
+                        tx.inputs[i].output = genOutput;
+                    }
                     if (referencedOutputRes.status === 200){
                         tx.inputs[i].output = await referencedOutputRes.json()
                     }
