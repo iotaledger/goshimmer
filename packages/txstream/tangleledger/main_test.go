@@ -9,8 +9,8 @@ import (
 
 // TestMain will setup and teardown any unit test
 func TestMain(m *testing.M) {
-	GlobalSetup()
+	testhelper.GlobalSetup()
 	code := m.Run()
-	GlobalTeardown()
+	testhelper.GlobalTeardown()
 	os.Exit(code)
 }
