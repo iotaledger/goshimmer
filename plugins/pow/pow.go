@@ -46,7 +46,7 @@ func Worker() *pow.Worker {
 		timeout = config.Node().Duration(CfgPOWTimeout)
 		parentsRefreshInterval = config.Node().Duration(CfgPOWParentsRefreshInterval)
 		// create the worker
-		worker = pow.New(hash, numWorkers)
+		worker = pow.New(numWorkers)
 	})
 	return worker
 }

@@ -188,7 +188,7 @@ The purple colored messages are markers.
 
 ## Example 2: Test for the Mapping interaction with the Booker
 
-The Marker tool implementation is tested for correct Marker and Booker mapping. A transaction-by-transaction discussion of the test can be found [here](./../../packages/tangle/images/TestBookerMarkerMappings.md) and can be viewed by opening the file locally in a browser. Transactions arrive in the order of the their transaction number. The end result and the values in the various fields is shown in the following figures:
+The Marker tool implementation is tested for correct Marker and Booker mapping. A transaction-by-transaction discussion of the test can be found [here](https://github.com/iotaledger/goshimmer/blob/develop/packages/tangle/images/TestBookerMarkerMappings.md) and can be viewed by opening the file locally in a browser. Transactions arrive in the order of the their transaction number. The end result and the values in the various fields is shown in the following figures:
 
 ![](https://imgur.com/h6Hs3xG.png)
 

@@ -6,6 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/constants"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -94,6 +95,10 @@ func LockUntil(until time.Time) SendFundsOption {
 		if until.Before(time.Now()) {
 			return errors.Errorf("can't timelock funds in the past")
 		}
+		if until.After(constants.MaxRepresentableTime) {
+			return errors.Errorf("invalid timelock: %s is later, than max representable time %s",
+				until.String(), constants.MaxRepresentableTime.String())
+		}
 		options.LockUntil = until
 		return nil
 	}
@@ -108,6 +113,10 @@ func Fallback(addy ledgerstate.Address, deadline time.Time) SendFundsOption {
 		}
 		if deadline.Before(time.Now()) {
 			return errors.Errorf("invalid fallback deadline: %s is in the past", deadline.String())
+		}
+		if deadline.After(constants.MaxRepresentableTime) {
+			return errors.Errorf("invalid fallback deadline: %s is later, than max representable time %s",
+				deadline.String(), constants.MaxRepresentableTime.String())
 		}
 		options.FallbackAddress = addy
 		options.FallbackDeadline = deadline

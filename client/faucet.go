@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"crypto"
 	"net/http"
 
 	"github.com/cockroachdb/errors"
@@ -22,7 +21,7 @@ const (
 
 var (
 	defaultPOWTarget = 25
-	powWorker        = pow.New(crypto.BLAKE2b_512, 1)
+	powWorker        = pow.New(1)
 )
 
 // SendFaucetRequest requests funds from faucet nodes by sending a faucet request payload message.
