@@ -274,7 +274,7 @@ export class ExplorerStore {
                         let genOutput = new Output();
                         genOutput.output = new SigLockedSingleOutput();
                         genOutput.output.balance = 0;
-                        genOutput.output.address = "GENESIS";
+                        genOutput.output.address = "LOADED FROM SNAPSHOT";
                         genOutput.type = "SigLockedSingleOutputType";
                         genOutput.outputID = tx.inputs[i].referencedOutputID;
                         tx.inputs[i].output = genOutput;
