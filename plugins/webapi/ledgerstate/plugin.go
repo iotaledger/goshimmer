@@ -425,17 +425,11 @@ func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err err
 
 const maxBookedAwaitTime = 5 * time.Second
 
-var (
-	sendTxMu sync.Mutex
-	// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
-	ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to node")
-)
+// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
+var ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to node")
 
 // PostTransaction sends a transaction.
 func PostTransaction(c echo.Context) error {
-	sendTxMu.Lock()
-	defer sendTxMu.Unlock()
-
 	var request jsonmodels.PostTransactionRequest
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
@@ -477,6 +471,9 @@ func PostTransaction(c echo.Context) error {
 
 	// if transaction is in the future we wait until the time arrives
 	if tx.Essence().Timestamp().After(clock.SyncedTime()) {
+		if tx.Essence().Timestamp().Sub(clock.SyncedTime()) > time.Minute {
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: "transaction timestamp is in the future and cannot be issued; please readjust local clock"})
+		}
 		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
 	}
 

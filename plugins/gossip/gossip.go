@@ -1,15 +1,16 @@
 package gossip
 
 import (
+	"bytes"
 	"net"
 	"strconv"
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/emirpasic/gods/sets/treeset"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -98,28 +99,30 @@ func loadMessage(msgID tangle.MessageID) ([]byte, error) {
 type requestedMessages struct {
 	sync.Mutex
 
-	msgs map[tangle.MessageID]types.Empty
+	msgs *treeset.Set
 }
 
 func newRequestedMessages() *requestedMessages {
 	return &requestedMessages{
-		msgs: make(map[tangle.MessageID]types.Empty),
+		msgs: treeset.NewWith(func(a, b interface{}) int {
+			aMsgID, bMsgID := a.(tangle.MessageID), b.(tangle.MessageID)
+			return bytes.Compare(aMsgID.Bytes(), bMsgID.Bytes())
+		}),
 	}
 }
 
 func (r *requestedMessages) append(msgID tangle.MessageID) {
 	r.Lock()
 	defer r.Unlock()
-
-	r.msgs[msgID] = types.Void
+	r.msgs.Add(msgID)
 }
 
 func (r *requestedMessages) delete(msgID tangle.MessageID) (deleted bool) {
 	r.Lock()
 	defer r.Unlock()
 
-	if _, exist := r.msgs[msgID]; exist {
-		delete(r.msgs, msgID)
+	if exists := r.msgs.Contains(msgID); exists {
+		r.msgs.Remove(msgID)
 		return true
 	}
 

@@ -2,7 +2,7 @@
 The simplest and easiest way for creating transaction is to use ready solution, such us GUI wallets: [pollen-wallet](https://github.com/iotaledger/pollen-wallet/tree/master) and [Dr-Electron ElectricShimmer](https://github.com/Dr-Electron/ElectricShimmer)
 or command line wallet [Command Line Wallet](./wallet.md). However, there is also an option to create a transaction directly with Go client library, which will be main focus of this tutorial.
 
-For the ready code examples you can go directly to [Code examples](send_transaction.md#ready-examples).
+For code examples you can go directly to [Code examples](send_transaction.md#code-examples).
 
 ## Funds
 To create a transaction, firstly we need to be in possession of tokens. We can receive them from other network users or request them from the faucet. For more details on how to request funds, see [this](./request_funds.md) tutorial.
@@ -117,7 +117,7 @@ The same as in case of inputs we need to adapt it with `ledgerstate.NewOutputs()
 After preparing the transaction essence, we should sign it and put the signature to the unlock block part of the transaction.
 We can retrieve private and public key pairs from the seed by providing it with indexes corresponding to the addresses that holds the unspent output that we want to use in our transaction.
 ```Go
-keyPair := *mySeed.KeyPair(0)
+kp := *mySeed.KeyPair(0)
 txEssence := NewTransactionEssence(version, timestamp, accessPledgeID, consensusPledgeID, inputs, outputs)
 ```
 We can sign the transaction in two ways: with ED25519 or BLS signature. The wallet seed library uses `ed25519` package and keys, so we will use `Sign()` method along with `ledgerstate.ED25519Signature` constructor to sign the transaction essence bytes.
@@ -186,14 +186,14 @@ func buildTransaction() (tx *ledgerstate.Transaction, err error) {
         **/      
 
 	// destination address.
-	destAddressBase58 := "18iBVua17jndUDyfg1Lzgz9gJgEdeo9Dh32nEzwC1R7iy"
+	destAddressBase58 := "your_base58_encoded_address"
 	destAddress, err := ledgerstate.AddressFromBase58EncodedString(destAddressBase58)
 	if err != nil {
 		return
 	}
 
 	// output to consume.
-	outputIDBase58 := "1B9kpcFhJzStQZzmoLjd6gLmiFJd7F72XBLHbWTQrfkFY"
+	outputIDBase58 := "your_base58_encoded_outputID"
 	out, err := ledgerstate.OutputIDFromBase58(outputIDBase58)
 	if err != nil {
 		return

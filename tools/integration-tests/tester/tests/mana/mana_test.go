@@ -17,7 +17,7 @@ import (
 )
 
 func TestManaPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("mana_TestPersistence", 1, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetwork("mana_TestPersistence", 1, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -66,7 +66,6 @@ func TestPledgeFilter(t *testing.T) {
 	peers := make([]*framework.Peer, numPeers)
 	for i := 0; i < numPeers; i++ {
 		peer, err := n.CreatePeer(framework.GoShimmerConfig{
-			Mana:           true,
 			ActivityPlugin: true,
 			StartSynced:    true,
 		})
@@ -83,7 +82,6 @@ func TestPledgeFilter(t *testing.T) {
 	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
 		Seed:                              "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
 		Faucet:                            true,
-		Mana:                              true,
 		ManaAllowedAccessFilterEnabled:    true,
 		ManaAllowedConsensusFilterEnabled: true,
 		ManaAllowedAccessPledge:           []string{accessPeerID},
@@ -148,7 +146,7 @@ func TestApis(t *testing.T) {
 	defer func() {
 		framework.ParaManaOnEveryNode = prevParaManaOnEveryNode
 	}()
-	n, err := f.CreateNetwork("mana_TestAPI", 4, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetwork("mana_TestAPI", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

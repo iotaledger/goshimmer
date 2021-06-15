@@ -34,7 +34,7 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
 	return plugin
 }
@@ -101,6 +101,10 @@ func configure(_ *node.Plugin) {
 
 	// run GC up on startup
 	runDatabaseGC()
+}
+
+func run(*node.Plugin) {
+	// placeholder
 }
 
 // manageDBLifetime takes care of managing the lifetime of the database. It marks the database as dirty up on
