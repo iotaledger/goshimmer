@@ -364,6 +364,8 @@ func (t *Transaction) ReferencedTransactionIDs() (referencedTransactionIDs Trans
 	return
 }
 
+// Locks returns a list of identifiers of the entities that this Transaction depends on and that should be locked before
+// modifying any of the Transactions properties.
 func (t *Transaction) Locks() (lock []interface{}) {
 	t.lockMutex.Lock()
 	defer t.lockMutex.Unlock()
@@ -808,6 +810,7 @@ func (t *TransactionMetadata) SetBranchID(branchID BranchID) (modified bool) {
 	return
 }
 
+// SetSolidityType updates the SolidityType of the Transaction. It returns the previous value.
 func (t *TransactionMetadata) SetSolidityType(solidityType SolidityType) (previousValue SolidityType) {
 	t.solidityTypeMutex.Lock()
 	defer t.solidityTypeMutex.Unlock()
@@ -828,6 +831,7 @@ func (t *TransactionMetadata) SetSolidityType(solidityType SolidityType) (previo
 	return
 }
 
+// SolidityType returns the SolidityType of the given Transaction.
 func (t *TransactionMetadata) SolidityType() (solidityType SolidityType) {
 	t.solidityTypeMutex.RLock()
 	defer t.solidityTypeMutex.RUnlock()
