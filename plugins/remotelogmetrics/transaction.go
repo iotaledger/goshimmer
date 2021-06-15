@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
@@ -13,8 +14,14 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 		return
 	}
 
+	var nodeID string
+	if local.GetInstance() != nil {
+		nodeID = local.GetInstance().ID().String()
+	}
+
 	record := &remotelogmetrics.TransactionMetrics{
 		Type:          "transaction",
+		NodeID:        nodeID,
 		TransactionID: transactionID.Base58(),
 	}
 
