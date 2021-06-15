@@ -49,6 +49,7 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 		Events: &UTXODAGEvents{
 			TransactionBranchIDUpdated: events.NewEvent(transactionIDEventHandler),
 			TransactionConfirmed:       events.NewEvent(transactionIDEventHandler),
+			TransactionSolid:           events.NewEvent(transactionIDEventHandler),
 		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, transactionMetadataStorageOptions...),
@@ -74,6 +75,10 @@ func (u *UTXODAG) Shutdown() {
 }
 
 func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType SolidityType, newSolidityType SolidityType) {
+	if previousSolidityType == newSolidityType {
+		return
+	}
+
 	for _, input := range transaction.Essence().Inputs() {
 		if previousSolidityType != UndefinedSolidityType {
 			u.consumerStorage.Delete(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transaction.ID(), previousSolidityType).Bytes())
@@ -95,7 +100,7 @@ func (u *UTXODAG) transactionObjectivelyValid(transaction *Transaction, consumed
 	return true, nil
 }
 
-func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, propagationWalker *walker.Walker) {
+func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, propagationWalker *walker.Walker) (err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
@@ -111,15 +116,38 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 		return
 	}
 
-	if valid, err := u.transactionObjectivelyValid(transaction, consumedOutputs); !valid {
-		// TODO: CLEANUP INVALID TRANSACTION
-
-		u.Events.TransactionInvalid.Trigger(transaction, err)
+	if valid, validErr := u.transactionObjectivelyValid(transaction, consumedOutputs); !valid {
+		u.Events.TransactionInvalid.Trigger(transaction, validErr)
 
 		return
 	}
 
-	u.bookTransaction(transaction, transactionMetadata, consumedOutputs)
+	if _, err = u.bookTransaction(transaction, transactionMetadata, consumedOutputs); err != nil {
+		err = errors.Errorf("failed to book Transaction with %s: %w", transaction.ID(), err)
+
+		u.Events.Error.Trigger(err)
+
+		return
+	}
+
+	u.Events.TransactionSolid.Trigger(transaction.ID())
+
+	for transactionID := range u.consumingTransactionIDs(transaction, Unsolid) {
+		propagationWalker.Push(transactionID)
+	}
+
+	return
+}
+
+func (u *UTXODAG) consumingTransactionIDs(transaction *Transaction, optionalSolidityType ...SolidityType) (consumingTransactionIDs TransactionIDs) {
+	consumingTransactionIDs = make(TransactionIDs)
+	for _, output := range transaction.Essence().Outputs() {
+		u.Consumers(output.ID(), optionalSolidityType...).Consume(func(consumer *Consumer) {
+			consumingTransactionIDs[consumer.TransactionID()] = types.Void
+		})
+	}
+
+	return consumingTransactionIDs
 }
 
 func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, consumedOutputs Outputs) (targetBranch BranchID, err error) {
@@ -176,7 +204,7 @@ func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata 
 	return u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs), nil
 }
 
-func (u *UTXODAG) StoreTransaction(transaction *Transaction) (solidityType SolidityType) {
+func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error) {
 	propagationWalker := walker.New(true)
 
 	u.LockEntity(transaction)
@@ -184,7 +212,9 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (solidityType Solid
 		u.transactionStorage.Store(transaction).Release()
 		transactionMetadata := NewTransactionMetadata(transactionID)
 
-		u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
+		err = u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
+
+		stored = true
 
 		return transactionMetadata
 	}).Consume(func(transactionMetadata *TransactionMetadata) {
@@ -205,7 +235,7 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (solidityType Solid
 		})
 	}
 
-	return solidityType
+	return stored, solidityType, err
 }
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
@@ -380,13 +410,20 @@ func (u *UTXODAG) OutputMetadata(outputID OutputID) (cachedOutput *CachedOutputM
 }
 
 // Consumers retrieves the Consumers of the given OutputID from the object storage.
-func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers) {
+func (u *UTXODAG) Consumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers) {
+	var iterationPrefix []byte
+	if len(optionalSolidityType) >= 1 {
+		iterationPrefix = byteutils.ConcatBytes(outputID.Bytes(), optionalSolidityType[0].Bytes())
+	} else {
+		iterationPrefix = outputID.Bytes()
+	}
+
 	cachedConsumers = make(CachedConsumers, 0)
 	u.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedConsumers = append(cachedConsumers, &CachedConsumer{CachedObject: cachedObject})
 
 		return true
-	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(iterationPrefix))
 
 	return
 }
@@ -531,9 +568,7 @@ func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmed
 // the InvalidBranchID.
 func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata) {
 	transactionMetadata.SetBranchID(InvalidBranchID)
-	if previousSolidityType := transactionMetadata.SetSolidityType(Invalid); previousSolidityType != Invalid {
-		u.updateConsumers(transaction, previousSolidityType, Invalid)
-	}
+	u.updateConsumers(transaction, transactionMetadata.SetSolidityType(Invalid), Invalid)
 	transactionMetadata.SetFinalized(true)
 
 	u.bookOutputs(transaction, InvalidBranchID)
@@ -543,9 +578,7 @@ func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMe
 // Branch.
 func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, rejectedBranch BranchID) {
 	transactionMetadata.SetBranchID(rejectedBranch)
-	if previousSolidityType := transactionMetadata.SetSolidityType(LazySolid); previousSolidityType != LazySolid {
-		u.updateConsumers(transaction, previousSolidityType, LazySolid)
-	}
+	u.updateConsumers(transaction, transactionMetadata.SetSolidityType(LazySolid), LazySolid)
 
 	u.bookOutputs(transaction, rejectedBranch)
 }
@@ -1035,8 +1068,14 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 
 // UTXODAGEvents is a container for all of the UTXODAG related events.
 type UTXODAGEvents struct {
+	// Error is triggered when an unexpected error occurred in the component.
+	Error *events.Event
+
 	// TransactionInvalid gets triggered whenever an objectively invalid Transaction is detected.
 	TransactionInvalid *events.Event
+
+	// TransactionSolid gets triggered whenever a Transaction becomes LazySolid, Solid, or Invalid.
+	TransactionSolid *events.Event
 
 	// TransactionBranchIDUpdated gets triggered when the BranchID of a Transaction is changed after the initial booking.
 	TransactionBranchIDUpdated *events.Event
@@ -1330,7 +1369,7 @@ func (c SolidityType) String() (humanReadableSolidityType string) {
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the objectstorage.
-var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{SolidityTypeLength, OutputIDLength, TransactionIDLength}...)
+var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{OutputIDLength, SolidityTypeLength, TransactionIDLength}...)
 
 // Consumer represents the relationship between an Output and its spending Transactions. Since an Output can have a
 // potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
@@ -1367,12 +1406,12 @@ func ConsumerFromBytes(bytes []byte) (consumer *Consumer, consumedBytes int, err
 // ConsumerFromMarshalUtil unmarshals an Consumer using a MarshalUtil (for easier unmarshaling).
 func ConsumerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
 	consumer = &Consumer{}
-	if consumer.solidityType, err = SolidityTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SolidityType from MarshalUtil: %w", err)
-		return
-	}
 	if consumer.consumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
+		return
+	}
+	if consumer.solidityType, err = SolidityTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SolidityType from MarshalUtil: %w", err)
 		return
 	}
 	if consumer.transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
@@ -1399,14 +1438,14 @@ func (c *Consumer) ConsumedInput() OutputID {
 	return c.consumedInput
 }
 
-// TransactionID returns the TransactionID of the consuming Transaction.
-func (c *Consumer) TransactionID() TransactionID {
-	return c.transactionID
-}
-
 // SolidityType returns the type of the Consumer.
 func (c *Consumer) SolidityType() (solidityType SolidityType) {
 	return c.solidityType
+}
+
+// TransactionID returns the TransactionID of the consuming Transaction.
+func (c *Consumer) TransactionID() TransactionID {
+	return c.transactionID
 }
 
 // Bytes marshals the Consumer into a sequence of bytes.
@@ -1418,20 +1457,20 @@ func (c *Consumer) Bytes() []byte {
 func (c *Consumer) String() (humanReadableConsumer string) {
 	return stringify.Struct("Consumer",
 		stringify.StructField("consumedInput", c.consumedInput),
-		stringify.StructField("transactionID", c.transactionID),
 		stringify.StructField("solidityType", c.solidityType),
+		stringify.StructField("transactionID", c.transactionID),
 	)
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Consumer) Update(_ objectstorage.StorableObject) {
-	panic("updates disabled")
+func (c *Consumer) Update(x objectstorage.StorableObject) {
+	panic("updates disabled" + c.String() + x.(*Consumer).String())
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Consumer) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(c.solidityType.Bytes(), c.consumedInput.Bytes(), c.transactionID.Bytes())
+	return byteutils.ConcatBytes(c.consumedInput.Bytes(), c.solidityType.Bytes(), c.transactionID.Bytes())
 }
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
