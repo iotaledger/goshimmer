@@ -15,10 +15,10 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // DiagnosticMessagesHandler runs the diagnostic over the Tangle.
@@ -299,6 +299,7 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.ScheduledTime.UnixNano()),
 		fmt.Sprint(d.BookedTime.UnixNano()),
 		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
+		fmt.Sprint(d.FinalizedTime.UnixNano()),
 		strings.Join(d.StrongParents.ToStrings(), ";"),
 		strings.Join(d.WeakParents.ToStrings(), ";"),
 		strings.Join(d.StrongApprovers.ToStrings(), ";"),
@@ -309,6 +310,7 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.Booked),
 		fmt.Sprint(d.Eligible),
 		fmt.Sprint(d.Invalid),
+		fmt.Sprint(d.Finalized),
 		fmt.Sprint(d.Rank),
 		fmt.Sprint(d.IsPastMarker),
 		d.PastMarkers,

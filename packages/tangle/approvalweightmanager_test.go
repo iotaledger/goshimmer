@@ -76,7 +76,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := New(ApprovalWeights(weightProvider))
+	tangle := newTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
@@ -222,7 +222,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := New(ApprovalWeights(weightProvider))
+	tangle := newTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 	supporters := map[string]*identity.Identity{
@@ -361,7 +361,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := New(ApprovalWeights(weightProvider))
+	tangle := newTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	tangle.Setup()
 
@@ -734,7 +734,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := New(ApprovalWeights(weightProvider))
+	tangle := newTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	tangle.Setup()
 
@@ -942,6 +942,7 @@ func newEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *e
 
 	// attach all events
 	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
+	e.attach(approvalWeightManager.Events.MessageFinalized, func(MessageID) {})
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()

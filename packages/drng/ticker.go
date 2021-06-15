@@ -41,7 +41,10 @@ func (t *Ticker) UpdateRandomness(r Randomness) {
 	for len(t.fromRandomnessEvent) > 0 {
 		<-t.fromRandomnessEvent
 	}
-	t.fromRandomnessEvent <- r
+	select {
+	case t.fromRandomnessEvent <- r:
+	default:
+	}
 }
 
 // Start starts the Ticker.

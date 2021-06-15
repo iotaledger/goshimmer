@@ -2,7 +2,7 @@
 
 We provide a tool at `tools/docker-network` with which a local test network can be set up locally with docker. 
  
-![Docker network](../../images/docker-network.png)
+![Docker network](./docker-network.png)
 
 
 ## How to use the tool
@@ -44,6 +44,8 @@ It is therefore possible to send messages to the local network via the `master_p
 docker logs --follow CONTAINERNAME
 ```
 
+## Snapshot tool
+A snapshot tool is provided in the tools folder. The snapshot file that is created must be moved into the `integration-tests/assets` folder. There, rename and replace the existing bin file (`7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`). After restarting the docker network the snapshot file will be loaded.
 
 ## How to use message approval check tool
 
@@ -76,7 +78,7 @@ Note, that the record length of the files might differ, since the approval check
 
 The Spammer tool lets you add messages to the tangle when running GoShimmer in a Docker network.
 In order to start the spammer, you need to send GET requests to a `/spammer` API endpoint with the following parameters:
-* `cmd` - one of two possible values: `start` and `shutdown`.
+* `cmd` - one of two possible values: `start` and `stop`.
 * `mpm` - messages per minute. Only applicable when `cmd=start`. 
 * `imif` - (*optional*) parameter indicating time interval between issued messages. Possible values:
     * `poisson` - emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
@@ -88,7 +90,7 @@ Example requests:
 http://localhost:8080/spammer?cmd=start&mpm=1000
 
 http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform
-http://localhost:8080/spammer?cmd=shutdown
+http://localhost:8080/spammer?cmd=stop
 ```
 
 ## Tangle width

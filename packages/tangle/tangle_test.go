@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"context"
-	"crypto"
 	"fmt"
 	"math/rand"
 	"net"
@@ -30,7 +29,7 @@ import (
 )
 
 func BenchmarkVerifyDataMessages(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
@@ -63,7 +62,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 }
 
 func BenchmarkVerifySignature(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
@@ -98,7 +97,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 }
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
@@ -120,8 +119,9 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 }
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
-	messageTangle := New()
-	messageTangle.Setup()
+	messageTangle := newTestTangle()
+	messageTangle.Storage.Setup()
+	messageTangle.Solidifier.Setup()
 	defer messageTangle.Shutdown()
 
 	var storedMessages, solidMessages, invalidMessages int32
@@ -175,7 +175,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
-	messageTangle := New()
+	messageTangle := newTestTangle()
 	defer messageTangle.Shutdown()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
@@ -211,17 +211,17 @@ func TestTangle_StoreMessage(t *testing.T) {
 
 func TestTangle_MissingMessages(t *testing.T) {
 	const (
-		messageCount = 20000
+		messageCount = 2000
 		tangleWidth  = 250
 		storeDelay   = 5 * time.Millisecond
 	)
 
-	// create badger store
-	badger, err := testutil.BadgerDB(t)
+	// create rocksdb store
+	rocksdb, err := testutil.RocksDB(t)
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := New(Store(badger))
+	tangle := newTestTangle(Store(rocksdb))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -319,7 +319,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := New()
+	messageTangle := newTestTangle()
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
@@ -353,7 +353,7 @@ func TestTangle_Flow(t *testing.T) {
 		testPort    = 8000
 		targetPOW   = 2
 
-		solidMsgCount   = 20000
+		solidMsgCount   = 2000
 		invalidMsgCount = 10
 		tangleWidth     = 250
 		networkDelay    = 5 * time.Millisecond
@@ -361,13 +361,13 @@ func TestTangle_Flow(t *testing.T) {
 
 	var (
 		totalMsgCount = solidMsgCount + invalidMsgCount
-		testWorker    = pow.New(crypto.BLAKE2b_512, 1)
+		testWorker    = pow.New(1)
 		// same as gossip manager
 		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 		messageWorkerQueueSize = 1000
 	)
-	// create badger store
-	badger, err := testutil.BadgerDB(t)
+	// create rocksdb store
+	rocksdb, err := testutil.RocksDB(t)
 	require.NoError(t, err)
 
 	// map to keep track of the tips
@@ -375,7 +375,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := New(Store(badger))
+	tangle := newTestTangle(Store(rocksdb))
 	defer tangle.Shutdown()
 
 	// create local peer
@@ -405,7 +405,7 @@ func TestTangle_Flow(t *testing.T) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return testWorker.Mine(context.Background(), content, targetPOW)
 	}))
-
+	tangle.MessageFactory.SetTimeout(powTimeout)
 	// create a helper function that creates the messages
 	createNewMessage := func(invalidTS bool) *Message {
 		var msg *Message
@@ -519,6 +519,11 @@ func TestTangle_Flow(t *testing.T) {
 	tangle.Scheduler.Events.MessageScheduled.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&scheduledMessages, 1)
 		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, messageID)
+	}))
+
+	tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&scheduledMessages, 1)
+		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
 	}))
 
 	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {

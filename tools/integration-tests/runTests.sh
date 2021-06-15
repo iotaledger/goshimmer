@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TEST_NAMES='autopeering common drng message value consensus faucet mana'
+TEST_NAMES='autopeering common drng value consensus faucet mana diagnostics'
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
@@ -14,10 +14,9 @@ docker pull gaiadocker/iproute2:latest
 
 echo "Run integration tests"
 
-for name in $TEST_NAMES
-do
+for name in $TEST_NAMES; do
   TEST_NAME=$name docker-compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-  docker logs tester &> logs/"$name"_tester.log
+  docker logs tester &>logs/"$name"_tester.log
 done
 
 echo "Clean up"

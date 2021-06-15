@@ -10,14 +10,15 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -112,6 +113,17 @@ func getInfo(c echo.Context) error {
 		ConsensusTimestamp: tConsensus,
 	}
 
+	var delegationAddressString string
+	delegationAddress, err := manarefresher.DelegationAddress()
+	if err == nil {
+		delegationAddressString = delegationAddress.Base58()
+	}
+
+	nodeQueueSizes := make(map[string]int)
+	for nodeID, size := range messagelayer.Tangle().Scheduler.NodeQueueSizes() {
+		nodeQueueSizes[nodeID.String()] = size
+	}
+
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          discovery.NetworkVersion(),
@@ -125,6 +137,12 @@ func getInfo(c echo.Context) error {
 		EnabledPlugins:          enabledPlugins,
 		DisabledPlugins:         disabledPlugins,
 		Mana:                    nodeMana,
+		ManaDelegationAddress:   delegationAddressString,
 		ManaDecay:               mana.Decay,
+		Scheduler: jsonmodels.Scheduler{
+			Running:        messagelayer.Tangle().Scheduler.Running(),
+			Rate:           messagelayer.Tangle().Scheduler.Rate().String(),
+			NodeQueueSizes: nodeQueueSizes,
+		},
 	})
 }

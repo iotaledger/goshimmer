@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,6 +36,7 @@ func Plugin() *node.Plugin {
 		plugin = node.NewPlugin("WebAPI ledgerstate Endpoint", node.Enabled, func(*node.Plugin) {
 			webapi.Server().GET("ledgerstate/addresses/:address", GetAddress)
 			webapi.Server().GET("ledgerstate/addresses/:address/unspentOutputs", GetAddressUnspentOutputs)
+			webapi.Server().POST("ledgerstate/addresses/unspentOutputs", PostAddressUnspentOutputs)
 			webapi.Server().GET("ledgerstate/branches/:branchID", GetBranch)
 			webapi.Server().GET("ledgerstate/branches/:branchID/children", GetBranchChildren)
 			webapi.Server().GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
@@ -41,8 +45,10 @@ func Plugin() *node.Plugin {
 			webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransaction)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
+			webapi.Server().GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/consensus", GetTransactionConsensusMetadata)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
+			webapi.Server().POST("ledgerstate/transactions", PostTransaction)
 		})
 	})
 
@@ -60,7 +66,7 @@ func GetAddress(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
+	cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, cachedOutputs.Unwrap()))
@@ -77,16 +83,85 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
+	cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
-		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			isUnspent = outputMetadata.ConsumerCount() == 0
 		})
 
 		return
 	})))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region PostAddressUnspentOutputs /////////////////////////////////////////////////////////////////////////////////////
+
+// PostAddressUnspentOutputs is the handler for the /ledgerstate/addresses/unspentOutputs endpoint.
+func PostAddressUnspentOutputs(c echo.Context) error {
+	req := &jsonmodels.PostAddressesUnspentOutputsRequest{}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	addresses := make([]ledgerstate.Address, len(req.Addresses))
+	for i, addressString := range req.Addresses {
+		var err error
+		addresses[i], err = ledgerstate.AddressFromBase58EncodedString(addressString)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		}
+	}
+
+	res := &jsonmodels.PostAddressesUnspentOutputsResponse{
+		UnspentOutputs: make([]*jsonmodels.WalletOutputsOnAddress, len(addresses)),
+	}
+	for i, addy := range addresses {
+		res.UnspentOutputs[i] = &jsonmodels.WalletOutputsOnAddress{}
+		cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(addy)
+		res.UnspentOutputs[i].Address = jsonmodels.Address{
+			Type:   addy.Type().String(),
+			Base58: addy.Base58(),
+		}
+		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
+
+		for _, output := range cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
+			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				isUnspent = outputMetadata.ConsumerCount() == 0
+			})
+			return
+		}) {
+			cachedOutputMetadata := messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID())
+			cachedOutputMetadata.Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				if outputMetadata.ConsumerCount() == 0 {
+					inclusionState := jsonmodels.InclusionState{}
+					txID := output.ID().TransactionID()
+					txInclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(txID)
+					if err != nil {
+						return
+					}
+					inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
+					inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
+					inclusionState.Conflicting = len(messagelayer.Tangle().LedgerState.ConflictSet(txID)) != 0
+
+					cachedTx := messagelayer.Tangle().LedgerState.Transaction(output.ID().TransactionID())
+					var timestamp time.Time
+					cachedTx.Consume(func(tx *ledgerstate.Transaction) {
+						timestamp = tx.Essence().Timestamp()
+					})
+					res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
+						Output:         *jsonmodels.NewOutput(output),
+						InclusionState: inclusionState,
+						Metadata:       jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
+					})
+				}
+			})
+		}
+		cachedOutputs.Release()
+	}
+
+	return c.JSON(http.StatusOK, res)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -170,7 +245,7 @@ func GetOutput(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+	if !messagelayer.Tangle().LedgerState.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
@@ -207,12 +282,11 @@ func GetOutputMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !messagelayer.Tangle().LedgerState.OutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	if !messagelayer.Tangle().LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewOutputMetadata(outputMetadata))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
 	}
-
 	return
 }
 
@@ -227,13 +301,15 @@ func GetTransaction(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
+	var tx *ledgerstate.Transaction
+	// retrieve transaction
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewTransaction(transaction))
+		tx = transaction
 	}) {
 		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
+		return
 	}
-
-	return
+	return c.JSON(http.StatusOK, jsonmodels.NewTransaction(tx))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,6 +333,29 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetTransactionInclusionState /////////////////////////////////////////////////////////////////////////////////
+
+// GetTransactionInclusionState is the handler for the ledgerstate/transactions/:transactionID/inclusionState endpoint.
+func GetTransactionInclusionState(c echo.Context) (err error) {
+	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	inclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	conflicting := len(messagelayer.Tangle().LedgerState.ConflictSet(transactionID)) != 0
+
+	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID, conflicting))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetTransactionConsensusMetadata //////////////////////////////////////////////////////////////////////////////
 
 // GetTransactionConsensusMetadata is the handler for the ledgerstate/transactions/:transactionID/consensus endpoint.
 func GetTransactionConsensusMetadata(c echo.Context) (err error) {
@@ -318,6 +417,74 @@ func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err err
 	}
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region postTransaction //////////////////////////////////////////////////////////////////////////////////////////////
+
+const maxBookedAwaitTime = 5 * time.Second
+
+// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
+var ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to node")
+
+// PostTransaction sends a transaction.
+func PostTransaction(c echo.Context) error {
+	var request jsonmodels.PostTransactionRequest
+	if err := c.Bind(&request); err != nil {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
+
+	// parse tx
+	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
+
+	// validate allowed mana pledge nodes.
+	allowedAccessMana := messagelayer.GetAllowedPledgeNodes(mana.AccessMana)
+	if allowedAccessMana.IsFilterEnabled {
+		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
+				Error: fmt.Errorf("not allowed to pledge access mana to %s: %w", tx.Essence().AccessPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
+	}
+	allowedConsensusMana := messagelayer.GetAllowedPledgeNodes(mana.ConsensusMana)
+	if allowedConsensusMana.IsFilterEnabled {
+		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
+				Error: fmt.Errorf("not allowed to pledge consensus mana to %s: %w", tx.Essence().ConsensusPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
+	}
+
+	// check transaction validity
+	if transactionErr := messagelayer.Tangle().LedgerState.CheckTransaction(tx); transactionErr != nil {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: transactionErr.Error()})
+	}
+
+	// check if transaction is too old
+	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+	}
+
+	// if transaction is in the future we wait until the time arrives
+	if tx.Essence().Timestamp().After(clock.SyncedTime()) {
+		if tx.Essence().Timestamp().Sub(clock.SyncedTime()) > time.Minute {
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: "transaction timestamp is in the future and cannot be issued; please readjust local clock"})
+		}
+		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
+	}
+
+	issueTransaction := func() (*tangle.Message, error) {
+		return messagelayer.Tangle().IssuePayload(tx)
+	}
+
+	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
+	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

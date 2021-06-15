@@ -36,7 +36,19 @@ func main() {
 	// define sub commands
 	balanceCommand := flag.NewFlagSet("balance", flag.ExitOnError)
 	sendFundsCommand := flag.NewFlagSet("send-funds", flag.ExitOnError)
+	consolidateFundsCommand := flag.NewFlagSet("consolidate-funds", flag.ExitOnError)
+	claimConditionalFundsCommand := flag.NewFlagSet("claim-conditional", flag.ExitOnError)
 	createAssetCommand := flag.NewFlagSet("create-asset", flag.ExitOnError)
+	assetInfoCommand := flag.NewFlagSet("asset-info", flag.ExitOnError)
+	delegateFundsCommand := flag.NewFlagSet("delegate-funds", flag.ExitOnError)
+	reclaimDelegatedFundsCommand := flag.NewFlagSet("reclaim-delegated", flag.ExitOnError)
+	createNFTCommand := flag.NewFlagSet("create-nft", flag.ExitOnError)
+	transferNFTCommand := flag.NewFlagSet("transfer-nft", flag.ExitOnError)
+	destroyNFTCommand := flag.NewFlagSet("destroy-nft", flag.ExitOnError)
+	depositToNFTCommand := flag.NewFlagSet("deposit-to-nft", flag.ExitOnError)
+	withdrawFromNFTCommand := flag.NewFlagSet("withdraw-from-nft", flag.ExitOnError)
+	sweepNFTOwnedFundsCommand := flag.NewFlagSet("sweep-nft-owned-funds", flag.ExitOnError)
+	sweepNFTOwnedNFTsCommand := flag.NewFlagSet("sweep-nft-owned-nfts", flag.ExitOnError)
 	addressCommand := flag.NewFlagSet("address", flag.ExitOnError)
 	requestFaucetFundsCommand := flag.NewFlagSet("request-funds", flag.ExitOnError)
 	serverStatusCommand := flag.NewFlagSet("server-status", flag.ExitOnError)
@@ -51,8 +63,32 @@ func main() {
 		execAddressCommand(addressCommand, wallet)
 	case "send-funds":
 		execSendFundsCommand(sendFundsCommand, wallet)
+	case "consolidate-funds":
+		execConsolidateFundsCommand(consolidateFundsCommand, wallet)
+	case "claim-conditional":
+		execClaimConditionalCommand(claimConditionalFundsCommand, wallet)
 	case "create-asset":
 		execCreateAssetCommand(createAssetCommand, wallet)
+	case "asset-info":
+		execAssetInfoCommand(assetInfoCommand, wallet)
+	case "delegate-funds":
+		execDelegateFundsCommand(delegateFundsCommand, wallet)
+	case "reclaim-delegated":
+		execReclaimDelegatedFundsCommand(reclaimDelegatedFundsCommand, wallet)
+	case "create-nft":
+		execCreateNFTCommand(createNFTCommand, wallet)
+	case "transfer-nft":
+		execTransferNFTCommand(transferNFTCommand, wallet)
+	case "destroy-nft":
+		execDestroyNFTCommand(destroyNFTCommand, wallet)
+	case "deposit-to-nft":
+		execDepositToNFTCommand(depositToNFTCommand, wallet)
+	case "withdraw-from-nft":
+		execWithdrawFromFTCommand(withdrawFromNFTCommand, wallet)
+	case "sweep-nft-owned-funds":
+		execSweepNFTOwnedFundsCommand(sweepNFTOwnedFundsCommand, wallet)
+	case "sweep-nft-owned-nfts":
+		execSweepNFTOwnedNFTsCommand(sweepNFTOwnedNFTsCommand, wallet)
 	case "request-funds":
 		execRequestFundsCommand(requestFaucetFundsCommand, wallet)
 	case "pledge-id":

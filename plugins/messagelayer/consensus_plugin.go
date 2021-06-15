@@ -34,8 +34,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/clock"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,7 +69,6 @@ func ConsensusPlugin() *node.Plugin {
 }
 
 func configureConsensusPlugin(plugin *node.Plugin) {
-	configureRemoteLogger()
 	configureFPC(plugin)
 
 	// subscribe to FCOB events
@@ -450,61 +447,6 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region RemoteLogger /////////////////////////////////////////////////////////////////////////////////////////////////
-
-const (
-	remoteLogType = "statement"
-)
-
-var (
-	remoteLogger *remotelog.RemoteLoggerConn
-	myID         string
-	clockEnabled bool
-)
-
-func configureRemoteLogger() {
-	remoteLogger = remotelog.RemoteLogger()
-
-	if local.GetInstance() != nil {
-		myID = local.GetInstance().ID().String()
-	}
-
-	clockEnabled = !node.IsSkipped(clock.Plugin())
-}
-
-func sendToRemoteLog(msgID, issuerID string, issuedTime, arrivalTime, solidTime int64) {
-	m := statementLog{
-		NodeID:       myID,
-		MsgID:        msgID,
-		IssuerID:     issuerID,
-		IssuedTime:   issuedTime,
-		ArrivalTime:  arrivalTime,
-		SolidTime:    solidTime,
-		DeltaArrival: arrivalTime - issuedTime,
-		DeltaSolid:   solidTime - issuedTime,
-		Clock:        clockEnabled,
-		Sync:         Tangle().Synced(),
-		Type:         remoteLogType,
-	}
-	_ = remoteLogger.Send(m)
-}
-
-type statementLog struct {
-	NodeID       string `json:"nodeID"`
-	MsgID        string `json:"msgID"`
-	IssuerID     string `json:"issuerID"`
-	IssuedTime   int64  `json:"issuedTime"`
-	ArrivalTime  int64  `json:"arrivalTime"`
-	SolidTime    int64  `json:"solidTime"`
-	DeltaArrival int64  `json:"deltaArrival"`
-	DeltaSolid   int64  `json:"deltaSolid"`
-	Clock        bool   `json:"clock"`
-	Sync         bool   `json:"sync"`
-	Type         string `json:"type"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
@@ -645,16 +587,7 @@ func readStatement(messageID tangle.MessageID) {
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
 
 		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
-
-		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			sendToRemoteLog(
-				msg.ID().Base58(),
-				issuerID.String(),
-				msg.IssuingTime().UnixNano(),
-				messageMetadata.ReceivedTime().UnixNano(),
-				messageMetadata.SolidificationTime().UnixNano(),
-			)
-		})
+		Tangle().ConsensusManager.Events.StatementProcessed.Trigger(msg)
 	})
 }
 

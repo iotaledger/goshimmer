@@ -40,6 +40,7 @@ func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey ed25519.PublicKey)
 	config.EntryNodeHost = n.network.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.network.entryNodePublicKey()
 	config.DisabledPlugins = disabledPluginsPeer
+	config.SnapshotFilePath = snapshotFilePath
 	if config.FPCRoundInterval == 0 {
 		config.FPCRoundInterval = 5
 	}

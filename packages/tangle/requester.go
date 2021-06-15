@@ -12,7 +12,7 @@ const (
 	DefaultRetryInterval = 10 * time.Second
 
 	// the maximum amount of requests before we abort
-	maxRequestThreshold = 500
+	maxRequestThreshold = 50
 )
 
 // RequesterOptions holds options for a message requester.
@@ -22,7 +22,7 @@ type RequesterOptions struct {
 
 func newRequesterOptions(optionalOptions []RequesterOption) *RequesterOptions {
 	result := &RequesterOptions{
-		retryInterval: 10 * time.Second,
+		retryInterval: DefaultRetryInterval,
 	}
 
 	for _, optionalOption := range optionalOptions {

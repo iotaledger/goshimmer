@@ -19,13 +19,27 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
+var schedulerParams = tangle.SchedulerParams{
+	Rate:                        100 * time.Millisecond,
+	AccessManaRetrieveFunc:      getAccessMana,
+	TotalAccessManaRetrieveFunc: getTotalAccessMana,
+}
+
+func getAccessMana(_ identity.ID) float64 {
+	return 800
+}
+
+func getTotalAccessMana() float64 {
+	return 2000
+}
+
 func TestOpinionFormer_Scenario2(t *testing.T) {
 	LikedThreshold = 2 * time.Second
 	LocallyFinalizedThreshold = 2 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams))
 	defer testTangle.Shutdown()
 	testTangle.Setup()
 
@@ -64,8 +78,12 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 
@@ -224,7 +242,7 @@ func TestOpinionFormer(t *testing.T) {
 
 	consensusProvider := NewConsensusMechanism()
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams))
 	defer testTangle.Shutdown()
 
 	messageA := newTestDataMessage("A")
@@ -248,8 +266,12 @@ func TestOpinionFormer(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 

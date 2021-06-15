@@ -13,6 +13,7 @@ import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {TransactionPayload} from 'app/components/TransactionPayload'
+import {ChatPayload} from 'app/components/ChatPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
 import {resolveBase58BranchID} from "app/utils/branch";
@@ -63,6 +64,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
             case PayloadType.Data:
                 return <BasicPayload/>
             case PayloadType.Faucet:
+            case PayloadType.Chat:
+                return <ChatPayload/>
             default:
                 return <BasicPayload/>
         }
@@ -150,7 +153,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                         </Row>
 
                         {
-                            msg.rank &&
+                            !!msg.rank &&
                             <Row className={"mb-3"}>
                                 <Col>
                                     <h5>Markers</h5>
@@ -270,19 +273,14 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                             </Col>
                         </Row>
 
-                        <Row className={"mb-3"}>
+                        <Row className={"mb-3"} style={{marginTop: "20px", marginBottom: "20px"}}>
                             <Col>
-                                <h4>Payload</h4>
+                                <h3>Payload</h3>
                             </Col>
                         </Row>
-
                         <Row className={"mb-3"}>
                             <Col>
-                                <ListGroup>
-                                    <ListGroup.Item className="text-break">
-                                        {this.renderPayload()}
-                                    </ListGroup.Item>
-                                </ListGroup>
+                                {this.renderPayload()}
                             </Col>
                         </Row>
                     </React.Fragment>

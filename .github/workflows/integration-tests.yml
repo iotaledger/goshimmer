@@ -61,7 +61,6 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests
@@ -95,7 +94,6 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests
@@ -130,7 +128,6 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests
@@ -147,43 +144,6 @@ jobs:
         with:
           name: ${{ env.TEST_NAME }}
           path: tools/integration-tests/logs
-
-
-
-  message:
-    name: message
-    env:
-      TEST_NAME: message
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Build GoShimmer image
-        run: docker build -t iotaledger/goshimmer .
-
-      - name: Pull additional Docker images
-        run: |
-          docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiaadm/pumba:0.7.2
-          docker pull gaiadocker/iproute2:latest
-
-      - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
-
 
 
   value:
@@ -202,7 +162,6 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests
@@ -236,7 +195,6 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests
@@ -270,8 +228,35 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:1.1.3
-          docker pull gaiaadm/pumba:latest
           docker pull gaiadocker/iproute2:latest
+
+      - name: Run integration tests
+        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+
+      - name: Create logs from tester
+        if: always()
+        run: |
+          docker logs tester &> tools/integration-tests/logs/tester.log
+
+      - name: Save logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ env.TEST_NAME }}
+          path: tools/integration-tests/logs
+
+  diagnostics:
+    name: diagnostics
+    env:
+      TEST_NAME: diagnostics
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Build GoShimmer image
+        run: docker build -t iotaledger/goshimmer .
 
       - name: Run integration tests
         run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build

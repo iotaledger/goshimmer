@@ -14,15 +14,12 @@
     <a href="https://iota.stackexchange.com/" style="text-decoration:none;"><img src="https://img.shields.io/badge/StackExchange-9cf.svg?logo=stackexchange" alt="StackExchange"></a>
     <a href="https://github.com/iotaledger/goshimmer/blob/master/LICENSE" style="text-decoration:none;"><img src="https://img.shields.io/github/license/iotaledger/goshimmer.svg" alt="Apache 2.0 license"></a>
     <a href="https://golang.org/doc/install" style="text-decoration:none;"><img src="https://img.shields.io/github/go-mod/go-version/iotaledger/goshimmer" alt="Go version"></a>
-    <a href="" style="text-decoration:none;"><img src="https://img.shields.io/github/workflow/status/iotaledger/goshimmer/Build" alt="Build status"></a>
     <a href="" style="text-decoration:none;"><img src="https://img.shields.io/github/v/release/iotaledger/goshimmer" alt="Latest release"></a>
 </p>
       
 <p align="center">
   <a href="#about">About</a> ◈
   <a href="#design">Design</a> ◈
-  <a href="#implemented-coordicide-modules">Implemented Coordicide modules</a> ◈
-  <a href="#work-in-progress-modules">Work-in-progress modules</a> ◈
   <a href="#getting-started">Getting started</a> ◈
   <a href="#client-library-and-http-api-reference">Client-Library and HTTP API reference</a> ◈
   <a href="#supporting-the-project">Supporting the project</a> ◈
@@ -33,65 +30,50 @@
 
 ## About
 
-This repository is where the IOTA Foundation's Research Department tests the Coordicide modules to study and evaluate their performance.
+This repository, called GoShimmer, is where the IOTA Foundation's Research Department tests the IOTA 2.0 modules to study and evaluate their performance.
 
-The aim of this open repository is  to give the community the opportunity to follow developments, take part in testing, and learn  more about [Coordicide](https://coordicide.iota.org/).
+GoShimmer is first and foremost a research prototype. As such, breaking changes can often happen. We invite researchers and developers to make use of this project as you see fit. Running experiments, test out new ideas, build PoC are all very welcome initiatives.
 
-**Note:** You can find details about future development plans on our [roadmap](https://roadmap.iota.org).
+For a documentation, including tutorials and resources, we refer to the [Documentation](http://goshimmer.docs.iota.org/) (Github [link](https://github.com/iotaledger/goshimmer/blob/develop/docs/SUMMARY.md)).
 
 ## Design
-The code in GoShimmer is modular, where each module represents either one of the [Coordicide components](https://coordicide.iota.org/) or a basic node function such as the gossip, ledger state, API just to mention a few.  
+The code in GoShimmer is modular, where each module represents either one of the *IOTA 2.0 components*, or a basic node function such as the gossip, ledger state, and API - just to mention a few.  
 
-![Layers](images/layers.jpg)
+![Layers](docs/protocol_specification/layers.png)
 
-GoShimmer modularity is based on a combination of event-driven and layer-based approaches.
-
-Each module is defined in the `packages` directory, with the exceptions for the dApps (e.g., value transfer, network delay and the faucet) that are under the `dapps` folder. Each module can be enabled using the `plugins` directory.
-
-**Note:** See the `main.go` file to see which plugins are currently supported.
-
-## Implemented Coordicide modules
-
-The `master` branch is the stable version of the GoShimmer software, which includes a minimal set of modules to allow you to send and gossip the following types of object:
-
-- Generic data object, and more in general, any non-value transfer can be supported with its own dApp/App. 
-- Value objects to issue transactions. 
-- Faucet funding request objects.
-
-The `master` branch includes the following Coordicide modules: 
-
-- [Node identities](https://coordicide.iota.org/module1)
-
-- [Autopeering](https://coordicide.iota.org/module2). We also have a standalone autopeering simulator in this [repository](https://github.com/iotaledger/autopeering-sim).
-
-- [Fast Probabilistic Consensus](https://coordicide.iota.org//module4.1.2).  We also have a standalone FPC simulator in this [repository](https://github.com/iotaledger/fpc-sim).
-
-- [Tip Selection Algorithm](https://coordicide.iota.org//module5)
-
-- [Parallel-reality-based Ledger State](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) (using the UTXO model).
-
-
-## Work-in-progress modules
-
-Work-in-progress modules are typically kept on a different branch such as `mana`, and are not compatible with the `master` branch. Therefore, nodes that run these branches cannot join the current network because the code either is still too experimental or it includes breaking changes. The same goes for the `develop` branch.
-
-The following Coordicide modules are a work in progress: 
-
-- [Mana](https://coordicide.iota.org/module1): The `mana` branch contains a first implementation of the mana module in the `packages` directory.
-
-- [Cellular Consensus](https://coordicide.iota.org/module5.1.1): The `ca` branch contains a first implementation of the Cellular Consensus module in the `packages` directory.
-
-- [Spam Protection](https://coordicide.iota.org/module3): You can find the initial simulation source code of the rate control in this [repository](https://github.com/andypandypi/IOTARateControl) and the source code of the Adaptive Proof of Work simulator [here](https://github.com/iotaledger/adaptive-pow-sim).
+GoShimmer's modularity is based on a combination of [event-driven](https://goshimmer.docs.iota.org/implementation_design/event_driven_model.html) and [layer-based](https://goshimmer.docs.iota.org/protocol_specification/components.html) approaches.
 
 ## Client-Library and HTTP API reference
 
 You can use the Go client-library to interact with GoShimmer (located under `github.com/iotaledger/goshimmer/client`).
 
-You can find more info about this on our [client-lib](https://goshimmer.docs.iota.org/apis/api.html) and [Web API](https://goshimmer.docs.iota.org/apis/webAPI.html) GitHub page.
+You can find more info about this on our [client-lib](https://goshimmer.docs.iota.org/apis/api.html) and [Web API](https://goshimmer.docs.iota.org/apis/webAPI.html) documentation.
 
 ## Getting started
 
-You can find tutorials on how to [setup a GoShimmer node](https://goshimmer.docs.iota.org/tutorials/setup.html), [writing a dApp](https://goshimmer.docs.iota.org/tutorials/dApp.html), [obtaining tokens from the faucet](https://goshimmer.docs.iota.org/tutorials/request_funds.html) and more on our [GitHub Page](https://goshimmer.docs.iota.org/goshimmer.html).
+You can find tutorials on how to [setup a GoShimmer node](https://goshimmer.docs.iota.org/tutorials/setup.html), [writing a dApp](https://goshimmer.docs.iota.org/tutorials/dApp.html), [obtaining tokens from the faucet](https://goshimmer.docs.iota.org/tutorials/request_funds.html) and more in the [GoShimmer documentation](https://goshimmer.docs.iota.org/goshimmer.html).
+
+### Compiling from source
+
+We always recommend running your node via [Docker](https://goshimmer.docs.iota.org/tutorials/setup.html). However, you can also compile the source and run the node from the compiled binary. GoShimmer uses [RocksDB](https://github.com/linxGnu/grocksdb) as its underlying db engine. That requires a few dependencies before building the project: 
+- librocksdb
+- libsnappy
+- libz
+- liblz4
+- libzstd 
+
+Please follow this guide: https://github.com/facebook/rocksdb/blob/master/INSTALL.md to build above libs.
+
+Finally, when compiling GoShimmer, just run the build script:
+
+```bash
+./scripts/build.sh
+```
+
+If you also want to link the libraries statically (only on Linux) run this instead:
+```bash
+./scripts/build_goshimmer_rocksdb_builtin.sh
+```
 
 ## Supporting the project
 

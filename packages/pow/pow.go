@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cockroachdb/errors"
+	"golang.org/x/crypto/blake2b"
 )
 
 // errors returned by the PoW
@@ -31,15 +32,13 @@ type Hash interface {
 
 // The Worker provides PoW functionality using an arbitrary hash function.
 type Worker struct {
-	hash       Hash
 	numWorkers int
 }
 
 // New creates a new PoW based on the provided hash.
 // The optional numWorkers specifies how many go routines are used to mine.
-func New(hash Hash, numWorkers ...int) *Worker {
+func New(numWorkers ...int) *Worker {
 	w := &Worker{
-		hash:       hash,
 		numWorkers: 1,
 	}
 	if len(numWorkers) > 0 && numWorkers[0] > 0 {
@@ -99,12 +98,9 @@ func (w *Worker) Mine(ctx context.Context, msg []byte, target int) (uint64, erro
 
 // LeadingZeros returns the number of leading zeros in the digest of the given data.
 func (w *Worker) LeadingZeros(data []byte) (int, error) {
-	digest, err := w.sum(data)
-	if err != nil {
-		return 0, err
-	}
-	asAnInt := new(big.Int).SetBytes(digest)
-	return 8*w.hash.Size() - asAnInt.BitLen(), nil
+	digest := blake2b.Sum512(data)
+	asAnInt := new(big.Int).SetBytes(digest[:])
+	return 8*blake2b.Size - asAnInt.BitLen(), nil
 }
 
 // LeadingZerosWithNonce returns the number of leading zeros in the digest
@@ -131,27 +127,16 @@ func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32,
 		// write nonce in the buffer
 		putUint64(buf[len(msg):], nonce)
 
-		digest, err := w.sum(buf)
-		if err != nil {
-			return 0, err
-		}
-		asAnInt.SetBytes(digest)
-		leadingZeros := 8*w.hash.Size() - asAnInt.BitLen()
+		digest := blake2b.Sum512(buf)
+		asAnInt.SetBytes(digest[:])
+		leadingZeros := 8*blake2b.Size - asAnInt.BitLen()
 		if leadingZeros >= target {
 			return nonce, nil
 		}
-
 		nonce++
+
 	}
 	return 0, ErrDone
-}
-
-func (w *Worker) sum(data []byte) ([]byte, error) {
-	h := w.hash.New()
-	if _, err := h.Write(data); err != nil {
-		return nil, err
-	}
-	return h.Sum(nil), nil
 }
 
 func putUint64(b []byte, v uint64) {

@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1614868629696,
+  "iteration": 1622490308556,
   "links": [],
   "panels": [
     {
@@ -37,7 +37,6 @@
       "description": "Version number of node software.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -77,10 +76,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "iota_info_app",
+          "expr": "iota_info_app{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -102,7 +101,6 @@
       "description": "Shortened version of the public key of the node.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -138,10 +136,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "iota_info_app",
+          "expr": "iota_info_app{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -163,7 +161,6 @@
       "description": "Shows the time elapsed since the start of the node.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -200,10 +197,10 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "time() - process_start_time_seconds",
+          "expr": "time() - process_start_time_seconds{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -219,7 +216,6 @@
       "description": "Describes if the node is in synced state.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [
             {
               "from": "",
@@ -275,10 +271,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "sync",
+          "expr": "tangleTimeSynced{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -295,7 +291,6 @@
       "description": "Aggregated MPS for all message types in the communication layer.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -336,10 +331,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "irate(tangle_message_total_count[5m])",
+          "expr": "irate(tangle_message_total_count{instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "Total MPS",
           "refId": "A"
@@ -355,7 +350,6 @@
       "description": "Amount of access mana this node has",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -392,10 +386,10 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "mana_access{nodeID=\"$NodeID\"}",
+          "expr": "mana_access{instance=\"$instance\",nodeID=\"$NodeID\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -411,7 +405,6 @@
       "description": "Amount of consensus mana this node has.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -448,10 +441,10 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "mana_consensus{nodeID=\"$NodeID\"}",
+          "expr": "mana_consensus{instance=\"$instance\",nodeID=\"$NodeID\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -467,7 +460,6 @@
       "description": "Current CPU usage of the node.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -508,10 +500,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "process_cpu_usage",
+          "expr": "process_cpu_usage{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -527,7 +519,6 @@
       "description": "Size of the ledger database.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -568,10 +559,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "db_size_bytes/1024/1024",
+          "expr": "db_size_bytes{instance=\"$instance\"}/1024/1024",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -587,7 +578,6 @@
       "description": "Memory consumed by the node.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -624,10 +614,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "process_mem_usage_bytes/1024/1024",
+          "expr": "process_mem_usage_bytes{instance=\"$instance\"}/1024/1024",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -659,9 +649,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -687,50 +675,58 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
-      "stack": false,
+      "stack": true,
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"GenericDataPayloadType(0)\"}[5m])",
+          "exemplar": true,
+          "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\"}[5m])",
           "interval": "",
-          "legendFormat": "Data Message Per Second",
+          "legendFormat": "Message Per Second {{message_type}}",
           "refId": "A"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"TransactionType(1337)\"}[5m])",
+          "exemplar": true,
+          "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"TransactionType(1337)\"}[5m])",
+          "hide": true,
           "interval": "",
           "legendFormat": "Transaction Per Second",
           "refId": "B"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"dRNG(111)\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"dRNG(111)\"}[5m])",
+          "hide": true,
           "interval": "",
           "legendFormat": "dRNG Messages Per Second",
           "refId": "C"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"faucet(2)\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"faucet(2)\"}[5m])",
+          "hide": true,
           "interval": "",
           "legendFormat": "Faucet Messages Per Second",
           "refId": "D"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"networkdelay(189)\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"networkdelay(189)\"}[5m])",
+          "hide": true,
           "interval": "",
           "legendFormat": "Network Delay Messages Per Second",
           "refId": "E"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"Statement(3)\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"Statement(3)\"}[5m])",
+          "hide": true,
           "interval": "",
           "legendFormat": "Statements Per Second",
           "refId": "G"
@@ -784,9 +780,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -812,10 +806,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -825,27 +820,27 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(tangle_messages_per_component_count{component=\"Store\"}[5m])",
+          "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Store\"}[5m])",
           "interval": "",
           "legendFormat": "Store MPS",
           "refId": "A"
         },
         {
-          "expr": "irate(tangle_messages_per_component_count{component=\"Solidifier\"}[5m])",
+          "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Solidifier\"}[5m])",
           "hide": false,
           "interval": "",
           "legendFormat": "Solidifier MPS",
           "refId": "B"
         },
         {
-          "expr": "irate(tangle_messages_per_component_count{component=\"Scheduler\"}[5m])",
+          "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Scheduler\"}[5m])",
           "hide": false,
           "interval": "",
           "legendFormat": "Scheduler MPS",
           "refId": "C"
         },
         {
-          "expr": "irate(tangle_messages_per_component_count{component=\"Booker\"}[5m])",
+          "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Booker\"}[5m])",
           "hide": false,
           "interval": "",
           "legendFormat": "Booker MPS",
@@ -901,9 +896,7 @@
       "datasource": "Prometheus",
       "description": "Shows tips in message and value layer.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -929,10 +922,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -942,16 +936,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "tangle_message_tips_count",
+          "expr": "tangle_message_tips_count{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Message Layer Tips",
           "refId": "A"
-        },
-        {
-          "expr": "tangle_value_tips",
-          "interval": "",
-          "legendFormat": "Value Layer Tips",
-          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -1002,9 +990,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -1030,10 +1016,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 0.5,
       "points": true,
       "renderer": "flot",
@@ -1043,19 +1030,19 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "autopeering_avg_distance",
+          "expr": "autopeering_avg_distance{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Average",
           "refId": "A"
         },
         {
-          "expr": "autopeering_max_distance",
+          "expr": "autopeering_max_distance{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Max",
           "refId": "B"
         },
         {
-          "expr": "autopeering_min_distance",
+          "expr": "autopeering_min_distance{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Min",
           "refId": "C"
@@ -1108,7 +1095,6 @@
       "description": "Number of currently connected neighbors.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1148,10 +1134,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "autopeering_neighbor_connections_count - autopeering_neighbor_drop_count",
+          "expr": "autopeering_neighbor_connections_count{instance=\"$instance\"} - autopeering_neighbor_drop_count{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1167,7 +1153,6 @@
       "description": "Calculated for each dropped neighbor.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1204,10 +1189,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "autopeering_avg_neighbor_connection_lifetime",
+          "expr": "autopeering_avg_neighbor_connection_lifetime{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1223,7 +1208,6 @@
       "description": "Amount of newly registered neighbor connections.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1263,10 +1247,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "autopeering_neighbor_connections_count",
+          "expr": "autopeering_neighbor_connections_count{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1282,7 +1266,6 @@
       "description": "Amount of neighbor connections dropped.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1322,10 +1305,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "autopeering_neighbor_drop_count",
+          "expr": "autopeering_neighbor_drop_count{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1344,9 +1327,7 @@
       "datasource": "Prometheus",
       "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -1372,10 +1353,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1385,7 +1367,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "tangle_message_missing_count_db",
+          "expr": "tangle_message_missing_count_db{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Missing Messages",
           "refId": "A"
@@ -1439,9 +1421,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -1467,10 +1447,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1480,7 +1461,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_cpu_usage",
+          "expr": "process_cpu_usage{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "CPU Usage",
           "refId": "A"
@@ -1534,9 +1515,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -1562,10 +1541,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1575,7 +1555,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_mem_usage_bytes/1024/1024",
+          "expr": "process_mem_usage_bytes{instance=\"$instance\"}/1024/1024",
           "interval": "",
           "legendFormat": "Memory Consumption",
           "refId": "A"
@@ -1630,9 +1610,7 @@
       "datasource": "Prometheus",
       "description": "Number of messages currently requested by the message tangle.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -1658,10 +1636,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1671,7 +1650,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "tangle_message_request_queue_size",
+          "expr": "tangle_message_request_queue_size{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Message Request Queue Size",
           "refId": "A"
@@ -1726,9 +1705,7 @@
       "datasource": "Prometheus",
       "description": "Describes the amount of total, solid and not solid messages in the node's database.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -1756,10 +1733,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1769,19 +1747,19 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "tangle_message_solid_count_db",
+          "expr": "tangle_message_solid_count_db{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Solid Messages in DB",
           "refId": "A"
         },
         {
-          "expr": "tangle_message_total_count_db - tangle_message_solid_count_db",
+          "expr": "tangle_message_total_count_db{instance=\"$instance\"} - tangle_message_solid_count_db{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Not Solid Messages in DB",
           "refId": "B"
         },
         {
-          "expr": "tangle_message_total_count_db",
+          "expr": "tangle_message_total_count_db{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Total Messages in DB",
           "refId": "C"
@@ -1835,9 +1813,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -1863,10 +1839,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1876,43 +1853,43 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(traffic_analysis_outbound_bytes[1m])",
+          "expr": "irate(traffic_analysis_outbound_bytes{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "Analysis TX",
           "refId": "A"
         },
         {
-          "expr": "irate(traffic_autopeering_inbound_bytes[1m])",
+          "expr": "irate(traffic_autopeering_inbound_bytes{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "Autopeering RX",
           "refId": "B"
         },
         {
-          "expr": "irate(traffic_autopeering_outbound_bytes[1m])",
+          "expr": "irate(traffic_autopeering_outbound_bytes{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "Autopeering TX",
           "refId": "C"
         },
         {
-          "expr": "irate(traffic_fpc_inbound_bytes[1m])",
+          "expr": "irate(traffic_fpc_inbound_bytes{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "FPC RX",
           "refId": "D"
         },
         {
-          "expr": "irate(traffic_fpc_outbound_bytes[1m])",
+          "expr": "irate(traffic_fpc_outbound_bytes{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "FPC TX",
           "refId": "E"
         },
         {
-          "expr": "irate(traffic_gossip_inbound_bytes[1m])",
+          "expr": "irate(traffic_gossip_inbound_bytes{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "Gossip RX",
           "refId": "F"
         },
         {
-          "expr": "irate(traffic_gossip_outbound_bytes[1m])",
+          "expr": "irate(traffic_gossip_outbound_bytes{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "Gossip Tx",
           "refId": "G"
@@ -1967,9 +1944,7 @@
       "datasource": "Prometheus",
       "description": "Average time it takes to solidify messages.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -1995,10 +1970,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2056,36 +2032,63 @@
       }
     },
     {
-      "datasource": null,
-      "description": "",
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {}
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "decbytes"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 3,
         "x": 0,
         "y": 52
       },
-      "id": 61,
+      "id": 65,
       "options": {
-        "content": "\n# Total Network Traffic\n\n\nSince the start of the node.\n",
-        "mode": "markdown"
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
+      "targets": [
+        {
+          "expr": "traffic_fpc_outbound_bytes{instance=\"$instance\"}",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "",
-      "type": "text"
+      "title": "FPC TX",
+      "type": "stat"
     },
     {
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2122,10 +2125,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "traffic_gossip_outbound_bytes",
+          "expr": "traffic_gossip_outbound_bytes{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -2140,7 +2143,6 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2177,10 +2179,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "traffic_gossip_inbound_bytes",
+          "expr": "traffic_gossip_inbound_bytes{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -2195,7 +2197,6 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2232,10 +2233,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "traffic_autopeering_outbound_bytes",
+          "expr": "traffic_autopeering_outbound_bytes{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -2250,7 +2251,6 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2287,10 +2287,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "traffic_autopeering_inbound_bytes",
+          "expr": "traffic_autopeering_inbound_bytes{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -2305,7 +2305,6 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2323,7 +2322,7 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 3,
+        "x": 0,
         "y": 54
       },
       "id": 64,
@@ -2342,10 +2341,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "traffic_fpc_inbound_bytes",
+          "expr": "traffic_fpc_inbound_bytes{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -2360,7 +2359,6 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2378,62 +2376,7 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 5,
-        "y": 54
-      },
-      "id": 65,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "7.4.3",
-      "targets": [
-        {
-          "expr": "traffic_fpc_outbound_bytes",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "FPC TX",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "decbytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 7,
+        "x": 2,
         "y": 54
       },
       "id": 59,
@@ -2452,10 +2395,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "traffic_analysis_outbound_bytes",
+          "expr": "traffic_analysis_outbound_bytes{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -2485,7 +2428,6 @@
       "description": "Amount of access mana this node has",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2522,16 +2464,17 @@
         "text": {},
         "textMode": "value_and_name"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "mana_access{nodeID=\"$NodeID\"}",
+          "expr": "mana_access{instance=\"$instance\",nodeID=\"$NodeID\"}",
           "interval": "",
-          "legendFormat": "Access",
+          "legendFormat": "",
           "refId": "A"
         },
         {
-          "expr": "mana_consensus{nodeID=\"$NodeID\"}",
+          "expr": "mana_consensus{instance=\"$instance\",nodeID=\"$NodeID\"}",
+          "hide": true,
           "interval": "",
           "legendFormat": "Consensus",
           "refId": "B"
@@ -2546,7 +2489,6 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2587,16 +2529,16 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "mana_access_percentile",
+          "expr": "mana_access_percentile{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Access",
           "refId": "A"
         },
         {
-          "expr": "mana_consensus_percentile",
+          "expr": "mana_consensus_percentile{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Consensus",
           "refId": "B"
@@ -2612,7 +2554,6 @@
       "description": "Average mana of a node i nthe network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2649,16 +2590,16 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "avg(mana_access)",
+          "expr": "avg(mana_access{instance=\"$instance\"})",
           "interval": "",
           "legendFormat": "Access",
           "refId": "A"
         },
         {
-          "expr": "avg(mana_consensus)",
+          "expr": "avg(mana_consensus{instance=\"$instance\"})",
           "interval": "",
           "legendFormat": "Consensus",
           "refId": "B"
@@ -2674,7 +2615,6 @@
       "description": "Standard deviation of mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2711,7 +2651,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
           "expr": "stddev(mana_access)",
@@ -2736,7 +2676,6 @@
       "description": "Average access and consensus mana of a nodes nneighbours.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2773,17 +2712,17 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "mana_average_neighbors_access",
+          "expr": "mana_average_neighbors_access{instance=\"$instance\"}",
           "instant": false,
           "interval": "",
           "legendFormat": "Access",
           "refId": "A"
         },
         {
-          "expr": "mana_average_neighbors_consensus",
+          "expr": "mana_average_neighbors_consensus{instance=\"$instance\"}",
           "instant": false,
           "interval": "",
           "legendFormat": "Consensus",
@@ -2803,9 +2742,7 @@
       "datasource": "Prometheus",
       "description": "Total Access & Consensus Mana In the network.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -2832,10 +2769,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2845,13 +2783,13 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(mana_access)",
+          "expr": "sum(mana_access{instance=\"$instance\"})",
           "interval": "",
           "legendFormat": "Total Access Mana In Network",
           "refId": "A"
         },
         {
-          "expr": "sum(mana_consensus)",
+          "expr": "sum(mana_consensus{instance=\"$instance\"})",
           "interval": "",
           "legendFormat": "Total Consensus Mana In Network",
           "refId": "B"
@@ -2877,7 +2815,6 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:419",
           "format": "si: m",
           "label": null,
           "logBase": 1,
@@ -2886,7 +2823,6 @@
           "show": true
         },
         {
-          "$$hashKey": "object:420",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -2908,9 +2844,7 @@
       "datasource": "Prometheus",
       "description": "Histogram of access mana of nodes.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -2938,10 +2872,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2951,7 +2886,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_access",
+          "expr": "mana_access{instance=\"$instance\"}",
           "instant": true,
           "interval": "",
           "legendFormat": "",
@@ -2981,7 +2916,6 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:471",
           "decimals": 0,
           "format": "none",
           "label": "Number of Nodes",
@@ -2991,7 +2925,6 @@
           "show": true
         },
         {
-          "$$hashKey": "object:472",
           "format": "short",
           "label": "",
           "logBase": 1,
@@ -3013,9 +2946,7 @@
       "datasource": "Prometheus",
       "description": "Histogram of consensus mana of nodes.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -3043,10 +2974,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3056,7 +2988,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_consensus",
+          "expr": "mana_consensus{instance=\"$instance\"}",
           "instant": true,
           "interval": "",
           "legendFormat": "",
@@ -3116,7 +3048,6 @@
       "description": "Amount of access mana this node has",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "unit": "si: m"
         },
         "overrides": []
@@ -3146,10 +3077,11 @@
       "linewidth": 2,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3159,7 +3091,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_access{nodeID=\"$NodeID\"}",
+          "expr": "mana_access{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -3185,7 +3117,6 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:641",
           "format": "si: m",
           "label": null,
           "logBase": 1,
@@ -3194,7 +3125,6 @@
           "show": true
         },
         {
-          "$$hashKey": "object:642",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -3217,7 +3147,6 @@
       "description": "Amount of access mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "unit": "si: m"
         },
         "overrides": []
@@ -3249,10 +3178,11 @@
       "linewidth": 2,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3262,7 +3192,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_access",
+          "expr": "mana_access{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -3288,7 +3218,6 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:694",
           "format": "si: m",
           "label": null,
           "logBase": 1,
@@ -3297,7 +3226,6 @@
           "show": true
         },
         {
-          "$$hashKey": "object:695",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -3312,23 +3240,31 @@
       }
     },
     {
-      "aliasColors": {},
-      "breakPoint": "50%",
       "cacheTimeout": null,
-      "combine": {
-        "label": "Others",
-        "threshold": 0
-      },
       "datasource": "Prometheus",
       "description": "Allocation of access mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {}
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "fontSize": "80%",
-      "format": "short",
       "gridPos": {
         "h": 9,
         "w": 8,
@@ -3337,21 +3273,28 @@
       },
       "id": 92,
       "interval": null,
-      "legend": {
-        "show": true,
-        "sort": "current",
-        "sortDesc": true,
-        "values": true
-      },
-      "legendType": "Under graph",
       "links": [],
-      "nullPointMode": "connected",
-      "pieType": "pie",
-      "pluginVersion": "7.1.1",
-      "strokeWidth": 1,
+      "options": {
+        "displayLabels": [],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "values": []
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "mana_access",
+          "expr": "mana_access{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -3360,8 +3303,7 @@
       "timeFrom": null,
       "timeShift": null,
       "title": "Access Mana Allocation",
-      "type": "grafana-piechart-panel",
-      "valueName": "current"
+      "type": "piechart"
     },
     {
       "aliasColors": {},
@@ -3372,7 +3314,6 @@
       "description": "Amount of consensus mana this node has.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "unit": "si: m"
         },
         "overrides": []
@@ -3402,10 +3343,11 @@
       "linewidth": 2,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3415,7 +3357,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_consensus{nodeID=\"$NodeID\"}",
+          "expr": "mana_consensus{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -3441,7 +3383,6 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:766",
           "format": "si: m",
           "label": null,
           "logBase": 1,
@@ -3450,7 +3391,6 @@
           "show": true
         },
         {
-          "$$hashKey": "object:767",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -3473,7 +3413,6 @@
       "description": "Amount of consensus mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "unit": "si: m"
         },
         "overrides": []
@@ -3505,10 +3444,11 @@
       "linewidth": 2,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3544,7 +3484,6 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:819",
           "format": "si: m",
           "label": null,
           "logBase": 1,
@@ -3553,7 +3492,6 @@
           "show": true
         },
         {
-          "$$hashKey": "object:820",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -3568,23 +3506,31 @@
       }
     },
     {
-      "aliasColors": {},
-      "breakPoint": "50%",
       "cacheTimeout": null,
-      "combine": {
-        "label": "Others",
-        "threshold": 0
-      },
       "datasource": "Prometheus",
       "description": "Allocation of consensus mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {}
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "fontSize": "80%",
-      "format": "short",
       "gridPos": {
         "h": 9,
         "w": 8,
@@ -3593,18 +3539,25 @@
       },
       "id": 93,
       "interval": null,
-      "legend": {
-        "show": true,
-        "sort": "current",
-        "sortDesc": true,
-        "values": true
-      },
-      "legendType": "Under graph",
       "links": [],
-      "nullPointMode": "connected",
-      "pieType": "pie",
+      "options": {
+        "displayLabels": [],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "values": []
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
       "pluginVersion": "7.1.1",
-      "strokeWidth": 1,
       "targets": [
         {
           "expr": "mana_consensus",
@@ -3616,8 +3569,7 @@
       "timeFrom": null,
       "timeShift": null,
       "title": "Consensus Mana Allocation",
-      "type": "grafana-piechart-panel",
-      "valueName": "current"
+      "type": "piechart"
     },
     {
       "aliasColors": {},
@@ -3626,9 +3578,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -3656,10 +3606,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3669,13 +3620,13 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_access_percentile",
+          "expr": "mana_access_percentile{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Access Percentile",
           "refId": "A"
         },
         {
-          "expr": "mana_access_percentile",
+          "expr": "mana_consensus_percentile{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Consensus Percentile",
           "refId": "B"
@@ -3731,7 +3682,6 @@
       "description": "Average pledged BM1 and BM2 of access mana pledged to the node",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "unit": "si: m"
         },
         "overrides": []
@@ -3759,10 +3709,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3772,7 +3723,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_average_access_pledge{type=\"bm2\"}",
+          "expr": "mana_average_access_pledge{type=\"bm2\",instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "B"
@@ -3798,7 +3749,6 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:872",
           "format": "si: m",
           "label": null,
           "logBase": 1,
@@ -3807,7 +3757,6 @@
           "show": true
         },
         {
-          "$$hashKey": "object:873",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -3827,10 +3776,9 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Average pledged BM1 and BM2 of consensus mana pledged to the node",
+      "description": "Average pledged BM1 and BM2 of access mana pledged to the node",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "unit": "si: m"
         },
         "overrides": []
@@ -3839,12 +3787,12 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 11,
-        "w": 8,
+        "w": 7,
         "x": 16,
         "y": 91
       },
       "hiddenSeries": false,
-      "id": 110,
+      "id": 114,
       "legend": {
         "avg": false,
         "current": false,
@@ -3858,10 +3806,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3871,17 +3820,17 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_average_consensus_pledge{type=\"bm1\"}",
+          "expr": "mana_average_access_pledge{type=\"bm2\",instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "{{nodeID}}",
-          "refId": "A"
+          "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Average Pledged Consensus Mana",
+      "title": "Average Pledged Access Mana",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -3897,7 +3846,6 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:925",
           "format": "si: m",
           "label": null,
           "logBase": 1,
@@ -3906,7 +3854,103 @@
           "show": true
         },
         {
-          "$$hashKey": "object:926",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Amount of mana currently delegated to the node.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "si: m"
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 10,
+        "w": 9,
+        "x": 0,
+        "y": 102
+      },
+      "hiddenSeries": false,
+      "id": 110,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true,
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.6",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_delegated_amount{instance=\"$instance\"}",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Mana Delegated To Node",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "si: m",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -3927,7 +3971,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 102
+        "y": 112
       },
       "id": 34,
       "panels": [],
@@ -3941,9 +3985,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -3952,7 +3994,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 103
+        "y": 113
       },
       "hiddenSeries": false,
       "id": 36,
@@ -3969,10 +4011,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3982,7 +4025,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "fpc_active_conflicts",
+          "expr": "fpc_active_conflicts{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "Active Conflicts",
           "refId": "A"
@@ -4034,7 +4077,6 @@
       "description": "The average number of rounds it takes to finalize a conflict.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -4056,7 +4098,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 103
+        "y": 113
       },
       "id": 38,
       "options": {
@@ -4074,10 +4116,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "fpc_avg_rounds_to_finalize",
+          "expr": "fpc_avg_rounds_to_finalize{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -4093,7 +4135,6 @@
       "description": "Number of finalized conflicts.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -4115,7 +4156,7 @@
         "h": 8,
         "w": 3,
         "x": 16,
-        "y": 103
+        "y": 113
       },
       "id": 42,
       "options": {
@@ -4133,10 +4174,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "fpc_finalized_conflicts",
+          "expr": "fpc_finalized_conflicts{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -4152,7 +4193,6 @@
       "description": "Number of failed conflicts.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -4174,7 +4214,7 @@
         "h": 8,
         "w": 3,
         "x": 19,
-        "y": 103
+        "y": 113
       },
       "id": 40,
       "options": {
@@ -4192,10 +4232,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "fpc_failed_conflicts",
+          "expr": "fpc_failed_conflicts{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -4214,9 +4254,7 @@
       "datasource": "Prometheus",
       "description": "Describes how many FPC query requests the node has received.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -4225,7 +4263,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 111
+        "y": 121
       },
       "hiddenSeries": false,
       "id": 44,
@@ -4242,10 +4280,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -4255,7 +4294,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(fpc_queries_received[5m])",
+          "expr": "irate(fpc_queries_received{instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "FPC Queries RX",
           "refId": "A"
@@ -4309,9 +4348,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -4320,7 +4357,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 111
+        "y": 121
       },
       "hiddenSeries": false,
       "id": 50,
@@ -4337,10 +4374,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -4350,7 +4388,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(fpc_query_replies_not_received[5m])",
+          "expr": "irate(fpc_query_replies_not_received{instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "FPC Queries TX Failed",
           "refId": "A"
@@ -4405,9 +4443,7 @@
       "datasource": "Prometheus",
       "description": "Describes how many FPC opinions were requested from the node.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -4416,7 +4452,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 119
+        "y": 129
       },
       "hiddenSeries": false,
       "id": 49,
@@ -4433,10 +4469,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -4446,7 +4483,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(fpc_queries_opinion_received[5m])",
+          "expr": "irate(fpc_queries_opinion_received{instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "FPC Conflict Queries RX",
           "refId": "A"
@@ -4500,9 +4537,7 @@
       "dashes": false,
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
+        "defaults": {},
         "overrides": []
       },
       "fill": 1,
@@ -4511,7 +4546,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 119
+        "y": 129
       },
       "hiddenSeries": false,
       "id": 46,
@@ -4528,10 +4563,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
+        "alertThreshold": true,
+        "dataLinks": []
       },
       "percentage": false,
-      "pluginVersion": "7.4.3",
+      "pluginVersion": "7.5.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -4541,7 +4577,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(fpc_query_opinion_replies_not_received[5m])",
+          "expr": "irate(fpc_query_opinion_replies_not_received{instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "FPC Conflict Queries TX Failed",
           "refId": "A"
@@ -4592,7 +4628,7 @@
       }
     }
   ],
-  "refresh": "5s",
+  "refresh": "10s",
   "schemaVersion": 27,
   "style": "dark",
   "tags": [],
@@ -4601,7 +4637,38 @@
       {
         "allValue": null,
         "current": {
-          "selected": true,
+          "selected": false,
+          "text": "peer_master:9311",
+          "value": "peer_master:9311"
+        },
+        "datasource": "Prometheus",
+        "definition": "label_values(iota_info_app, instance)",
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "includeAll": false,
+        "label": "Instance",
+        "multi": false,
+        "name": "instance",
+        "options": [],
+        "query": {
+          "query": "label_values(iota_info_app, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": false,
           "text": "4AeXyZ26e4G",
           "value": "4AeXyZ26e4G"
         },
@@ -4614,15 +4681,12 @@
         "label": "Node Identity",
         "multi": false,
         "name": "NodeID",
-        "options": [
-          {
-            "selected": true,
-            "text": "4AeXyZ26e4G",
-            "value": "4AeXyZ26e4G"
-          }
-        ],
-        "query": "label_values(iota_info_app, nodeID)",
-        "refresh": 0,
+        "options": [],
+        "query": {
+          "query": "label_values(iota_info_app, nodeID)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
@@ -4640,7 +4704,6 @@
   },
   "timepicker": {
     "refresh_intervals": [
-      "5s",
       "10s",
       "30s",
       "1m",
@@ -4655,5 +4718,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 15
+  "version": 8
 }

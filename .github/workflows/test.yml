@@ -14,14 +14,17 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
+      
+      - name: Setup dependencies
+        run: sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
 
-      - name: Setup Go 1.16.2
+      - name: Setup Go 1.16.3
         uses: actions/setup-go@v1
         with:
-          go-version: 1.16.2
+          go-version: 1.16.3
 
       - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Run Tests
-        run: go test ./...
+        run: go test ./... -tags rocksdb

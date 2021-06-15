@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -58,17 +59,25 @@ func newFramework() (*Framework, error) {
 	return f, nil
 }
 
+// Removes the tester container and close the docker client
+func (f *Framework) DestroyFramework() error {
+	err := f.tester.Remove()
+	if err != nil {
+		return err
+	}
+	return f.dockerClient.Close()
+}
+
 // CreateNetwork creates and returns a (Docker) Network that contains `peers` GoShimmer nodes.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
 // The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, config CreateNetworkConfig) (*Network, error) {
+func (f *Framework) CreateNetwork(name string, peers int, config CreateNetworkConfig) (*Network, error) {
 	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err
 	}
 
-	err = network.createEntryNode()
-	if err != nil {
+	if err := network.createEntryNode(); err != nil {
 		return nil, err
 	}
 
@@ -94,13 +103,8 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				}
 				return ""
 			}(i),
-			Faucet: config.Faucet && i == 0,
-			Mana: func(i int) bool {
-				if ParaManaOnEveryNode {
-					return true
-				}
-				return config.Mana && i == 0
-			}(i),
+			Faucet:                     config.Faucet && i == 0,
+			StartSynced:                config.StartSynced,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,
@@ -108,17 +112,16 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
+			SnapshotResetTime:          ParaSnapshotResetTime,
 		}
-		if _, err = network.CreatePeer(config); err != nil {
+		if _, err := network.CreatePeer(config); err != nil {
 			return nil, err
 		}
 	}
-
 	// wait until containers are fully started
-	time.Sleep(1 * time.Second)
-	err = network.WaitForAutopeering(minimumNeighbors)
-	if err != nil {
-		return nil, err
+	time.Sleep(5 * time.Second)
+	if err := network.DoManualPeeringAndWait(); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	return network, nil
@@ -174,7 +177,6 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 				return ""
 			}(i),
 			Faucet:                     config.Faucet && i == 0,
-			Mana:                       config.Mana,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,
@@ -182,6 +184,8 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
+			EnableAutopeeringForGossip: true,
+			SnapshotResetTime:          ParaSnapshotResetTime,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -234,7 +238,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 }
 
 // CreateDRNGNetwork creates and returns a (Docker) Network that contains drand and `peers` GoShimmer nodes.
-func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighbors int) (*DRNGNetwork, error) {
+func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNetwork, error) {
 	drng, err := newDRNGNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err
@@ -278,40 +282,27 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 			drngCommittee += pubKeys[i].String()
 		}
 	}
-
 	config := GoShimmerConfig{
 		DRNGInstance:  111,
 		DRNGThreshold: 3,
 		DRNGDistKey:   hex.EncodeToString(drng.distKey),
 		DRNGCommittee: drngCommittee,
+		StartSynced:   true,
 	}
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config.Seed = privKeys[i].Seed().String()
-		if _, err = drng.CreatePeer(config, pubKeys[i]); err != nil {
-			return nil, err
+		if _, e := drng.CreatePeer(config, pubKeys[i]); e != nil {
+			return nil, e
 		}
 	}
 
-	// create extra sync beacon node
-	config = GoShimmerConfig{
-		ActivityPlugin: true,
-		Seed:           syncBeaconSeed,
-	}
-	bytes, err := base58.Decode(config.Seed)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = drng.CreatePeer(config, ed25519.PrivateKeyFromSeed(bytes).Public()); err != nil {
-		return nil, err
-	}
-
 	// wait until peers are fully started and connected
-	time.Sleep(1 * time.Second)
-	err = drng.network.WaitForAutopeering(minimumNeighbors)
+	time.Sleep(5 * time.Second)
+	err = drng.network.DoManualPeeringAndWait(drng.network.peers...)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return drng, nil
@@ -319,27 +310,26 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 
 // CreateNetworkWithMana creates and returns a (Docker) Network that contains peers that all have some mana.
 // Mana is gotten by sending faucet requests.
-func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors int, config CreateNetworkConfig) (*Network, error) {
-	n, err := f.CreateNetwork(name, peers, minimumNeighbors, config)
-	if err != nil {
-		return nil, err
-	}
+func (f *Framework) CreateNetworkWithMana(name string, peers int, config CreateNetworkConfig) (*Network, error) {
 	if !config.Faucet {
 		return nil, fmt.Errorf("faucet is required")
 	}
-	if !config.Mana {
-		return nil, fmt.Errorf("mana plugin is required to load mana snapshot")
+
+	n, err := f.CreateNetwork(name, peers, config)
+	if err != nil {
+		return nil, err
 	}
+
 	for i := 1; i < len(n.peers); i++ {
 		peer := n.peers[i]
 		addr := peer.Seed.Address(uint64(0)).Address()
 		ID := base58.Encode(peer.ID().Bytes())
-		_, err := peer.SendFaucetRequest(addr.Base58(), ID, ID)
+		_, err := n.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
 		if err != nil {
 			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
 		}
 	}
-	err = n.WaitForMana()
+	err = n.WaitForMana(n.peers[1:]...)
 	if err != nil {
 		return nil, err
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -138,7 +139,7 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 			var consensusManaNodeID identity.ID
 			var _inputInfo mana.InputInfo
 
-			Tangle().LedgerState.Output(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+			Tangle().LedgerState.CachedOutput(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
 				// first, sum balances of the input, calculate total amount as well for later
 				o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 					amount += float64(balance)
@@ -210,7 +211,7 @@ func runManaPlugin(_ *node.Plugin) {
 					plugin.Panic("can not open snapshot file:", err)
 				}
 				if _, err := snapshot.ReadFrom(f); err != nil {
-					plugin.Panic("could not read snapshot file:", err)
+					plugin.Panic("could not read snapshot file in Mana Plugin:", err)
 				}
 				loadSnapshot(snapshot)
 				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)
@@ -316,6 +317,23 @@ func GetCMana() map[identity.ID]float64 {
 		panic(err)
 	}
 	return m
+}
+
+// GetTotalMana returns sum of mana of all nodes in the network.
+func GetTotalMana(manaType mana.Type, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+	if !QueryAllowed() {
+		return 0, time.Now(), ErrQueryNotAllowed
+	}
+	manaMap, updateTime, err := baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
+	if err != nil {
+		return 0, time.Now(), err
+	}
+
+	var sum float64
+	for _, m := range manaMap {
+		sum += m
+	}
+	return sum, updateTime, nil
 }
 
 // GetAccessMana returns the access mana of the node specified.
@@ -441,7 +459,7 @@ func verifyPledgeNodes() error {
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := Tangle().LedgerState.OutputMetadata(outputID)
+	cachedOutputMetadata := Tangle().LedgerState.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata := cachedOutputMetadata.Unwrap()
 
@@ -451,7 +469,7 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+	Tangle().LedgerState.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
@@ -772,31 +790,67 @@ func QueryAllowed() (allowed bool) {
 	return true
 }
 
+// loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions
 func loadSnapshot(snapshot *ledgerstate.Snapshot) {
-	manaSnapshot := make(map[identity.ID]*mana.SnapshotInfo)
-	var snapshotTime time.Time
+	txSnapshotByNode := make(map[identity.ID]mana.SortedTxSnapshot)
 
-	for txID, essence := range snapshot.Transactions {
-		totalBalance := uint64(0)
-		for _, output := range essence.Outputs() {
+	// load txSnapshot into SnapshotInfoVec
+	for txID, record := range snapshot.Transactions {
+		totalUnspentBalanceInTx := uint64(0)
+		for i, output := range record.Essence.Outputs() {
+			if !record.UnspentOutputs[i] {
+				continue
+			}
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				totalBalance += balance
+				totalUnspentBalanceInTx += balance
 				return true
 			})
 		}
-		info := &mana.SnapshotInfo{
-			Value: float64(totalBalance),
-			TxID:  txID,
+		txInfo := &mana.TxSnapshot{
+			Value:     float64(totalUnspentBalanceInTx),
+			TxID:      txID,
+			Timestamp: record.Essence.Timestamp(),
 		}
-		manaSnapshot[essence.ConsensusPledgeID()] = info
-
-		snapshotTime = essence.Timestamp()
+		txSnapshotByNode[record.Essence.ConsensusPledgeID()] = append(txSnapshotByNode[record.Essence.ConsensusPledgeID()], txInfo)
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, snapshotTime)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(manaSnapshot, time.Now())
-	if ManaParameters.EnableResearchVectors {
-		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot, snapshotTime)
-		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot, snapshotTime)
+	// sort txSnapshot per nodeID, so that for each nodeID it is in temporal order
+	SnapshotByNode := make(map[identity.ID]mana.SnapshotNode)
+	for nodeID := range txSnapshotByNode {
+		sort.Sort(txSnapshotByNode[nodeID])
+		snapshotNode := mana.SnapshotNode{
+			SortedTxSnapshot: txSnapshotByNode[nodeID],
+		}
+		SnapshotByNode[nodeID] = snapshotNode
 	}
+
+	// determine addTime if snapshot should be updated for the difference to now
+	var addTime time.Duration
+	// for certain applications (e.g. docker-network) update all timestamps, to have large enough aMana
+	maxTimestamp := time.Unix(tangle.DefaultGenesisTime, 0)
+	if ManaParameters.SnapshotResetTime {
+		for _, accessMana := range snapshot.AccessManaByNode {
+			if accessMana.Timestamp.After(maxTimestamp) {
+				maxTimestamp = accessMana.Timestamp
+			}
+		}
+		addTime = time.Since(maxTimestamp)
+	}
+
+	// load access mana
+	for nodeID, accessMana := range snapshot.AccessManaByNode {
+		snapshotNode, ok := SnapshotByNode[nodeID]
+		if !ok { // fill with empty element if it does not exist yet
+			snapshotNode = mana.SnapshotNode{}
+			SnapshotByNode[nodeID] = snapshotNode
+		}
+		snapshotNode.AccessMana = mana.AccessManaSnapshot{
+			Value:     accessMana.Value,
+			Timestamp: accessMana.Timestamp.Add(addTime),
+		}
+		SnapshotByNode[nodeID] = snapshotNode
+	}
+
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(SnapshotByNode)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(SnapshotByNode)
 }

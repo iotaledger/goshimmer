@@ -92,74 +92,95 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 }
 
 // LoadSnapshot loads the snapshot.
-func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotInfo, snapshotTime time.Time) {
+func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
 	c.Lock()
 	defer c.Unlock()
 
-	for nodeID, info := range snapshot {
-		c.vector[nodeID] = &ConsensusBaseMana{
-			BaseMana1: info.Value,
+	for nodeID, records := range snapshot {
+		var value float64
+		for _, record := range records.SortedTxSnapshot {
+			value += record.Value
+
+			// trigger event
+			Events().Pledged.Trigger(&PledgedEvent{
+				NodeID:        nodeID,
+				Amount:        record.Value,
+				Time:          record.Timestamp,
+				ManaType:      c.Type(),
+				TransactionID: record.TxID,
+			})
 		}
-		// trigger events
-		Events().Pledged.Trigger(&PledgedEvent{
-			NodeID:        nodeID,
-			Amount:        info.Value,
-			Time:          snapshotTime,
-			ManaType:      c.Type(),
-			TransactionID: info.TxID,
-		})
+
+		c.vector[nodeID] = &ConsensusBaseMana{
+			BaseMana1: value,
+		}
 	}
 }
 
 // Book books mana for a transaction.
 func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
-	c.Lock()
-	defer c.Unlock()
-	// first, revoke mana from previous owners
-	for _, inputInfo := range txInfo.InputInfos {
-		// which node did the input pledge mana to?
-		pledgeNodeID := inputInfo.PledgeID[c.Type()]
+	// gather events to be triggered once the lock is lifted
+	var revokeEvents []*RevokedEvent
+	var pledgeEvents []*PledgedEvent
+	var updateEvents []*UpdatedEvent
+	// only lock mana vector while we are working with it
+	func() {
+		c.Lock()
+		defer c.Unlock()
+		// first, revoke mana from previous owners
+		for _, inputInfo := range txInfo.InputInfos {
+			// which node did the input pledge mana to?
+			pledgeNodeID := inputInfo.PledgeID[c.Type()]
+			if _, exist := c.vector[pledgeNodeID]; !exist {
+				// first time we see this node
+				c.vector[pledgeNodeID] = &ConsensusBaseMana{}
+			}
+			// save old mana
+			oldMana := *c.vector[pledgeNodeID]
+			// revoke BM1
+			err := c.vector[pledgeNodeID].revoke(inputInfo.Amount)
+			if errors.Is(err, ErrBaseManaNegative) {
+				panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
+			}
+			// save events for later triggering
+			revokeEvents = append(revokeEvents, &RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID, inputInfo.InputID})
+			updateEvents = append(updateEvents, &UpdatedEvent{pledgeNodeID, &oldMana, c.vector[pledgeNodeID], c.Type()})
+		}
+		// second, pledge mana to new nodes
+		pledgeNodeID := txInfo.PledgeID[c.Type()]
 		if _, exist := c.vector[pledgeNodeID]; !exist {
 			// first time we see this node
 			c.vector[pledgeNodeID] = &ConsensusBaseMana{}
 		}
-		// save old mana
+		// save it for proper event trigger
 		oldMana := *c.vector[pledgeNodeID]
-		// revoke BM1
-		err := c.vector[pledgeNodeID].revoke(inputInfo.Amount)
-		switch err {
-		case ErrBaseManaNegative:
-			panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
-		}
-		// trigger events
-		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID, inputInfo.InputID})
-		Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, &oldMana, c.vector[pledgeNodeID], c.Type()})
-	}
-	// second, pledge mana to new nodes
-	pledgeNodeID := txInfo.PledgeID[c.Type()]
-	if _, exist := c.vector[pledgeNodeID]; !exist {
-		// first time we see this node
-		c.vector[pledgeNodeID] = &ConsensusBaseMana{}
-	}
-	// save it for proper event trigger
-	oldMana := *c.vector[pledgeNodeID]
-	// actually pledge and update
-	pledged := c.vector[pledgeNodeID].pledge(txInfo)
+		// actually pledge and update
+		pledged := c.vector[pledgeNodeID].pledge(txInfo)
+		pledgeEvents = append(pledgeEvents, &PledgedEvent{
+			NodeID:        pledgeNodeID,
+			Amount:        pledged,
+			Time:          txInfo.TimeStamp,
+			ManaType:      c.Type(),
+			TransactionID: txInfo.TransactionID,
+		})
+		updateEvents = append(updateEvents, &UpdatedEvent{
+			NodeID:   pledgeNodeID,
+			OldMana:  &oldMana,
+			NewMana:  c.vector[pledgeNodeID],
+			ManaType: c.Type(),
+		})
+	}()
 
-	// trigger events
-	Events().Pledged.Trigger(&PledgedEvent{
-		NodeID:        pledgeNodeID,
-		Amount:        pledged,
-		Time:          txInfo.TimeStamp,
-		ManaType:      c.Type(),
-		TransactionID: txInfo.TransactionID,
-	})
-	Events().Updated.Trigger(&UpdatedEvent{
-		NodeID:   pledgeNodeID,
-		OldMana:  &oldMana,
-		NewMana:  c.vector[pledgeNodeID],
-		ManaType: c.Type(),
-	})
+	// trigger the events once we released the lock on the mana vector
+	for _, ev := range revokeEvents {
+		Events().Revoked.Trigger(ev)
+	}
+	for _, ev := range pledgeEvents {
+		Events().Pledged.Trigger(ev)
+	}
+	for _, ev := range updateEvents {
+		Events().Updated.Trigger(ev)
+	}
 }
 
 // Update updates the mana entries for a particular node wrt time.

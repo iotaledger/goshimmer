@@ -4,19 +4,18 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
-	"github.com/iotaledger/goshimmer/plugins/manualpeering"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/manualpeering"
 )
 
 const (
-	routeManualConnectedPeers = "manualpeering/peers/connected"
-	routeManualPeers          = "manualpeering/peers"
+	routeManualPeers = "manualpeering/peers"
 )
 
 // AddManualPeers adds the provided list of peers to the manual peering layer.
-func (api *GoShimmerAPI) AddManualPeers(peers []*peer.Peer) error {
+func (api *GoShimmerAPI) AddManualPeers(peers []*manualpeering.KnownPeerToAdd) error {
 	if err := api.do(http.MethodPost, routeManualPeers, peers, nil); err != nil {
 		return errors.Wrap(err, "failed to add manual peers via the HTTP API")
 	}
@@ -25,9 +24,9 @@ func (api *GoShimmerAPI) AddManualPeers(peers []*peer.Peer) error {
 
 // RemoveManualPeers remove the provided list of peers from the manual peering layer.
 func (api *GoShimmerAPI) RemoveManualPeers(keys []ed25519.PublicKey) error {
-	peersToRemove := make([]*manualpeering.PeerToRemove, len(keys))
+	peersToRemove := make([]*jsonmodels.PeerToRemove, len(keys))
 	for i, key := range keys {
-		peersToRemove[i] = &manualpeering.PeerToRemove{PublicKey: key.String()}
+		peersToRemove[i] = &jsonmodels.PeerToRemove{PublicKey: key}
 	}
 	if err := api.do(http.MethodDelete, routeManualPeers, peersToRemove, nil); err != nil {
 		return errors.Wrap(err, "failed to remove manual peers via the HTTP API")
@@ -35,10 +34,11 @@ func (api *GoShimmerAPI) RemoveManualPeers(keys []ed25519.PublicKey) error {
 	return nil
 }
 
-// GetManualConnectedPeers gets the list of connected neighbors from the manual peering layer.
-func (api *GoShimmerAPI) GetManualConnectedPeers() ([]*peer.Peer, error) {
-	var peers []*peer.Peer
-	if err := api.do(http.MethodGet, routeManualConnectedPeers, nil, &peers); err != nil {
+// GetManualPeers gets the list of connected neighbors from the manual peering layer.
+func (api *GoShimmerAPI) GetManualPeers(opts ...manualpeering.GetPeersOption) (
+	peers []*manualpeering.KnownPeer, err error) {
+	conf := manualpeering.BuildGetPeersConfig(opts)
+	if err := api.do(http.MethodGet, routeManualPeers, conf, &peers); err != nil {
 		return nil, errors.Wrap(err, "failed to get manual connected peers from the API")
 	}
 	return peers, nil

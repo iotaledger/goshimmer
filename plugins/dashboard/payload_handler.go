@@ -4,10 +4,12 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/faucet"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
-	"github.com/iotaledger/goshimmer/plugins/faucet"
+	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -42,20 +44,19 @@ type DrngCollectiveBeaconPayload struct {
 
 // TransactionPayload contains the transaction information.
 type TransactionPayload struct {
-	TxID               string   `json:"tx_id"`
-	TransactionEssence Essence  `json:"tx_essence"`
-	UnlockBlocks       []string `json:"unlock_blocks"`
+	TxID        string                  `json:"txID"`
+	Transaction *jsonmodels.Transaction `json:"transaction"`
 }
 
 // Essence contains the transaction essence information.
 type Essence struct {
-	Version           uint8           `json:"version"`
-	Timestamp         int             `json:"timestamp"`
-	AccessPledgeID    string          `json:"access_pledge_id"`
-	ConsensusPledgeID string          `json:"cons_pledge_id"`
-	Inputs            []InputContent  `json:"inputs"`
-	Outputs           []OutputContent `json:"outputs"`
-	Data              string          `json:"data"`
+	Version           uint8                `json:"version"`
+	Timestamp         int                  `json:"timestamp"`
+	AccessPledgeID    string               `json:"access_pledge_id"`
+	ConsensusPledgeID string               `json:"cons_pledge_id"`
+	Inputs            []*jsonmodels.Output `json:"inputs"`
+	Outputs           []*jsonmodels.Output `json:"outputs"`
+	Data              string               `json:"data"`
 }
 
 // StatementPayload is a JSON serializable statement payload.
@@ -125,6 +126,13 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case drng.PayloadType:
 		// drng payload
 		return processDrngPayload(p)
+	case chat.Type:
+		chatPayload := p.(*chat.Payload)
+		return chat.Request{
+			From:    chatPayload.From,
+			To:      chatPayload.To,
+			Message: chatPayload.Message,
+		}
 	default:
 		// unknown payload
 		return BasicPayload{
@@ -171,65 +179,16 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 		return
 	}
 
-	var inputs []InputContent
-	var outputs []OutputContent
-	var stringifiedUnlockBlocks []string
-
-	// fill in inputs
-	for _, input := range tx.Essence().Inputs() {
-		if input.Type() == ledgerstate.UTXOInputType {
-			utxoInput := input.(*ledgerstate.UTXOInput)
-			refOutputID := utxoInput.ReferencedOutputID()
-			_ = messagelayer.Tangle().LedgerState.Output(refOutputID).Consume(func(o ledgerstate.Output) {
-				content := InputContent{
-					OutputID: o.ID().Base58(),
-					Address:  o.Address().Base58(),
-				}
-				o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-					content.Balances = append(content.Balances, Balance{Color: color.String(), Value: balance})
-					return true
-				})
-				inputs = append(inputs, content)
-			})
-		}
-	}
-
-	// fill in outputs
-	for _, output := range tx.Essence().Outputs() {
-		content := OutputContent{
-			OutputID: output.ID().Base58(),
-			Address:  output.Address().Base58(),
-		}
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			content.Balances = append(content.Balances, Balance{Color: color.String(), Value: balance})
-			return true
+	tp.TxID = tx.ID().Base58()
+	tp.Transaction = jsonmodels.NewTransaction(tx)
+	// add consumed inputs
+	for i, input := range tx.Essence().Inputs() {
+		refOutputID := input.(*ledgerstate.UTXOInput).ReferencedOutputID()
+		messagelayer.Tangle().LedgerState.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
+			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
 		})
-		outputs = append(outputs, content)
 	}
 
-	for _, unlockBlock := range tx.UnlockBlocks() {
-		stringifiedUnlockBlocks = append(stringifiedUnlockBlocks, unlockBlock.String())
-	}
-
-	var dataPayloadString string
-	dataPayload := tx.Essence().Payload()
-	if dataPayload != nil {
-		dataPayloadString = dataPayload.String()
-	}
-
-	tp = TransactionPayload{
-		TxID: tx.ID().Base58(),
-		TransactionEssence: Essence{
-			Version:           uint8(tx.Essence().Version()),
-			Timestamp:         int(tx.Essence().Timestamp().Unix()),
-			AccessPledgeID:    tx.Essence().AccessPledgeID().String(),
-			ConsensusPledgeID: tx.Essence().ConsensusPledgeID().String(),
-			Inputs:            inputs,
-			Outputs:           outputs,
-			Data:              dataPayloadString,
-		},
-		UnlockBlocks: stringifiedUnlockBlocks,
-	}
 	return
 }
 

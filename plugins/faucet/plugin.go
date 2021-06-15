@@ -1,11 +1,11 @@
 package faucet
 
 import (
-	"crypto"
 	"runtime"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/events"
@@ -17,7 +17,9 @@ import (
 	"go.uber.org/atomic"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -28,9 +30,6 @@ import (
 const (
 	// PluginName is the name of the faucet plugin.
 	PluginName = "Faucet"
-
-	// WaitForSync defines the time to wait for being in sync.
-	WaitForSync = 5 * time.Second
 
 	// CfgFaucetSeed defines the base58 encoded seed the faucet uses.
 	CfgFaucetSeed = "faucet.seed"
@@ -45,7 +44,7 @@ const (
 	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
 	CfgFaucetBlacklistCapacity = "faucet.blacklistCapacity"
 	// CfgFaucetPreparedOutputsCount is the number of outputs the faucet prepares for requests.
-	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCounts"
+	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCount"
 	// CfgFaucetStartIndex defines from which address index the faucet should start gathering outputs.
 	CfgFaucetStartIndex = "faucet.startIndex"
 )
@@ -54,7 +53,7 @@ func init() {
 	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this faucet is enabled")
 	flag.Int(CfgFaucetTokensPerRequest, 1000000, "the amount of tokens the faucet should send for each request")
 	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer")
-	flag.Int(CfgFaucetPoWDifficulty, 25, "defines the PoW difficulty for faucet payloads")
+	flag.Int(CfgFaucetPoWDifficulty, 22, "defines the PoW difficulty for faucet payloads")
 	flag.Int(CfgFaucetBlacklistCapacity, 10000, "holds the maximum amount the address blacklist holds")
 	flag.Int(CfgFaucetPreparedOutputsCount, 126, "number of outputs the faucet prepares")
 	flag.Int(CfgFaucetStartIndex, 0, "address index to start faucet with")
@@ -67,7 +66,7 @@ var (
 	_faucet                *StateManager
 	faucetOnce             sync.Once
 	log                    *logger.Logger
-	powVerifier            = pow.New(crypto.BLAKE2b_512)
+	powVerifier            = pow.New()
 	fundingWorkerPool      *workerpool.WorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
 	fundingWorkerQueueSize = 500
@@ -79,6 +78,8 @@ var (
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests
 	initDone atomic.Bool
+
+	waitForManaWindow = 5 * time.Second
 )
 
 // Plugin returns the plugin instance of the faucet plugin.
@@ -132,7 +133,7 @@ func configure(*node.Plugin) {
 
 	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
 		msg := task.Param(0).(*tangle.Message)
-		addr := msg.Payload().(*Request).Address()
+		addr := msg.Payload().(*faucet.Request).Address()
 		msg, txID, err := Faucet().FulFillFundingRequest(msg)
 		if err != nil {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
@@ -145,31 +146,92 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("[Faucet]", func(shutdownSignal <-chan struct{}) {
-		// wait until node is in sync
-		for !messagelayer.Tangle().Synced() {
-			log.Infof("Waiting for node to become synced...")
-			time.Sleep(WaitForSync)
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+		defer log.Infof("Stopping %s ... done", PluginName)
+
+		log.Info("Waiting for node to become synced...")
+		if !waitUntilSynced(shutdownSignal) {
+			return
 		}
-		log.Infof("Waiting for node to become synced... DONE")
+		log.Info("Waiting for node to become synced... done")
+
+		log.Info("Waiting for node to have sufficient access mana")
+		if err := waitForMana(shutdownSignal); err != nil {
+			log.Errorf("failed to get sufficient access mana: %s", err)
+			return
+		}
+		log.Info("Waiting for node to have sufficient access mana... done")
 
 		log.Infof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
-		dErr := Faucet().DeriveStateFromTangle(startIndex)
-		if dErr != nil {
-			log.Errorf(dErr.Error())
+		if err := Faucet().DeriveStateFromTangle(startIndex); err != nil {
+			log.Errorf("failed to derive state: %s", err)
+			return
 		}
-		log.Infof("Deriving faucet state from the ledger... DONE")
+		log.Info("Deriving faucet state from the ledger... done")
 
-		log.Infof("Starting funding workerpools...")
+		log.Info("Starting funding workerpools...")
 		// start the funding workerpool
 		fundingWorkerPool.Start()
 		defer fundingWorkerPool.Stop()
-		log.Infof("Starting funding workerpools... DONE")
+		log.Info("Starting funding workerpools... done")
 		initDone.Store(true)
+
 		<-shutdownSignal
+		log.Infof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
 		log.Panicf("Failed to start daemon: %s", err)
+	}
+}
+
+func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
+	synced := make(chan struct{}, 1)
+	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
+		if e.Synced {
+			// use non-blocking send to prevent deadlocks in rare cases when the SyncedChanged events is spammed
+			select {
+			case synced <- struct{}{}:
+			default:
+			}
+		}
+	})
+	messagelayer.Tangle().TimeManager.Events.SyncChanged.Attach(closure)
+	defer messagelayer.Tangle().TimeManager.Events.SyncChanged.Detach(closure)
+
+	// if we are already synced, there is no need to wait for the event
+	if messagelayer.Tangle().TimeManager.Synced() {
+		return true
+	}
+
+	// block until we are either synced or shutting down
+	select {
+	case <-synced:
+		return true
+	case <-shutdownSignal:
+		return false
+	}
+}
+
+func waitForMana(shutdownSignal <-chan struct{}) error {
+	nodeID := messagelayer.Tangle().Options.Identity.ID()
+	for {
+		// stop polling, if we are shutting down
+		select {
+		case <-shutdownSignal:
+			return errors.New("faucet shutting down")
+		default:
+		}
+
+		aMana, _, err := messagelayer.GetAccessMana(nodeID)
+		// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
+		if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+			return err
+		}
+		if aMana >= tangle.MinMana {
+			return nil
+		}
+		plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangle.MinMana)
+		time.Sleep(waitForManaWindow)
 	}
 }
 
@@ -183,15 +245,11 @@ func configureEvents() {
 			return
 		}
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			if !IsFaucetReq(message) {
+			if !faucet.IsFaucetReq(message) {
 				return
 			}
-			fundingRequest := message.Payload().(*Request)
+			fundingRequest := message.Payload().(*faucet.Request)
 			addr := fundingRequest.Address()
-			if IsAddressBlackListed(addr) {
-				log.Infof("can't fund address %s since it is blacklisted", addr.Base58())
-				return
-			}
 
 			// verify PoW
 			leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
@@ -202,6 +260,11 @@ func configureEvents() {
 
 			if leadingZeroes < targetPoWDifficulty {
 				log.Infof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
+				return
+			}
+
+			if IsAddressBlackListed(addr) {
+				log.Infof("can't fund address %s since it is blacklisted", addr.Base58())
 				return
 			}
 

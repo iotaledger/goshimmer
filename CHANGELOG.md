@@ -1,3 +1,95 @@
+# v0.7.1 - 2021-06-15
+* Improve Faucet
+* Improve docs
+* Improve message requester
+* Improve common integration test
+* Improve collected Elasticsearch metrics
+* Add run callback to database plugin
+* Add Client Library Import Check
+* Add time range check in wallet lib
+* Replace builtin hash map with a sorted set
+* Enable Github Actions Caching
+* Fix wrong account mention
+* Fix gossip neighbor disconnect
+* Fix Genesis Loaded Transaction View
+* Fix memory leak in pow plugin/pkg
+* Fix overlocking and sleeping issues 
+* Fix snapshot bug
+* Fix typos
+* Update Graphana debugging dashboard
+* Update snapshot file with DevNet UTXO at 2021-06-15 09:09 UTC
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.7.0 - 2021-06-02
+* Add client diagnostic API
+* Improve docs and tutorials
+* Improve congestion control
+* Improve dashboard
+* Improve Grafana dashboard
+* Limit chat fields length
+* Fix several bugs
+* Reset snapshot file
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.6.4 - 2021-05-29
+* Add simple chat dApp
+* Improve client lib
+* Improve manual peering and add tutorial
+* Improve docs and tutorials
+* Improve congestion control
+* Fix mana dashboard deadlock
+* Fix several bugs
+* Update snapshot file with Pollen UTXO at 2021-05-29 10:22 UTC
+* Update JS dependencies
+* Update lo latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.6.3 - 2021-05-25
+* Improve congestion control
+* Fix builds
+* Fix dRNG shutdown deadlock
+* Fix panic on booking
+* Fix locking management on message factory
+* Fix several visualizer bugs
+* Update Grafana pie charts
+* Update snapshot file with Pollen UTXO at 2021-05-25 16:54 UTC
+* **Breaking**: bumps network and database versions
+
+# v0.6.2 - 2021-05-24
+* Add Congestion Control
+* Add global snapshot
+* Add Central Asset Registry to cli-wallet
+* Switch to RocksDB instead of BadgerDB
+* Enhance manual peering
+* Improve gossip
+* Improve APIs
+* Fix several dashboard bugs
+* Update lo latest hive.go
+* Update snapshot file 
+* **Breaking**: bumps network and database versions
+
+# v0.6.1 - 2021-05-19
+* Change Faucet default parameters
+* **Breaking**: bumps network and database versions
+
+# v0.6.0 - 2021-05-19
+* Add first iteration of the tokenization framework
+* Add aMana refresher
+* Add CORS to middleware Dashboard server
+* Allow specifying parents count when issuing messages 
+* Move PoW for Faucet requests to client
+* Remove Faucet requests from Node's Dashboard
+* Improve cli-wallet
+* Improve APIs
+* Improve integration tests
+* Refactor statement remote logging  
+* Display full messageID in explorer feed
+* Update JS dependencies
+* Update documentation
+* **Breaking**: bumps network and database versions
+
 # v0.5.9 - 2021-05-11
 * Replace sync beacons with Tangle Time
 * Fix approval weight manager persistence

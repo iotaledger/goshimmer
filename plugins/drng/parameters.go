@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	// Configuration parameters of Pollen dRNG committee.
+	// Configuration parameters of GoShimmer dRNG committee.
 
 	// CfgDRNGInstanceID defines the config flag of the DRNG instanceID.
 	CfgDRNGInstanceID = "drng.pollen.instanceId"
@@ -40,11 +40,11 @@ const (
 )
 
 func init() {
-	// Default parameters of Pollen dRNG committee.
-	flag.Int(CfgDRNGInstanceID, Pollen, "instance ID of the pollen drng instance")
-	flag.Int(CfgDRNGThreshold, 3, "BLS threshold of the pollen drng")
-	flag.String(CfgDRNGDistributedPubKey, "", "distributed public key of the pollen committee (hex encoded)")
-	flag.StringSlice(CfgDRNGCommitteeMembers, []string{}, "list of committee members of the pollen drng")
+	// Default parameters of GoShimmer dRNG committee.
+	flag.Int(CfgDRNGInstanceID, Pollen, "instance ID of the GoShimmer drng instance")
+	flag.Int(CfgDRNGThreshold, 3, "BLS threshold of the GoShimmer drng")
+	flag.String(CfgDRNGDistributedPubKey, "", "distributed public key of the GoShimmer committee (hex encoded)")
+	flag.StringSlice(CfgDRNGCommitteeMembers, []string{}, "list of committee members of the GoShimmer drng")
 
 	// Default parameters of X-Team dRNG committee.
 	flag.Int(CfgDRNGXTeamInstanceID, XTeam, "instance ID of the x-team drng instance")

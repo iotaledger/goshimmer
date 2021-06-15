@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
@@ -39,6 +40,9 @@ func Plugin() *node.Plugin {
 func configure(_ *node.Plugin) {
 	configureSyncMetrics()
 	configureFPCConflictsMetrics()
+	configureDRNGMetrics()
+	configureTransactionMetrics()
+	configureStatementMetrics()
 }
 
 func run(_ *node.Plugin) {
@@ -72,7 +76,18 @@ func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEve
 }
 
 func configureFPCConflictsMetrics() {
-	metricsLogger := newFPCMetricsLogger()
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(metricsLogger.onVoteFinalized))
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(metricsLogger.onVoteRoundExecuted))
+	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
+	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
+}
+
+func configureDRNGMetrics() {
+	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
+}
+
+func configureTransactionMetrics() {
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+}
+
+func configureStatementMetrics() {
+	messagelayer.Tangle().ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
 }

@@ -2,14 +2,15 @@ package tangle
 
 import (
 	"context"
-	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
@@ -21,11 +22,13 @@ import (
 
 const (
 	targetPOW     = 10
+	powTimeout    = 10 * time.Second
 	totalMessages = 2000
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	tangle := New()
+	selfLocalIdentity := identity.GenerateLocalIdentity()
+	tangle := newTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	tangle.MessageFactory = NewMessageFactory(
@@ -34,6 +37,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 			return []MessageID{EmptyMessageID}, []MessageID{}, nil
 		}),
 	)
+	tangle.MessageFactory.SetTimeout(powTimeout)
 	defer tangle.MessageFactory.Shutdown()
 
 	// keep track of sequence numbers
@@ -114,7 +118,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	msgFactory := NewMessageFactory(
@@ -125,13 +129,13 @@ func TestMessageFactory_POW(t *testing.T) {
 	)
 	defer msgFactory.Shutdown()
 
-	worker := pow.New(crypto.BLAKE2b_512, 1)
+	worker := pow.New(1)
 
 	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return worker.Mine(context.Background(), content, targetPOW)
 	}))
-
+	msgFactory.SetTimeout(powTimeout)
 	msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 
@@ -144,7 +148,7 @@ func TestMessageFactory_POW(t *testing.T) {
 }
 
 func TestWorkerFunc_PayloadSize(t *testing.T) {
-	testTangle := New()
+	testTangle := newTestTangle()
 	defer testTangle.Shutdown()
 
 	msgFactory := NewMessageFactory(

@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/capossele/asset-registry/pkg/registryservice"
 	"github.com/iotaledger/hive.go/bitmask"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -30,6 +31,44 @@ func Import(seed *seed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.B
 func ReusableAddress(enabled bool) Option {
 	return func(wallet *Wallet) {
 		wallet.reusableAddress = enabled
+	}
+}
+
+// FaucetPowDifficulty configures the wallet with the faucet's target PoW difficulty
+func FaucetPowDifficulty(powTarget int) Option {
+	return func(wallet *Wallet) {
+		wallet.faucetPowDifficulty = powTarget
+	}
+}
+
+// ConfirmationPollingInterval defines how often the wallet polls the node for confirmation info.
+func ConfirmationPollingInterval(interval int) Option {
+	return func(wallet *Wallet) {
+		if interval < 0 {
+			wallet.ConfirmationPollInterval = DefaultPollingInterval
+		} else {
+			wallet.ConfirmationPollInterval = interval
+		}
+	}
+}
+
+// ConfirmationTimeout defines the timeout for waiting for tx confirmation.
+func ConfirmationTimeout(timeout int) Option {
+	return func(wallet *Wallet) {
+		if timeout < 0 {
+			wallet.ConfirmationPollInterval = DefaultConfirmationTimeout
+		} else {
+			wallet.ConfirmationPollInterval = timeout
+		}
+	}
+}
+
+// AssetRegistryNetwork defines which network we intend to use for asset lookups.
+func AssetRegistryNetwork(network string) Option {
+	return func(wallet *Wallet) {
+		if registryservice.Networks[network] {
+			wallet.assetRegistry = NewAssetRegistry(network)
+		}
 	}
 }
 

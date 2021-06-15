@@ -5,7 +5,7 @@ GoShimmer is shipped with its internal node dashboard that you can reach at `127
 
 Node operators who wish to have more insights into what is happening within their node have the option to enable a [Prometheus](https://prometheus.io/) exporter plugin that gathers important metrics about their node. To visualize these metrics, a [Grafana Dashboard](https://grafana.com/oss/grafana/) is utilized.
 
-# Setting up (run Goshimmer from a VPS)
+# Setting up (run GoShimmer from a VPS)
 To enable the **Monitoring Dashboard** for a GoShimmer node running from a VPS as described [here](./setup.md), you need to carry out some additional steps.
 1. Edit `docker-compose.yml`
    TODO
@@ -16,7 +16,7 @@ To enable the **Monitoring Dashboard** for a GoShimmer node running from a VPS a
 4. Run `docker-compose up`.
    TODO
 
-# Setting up (run Goshimmer from your home machine)
+# Setting up (run GoShimmer from your home machine)
 Depending on how you run your GoShimmer node, there are different ways to set up the **Monitoring Dashboard**.
 ## Docker
 One of the easiest ways to run a node is to use [Docker](https://www.docker.com/). To automatically launch GoShimmer and the Monitoring Dashboard with docker, follow these steps:
@@ -51,7 +51,7 @@ You can experiment with the dashboard, change layout, add panels and discover me
 ## Binary
 If you run the [released binaries](https://github.com/iotaledger/goshimmer/releases), or build GoShimmer from source, you need to setup Prometheus and Grafana separately, furthermore, you have to configure GoShimmer to export data.
 
-### Goshimmer Configuration
+### GoShimmer Configuration
 1. Make sure that the `prometheus.bindAddress` config parameter is set in your `config.json`:
    ```json
      "prometheus": {
@@ -249,7 +249,7 @@ then Grafana is configured to run as a system service without any modification. 
    ```
    $ sudo cp tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards
    ```
-3. Copy [Goshimmer Local Metrics](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) dashboard to `/var/lib/grafana/`:
+3. Copy [GoShimmer Local Metrics](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) dashboard to `/var/lib/grafana/`:
    ```
    $ sudo cp -R tools/monitoring/grafana/dashboards /var/lib/grafana/
    ```

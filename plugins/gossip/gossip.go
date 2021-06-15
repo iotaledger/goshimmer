@@ -1,20 +1,20 @@
 package gossip
 
 import (
+	"bytes"
 	"net"
 	"strconv"
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/emirpasic/gods/sets/treeset"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -76,18 +76,12 @@ func start(shutdownSignal <-chan struct{}) {
 	defer srv.Close()
 
 	mgr.Start(srv)
-	defer mgr.Close()
+	defer mgr.Stop()
 
-	// trigger start of the autopeering selection
-	go func() { autopeering.StartSelection() }()
-
-	log.Infof("%s started: age-threshold=%v bind-address=%s", PluginName, ageThreshold, localAddr.String())
+	log.Infof("%s started: bind-address=%s", PluginName, localAddr.String())
 
 	<-shutdownSignal
 	log.Info("Stopping " + PluginName + " ...")
-
-	// assure that the autopeering selection is always stopped before the gossip manager
-	autopeering.Selection().Close()
 }
 
 // loads the given message from the message layer and returns it or an error if not found.
@@ -105,28 +99,30 @@ func loadMessage(msgID tangle.MessageID) ([]byte, error) {
 type requestedMessages struct {
 	sync.Mutex
 
-	msgs map[tangle.MessageID]types.Empty
+	msgs *treeset.Set
 }
 
 func newRequestedMessages() *requestedMessages {
 	return &requestedMessages{
-		msgs: make(map[tangle.MessageID]types.Empty),
+		msgs: treeset.NewWith(func(a, b interface{}) int {
+			aMsgID, bMsgID := a.(tangle.MessageID), b.(tangle.MessageID)
+			return bytes.Compare(aMsgID.Bytes(), bMsgID.Bytes())
+		}),
 	}
 }
 
 func (r *requestedMessages) append(msgID tangle.MessageID) {
 	r.Lock()
 	defer r.Unlock()
-
-	r.msgs[msgID] = types.Void
+	r.msgs.Add(msgID)
 }
 
 func (r *requestedMessages) delete(msgID tangle.MessageID) (deleted bool) {
 	r.Lock()
 	defer r.Unlock()
 
-	if _, exist := r.msgs[msgID]; exist {
-		delete(r.msgs, msgID)
+	if exists := r.msgs.Contains(msgID); exists {
+		r.msgs.Remove(msgID)
 		return true
 	}
 

@@ -51,7 +51,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+	b.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID MessageID) {
 		if err := b.BookMessage(messageID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to book message with %s: %w", messageID, err))
 		}
@@ -69,6 +69,12 @@ func (b *Booker) Setup() {
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			// don't book the same message more than once!
+			if messageMetadata.IsBooked() {
+				err = errors.Errorf("message already booked %s", messageID)
+				return
+			}
+
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
@@ -204,7 +210,7 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transactionID := payload.(*ledgerstate.Transaction).ID()
 
-				if !b.tangle.LedgerState.UTXODAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+				if !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 					branchIDs[transactionMetadata.BranchID()] = types.Void
 				}) {
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
@@ -245,7 +251,7 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	}
 
 	for _, output := range transaction.Essence().Outputs() {
-		b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(output.Address(), output.ID())
+		b.tangle.LedgerState.UTXODAG.ManageStoreAddressOutputMapping(output)
 	}
 
 	if attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), message.ID()); stored {

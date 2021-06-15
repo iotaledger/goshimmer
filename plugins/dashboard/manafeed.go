@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -20,10 +21,19 @@ import (
 
 var (
 	manaFeedWorkerCount     = 1
-	manaFeedWorkerQueueSize = 50
+	manaFeedWorkerQueueSize = 500
 	manaFeedWorkerPool      *workerpool.WorkerPool
 	manaBuffer              *ManaBuffer
+	manaBufferOnce          sync.Once
 )
+
+// ManaBufferInstance is the ManaBuffer singleton.
+func ManaBufferInstance() *ManaBuffer {
+	manaBufferOnce.Do(func() {
+		manaBuffer = NewManaBuffer()
+	})
+	return manaBuffer
+}
 
 func configureManaFeed() {
 	manaFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
@@ -45,13 +55,12 @@ func configureManaFeed() {
 
 func runManaFeed() {
 	notifyManaPledge := events.NewClosure(func(ev *mana.PledgedEvent) {
-		manaFeedWorkerPool.Submit(MsgTypeManaPledge, ev)
+		manaFeedWorkerPool.TrySubmit(MsgTypeManaPledge, ev)
 	})
 	notifyManaRevoke := events.NewClosure(func(ev *mana.RevokedEvent) {
-		manaFeedWorkerPool.Submit(MsgTypeManaRevoke, ev)
+		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(shutdownSignal <-chan struct{}) {
-		manaBuffer = NewManaBuffer()
 		mana.Events().Pledged.Attach(notifyManaPledge)
 		mana.Events().Revoked.Attach(notifyManaRevoke)
 		manaFeedWorkerPool.Start()
@@ -65,9 +74,9 @@ func runManaFeed() {
 				log.Info("Stopping Dashboard[ManaUpdater] ... done")
 				return
 			case <-manaTicker.C:
-				manaFeedWorkerPool.Submit(MsgTypeManaValue)
-				manaFeedWorkerPool.Submit(MsgTypeManaMapOverall)
-				manaFeedWorkerPool.Submit(MsgTypeManaMapOnline)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaValue)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOverall)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOnline)
 			}
 		}
 	}, shutdown.PriorityDashboard); err != nil {
@@ -98,7 +107,7 @@ func sendManaValue() {
 		Type: MsgTypeManaValue,
 		Data: msgData,
 	})
-	manaBuffer.StoreValueMsg(msgData)
+	ManaBufferInstance().StoreValueMsg(msgData)
 }
 
 func sendManaMapOverall() {
@@ -132,7 +141,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: consensusPayload,
 	})
-	manaBuffer.StoreMapOverall(accessPayload, consensusPayload)
+	ManaBufferInstance().StoreMapOverall(accessPayload, consensusPayload)
 }
 
 func sendManaMapOnline() {
@@ -171,11 +180,11 @@ func sendManaMapOnline() {
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,
 	})
-	manaBuffer.StoreMapOnline(accessPayload, consensusPayload)
+	ManaBufferInstance().StoreMapOnline(accessPayload, consensusPayload)
 }
 
 func sendManaPledge(ev *mana.PledgedEvent) {
-	manaBuffer.StoreEvent(ev)
+	ManaBufferInstance().StoreEvent(ev)
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaPledge,
 		Data: ev.ToJSONSerializable(),
@@ -183,7 +192,7 @@ func sendManaPledge(ev *mana.PledgedEvent) {
 }
 
 func sendManaRevoke(ev *mana.RevokedEvent) {
-	manaBuffer.StoreEvent(ev)
+	ManaBufferInstance().StoreEvent(ev)
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaRevoke,
 		Data: ev.ToJSONSerializable(),

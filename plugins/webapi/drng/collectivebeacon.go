@@ -8,8 +8,8 @@ import (
 	"github.com/labstack/gommon/log"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // collectiveBeaconHandler gets the current DRNG committee.

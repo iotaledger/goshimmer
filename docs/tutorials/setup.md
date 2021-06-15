@@ -1,6 +1,6 @@
 # Setting up a GoShimmer node 
 
-This page describes how to setup your own GoShimmer node in the Pollen testnet with Docker.
+This page describes how to setup your own GoShimmer node in the GoShimmer testnet with Docker.
 
 > DISCLAIMER: **Note that there will be breaking changes frequently (approx. bi-weekly) where the entire network needs to upgrade. If you don't have time to continuously monitor and upgrade your node, then running a GoShimmer node might not be for you.**  We want to emphasize that running a GoShimmer node requires proper knowledge in Linux and IT related topics such as networking and so on. It is not meant as a node to be run by people with little experience in the mentioned fields. **Do not plan to run any production level services on your node/network.**
 
@@ -14,7 +14,7 @@ This page describes how to setup your own GoShimmer node in the Pollen testnet w
 
 ## Why you should run a node
 
-Running a node in the Pollen testnet helps us in the following ways:
+Running a node in the GoShimmer testnet helps us in the following ways:
 * It increases the amount of nodes in the network and thus lets it form a more realistic network.
 * Your node will be configured to send debug log messages to a centralized logger from which we can assess and debug research questions and occurring problems.
 * Your node is configured to send metric data to a centralized analysis server where we store information such as resource consumption, traffic, FPC vote context processing and so on. This data helps us further fostering the development of GoShimmer and assessing network behavior.
@@ -43,14 +43,14 @@ If you plan on running your GoShimmer node from home, please only do so if you k
 
 Lets first upgrade the packages on our system:
 ```
-$ apt update && apt dist-upgrade -y
+apt update && apt dist-upgrade -y
 ```
 
 #### Install Docker
 
 Install needed dependencies:
 ```
-$ apt-get install \
+apt-get install \
      apt-transport-https \
      ca-certificates \
      curl \
@@ -60,12 +60,12 @@ $ apt-get install \
 
 Add Docker’s official GPG key:
 ```
-$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
 ```
 
 Verify that the GPG key matches:
 ```
-$ apt-key fingerprint 0EBFCD88
+apt-key fingerprint 0EBFCD88
 pub   rsa4096 2017-02-22 [SCEA]
       9DC8 5822 9FC7 DD38 854A  E2D8 8D81 803C 0EBF CD88
 uid           [ unknown] Docker Release (CE deb) <docker@docker.com>
@@ -75,7 +75,7 @@ sub   rsa4096 2017-02-22 [S]
 
 Add the actual repository:
 ```
-$ add-apt-repository \
+add-apt-repository \
    "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
    $(lsb_release -cs) \
    stable"
@@ -83,23 +83,23 @@ $ add-apt-repository \
 
 Update the package index:
 ```
-$ apt-get update
+apt-get update
 ```
 
 And finally, install docker:
 ```
-$ apt-get install docker-ce docker-ce-cli containerd.io
+apt-get install docker-ce docker-ce-cli containerd.io
 ```
 
 On windows-subsystem for Linux (WSL2) it may be necessary to start docker seperately:
 ```
-$ /etc/init.d/docker start
+/etc/init.d/docker start
 ```
 Note, this may not work on WSL1.
 
 Check whether docker is running by executing `docker ps`:
 ```
-$ docker ps
+docker ps
 CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
 ```
 
@@ -108,17 +108,17 @@ Docker compose gives us the ability to define our services with `docker-compose.
 
 Download docker compose:
 ```
-$ curl -L "https://github.com/docker/compose/releases/download/1.26.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+curl -L "https://github.com/docker/compose/releases/download/1.26.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 ```
 
 Make it executable:
 ```
-$ chmod +x /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
 ```
 
 Check that docker compose works:
 ```
-$ docker-compose --version
+docker-compose --version
 docker-compose version 1.26.0, build d4451659
 ```
 
@@ -127,25 +127,25 @@ docker-compose version 1.26.0, build d4451659
 First, lets create a user defined bridged network. Unlike the already existing `bridge` network, the user defined one will have container name DNS resolution for containers within that network. This is useful if later we want to setup additional containers which need to speak with the GoShimmer container.
 
 ```
-$ docker network create --driver=bridge shimmer
+docker network create --driver=bridge shimmer
 c726034d295c3df66803b92c71ca517a0cf0e3c65c1c6d84ee5fa34ae76cbcd4
 ```
 
 Lets create a folder holding our `docker-compose.yml`:
 ```
-$ mkdir /opt/goshimmer
+mkdir /opt/goshimmer
 ```
 
 Lets create a folder holding our database:
 ```
-$ cd /opt/goshimmer
-$ mkdir db
-$ chmod 0777 db
+cd /opt/goshimmer
+mkdir db
+chmod 0777 db
 ```
 
 Finally, lets create our `docker-compose.yml`:
 ```
-$ nano docker-compose.yml
+nano docker-compose.yml
 ```
 
 and add following content:
@@ -229,7 +229,7 @@ It is important that the ports are correctly mapped so that the node for example
 
 Within the `/opt/goshimmer` folder where the `docker-compose.yml` resides, simply execute:
 ```
-$ docker-compose up -d
+docker-compose up -d
 Pulling goshimmer (iotaledger/goshimmer:0.2.0)...
 ...
 ```
@@ -243,7 +243,7 @@ CONTAINER ID        IMAGE               COMMAND                  CREATED        
 
 You can follow the log output of the node via:
 ```
-$ docker logs -f --since=1m goshimmer
+docker logs -f --since=1m goshimmer
 ```
 
 ### Syncing
@@ -253,7 +253,7 @@ When the node starts for the first time, it must synchronize its state with the 
 #### Dashboard
 The dashboard of your GoShimmer node should be accessible via `http://<your-ip>:8081`. If your node is still synchronizing, you might see a higher inflow of MPS.
 
-![](https://i.imgur.com/8xAvi7X.png)
+![](https://user-images.githubusercontent.com/11289354/119599542-c3985e00-be17-11eb-8769-7e639f365ae5.png)
 
 After a while, your node's dashboard should also display up to 8 neighbors:
 ![](https://i.imgur.com/gAyAXK9.png)
@@ -263,31 +263,41 @@ After a while, your node's dashboard should also display up to 8 neighbors:
 GoShimmer also exposes an HTTP API. To check whether that works correctly, you can access it via `http://<your-ip>:8080/info` which should return a JSON response in the form of:
 ```
 {
-  "version": "v0.2.0",
-  "synced": true,
-  "identityID": "69RxiehGQ2c",
-  "publicKey": "52Gzw9bo7k2dARFi4yxtt3B8xMht5UeFQX7pWdLFnxV5",
+  "version": "v0.6.2",
+  "networkVersion": 30,
+  "tangleTime": {
+    "messageID": "6ndfmfogpH9H8C9X9Fbb7Jmuf8RJHQgSjsHNPdKUUhoJ",
+    "time": 1621879864032595415,
+    "synced": true
+  },
+  "identityID": "D9SPFofAGhA5V9QRDngc1E8qG9bTrnATmpZMdoyRiBoW",
+  "identityIDShort": "XBgY5DsUPng",
+  "publicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd",
+  "solidMessageCount": 74088,
+  "totalMessageCount": 74088,
   "enabledPlugins": [
-    "Analysis-Client",
-    "Autopeering",
-    "CLI",
-    "Config",
-    "DRNG",
-    "Dashboard",
-    "Database",
-    "Gossip",
     ...
-    "WebAPI info Endpoint",
-    "WebAPI message Endpoint"
   ],
   "disabledPlugins": [
-    "Analysis-Dashboard",
-    "Analysis-Server",
-    "Banner",
-    "Bootstrap",
-    "Faucet",
-    "WebAPI Auth"
-  ]
+    ...
+  ],
+  "mana": {
+    "access": 1,
+    "accessTimestamp": "2021-05-24T20:11:05.451224937+02:00",
+    "consensus": 10439991680906,
+    "consensusTimestamp": "2021-05-24T20:11:05.451228137+02:00"
+  },
+  "manaDelegationAddress": "1HMQic52dz3xLY2aeDXcDhX53LgbsHghdfD8eGXR1qVHy",
+  "mana_decay": 0.00003209,
+  "scheduler": {
+    "running": true,
+    "rate": "5ms",
+    "nodeQueueSizes": {}
+  },
+  "rateSetter": {
+    "rate": 20000,
+    "size": 0
+  }
 }
 ```
 
@@ -295,31 +305,31 @@ GoShimmer also exposes an HTTP API. To check whether that works correctly, you c
 
 ##### Stopping the node
 ```
-$ docker-compose stop
+docker-compose stop
 ```
 
 ##### Resetting the node
 ```
-$ docker-compose down
+docker-compose down
 ```
 
 ##### Upgrading the node
 **Ensure that the image version in the `docker-compose.yml` is `latest`** then execute following commands:
 ```
-$ docker-compose down
-$ rm db/*
-$ docker-compose pull
-$ docker-compose up -d
+docker-compose down
+rm db/*
+docker-compose pull
+docker-compose up -d
 ```
 
 ##### Following log output
 ```
-$ docker logs -f --since=1m goshimmer
+docker logs -f --since=1m goshimmer
 ```
 
 ##### Create a log.txt
 ```
-$ docker logs goshimmer > log.txt
+docker logs goshimmer > log.txt
 ```
 ##### Update Grafana Dashboard
 If you set up the Grafana dashboard for your node according to the next section "Setting up the Grafana dashboard", the following method will help you to update when a new version is released.
@@ -327,12 +337,12 @@ If you set up the Grafana dashboard for your node according to the next section 
 You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
 Supposing you are at `/opt/goshimmer/`:
 ```
-$ wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
-$ cp local_dashboard.json grafana/dashboards
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
+cp local_dashboard.json grafana/dashboards
 ```
 Restart the grafana container:
 ```
-$ docker restart grafana
+docker restart grafana
 ```
 
 
@@ -376,12 +386,12 @@ Append the following to the previously described `docker-compose.yml` file (**ma
 #### Create Prometheus config
 1. Create a `prometheus/data` directory in `/opt/goshimmer`:
 ```
-$ cd /opt/goshimmer
-$ mkdir -p prometheus/data
+cd /opt/goshimmer
+mkdir -p prometheus/data
 ```
 2. Create a `prometheus.yml` in `prometheus` directory:
 ```
-$ nano prometheus/prometheus.yml
+nano prometheus/prometheus.yml
 ```
 The content of the file should be:
 ```yaml
@@ -394,17 +404,17 @@ scrape_configs:
 ```
 3. Add permissions to `prometheus` config directory:
 ```
-$ chmod -R 777 prometheus
+chmod -R 777 prometheus
 ```
 #### Create Grafana configs
 1. Create necessary config dirs in `/opt/goshimmer/`.
 ```
-$ mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers
-$ mkdir -p grafana/dashboards
+mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers
+mkdir -p grafana/dashboards
 ```
 2. Create a datasource configuration file in `grafana/provisioning/datasources`:
 ```
-$ nano grafana/provisioning/datasources/datasources.yaml
+nano grafana/provisioning/datasources/datasources.yaml
 ```
 With the following content:
 ```yaml
@@ -432,7 +442,7 @@ datasources:
 ```
 3. Create a dashboard configuration file in `grafana/provisioning/dashboards`:
 ```
-$ nano grafana/provisioning/dashboards/dashboards.yaml
+nano grafana/provisioning/dashboards/dashboards.yaml
 ```
 With the following content:
 ```yaml
@@ -450,20 +460,20 @@ providers:
     options:
       path: /var/lib/grafana/dashboards
 ```
-4. Add predefined Goshimmer Local Metrics Dashboard.
+4. Add predefined GoShimmer Local Metrics Dashboard.
 
 Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json).
 ```
-$ wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
-$ cp local_dashboard.json grafana/dashboards
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
+cp local_dashboard.json grafana/dashboards
 ```
 5. Add permissions to Grafana config folder
 ```
-$ chmod -R 777 grafana
+chmod -R 777 grafana
 ```
 #### Run GoShimmer with Prometheus and Grafana:
 ```
-$ docker-compose up -d
+docker-compose up -d
 ```
 
 The Grafana dashboard should be accessible at `http://<your-ip>:3000`.

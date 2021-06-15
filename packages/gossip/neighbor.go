@@ -20,11 +20,22 @@ const (
 	droppedMessagesThreshold = 1000
 )
 
+// NeighborsGroup is an enum type for various neighbors groups like auto/manual.
+type NeighborsGroup int8
+
+const (
+	// NeighborsGroupAuto represents a neighbors group that is managed automatically.
+	NeighborsGroupAuto NeighborsGroup = iota
+	// NeighborsGroupManual represents a neighbors group that is managed manually.
+	NeighborsGroupManual
+)
+
 // Neighbor describes the established gossip connection to another peer.
 type Neighbor struct {
 	*peer.Peer
 	*buffconn.BufferedConnection
 
+	Group           NeighborsGroup
 	log             *logger.Logger
 	queue           chan []byte
 	messagesDropped atomic.Int32
@@ -37,20 +48,21 @@ type Neighbor struct {
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
-	if !IsSupported(peer) {
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, conn net.Conn, log *logger.Logger) *Neighbor {
+	if !IsSupported(p) {
 		panic("peer does not support gossip")
 	}
 
 	// always include ID and address with every log message
 	log = log.With(
-		"id", peer.ID(),
+		"id", p.ID(),
 		"network", conn.LocalAddr().Network(),
 		"addr", conn.RemoteAddr().String(),
 	)
 
 	return &Neighbor{
-		Peer:                  peer,
+		Peer:                  p,
+		Group:                 group,
 		BufferedConnection:    buffconn.NewBufferedConnection(conn, maxPacketSize),
 		log:                   log,
 		queue:                 make(chan []byte, neighborQueueSize),
@@ -79,7 +91,6 @@ func (n *Neighbor) Close() error {
 	// wait for everything to finish
 	n.wg.Wait()
 
-	n.log.Info("Connection closed")
 	return err
 }
 
@@ -92,6 +103,7 @@ func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
 		close(n.closing)
 		err = n.BufferedConnection.Close()
+		n.log.Info("Connection closed")
 	})
 	return
 }
@@ -107,7 +119,7 @@ func (n *Neighbor) writeLoop() {
 			}
 			if _, err := n.BufferedConnection.Write(msg); err != nil {
 				n.log.Warnw("Write error", "err", err)
-				_ = n.BufferedConnection.Close()
+				_ = n.disconnect()
 				return
 			}
 		case <-n.closing:
@@ -128,7 +140,7 @@ func (n *Neighbor) readLoop() {
 			numReadErrors++
 			if numReadErrors > maxNumReadErrors {
 				n.log.Warnw("Too many read errors", "err", err)
-				_ = n.BufferedConnection.Close()
+				_ = n.disconnect()
 				return
 			}
 			continue
@@ -138,7 +150,7 @@ func (n *Neighbor) readLoop() {
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 				n.log.Warnw("Permanent error", "err", err)
 			}
-			_ = n.BufferedConnection.Close()
+			_ = n.disconnect()
 			return
 		}
 	}

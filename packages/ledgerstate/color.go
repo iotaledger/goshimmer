@@ -110,7 +110,11 @@ func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBala
 
 	// deterministically sort colors
 	sortedColors := make([]Color, 0, len(balances))
-	for color := range balances {
+	for color, balance := range balances {
+		if balance == 0 {
+			// drop zero balances
+			continue
+		}
 		sortedColors = append(sortedColors, color)
 	}
 	sort.Slice(sortedColors, func(i, j int) bool { return sortedColors[i].Compare(sortedColors[j]) < 0 })
@@ -142,6 +146,10 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 		err = errors.Errorf("failed to parse element count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	if balancesCount == 0 {
+		err = errors.Errorf("empty balances in output")
+		return
+	}
 
 	var previousColor *Color
 	coloredBalances = NewColoredBalances(nil)
@@ -161,6 +169,10 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 		balance, balanceErr := marshalUtil.ReadUint64()
 		if balanceErr != nil {
 			err = errors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, cerrors.ErrParseBytesFailed)
+			return
+		}
+		if balance == 0 {
+			err = errors.Errorf("zero balance found for color %s", color.String())
 			return
 		}
 
