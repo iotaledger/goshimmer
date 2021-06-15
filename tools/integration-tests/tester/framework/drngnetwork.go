@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/drand/drand/net"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -49,15 +48,6 @@ func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey ed25519.PublicKey)
 		config.FPCTotalRoundsFinalization = 10
 	}
 
-	// create wallet
-	var nodeSeed *walletseed.Seed
-	if c.Faucet {
-		nodeSeed = walletseed.NewSeed(genesisSeed)
-		fmt.Println("faucet here! ")
-	} else {
-		nodeSeed = walletseed.NewSeed()
-	}
-
 	// create Docker container
 	container := NewDockerContainer(n.network.dockerClient)
 	err := container.CreateGoShimmerPeer(config)
@@ -73,7 +63,7 @@ func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey ed25519.PublicKey)
 		return nil, err
 	}
 
-	peer, err := newPeer(name, identity.New(publicKey), container, nodeSeed, n.network)
+	peer, err := newPeer(name, identity.New(publicKey), container, nil, n.network)
 	if err != nil {
 		return nil, err
 	}

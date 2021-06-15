@@ -103,13 +103,7 @@ func (f *Framework) CreateNetwork(name string, peers int, config CreateNetworkCo
 				}
 				return ""
 			}(i),
-			Faucet: config.Faucet && i == 0,
-			Mana: func(i int) bool {
-				if ParaManaOnEveryNode {
-					return true
-				}
-				return config.Mana && i == 0
-			}(i),
+			Faucet:                     config.Faucet && i == 0,
 			StartSynced:                config.StartSynced,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
@@ -183,7 +177,6 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 				return ""
 			}(i),
 			Faucet:                     config.Faucet && i == 0,
-			Mana:                       config.Mana,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,
@@ -294,21 +287,13 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 		DRNGThreshold: 3,
 		DRNGDistKey:   hex.EncodeToString(drng.distKey),
 		DRNGCommittee: drngCommittee,
-		Mana:          true,
 		StartSynced:   true,
 	}
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config.Seed = privKeys[i].Seed().String()
-		if _, e := drng.CreatePeer(func() GoShimmerConfig {
-			if i == 0 {
-				faucetConfig := config
-				faucetConfig.Faucet = true
-				return faucetConfig
-			}
-			return config
-		}(), pubKeys[i]); e != nil {
+		if _, e := drng.CreatePeer(config, pubKeys[i]); e != nil {
 			return nil, e
 		}
 	}
@@ -320,22 +305,6 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 		return nil, errors.WithStack(err)
 	}
 
-	// get mana from faucet
-	for i := 1; i < peers; i++ {
-		peer := drng.network.peers[i]
-		addr := peer.Seed.Address(uint64(0)).Address()
-		ID := base58.Encode(peer.ID().Bytes())
-		_, err := drng.network.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
-		if err != nil {
-			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
-		}
-		time.Sleep(2 * time.Second)
-	}
-	err = drng.network.WaitForMana(drng.network.peers[1:]...)
-	if err != nil {
-		return nil, err
-	}
-
 	return drng, nil
 }
 
@@ -344,9 +313,6 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 func (f *Framework) CreateNetworkWithMana(name string, peers int, config CreateNetworkConfig) (*Network, error) {
 	if !config.Faucet {
 		return nil, fmt.Errorf("faucet is required")
-	}
-	if !config.Mana {
-		return nil, fmt.Errorf("mana plugin is required to load mana snapshot")
 	}
 
 	n, err := f.CreateNetwork(name, peers, config)

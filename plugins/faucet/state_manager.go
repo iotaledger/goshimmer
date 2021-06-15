@@ -124,36 +124,13 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 
 	foundPreparedOutputs := make([]*FaucetOutput, 0)
 	toBeSweptOutputs := make([]*FaucetOutput, 0)
-	var foundRemainderOutput *FaucetOutput
 
-	remainderAddress := s.seed.Address(RemainderAddressIndex).Address()
-
-	// remainder output should sit on address 0
-	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
-		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if outputMetadata.ConsumerCount() < 1 {
-				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
-				if !ok || iotaBalance < MinimumFaucetBalance {
-					return
-				}
-				if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
-					// when multiple "big" unspent outputs sit on this address, take the biggest one
-					return
-				}
-				foundRemainderOutput = &FaucetOutput{
-					ID:           output.ID(),
-					Balance:      iotaBalance,
-					Address:      output.Address(),
-					AddressIndex: RemainderAddressIndex,
-				}
-			}
-		})
-	})
-	if foundRemainderOutput == nil {
-		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinimumFaucetBalance))
+	err = s.findUnspentRemainderOutput()
+	if err != nil {
+		return
 	}
 
-	endIndex := (GenesisTokenAmount - foundRemainderOutput.Balance) / s.tokensPerRequest
+	endIndex := (GenesisTokenAmount - s.remainderOutput.Balance) / s.tokensPerRequest
 	log.Infof("%d indices have already been used based on found remainder output", endIndex)
 
 	log.Infof("Looking for prepared outputs in the Tangle...")
@@ -189,8 +166,6 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 	}
 	log.Infof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
 	log.Infof("Looking for prepared outputs in the Tangle... DONE")
-
-	s.remainderOutput = foundRemainderOutput
 
 	if len(foundPreparedOutputs) == 0 {
 		// prepare more funding outputs if we did not find any
@@ -320,13 +295,67 @@ func (s *StateManager) getFundingOutput() (fundingOutput *FaucetOutput, err erro
 	return
 }
 
+// findUnspentRemainderOutput finds the remainder output and updates the state manager
+func (s *StateManager) findUnspentRemainderOutput() error {
+	var foundRemainderOutput *FaucetOutput
+
+	remainderAddress := s.seed.Address(RemainderAddressIndex).Address()
+
+	// remainder output should sit on address 0
+	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
+				outputMetadata.Finalized() {
+				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
+				if !ok || iotaBalance < MinimumFaucetBalance {
+					return
+				}
+				if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
+					// when multiple "big" unspent outputs sit on this address, take the biggest one
+					return
+				}
+				foundRemainderOutput = &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: RemainderAddressIndex,
+				}
+			}
+		})
+	})
+	if foundRemainderOutput == nil {
+		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinimumFaucetBalance))
+	}
+	s.remainderOutput = foundRemainderOutput
+	return nil
+}
+
 // prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output, submits the transaction
 // to the Tangle, waits for its confirmation, and then updates the internal state of the faucet.
 func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	// no remainder output present
 	if s.remainderOutput == nil {
-		err = ErrMissingRemainderOutput
-		return
+		err = s.findUnspentRemainderOutput()
+		if err != nil {
+			return errors.Errorf("%w: %w", ErrMissingRemainderOutput, err)
+		}
+		// if no error was returned, s.remainderOutput is not nil anymore
+	}
+
+	remainderSpent := false
+	// is the remainder output still unspent?
+	messagelayer.Tangle().LedgerState.CachedOutputMetadata(s.remainderOutput.ID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		// GenesisTransactionID is the empty id
+		if outputMetadata.ConfirmedConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
+			remainderSpent = true
+		}
+	})
+	if remainderSpent {
+		// refresh remainder
+		err = s.findUnspentRemainderOutput()
+		if err != nil {
+			return
+		}
 	}
 
 	// not enough funds to carry out operation
@@ -359,7 +388,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
 	timeoutCounter := 0
-	maxWaitAttempts := 24 // 240 s max timeout (if fpc voting is in place)
+	maxWaitAttempts := 50 // 500 s max timeout (if fpc voting is in place)
 
 	for {
 		select {

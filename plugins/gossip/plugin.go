@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -27,7 +26,6 @@ var (
 	once   sync.Once
 
 	log                     *logger.Logger
-	ageThreshold            time.Duration
 	tipsBroadcasterInterval time.Duration
 
 	requestedMsgs *requestedMessages
@@ -43,7 +41,6 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	ageThreshold = config.Node().Duration(CfgGossipAgeThreshold)
 	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
 	requestedMsgs = newRequestedMessages()
 
@@ -59,7 +56,6 @@ func run(*node.Plugin) {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
-
 
 func configureLogging() {
 	// assure that the Manager is instantiated
@@ -90,10 +86,6 @@ func configureMessageLayer() {
 	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-				if clock.Since(messageMetadata.ReceivedTime()) > ageThreshold {
-					return
-				}
-
 				// do not gossip requested messages
 				if requested := requestedMsgs.delete(messageID); requested {
 					return

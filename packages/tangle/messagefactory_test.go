@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"context"
-	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"sync"
@@ -130,7 +129,7 @@ func TestMessageFactory_POW(t *testing.T) {
 	)
 	defer msgFactory.Shutdown()
 
-	worker := pow.New(crypto.BLAKE2b_512, 1)
+	worker := pow.New(1)
 
 	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
