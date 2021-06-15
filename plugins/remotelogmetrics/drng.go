@@ -19,7 +19,7 @@ func onRandomnessReceived(state *drng.State) {
 		Round:             state.Randomness().Round,
 		IssuedTimestamp:   state.Randomness().Timestamp,
 		ReceivedTimestamp: clock.SyncedTime(),
-		DeltaReceived:     clock.SyncedTime().Sub(state.Randomness().Timestamp).Nanoseconds(),
+		DeltaReceived:     clock.Since(state.Randomness().Timestamp).Nanoseconds(),
 	}
 
 	if err := remotelog.RemoteLogger().Send(record); err != nil {
