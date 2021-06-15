@@ -74,7 +74,7 @@ func (u *UTXODAG) Shutdown() {
 	})
 }
 
-func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType SolidityType, newSolidityType SolidityType) {
+func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType, newSolidityType SolidityType) {
 	if previousSolidityType == newSolidityType {
 		return
 	}
