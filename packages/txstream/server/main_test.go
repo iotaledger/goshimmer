@@ -4,13 +4,13 @@ import (
 	"os"
 	"testing"
 
-	. "github.com/iotaledger/goshimmer/packages/testhelper"
+	"github.com/iotaledger/goshimmer/packages/testhelper"
 )
 
 // TestMain will setup and teardown any unit test
 func TestMain(m *testing.M) {
-	GlobalSetup()
+	testhelper.GlobalSetup()
 	code := m.Run()
-	GlobalTeardown()
+	testhelper.GlobalTeardown()
 	os.Exit(code)
 }
