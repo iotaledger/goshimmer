@@ -219,9 +219,9 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 					unspentOutputs[i] = true
 					includeTransaction = true
 				} else {
-					tx := copyLedgerState[outputMetadata.ConfirmedConsumer()]
+					tx, exist := copyLedgerState[outputMetadata.ConfirmedConsumer()]
 					// ignore consumers that are not confirmed long enough or even in the future.
-					if startSnapshot.Sub(tx.Essence().Timestamp()) < minAge {
+					if !exist || startSnapshot.Sub(tx.Essence().Timestamp()) < minAge {
 						unspentOutputs[i] = true
 						includeTransaction = true
 					}
