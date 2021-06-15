@@ -1,29 +1,23 @@
 package database
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
-var (
-	globalCacheTime = -1
-	once            sync.Once
-)
-
-// CacheTime returns a CacheTime option. Duration may be overridden if GlobalCacheTime parameter is a non-negative integer
-func CacheTime(duration time.Duration) objectstorage.Option {
-	if globalCacheTime >= 0 {
-		duration = time.Duration(globalCacheTime) * time.Second
-	}
-	return objectstorage.CacheTime(duration)
+type CacheTimeManager struct {
+	forceCacheTime time.Duration
 }
 
-// SetGlobalCacheTimeOnce sets the global cache time in seconds. A negative number means no global cache time.
-// This function should be called only once in the lifetime of the program
-func SetGlobalCacheTimeOnce(cacheTime int) {
-	once.Do(func() {
-		globalCacheTime = cacheTime
-	})
+func NewCacheTimeManager(forceCacheTime time.Duration) *CacheTimeManager {
+	return &CacheTimeManager{forceCacheTime: forceCacheTime}
+}
+
+// CacheTime returns a CacheTime option. Duration may be overridden if GlobalCacheTime parameter is a non-negative integer
+func (m *CacheTimeManager) CacheTime(duration time.Duration) objectstorage.Option {
+	if m.forceCacheTime >= 0 {
+		duration = m.forceCacheTime
+	}
+	return objectstorage.CacheTime(duration)
 }
