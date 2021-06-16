@@ -1,29 +1,27 @@
 package testhelper
 
 import (
-	"flag"
-
-	"github.com/iotaledger/goshimmer/packages/database"
-)
-
-// global cache time flag
-var (
-	cacheFlag = flag.Int("database.globalCacheTime", 0, "number of seconds all objects should remain in memory."+
-		" -1 means use defaults")
+	"fmt"
+	"os"
 )
 
 // GlobalSetup setups global environment and parameters for any unit test
 func GlobalSetup() {
-	flag.Parse()
-
-	setGlobalCacheTime()
+	err := os.Setenv("GOSHIMMER_ENV", "testing")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to set test environment variable. %s", err))
+	}
 }
 
 // GlobalTeardown resets all the changes the test made
 func GlobalTeardown() {
-	// To be implemented
+	err := os.Setenv("GOSHIMMER_ENV", "")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to clear test environment variable. %s", err))
+	}
 }
 
-func setGlobalCacheTime() {
-	database.SetGlobalCacheTimeOnce(*cacheFlag)
+// IsTest returns true if we are now running a unit test
+func IsTest() bool {
+	return os.Getenv("GOSHIMMER_ENV") == "testing"
 }
