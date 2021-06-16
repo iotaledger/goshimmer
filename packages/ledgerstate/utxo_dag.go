@@ -399,7 +399,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 		propagationWalker.Push(transactionID)
 	}
 
-	return
+	return err
 }
 
 func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType, newSolidityType SolidityType) {
