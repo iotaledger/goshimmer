@@ -39,9 +39,7 @@ func (d *DoubleSpendFilter) Add(tx *ledgerstate.Transaction) {
 		}
 		d.recentMap[casted.ReferencedOutputID()] = tx.ID()
 		d.addedAt[tx.ID()] = now
-		log.Infof("Added output %s", casted.ReferencedOutputID().Base58())
 	}
-	log.Infof("added tx %s", tx.ID())
 }
 
 // Remove removes all outputs associated to the given transaction ID.
@@ -100,11 +98,9 @@ func (d *DoubleSpendFilter) remove(txID ledgerstate.TransactionID) {
 	// remove all outputs
 	for outputID, storedTxID := range d.recentMap {
 		if bytes.Equal(txID.Bytes(), storedTxID.Bytes()) {
-			log.Infof("Removing output %s", outputID.Base58())
 			delete(d.recentMap, outputID)
 		}
 	}
-	log.Infof("Removing tx %s", txID.Base58())
 	delete(d.addedAt, txID)
 }
 
