@@ -99,7 +99,7 @@ func (d *DoubleSpendFilter) CleanUp() {
 func (d *DoubleSpendFilter) remove(txID ledgerstate.TransactionID) {
 	// remove all outputs
 	for outputID, storedTxID := range d.recentMap {
-		if bytes.Compare(txID.Bytes(), storedTxID.Bytes()) == 0 {
+		if bytes.Equal(txID.Bytes(), storedTxID.Bytes()) {
 			log.Infof("Removing output %s", outputID.Base58())
 			delete(d.recentMap, outputID)
 		}
