@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -904,7 +906,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 
 func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
 	store := mapdb.NewMapDB()
-	branchDAG := NewBranchDAG(store)
+	branchDAG := NewBranchDAG(store, database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 
