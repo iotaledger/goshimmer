@@ -37,11 +37,19 @@ var (
 	plugin *node.Plugin
 
 	// pluginOnce is used to ensure that the plugin is a singleton.
-	pluginOnce                    sync.Once
-	log                           *logger.Logger
-	doubleSpendFilter             *DoubleSpendFilter
-	monitorOnce                   sync.Once
+	pluginOnce sync.Once
+
+	// doubleSpendFilter helps to filter out double spends locally.
+	doubleSpendFilter *DoubleSpendFilter
+
+	// doubleSpendFilterOnce ensures that doubleSpendFilter is a singleton.
+	doubleSpendFilterOnce sync.Once
+
+	// closure to be executed on transaction confirmation.
 	onTransactionConfirmedClosure *events.Closure
+
+	// logger
+	log *logger.Logger
 )
 
 // Plugin returns the plugin as a singleton.
@@ -55,7 +63,7 @@ func Plugin() *node.Plugin {
 
 // Filter returns the double spend filter singleton.
 func Filter() *DoubleSpendFilter {
-	monitorOnce.Do(func() {
+	doubleSpendFilterOnce.Do(func() {
 		doubleSpendFilter = NewDoubleSpendFilter()
 	})
 	return doubleSpendFilter
