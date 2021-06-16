@@ -6,10 +6,14 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
+// CacheTimeProvider should be always used to get the CacheTime option for storage
+// It wraps around objectstorage.CacheTime() function and may override the input duration
 type CacheTimeProvider struct {
 	forceCacheTime time.Duration
 }
 
+// NewCacheTimeProvider creates an instance that forces cache time to always be a certain value.
+// If the given value is negative, hard coded defaults will be used
 func NewCacheTimeProvider(forceCacheTime time.Duration) *CacheTimeProvider {
 	return &CacheTimeProvider{forceCacheTime: forceCacheTime}
 }
