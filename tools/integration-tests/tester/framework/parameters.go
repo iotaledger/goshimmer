@@ -125,7 +125,7 @@ type GoShimmerConfig struct {
 	WriteManaThreshold         float64
 	ReadManaThreshold          float64
 	SnapshotResetTime          bool
-	GlobalCacheTime            int
+	ForceCacheTime             int
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

@@ -121,7 +121,7 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.DisabledPlugins = disabledPluginsPeer
 	config.EnabledPlugins = enabledPluginsPeer
 	config.SnapshotFilePath = snapshotFilePath
-	config.GlobalCacheTime = noCache
+	config.ForceCacheTime = noCache
 	if config.FPCRoundInterval == 0 {
 		config.FPCRoundInterval = 5
 	}
