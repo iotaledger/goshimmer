@@ -22,7 +22,7 @@ const (
 // objectStorageOptions contains a list of default settings for the object storage.
 var objectStorageOptions []objectstorage.Option
 
-func initobjectStorageOptions(cacheTimeManager database.CacheTimeProvider) {
+func initobjectStorageOptions(cacheTimeManager *database.CacheTimeProvider) {
 	objectStorageOptions = []objectstorage.Option{
 		cacheTimeManager.CacheTime(cacheTime),
 	}

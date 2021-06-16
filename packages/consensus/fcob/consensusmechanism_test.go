@@ -39,7 +39,8 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 
 	consensusProvider := NewConsensusMechanism()
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
+		tangle.ForceCacheTime(0))
 	defer testTangle.Shutdown()
 	testTangle.Setup()
 
@@ -242,7 +243,8 @@ func TestOpinionFormer(t *testing.T) {
 
 	consensusProvider := NewConsensusMechanism()
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
+		tangle.ForceCacheTime(0))
 	defer testTangle.Shutdown()
 
 	messageA := newTestDataMessage("A")

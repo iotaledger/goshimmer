@@ -30,14 +30,14 @@ type Storage struct {
 }
 
 // NewStorage is the constructor for a Storage.
-func NewStorage(store kvstore.KVStore) (storage *Storage) {
+func NewStorage(store kvstore.KVStore, cacheProvider database.CacheTimeProvider) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixFCOB)
 
 	storage = &Storage{
 		store:                   store,
-		opinionStorage:          osFactory.New(PrefixOpinion, OpinionFromObjectStorage, database.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		timestampOpinionStorage: osFactory.New(PrefixTimestampOpinion, TimestampOpinionFromObjectStorage, database.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage:  osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, database.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		opinionStorage:          osFactory.New(PrefixOpinion, OpinionFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		timestampOpinionStorage: osFactory.New(PrefixTimestampOpinion, TimestampOpinionFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage:  osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 	}
 
 	genesis := NewMessageMetadata(tangle.EmptyMessageID)

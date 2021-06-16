@@ -82,57 +82,57 @@ var (
 	addressOutputMappingStorageOptions []objectstorage.Option
 )
 
-func initObjectStorageOptions() {
+func initObjectStorageOptions(cacheProvider *database.CacheTimeProvider) {
 	branchStorageOptions = []objectstorage.Option{
-		database.CacheTime(branchCacheTime),
+		cacheProvider.CacheTime(branchCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	childBranchStorageOptions = []objectstorage.Option{
 		ChildBranchKeyPartition,
-		database.CacheTime(branchCacheTime),
+		cacheProvider.CacheTime(branchCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	conflictStorageOptions = []objectstorage.Option{
-		database.CacheTime(consumerCacheTime),
+		cacheProvider.CacheTime(consumerCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	conflictMemberStorageOptions = []objectstorage.Option{
 		ConflictMemberKeyPartition,
-		database.CacheTime(conflictCacheTime),
+		cacheProvider.CacheTime(conflictCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	transactionStorageOptions = []objectstorage.Option{
-		database.CacheTime(transactionCacheTime),
+		cacheProvider.CacheTime(transactionCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	transactionMetadataStorageOptions = []objectstorage.Option{
-		database.CacheTime(transactionCacheTime),
+		cacheProvider.CacheTime(transactionCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	outputStorageOptions = []objectstorage.Option{
-		database.CacheTime(outputCacheTime),
+		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	outputMetadataStorageOptions = []objectstorage.Option{
-		database.CacheTime(outputCacheTime),
+		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	consumerStorageOptions = []objectstorage.Option{
 		ConsumerPartitionKeys,
-		database.CacheTime(consumerCacheTime),
+		cacheProvider.CacheTime(consumerCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
 	addressOutputMappingStorageOptions = []objectstorage.Option{
-		database.CacheTime(addressCacheTime),
+		cacheProvider.CacheTime(addressCacheTime),
 		objectstorage.PartitionKey(AddressLength, OutputIDLength),
 		objectstorage.LeakDetectionEnabled(false),
 	}

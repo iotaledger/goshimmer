@@ -51,7 +51,7 @@ func NewConsensusMechanism() *ConsensusMechanism {
 // Init initializes the ConsensusMechanism by making the Tangle object available that is using it.
 func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 	f.tangle = tangle
-	f.Storage = NewStorage(tangle.Options.Store)
+	f.Storage = NewStorage(tangle.Options.Store, tangle.Options.ForceCacheTime)
 }
 
 // Setup sets up the behavior of the ConsensusMechanism by making it attach to the relevant events in the Tangle.

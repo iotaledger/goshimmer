@@ -34,8 +34,8 @@ type BranchDAG struct {
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
-	initObjectStorageOptions()
+func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider) (newBranchDAG *BranchDAG) {
+	initObjectStorageOptions(cacheProvider)
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
 		Events:                NewBranchDAGEvents(),
