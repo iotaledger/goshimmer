@@ -16,8 +16,8 @@ const (
 
 // Parameters contains configuration parameters used by the storage layer.
 var Parameters = struct {
-	// GlobalCacheTime  is a new global cache time in seconds for object storage.
-	GlobalCacheTime int `default:"-1" usage:"number of seconds all objects should remain in memory. -1 means use defaults"`
+	// ForceCacheTime  is a new global cache time in seconds for object storage.
+	ForceCacheTime int `default:"-1" usage:"number of seconds all objects should remain in memory. -1 means use defaults"`
 }{}
 
 func init() {

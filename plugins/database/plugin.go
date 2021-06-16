@@ -72,8 +72,6 @@ func configure(_ *node.Plugin) {
 	store := Store()
 	configureHealthStore(store)
 
-	database.SetGlobalCacheTimeOnce(Parameters.GlobalCacheTime)
-
 	if err := checkDatabaseVersion(healthStore); err != nil {
 		if errors.Is(err, ErrDBVersionIncompatible) {
 			log.Fatalf("The database scheme was updated. Please delete the database folder. %s", err)

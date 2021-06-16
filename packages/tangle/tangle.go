@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -292,6 +294,7 @@ type Options struct {
 	WeightProvider               WeightProvider
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
+	ForceCacheTime               database.CacheTimeProvider
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -378,6 +381,13 @@ func SyncTimeWindow(syncTimeWindow time.Duration) Option {
 func StartSynced(startSynced bool) Option {
 	return func(options *Options) {
 		options.StartSynced = startSynced
+	}
+}
+
+// ForceCacheTime is an Option for the Tangle that allows to override hard coded cache time.
+func ForceCacheTime(forceCacheTime int) Option {
+	return func(options *Options) {
+		options.ForceCacheTime = *database.NewCacheTimeProvider(time.Duration(forceCacheTime))
 	}
 }
 
