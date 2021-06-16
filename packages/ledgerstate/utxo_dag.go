@@ -1413,7 +1413,7 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Consumer) Update(x objectstorage.StorableObject) {
+func (c *Consumer) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
