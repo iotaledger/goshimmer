@@ -230,7 +230,7 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 			defer u.UnlockEntity(transaction)
 
 			u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-				u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
+				_ = u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
 			})
 		})
 	}
