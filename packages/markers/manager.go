@@ -29,7 +29,7 @@ type Manager struct {
 }
 
 // NewManager is the constructor of the Manager that takes a KVStore to persist its state.
-func NewManager(store kvstore.KVStore) (newManager *Manager) {
+func NewManager(store kvstore.KVStore, cacheProvider database.CacheTimeProvider) (newManager *Manager) {
 	sequenceIDCounter := SequenceID(1)
 	if storedSequenceIDCounter, err := store.Get(kvstore.Key("sequenceIDCounter")); err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
 		panic(err)
@@ -39,7 +39,7 @@ func NewManager(store kvstore.KVStore) (newManager *Manager) {
 		}
 	}
 
-	initobjectStorageOptions()
+	initobjectStorageOptions(cacheProvider)
 	osFactory := objectstorage.NewFactory(store, database.PrefixMarkers)
 	newManager = &Manager{
 		store:                     store,
