@@ -26,9 +26,11 @@ var (
 	pluginOnce sync.Once
 	log        *logger.Logger
 
-	db        database.DB
-	store     kvstore.KVStore
-	storeOnce sync.Once
+	db                database.DB
+	store             kvstore.KVStore
+	cacheTimeProvider *database.CacheTimeProvider
+	storeOnce         sync.Once
+	cacheProviderOnce sync.Once
 )
 
 // Plugin gets the plugin instance.
@@ -43,6 +45,15 @@ func Plugin() *node.Plugin {
 func Store() kvstore.KVStore {
 	storeOnce.Do(createStore)
 	return store
+}
+
+func CacheTimeProvider() *database.CacheTimeProvider {
+	cacheProviderOnce.Do(createCacheTimeProvider)
+	return cacheTimeProvider
+}
+
+func createCacheTimeProvider() {
+	cacheTimeProvider = database.NewCacheTimeProvider(Parameters.ForceCacheTime)
 }
 
 // StoreRealm is a factory method for a different realm backed by the KVStore instance.

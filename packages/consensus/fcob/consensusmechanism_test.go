@@ -40,9 +40,10 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	LocallyFinalizedThreshold = 2 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
-		tangle.CacheTimeProvider(0))
+		tangle.CacheTimeProvider(cacheTimeProvider))
 	defer testTangle.Shutdown()
 	testTangle.Setup()
 
@@ -244,9 +245,10 @@ func TestOpinionFormer(t *testing.T) {
 	LocallyFinalizedThreshold = 2 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
-		tangle.CacheTimeProvider(0))
+		tangle.CacheTimeProvider(cacheTimeProvider))
 	defer testTangle.Shutdown()
 
 	messageA := newTestDataMessage("A")
