@@ -294,7 +294,7 @@ type Options struct {
 	WeightProvider               WeightProvider
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
-	ForceCacheTime               database.CacheTimeProvider
+	CacheTimeProvider            database.CacheTimeProvider
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -384,10 +384,10 @@ func StartSynced(startSynced bool) Option {
 	}
 }
 
-// ForceCacheTime is an Option for the Tangle that allows to override hard coded cache time.
-func ForceCacheTime(duration time.Duration) Option {
+// CacheTimeProvider is an Option for the Tangle that allows to override hard coded cache time.
+func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
-		options.ForceCacheTime = *database.NewCacheTimeProvider(duration)
+		options.CacheTimeProvider = *cacheTimeProvider
 	}
 }
 

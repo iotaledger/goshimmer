@@ -635,6 +635,6 @@ func totalAccessManaRetriever() float64 {
 
 // newTestTangle returns a Tangle instance with a testing schedulerConfig
 func newTestTangle(options ...Option) *Tangle {
-	options = append(options, SchedulerConfig(testSchedulerParams), ForceCacheTime(0))
+	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(0))
 	return New(options...)
 }

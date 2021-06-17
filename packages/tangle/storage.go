@@ -88,7 +88,7 @@ type Storage struct {
 // NewStorage creates a new Storage.
 func NewStorage(tangle *Tangle) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixTangle)
-	cacheProvider := tangle.Options.ForceCacheTime
+	cacheProvider := tangle.Options.CacheTimeProvider
 
 	storage = &Storage{
 		tangle:                            tangle,
