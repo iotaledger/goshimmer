@@ -1,6 +1,8 @@
 package database
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/configuration"
 	flag "github.com/spf13/pflag"
 )
@@ -17,7 +19,7 @@ const (
 // Parameters contains configuration parameters used by the storage layer.
 var Parameters = struct {
 	// ForceCacheTime  is a new global cache time in seconds for object storage.
-	ForceCacheTime int `default:"-1" usage:"number of seconds all objects should remain in memory. -1 means use defaults"`
+	ForceCacheTime time.Duration `default:"-1" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`
 }{}
 
 func init() {

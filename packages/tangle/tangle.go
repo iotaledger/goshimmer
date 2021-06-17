@@ -385,9 +385,9 @@ func StartSynced(startSynced bool) Option {
 }
 
 // ForceCacheTime is an Option for the Tangle that allows to override hard coded cache time.
-func ForceCacheTime(forceCacheTime int) Option {
+func ForceCacheTime(duration time.Duration) Option {
 	return func(options *Options) {
-		options.ForceCacheTime = *database.NewCacheTimeProvider(time.Duration(forceCacheTime))
+		options.ForceCacheTime = *database.NewCacheTimeProvider(duration)
 	}
 }
 
