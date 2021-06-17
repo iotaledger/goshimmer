@@ -15,8 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
@@ -37,9 +35,8 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	webapi.Server().POST("faucet", requestFunds)
-	targetPoWDifficulty = config.Node().Int(faucet.CfgFaucetPoWDifficulty)
 }
 
 // requestFunds creates a faucet request (0-value) message with the given destination address and
@@ -78,15 +75,10 @@ func requestFunds(c echo.Context) error {
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
 
 	// verify PoW
-	leadingZeroes, err := powVerifier.LeadingZeros(faucetPayload.Bytes())
+	_, err = powVerifier.LeadingZeros(faucetPayload.Bytes())
 	if err != nil {
 		plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Could not verify PoW"})
-	}
-
-	if leadingZeroes < targetPoWDifficulty {
-		plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
-		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Funding request doesn't fulfill PoW requirement"})
 	}
 
 	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload)
