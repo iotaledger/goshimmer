@@ -906,11 +906,12 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 
 func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
 	store := mapdb.NewMapDB()
-	branchDAG := NewBranchDAG(store, database.NewCacheTimeProvider(0))
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
+	branchDAG := NewBranchDAG(store, cacheTimeProvider)
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 
-	return branchDAG, NewUTXODAG(store, branchDAG)
+	return branchDAG, NewUTXODAG(store, cacheTimeProvider, branchDAG)
 }
 
 type wallet struct {

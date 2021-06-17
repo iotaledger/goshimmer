@@ -19,11 +19,17 @@ const (
 	cacheTime = 60 * time.Second
 )
 
-// objectStorageOptions contains a list of default settings for the object storage.
-var objectStorageOptions []objectstorage.Option
+type storageOptions struct {
+	// objectStorageOptions contains a list of default settings for the object storage.
+	objectStorageOptions []objectstorage.Option
+}
 
-func initobjectStorageOptions(cacheTimeManager *database.CacheTimeProvider) {
-	objectStorageOptions = []objectstorage.Option{
+func buildObjectStorageOptions(cacheTimeManager *database.CacheTimeProvider) *storageOptions {
+	options := storageOptions{}
+
+	options.objectStorageOptions = []objectstorage.Option{
 		cacheTimeManager.CacheTime(cacheTime),
 	}
+
+	return &options
 }

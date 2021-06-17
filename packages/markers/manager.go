@@ -39,12 +39,12 @@ func NewManager(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 		}
 	}
 
-	initobjectStorageOptions(cacheProvider)
+	options := buildObjectStorageOptions(cacheProvider)
 	osFactory := objectstorage.NewFactory(store, database.PrefixMarkers)
 	newManager = &Manager{
 		store:                     store,
-		sequenceStore:             osFactory.New(PrefixSequence, SequenceFromObjectStorage, objectStorageOptions...),
-		sequenceAliasMappingStore: osFactory.New(PrefixSequenceAliasMapping, SequenceAliasMappingFromObjectStorage, objectStorageOptions...),
+		sequenceStore:             osFactory.New(PrefixSequence, SequenceFromObjectStorage, options.objectStorageOptions...),
+		sequenceAliasMappingStore: osFactory.New(PrefixSequenceAliasMapping, SequenceAliasMappingFromObjectStorage, options.objectStorageOptions...),
 		sequenceIDCounter:         sequenceIDCounter,
 	}
 

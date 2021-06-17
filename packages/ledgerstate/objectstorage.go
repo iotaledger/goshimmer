@@ -50,7 +50,7 @@ const (
 	addressCacheTime     = 10 * time.Second
 )
 
-var (
+type storageOptions struct {
 	// branchStorageOptions contains a list of default settings for the Branch object storage.
 	branchStorageOptions []objectstorage.Option
 
@@ -80,60 +80,64 @@ var (
 
 	// addressOutputMappingStorageOptions contains a list of default settings for the AddressOutputMapping object storage.
 	addressOutputMappingStorageOptions []objectstorage.Option
-)
+}
 
-func initObjectStorageOptions(cacheProvider *database.CacheTimeProvider) {
-	branchStorageOptions = []objectstorage.Option{
+func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *storageOptions {
+	options := storageOptions{}
+
+	options.branchStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(branchCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	childBranchStorageOptions = []objectstorage.Option{
+	options.childBranchStorageOptions = []objectstorage.Option{
 		ChildBranchKeyPartition,
 		cacheProvider.CacheTime(branchCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	conflictStorageOptions = []objectstorage.Option{
+	options.conflictStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(consumerCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	conflictMemberStorageOptions = []objectstorage.Option{
+	options.conflictMemberStorageOptions = []objectstorage.Option{
 		ConflictMemberKeyPartition,
 		cacheProvider.CacheTime(conflictCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	transactionStorageOptions = []objectstorage.Option{
+	options.transactionStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(transactionCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	transactionMetadataStorageOptions = []objectstorage.Option{
+	options.transactionMetadataStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(transactionCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	outputStorageOptions = []objectstorage.Option{
+	options.outputStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	outputMetadataStorageOptions = []objectstorage.Option{
+	options.outputMetadataStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	consumerStorageOptions = []objectstorage.Option{
+	options.consumerStorageOptions = []objectstorage.Option{
 		ConsumerPartitionKeys,
 		cacheProvider.CacheTime(consumerCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 	}
 
-	addressOutputMappingStorageOptions = []objectstorage.Option{
+	options.addressOutputMappingStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(addressCacheTime),
 		objectstorage.PartitionKey(AddressLength, OutputIDLength),
 		objectstorage.LeakDetectionEnabled(false),
 	}
+
+	return &options
 }
