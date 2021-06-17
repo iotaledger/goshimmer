@@ -19,7 +19,7 @@ const (
 // Parameters contains configuration parameters used by the storage layer.
 var Parameters = struct {
 	// CacheTimeProvider  is a new global cache time in seconds for object storage.
-	ForceCacheTime time.Duration `default:"-1" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`
+	ForceCacheTime time.Duration `default:"-1s" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`
 }{}
 
 func init() {
