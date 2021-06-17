@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"context"
-	"crypto"
 	"fmt"
 	"math/rand"
 	"net"
@@ -360,7 +359,7 @@ func TestTangle_Flow(t *testing.T) {
 
 	var (
 		totalMsgCount = solidMsgCount + invalidMsgCount
-		testWorker    = pow.New(crypto.BLAKE2b_512, 1)
+		testWorker    = pow.New(1)
 		// same as gossip manager
 		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 		messageWorkerQueueSize = 1000

@@ -8,13 +8,14 @@ import {
     PayloadType,
     TransactionPayload,
     getPayloadType,
-    Output
+    Output, SigLockedSingleOutput
 } from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
 
 export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
+export const GenesisTransactionID = "11111111111111111111111111111111";
 
 export class Message {
     id: string;
@@ -269,6 +270,15 @@ export class ExplorerStore {
                 let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
                 try{
                     let referencedOutputRes = await fetch(`/api/output/${inputID}`)
+                    if (referencedOutputRes.status === 404){
+                        let genOutput = new Output();
+                        genOutput.output = new SigLockedSingleOutput();
+                        genOutput.output.balance = 0;
+                        genOutput.output.address = "LOADED FROM SNAPSHOT";
+                        genOutput.type = "SigLockedSingleOutputType";
+                        genOutput.outputID = tx.inputs[i].referencedOutputID;
+                        tx.inputs[i].output = genOutput;
+                    }
                     if (referencedOutputRes.status === 200){
                         tx.inputs[i].output = await referencedOutputRes.json()
                     }
