@@ -47,6 +47,7 @@ func Store() kvstore.KVStore {
 	return store
 }
 
+// CacheTimeProvider  returns the cacheTimeProvider instance
 func CacheTimeProvider() *database.CacheTimeProvider {
 	cacheProviderOnce.Do(createCacheTimeProvider)
 	return cacheTimeProvider
