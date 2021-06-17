@@ -1,46 +1,50 @@
 package consensus
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58/base58"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-func TestConsensus(t *testing.T) {
+func TestConsensusConflicts(t *testing.T) {
 	const numberOfPeers = 6
+	FCoBQuarantineTime := time.Duration(framework.PeerConfig.FCOB.QuarantineTime) * time.Second
 
-	// create two partitions with their own peers
-	n, err := f.CreateNetwork("conflict", numberOfPeers, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), numberOfPeers, framework.CreateNetworkConfig{
+		Faucet:      true,
+		StartSynced: true,
+		FPC:         true,
+		Autopeering: true,
+	})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// genesis wallet
-	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
-	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
+	faucet := n.Peers()[0]
 
-	genesisSeed := seed.NewSeed(genesisSeedBytes)
+	genesisSeed := seed.NewSeed(framework.GenesisSeed)
 	genesisAddr := genesisSeed.Address(0).Address()
-	unspentOutputs, err := n.Peers()[0].PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
+	unspentOutputs, err := faucet.PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
 	genesisOutput, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
 	require.NoError(t, err)
 	genesisBalance, exist := genesisOutput.Balances().Get(ledgerstate.ColorIOTA)
 	assert.True(t, exist)
-	fmt.Println("faucetRemainBalance:", genesisBalance)
-
 	input := ledgerstate.NewUTXOInput(genesisOutput.ID())
 
 	// splitting genesis funds to one address per peer plus one additional that will be used for the conflict
@@ -52,9 +56,9 @@ func TestConsensus(t *testing.T) {
 	assert.NoError(t, err)
 
 	// sleep the avg. network delay so both partitions confirm their own first seen transaction
-	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
-		"preferred in their corresponding partition", framework.ParaFCoBQuarantineTime/time.Second)
-	time.Sleep(framework.ParaFCoBQuarantineTime)
+	log.Printf("waiting %v avg. network delay to make the transactions "+
+		"preferred in their corresponding partition", FCoBQuarantineTime)
+	time.Sleep(FCoBQuarantineTime)
 
 	// issue one transaction per peer to pledge mana to nodes
 	// leave one unspent output from splitting genesis transaction for further conflict creation
@@ -62,10 +66,10 @@ func TestConsensus(t *testing.T) {
 	// prepare all the pledgingTxs
 	pledgingTxs := make([]*ledgerstate.Transaction, numberOfPeers+1)
 	pledgeSeed := make([]*seed.Seed, numberOfPeers+1)
-	receiverId := 0
+	receiverID := 0
 	for _, peer := range n.Peers() {
 		// get next dest addresses
-		destAddr := destGenSeed.Address(uint64(receiverId)).Address()
+		destAddr := destGenSeed.Address(uint64(receiverID)).Address()
 		fmt.Printf("dest addr: %s\n", destAddr)
 		// Get tx output for current dest address
 
@@ -74,22 +78,21 @@ func TestConsensus(t *testing.T) {
 		})[0]
 		balance, _ := outputGenTx.Balances().Get(ledgerstate.ColorIOTA)
 		pledgeInput := ledgerstate.NewUTXOInput(outputGenTx.ID())
-		pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID(), "equal")
+		pledgingTxs[receiverID], pledgeSeed[receiverID] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverID)), 1, peer.ID(), "equal")
 
 		// issue the transaction
-		_, err = n.Peers()[0].PostTransaction(pledgingTxs[receiverId].Bytes())
+		_, err = n.Peers()[0].PostTransaction(pledgingTxs[receiverID].Bytes())
 		assert.NoError(t, err)
-		receiverId++
+		receiverID++
 		time.Sleep(2 * time.Second)
 	}
 	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
 	// and 1 avg delay more to make sure each node has mana
-	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBQuarantineTime/time.Second)
-	time.Sleep(framework.ParaFCoBQuarantineTime*2 + 5*time.Second)
+	log.Printf("waiting 2 * %v avg. network delay + 5s to make the transactions confirmed", FCoBQuarantineTime)
+	time.Sleep(2*FCoBQuarantineTime + 5*time.Second)
 
-	resp1, err := n.Peers()[0].GoShimmerAPI.GetAllMana()
+	_, err = n.Peers()[0].GoShimmerAPI.GetAllMana()
 	require.NoError(t, err)
-	t.Log(resp1)
 
 	// prepare two conflicting transactions from one additional unused genesis output
 	conflictingTxs := make([]*ledgerstate.Transaction, 2)
@@ -113,7 +116,7 @@ func TestConsensus(t *testing.T) {
 		conflictingTxIDs[i] = resp.TransactionID
 
 		// sleep to prefer the first one
-		time.Sleep(framework.ParaFCoBQuarantineTime)
+		time.Sleep(FCoBQuarantineTime)
 	}
 
 	log.Println("waiting for transactions to be available on all peers...")
@@ -157,7 +160,7 @@ func TestConsensus(t *testing.T) {
 		Finalized: tests.False(),
 	}
 
-	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 30*time.Duration(framework.ParaFPCRoundInterval)*time.Second)
+	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 30*time.Second)
 	assert.NoError(t, err)
 
 	// now all transactions must be finalized and at most one must be confirmed

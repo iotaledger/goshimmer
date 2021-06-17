@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
+	"log"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -12,6 +12,8 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 // newDockerClient creates a Docker client that communicates via the Docker socket.
@@ -26,8 +28,10 @@ func newDockerClient() (*client.Client, error) {
 
 // DockerContainer is a wrapper object for a Docker container.
 type DockerContainer struct {
+	name string
+	id   string
+
 	client *client.Client
-	id     string
 }
 
 // NewDockerContainer creates a new DockerContainer.
@@ -36,8 +40,8 @@ func NewDockerContainer(c *client.Client) *DockerContainer {
 }
 
 // NewDockerContainerFromExisting creates a new DockerContainer from an already existing Docker container by name.
-func NewDockerContainerFromExisting(c *client.Client, name string) (*DockerContainer, error) {
-	containers, err := c.ContainerList(context.Background(), types.ContainerListOptions{})
+func NewDockerContainerFromExisting(ctx context.Context, c *client.Client, name string) (*DockerContainer, error) {
+	containers, err := c.ContainerList(ctx, types.ContainerListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +49,9 @@ func NewDockerContainerFromExisting(c *client.Client, name string) (*DockerConta
 	for _, cont := range containers {
 		if cont.Names[0] == name {
 			return &DockerContainer{
-				client: c,
+				name:   name,
 				id:     cont.ID,
+				client: c,
 			}, nil
 		}
 	}
@@ -54,106 +59,34 @@ func NewDockerContainerFromExisting(c *client.Client, name string) (*DockerConta
 	return nil, fmt.Errorf("could not find container with name '%s'", name)
 }
 
-// CreateGoShimmerEntryNode creates a new container with the GoShimmer entry node's configuration.
-func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) error {
-	containerConfig := &container.Config{
-		Image:        "iotaledger/goshimmer",
-		ExposedPorts: nil,
-		Cmd: strslice.StrSlice{
-			"--skip-config=true",
-			"--logger.level=debug",
-			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsEntryNode),
-			"--autopeering.entryNodes=",
-			fmt.Sprintf("--autopeering.seed=base58:%s", seed),
-		},
+// CreateNode creates a new GoShimmer container.
+func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer) error {
+	cmd := strslice.StrSlice{
+		"--skip-config=true",
+		"--logger.level=debug",
 	}
+	cmd = append(cmd, conf.CreateFlags()...)
 
-	return d.CreateContainer(name, containerConfig)
-}
-
-// CreateGoShimmerPeer creates a new container with the GoShimmer peer's configuration.
-func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
 		Image: "iotaledger/goshimmer",
 		ExposedPorts: nat.PortSet{
-			nat.Port("8080/tcp"):  {},
-			nat.Port("10895/tcp"): {},
+			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):     {},
+			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):  {},
+			nat.Port(fmt.Sprintf("%d/udp", peeringPort)): {},
+			nat.Port(fmt.Sprintf("%d/tcp", fpcPort)):     {},
 		},
-		Cmd: strslice.StrSlice{
-			"--skip-config=true",
-			"--logger.level=debug",
-			fmt.Sprintf("--messageLayer.fcob.quarantineTime=%d", ParaFCoBQuarantineTime/time.Second),
-			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
-			fmt.Sprintf("--node.enablePlugins=%s", config.EnabledPlugins),
-			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
-			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
-			fmt.Sprintf("--faucet.preparedOutputsCounts=%d", ParaFaucetPreparedOutputsCount),
-			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),
-			fmt.Sprintf("--node.enablePlugins=%s", func() string {
-				var plugins []string
-				if config.Faucet {
-					plugins = append(plugins, "faucet")
-				}
-				if config.ActivityPlugin {
-					plugins = append(plugins, "activity")
-				}
-				return strings.Join(plugins[:], ",")
-			}()),
-			// define the faucet seed in case the faucet dApp is enabled
-			func() string {
-				if !config.Faucet {
-					return ""
-				}
-				return fmt.Sprintf("--faucet.seed=%s", genesisSeedBase58)
-			}(),
-			fmt.Sprintf("--faucet.tokensPerRequest=%d", ParaFaucetTokensPerRequest),
-			fmt.Sprintf("--messageLayer.snapshot.file=%s", config.SnapshotFilePath),
-			"--messageLayer.snapshot.genesisNode=",
-			"--webapi.bindAddress=0.0.0.0:8080",
-			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
-			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
-			func() string {
-				if !config.EnableAutopeeringForGossip {
-					return "--autopeering.enableGossipIntegration=false"
-				}
-				return ""
-			}(),
-			fmt.Sprintf("--fpc.roundInterval=%d", config.FPCRoundInterval),
-			fmt.Sprintf("--fpc.listen=%v", config.FPCListen),
-			fmt.Sprintf("--fpc.totalRoundsFinalization=%d", config.FPCTotalRoundsFinalization),
-			fmt.Sprintf("--statement.writeStatement=%v", config.WriteStatement),
-			fmt.Sprintf("--statement.waitForStatement=%d", config.WaitForStatement),
-			fmt.Sprintf("--statement.readManaThreshold=%f", config.ReadManaThreshold),
-			fmt.Sprintf("--statement.writeManaThreshold=%f", config.WriteManaThreshold),
-			fmt.Sprintf("--mana.snapshotResetTime=%v", config.SnapshotResetTime),
-			fmt.Sprintf("--drng.custom.instanceId=%d", config.DRNGInstance),
-			fmt.Sprintf("--drng.custom.threshold=%d", config.DRNGThreshold),
-			fmt.Sprintf("--drng.custom.committeeMembers=%s", config.DRNGCommittee),
-			fmt.Sprintf("--drng.custom.distributedPubKey=%s", config.DRNGDistKey),
-			fmt.Sprintf("--drng.xteam.committeeMembers="),
-			fmt.Sprintf("--drng.pollen.committeeMembers="),
-			fmt.Sprintf("--activity.broadcastIntervalSec=%d", config.ActivityInterval),
-			fmt.Sprintf("--messageLayer.startSynced=%t", config.StartSynced),
-			fmt.Sprintf("--messageLayer.tangleTimeWindow=%s", ParaTangleTimeWindow),
-			fmt.Sprintf("--mana.allowedAccessFilterEnabled=%t", config.ManaAllowedAccessFilterEnabled),
-			fmt.Sprintf("--mana.allowedConsensusFilterEnabled=%t", config.ManaAllowedConsensusFilterEnabled),
-			fmt.Sprintf("--mana.allowedAccessPledge=%s", func() string {
-				return strings.Join(config.ManaAllowedAccessPledge[:], ",")
-			}()),
-			fmt.Sprintf("--mana.allowedConsensusPledge=%s", func() string {
-				return strings.Join(config.ManaAllowedConsensusPledge[:], ",")
-			}()),
-		},
+		Cmd: cmd,
 	}
+	log.Printf("Start %s %v", containerConfig.Image, containerConfig.Cmd)
 
-	return d.CreateContainer(config.Name, containerConfig, &container.HostConfig{
+	return d.CreateContainer(ctx, conf.Name, containerConfig, &container.HostConfig{
 		Binds: []string{"goshimmer-testing-assets:/assets:rw"},
 	})
 }
 
 // CreateDrandMember creates a new container with the drand configuration.
-func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, leader bool) error {
+func (d *DockerContainer) CreateDrandMember(ctx context.Context, name string, goShimmerAPI string, leader bool) error {
 	// configure drand container instance
 	env := []string{}
 	if leader {
@@ -169,11 +102,12 @@ func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, le
 		Entrypoint: strslice.StrSlice{"/data/client-script.sh"},
 	}
 
-	return d.CreateContainer(name, containerConfig)
+	return d.CreateContainer(ctx, name, containerConfig)
 }
 
-// CreatePumba creates a new container with Pumba configuration.
-func (d *DockerContainer) CreatePumba(name string, containerName string, targetIPs []string) error {
+// CreatePumba creates a new container with Pumba configuration blocking all traffic.
+// This blocks all traffic of effectedContainer to targetIPs.
+func (d *DockerContainer) CreatePumba(ctx context.Context, name string, effectedContainerName string, targetIPs []string) error {
 	hostConfig := &container.HostConfig{
 		Binds: strslice.StrSlice{"/var/run/docker.sock:/var/run/docker.sock:ro"},
 	}
@@ -193,7 +127,7 @@ func (d *DockerContainer) CreatePumba(name string, containerName string, targetI
 		"--tc-image=gaiadocker/iproute2",
 		"loss",
 		"--percent=100",
-		containerName,
+		effectedContainerName,
 	}
 	cmd = append(cmd, slice...)
 
@@ -202,58 +136,59 @@ func (d *DockerContainer) CreatePumba(name string, containerName string, targetI
 		Cmd:   cmd,
 	}
 
-	return d.CreateContainer(name, containerConfig, hostConfig)
+	return d.CreateContainer(ctx, name, containerConfig, hostConfig)
 }
 
 // CreateContainer creates a new container with the given configuration.
-func (d *DockerContainer) CreateContainer(name string, containerConfig *container.Config, hostConfigs ...*container.HostConfig) error {
+func (d *DockerContainer) CreateContainer(ctx context.Context, name string, containerConfig *container.Config, hostConfigs ...*container.HostConfig) error {
 	var hostConfig *container.HostConfig
 	if len(hostConfigs) > 0 {
 		hostConfig = hostConfigs[0]
 	}
 
-	resp, err := d.client.ContainerCreate(context.Background(), containerConfig, hostConfig, nil, name)
+	resp, err := d.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, name)
 	if err != nil {
 		return err
 	}
 
 	d.id = resp.ID
+	d.name = name
 	return nil
 }
 
 // ConnectToNetwork connects a container to an existent network in the docker host.
-func (d *DockerContainer) ConnectToNetwork(networkID string) error {
-	return d.client.NetworkConnect(context.Background(), networkID, d.id, nil)
+func (d *DockerContainer) ConnectToNetwork(ctx context.Context, networkID string) error {
+	return d.client.NetworkConnect(ctx, networkID, d.id, nil)
 }
 
 // DisconnectFromNetwork disconnects a container from an existent network in the docker host.
-func (d *DockerContainer) DisconnectFromNetwork(networkID string) error {
-	return d.client.NetworkDisconnect(context.Background(), networkID, d.id, true)
+func (d *DockerContainer) DisconnectFromNetwork(ctx context.Context, networkID string) error {
+	return d.client.NetworkDisconnect(ctx, networkID, d.id, true)
 }
 
 // Start sends a request to the docker daemon to start a container.
-func (d *DockerContainer) Start() error {
-	return d.client.ContainerStart(context.Background(), d.id, types.ContainerStartOptions{})
+func (d *DockerContainer) Start(ctx context.Context) error {
+	return d.client.ContainerStart(ctx, d.id, types.ContainerStartOptions{})
 }
 
 // Remove kills and removes a container from the docker host.
-func (d *DockerContainer) Remove() error {
-	return d.client.ContainerRemove(context.Background(), d.id, types.ContainerRemoveOptions{Force: true})
+func (d *DockerContainer) Remove(ctx context.Context) error {
+	return d.client.ContainerRemove(ctx, d.id, types.ContainerRemoveOptions{Force: true})
 }
 
 // Stop stops a container without terminating the process.
 // The process is blocked until the container stops or the timeout expires.
-func (d *DockerContainer) Stop(optionalTimeout ...time.Duration) error {
+func (d *DockerContainer) Stop(ctx context.Context, optionalTimeout ...time.Duration) error {
 	duration := 3 * time.Minute
 	if optionalTimeout != nil {
 		duration = optionalTimeout[0]
 	}
-	return d.client.ContainerStop(context.Background(), d.id, &duration)
+	return d.client.ContainerStop(ctx, d.id, &duration)
 }
 
 // ExitStatus returns the exit status according to the container information.
-func (d *DockerContainer) ExitStatus() (int, error) {
-	resp, err := d.client.ContainerInspect(context.Background(), d.id)
+func (d *DockerContainer) ExitStatus(ctx context.Context) (int, error) {
+	resp, err := d.client.ContainerInspect(ctx, d.id)
 	if err != nil {
 		return -1, err
 	}
@@ -262,8 +197,8 @@ func (d *DockerContainer) ExitStatus() (int, error) {
 }
 
 // IP returns the IP address according to the container information for the given network.
-func (d *DockerContainer) IP(network string) (string, error) {
-	resp, err := d.client.ContainerInspect(context.Background(), d.id)
+func (d *DockerContainer) IP(ctx context.Context, network string) (string, error) {
+	resp, err := d.client.ContainerInspect(ctx, d.id)
 	if err != nil {
 		return "", err
 	}
@@ -278,7 +213,7 @@ func (d *DockerContainer) IP(network string) (string, error) {
 }
 
 // Logs returns the logs of the container as io.ReadCloser.
-func (d *DockerContainer) Logs() (io.ReadCloser, error) {
+func (d *DockerContainer) Logs(ctx context.Context) (io.ReadCloser, error) {
 	options := types.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
@@ -288,6 +223,21 @@ func (d *DockerContainer) Logs() (io.ReadCloser, error) {
 		Tail:       "",
 		Details:    false,
 	}
+	return d.client.ContainerLogs(ctx, d.id, options)
+}
 
-	return d.client.ContainerLogs(context.Background(), d.id, options)
+func (d *DockerContainer) Shutdown(ctx context.Context, optionalTimeout ...time.Duration) (exitStatus int, err error) {
+	err = d.Stop(ctx, optionalTimeout...)
+	if err != nil {
+		return 0, err
+	}
+	logs, err := d.Logs(ctx)
+	if err != nil {
+		return 0, err
+	}
+	err = createLogFile(d.name, logs)
+	if err != nil {
+		return 0, err
+	}
+	return d.ExitStatus(ctx)
 }

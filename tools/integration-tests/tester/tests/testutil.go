@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -11,9 +12,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -22,15 +20,28 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
+// Errors
 var (
 	ErrMessageNotAvailableInTime     = errors.New("message was not available in time")
 	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
 	ErrTransactionStateNotSameInTime = errors.New("transaction state did not materialize in time")
 	ErrNotSynced                     = errors.New("peers not synced")
 )
+
+var (
+	faucetTokensPerRequest     = framework.PeerConfig.Faucet.TokensPerRequest
+	faucetPoWDifficulty        = framework.PeerConfig.Faucet.PowDifficulty
+	faucetPreparedOutputsCount = framework.PeerConfig.Faucet.PreparedOutputsCounts
+)
+
+const Tick = 500 * time.Millisecond
 
 const maxRetry = 50
 
@@ -43,7 +54,7 @@ type DataMessageSent struct {
 }
 
 type Shutdowner interface {
-	Shutdown() error
+	Shutdown(context.Context) error
 }
 
 // TransactionConfig defines the configuration for a transaction.
@@ -55,7 +66,7 @@ type TransactionConfig struct {
 }
 
 // SendDataMessagesOnRandomPeer sends data messages on a random peer and saves the sent message to a map.
-func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
+func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Node, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
 	var ids map[string]DataMessageSent
 	if len(idsMap) > 0 {
 		ids = idsMap[0]
@@ -76,7 +87,7 @@ func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMess
 }
 
 // SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int) (string, DataMessageSent) {
+func SendDataMessage(t *testing.T, peer *framework.Node, data []byte, number int) (string, DataMessageSent) {
 	id, err := peer.Data(data)
 	require.NoErrorf(t, err, "could not send message on %s", peer.String())
 
@@ -90,34 +101,31 @@ func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 	return id, sent
 }
 
-// SendFaucetRequestOnRandomPeer sends a faucet request on a given peer and returns the id and a DataMessageSent struct.
-func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int) (ids map[string]DataMessageSent, addrBalance map[string]map[ledgerstate.Color]int64) {
-	ids = make(map[string]DataMessageSent, numMessages)
+func SendFaucetRequestsOnNodes(t *testing.T, peers []*framework.Node, numRequests int) (ids map[string]DataMessageSent, addrBalance map[string]map[ledgerstate.Color]int64) {
+	ids = make(map[string]DataMessageSent)
 	addrBalance = make(map[string]map[ledgerstate.Color]int64)
 
-	for i := 0; i < numMessages; i++ {
-		peer := peers[rand.Intn(len(peers))]
-		addr := peer.Seed.Address(uint64(i)).Address()
-		id, sent := SendFaucetRequest(t, peer, addr)
-		ids[id] = sent
-		addrBalance[addr.Base58()] = map[ledgerstate.Color]int64{
-			ledgerstate.ColorIOTA: framework.ParaFaucetTokensPerRequest,
+	for _, peer := range peers {
+		for i := 0; i < numRequests; i++ {
+			addr := peer.Address(i)
+			id, sent := SendFaucetRequest(t, peer, addr)
+			ids[id] = sent
+			addrBalance[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(faucetTokensPerRequest)}
 		}
 	}
-
 	return ids, addrBalance
 }
 
 // SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct. By default,
 // it pledges mana to the peer making the request.
-func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
+func SendFaucetRequest(t *testing.T, peer *framework.Node, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
 	peerID := base58.Encode(peer.ID().Bytes())
 	aManaPledgeID, cManaPledgeID := peerID, peerID
 	if len(manaPledgeIDs) > 1 {
 		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
 	}
 
-	resp, err := peer.SendFaucetRequest(addr.Base58(), framework.ParaPoWFaucetDifficulty, aManaPledgeID, cManaPledgeID)
+	resp, err := peer.SendFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
 	sent := DataMessageSent{
@@ -128,9 +136,16 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 	return resp.ID, sent
 }
 
+// CheckSynchronized checks whether all nodes a synchronized.
+func CheckSynchronized(t *testing.T, nodes []*framework.Node) {
+	for _, node := range nodes {
+		assert.Truef(t, Synced(t, node), "Node %s is not synced", node)
+	}
+}
+
 // CheckForMessageIDs first waits for all messages to be available, and then performs checks to make sure that all peers received all given messages with
 // their correct information.
-func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool, waitFor time.Duration) {
+func CheckForMessageIDs(t *testing.T, peers []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration) {
 	missing, err := AwaitMessageAvailability(peers, messageIDs, waitFor)
 	if err != nil {
 		assert.NoError(t, err, "messages should have been available")
@@ -143,14 +158,8 @@ func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[st
 		return
 	}
 
+	log.Printf("Validating %d messages...", len(messageIDs))
 	for _, peer := range peers {
-		if checkSynchronized {
-			// check that the peer sees itself as synchronized
-			info, err := peer.Info()
-			require.NoError(t, err)
-			assert.Truef(t, info.TangleTime.Synced, "Node %s is not synced", peer)
-		}
-
 		var idsSlice []string
 		var respIDs []string
 		for messageID := range messageIDs {
@@ -177,12 +186,16 @@ func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[st
 		// check that all messages are present in response
 		assert.ElementsMatchf(t, idsSlice, respIDs, "messages do not match sent in %s", peer.String())
 	}
+	log.Println("Validating messages... done")
 }
 
 // AwaitMessageAvailability awaits until the given message IDs become available on all given peers or
 // the max duration is reached. Returns a map of missing messages per peer. An error is returned if at least
 // one peer does not have all specified messages available.
-func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]DataMessageSent, waitFor time.Duration) (missing map[identity.ID]map[string]types.Empty, err error) {
+func AwaitMessageAvailability(peers []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration) (missing map[identity.ID]map[string]types.Empty, err error) {
+	log.Printf("Waiting for %d messages to become available...", len(messageIDs))
+	defer log.Println("Waiting for message... done")
+
 	s := time.Now()
 	var missingMu sync.RWMutex
 	missing = map[identity.ID]map[string]types.Empty{}
@@ -192,7 +205,7 @@ func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]Dat
 		wg.Add(len(peers))
 
 		for _, p := range peers {
-			go func(p *framework.Peer) {
+			go func(p *framework.Node) {
 				defer wg.Done()
 
 				missingMu.RLock()
@@ -240,7 +253,7 @@ func AwaitMessageAvailability(peers []*framework.Peer, messageIDs map[string]Dat
 }
 
 // SendTransactionFromFaucet sends funds to peers from the faucet, sends back the remainder to faucet, and returns the transaction ID.
-func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue int64) (txIds []string, addrBalance map[string]map[ledgerstate.Color]int64) {
+func SendTransactionFromFaucet(t *testing.T, peers []*framework.Node, sentValue int64) (txIDs []string, addrBalance map[string]map[ledgerstate.Color]int64) {
 	// initiate addrBalance map
 	addrBalance = make(map[string]map[ledgerstate.Color]int64)
 	for _, p := range peers {
@@ -251,7 +264,7 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	faucetPeer := peers[0]
 
 	// faucet keeps remaining amount on address 0
-	addrBalance[faucetPeer.Seed.Address(0).Address().Base58()][ledgerstate.ColorIOTA] = int64(framework.GenesisTokenAmount - framework.ParaFaucetPreparedOutputsCount*int(framework.ParaFaucetTokensPerRequest))
+	addrBalance[faucetPeer.Seed.Address(0).Address().Base58()][ledgerstate.ColorIOTA] = int64(framework.GenesisTokenAmount - faucetPreparedOutputsCount*faucetTokensPerRequest)
 	var i uint64
 	// faucet has split genesis output into n bits of 1337 each and remainder on 0
 	for i = 1; i < uint64(len(peers)); i++ {
@@ -267,14 +280,14 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 		addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = int64(balanceValue)
 
 		// send funds to other peers
-		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{
+		fail, txID := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{
 			FromAddressIndex:      i,
 			ToAddressIndex:        0,
 			AccessManaPledgeID:    peers[i].ID(),
 			ConsensusManaPledgeID: peers[i].ID(),
 		})
 		require.False(t, fail)
-		txIds = append(txIds, txId)
+		txIDs = append(txIDs, txID)
 
 		// let the transaction propagate
 		time.Sleep(3 * time.Second)
@@ -284,12 +297,12 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 }
 
 // SendTransactionOnRandomPeer sends sentValue amount of IOTA tokens from/to a random peer, mutates the given balance map and returns the transaction IDs.
-func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, numMessages int, sentValue int64) (txIds []string) {
+func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Node, addrBalance map[string]map[ledgerstate.Color]int64, numMessages int, sentValue int64) (txIDs []string) {
 	counter := 0
 	for i := 0; i < numMessages; i++ {
 		from := rand.Intn(len(peers))
 		to := rand.Intn(len(peers))
-		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue, TransactionConfig{})
+		fail, txID := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue, TransactionConfig{})
 		if fail {
 			i--
 			counter++
@@ -300,7 +313,7 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 		}
 
 		// attach tx id
-		txIds = append(txIds, txId)
+		txIDs = append(txIDs, txID)
 
 		// let the transaction propagate
 		time.Sleep(3 * time.Second)
@@ -312,7 +325,7 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 // SendIotaTransaction sends sentValue amount of IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
 // Every peer sends and receives the transaction on the address of index 0.
 // Optionally, the nodes to pledge access and consensus mana can be specified.
-func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, sentValue int64, txConfig TransactionConfig) (fail bool, txId string) {
+func SendIotaTransaction(t *testing.T, from *framework.Node, to *framework.Node, addrBalance map[string]map[ledgerstate.Color]int64, sentValue int64, txConfig TransactionConfig) (fail bool, txID string) {
 	inputAddr := from.Seed.Address(txConfig.FromAddressIndex).Address()
 	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
@@ -367,16 +380,16 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 		fmt.Println(fmt.Errorf("could not send transaction on %s: %w", from.String(), err).Error())
 		return true, ""
 	}
-	txId = respTx.TransactionID
+	txID = respTx.TransactionID
 	addrBalance[inputAddr.Base58()][ledgerstate.ColorIOTA] -= sentValue
 	addrBalance[outputAddr.Base58()][ledgerstate.ColorIOTA] += sentValue
-	return false, txId
+	return false, txID
 }
 
 // SendColoredTransaction sends IOTA and colored tokens from and to a given peer and returns the ok flag and transaction ID.
 // 1. Get the first unspent outputs of `from`
 // 2. Send 50 IOTA and 50 ColorMint to `to`
-func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, txConfig TransactionConfig) (fail bool, txId string) {
+func SendColoredTransaction(t *testing.T, from *framework.Node, to *framework.Node, addrBalance map[string]map[ledgerstate.Color]int64, txConfig TransactionConfig) (fail bool, txId string) {
 	var sentIOTAValue int64 = 50
 	var sentMintValue int64 = 50
 	var balanceList []coloredBalance
@@ -472,7 +485,7 @@ func getColorFromString(colorStr string) (color ledgerstate.Color) {
 }
 
 // CheckBalances performs checks to make sure that all peers have the same ledger state.
-func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64) {
+func CheckBalances(t *testing.T, peers []*framework.Node, addrBalance map[string]map[ledgerstate.Color]int64) {
 	for _, peer := range peers {
 		for addr, b := range addrBalance {
 			sum := make(map[ledgerstate.Color]int64)
@@ -499,7 +512,7 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 
 // CheckAddressOutputsFullyConsumed performs checks to make sure that on all given peers,
 // the given addresses have no UTXOs.
-func CheckAddressOutputsFullyConsumed(t *testing.T, peers []*framework.Peer, addrs []string) {
+func CheckAddressOutputsFullyConsumed(t *testing.T, peers []*framework.Node, addrs []string) {
 	for _, peer := range peers {
 		resp, err := peer.PostAddressUnspentOutputs(addrs)
 		assert.NoError(t, err)
@@ -553,7 +566,7 @@ type ExpectedTransaction struct {
 // CheckTransactions performs checks to make sure that all peers have received all transactions.
 // Optionally takes an expected inclusion state for all supplied transaction IDs and expected transaction
 // data per transaction ID.
-func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map[string]*ExpectedTransaction, checkSynchronized bool, expectedInclusionState ExpectedInclusionState) {
+func CheckTransactions(t *testing.T, peers []*framework.Node, transactionIDs map[string]*ExpectedTransaction, checkSynchronized bool, expectedInclusionState ExpectedInclusionState) {
 	for _, peer := range peers {
 		if checkSynchronized {
 			// check that the peer sees itself as synchronized
@@ -605,14 +618,13 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 			}
 		}
 		// Transaction metadata
-
 	}
 }
 
 // AwaitTransactionAvailability awaits until the given transaction IDs become available on all given peers or
 // the max duration is reached. Returns a map of missing transactions per peer. An error is returned if at least
 // one peer does not have all specified transactions available.
-func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []string, maxAwait time.Duration) (missing map[string]map[string]types.Empty, err error) {
+func AwaitTransactionAvailability(peers []*framework.Node, transactionIDs []string, maxAwait time.Duration) (missing map[string]map[string]types.Empty, err error) {
 	s := time.Now()
 	var missingMu sync.Mutex
 	missing = map[string]map[string]types.Empty{}
@@ -621,7 +633,7 @@ func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []stri
 		wg.Add(len(peers))
 		counter := int32(len(peers) * len(transactionIDs))
 		for _, p := range peers {
-			go func(p *framework.Peer) {
+			go func(p *framework.Node) {
 				defer wg.Done()
 				for _, txID := range transactionIDs {
 					_, err := p.GetTransaction(txID)
@@ -662,14 +674,14 @@ func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []stri
 // have the expected state or max duration is reached. This function does not gracefully
 // handle the transactions not existing on the given peers, therefore it must be ensured
 // the the transactions exist beforehand.
-func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[string]ExpectedInclusionState, maxAwait time.Duration) error {
+func AwaitTransactionInclusionState(peers []*framework.Node, transactionIDs map[string]ExpectedInclusionState, maxAwait time.Duration) error {
 	s := time.Now()
 	for ; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
 		var wg sync.WaitGroup
 		wg.Add(len(peers))
 		counter := int32(len(peers) * len(transactionIDs))
 		for _, p := range peers {
-			go func(p *framework.Peer) {
+			go func(p *framework.Node) {
 				defer wg.Done()
 				for txID := range transactionIDs {
 					inclusionState, err := p.GetTransactionInclusionState(txID)
@@ -717,7 +729,7 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 }
 
 // AwaitSync waits until the given peers are in synced.
-func AwaitSync(t *testing.T, peers []*framework.Peer, maxAwait time.Duration) error {
+func AwaitSync(t *testing.T, peers []*framework.Node, maxAwait time.Duration) error {
 	s := time.Now()
 	for ; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
 		// check that the peer sees itself as synchronized
@@ -735,9 +747,44 @@ func AwaitSync(t *testing.T, peers []*framework.Peer, maxAwait time.Duration) er
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
-func ShutdownNetwork(t *testing.T, n Shutdowner) {
-	err := n.Shutdown()
+func ShutdownNetwork(ctx context.Context, t *testing.T, n Shutdowner) {
+	log.Println("Shutting down network...")
+	require.NoError(t, n.Shutdown(ctx))
+	log.Println("Shutting down network... done")
+}
+
+func WaitForDeadline(t *testing.T) time.Duration {
+	d, _ := t.Deadline()
+	return time.Until(d.Add(-time.Minute))
+}
+
+func Context(ctx context.Context, t *testing.T) (context.Context, context.CancelFunc) {
+	if d, ok := t.Deadline(); ok {
+		return context.WithDeadline(ctx, d.Add(-time.Minute))
+	}
+	return context.WithCancel(ctx)
+}
+
+func Synced(t *testing.T, node *framework.Node) bool {
+	info, err := node.Info()
 	require.NoError(t, err)
+	return info.TangleTime.Synced
+}
+
+func Balance(t *testing.T, peer *framework.Node, addr ledgerstate.Address, color ledgerstate.Color) uint64 {
+	resp, err := peer.PostAddressUnspentOutputs([]string{addr.Base58()})
+	require.NoError(t, err)
+	require.Lenf(t, resp.UnspentOutputs, 1, "invalid response")
+	require.Equal(t, addr.Base58(), resp.UnspentOutputs[0].Address.Base58, "invalid response")
+
+	var sum uint64
+	for _, unspent := range resp.UnspentOutputs[0].Outputs {
+		out, err := unspent.Output.ToLedgerstateOutput()
+		require.NoError(t, err)
+		balance, _ := out.Balances().Get(color)
+		sum += balance
+	}
+	return sum
 }
 
 type coloredBalance struct {

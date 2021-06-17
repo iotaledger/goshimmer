@@ -1,7 +1,9 @@
 package value
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -20,14 +22,16 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-// TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
-func TestTransactionPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("transaction_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+// TestValueTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
+func TestValueTransactionPersistence(t *testing.T) {
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		Faucet:      true,
+		StartSynced: true,
+	})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
-
-	// wait for peers to change their state to synchronized
-	time.Sleep(15 * time.Second)
+	defer tests.ShutdownNetwork(ctx, t, n)
 
 	// master node sends funds to all peers in the network
 	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
@@ -37,7 +41,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
+	time.Sleep(10 * time.Second)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -48,13 +52,13 @@ func TestTransactionPersistence(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send value message randomly
-	randomTxIds := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10, 100)
-	for _, randomTxId := range randomTxIds {
-		txIds[randomTxId] = nil
+	randomTxIDs := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10, 100)
+	for _, randomTxID := range randomTxIDs {
+		txIds[randomTxID] = nil
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
+	time.Sleep(10 * time.Second)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -66,19 +70,17 @@ func TestTransactionPersistence(t *testing.T) {
 
 	// 3. stop all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Stop()
+		err = peer.Stop(ctx)
 		require.NoError(t, err)
 	}
 
 	// 4. start all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Start()
+		err = peer.Start(context.Background())
 		require.NoError(t, err)
 	}
 
-	// wait for peers to start
-	time.Sleep(20 * time.Second)
-	err = n.DoManualPeeringAndWait()
+	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
 	// check whether all issued transactions are available on all nodes and confirmed
@@ -92,12 +94,18 @@ func TestTransactionPersistence(t *testing.T) {
 
 // TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
 func TestValueColoredPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		Faucet:      true,
+		StartSynced: true,
+	})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// wait for peers to change their state to synchronized
-	time.Sleep(15 * time.Second)
+	log.Println("Waiting for nodes to become synced...")
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
+	log.Println("Waiting for nodes to become synced... done")
 
 	// master node sends funds to all peers in the network
 	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
@@ -107,7 +115,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(3 * framework.DefaultUpperBoundNetworkDelay)
+	time.Sleep(10 * time.Second)
 
 	// check whether the transactions are available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -125,7 +133,7 @@ func TestValueColoredPersistence(t *testing.T) {
 		time.Sleep(2 * time.Second)
 	}
 	// wait for value messages to be gossiped
-	time.Sleep(3 * framework.DefaultUpperBoundNetworkDelay)
+	time.Sleep(10 * time.Second)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -137,20 +145,22 @@ func TestValueColoredPersistence(t *testing.T) {
 
 	// stop all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Stop()
+		err = peer.Stop(ctx)
 		require.NoError(t, err)
 	}
 
 	// start all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Start()
+		err = peer.Start(ctx)
 		require.NoError(t, err)
 	}
 
-	// wait for peers to start
-	time.Sleep(20 * time.Second)
-	err = n.DoManualPeeringAndWait()
+	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
+
+	log.Println("Waiting for nodes to become synced...")
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
+	log.Println("Waiting for nodes to become synced... done")
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -161,17 +171,25 @@ func TestValueColoredPersistence(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 }
 
-// TestAlias_Persistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
-func TestAlias_Persistence(t *testing.T) {
-	n, err := f.CreateNetwork("alias_TestPersistence", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+// TestAliasPersistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
+func TestAliasPersistence(t *testing.T) {
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		Faucet:      true,
+		StartSynced: true,
+	})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// wait for peers to change their state to synchronized
-	time.Sleep(15 * time.Second)
+	faucet, peer := n.Peers()[0], n.Peers()[1]
+
+	log.Println("Waiting for nodes to become synced...")
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
+	log.Println("Waiting for nodes to become synced... done")
 
 	// create a wallet that connects to a random peer
-	w := wallet.New(wallet.WebAPI(n.Peers()[1].BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
+	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)
@@ -210,20 +228,23 @@ func TestAlias_Persistence(t *testing.T) {
 
 	// stop all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Stop()
+		err = peer.Stop(ctx)
 		require.NoError(t, err)
 	}
 
 	// start all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Start()
+		err = peer.Start(ctx)
 		require.NoError(t, err)
 	}
 
-	// wait for peers to start
-	time.Sleep(5 * time.Second)
-	err = n.DoManualPeeringAndWait()
+	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
+
+	// TODO: why are the nodes not StartSynced?
+	log.Println("Waiting for nodes to become synced...")
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
+	log.Println("Waiting for nodes to become synced... done")
 
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
@@ -264,16 +285,24 @@ func TestAlias_Persistence(t *testing.T) {
 }
 
 // TestAlias_Delegation tests if a delegation output can be used to refresh mana.
-func TestAlias_Delegation(t *testing.T) {
-	n, err := f.CreateNetwork("alias_TestDelegation", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+func TestAliasDelegation(t *testing.T) {
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		Faucet:      true,
+		StartSynced: true,
+	})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// wait for peers to change their state to synchronized
-	time.Sleep(10 * time.Second)
+	faucet, peer := n.Peers()[0], n.Peers()[1]
+
+	log.Println("Waiting for nodes to become synced...")
+	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
+	log.Println("Waiting for nodes to become synced... done")
 
 	// create a wallet that connects to a random peer
-	w := wallet.New(wallet.WebAPI(n.RandomPeer().BaseURL()), wallet.FaucetPowDifficulty(framework.ParaPoWFaucetDifficulty))
+	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)
@@ -323,7 +352,7 @@ func TestAlias_Delegation(t *testing.T) {
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(delegatedAliasOutputID)),
 		ledgerstate.NewOutputs(nextOutput))
 	tx = ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
-	_, err = n.RandomPeer().PostTransaction(tx.Bytes())
+	_, err = peer.PostTransaction(tx.Bytes())
 	require.NoError(t, err)
 	// give enough time to all peers
 	time.Sleep(5 * time.Second)
@@ -332,7 +361,7 @@ func TestAlias_Delegation(t *testing.T) {
 	timeout := 150 // seconds
 	timeoutCounter := 0
 	for !confirmed {
-		inc, err := n.RandomPeer().GetTransactionInclusionState(tx.ID().Base58())
+		inc, err := peer.GetTransactionInclusionState(tx.ID().Base58())
 		require.NoError(t, err)
 		if inc.Confirmed {
 			confirmed = true
@@ -346,9 +375,9 @@ func TestAlias_Delegation(t *testing.T) {
 	}
 	require.True(t, confirmed, fmt.Sprintf("mana refersh tx didn't confirm in %d seconds", timeout))
 
-	aManaReceiverCurrMana, err := n.RandomPeer().GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
+	aManaReceiverCurrMana, err := peer.GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
 	require.NoError(t, err)
-	cManaReceiverCurrMana, err := n.RandomPeer().GetManaFullNodeID(base58.Encode(cManaReceiver.Bytes()))
+	cManaReceiverCurrMana, err := peer.GetManaFullNodeID(base58.Encode(cManaReceiver.Bytes()))
 	require.NoError(t, err)
 
 	// check that the pledge actually worked

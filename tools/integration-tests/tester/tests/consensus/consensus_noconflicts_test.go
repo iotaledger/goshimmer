@@ -1,39 +1,45 @@
 package consensus
 
 import (
+	"context"
 	"log"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58/base58"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
+const UpperBoundNetworkDelay = 5 * time.Second
+
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		Faucet:      true,
+		StartSynced: true,
+		FPC:         true,
+		Autopeering: true,
+	})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(ctx, t, n)
 
-	time.Sleep(5 * time.Second)
+	faucet := n.Peers()[0]
 
-	// genesis wallet
-	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
-	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
-
-	genesisSeed := seed.NewSeed(genesisSeedBytes)
+	genesisSeed := seed.NewSeed(framework.GenesisSeed)
 	genesisAddr := genesisSeed.Address(0).Address()
-	unspentOutputs, err := n.Peers()[0].PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
+	unspentOutputs, err := faucet.PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
 	genesisOutput, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
 	require.NoError(t, err)
@@ -43,7 +49,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	firstReceiver := seed.NewSeed()
 	const depositCount = 10
-	deposit := uint64(genesisBalance / depositCount)
+	deposit := genesisBalance / depositCount
 	firstReceiverAddresses := make([]string, depositCount)
 	firstReceiverDepositAddrs := make([]ledgerstate.Address, depositCount)
 	firstReceiverDepositOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
@@ -76,7 +82,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(framework.DefaultUpperBoundNetworkDelay*2 + framework.DefaultUpperBoundNetworkDelay/2)
+	time.Sleep(UpperBoundNetworkDelay*2 + UpperBoundNetworkDelay/2)
 
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
@@ -129,7 +135,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// wait again some network delays for the transactions to materialize
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(framework.DefaultUpperBoundNetworkDelay*2 + framework.DefaultUpperBoundNetworkDelay/2)
+	time.Sleep(UpperBoundNetworkDelay*2 + UpperBoundNetworkDelay/2)
 	log.Println("checking that first set of addresses contain no UTXOs")
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
 

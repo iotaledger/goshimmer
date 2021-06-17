@@ -4,17 +4,17 @@
 package framework
 
 import (
+	"context"
 	"encoding/hex"
-	"fmt"
-	"strings"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 var (
@@ -24,14 +24,14 @@ var (
 
 // Framework is a wrapper that provides the integration testing functionality.
 type Framework struct {
-	tester       *DockerContainer
-	dockerClient *client.Client
+	tester *DockerContainer
+	docker *client.Client
 }
 
 // Instance returns the singleton Framework instance.
 func Instance() (f *Framework, err error) {
 	once.Do(func() {
-		f, err = newFramework()
+		f, err = newFramework(context.Background())
 		instance = f
 	})
 
@@ -40,196 +40,117 @@ func Instance() (f *Framework, err error) {
 
 // newFramework creates a new instance of Framework, creates a DockerClient
 // and creates a DockerContainer for the tester container where the tests are running in.
-func newFramework() (*Framework, error) {
+func newFramework(ctx context.Context) (*Framework, error) {
 	dockerClient, err := newDockerClient()
 	if err != nil {
 		return nil, err
 	}
 
-	tester, err := NewDockerContainerFromExisting(dockerClient, containerNameTester)
+	tester, err := NewDockerContainerFromExisting(ctx, dockerClient, containerNameTester)
 	if err != nil {
 		return nil, err
 	}
 
 	f := &Framework{
-		dockerClient: dockerClient,
-		tester:       tester,
+		docker: dockerClient,
+		tester: tester,
 	}
-
 	return f, nil
 }
 
-// Removes the tester container and close the docker client
-func (f *Framework) DestroyFramework() error {
-	err := f.tester.Remove()
-	if err != nil {
-		return err
-	}
-	return f.dockerClient.Close()
-}
-
-// CreateNetwork creates and returns a (Docker) Network that contains `peers` GoShimmer nodes.
-// It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
-// The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetwork(name string, peers int, config CreateNetworkConfig) (*Network, error) {
-	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
+func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int, conf CreateNetworkConfig) (*Network, error) {
+	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := network.createEntryNode(); err != nil {
-		return nil, err
-	}
-
-	// create peers/GoShimmer nodes
-	for i := 0; i < peers; i++ {
-		config := GoShimmerConfig{
-			ActivityPlugin: func(i int) bool {
-				if ParaActivityPluginOnEveryNode {
-					return true
-				}
-				return i == 0
-			}(i),
-			ActivityInterval: func(i int) int {
-				broadcastInterval := 3
-				if i == 0 {
-					broadcastInterval = 1
-				}
-				return broadcastInterval
-			}(i),
-			Seed: func(i int) string {
-				if i == 0 {
-					return syncBeaconSeed
-				}
-				return ""
-			}(i),
-			Faucet:                     config.Faucet && i == 0,
-			StartSynced:                config.StartSynced,
-			FPCRoundInterval:           ParaFPCRoundInterval,
-			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
-			WaitForStatement:           ParaWaitForStatement,
-			FPCListen:                  ParaFPCListen,
-			WriteStatement:             ParaWriteStatement,
-			WriteManaThreshold:         ParaWriteManaThreshold,
-			ReadManaThreshold:          ParaReadManaThreshold,
-			SnapshotResetTime:          ParaSnapshotResetTime,
-		}
-		if _, err := network.CreatePeer(config); err != nil {
-			return nil, err
+	// an entry node is only required for autopeering
+	if conf.Autopeering {
+		err = network.createEntryNode(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create entry node")
 		}
 	}
-	// wait until containers are fully started
-	time.Sleep(5 * time.Second)
-	if err := network.DoManualPeeringAndWait(); err != nil {
-		return nil, errors.WithStack(err)
+
+	err = network.createPeers(ctx, numPeers, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create peers")
 	}
 
+	// use autopeering
+	if conf.Autopeering {
+		err = network.WaitForAutopeering(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "autopeering failed")
+		}
+		return network, nil
+	}
+
+	// use manual peering
+	if err := network.DoManualPeering(ctx); err != nil {
+		return nil, errors.Wrap(err, "manual peering failed")
+	}
 	return network, nil
 }
 
 // CreateNetworkWithPartitions creates and returns a partitioned network that contains `peers` GoShimmer nodes per partition.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
 // The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, minimumNeighbors int, config CreateNetworkConfig) (*Network, error) {
-	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
+func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string, numPeers, partitions int, conf CreateNetworkConfig) (*Network, error) {
+	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
 	}
 
-	err = network.createEntryNode()
+	// make sure that autopeering is on
+	conf.Autopeering = true
+
+	// create an entry node with blocked traffic
+	log.Println("Starting entry node...")
+	err = network.createEntryNode(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	// block all traffic from/to entry node
-	pumbaEntryNodeName := network.namePrefix(containerNameEntryNode) + containerNameSuffixPumba
-	pumbaEntryNode, err := network.createPumba(
-		pumbaEntryNodeName,
-		network.namePrefix(containerNameEntryNode),
-		strslice.StrSlice{},
-	)
+	pumba, err := network.createPumba(ctx, network.entryNode, nil)
 	if err != nil {
 		return nil, err
 	}
-	// wait until pumba is started and blocks all traffic
-	time.Sleep(5 * time.Second)
-
-	// create peers/GoShimmer nodes
-	for i := 0; i < peers; i++ {
-		config := GoShimmerConfig{
-			ActivityPlugin: func(i int) bool {
-				if ParaActivityPluginOnEveryNode {
-					return true
-				}
-				return i == 0
-			}(i),
-			ActivityInterval: func(i int) int {
-				broadcastInterval := 3
-				if i == 0 {
-					broadcastInterval = 1
-				}
-				return broadcastInterval
-			}(i),
-			Seed: func(i int) string {
-				if i == 0 {
-					return syncBeaconSeed
-				}
-				return ""
-			}(i),
-			Faucet:                     config.Faucet && i == 0,
-			FPCRoundInterval:           ParaFPCRoundInterval,
-			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
-			WaitForStatement:           ParaWaitForStatement,
-			FPCListen:                  ParaFPCListen,
-			WriteStatement:             ParaWriteStatement,
-			WriteManaThreshold:         ParaWriteManaThreshold,
-			ReadManaThreshold:          ParaReadManaThreshold,
-			EnableAutopeeringForGossip: true,
-			SnapshotResetTime:          ParaSnapshotResetTime,
-		}
-		if _, err = network.CreatePeer(config); err != nil {
-			return nil, err
-		}
-	}
-	// wait until containers are fully started
+	// wait until pumba is started and the traffic is blocked
 	time.Sleep(2 * time.Second)
+	log.Println("Starting entry node... done")
 
-	// create partitions
-	chunkSize := peers / partitions
-	var end int
-	for i := 0; end < peers; i += chunkSize {
-		end = i + chunkSize
-		// last partitions takes the rest
-		if i/chunkSize == partitions-1 {
-			end = peers
+	err = network.createPeers(ctx, numPeers, conf)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("Creating %d partitions for %d peers...", partitions, numPeers)
+	chunkSize := numPeers / partitions
+	for i := 0; i < numPeers; i += chunkSize {
+		end := i + chunkSize
+		if end > numPeers {
+			end = numPeers
 		}
-		_, err = network.createPartition(network.peers[i:end])
+		err = network.createPartition(ctx, network.peers[i:end])
 		if err != nil {
 			return nil, err
 		}
 	}
 	// wait until pumba containers are started and block traffic between partitions
 	time.Sleep(5 * time.Second)
+	log.Println("Creating partitions... done")
 
 	// delete pumba for entry node
-	err = pumbaEntryNode.Stop()
+	err = pumba.Stop(ctx)
 	if err != nil {
 		return nil, err
 	}
-	logs, err := pumbaEntryNode.Logs()
-	if err != nil {
-		return nil, err
-	}
-	err = createLogFile(pumbaEntryNodeName, logs)
-	if err != nil {
-		return nil, err
-	}
-	err = pumbaEntryNode.Remove()
+	err = pumba.Remove(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = network.WaitForAutopeering(minimumNeighbors)
+	err = network.WaitForAutopeering(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -237,14 +158,8 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 	return network, nil
 }
 
-// CreateDRNGNetwork creates and returns a (Docker) Network that contains drand and `peers` GoShimmer nodes.
-func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNetwork, error) {
-	drng, err := newDRNGNetwork(f.dockerClient, strings.ToLower(name), f.tester)
-	if err != nil {
-		return nil, err
-	}
-
-	err = drng.network.createEntryNode()
+func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, members, peers int) (*DRNGNetwork, error) {
+	drng, err := newDRNGNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
 	}
@@ -252,14 +167,12 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 	// create members/drand nodes
 	for i := 0; i < members; i++ {
 		leader := i == 0
-		if _, err = drng.CreateMember(leader); err != nil {
+		if _, err = drng.CreateMember(ctx, leader); err != nil {
 			return nil, err
 		}
 	}
 
-	// wait until containers are fully started
-	time.Sleep(1 * time.Second)
-	err = drng.WaitForDKG()
+	err = drng.WaitForDKG(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -267,8 +180,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 	// create GoShimmer identities
 	pubKeys := make([]ed25519.PublicKey, peers)
 	privKeys := make([]ed25519.PrivateKey, peers)
-	var drngCommittee string
-
+	var drngCommittee []string
 	for i := 0; i < peers; i++ {
 		pubKeys[i], privKeys[i], err = ed25519.GenerateKey()
 		if err != nil {
@@ -276,62 +188,33 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 		}
 
 		if i < members {
-			if drngCommittee != "" {
-				drngCommittee += fmt.Sprintf(",")
-			}
-			drngCommittee += pubKeys[i].String()
+			drngCommittee = append(drngCommittee, pubKeys[i].String())
 		}
 	}
-	config := GoShimmerConfig{
-		DRNGInstance:  111,
-		DRNGThreshold: 3,
-		DRNGDistKey:   hex.EncodeToString(drng.distKey),
-		DRNGCommittee: drngCommittee,
-		StartSynced:   true,
+
+	conf := PeerConfig
+	conf.DRNG = config.DRNG{
+		Enabled: true,
+		Custom: struct {
+			InstanceId        int
+			Threshold         int
+			DistributedPubKey string
+			CommitteeMembers  []string
+		}{111, 3, hex.EncodeToString(drng.distKey), drngCommittee},
 	}
+	conf.MessageLayer.StartSynced = true
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config.Seed = privKeys[i].Seed().String()
-		if _, e := drng.CreatePeer(config, pubKeys[i]); e != nil {
+		conf.Seed = privKeys[i].Seed().Bytes()
+		if _, e := drng.CreatePeer(ctx, conf); e != nil {
 			return nil, e
 		}
 	}
 
-	// wait until peers are fully started and connected
-	time.Sleep(5 * time.Second)
-	err = drng.network.DoManualPeeringAndWait(drng.network.peers...)
+	err = drng.DoManualPeering(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrap(err, "manual peering failed")
 	}
-
 	return drng, nil
-}
-
-// CreateNetworkWithMana creates and returns a (Docker) Network that contains peers that all have some mana.
-// Mana is gotten by sending faucet requests.
-func (f *Framework) CreateNetworkWithMana(name string, peers int, config CreateNetworkConfig) (*Network, error) {
-	if !config.Faucet {
-		return nil, fmt.Errorf("faucet is required")
-	}
-
-	n, err := f.CreateNetwork(name, peers, config)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := 1; i < len(n.peers); i++ {
-		peer := n.peers[i]
-		addr := peer.Seed.Address(uint64(0)).Address()
-		ID := base58.Encode(peer.ID().Bytes())
-		_, err := n.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
-		if err != nil {
-			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
-		}
-	}
-	err = n.WaitForMana(n.peers[1:]...)
-	if err != nil {
-		return nil, err
-	}
-	return n, nil
 }
