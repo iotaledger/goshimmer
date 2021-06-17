@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"crypto"
 	"runtime"
 	"sync"
 	"time"
@@ -45,7 +44,7 @@ const (
 	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
 	CfgFaucetBlacklistCapacity = "faucet.blacklistCapacity"
 	// CfgFaucetPreparedOutputsCount is the number of outputs the faucet prepares for requests.
-	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCounts"
+	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCount"
 	// CfgFaucetStartIndex defines from which address index the faucet should start gathering outputs.
 	CfgFaucetStartIndex = "faucet.startIndex"
 )
@@ -67,7 +66,7 @@ var (
 	_faucet                *StateManager
 	faucetOnce             sync.Once
 	log                    *logger.Logger
-	powVerifier            = pow.New(crypto.BLAKE2b_512)
+	powVerifier            = pow.New()
 	fundingWorkerPool      *workerpool.WorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
 	fundingWorkerQueueSize = 500

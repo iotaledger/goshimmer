@@ -6,6 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/constants"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -44,6 +45,9 @@ func DelegateUntil(until time.Time) DelegateFundsOption {
 	return func(options *DelegateFundsOptions) error {
 		if until.Before(time.Now()) {
 			return errors.Errorf("can't delegate funds in the past")
+		}
+		if until.After(constants.MaxRepresentableTime) {
+			return errors.Errorf("delegation is only supported until %s", constants.MaxRepresentableTime)
 		}
 		options.DelegateUntil = until
 		return nil
