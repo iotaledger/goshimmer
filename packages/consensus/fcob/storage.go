@@ -30,7 +30,7 @@ type Storage struct {
 }
 
 // NewStorage is the constructor for a Storage.
-func NewStorage(store kvstore.KVStore, cacheProvider database.CacheTimeProvider) (storage *Storage) {
+func NewStorage(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixFCOB)
 
 	storage = &Storage{
