@@ -51,7 +51,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer healthy.SetTo(false)
 
 	healthy.SetTo(true)
-	log.Infof("All plugins started succesfully")
+	log.Info("All plugins started successfully")
 	<-shutdownSignal
 }
 
