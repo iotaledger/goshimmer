@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -30,8 +31,12 @@ var (
 	// GenesisTokenAmount is the amount of tokens in the genesis output.
 	GenesisTokenAmount = 1000000000000000
 	GenesisSeed        = []byte{
-		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
-		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
+		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
+		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
+	}
+	GenesisNodeID = identity.ID{
+		18, 238, 36, 222, 162, 108, 254, 201, 233, 20, 37, 40, 192, 253, 228, 151,
+		179, 44, 73, 178, 9, 249, 86, 104, 109, 204, 56, 129, 128, 83, 169, 194,
 	}
 
 	// MasterSeed denotes the identity seed of the master peer.
@@ -77,7 +82,7 @@ var PeerConfig = config.GoShimmer{
 			File        string
 			GenesisNode string
 		}{
-			File:        "/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin",
+			File:        fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed)),
 			GenesisNode: "", // TODO: what is this?
 		},
 		TangleTimeWindow: 30 * time.Second,

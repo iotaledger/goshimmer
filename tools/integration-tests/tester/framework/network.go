@@ -14,6 +14,8 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -161,19 +163,17 @@ func (n *Network) DoManualPeering(ctx context.Context, nodes ...*Node) error {
 
 // WaitForAutopeering blocks until a fully connected network of neighbors has been found.
 func (n *Network) WaitForAutopeering(ctx context.Context) error {
-	nodes := n.peers
-
 	condition := func() (bool, error) {
 		// connection graph of all the nodes
-		connections := make(map[string]map[string]struct{}, len(nodes))
+		connections := make(map[string]map[string]struct{}, len(n.peers))
 		// query all nodes and add their neighbors to the connection graph
-		for _, node := range nodes {
-			resp, err := node.GetAutopeeringNeighbors(false)
+		for _, peer := range n.peers {
+			resp, err := peer.GetAutopeeringNeighbors(false)
 			if err != nil {
 				return false, errors.Wrap(err, "client failed to return autopeering connections")
 			}
-			neighbors := make(map[string]struct{}, len(nodes))
-			connections[node.ID().String()] = neighbors
+			neighbors := make(map[string]struct{}, len(n.peers))
+			connections[peer.ID().String()] = neighbors
 			for _, neighbor := range append(resp.Chosen, resp.Accepted...) {
 				neighbors[neighbor.ID] = struct{}{}
 			}
@@ -181,9 +181,44 @@ func (n *Network) WaitForAutopeering(ctx context.Context) error {
 		return n.isConnected(connections), nil
 	}
 
-	log.Printf("Waiting for %d nodes to find neighbors...", len(nodes))
-	defer log.Println("Waiting for nodes to find neighbors... done")
+	log.Printf("Waiting for %d peers to find neighbors...", len(n.peers))
+	defer log.Println("Waiting for peers to find neighbors... done")
 	return eventually(ctx, condition, time.Second)
+}
+
+func (n *Network) WaitForPeerDiscovery(ctx context.Context) error {
+	condition := func() (bool, error) {
+		for _, peer := range n.peers {
+			resp, err := peer.GetAutopeeringNeighbors(true)
+			if err != nil {
+				return false, errors.Wrap(err, "client failed to return known peers")
+			}
+			if !contains(n.peers, peer, resp.KnownPeers) {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
+	log.Println("Waiting for peer discovery...")
+	defer log.Println("Waiting for peer discovery... done")
+	return eventually(ctx, condition, time.Second)
+}
+
+func contains(allPeers []*Node, peer *Node, neighbors []jsonmodels.Neighbor) bool {
+	neighborMap := make(map[string]struct{})
+	for i := range neighbors {
+		neighborMap[neighbors[i].ID] = struct{}{}
+	}
+	for i := range allPeers {
+		if peer == allPeers[i] {
+			continue
+		}
+		if _, ok := neighborMap[allPeers[i].ID().String()]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // Shutdown creates logs and removes network and containers.

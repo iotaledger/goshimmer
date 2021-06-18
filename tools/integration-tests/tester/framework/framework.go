@@ -77,18 +77,24 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 		return nil, errors.Wrap(err, "failed to create peers")
 	}
 
-	// use autopeering
+	// wait for peering to complete
 	if conf.Autopeering {
 		err = network.WaitForAutopeering(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "autopeering failed")
 		}
-		return network, nil
+	} else {
+		err = network.DoManualPeering(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "manual peering failed")
+		}
 	}
 
-	// use manual peering
-	if err := network.DoManualPeering(ctx); err != nil {
-		return nil, errors.Wrap(err, "manual peering failed")
+	if conf.FPC {
+		err = network.WaitForPeerDiscovery(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "peer discovery failed")
+		}
 	}
 	return network, nil
 }

@@ -64,7 +64,7 @@ func (n *Node) Address(idx int) ledgerstate.Address {
 	return n.Seed.Address(uint64(idx)).Address()
 }
 
-// Start starts the nodes and blocks until it is running.
+// Start starts the node and blocks until it is running.
 func (n *Node) Start(ctx context.Context) error {
 	if err := n.DockerContainer.Start(ctx); err != nil {
 		return err
@@ -77,6 +77,14 @@ func (n *Node) Start(ctx context.Context) error {
 		return errors.Errorf("node %s did not come up in time", n)
 	}
 	return nil
+}
+
+// Restart restarts the node and blocks until it is running.
+func (n *Node) Restart(ctx context.Context) error {
+	if err := n.Stop(ctx); err != nil {
+		return err
+	}
+	return n.Start(ctx)
 }
 
 // IsRunning returns true is the node is running.
