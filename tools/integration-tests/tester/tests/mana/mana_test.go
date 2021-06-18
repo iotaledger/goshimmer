@@ -6,15 +6,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestManaPersistence(t *testing.T) {
@@ -27,35 +30,35 @@ func TestManaPersistence(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	faucet, peer := n.Peers()[0], n.Peers()[1]
-
-	info, err := faucet.Info()
-	require.NoError(t, err)
-	manaBefore := info.Mana
-	require.Greater(t, manaBefore.Access, 0.0)
-	require.Greater(t, manaBefore.Consensus, 0.0)
+	peer := n.Peers()[1]
 
 	tests.SendFaucetRequest(t, peer, peer.Address(0))
 
-	// restart the peer
-	err = peer.Stop()
-	require.NoError(t, err)
-	err = peer.Start()
-	require.NoError(t, err)
-	time.Sleep(5 * time.Second)
+	require.Eventually(t, func() bool {
+		return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) > 0
+	}, tests.WaitForDeadline(t), tests.Tick)
 
 	info, err := peer.Info()
 	require.NoError(t, err)
-	manaAfter := info.Mana
-	require.Greater(t, manaAfter.Access, 10.0)
-	require.Greater(t, manaAfter.Consensus, 10.0)
+	require.Greater(t, info.Mana.Access, tangle.MinMana)
+	require.Greater(t, info.Mana.Consensus, 0.0)
+
+	// restart the peer
+	err = peer.Stop(ctx)
+	require.NoError(t, err)
+	err = peer.Start(ctx)
+	require.NoError(t, err)
+
+	info, err = peer.Info()
+	require.NoError(t, err)
+	require.Greater(t, info.Mana.Access, tangle.MinMana)
+	require.Greater(t, info.Mana.Consensus, 0.0)
 }
 
 func TestManaPledgeFilter(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
-		Faucet:      true, // TODO: do we need the faucet here?
 		StartSynced: true,
 	})
 	require.NoError(t, err)
