@@ -300,6 +300,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 		}
 	}
 	if networkConfig.FPC {
+		conf.Consensus.Enabled = true
 		conf.FPC.Enabled = true
 		conf.Activity.Enabled = true
 	}

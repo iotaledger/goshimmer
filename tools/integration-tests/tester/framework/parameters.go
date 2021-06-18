@@ -83,12 +83,6 @@ var PeerConfig = config.GoShimmer{
 		TangleTimeWindow: 30 * time.Second,
 		StartSynced:      false,
 	},
-	FPC: config.FPC{
-		Enabled:                 false,
-		BindAddress:             fmt.Sprintf(":%d", fpcPort),
-		RoundInterval:           5,
-		TotalRoundsFinalization: 10,
-	},
 	Faucet: config.Faucet{
 		Enabled:              false,
 		Seed:                 base58.Encode(GenesisSeed),
@@ -101,12 +95,21 @@ var PeerConfig = config.GoShimmer{
 		AllowedAccessFilterEnabled:    false,
 		AllowedConsensusFilterEnabled: false,
 	},
-	DRNG: config.DRNG{
+	Consensus: config.Consensus{
 		Enabled: false,
+	},
+	FPC: config.FPC{
+		Enabled:                 false,
+		BindAddress:             fmt.Sprintf(":%d", fpcPort),
+		RoundInterval:           5,
+		TotalRoundsFinalization: 10,
 	},
 	Activity: config.Activity{
 		Enabled:              false,
 		BroadcastIntervalSec: 1,
+	},
+	DRNG: config.DRNG{
+		Enabled: false,
 	},
 }
 
@@ -121,22 +124,11 @@ var EntryNodeConfig = config.GoShimmer{
 		Port:       peeringPort,
 		EntryNodes: nil,
 	},
-	MessageLayer: config.MessageLayer{
-		Enabled: false,
-	},
-	FPC: config.FPC{
-		Enabled: false,
-	},
-	Faucet: config.Faucet{
-		Enabled: false,
-	},
-	Mana: config.Mana{
-		Enabled: false,
-	},
-	DRNG: config.DRNG{
-		Enabled: false,
-	},
-	Activity: config.Activity{
-		Enabled: false,
-	},
+	MessageLayer: config.MessageLayer{Enabled: false},
+	Faucet:       config.Faucet{Enabled: false},
+	Mana:         config.Mana{Enabled: false},
+	Consensus:    config.Consensus{Enabled: false},
+	FPC:          config.FPC{Enabled: false},
+	Activity:     config.Activity{Enabled: false},
+	DRNG:         config.DRNG{Enabled: false},
 }

@@ -18,11 +18,12 @@ type GoShimmer struct {
 	Webapi
 	Autopeering
 	MessageLayer
-	FPC
 	Faucet
 	Mana
-	DRNG
+	Consensus
+	FPC
 	Activity
+	DRNG
 }
 
 // POW defines the parameters of the PoW plugin.
@@ -47,7 +48,27 @@ type Autopeering struct { // TODO: Why is this not AutoPeering?
 	EntryNodes []string
 }
 
-// MessageLayer defines the parameters of the message layer plugin.
+// Faucet defines the parameters of the faucet plugin.
+type Faucet struct {
+	Enabled bool
+
+	Seed                 string
+	TokensPerRequest     int
+	PowDifficulty        int
+	PreparedOutputsCount int
+}
+
+// Mana defines the parameters of the Mana plugin.
+type Mana struct {
+	Enabled bool
+
+	AllowedAccessPledge           []string
+	AllowedAccessFilterEnabled    bool
+	AllowedConsensusPledge        []string
+	AllowedConsensusFilterEnabled bool
+}
+
+// MessageLayer defines the parameters used by the message layer.
 type MessageLayer struct {
 	Enabled bool
 
@@ -63,7 +84,12 @@ type MessageLayer struct {
 	StartSynced      bool
 }
 
-// FPC defines the parameters of the FPC plugin.
+// Consensus defines the parameters of the consensus plugin.
+type Consensus struct {
+	Enabled bool
+}
+
+// FPC defines the parameters used by the FPC consensus.
 type FPC struct {
 	Enabled bool
 
@@ -72,24 +98,11 @@ type FPC struct {
 	TotalRoundsFinalization int
 }
 
-// Mana defines the parameters of the Mana plugin.
-type Mana struct {
+// Activity defines the parameters of the activity plugin.
+type Activity struct {
 	Enabled bool
 
-	AllowedAccessPledge           []string
-	AllowedAccessFilterEnabled    bool
-	AllowedConsensusPledge        []string
-	AllowedConsensusFilterEnabled bool
-}
-
-// Faucet defines the parameters of the faucet plugin.
-type Faucet struct {
-	Enabled bool
-
-	Seed                 string
-	TokensPerRequest     int
-	PowDifficulty        int
-	PreparedOutputsCount int
+	BroadcastIntervalSec int
 }
 
 // DRNG defines the parameters of the DRNG plugin.
@@ -102,11 +115,4 @@ type DRNG struct {
 		DistributedPubKey string
 		CommitteeMembers  []string
 	}
-}
-
-// Activity defines the parameters of the activity plugin.
-type Activity struct {
-	Enabled bool
-
-	BroadcastIntervalSec int
 }
