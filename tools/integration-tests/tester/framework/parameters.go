@@ -87,7 +87,7 @@ var PeerConfig = config.GoShimmer{
 			File:        fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed)),
 			GenesisNode: "", // TODO: what is this?
 		},
-		TangleTimeWindow: 30 * time.Second,
+		TangleTimeWindow: 2 * time.Minute,
 		StartSynced:      false,
 	},
 	Faucet: config.Faucet{

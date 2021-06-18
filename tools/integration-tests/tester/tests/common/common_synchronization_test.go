@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 
 	"github.com/stretchr/testify/require"
@@ -33,15 +34,13 @@ func TestCommonSynchronization(t *testing.T) {
 	tests.CheckSynchronized(t, n.Peers())
 
 	// 1. issue data messages
-	log.Printf("Issuing %d messages and waiting until they have old tangle time...", numSyncedMessages)
+	log.Printf("Issuing %d messages to sync...", numSyncedMessages)
 	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers(), numSyncedMessages)
-	// we have to wait until the messages are out of the tangle time windows so that we can actually sync
-	time.Sleep(framework.PeerConfig.MessageLayer.TangleTimeWindow)
 	log.Println("Issuing messages... done")
 
 	// 2. spawn peer without knowledge of previous messages
 	log.Println("Spawning new node to sync...")
-	newPeer, err := n.CreatePeer(ctx, framework.PeerConfig)
+	newPeer, err := n.CreatePeer(ctx, createNewPeerConfig())
 	require.NoError(t, err)
 	err = n.DoManualPeering(context.Background())
 	require.NoError(t, err)
@@ -66,7 +65,8 @@ func TestCommonSynchronization(t *testing.T) {
 
 	log.Printf("Issuing %d messages and waiting until they have old tangle time...", numSyncedMessages)
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numSyncedMessages, ids)
-	time.Sleep(framework.PeerConfig.MessageLayer.TangleTimeWindow)
+	// wait to assure that the new peer is actually out of sync when starting
+	time.Sleep(newPeer.Config().MessageLayer.TangleTimeWindow)
 	log.Println("Issuing messages... done")
 
 	// 6. let it startup again
@@ -86,4 +86,11 @@ func TestCommonSynchronization(t *testing.T) {
 	// 9. check whether all issued messages are available on all nodes
 	tests.CheckForMessageIDs(t, []*framework.Node{newPeer}, ids, 30*time.Second)
 	tests.CheckSynchronized(t, n.Peers())
+}
+
+func createNewPeerConfig() config.GoShimmer {
+	conf := framework.PeerConfig
+	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
+	conf.MessageLayer.TangleTimeWindow = 30 * time.Second
+	return conf
 }
