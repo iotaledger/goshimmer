@@ -89,9 +89,6 @@ func (n *DRNGNetwork) Shutdown(ctx context.Context) error {
 
 // WaitForDKG waits until all members have concluded the DKG phase.
 func (n *DRNGNetwork) WaitForDKG(ctx context.Context) error {
-	log.Printf("Waiting for DKG...\n")
-	defer log.Printf("Waiting for DKG... done\n")
-
 	condition := func() (bool, error) {
 		chainInfo, err := n.members[0].Client.ChainInfo(net.CreatePeer(n.members[0].name+":8000", false))
 		if err != nil {
@@ -104,5 +101,8 @@ func (n *DRNGNetwork) WaitForDKG(ctx context.Context) error {
 		n.distKey = distKey
 		return true, nil
 	}
+
+	log.Printf("Waiting for DKG...\n")
+	defer log.Printf("Waiting for DKG... done\n")
 	return eventually(ctx, condition, time.Second)
 }

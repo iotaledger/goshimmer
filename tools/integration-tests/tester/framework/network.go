@@ -64,39 +64,11 @@ func (n *Network) Peers() []*Node {
 	return n.peers
 }
 
-func (n *Network) CreateNode(ctx context.Context, name string, conf config.GoShimmer) (*Node, error) {
-	conf.Name = name
-
-	nodeID, err := createIdentity(&conf)
-	if err != nil {
-		return nil, err
-	}
-
-	// create wallet
-	nodeSeed := walletseed.NewSeed()
-	if conf.Faucet.Enabled {
-		nodeSeed = walletseed.NewSeed(GenesisSeed)
-	}
-
-	// create Docker container
-	container := NewDockerContainer(n.docker)
-	if err := container.CreateNode(ctx, conf); err != nil {
-		return nil, err
-	}
-	if err := container.ConnectToNetwork(ctx, n.id); err != nil {
-		return nil, err
-	}
-
-	node := NewNode(conf, nodeID, container, nodeSeed)
-	if err := node.Start(ctx); err != nil {
-		return nil, err
-	}
-	return node, nil
-}
-
+// CreatePeer creates and returns a new GoShimmer peer.
+// It blocks until this peer has started.
 func (n *Network) CreatePeer(ctx context.Context, conf config.GoShimmer) (*Node, error) {
 	name := n.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
-	peer, err := n.CreateNode(ctx, name, conf)
+	peer, err := n.createNode(ctx, name, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -181,11 +153,12 @@ func (n *Network) WaitForAutopeering(ctx context.Context) error {
 		return n.isConnected(connections), nil
 	}
 
-	log.Printf("Waiting for %d peers to find neighbors...", len(n.peers))
-	defer log.Println("Waiting for peers to find neighbors... done")
+	log.Printf("Waiting for %d peers to connect...", len(n.peers))
+	defer log.Println("Waiting for peers to connect... done")
 	return eventually(ctx, condition, time.Second)
 }
 
+// WaitForPeerDiscovery waits until all peers have discovered each other.
 func (n *Network) WaitForPeerDiscovery(ctx context.Context) error {
 	condition := func() (bool, error) {
 		for _, peer := range n.peers {
@@ -193,7 +166,7 @@ func (n *Network) WaitForPeerDiscovery(ctx context.Context) error {
 			if err != nil {
 				return false, errors.Wrap(err, "client failed to return known peers")
 			}
-			if !contains(n.peers, peer, resp.KnownPeers) {
+			if !containsPeers(n.peers, peer, resp.KnownPeers) {
 				return false, nil
 			}
 		}
@@ -205,24 +178,8 @@ func (n *Network) WaitForPeerDiscovery(ctx context.Context) error {
 	return eventually(ctx, condition, time.Second)
 }
 
-func contains(allPeers []*Node, peer *Node, neighbors []jsonmodels.Neighbor) bool {
-	neighborMap := make(map[string]struct{})
-	for i := range neighbors {
-		neighborMap[neighbors[i].ID] = struct{}{}
-	}
-	for i := range allPeers {
-		if peer == allPeers[i] {
-			continue
-		}
-		if _, ok := neighborMap[allPeers[i].ID().String()]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
 // Shutdown creates logs and removes network and containers.
-// Should always be called when a network is not needed anymore!
+// Should always be called when a network is not needed anymore.
 func (n *Network) Shutdown(ctx context.Context) error {
 	// save exit status of containers to check at end of shutdown process
 	exitStatus := make(map[string]int)
@@ -292,6 +249,36 @@ func (n *Network) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+func (n *Network) createNode(ctx context.Context, name string, conf config.GoShimmer) (*Node, error) {
+	conf.Name = name
+
+	nodeID, err := createIdentity(&conf)
+	if err != nil {
+		return nil, err
+	}
+
+	// create wallet
+	nodeSeed := walletseed.NewSeed()
+	if conf.Faucet.Enabled {
+		nodeSeed = walletseed.NewSeed(GenesisSeed)
+	}
+
+	// create Docker container
+	container := NewDockerContainer(n.docker)
+	if err := container.CreateNode(ctx, conf); err != nil {
+		return nil, err
+	}
+	if err := container.ConnectToNetwork(ctx, n.id); err != nil {
+		return nil, err
+	}
+
+	node := NewNode(conf, nodeID, container, nodeSeed)
+	if err := node.Start(ctx); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
 // createPumba creates and starts a Pumba Docker container.
 func (n *Network) createPumba(ctx context.Context, effectedNode *Node, targetIPs []string) (*DockerContainer, error) {
 	name := effectedNode.Name() + containerNameSuffixPumba
@@ -313,7 +300,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 		panic("entry node already present")
 	}
 
-	node, err := n.CreateNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig)
+	node, err := n.createNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig)
 	if err != nil {
 		return err
 	}
@@ -507,6 +494,22 @@ func isConnected(nodes []*Node, connections map[string]map[string]struct{}) bool
 
 	for _, node := range nodes {
 		if _, ok := visited[node.ID().String()]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func containsPeers(allPeers []*Node, peer *Node, neighbors []jsonmodels.Neighbor) bool {
+	neighborMap := make(map[string]struct{})
+	for i := range neighbors {
+		neighborMap[neighbors[i].ID] = struct{}{}
+	}
+	for i := range allPeers {
+		if peer == allPeers[i] {
+			continue
+		}
+		if _, ok := neighborMap[allPeers[i].ID().String()]; !ok {
 			return false
 		}
 	}

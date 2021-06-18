@@ -171,12 +171,7 @@ func (d *DockerContainer) Start(ctx context.Context) error {
 	return d.client.ContainerStart(ctx, d.id, types.ContainerStartOptions{})
 }
 
-// Remove kills and removes a container from the docker host.
-func (d *DockerContainer) Remove(ctx context.Context) error {
-	return d.client.ContainerRemove(ctx, d.id, types.ContainerRemoveOptions{Force: true})
-}
-
-// Stop stops a container without terminating the process.
+// Stop stops the container without terminating the process.
 // The process is blocked until the container stops or the timeout expires.
 func (d *DockerContainer) Stop(ctx context.Context, optionalTimeout ...time.Duration) error {
 	duration := 3 * time.Minute
@@ -194,6 +189,28 @@ func (d *DockerContainer) ExitStatus(ctx context.Context) (int, error) {
 	}
 
 	return resp.State.ExitCode, nil
+}
+
+// Shutdown stops the container and stores its log. It returns the exit status of the process.
+func (d *DockerContainer) Shutdown(ctx context.Context, optionalTimeout ...time.Duration) (exitStatus int, err error) {
+	err = d.Stop(ctx, optionalTimeout...)
+	if err != nil {
+		return 0, err
+	}
+	logs, err := d.Logs(ctx)
+	if err != nil {
+		return 0, err
+	}
+	err = createLogFile(d.name, logs)
+	if err != nil {
+		return 0, err
+	}
+	return d.ExitStatus(ctx)
+}
+
+// Remove kills and removes a container from the docker host.
+func (d *DockerContainer) Remove(ctx context.Context) error {
+	return d.client.ContainerRemove(ctx, d.id, types.ContainerRemoveOptions{Force: true})
 }
 
 // IP returns the IP address according to the container information for the given network.
@@ -224,20 +241,4 @@ func (d *DockerContainer) Logs(ctx context.Context) (io.ReadCloser, error) {
 		Details:    false,
 	}
 	return d.client.ContainerLogs(ctx, d.id, options)
-}
-
-func (d *DockerContainer) Shutdown(ctx context.Context, optionalTimeout ...time.Duration) (exitStatus int, err error) {
-	err = d.Stop(ctx, optionalTimeout...)
-	if err != nil {
-		return 0, err
-	}
-	logs, err := d.Logs(ctx)
-	if err != nil {
-		return 0, err
-	}
-	err = createLogFile(d.name, logs)
-	if err != nil {
-		return 0, err
-	}
-	return d.ExitStatus(ctx)
 }

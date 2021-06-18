@@ -30,10 +30,12 @@ const (
 var (
 	// GenesisTokenAmount is the amount of tokens in the genesis output.
 	GenesisTokenAmount = 1000000000000000
-	GenesisSeed        = []byte{
+	// GenesisSeed is the seed of the funds created at genesis.
+	GenesisSeed = []byte{
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
 		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
 	}
+	// TODO: what is this?
 	GenesisNodeID = identity.ID{
 		18, 238, 36, 222, 162, 108, 254, 201, 233, 20, 37, 40, 192, 253, 228, 151,
 		179, 44, 73, 178, 9, 249, 86, 104, 109, 204, 56, 129, 128, 83, 169, 194,
@@ -53,9 +55,9 @@ type CreateNetworkConfig struct {
 	// Autopeering specifies whether autopeering or manual peering is used.
 	Autopeering bool
 	// Faucet specifies whether the first peer should have the faucet enabled.
-	Faucet bool // TODO: which tests require a faucet?
+	Faucet bool
 	// FPC specified whether FPC is enabled.
-	FPC bool // TODO: which tests require FPC?
+	FPC bool
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.

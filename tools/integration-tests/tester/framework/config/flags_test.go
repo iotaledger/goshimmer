@@ -1,10 +1,8 @@
 package config
 
 import (
-	"log"
 	"testing"
 
-	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,8 +25,6 @@ func TestLowerCamelCase(t *testing.T) {
 			require.Equal(t, tt.exp, lowerCamelCase(tt.s))
 		})
 	}
-
-	log.Println(base58.Decode("2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5"))
 }
 
 func TestCreateFlags(t *testing.T) {

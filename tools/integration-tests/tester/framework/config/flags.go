@@ -9,11 +9,12 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+// CreateFlags converts a GoShimmer config into the corresponding command line flags.
 func (config GoShimmer) CreateFlags() []string {
 	var (
 		enabledPlugins  = map[string]struct{}{}
 		disabledPlugins = map[string]struct{}{}
-		cmd             []string
+		flags           []string
 	)
 
 	for _, name := range config.DisabledPlugins {
@@ -40,18 +41,18 @@ func (config GoShimmer) CreateFlags() []string {
 		}
 		enabledPlugins[pluginName] = struct{}{}
 		delete(disabledPlugins, pluginName)
-		cmd = append(cmd, pluginCommands("--"+lowerCamelCase(field.Name)+".", configVal.Field(i))...)
+		flags = append(flags, pluginCommands("--"+lowerCamelCase(field.Name)+".", configVal.Field(i))...)
 	}
 
-	cmd = append(
+	flags = append(
 		[]string{
 			"--node.enablePlugins=Webapi tools Endpoint", // TODO: Why doesn't this plugin have a proper name?
 			fmt.Sprintf("--autopeering.seed=base58:%s", base58.Encode(config.Seed)),
 			fmt.Sprintf("--node.enablePlugins=%s", setToString(enabledPlugins)),
 			fmt.Sprintf("--node.disablePlugins=%s", setToString(disabledPlugins)),
 		},
-		cmd...)
-	return cmd
+		flags...)
+	return flags
 }
 
 func pluginCommands(prefix string, val reflect.Value) []string {
@@ -66,13 +67,13 @@ func pluginCommands(prefix string, val reflect.Value) []string {
 		case reflect.Struct:
 			s = append(s, pluginCommands(prefix+lowerCamelCase(field.Name)+".", val.Field(i))...)
 		default:
-			s = append(s, fmt.Sprintf("%s%s=%s", prefix, lowerCamelCase(field.Name), toString(val.Field(i))))
+			s = append(s, fmt.Sprintf("%s%s=%s", prefix, lowerCamelCase(field.Name), valueToString(val.Field(i))))
 		}
 	}
 	return s
 }
 
-func toString(v reflect.Value) string {
+func valueToString(v reflect.Value) string {
 	switch v.Type().Kind() {
 	case reflect.Slice, reflect.Array:
 		var b strings.Builder

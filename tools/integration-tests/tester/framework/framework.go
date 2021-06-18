@@ -58,6 +58,8 @@ func newFramework(ctx context.Context) (*Framework, error) {
 	return f, nil
 }
 
+// CreateNetwork creates and returns a network that contains numPeers GoShimmer peers.
+// It blocks until all peers are connected.
 func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int, conf CreateNetworkConfig) (*Network, error) {
 	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
@@ -99,10 +101,9 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 	return network, nil
 }
 
-// CreateNetworkWithPartitions creates and returns a partitioned network that contains `peers` GoShimmer nodes per partition.
-// It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
-// The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string, numPeers, partitions int, conf CreateNetworkConfig) (*Network, error) {
+// CreateNetworkWithPartitions creates and returns a network that contains numPeers GoShimmer nodes
+// distributed over numPartitions partitions. It blocks until all peers are connected.
+func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string, numPeers, numPartitions int, conf CreateNetworkConfig) (*Network, error) {
 	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
@@ -130,8 +131,8 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 		return nil, err
 	}
 
-	log.Printf("Creating %d partitions for %d peers...", partitions, numPeers)
-	chunkSize := numPeers / partitions
+	log.Printf("Creating %d partitions for %d peers...", numPartitions, numPeers)
+	chunkSize := numPeers / numPartitions
 	for i := 0; i < numPeers; i += chunkSize {
 		end := i + chunkSize
 		if end > numPeers {
@@ -164,14 +165,16 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	return network, nil
 }
 
-func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, members, peers int) (*DRNGNetwork, error) {
+// CreateDRNGNetwork creates and returns a network that contains numPeers GoShimmer peers
+// out of which numMembers are part of the DRNG committee. It blocks until all peers are connected.
+func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, numMembers int, numPeers int) (*DRNGNetwork, error) {
 	drng, err := newDRNGNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
 	}
 
-	// create members/drand nodes
-	for i := 0; i < members; i++ {
+	// create numMembers/drand nodes
+	for i := 0; i < numMembers; i++ {
 		leader := i == 0
 		if _, err = drng.CreateMember(ctx, leader); err != nil {
 			return nil, err
@@ -184,16 +187,16 @@ func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, members,
 	}
 
 	// create GoShimmer identities
-	pubKeys := make([]ed25519.PublicKey, peers)
-	privKeys := make([]ed25519.PrivateKey, peers)
+	pubKeys := make([]ed25519.PublicKey, numPeers)
+	privKeys := make([]ed25519.PrivateKey, numPeers)
 	var drngCommittee []string
-	for i := 0; i < peers; i++ {
+	for i := 0; i < numPeers; i++ {
 		pubKeys[i], privKeys[i], err = ed25519.GenerateKey()
 		if err != nil {
 			return nil, err
 		}
 
-		if i < members {
+		if i < numMembers {
 			drngCommittee = append(drngCommittee, pubKeys[i].String())
 		}
 	}
@@ -210,8 +213,8 @@ func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, members,
 	}
 	conf.MessageLayer.StartSynced = true
 
-	// create peers/GoShimmer nodes
-	for i := 0; i < peers; i++ {
+	// create numPeers/GoShimmer nodes
+	for i := 0; i < numPeers; i++ {
 		conf.Seed = privKeys[i].Seed().Bytes()
 		if _, e := drng.CreatePeer(ctx, conf); e != nil {
 			return nil, e

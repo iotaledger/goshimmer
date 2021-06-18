@@ -49,14 +49,17 @@ func (n *Node) String() string {
 	return fmt.Sprintf("GoShimmer:{%s}", n.Name())
 }
 
+// Name returns the name of the node.
 func (n *Node) Name() string {
 	return n.conf.Name
 }
 
+// Config returns the configuration of the node.
 func (n *Node) Config() config.GoShimmer {
 	return n.conf
 }
 
+// Address returns the idx-th address of the wallet corresponding to the node.
 func (n *Node) Address(idx int) ledgerstate.Address {
 	if idx < 0 {
 		panic("invalid index")
