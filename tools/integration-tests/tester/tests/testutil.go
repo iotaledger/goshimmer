@@ -787,6 +787,12 @@ func Balance(t *testing.T, peer *framework.Node, addr ledgerstate.Address, color
 	return sum
 }
 
+func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
+	info, err := node.Info()
+	require.NoError(t, err)
+	return info.Mana
+}
+
 type coloredBalance struct {
 	Color   ledgerstate.Color
 	Balance int64
