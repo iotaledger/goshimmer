@@ -26,55 +26,55 @@ func TestFaucetPrepare(t *testing.T) {
 	faucet, peer := n.Peers()[0], n.Peers()[1]
 	// use faucet parameters
 	var (
-		preparedOutputsCounts = faucet.Config().PreparedOutputsCounts
-		tokensPerRequest      = faucet.Config().TokensPerRequest
+		preparedOutputsCount = faucet.Config().PreparedOutputsCount
+		tokensPerRequest     = faucet.Config().TokensPerRequest
 	)
 
 	// wait for the faucet to prepare all outputs
 	require.Eventually(t, func() bool {
-		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCounts).Base58()})
+		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCount).Base58()})
 		require.NoError(t, err)
 		return len(resp.UnspentOutputs[0].Outputs) > 0
 	}, tests.WaitForDeadline(t), tests.Tick)
 
-	// check that each of the preparedOutputsCounts addresses holds the correct balance
-	remainderBalance := uint64(framework.GenesisTokenAmount - preparedOutputsCounts*tokensPerRequest)
+	// check that each of the preparedOutputsCount addresses holds the correct balance
+	remainderBalance := uint64(framework.GenesisTokenAmount - preparedOutputsCount*tokensPerRequest)
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
-	for i := 1; i <= preparedOutputsCounts; i++ {
+	for i := 1; i <= preparedOutputsCount; i++ {
 		require.EqualValues(t, tokensPerRequest, tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))
 	}
 
 	// consume all but one of the prepared outputs
-	for i := 1; i < preparedOutputsCounts; i++ {
+	for i := 1; i < preparedOutputsCount; i++ {
 		tests.SendFaucetRequest(t, peer, peer.Address(i))
 	}
 
 	// wait for the peer to register a balance change
 	require.Eventually(t, func() bool {
-		return tests.Balance(t, peer, peer.Address(preparedOutputsCounts-1), ledgerstate.ColorIOTA) > 0
+		return tests.Balance(t, peer, peer.Address(preparedOutputsCount-1), ledgerstate.ColorIOTA) > 0
 	}, tests.WaitForDeadline(t), tests.Tick)
 
 	// one prepared output is left on the last address.
-	require.EqualValues(t, tokensPerRequest, tests.Balance(t, faucet, faucet.Address(preparedOutputsCounts), ledgerstate.ColorIOTA))
+	require.EqualValues(t, tokensPerRequest, tests.Balance(t, faucet, faucet.Address(preparedOutputsCount), ledgerstate.ColorIOTA))
 
 	// check that the remainderBalance is untouched
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
 
 	// issue two more request to split the remainder balance.
-	tests.SendFaucetRequest(t, peer, peer.Address(preparedOutputsCounts))
-	tests.SendFaucetRequest(t, peer, peer.Address(preparedOutputsCounts+1))
+	tests.SendFaucetRequest(t, peer, peer.Address(preparedOutputsCount))
+	tests.SendFaucetRequest(t, peer, peer.Address(preparedOutputsCount+1))
 
 	// wait for the faucet to prepare new outputs
 	require.Eventually(t, func() bool {
-		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCounts + preparedOutputsCounts).Base58()})
+		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCount + preparedOutputsCount).Base58()})
 		require.NoError(t, err)
 		return len(resp.UnspentOutputs[0].Outputs) > 0
 	}, tests.WaitForDeadline(t), tests.Tick)
 
-	// check that each of the preparedOutputsCounts addresses holds the correct balance
-	remainderBalance -= uint64(preparedOutputsCounts * tokensPerRequest)
+	// check that each of the preparedOutputsCount addresses holds the correct balance
+	remainderBalance -= uint64(preparedOutputsCount * tokensPerRequest)
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
-	for i := preparedOutputsCounts + 1; i <= preparedOutputsCounts+preparedOutputsCounts; i++ {
+	for i := preparedOutputsCount + 1; i <= preparedOutputsCount+preparedOutputsCount; i++ {
 		require.EqualValues(t, tokensPerRequest, tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))
 	}
 }

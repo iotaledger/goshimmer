@@ -86,10 +86,10 @@ type Mana struct {
 type Faucet struct {
 	Enabled bool
 
-	Seed                  string
-	TokensPerRequest      int
-	PowDifficulty         int
-	PreparedOutputsCounts int
+	Seed                 string
+	TokensPerRequest     int
+	PowDifficulty        int
+	PreparedOutputsCount int
 }
 
 // DRNG defines the parameters of the DRNG plugin.

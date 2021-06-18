@@ -164,7 +164,9 @@ func (n *Network) WaitForAutopeering(ctx context.Context) error {
 	nodes := n.peers
 
 	condition := func() (bool, error) {
+		// connection graph of all the nodes
 		connections := make(map[string]map[string]struct{}, len(nodes))
+		// query all nodes and add their neighbors to the connection graph
 		for _, node := range nodes {
 			resp, err := node.GetAutopeeringNeighbors(false)
 			if err != nil {

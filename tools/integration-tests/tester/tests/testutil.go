@@ -38,7 +38,7 @@ var (
 var (
 	faucetTokensPerRequest     = framework.PeerConfig.Faucet.TokensPerRequest
 	faucetPoWDifficulty        = framework.PeerConfig.Faucet.PowDifficulty
-	faucetPreparedOutputsCount = framework.PeerConfig.Faucet.PreparedOutputsCounts
+	faucetPreparedOutputsCount = framework.PeerConfig.Faucet.PreparedOutputsCount
 )
 
 const Tick = 500 * time.Millisecond

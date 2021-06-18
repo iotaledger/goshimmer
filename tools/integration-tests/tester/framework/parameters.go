@@ -90,11 +90,11 @@ var PeerConfig = config.GoShimmer{
 		TotalRoundsFinalization: 10,
 	},
 	Faucet: config.Faucet{
-		Enabled:               false,
-		Seed:                  base58.Encode(GenesisSeed),
-		TokensPerRequest:      1000000,
-		PowDifficulty:         3,
-		PreparedOutputsCounts: 10,
+		Enabled:              false,
+		Seed:                 base58.Encode(GenesisSeed),
+		TokensPerRequest:     1000000,
+		PowDifficulty:        3,
+		PreparedOutputsCount: 10,
 	},
 	Mana: config.Mana{
 		Enabled:                       true,

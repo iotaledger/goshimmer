@@ -88,7 +88,7 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 // CreateDrandMember creates a new container with the drand configuration.
 func (d *DockerContainer) CreateDrandMember(ctx context.Context, name string, goShimmerAPI string, leader bool) error {
 	// configure drand container instance
-	env := []string{}
+	var env []string
 	if leader {
 		env = append(env, "LEADER=1")
 	}

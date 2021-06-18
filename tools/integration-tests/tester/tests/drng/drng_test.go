@@ -19,7 +19,7 @@ import (
 func TestDRNG(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateDRNGNetwork(ctx, t.Name(), 5, 8)
+	n, err := f.CreateDRNGNetwork(ctx, t.Name(), 5, 6)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -30,28 +30,24 @@ func TestDRNG(t *testing.T) {
 		tests.WaitForDeadline(t), tests.Tick)
 	log.Println("Waiting for randomness generation to be started... done")
 
-	firstRound := getRandomness(t, n.Peers()[0]).Round // TODO: Why doesn't this start with round=1?
-	numChecks := 3
-
-	// group the tests, to be able to clean up after all parallel tests have finished
-	t.Run("round", func(t *testing.T) {
-		for _, peer := range n.Peers() {
-			p := peer // capture range variable
-			t.Run(p.Name(), func(t *testing.T) {
-				t.Parallel() // query all peers in parallel
-
-				// check that we receive numChecks successive rounds of randomness
-				for i := 0; i <= numChecks; i++ {
-					round := firstRound + uint64(i)
-					require.Eventuallyf(t,
-						func() bool { return getRandomness(t, p).Round == round },
-						20*time.Second, tests.Tick,
-						"peer %s did not receive round %d", p, round)
-					t.Logf("%+v", getRandomness(t, p))
+	firstRound := getRandomness(t, n.Peers()[0]).Round
+	const numChecks = 3
+	for i := 0; i < numChecks; i++ {
+		round := firstRound + uint64(i)
+		// eventually all peers should be in the same round
+		log.Printf("Waiting for all peers to receive round %d...", round)
+		require.Eventually(t,
+			func() bool {
+				for _, peer := range n.Peers() {
+					if getRandomness(t, peer).Round != round {
+						return false
+					}
 				}
-			})
-		}
-	})
+				return true
+			},
+			20*time.Second, tests.Tick)
+		log.Println("Waiting for all peers to receive round... done")
+	}
 }
 
 func getRandomness(t *testing.T, node *framework.Node) jsonmodels.Randomness {

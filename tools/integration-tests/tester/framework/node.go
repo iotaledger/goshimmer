@@ -69,8 +69,12 @@ func (n *Node) Start(ctx context.Context) error {
 	if err := n.DockerContainer.Start(ctx); err != nil {
 		return err
 	}
-	if err := eventually(ctx, n.IsRunning, time.Second); err != nil {
-		return errors.Errorf("node %s did not come up", n.Name())
+
+	startContext, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	if err := eventually(startContext, n.IsRunning, time.Second); err != nil {
+		_, _ = n.Shutdown(ctx)
+		return errors.Errorf("node %s did not come up in time", n)
 	}
 	return nil
 }
