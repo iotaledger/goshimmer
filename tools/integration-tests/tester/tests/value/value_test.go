@@ -29,6 +29,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
+		FPC:         true, // TODO: Why do we need FPC but do not autopeering
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -97,15 +98,12 @@ func TestValueColoredPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		Faucet:      true,
 		StartSynced: true,
+		Faucet:      true,
+		FPC:         true, // TODO: Why do we need FPC but do not autopeering
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
-
-	log.Println("Waiting for nodes to become synced...")
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
-	log.Println("Waiting for nodes to become synced... done")
 
 	// master node sends funds to all peers in the network
 	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
@@ -176,17 +174,14 @@ func TestAliasPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		Faucet:      true,
 		StartSynced: true,
+		Faucet:      true,
+		FPC:         true, // TODO: Why do we need FPC but do not autopeering
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
-
-	log.Println("Waiting for nodes to become synced...")
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
-	log.Println("Waiting for nodes to become synced... done")
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
@@ -291,6 +286,7 @@ func TestAliasDelegation(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
+		FPC:         true, // TODO: Why do we need FPC but do not autopeering
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

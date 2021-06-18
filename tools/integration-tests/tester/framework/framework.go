@@ -90,7 +90,7 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 		}
 	}
 
-	if conf.FPC {
+	if conf.FPC && conf.Autopeering {
 		err = network.WaitForPeerDiscovery(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "peer discovery failed")
