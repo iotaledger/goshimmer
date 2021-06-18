@@ -236,11 +236,6 @@ func TestAliasPersistence(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	// TODO: why are the nodes not StartSynced?
-	log.Println("Waiting for nodes to become synced...")
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
-	log.Println("Waiting for nodes to become synced... done")
-
 	// check if nodes still have the outputs and transaction
 	for _, peer := range n.Peers() {
 		inclusionState, err := peer.GetTransactionInclusionState(tx.ID().Base58())
@@ -292,10 +287,6 @@ func TestAliasDelegation(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
-
-	log.Println("Waiting for nodes to become synced...")
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
-	log.Println("Waiting for nodes to become synced... done")
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
