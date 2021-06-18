@@ -46,9 +46,6 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	log.Println("Spawning new node... done")
 
-	// the node should not be in sync as all the message are outside the sync time-window
-	require.False(t, tests.Synced(t, newPeer))
-
 	// 3. issue some messages on old peers so that new peer can solidify
 	log.Printf("Issuing %d messages on the %d initial peers...", numMessages, initialPeers)
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numMessages, ids)
@@ -73,10 +70,12 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Restarting new node to sync again...")
 	err = newPeer.Start(ctx)
 	require.NoError(t, err)
-	log.Println("Restarting node... done")
-
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
+	log.Println("Restarting node... done")
+
+	// the node should not be in sync as all the message are outside its sync time window
+	require.False(t, tests.Synced(t, newPeer))
 
 	// 7. issue some messages on old peers so that new peer can sync again
 	log.Printf("Issuing %d messages on the %d initial peers...", numMessages, initialPeers)
@@ -84,8 +83,12 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Issuing messages... done")
 
 	// 9. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, []*framework.Node{newPeer}, ids, 30*time.Second)
-	tests.CheckSynchronized(t, n.Peers())
+	tests.CheckForMessageIDs(t, []*framework.Node{newPeer}, ids, time.Minute)
+	// check that the new node is synced
+	require.Eventuallyf(t,
+		func() bool { return tests.Synced(t, newPeer) },
+		time.Minute, tests.Tick,
+		"the peer %s did not sync again after restart", newPeer)
 }
 
 func createNewPeerConfig() config.GoShimmer {
