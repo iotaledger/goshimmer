@@ -2,7 +2,7 @@ package mana
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
+
+var emptyNodeID = identity.ID{}
 
 func TestManaPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -34,25 +34,20 @@ func TestManaPersistence(t *testing.T) {
 
 	tests.SendFaucetRequest(t, peer, peer.Address(0))
 
+	log.Println("Waiting for peer to get mana...")
 	require.Eventually(t, func() bool {
-		return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) > 0
+		return tests.Mana(t, peer).Access > tangle.MinMana
 	}, tests.WaitForDeadline(t), tests.Tick)
-
-	info, err := peer.Info()
-	require.NoError(t, err)
-	require.Greater(t, info.Mana.Access, tangle.MinMana)
-	require.Greater(t, info.Mana.Consensus, 0.0)
+	require.Eventually(t, func() bool {
+		return tests.Mana(t, peer).Consensus > 0
+	}, tests.WaitForDeadline(t), tests.Tick)
+	log.Println("Waiting for peer to get mana... done")
 
 	// restart the peer
-	err = peer.Stop(ctx)
-	require.NoError(t, err)
-	err = peer.Start(ctx)
-	require.NoError(t, err)
+	require.NoError(t, peer.Restart(ctx))
 
-	info, err = peer.Info()
-	require.NoError(t, err)
-	require.Greater(t, info.Mana.Access, tangle.MinMana)
-	require.Greater(t, info.Mana.Consensus, 0.0)
+	require.Greater(t, tests.Mana(t, peer).Access, tangle.MinMana)
+	require.Greater(t, tests.Mana(t, peer).Consensus, 0.0)
 }
 
 func TestManaPledgeFilter(t *testing.T) {
@@ -67,9 +62,9 @@ func TestManaPledgeFilter(t *testing.T) {
 	peers := n.Peers()
 
 	accessPeer := peers[0]
-	accessPeerID := base58.Encode(accessPeer.Identity.ID().Bytes())
+	accessPeerID := fullID(accessPeer.ID())
 	consensusPeer := peers[1]
-	consensusPeerID := base58.Encode(consensusPeer.Identity.ID().Bytes())
+	consensusPeerID := fullID(consensusPeer.ID())
 
 	faucetConfig := framework.PeerConfig
 	faucetConfig.MessageLayer.StartSynced = true // TODO: how can we make it sync?
@@ -141,144 +136,140 @@ func TestManaApis(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		Faucet:      true, // TODO: do we need the faucet here?
 		StartSynced: true,
+		Faucet:      true,
+		FPC:         true, // TODO: Do we really need full FPC here?
+		Autopeering: true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	err = tests.AwaitSync(t, n.Peers(), 20*time.Second)
-	require.NoError(t, err)
-
-	emptyNodeID := identity.ID{}
-
 	peers := n.Peers()
-	for _, p := range peers {
-		fmt.Printf("peer id: %s, short id: %s\n", base58.Encode(p.ID().Bytes()), p.ID().String())
-	}
 	faucet := peers[0]
 
 	// Test /mana
-	// consensus mana was pledged to empty nodeID by faucet
-	resp, err := peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(emptyNodeID.Bytes()))
-	require.NoError(t, err)
-	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp.NodeID)
-	assert.Equal(t, 1.0, resp.Access)
-	assert.Greater(t, resp.Consensus, 0.0)
+	t.Run("mana", func(t *testing.T) {
+		// the faucet should have access and consensus mana
+		resp, err := faucet.GetManaFullNodeID(fullID(faucet.ID()))
+		require.NoError(t, err)
+		t.Logf("/mana %+v", resp)
+		assert.Equal(t, fullID(faucet.ID()), resp.NodeID)
+		assert.Greater(t, resp.Access, tangle.MinMana)
+		assert.Greater(t, resp.Consensus, 0.0)
 
-	resp, err = peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(peers[0].ID().Bytes()))
-	require.NoError(t, err)
-	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp.NodeID)
-	assert.Greater(t, resp.Access, 0.0)
-	assert.Greater(t, resp.Consensus, 0.0)
+		// TODO: Add more documentation why the emptyNodeID is supposed to have consensus but no access mana
+		resp, err = faucet.GetManaFullNodeID(fullID(emptyNodeID))
+		require.NoError(t, err)
+		t.Logf("/mana %+v", resp)
+		assert.Equal(t, fullID(emptyNodeID), resp.NodeID)
+		assert.Equal(t, tangle.MinMana, resp.Access)
+		assert.Greater(t, resp.Consensus, 0.0)
+	})
 
 	// Test /mana/all
-	resp2, err := peers[0].GoShimmerAPI.GetAllMana()
-	require.NoError(t, err)
-	assert.Equal(t, 2, len(resp2.Access))
-	assert.Greater(t, resp2.Access[0].Mana, 0.0)
+	t.Run("mana/all", func(t *testing.T) {
+		resp, err := faucet.GetAllMana()
+		require.NoError(t, err)
+		t.Logf("/mana/all %+v", resp)
+		assert.Equal(t, 2, len(resp.Access))
+		assert.Greater(t, resp.Access[0].Mana, 0.0)
+	})
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
-	// send funds to node 1
-	peer1ID := base58.Encode(peers[1].ID().Bytes())
-	_, err = peers[0].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), faucet.Config().Faucet.PowDifficulty, peer1ID, peer1ID)
-	require.NoError(t, err)
-	time.Sleep(30 * time.Second)
-	// send funds to node 2
-	peer2ID := base58.Encode(peers[2].ID().Bytes())
-	_, err = peers[0].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), faucet.Config().Faucet.PowDifficulty, peer2ID, peer2ID)
-	require.NoError(t, err)
-	time.Sleep(10 * time.Second)
+	t.Run("mana/*/nhighest", func(t *testing.T) {
+		// send funds to peer 1
+		tests.SendFaucetRequest(t, peers[1], peers[1].Address(0))
+		require.Eventually(t, func() bool {
+			return tests.Mana(t, peers[1]).Access > tangle.MinMana
+		}, time.Minute, tests.Tick)
+		// send funds to peer 2
+		tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
+		require.Eventually(t, func() bool {
+			return tests.Mana(t, peers[2]).Access > tangle.MinMana
+		}, time.Minute, tests.Tick)
 
-	require.NoError(t, err)
-	allManaResp, err := peers[0].GoShimmerAPI.GetAllMana()
-	require.NoError(t, err)
-	fmt.Println("all mana")
-	for _, m := range allManaResp.Access {
-		fmt.Println("nodeid: ", m.NodeID, " mana: ", m.Mana)
-	}
-	resp3, err := peers[0].GoShimmerAPI.GetNHighestAccessMana(len(peers) + 2)
-	t.Log("resp3", resp3)
-	require.NoError(t, err)
-	resp3.Nodes = stripGenesisNodeID(resp3.Nodes)
-	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers) + 2)
-	t.Log("resp", resp4)
-	require.NoError(t, err)
-	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
-	require.Equal(t, 3, len(resp3.Nodes))
-	for i := 0; i < 3; i++ {
-		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
-	}
+		// TODO: What is the "GenesisNode" in this list? How can we test for it?
+		expectedAccessOrder := []identity.ID{faucet.ID(), peers[1].ID(), peers[2].ID()}
+		aResp, err := faucet.GetNHighestAccessMana(len(expectedAccessOrder))
+		require.NoError(t, err)
+		t.Logf("/mana/access/nhighest %+v", aResp)
+		require.Len(t, aResp.Nodes, len(expectedAccessOrder))
+		for i := range expectedAccessOrder {
+			require.Equal(t, expectedAccessOrder[i].String(), aResp.Nodes[i].ShortNodeID)
+		}
 
-	require.Equal(t, 4, len(resp4.Nodes))
-	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp4.Nodes[0].NodeID)
-	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp4.Nodes[1].NodeID)
-	assert.True(t, base58.Encode(peers[1].ID().Bytes()) == resp4.Nodes[2].NodeID || base58.Encode(peers[1].ID().Bytes()) == resp4.Nodes[3].NodeID)
-	assert.True(t, base58.Encode(peers[2].ID().Bytes()) == resp4.Nodes[2].NodeID || base58.Encode(peers[2].ID().Bytes()) == resp4.Nodes[3].NodeID)
+		expectedConsensusOrder := []identity.ID{faucet.ID(), emptyNodeID, peers[1].ID(), peers[2].ID()}
+		cResp, err := faucet.GetNHighestConsensusMana(len(expectedConsensusOrder))
+		require.NoError(t, err)
+		t.Logf("/mana/consensus/nhighest %+v", cResp)
+		require.Len(t, cResp.Nodes, len(expectedConsensusOrder))
+		for i := range expectedConsensusOrder {
+			require.Equal(t, expectedConsensusOrder[i].String(), cResp.Nodes[i].ShortNodeID)
+		}
+	})
 
 	// Test /mana/percentile
-	resp5, err := peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(peers[0].ID().Bytes()))
-	require.NoError(t, err)
-	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp5.NodeID)
-	assert.InDelta(t, 75.0, resp5.Access, 0.01)
+	t.Run("mana/percentile", func(t *testing.T) {
+		resp, err := faucet.GetManaPercentile(fullID(peers[0].ID()))
+		require.NoError(t, err)
+		t.Logf("/mana/percentile %+v", resp)
+		assert.Equal(t, fullID(peers[0].ID()), resp.NodeID)
+		assert.InDelta(t, 75.0, resp.Access, 0.01)
 
-	resp5, err = peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(emptyNodeID.Bytes()))
-	require.NoError(t, err)
-	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp5.NodeID)
-	assert.InDelta(t, 60., resp5.Consensus, 0.01)
+		resp, err = faucet.GetManaPercentile(fullID(emptyNodeID))
+		require.NoError(t, err)
+		t.Logf("/mana/percentile %+v", resp)
+		assert.Equal(t, fullID(emptyNodeID), resp.NodeID)
+		assert.InDelta(t, 60., resp.Consensus, 0.01)
+	})
 
-	// Test /mana/online/access
-	resp6, err := peers[0].GoShimmerAPI.GetOnlineAccessMana()
-	require.NoError(t, err)
-	resp7, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
-	require.NoError(t, err)
-	require.Equal(t, 3, len(resp6.Online))
-	// emptyNodeID cannot be online!
-	require.Equal(t, 3, len(resp7.Online))
-	fmt.Println("online nodes access mana")
-	for _, r := range resp6.Online {
-		fmt.Println("node - ", r.ShortID, " -- mana: ", r.Mana)
-	}
-	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp6.Online[0].ID)
-	assert.Equal(t, base58.Encode(peers[1].ID().Bytes()), resp6.Online[1].ID)
-	assert.Equal(t, base58.Encode(peers[2].ID().Bytes()), resp6.Online[2].ID)
+	// Test /mana/access/online and /mana/consensus/online
+	t.Run("mana/*/online", func(t *testing.T) {
+		// genesis node is not online
+		expectedOnlineAccessOrder := []identity.ID{faucet.ID(), peers[1].ID(), peers[2].ID()}
+		aResp, err := faucet.GetOnlineAccessMana()
+		require.NoError(t, err)
+		t.Logf("/mana/access/online %+v", aResp)
+		require.Len(t, aResp.Online, len(expectedOnlineAccessOrder))
+		for i := range expectedOnlineAccessOrder {
+			require.Equal(t, expectedOnlineAccessOrder[i].String(), aResp.Online[i].ShortID)
+		}
 
-	fmt.Println("online nodes consensus mana")
-	for _, r := range resp7.Online {
-		fmt.Println("node - ", r.ShortID, " -- mana: ", r.Mana)
-	}
-	// emptyNodeID cannot be online!
-	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp7.Online[0].ID)
-	assert.True(t, base58.Encode(peers[1].ID().Bytes()) == resp7.Online[1].ID ||
-		base58.Encode(peers[1].ID().Bytes()) == resp7.Online[2].ID)
+		// empty node is not online
+		expectedOnlineConsensusOrder := []identity.ID{faucet.ID(), peers[1].ID(), peers[2].ID()}
+		cResp, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
+		require.NoError(t, err)
+		t.Logf("/mana/consensus/online %+v", cResp)
+		require.Len(t, cResp.Online, len(expectedOnlineConsensusOrder))
+		for i := range expectedOnlineConsensusOrder {
+			require.Equal(t, expectedOnlineConsensusOrder[i].String(), cResp.Online[i].ShortID)
+		}
+	})
 
 	// Test /mana/pending
-	unspentOutputs, err := peers[1].PostAddressUnspentOutputs([]string{peers[1].Seed.Address(0).Address().Base58()})
-	require.NoError(t, err)
-	outputID := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.OutputID.Base58
-	resp8, err := peers[1].GetPending(outputID)
-	require.NoError(t, err)
-	assert.Equal(t, outputID, resp8.OutputID)
-	fmt.Println("pending mana: ", resp8.Mana)
-	assert.Greater(t, resp8.Mana, 0.0)
+	t.Run("mana/pending", func(t *testing.T) {
+		unspentOutputs, err := peers[1].PostAddressUnspentOutputs([]string{peers[1].Address(0).Base58()})
+		require.NoError(t, err)
+		outputID := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.OutputID.Base58
+		resp, err := peers[1].GetPending(outputID)
+		require.NoError(t, err)
+		t.Logf("/mana/pending %+v", resp)
+		assert.Equal(t, outputID, resp.OutputID)
+		assert.Greater(t, resp.Mana, 0.0)
+	})
 
 	// Test /mana/allowedManaPledge
-	pledgeList, err := peers[0].GoShimmerAPI.GetAllowedManaPledgeNodeIDs()
-	require.NoError(t, err, "Error occurred while testing allowed mana pledge api")
-	assert.Equal(t, false, pledgeList.Access.IsFilterEnabled, "/mana/allowedManaPledge: FilterEnabled field for access mana is not as expected")
-	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), pledgeList.Access.Allowed[0], "/mana/allowedManaPledge: Allowed node id to pledge access mana is not as expected")
-	assert.Equal(t, false, pledgeList.Consensus.IsFilterEnabled, "/mana/allowedManaPledge: FilterEnabled field for consensus mana is not as expected")
-	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), pledgeList.Consensus.Allowed[0], "/mana/allowedManaPledge: Allowed node id to pledge consensus mana is not as expected")
+	t.Run("mana/allowedManaPledge", func(t *testing.T) {
+		resp, err := faucet.GetAllowedManaPledgeNodeIDs()
+		require.NoError(t, err)
+		t.Logf("/mana/allowedManaPledge %+v", resp)
+		assert.Equal(t, false, resp.Access.IsFilterEnabled)
+		assert.Equal(t, []string{fullID(faucet.ID())}, resp.Access.Allowed)
+		assert.Equal(t, false, resp.Consensus.IsFilterEnabled)
+		assert.Equal(t, []string{fullID(faucet.ID())}, resp.Consensus.Allowed)
+	})
 }
 
-func stripGenesisNodeID(input []manaPkg.NodeStr) (output []manaPkg.NodeStr) {
-	peerMaster := "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5"
-	// faucet := "FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV"
-	for _, id := range input {
-		if id.NodeID == peerMaster {
-			continue
-		}
-		output = append(output, id)
-	}
-	return
+func fullID(id identity.ID) string {
+	return base58.Encode(id.Bytes())
 }
