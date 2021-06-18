@@ -6,56 +6,49 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
-
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 func TestManaPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 1, framework.CreateNetworkConfig{
-		Faucet:      true, // TODO: do we need the faucet here?
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+		Faucet:      true,
 		StartSynced: true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	peers := n.Peers()
+	faucet, peer := n.Peers()[0], n.Peers()[1]
 
-	info, err := peers[0].Info()
+	info, err := faucet.Info()
 	require.NoError(t, err)
 	manaBefore := info.Mana
 	require.Greater(t, manaBefore.Access, 0.0)
 	require.Greater(t, manaBefore.Consensus, 0.0)
 
-	// stop all nodes. Expects mana to be saved successfully
-	for _, peer := range n.Peers() {
-		require.NoError(t, peer.Stop(ctx))
-	}
+	tests.SendFaucetRequest(t, peer, peer.Address(0))
 
-	// start all nodes
-	for _, peer := range peers {
-		err = peer.Start(ctx)
-		require.NoError(t, err)
-	}
-
-	err = n.DoManualPeering(ctx)
+	// restart the peer
+	err = peer.Stop()
 	require.NoError(t, err)
+	err = peer.Start()
+	require.NoError(t, err)
+	time.Sleep(5 * time.Second)
 
-	info, err = peers[0].Info()
+	info, err := peer.Info()
 	require.NoError(t, err)
 	manaAfter := info.Mana
-	require.Greater(t, manaAfter.Access, 0.0)
-	require.Greater(t, manaAfter.Consensus, 0.0)
+	require.Greater(t, manaAfter.Access, 10.0)
+	require.Greater(t, manaAfter.Consensus, 10.0)
 }
 
 func TestManaPledgeFilter(t *testing.T) {
