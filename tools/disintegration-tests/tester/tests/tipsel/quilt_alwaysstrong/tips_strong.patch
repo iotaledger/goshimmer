@@ -1,0 +1,13 @@
+diff --git a/packages/tangle/tipmanager.go b/packages/tangle/tipmanager.go
+index 1dc3e0d2..3f418b2a 100644
+--- a/packages/tangle/tipmanager.go
++++ b/packages/tangle/tipmanager.go
+@@ -297,7 +297,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
+ 	}
+ 	weakParents = t.selectWeakTips(countWeakParents)
+ 
+-	return
++	return strongParents, MessageIDs{}, nil
+ }
+ 
+ // selectStrongTips returns a list of strong parents. In case of a transaction, it references young enough attachments
