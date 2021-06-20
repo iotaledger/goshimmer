@@ -8,22 +8,21 @@ import (
 
 // Drand represents a drand node (committe member) inside the Docker network
 type Drand struct {
-	// name of the drand instance, Docker container and hostname
 	name string
-
-	// Web API of this drand node
-	*core.Client
 
 	// the DockerContainer that this peer is running in
 	*DockerContainer
+
+	// Web API of this drand node
+	*core.Client
 }
 
 // newDrand creates a new instance of Drand with the given information.
 func newDrand(name string, dockerContainer *DockerContainer) *Drand {
 	return &Drand{
 		name:            name,
-		Client:          core.NewGrpcClient(),
 		DockerContainer: dockerContainer,
+		Client:          core.NewGrpcClient(),
 	}
 }
 
