@@ -97,6 +97,7 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
+			CacheTimeProvider:            database.NewCacheTimeProvider(-1),
 		}
 	}
 
@@ -294,7 +295,7 @@ type Options struct {
 	WeightProvider               WeightProvider
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
-	CacheTimeProvider            database.CacheTimeProvider
+	CacheTimeProvider            *database.CacheTimeProvider
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -387,7 +388,7 @@ func StartSynced(startSynced bool) Option {
 // CacheTimeProvider is an Option for the Tangle that allows to override hard coded cache time.
 func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
-		options.CacheTimeProvider = *cacheTimeProvider
+		options.CacheTimeProvider = cacheTimeProvider
 	}
 }
 
