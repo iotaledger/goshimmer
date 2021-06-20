@@ -8,6 +8,8 @@ import (
 type GoShimmer struct {
 	// Name specifies the GoShimmer instance.
 	Name string
+	// Image specifies the docker image for the instance
+	Image string
 	// DisabledPlugins specifies the plugins that are disabled with a config.
 	DisabledPlugins []string
 	// Seed specifies identity.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -47,9 +48,9 @@ func NewDockerContainerFromExisting(ctx context.Context, c *client.Client, name 
 	}
 
 	for _, cont := range containers {
-		if cont.Names[0] == name {
+		if cont.Names[0] == name || strings.HasPrefix(cont.ID, name) {
 			return &DockerContainer{
-				name:   name,
+				name:   cont.Names[0],
 				id:     cont.ID,
 				client: c,
 			}, nil
@@ -67,9 +68,14 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 	}
 	cmd = append(cmd, conf.CreateFlags()...)
 
+	image := conf.Image
+	if image == "" {
+		image = "iotaledger/goshimmer"
+	}
+
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
-		Image: "iotaledger/goshimmer",
+		Image: image,
 		ExposedPorts: nat.PortSet{
 			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):     {},
 			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):  {},
