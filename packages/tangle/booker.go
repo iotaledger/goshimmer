@@ -418,7 +418,7 @@ type MarkersManager struct {
 func NewMarkersManager(tangle *Tangle) *MarkersManager {
 	return &MarkersManager{
 		tangle:  tangle,
-		Manager: markers.NewManager(tangle.Options.Store, &tangle.Options.CacheTimeProvider),
+		Manager: markers.NewManager(tangle.Options.Store, tangle.Options.CacheTimeProvider),
 	}
 }
 
