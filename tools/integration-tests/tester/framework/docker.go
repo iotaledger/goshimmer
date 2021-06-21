@@ -65,7 +65,6 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsEntryNode),
 			"--autopeering.entryNodes=",
 			fmt.Sprintf("--autopeering.seed=base58:%s", seed),
-			fmt.Sprintf("--database.forceCacheTime=%d", noCache),
 		},
 	}
 
