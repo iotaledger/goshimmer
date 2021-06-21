@@ -57,7 +57,7 @@ func TestTransactionPersistence(t *testing.T) {
 	// send IOTA tokens from every peer
 	expectedStates := make(map[string]tests.ExpectedInclusionState)
 	for _, peer := range peers {
-		txID, err := tests.SendValue(t, peer, peer, ledgerstate.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
+		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
 		require.NoError(t, err)
 		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
 	}
@@ -68,7 +68,7 @@ func TestTransactionPersistence(t *testing.T) {
 
 	// send colored tokens from every peer
 	for _, peer := range peers {
-		txID, err := tests.SendValue(t, peer, peer, ledgerstate.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
+		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
 		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
 	}

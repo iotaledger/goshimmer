@@ -33,7 +33,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 1. issue data messages
 	log.Printf("Issuing %d messages to sync...", numSyncedMessages)
-	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers(), numSyncedMessages)
+	ids := tests.SendDataMessages(t, n.Peers(), numSyncedMessages)
 	log.Println("Issuing messages... done")
 
 	// 2. spawn peer without knowledge of previous messages
@@ -46,7 +46,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 3. issue some messages on old peers so that new peer can solidify
 	log.Printf("Issuing %d messages on the %d initial peers...", numMessages, initialPeers)
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numMessages, ids)
+	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numMessages, ids)
 	log.Println("Issuing messages... done")
 
 	// 4. check whether all issued messages are available on to the new peer
@@ -60,7 +60,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Stopping new node... done")
 
 	log.Printf("Issuing %d messages and waiting until they have old tangle time...", numSyncedMessages)
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numSyncedMessages, ids)
+	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncedMessages, ids)
 	// wait to assure that the new peer is actually out of sync when starting
 	time.Sleep(newPeer.Config().MessageLayer.TangleTimeWindow)
 	log.Println("Issuing messages... done")
@@ -79,7 +79,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// 7. issue some messages on old peers so that new peer can sync again
 	log.Printf("Issuing %d messages on the %d initial peers...", numMessages, initialPeers)
 	// TODO: How can we make sure that this is always sufficient to trigger the MarkerConfirmation threshold?
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numMessages, ids)
+	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numMessages, ids)
 	log.Println("Issuing messages... done")
 
 	// 9. check whether all issued messages are available on all nodes

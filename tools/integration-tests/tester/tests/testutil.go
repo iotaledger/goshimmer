@@ -46,42 +46,6 @@ type TransactionConfig struct {
 	ConsensusManaPledgeID identity.ID
 }
 
-// SendDataMessagesOnRandomPeer sends data messages on a random peer and saves the sent message to a map.
-func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Node, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
-	var ids map[string]DataMessageSent
-	if len(idsMap) > 0 {
-		ids = idsMap[0]
-	} else {
-		ids = make(map[string]DataMessageSent, numMessages)
-	}
-
-	for i := 0; i < numMessages; i++ {
-		data := []byte(fmt.Sprintf("Test: %d", i))
-
-		peer := peers[rand.Intn(len(peers))]
-		id, sent := SendDataMessage(t, peer, data, i)
-
-		ids[id] = sent
-	}
-
-	return ids
-}
-
-// SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int) (string, DataMessageSent) {
-	id, err := node.Data(data)
-	require.NoErrorf(t, err, "node=%s, Data failed", node)
-
-	sent := DataMessageSent{
-		number: number,
-		id:     id,
-		// save payload to be able to compare API response
-		data:            payload.NewGenericDataPayload(data).Bytes(),
-		issuerPublicKey: node.Identity.PublicKey().String(),
-	}
-	return id, sent
-}
-
 // SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct. By default,
 // it pledges mana to the peer making the request.
 func SendFaucetRequest(t *testing.T, peer *framework.Node, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
@@ -102,68 +66,46 @@ func SendFaucetRequest(t *testing.T, peer *framework.Node, addr ledgerstate.Addr
 	return resp.ID, sent
 }
 
-// RequireMessagesAvailable asserts that all nodes have received MessageIDs in waitFor time, periodically checking each tick.
-func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
-	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
-	for _, node := range nodes {
-		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
-		for messageID := range messageIDs {
-			missing[node.ID()][messageID] = struct{}{}
-		}
-	}
+// SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
+func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int) (string, DataMessageSent) {
+	id, err := node.Data(data)
+	require.NoErrorf(t, err, "node=%s, Data failed", node)
 
-	condition := func() bool {
-		for _, node := range nodes {
-			nodeMissing := missing[node.ID()]
-			for messageID := range nodeMissing {
-				msg, err := node.GetMessage(messageID)
-				// retry, when the message could not be found
-				if errors.Is(err, client.ErrNotFound) {
-					continue
-				}
-				require.NoErrorf(t, err, "GetMessage(%s) failed for node %s", messageID, node)
-				require.Equal(t, messageID, msg.ID)
-				delete(nodeMissing, messageID)
-				if len(nodeMissing) == 0 {
-					delete(missing, node.ID())
-				}
-			}
-		}
-		return len(missing) == 0
+	sent := DataMessageSent{
+		number: number,
+		id:     id,
+		// save payload to be able to compare API response
+		data:            payload.NewGenericDataPayload(data).Bytes(),
+		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
-
-	log.Printf("Waiting for %d messages to become available...", len(messageIDs))
-	require.Eventuallyf(t, condition, waitFor, tick,
-		"%d out of %d nodes did not receive all messages", len(missing), len(nodes))
-	log.Println("Waiting for message... done")
+	return id, sent
 }
 
-func AssertMessagesEqual(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent) {
-	log.Printf("Validating %d messages...", len(messageIDs))
-	for _, node := range nodes {
-		for messageID := range messageIDs {
-			resp, err := node.GetMessage(messageID)
-			require.NoErrorf(t, err, "messageID=%s, GetMessage failed for %s", messageID, node)
-			require.Equal(t, resp.ID, messageID)
+// SendDataMessages sends a total of numMessages data messages on a random peer and saves the sent message to a map.
+func SendDataMessages(t *testing.T, peers []*framework.Node, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
+	var result map[string]DataMessageSent
+	if len(idsMap) > 0 {
+		result = idsMap[0]
+	} else {
+		result = make(map[string]DataMessageSent, numMessages)
+	}
 
-			respMetadata, err := node.GetMessageMetadata(messageID)
-			require.NoErrorf(t, err, "messageID=%s, GetMessageMetadata failed for %s", messageID, node)
-			require.Equal(t, respMetadata.ID, messageID)
+	for i := 0; i < numMessages; i++ {
+		data := []byte(fmt.Sprintf("Test: %d", i))
 
-			// check for general information
-			msgSent := messageIDs[messageID]
+		peer := peers[rand.Intn(len(peers))]
+		id, sent := SendDataMessage(t, peer, data, i)
 
-			assert.Equalf(t, msgSent.issuerPublicKey, resp.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, node)
-			if msgSent.data != nil {
-				assert.Equalf(t, msgSent.data, resp.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, node)
-			}
-			assert.Truef(t, respMetadata.Solid, "messageID=%s, issuer=%s not solid in %s", msgSent.id, msgSent.issuerPublicKey, node)
+		if len(idsMap) > 0 {
+			result[id] = sent
 		}
 	}
-	log.Println("Validating messages... done")
+	return result
 }
 
-func SendValue(t *testing.T, from *framework.Node, to *framework.Node, color ledgerstate.Color, value uint64, txConfig TransactionConfig, addrBalance ...map[string]map[ledgerstate.Color]uint64) (string, error) {
+// SendTransaction sends a transaction of value and color. It returns the transactionID and the error return by PostTransaction.
+// If addrBalance is given the balance mutation are added to that map.
+func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, color ledgerstate.Color, value uint64, txConfig TransactionConfig, addrBalance ...map[string]map[ledgerstate.Color]uint64) (string, error) {
 	inputAddr := from.Seed.Address(txConfig.FromAddressIndex).Address()
 	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
@@ -228,6 +170,67 @@ func SendValue(t *testing.T, from *framework.Node, to *framework.Node, color led
 		addrBalance[0][outputAddr.Base58()][outputColor] += value
 	}
 	return resp.TransactionID, nil
+}
+
+// RequireMessagesAvailable asserts that all nodes have received MessageIDs in waitFor time, periodically checking each tick.
+func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
+	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
+	for _, node := range nodes {
+		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
+		for messageID := range messageIDs {
+			missing[node.ID()][messageID] = struct{}{}
+		}
+	}
+
+	condition := func() bool {
+		for _, node := range nodes {
+			nodeMissing := missing[node.ID()]
+			for messageID := range nodeMissing {
+				msg, err := node.GetMessage(messageID)
+				// retry, when the message could not be found
+				if errors.Is(err, client.ErrNotFound) {
+					continue
+				}
+				require.NoErrorf(t, err, "GetMessage(%s) failed for node %s", messageID, node)
+				require.Equal(t, messageID, msg.ID)
+				delete(nodeMissing, messageID)
+				if len(nodeMissing) == 0 {
+					delete(missing, node.ID())
+				}
+			}
+		}
+		return len(missing) == 0
+	}
+
+	log.Printf("Waiting for %d messages to become available...", len(messageIDs))
+	require.Eventuallyf(t, condition, waitFor, tick,
+		"%d out of %d nodes did not receive all messages", len(missing), len(nodes))
+	log.Println("Waiting for message... done")
+}
+
+func AssertMessagesEqual(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent) {
+	log.Printf("Validating %d messages...", len(messageIDs))
+	for _, node := range nodes {
+		for messageID := range messageIDs {
+			resp, err := node.GetMessage(messageID)
+			require.NoErrorf(t, err, "messageID=%s, GetMessage failed for %s", messageID, node)
+			require.Equal(t, resp.ID, messageID)
+
+			respMetadata, err := node.GetMessageMetadata(messageID)
+			require.NoErrorf(t, err, "messageID=%s, GetMessageMetadata failed for %s", messageID, node)
+			require.Equal(t, respMetadata.ID, messageID)
+
+			// check for general information
+			msgSent := messageIDs[messageID]
+
+			assert.Equalf(t, msgSent.issuerPublicKey, resp.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, node)
+			if msgSent.data != nil {
+				assert.Equalf(t, msgSent.data, resp.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, node)
+			}
+			assert.Truef(t, respMetadata.Solid, "messageID=%s, issuer=%s not solid in %s", msgSent.id, msgSent.issuerPublicKey, node)
+		}
+	}
+	log.Println("Validating messages... done")
 }
 
 func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, addrBalance map[string]map[ledgerstate.Color]uint64) {

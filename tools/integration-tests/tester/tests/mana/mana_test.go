@@ -103,7 +103,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	}, tests.WaitForDeadline(t), tests.Tick)
 
 	// pledge mana to allowed peers
-	_, err = tests.SendValue(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      1,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
@@ -112,7 +112,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	// pledge consensus mana to forbidden peer
-	_, err = tests.SendValue(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      2,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
@@ -122,7 +122,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	require.Contains(t, err.Error(), webapi.ErrNotAllowedToPledgeManaToNode.Error())
 
 	// pledge access mana to forbidden peer
-	_, err = tests.SendValue(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      3,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    consensusPeer.Identity.ID(),
