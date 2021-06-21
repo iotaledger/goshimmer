@@ -22,6 +22,7 @@ const (
 	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling,clock"
 	enabledPluginsPeer       = "WebAPI tools Endpoint"
 	snapshotFilePath         = "/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin"
+	noCache                  = 0
 	dockerLogsPrefixLen      = 8
 
 	dkgMaxTries = 50
@@ -124,6 +125,7 @@ type GoShimmerConfig struct {
 	WriteManaThreshold         float64
 	ReadManaThreshold          float64
 	SnapshotResetTime          bool
+	ForceCacheTime             time.Duration
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

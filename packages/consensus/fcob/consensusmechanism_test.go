@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -38,8 +40,10 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	LocallyFinalizedThreshold = 2 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
+		tangle.CacheTimeProvider(cacheTimeProvider))
 	defer testTangle.Shutdown()
 	testTangle.Setup()
 
@@ -241,8 +245,10 @@ func TestOpinionFormer(t *testing.T) {
 	LocallyFinalizedThreshold = 2 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
+		tangle.CacheTimeProvider(cacheTimeProvider))
 	defer testTangle.Shutdown()
 
 	messageA := newTestDataMessage("A")
