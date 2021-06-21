@@ -31,8 +31,6 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	tests.CheckSynchronized(t, n.Peers())
-
 	// 1. issue data messages
 	log.Printf("Issuing %d messages to sync...", numSyncedMessages)
 	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers(), numSyncedMessages)
@@ -52,7 +50,8 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Issuing messages... done")
 
 	// 4. check whether all issued messages are available on to the new peer
-	tests.CheckForMessageIDs(t, []*framework.Node{newPeer}, ids, 30*time.Second)
+	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.AssertMessagesEqual(t, []*framework.Node{newPeer}, ids)
 	require.True(t, tests.Synced(t, newPeer))
 
 	// 5. shut down newly added peer
@@ -79,11 +78,13 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 7. issue some messages on old peers so that new peer can sync again
 	log.Printf("Issuing %d messages on the %d initial peers...", numMessages, initialPeers)
+	// TODO: How can we make sure that this is always sufficient to trigger the MarkerConfirmation threshold?
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numMessages, ids)
 	log.Println("Issuing messages... done")
 
 	// 9. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, []*framework.Node{newPeer}, ids, time.Minute)
+	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.AssertMessagesEqual(t, []*framework.Node{newPeer}, ids)
 	// check that the new node is synced
 	require.Eventuallyf(t,
 		func() bool { return tests.Synced(t, newPeer) },

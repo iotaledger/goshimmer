@@ -416,15 +416,15 @@ func (n *Network) namePrefix(suffix string) string {
 // createPartition creates a partition with the given peers.
 // It starts a Pumba container for every peer that blocks traffic to all other partitions.
 func (n *Network) createPartition(ctx context.Context, nodes []*Node) error {
-	peersMap := make(map[string]*Node)
+	idSet := make(map[string]struct{})
 	for _, peer := range nodes {
-		peersMap[peer.ID().String()] = peer
+		idSet[peer.ID().String()] = struct{}{}
 	}
 
 	// block all traffic to all other nodes except in the current partition
 	var targetIPs []string
 	for _, peer := range n.peers {
-		if _, ok := peersMap[peer.ID().String()]; ok {
+		if _, ok := idSet[peer.ID().String()]; ok {
 			continue
 		}
 
@@ -448,10 +448,9 @@ func (n *Network) createPartition(ctx context.Context, nodes []*Node) error {
 	}
 
 	partition := &Partition{
-		name:     partitionName,
-		peers:    nodes,
-		peersMap: peersMap,
-		pumbas:   pumbas,
+		name:   partitionName,
+		peers:  nodes,
+		pumbas: pumbas,
 	}
 	n.partitions = append(n.partitions, partition)
 

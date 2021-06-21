@@ -11,8 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/client"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	webapi "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -56,9 +59,13 @@ func TestManaPersistence(t *testing.T) {
 }
 
 func TestManaPledgeFilter(t *testing.T) {
+	const (
+		numPeers         = 2
+		tokensPerRequest = 100
+	)
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 	})
 	require.NoError(t, err)
@@ -74,6 +81,8 @@ func TestManaPledgeFilter(t *testing.T) {
 	faucetConfig := framework.PeerConfig
 	faucetConfig.MessageLayer.StartSynced = true
 	faucetConfig.Faucet.Enabled = true
+	faucetConfig.Faucet.PreparedOutputsCount = 3 // we require exactly three outputs
+	faucetConfig.Faucet.TokensPerRequest = tokensPerRequest
 	faucetConfig.Mana = config.Mana{
 		Enabled:                       true,
 		AllowedAccessPledge:           []string{accessPeerID},
@@ -89,52 +98,38 @@ func TestManaPledgeFilter(t *testing.T) {
 
 	// wait for the faucet to prepare all outputs
 	require.Eventually(t, func() bool {
-		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(1).Base58()})
-		require.NoError(t, err)
-		return len(resp.UnspentOutputs[0].Outputs) > 0
+		outputs := tests.AddressUnspentOutputs(t, faucet, faucet.Address(faucet.Config().Faucet.PreparedOutputsCount))
+		return len(outputs) > 0
 	}, tests.WaitForDeadline(t), tests.Tick)
 
-	addrBalance := make(map[string]map[ledgerstate.Color]int64)
-	faucetAddrStr := faucet.Address(1).Base58()
-	addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
-	addrBalance[accessPeer.Address(0).Base58()] = make(map[ledgerstate.Color]int64)
-	addrBalance[consensusPeer.Address(0).Base58()] = make(map[ledgerstate.Color]int64)
-
-	// get faucet balances
-	unspentOutputs, err := faucet.PostAddressUnspentOutputs([]string{faucetAddrStr})
-	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucet.String())
-	out, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
-	require.NoError(t, err)
-	balanceValue, exist := out.Balances().Get(ledgerstate.ColorIOTA)
-	require.Equal(t, true, exist)
-	addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = int64(balanceValue)
-
-	// pledge mana to allowed pledge
-	fail, _ := tests.SendIotaTransaction(t, faucet, accessPeer, addrBalance, 100, tests.TransactionConfig{
+	// pledge mana to allowed peers
+	_, err = tests.SendValue(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      1,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
-	require.False(t, fail)
+	require.NoError(t, err)
 
-	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
+	// pledge consensus mana to forbidden peer
+	_, err = tests.SendValue(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      2,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: accessPeer.Identity.ID(),
 	})
-	require.True(t, fail)
+	require.ErrorIs(t, err, client.ErrBadRequest)
+	require.Contains(t, err.Error(), webapi.ErrNotAllowedToPledgeManaToNode.Error())
 
-	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
-		FromAddressIndex:      2,
+	// pledge access mana to forbidden peer
+	_, err = tests.SendValue(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+		FromAddressIndex:      3,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    consensusPeer.Identity.ID(),
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
-	require.True(t, fail)
+	require.ErrorIs(t, err, client.ErrBadRequest)
+	require.Contains(t, err.Error(), webapi.ErrNotAllowedToPledgeManaToNode.Error())
 }
 
 func TestManaApis(t *testing.T) {
@@ -144,7 +139,7 @@ func TestManaApis(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		FPC:         true, // TODO: Do we really need full FPC here?
-		Autopeering: true,
+		Autopeering: true, // we need to discover online peers
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

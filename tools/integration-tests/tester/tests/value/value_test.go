@@ -141,23 +141,16 @@ func TestValueColoredPersistence(t *testing.T) {
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
-	// stop all nodes
+	// restart all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Stop(ctx)
-		require.NoError(t, err)
-	}
-
-	// start all nodes
-	for _, peer := range n.Peers()[1:] {
-		err = peer.Start(ctx)
-		require.NoError(t, err)
+		require.NoError(t, peer.Restart(ctx))
 	}
 
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
 	log.Println("Waiting for nodes to become synced...")
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
+	tests.AwaitSync(t, n.Peers(), time.Minute, tests.Tick)
 	log.Println("Waiting for nodes to become synced... done")
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed

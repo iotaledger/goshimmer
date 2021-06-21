@@ -34,7 +34,7 @@ func TestAutopeeringNetworkSplit(t *testing.T) {
 
 			// check that all neighbors are indeed in the same partition
 			for _, n := range append(resp.Accepted, resp.Chosen...) {
-				assert.Containsf(t, partition.PeersMap(), n.ID,
+				assert.Containsf(t, partition.PeerIDs(), n.ID,
 					"peer '%s' has a neighbor outside it's partition", peer)
 			}
 		}

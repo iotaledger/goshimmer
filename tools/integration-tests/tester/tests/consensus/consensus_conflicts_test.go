@@ -119,18 +119,7 @@ func TestConsensusConflicts(t *testing.T) {
 		time.Sleep(FCoBQuarantineTime)
 	}
 
-	log.Println("waiting for transactions to be available on all peers...")
-	missing, err := tests.AwaitTransactionAvailability(n.Peers(), conflictingTxIDs, time.Duration(3)*time.Minute)
-	if err != nil {
-		assert.NoError(t, err, "transactions should have been available")
-		for p, missingOnPeer := range missing {
-			log.Printf("missing on peer %s:", p)
-			for missingTx := range missingOnPeer {
-				log.Println("tx id: ", missingTx)
-			}
-		}
-		return
-	}
+	tests.RequireTransactionsAvailable(t, n.Peers(), conflictingTxIDs, time.Minute, tests.Tick)
 
 	expectations := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {

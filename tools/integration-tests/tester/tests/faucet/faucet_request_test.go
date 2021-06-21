@@ -29,24 +29,26 @@ func TestFaucetRequest(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
+	faucet, peers := n.Peers()[0], n.Peers()[1:]
+
 	// each non-faucet peer issues numRequests requests
 	// TODO: can the faucet request funds for itself?
-	for _, peer := range n.Peers()[1:] {
+	for _, peer := range peers {
 		for idx := 0; idx < numRequests; idx++ {
 			tests.SendFaucetRequest(t, peer, peer.Address(idx))
 		}
 	}
 
 	// wait for all peers to register their new balances
-	for _, peer := range n.Peers()[1:] {
+	for _, peer := range peers {
 		for idx := 0; idx < numRequests; idx++ {
 			require.Eventuallyf(t, func() bool {
 				balance := tests.Balance(t, peer, peer.Address(idx), ledgerstate.ColorIOTA)
-				return balance == uint64(peer.Config().TokensPerRequest)
+				return balance == uint64(faucet.Config().TokensPerRequest)
 			}, tests.WaitForDeadline(t), tests.Tick,
 				"peer %s did not register its requested funds on address %s", peer, peer.Address(idx).Base58())
 		}
 	}
 
-	// TODO: why was there a restart before?
+	// TODO: why was there a restart of the non-faucet peers before? This does not test anything faucet related.
 }
