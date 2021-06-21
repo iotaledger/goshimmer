@@ -724,7 +724,7 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 	s := time.Now()
 	var unmatchedMu sync.Mutex
 	unmatched := make(map[identity.ID]map[string]types.Empty)
-	// the element will be removod if a peer has the message with the given inclusion state
+	// the element will be removed if a peer has the message with the given inclusion state
 	for _, p := range peers {
 		m := make(map[string]types.Empty, len(transactionIDs))
 		for tx := range transactionIDs {
@@ -744,42 +744,18 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 				unmatchedMu.Lock()
 				_, has := unmatched[p.ID()]
 				unmatchedMu.Unlock()
+				// do not check again for this peer if a previous iteration did not yield any unmatched inclusion state
 				if i > 0 && !has {
 					return
 				}
 
 				for txID := range transactionIDs {
-					inclusionState, err := p.GetTransactionInclusionState(txID)
-					if err != nil {
-						continue
-					}
-					metadata, err := p.GetTransactionMetadata(txID)
-					if err != nil {
-						continue
-					}
-					consensusData, err := p.GetTransactionConsensusMetadata(txID)
-					if err != nil {
-						continue
-					}
 					expInclState := transactionIDs[txID]
-					if expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed {
+					match := checkTransactionInclusionState(expInclState, p, txID)
+					if !match {
 						continue
 					}
-					if expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting {
-						continue
-					}
-					if expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized {
-						continue
-					}
-					if expInclState.Liked != nil && *expInclState.Liked != consensusData.Liked {
-						continue
-					}
-					if expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected {
-						continue
-					}
-					if expInclState.Solid != nil && *expInclState.Solid != metadata.Solid {
-						continue
-					}
+
 					unmatchedMu.Lock()
 					delete(unmatched[p.ID()], txID)
 					if len(unmatched[p.ID()]) == 0 {
@@ -791,8 +767,8 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 		}
 
 		wg.Wait()
+		// everything available
 		if len(unmatched) == 0 {
-			// everything available
 			return nil
 		}
 
@@ -801,13 +777,40 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 	return ErrTransactionStateNotSameInTime
 }
 
-// AwaitCheck waits until the given peers are in synced.
-func AwaitCheck(f func(t *testing.T, peers []*framework.Peer), maxAwait time.Duration) error {
-	s := time.Now()
-	for ; time.Since(s) < maxAwait; time.Sleep(retryInterval) {
-
+func checkTransactionInclusionState(expInclState ExpectedInclusionState, p *framework.Peer, txID string) (matched bool) {
+	inclusionState, err := p.GetTransactionInclusionState(txID)
+	if err != nil {
+		return
 	}
-	return ErrNotSynced
+	metadata, err := p.GetTransactionMetadata(txID)
+	if err != nil {
+		return
+	}
+	consensusData, err := p.GetTransactionConsensusMetadata(txID)
+	if err != nil {
+		return
+	}
+
+	if expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed {
+		return
+	}
+	if expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting {
+		return
+	}
+	if expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized {
+		return
+	}
+	if expInclState.Liked != nil && *expInclState.Liked != consensusData.Liked {
+		return
+	}
+	if expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected {
+		return
+	}
+	if expInclState.Solid != nil && *expInclState.Solid != metadata.Solid {
+		return
+	}
+
+	return true
 }
 
 // AwaitSync waits until the given peers are in synced.
