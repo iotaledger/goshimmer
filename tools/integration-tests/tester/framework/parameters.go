@@ -63,6 +63,10 @@ type CreateNetworkConfig struct {
 // PeerConfig specifies the default config of a standard GoShimmer peer.
 var PeerConfig = config.GoShimmer{
 	DisabledPlugins: []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"},
+	Database: config.Database{
+		Enabled:        true,
+		ForceCacheTime: 0, // disable caching for tests
+	},
 	POW: config.POW{
 		Enabled:    true,
 		Difficulty: 2,
@@ -124,8 +128,9 @@ var PeerConfig = config.GoShimmer{
 var EntryNodeConfig = config.GoShimmer{
 	DisabledPlugins: append(PeerConfig.DisabledPlugins,
 		"gossip", "issuer", "metrics", "valuetransfers", "consensus"),
-	POW:    PeerConfig.POW,
-	Webapi: PeerConfig.Webapi,
+	Database: PeerConfig.Database,
+	POW:      PeerConfig.POW,
+	Webapi:   PeerConfig.Webapi,
 	Autopeering: config.Autopeering{
 		Enabled:    true,
 		Port:       peeringPort,

@@ -14,6 +14,7 @@ type GoShimmer struct {
 	Seed []byte
 
 	// individual plugin configurations
+	Database
 	POW
 	Webapi
 	Autopeering
@@ -24,6 +25,13 @@ type GoShimmer struct {
 	FPC
 	Activity
 	DRNG
+}
+
+// Database defines the parameters of the database plugin.
+type Database struct {
+	Enabled bool
+
+	ForceCacheTime time.Duration
 }
 
 // POW defines the parameters of the PoW plugin.
