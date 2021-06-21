@@ -97,7 +97,6 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
-			CacheTimeProvider:            database.NewCacheTimeProvider(-1),
 		}
 	}
 
