@@ -45,7 +45,7 @@ func TestFaucetRequest(t *testing.T) {
 			require.Eventuallyf(t, func() bool {
 				balance := tests.Balance(t, peer, peer.Address(idx), ledgerstate.ColorIOTA)
 				return balance == uint64(faucet.Config().TokensPerRequest)
-			}, tests.WaitForDeadline(t), tests.Tick,
+			}, tests.UntilDeadline(t), tests.Tick,
 				"peer %s did not register its requested funds on address %s", peer, peer.Address(idx).Base58())
 		}
 	}

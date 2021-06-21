@@ -50,14 +50,12 @@ func TestConsensusNoConflicts(t *testing.T) {
 	firstReceiver := seed.NewSeed()
 	const depositCount = 10
 	deposit := genesisBalance / depositCount
-	firstReceiverAddresses := make([]string, depositCount)
 	firstReceiverDepositAddrs := make([]ledgerstate.Address, depositCount)
 	firstReceiverDepositOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
 	firstReceiverExpectedBalances := make(map[string]map[ledgerstate.Color]uint64)
 	for i := 0; i < depositCount; i++ {
 		addr := firstReceiver.Address(uint64(i)).Address()
 		firstReceiverDepositAddrs[i] = addr
-		firstReceiverAddresses[i] = addr.Base58()
 		firstReceiverDepositOutputs[addr] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit})
 		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}
 	}
@@ -87,17 +85,20 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
 	log.Println("checking that genesis has no UTXOs")
-	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), []string{genesisAddr.Base58()})
+	tests.RequireNoUnspentOutputs(t, n.Peers(), genesisAddr)
 
 	// Wait for the approval weigth to build up via the sync beacon.
 	time.Sleep(20 * time.Second)
 	log.Println("check that the transaction is finalized/confirmed by all peers")
-	tests.CheckTransactions(t, n.Peers(), map[string]*tests.ExpectedTransaction{
+	tests.RequireInclusionStateEqual(t, n.Peers(), map[string]tests.ExpectedInclusionState{
+		txID: {
+			Confirmed: tests.True(), Finalized: tests.True(),
+			Conflicting: tests.False(), Solid: tests.True(),
+			Rejected: tests.False(), Liked: tests.True(),
+		},
+	}, time.Minute, tests.Tick)
+	tests.RequireTransactionsEqual(t, n.Peers(), map[string]*tests.ExpectedTransaction{
 		txID: {Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks},
-	}, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(), Finalized: tests.True(),
-		Conflicting: tests.False(), Solid: tests.True(),
-		Rejected: tests.False(), Liked: tests.True(),
 	})
 
 	// check balances on peers
@@ -108,6 +109,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	secondReceiverSeed := seed.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
 	secondReceiverExpectedBalances := map[string]map[ledgerstate.Color]uint64{}
+	secondReceiverExpectedStates := map[string]tests.ExpectedInclusionState{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
 
 	for i := 0; i < depositCount; i++ {
@@ -128,6 +130,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 		utilsTx := jsonmodels.NewTransaction(tx)
 
 		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}
+		secondReceiverExpectedStates[txID] = tests.ExpectedInclusionState{
+			Confirmed: tests.True(), Finalized: tests.True(),
+			Conflicting: tests.False(), Solid: tests.True(),
+			Rejected: tests.False(), Liked: tests.True(),
+		}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks,
 		}
@@ -137,18 +144,13 @@ func TestConsensusNoConflicts(t *testing.T) {
 	log.Println("waiting 2.5 avg. network delays")
 	time.Sleep(UpperBoundNetworkDelay*2 + UpperBoundNetworkDelay/2)
 	log.Println("checking that first set of addresses contain no UTXOs")
-	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
+	tests.RequireNoUnspentOutputs(t, n.Peers(), firstReceiverDepositAddrs...)
 
 	// Wait for the approval weigth to build up via the sync beacon.
 	time.Sleep(20 * time.Second)
 	log.Println("checking that the 2nd batch transactions are finalized/confirmed")
-	tests.CheckTransactions(t, n.Peers(), secondReceiverExpectedTransactions, true,
-		tests.ExpectedInclusionState{
-			Confirmed: tests.True(), Finalized: tests.True(),
-			Conflicting: tests.False(), Solid: tests.True(),
-			Rejected: tests.False(), Liked: tests.True(),
-		},
-	)
+	tests.RequireInclusionStateEqual(t, n.Peers(), secondReceiverExpectedStates, time.Minute, tests.Tick)
+	tests.RequireTransactionsEqual(t, n.Peers(), secondReceiverExpectedTransactions)
 
 	log.Println("check that the 2nd batch of receive addresses is the same on all peers")
 	tests.RequireBalancesEqual(t, n.Peers(), secondReceiverExpectedBalances)

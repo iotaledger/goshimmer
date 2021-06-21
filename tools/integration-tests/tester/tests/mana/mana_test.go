@@ -45,10 +45,10 @@ func TestManaPersistence(t *testing.T) {
 	log.Println("Waiting for peer to get mana...")
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peer).Access > minAccessMana
-	}, tests.WaitForDeadline(t), tests.Tick)
+	}, tests.UntilDeadline(t), tests.Tick)
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peer).Consensus > 0
-	}, tests.WaitForDeadline(t), tests.Tick)
+	}, tests.UntilDeadline(t), tests.Tick)
 	log.Println("Waiting for peer to get mana... done")
 
 	// restart the peer
@@ -100,7 +100,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	require.Eventually(t, func() bool {
 		outputs := tests.AddressUnspentOutputs(t, faucet, faucet.Address(faucet.Config().Faucet.PreparedOutputsCount))
 		return len(outputs) > 0
-	}, tests.WaitForDeadline(t), tests.Tick)
+	}, tests.UntilDeadline(t), tests.Tick)
 
 	// pledge mana to allowed peers
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{

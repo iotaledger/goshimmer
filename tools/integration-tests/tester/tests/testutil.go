@@ -11,7 +11,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
@@ -24,7 +23,11 @@ import (
 
 var faucetPoWDifficulty = framework.PeerConfig.Faucet.PowDifficulty
 
-const Tick = 500 * time.Millisecond
+const (
+	Tick = 500 * time.Millisecond
+
+	shutdownGraceTime = time.Minute
+)
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
 type DataMessageSent struct {
@@ -46,22 +49,74 @@ type TransactionConfig struct {
 	ConsensusManaPledgeID identity.ID
 }
 
+// Context creates a new context that matches the test deadline.
+func Context(ctx context.Context, t *testing.T) (context.Context, context.CancelFunc) {
+	if d, ok := t.Deadline(); ok {
+		return context.WithDeadline(ctx, d.Add(-shutdownGraceTime))
+	}
+	return context.WithCancel(ctx)
+}
+
+// UntilDeadline returns the duration until the test deadline.
+func UntilDeadline(t *testing.T) time.Duration {
+	d, _ := t.Deadline()
+	return time.Until(d.Add(-shutdownGraceTime))
+}
+
+// Synced returns whether node is synchronized.
+func Synced(t *testing.T, node *framework.Node) bool {
+	info, err := node.Info()
+	require.NoError(t, err)
+	return info.TangleTime.Synced
+}
+
+// Mana returns the mana reported by node.
+func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
+	info, err := node.Info()
+	require.NoError(t, err)
+	return info.Mana
+}
+
+// AddressUnspentOutputs returns the unspent outputs on address.
+func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address) []jsonmodels.WalletOutput {
+	resp, err := node.PostAddressUnspentOutputs([]string{address.Base58()})
+	require.NoErrorf(t, err, "node=%s, address=%s, PostAddressUnspentOutputs failed", node, address.Base58())
+	require.Lenf(t, resp.UnspentOutputs, 1, "invalid response")
+	require.Equalf(t, address.Base58(), resp.UnspentOutputs[0].Address.Base58, "invalid response")
+
+	return resp.UnspentOutputs[0].Outputs
+}
+
+// Balance returns the total balance of color at address.
+func Balance(t *testing.T, node *framework.Node, address ledgerstate.Address, color ledgerstate.Color) uint64 {
+	unspentOutputs := AddressUnspentOutputs(t, node, address)
+
+	var sum uint64
+	for _, output := range unspentOutputs {
+		out, err := output.Output.ToLedgerstateOutput()
+		require.NoError(t, err)
+		balance, _ := out.Balances().Get(color)
+		sum += balance
+	}
+	return sum
+}
+
 // SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct. By default,
 // it pledges mana to the peer making the request.
-func SendFaucetRequest(t *testing.T, peer *framework.Node, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
-	peerID := base58.Encode(peer.ID().Bytes())
-	aManaPledgeID, cManaPledgeID := peerID, peerID
+func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
+	nodeID := base58.Encode(node.ID().Bytes())
+	aManaPledgeID, cManaPledgeID := nodeID, nodeID
 	if len(manaPledgeIDs) > 1 {
 		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
 	}
 
-	resp, err := peer.SendFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
-	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
+	resp, err := node.SendFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
+	require.NoErrorf(t, err, "node=%s, address=%s, SendFaucetRequest failed", node, addr.Base58())
 
 	sent := DataMessageSent{
 		id:              resp.ID,
 		data:            nil,
-		issuerPublicKey: peer.Identity.PublicKey().String(),
+		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
 	return resp.ID, sent
 }
@@ -191,7 +246,7 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 				if errors.Is(err, client.ErrNotFound) {
 					continue
 				}
-				require.NoErrorf(t, err, "GetMessage(%s) failed for node %s", messageID, node)
+				require.NoErrorf(t, err, "node=%s, messageID=%s, GetMessage failed", node, messageID)
 				require.Equal(t, messageID, msg.ID)
 				delete(nodeMissing, messageID)
 				if len(nodeMissing) == 0 {
@@ -208,37 +263,37 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 	log.Println("Waiting for message... done")
 }
 
-func AssertMessagesEqual(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent) {
-	log.Printf("Validating %d messages...", len(messageIDs))
+// RequireMessagesEqual asserts that all nodes return the correct data messages as specified in messagesByID.
+func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID map[string]DataMessageSent) {
 	for _, node := range nodes {
-		for messageID := range messageIDs {
+		for messageID := range messagesByID {
 			resp, err := node.GetMessage(messageID)
-			require.NoErrorf(t, err, "messageID=%s, GetMessage failed for %s", messageID, node)
+			require.NoErrorf(t, err, "node=%s, messageID=%s, GetMessage failed", node, messageID)
 			require.Equal(t, resp.ID, messageID)
 
 			respMetadata, err := node.GetMessageMetadata(messageID)
-			require.NoErrorf(t, err, "messageID=%s, GetMessageMetadata failed for %s", messageID, node)
+			require.NoErrorf(t, err, "node=%s, messageID=%s, GetMessageMetadata failed", node, messageID)
 			require.Equal(t, respMetadata.ID, messageID)
 
 			// check for general information
-			msgSent := messageIDs[messageID]
+			msgSent := messagesByID[messageID]
 
-			assert.Equalf(t, msgSent.issuerPublicKey, resp.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, node)
+			require.Equalf(t, msgSent.issuerPublicKey, resp.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, node)
 			if msgSent.data != nil {
-				assert.Equalf(t, msgSent.data, resp.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, node)
+				require.Equalf(t, msgSent.data, resp.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, node)
 			}
-			assert.Truef(t, respMetadata.Solid, "messageID=%s, issuer=%s not solid in %s", msgSent.id, msgSent.issuerPublicKey, node)
+			require.Truef(t, respMetadata.Solid, "messageID=%s, issuer=%s not solid in %s", msgSent.id, msgSent.issuerPublicKey, node)
 		}
 	}
-	log.Println("Validating messages... done")
 }
 
-func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, addrBalance map[string]map[ledgerstate.Color]uint64) {
+// RequireBalancesEqual asserts that all nodes report the balances as specified in balancesByAddress.
+func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddress map[string]map[ledgerstate.Color]uint64) {
 	for _, node := range nodes {
-		for addrString, balances := range addrBalance {
+		for addrString, balances := range balancesByAddress {
 			for color, balance := range balances {
 				addr, err := ledgerstate.AddressFromBase58EncodedString(addrString)
-				require.NoErrorf(t, err, "invalid address: %s", addrString)
+				require.NoErrorf(t, err, "invalid address string: %s", addrString)
 				require.Equalf(t, balance, Balance(t, node, addr, color),
 					"balance for color '%s' on address '%s' (node='%s') does not match", color, addr.Base58(), node)
 			}
@@ -246,14 +301,12 @@ func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, addrBalance map
 	}
 }
 
-// CheckAddressOutputsFullyConsumed performs checks to make sure that on all given peers,
-// the given addresses have no UTXOs.
-func CheckAddressOutputsFullyConsumed(t *testing.T, peers []*framework.Node, addrs []string) {
-	for _, peer := range peers {
-		resp, err := peer.PostAddressUnspentOutputs(addrs)
-		assert.NoError(t, err)
-		for i, utxos := range resp.UnspentOutputs {
-			assert.Len(t, utxos.Outputs, 0, "address %s should not have any UTXOs", addrs[i])
+// RequireNoUnspentOutputs asserts that on all node the given addresses do not have any unspent outputs.
+func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ...ledgerstate.Address) {
+	for _, node := range nodes {
+		for _, addr := range addresses {
+			unspent := AddressUnspentOutputs(t, node, addr)
+			require.Empty(t, unspent, "address %s should not have any UTXOs", addr)
 		}
 	}
 }
@@ -297,116 +350,43 @@ type ExpectedTransaction struct {
 	UnlockBlocks []*jsonmodels.UnlockBlock
 }
 
-// CheckTransactions performs checks to make sure that all peers have received all transactions.
-// Optionally takes an expected inclusion state for all supplied transaction IDs and expected transaction
-// data per transaction ID.
-func CheckTransactions(t *testing.T, peers []*framework.Node, transactionIDs map[string]*ExpectedTransaction, checkSynchronized bool, expectedInclusionState ExpectedInclusionState) {
-	for _, peer := range peers {
-		if checkSynchronized {
-			// check that the peer sees itself as synchronized
-			info, err := peer.Info()
-			require.NoError(t, err)
-			require.Truef(t, info.TangleTime.Synced, "peer '%s' not synced", peer)
-		}
+// RequireTransactionsEqual asserts that all nodes return the correct transactions as specified in transactionsByID.
+func RequireTransactionsEqual(t *testing.T, nodes []*framework.Node, transactionsByID map[string]*ExpectedTransaction) {
+	for _, node := range nodes {
+		for txID, expTransaction := range transactionsByID {
+			transaction, err := node.GetTransaction(txID)
+			require.NoErrorf(t, err, "node%s, txID=%s, GetTransaction failed", node, txID)
 
-		for txId, expectedTransaction := range transactionIDs {
-			transaction, err := peer.GetTransaction(txId)
-			require.NoError(t, err)
-
-			inclusionState, err := peer.GetTransactionInclusionState(txId)
-			require.NoError(t, err)
-
-			metadata, err := peer.GetTransactionMetadata(txId)
-			require.NoError(t, err)
-
-			consensusData, err := peer.GetTransactionConsensusMetadata(txId)
-			require.NoError(t, err)
-
-			// check inclusion state
-			if expectedInclusionState.Confirmed != nil {
-				assert.Equal(t, *expectedInclusionState.Confirmed, inclusionState.Confirmed, "confirmed state doesn't match - tx %s - peer '%s'", txId, peer)
-			}
-			if expectedInclusionState.Conflicting != nil {
-				assert.Equal(t, *expectedInclusionState.Conflicting, inclusionState.Conflicting, "conflict state doesn't match - tx %s - peer '%s'", txId, peer)
-			}
-			if expectedInclusionState.Solid != nil {
-				assert.Equal(t, *expectedInclusionState.Solid, metadata.Solid, "solid state doesn't match - tx %s - peer '%s'", txId, peer)
-			}
-			if expectedInclusionState.Rejected != nil {
-				assert.Equal(t, *expectedInclusionState.Rejected, inclusionState.Rejected, "rejected state doesn't match - tx %s - peer '%s'", txId, peer)
-			}
-			if expectedInclusionState.Liked != nil {
-				assert.Equal(t, *expectedInclusionState.Liked, consensusData.Liked, "liked state doesn't match - tx %s - peer '%s'", txId, peer)
-			}
-
-			if expectedTransaction != nil {
-				if expectedTransaction.Inputs != nil {
-					assert.Equal(t, expectedTransaction.Inputs, transaction.Inputs, "inputs do not match - tx %s - peer '%s'", txId, peer)
+			if expTransaction != nil {
+				if expTransaction.Inputs != nil {
+					require.Equalf(t, expTransaction.Inputs, transaction.Inputs, "node=%s, txID=%s, inputs do not match", node, txID)
 				}
-				if expectedTransaction.Outputs != nil {
-					assert.Equal(t, expectedTransaction.Outputs, transaction.Outputs, "outputs do not match - tx %s - peer '%s'", txId, peer)
+				if expTransaction.Outputs != nil {
+					require.Equalf(t, expTransaction.Outputs, transaction.Outputs, "node=%s, txID=%s, outputs do not match", node, txID)
 				}
-				if expectedTransaction.UnlockBlocks != nil {
-					assert.Equal(t, expectedTransaction.UnlockBlocks, transaction.UnlockBlocks, "signatures do not match - tx %s - peer '%s'", txId, peer)
+				if expTransaction.UnlockBlocks != nil {
+					require.Equalf(t, expTransaction.UnlockBlocks, transaction.UnlockBlocks, "node=%s, txID=%s, signatures do not match", node, txID)
 				}
 			}
 		}
-		// Transaction metadata
 	}
 }
 
-func RequireTransactionsAvailable(t *testing.T, nodes []*framework.Node, transactionIDs []string, waitFor time.Duration, tick time.Duration) {
-	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
-	for _, node := range nodes {
-		missing[node.ID()] = make(map[string]struct{}, len(transactionIDs))
-		for _, txID := range transactionIDs {
-			missing[node.ID()][txID] = struct{}{}
-		}
-	}
-
+// RequireInclusionStateEqual asserts that all nodes have received the transaction and have correct expectedStates
+// in waitFor time, periodically checking each tick.
+func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedStates map[string]ExpectedInclusionState, waitFor time.Duration, tick time.Duration) {
 	condition := func() bool {
 		for _, node := range nodes {
-			nodeMissing := missing[node.ID()]
-			for txID := range nodeMissing {
+			for txID, expInclState := range expectedStates {
 				_, err := node.GetTransaction(txID)
 				// retry, when the transaction could not be found
 				if errors.Is(err, client.ErrNotFound) {
 					continue
 				}
 				require.NoErrorf(t, err, "node=%s, txID=%, GetTransaction failed", node, txID)
-				delete(nodeMissing, txID)
-				if len(nodeMissing) == 0 {
-					delete(missing, node.ID())
-				}
-			}
-		}
-		return len(missing) == 0
-	}
-
-	log.Printf("Waiting for %d transactions to become available...", len(transactionIDs))
-	require.Eventuallyf(t, condition, waitFor, tick,
-		"%d out of %d nodes did not receive all transactions", len(missing), len(nodes))
-	log.Println("Waiting for transactions... done")
-}
-
-func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, transactionIDs map[string]ExpectedInclusionState, waitFor time.Duration, tick time.Duration) {
-	condition := func() bool {
-		for _, node := range nodes {
-			for txID, expInclState := range transactionIDs {
-				inclusionState, err := node.GetTransactionInclusionState(txID)
-				require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionInclusionState failed")
-				metadata, err := node.GetTransactionMetadata(txID)
-				require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionMetadata failed")
-				consensusData, err := node.GetTransactionConsensusMetadata(txID)
-				require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionConsensusMetadata failed")
 
 				// the inclusion state can change, so we should check all transactions every time
-				if (expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed) ||
-					(expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized) ||
-					(expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting) ||
-					(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) ||
-					(expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected) ||
-					(expInclState.Liked != nil && *expInclState.Liked != consensusData.Liked) {
+				if !inclusionStateEqual(t, node, txID, expInclState) {
 					return false
 				}
 			}
@@ -414,7 +394,7 @@ func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, transacti
 		return true
 	}
 
-	log.Printf("Waiting for %d transactions to reach the correct inclusion state...", len(transactionIDs))
+	log.Printf("Waiting for %d transactions to reach the correct inclusion state...", len(expectedStates))
 	require.Eventually(t, condition, waitFor, tick)
 	log.Println("Waiting for inclusion state... done")
 }
@@ -426,52 +406,6 @@ func ShutdownNetwork(ctx context.Context, t *testing.T, n Shutdowner) {
 	log.Println("Shutting down network... done")
 }
 
-func WaitForDeadline(t *testing.T) time.Duration {
-	d, _ := t.Deadline()
-	return time.Until(d.Add(-time.Minute))
-}
-
-func Context(ctx context.Context, t *testing.T) (context.Context, context.CancelFunc) {
-	if d, ok := t.Deadline(); ok {
-		return context.WithDeadline(ctx, d.Add(-time.Minute))
-	}
-	return context.WithCancel(ctx)
-}
-
-func Synced(t *testing.T, node *framework.Node) bool {
-	info, err := node.Info()
-	require.NoError(t, err)
-	return info.TangleTime.Synced
-}
-
-func Balance(t *testing.T, peer *framework.Node, addr ledgerstate.Address, color ledgerstate.Color) uint64 {
-	outputs := AddressUnspentOutputs(t, peer, addr)
-
-	var sum uint64
-	for _, unspent := range outputs {
-		out, err := unspent.Output.ToLedgerstateOutput()
-		require.NoError(t, err)
-		balance, _ := out.Balances().Get(color)
-		sum += balance
-	}
-	return sum
-}
-
-func AddressUnspentOutputs(t *testing.T, peer *framework.Node, addr ledgerstate.Address) []jsonmodels.WalletOutput {
-	resp, err := peer.PostAddressUnspentOutputs([]string{addr.Base58()})
-	require.NoErrorf(t, err, "node=%s, address=%s, PostAddressUnspentOutputs failed", peer, addr.Base58())
-	require.Lenf(t, resp.UnspentOutputs, 1, "invalid response")
-	require.Equalf(t, addr.Base58(), resp.UnspentOutputs[0].Address.Base58, "invalid response")
-
-	return resp.UnspentOutputs[0].Outputs
-}
-
-func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
-	info, err := node.Info()
-	require.NoError(t, err)
-	return info.Mana
-}
-
 func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Address) (index uint16) {
 	for i, output := range transaction.Essence().Outputs() {
 		if address.Base58() == output.(*ledgerstate.SigLockedSingleOutput).Address().Base58() {
@@ -479,4 +413,23 @@ func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 		}
 	}
 	return
+}
+
+func inclusionStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedInclusionState) bool {
+	inclusionState, err := node.GetTransactionInclusionState(txID)
+	require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionInclusionState failed")
+	metadata, err := node.GetTransactionMetadata(txID)
+	require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionMetadata failed")
+	consensusData, err := node.GetTransactionConsensusMetadata(txID)
+	require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionConsensusMetadata failed")
+
+	if (expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed) ||
+		(expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized) ||
+		(expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting) ||
+		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) ||
+		(expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected) ||
+		(expInclState.Liked != nil && *expInclState.Liked != consensusData.Liked) {
+		return false
+	}
+	return true
 }

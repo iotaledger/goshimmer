@@ -119,12 +119,19 @@ func TestConsensusConflicts(t *testing.T) {
 		time.Sleep(FCoBQuarantineTime)
 	}
 
-	tests.RequireTransactionsAvailable(t, n.Peers(), conflictingTxIDs, time.Minute, tests.Tick)
+	expStates := map[string]tests.ExpectedInclusionState{}
+	for _, txID := range conflictingTxIDs {
+		expStates[txID] = tests.ExpectedInclusionState{
+			Conflicting: tests.True(),
+			Solid:       tests.True(),
+		}
+	}
+	tests.RequireInclusionStateEqual(t, n.Peers(), expStates, time.Minute, tests.Tick)
 
-	expectations := map[string]*tests.ExpectedTransaction{}
+	expTransactions := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
 		utilsTx := jsonmodels.NewTransaction(conflictingTx)
-		expectations[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
+		expTransactions[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
 			Inputs:       utilsTx.Inputs,
 			Outputs:      utilsTx.Outputs,
 			UnlockBlocks: utilsTx.UnlockBlocks,
@@ -132,24 +139,17 @@ func TestConsensusConflicts(t *testing.T) {
 	}
 
 	// check that the transactions are marked as conflicting
-	tests.CheckTransactions(t, n.Peers(), expectations, true, tests.ExpectedInclusionState{
-		Finalized:   tests.False(),
-		Conflicting: tests.True(),
-		Solid:       tests.True(),
-	})
+	tests.RequireTransactionsEqual(t, n.Peers(), expTransactions)
 
 	// wait until the voting has finalized
-	log.Println("waiting for voting/transaction finalization to be done on all peers...")
-	awaitFinalization := map[string]tests.ExpectedInclusionState{}
-
-	awaitFinalization[conflictingTxIDs[0]] = tests.ExpectedInclusionState{
+	log.Println("Waiting for voting/transaction finalization to be done on all peers...")
+	expStates[conflictingTxIDs[0]] = tests.ExpectedInclusionState{
 		Finalized: tests.True(),
 	}
-	awaitFinalization[conflictingTxIDs[1]] = tests.ExpectedInclusionState{
+	expStates[conflictingTxIDs[1]] = tests.ExpectedInclusionState{
 		Finalized: tests.False(),
 	}
-
-	tests.RequireInclusionStateEqual(t, n.Peers(), awaitFinalization, 30*time.Second, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expStates, time.Minute, tests.Tick)
 
 	// now all transactions must be finalized and at most one must be confirmed
 	rejected := make([]int, 2)
