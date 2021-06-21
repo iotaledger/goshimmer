@@ -76,9 +76,8 @@ func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEve
 }
 
 func configureFPCConflictsMetrics() {
-	metricsLogger := newFPCMetricsLogger()
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(metricsLogger.onVoteFinalized))
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(metricsLogger.onVoteRoundExecuted))
+	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
+	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
 }
 
 func configureDRNGMetrics() {

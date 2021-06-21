@@ -1,3 +1,34 @@
+# v0.7.2 - 2021-06-17
+* Add local double spend filter in webAPI
+* Add SetBranchFinalized to FCoB
+* Set message of the weak parents finalized rather than only their payload
+* Update snapshot file with DevNet UTXO at 2021-06-17 08:52 UTC
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.7.1 - 2021-06-15
+* Improve Faucet
+* Improve docs
+* Improve message requester
+* Improve common integration test
+* Improve collected Elasticsearch metrics
+* Add run callback to database plugin
+* Add Client Library Import Check
+* Add time range check in wallet lib
+* Replace builtin hash map with a sorted set
+* Enable Github Actions Caching
+* Fix wrong account mention
+* Fix gossip neighbor disconnect
+* Fix Genesis Loaded Transaction View
+* Fix memory leak in pow plugin/pkg
+* Fix overlocking and sleeping issues 
+* Fix snapshot bug
+* Fix typos
+* Update Graphana debugging dashboard
+* Update snapshot file with DevNet UTXO at 2021-06-15 09:09 UTC
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
 # v0.7.0 - 2021-06-02
 * Add client diagnostic API
 * Improve docs and tutorials
