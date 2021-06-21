@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	retryInterval = time.Duration(500 * time.Millisecond)
+	retryInterval = 500 * time.Millisecond
 
 	ErrMessageNotAvailableInTime     = errors.New("message was not available in time")
 	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
@@ -608,8 +608,6 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 				}
 			}
 		}
-		// Transaction metadata
-
 	}
 }
 
