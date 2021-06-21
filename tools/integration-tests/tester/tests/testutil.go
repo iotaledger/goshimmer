@@ -108,6 +108,15 @@ func SendFaucetRequest(t *testing.T, peer *framework.Node, addr ledgerstate.Addr
 	return resp.ID, sent
 }
 
+func SendFaucetRequests(t *testing.T, nodes []*framework.Node) {
+	addrBalance := make(map[identity.ID]map[ledgerstate.Color]uint64)
+
+	for _, node := range nodes {
+		SendFaucetRequest(t, node, node.Address(0))
+		addrBalance[node.ID()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: uint64(node.Config().Faucet.TokensPerRequest)}
+	}
+}
+
 // RequireMessagesAvailable asserts that all nodes have received MessageIDs in waitFor time, periodically checking each tick.
 func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
 	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
@@ -243,7 +252,11 @@ func SendValue(t *testing.T, from *framework.Node, to *framework.Node, color led
 	unspentOutputs := AddressUnspentOutputs(t, from, inputAddr)
 	require.NotEmptyf(t, unspentOutputs, "address=%s, no unspent outputs", inputAddr.Base58())
 
-	balance := Balance(t, from, inputAddr, color)
+	inputColor := color
+	if color == ledgerstate.ColorMint {
+		inputColor = ledgerstate.ColorIOTA
+	}
+	balance := Balance(t, from, inputAddr, inputColor)
 	require.GreaterOrEqualf(t, balance, value, "address=%s, insufficient balance", inputAddr.Base58())
 
 	out, err := unspentOutputs[0].Output.ToLedgerstateOutput()
@@ -260,7 +273,7 @@ func SendValue(t *testing.T, from *framework.Node, to *framework.Node, color led
 	// handle remainder address
 	if balance > value {
 		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			color: balance - value,
+			inputColor: balance - value,
 		}), inputAddr)
 		outputs = append(outputs, output)
 	}
@@ -270,6 +283,16 @@ func SendValue(t *testing.T, from *framework.Node, to *framework.Node, color led
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
+	outputColor := color
+	if color == ledgerstate.ColorMint {
+		// get the non-IOTA output
+		mintOutputs := txn.Essence().Outputs().Filter(func(output ledgerstate.Output) bool {
+			_, hasIOTA := output.Balances().Get(ledgerstate.ColorIOTA)
+			return !hasIOTA
+		})
+		outputColor = blake2b.Sum256(mintOutputs[0].ID().Bytes())
+	}
+
 	// send transaction
 	resp, err := from.PostTransaction(txn.Bytes())
 	if err != nil {
@@ -277,8 +300,14 @@ func SendValue(t *testing.T, from *framework.Node, to *framework.Node, color led
 	}
 
 	if len(addrBalance) > 0 {
-		addrBalance[0][inputAddr.Base58()][color] -= value
-		addrBalance[0][outputAddr.Base58()][color] += value
+		if addrBalance[0][inputAddr.Base58()] == nil {
+			addrBalance[0][inputAddr.Base58()] = make(map[ledgerstate.Color]uint64)
+		}
+		addrBalance[0][inputAddr.Base58()][inputColor] -= value
+		if addrBalance[0][outputAddr.Base58()] == nil {
+			addrBalance[0][outputAddr.Base58()] = make(map[ledgerstate.Color]uint64)
+		}
+		addrBalance[0][outputAddr.Base58()][outputColor] += value
 	}
 	return resp.TransactionID, nil
 }
@@ -445,27 +474,14 @@ func getColorFromString(colorStr string) (color ledgerstate.Color) {
 	return
 }
 
-// CheckBalances performs checks to make sure that all peers have the same ledger state.
-func CheckBalances(t *testing.T, peers []*framework.Node, addrBalance map[string]map[ledgerstate.Color]int64) {
-	for _, peer := range peers {
-		for addr, b := range addrBalance {
-			sum := make(map[ledgerstate.Color]int64)
-			resp, err := peer.PostAddressUnspentOutputs([]string{addr})
-			require.NoError(t, err)
-			assert.Equal(t, addr, resp.UnspentOutputs[0].Address.Base58)
-
-			// calculate the balances of each colored coin
-			for _, unspents := range resp.UnspentOutputs[0].Outputs {
-				out, err2 := unspents.Output.ToLedgerstateOutput()
-				require.NoError(t, err2)
-				out.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-					sum[color] += int64(balance)
-					return true
-				})
-			}
-			// check balances
-			for color, value := range sum {
-				assert.Equalf(t, b[color], value, "balance for color '%s' on address '%s' (peer='%s') does not match", color, addr, peer)
+func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, addrBalance map[string]map[ledgerstate.Color]uint64) {
+	for _, node := range nodes {
+		for addrString, balances := range addrBalance {
+			for color, balance := range balances {
+				addr, err := ledgerstate.AddressFromBase58EncodedString(addrString)
+				require.NoErrorf(t, err, "invalid address: %s", addrString)
+				require.Equalf(t, balance, Balance(t, node, addr, color),
+					"balance for color '%s' on address '%s' (node='%s') does not match", color, addr.Base58(), node)
 			}
 		}
 	}

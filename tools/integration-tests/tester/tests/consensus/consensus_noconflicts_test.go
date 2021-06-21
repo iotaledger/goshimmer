@@ -53,13 +53,13 @@ func TestConsensusNoConflicts(t *testing.T) {
 	firstReceiverAddresses := make([]string, depositCount)
 	firstReceiverDepositAddrs := make([]ledgerstate.Address, depositCount)
 	firstReceiverDepositOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
-	firstReceiverExpectedBalances := make(map[string]map[ledgerstate.Color]int64)
+	firstReceiverExpectedBalances := make(map[string]map[ledgerstate.Color]uint64)
 	for i := 0; i < depositCount; i++ {
 		addr := firstReceiver.Address(uint64(i)).Address()
 		firstReceiverDepositAddrs[i] = addr
 		firstReceiverAddresses[i] = addr.Base58()
 		firstReceiverDepositOutputs[addr] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit})
-		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
+		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}
 	}
 
 	// issue transaction spending from the genesis output
@@ -102,12 +102,12 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// check balances on peers
 	log.Println("ensure that all the peers have the same ledger state")
-	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
+	tests.RequireBalancesEqual(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
 	secondReceiverSeed := seed.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
-	secondReceiverExpectedBalances := map[string]map[ledgerstate.Color]int64{}
+	secondReceiverExpectedBalances := map[string]map[ledgerstate.Color]uint64{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
 
 	for i := 0; i < depositCount; i++ {
@@ -127,7 +127,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 		utilsTx := jsonmodels.NewTransaction(tx)
 
-		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
+		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks,
 		}
@@ -151,5 +151,5 @@ func TestConsensusNoConflicts(t *testing.T) {
 	)
 
 	log.Println("check that the 2nd batch of receive addresses is the same on all peers")
-	tests.CheckBalances(t, n.Peers(), secondReceiverExpectedBalances)
+	tests.RequireBalancesEqual(t, n.Peers(), secondReceiverExpectedBalances)
 }

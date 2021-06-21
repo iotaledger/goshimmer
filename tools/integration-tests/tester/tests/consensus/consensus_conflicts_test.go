@@ -149,8 +149,7 @@ func TestConsensusConflicts(t *testing.T) {
 		Finalized: tests.False(),
 	}
 
-	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 30*time.Second)
-	assert.NoError(t, err)
+	tests.RequireInclusionStateEqual(t, n.Peers(), awaitFinalization, 30*time.Second, tests.Tick)
 
 	// now all transactions must be finalized and at most one must be confirmed
 	rejected := make([]int, 2)
