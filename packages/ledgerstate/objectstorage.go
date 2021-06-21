@@ -75,7 +75,7 @@ type storageOptions struct {
 	// outputMetadataStorageOptions contains a list of default settings for the OutputMetadata object storage.
 	outputMetadataStorageOptions []objectstorage.Option
 
-	// consumerStorageOptions contains a list of default settings for the OutputMetadata object storage.
+	// consumerStorageOptions contains a list of default settings for the Consumer object storage.
 	consumerStorageOptions []objectstorage.Option
 
 	// addressOutputMappingStorageOptions contains a list of default settings for the AddressOutputMapping object storage.
