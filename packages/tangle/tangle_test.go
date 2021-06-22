@@ -346,8 +346,6 @@ func TestRetrieveAllTips(t *testing.T) {
 }
 
 func TestTangle_Flow(t *testing.T) {
-	CacheTime = 0
-
 	const (
 		testNetwork = "udp"
 		testPort    = 8000
