@@ -527,7 +527,7 @@ type Consumer struct {
 func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 	return &Consumer{
 		TransactionID: consumer.TransactionID().Base58(),
-		Valid:         consumer.Valid().String(),
+		Valid:         consumer.SolidityType().String(),
 	}
 }
 
@@ -755,10 +755,9 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 type TransactionMetadata struct {
 	TransactionID      string `json:"transactionID"`
 	BranchID           string `json:"branchID"`
-	Solid              bool   `json:"solid"`
+	SolidityType       string `json:"solidityType"`
 	SolidificationTime int64  `json:"solidificationTime"`
 	Finalized          bool   `json:"finalized"`
-	LazyBooked         bool   `json:"lazyBooked"`
 }
 
 // NewTransactionMetadata returns the TransactionMetadata from the given ledgerstate.TransactionMetadata.
@@ -766,10 +765,9 @@ func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata
 	return &TransactionMetadata{
 		TransactionID:      transactionMetadata.ID().Base58(),
 		BranchID:           transactionMetadata.BranchID().Base58(),
-		Solid:              transactionMetadata.Solid(),
+		SolidityType:       transactionMetadata.SolidityType().String(),
 		SolidificationTime: transactionMetadata.SolidificationTime().Unix(),
 		Finalized:          transactionMetadata.Finalized(),
-		LazyBooked:         transactionMetadata.LazyBooked(),
 	}
 }
 
