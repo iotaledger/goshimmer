@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -289,12 +288,8 @@ func (s *S0lidifier) OnTransactionSolid(transactionID ledgerstate.TransactionID)
 }
 
 func (s *S0lidifier) Solidify(messageID MessageID) {
-	fmt.Println("HIER")
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		solidificationType := messageMetadata.Source().SolidificationType()
-
-		fmt.Println(solidificationType)
-
 		if solidificationType == UndefinedSolidificationType {
 			return
 		}
