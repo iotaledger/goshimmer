@@ -156,6 +156,7 @@ func (s *Storage) StoreMessage(message *Message) {
 	})
 
 	// trigger events
+	s.missingMessageStorage.
 	if s.missingMessageStorage.DeleteIfPresent(messageID[:]) {
 		s.tangle.Storage.Events.MissingMessageStored.Trigger(messageID)
 	}
