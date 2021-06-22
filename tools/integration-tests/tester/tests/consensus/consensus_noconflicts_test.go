@@ -114,7 +114,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	for i := 0; i < depositCount; i++ {
 		addr := secondReceiverSeed.Address(uint64(i)).Address()
-		input := ledgerstate.NewUTXOInput(tx1.Essence().Outputs()[int(tests.SelectIndex(tx1, firstReceiver.Address(uint64(i)).Address()))].ID())
+		input := ledgerstate.NewUTXOInput(tx1.Essence().Outputs()[tests.OutputIndex(tx1, firstReceiver.Address(uint64(i)).Address())].ID())
 		output := ledgerstate.NewSigLockedSingleOutput(deposit, addr)
 		tx2Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 		kp := *firstReceiver.KeyPair(uint64(i))

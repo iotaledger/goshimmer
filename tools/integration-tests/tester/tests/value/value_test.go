@@ -127,7 +127,6 @@ func TestAlias_Persistence(t *testing.T) {
 
 	// restart all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Restart(ctx)
 		require.NoError(t, peer.Restart(ctx))
 	}
 

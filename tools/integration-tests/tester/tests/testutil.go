@@ -24,6 +24,7 @@ import (
 var faucetPoWDifficulty = framework.PeerConfig.Faucet.PowDifficulty
 
 const (
+	// Tick denotes the default condition polling tick time.
 	Tick = 500 * time.Millisecond
 
 	shutdownGraceTime = time.Minute
@@ -200,12 +201,8 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 
 	outputColor := color
 	if color == ledgerstate.ColorMint {
-		// get the non-IOTA output
-		mintOutputs := txn.Essence().Outputs().Filter(func(output ledgerstate.Output) bool {
-			_, hasIOTA := output.Balances().Get(ledgerstate.ColorIOTA)
-			return !hasIOTA
-		})
-		outputColor = blake2b.Sum256(mintOutputs[0].ID().Bytes())
+		mintOutput := txn.Essence().Outputs()[OutputIndex(txn, outputAddr)]
+		outputColor = blake2b.Sum256(mintOutput.ID().Bytes())
 	}
 
 	// send transaction
@@ -406,13 +403,14 @@ func ShutdownNetwork(ctx context.Context, t *testing.T, n Shutdowner) {
 	log.Println("Shutting down network... done")
 }
 
-func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Address) (index uint16) {
+// OutputIndex returns the index of the first output to address.
+func OutputIndex(transaction *ledgerstate.Transaction, address ledgerstate.Address) int {
 	for i, output := range transaction.Essence().Outputs() {
-		if address.Base58() == output.(*ledgerstate.SigLockedSingleOutput).Address().Base58() {
-			return uint16(i)
+		if output.Address().Equals(address) {
+			return i
 		}
 	}
-	return
+	panic("invalid address")
 }
 
 func inclusionStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedInclusionState) bool {
