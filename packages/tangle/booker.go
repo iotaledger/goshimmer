@@ -75,7 +75,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			branchIDOfPayload, bookingErr := b.bookPayload(message)
+			branchIDOfPayload, bookingErr := b.branchIDOfPayload(message)
 			if bookingErr != nil {
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
 				return
@@ -224,41 +224,21 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 	return branchIDs
 }
 
-// bookPayload books the Payload of a Message and returns its assigned BranchID.
-func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, err error) {
+// branchIDOfPayload returns the BranchID of the payload of the given Message.
+func (b *Booker) branchIDOfPayload(message *Message) (branchID ledgerstate.BranchID, err error) {
 	payload := message.Payload()
 	if payload == nil || payload.Type() != ledgerstate.TransactionType {
 		return ledgerstate.MasterBranchID, nil
 	}
 
 	transaction := payload.(*ledgerstate.Transaction)
-
-	if transactionErr := b.tangle.LedgerState.TransactionValid(transaction, message.ID()); transactionErr != nil {
-		return ledgerstate.UndefinedBranchID, errors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
+	if !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		branchID = transactionMetadata.BranchID()
+	}) {
+		err = errors.Errorf("failed to load TransactionMetadata of %s: %w", transaction.ID(), cerrors.ErrFatal)
 	}
 
-	// if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
-	// 	b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messagemetadata *MessageMetadata) {
-	// 		messagemetadata.SetInvalid(true)
-	// 	})
-	// 	b.tangle.Events.MessageInvalid.Trigger(message.ID())
-
-	// 	return ledgerstate.UndefinedBranchID, errors.Errorf("message with %s does not approve its referenced %s: %w", message.ID(), transaction.ReferencedTransactionIDs(), cerrors.ErrFatal)
-	// }
-
-	if branchID, err = b.tangle.LedgerState.BookTransaction(transaction, message.ID()); err != nil {
-		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)
-	}
-
-	for _, output := range transaction.Essence().Outputs() {
-		b.tangle.LedgerState.UTXODAG.ManageStoreAddressOutputMapping(output)
-	}
-
-	if attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), message.ID()); stored {
-		attachment.Release()
-	}
-
-	return branchID, nil
+	return
 }
 
 // updatedBranchID returns the BranchID that is the result of aggregating the passed in BranchIDs.
