@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -239,6 +240,8 @@ func (s SolidificationType) Bytes() (marshaledSolidificationType []byte) {
 // String returns a human readable version of the SolidificationType.
 func (s SolidificationType) String() (humanReadableSolidificationType string) {
 	switch s {
+	case UndefinedSolidificationType:
+		return "SolidificationType(UndefinedSolidificationType)"
 	case StrongSolidification:
 		return "SolidificationType(StrongSolidification)"
 	case WeakSolidification:
@@ -286,8 +289,12 @@ func (s *S0lidifier) OnTransactionSolid(transactionID ledgerstate.TransactionID)
 }
 
 func (s *S0lidifier) Solidify(messageID MessageID) {
+	fmt.Println("HIER")
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		solidificationType := messageMetadata.Source().SolidificationType()
+
+		fmt.Println(solidificationType)
+
 		if solidificationType == UndefinedSolidificationType {
 			return
 		}
