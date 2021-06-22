@@ -98,29 +98,6 @@ func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledg
 	return l.UTXODAG.CachedTransaction(transactionID)
 }
 
-// BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
-// eventual error.
-func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
-	targetBranch, err = l.UTXODAG.BookTransaction(transaction)
-	if err != nil {
-		if !errors.Is(err, ledgerstate.ErrTransactionInvalid) && !errors.Is(err, ledgerstate.ErrTransactionNotSolid) {
-			err = errors.Errorf("failed to book Transaction: %w", err)
-			return
-		}
-
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
-		})
-		l.tangle.Events.MessageInvalid.Trigger(messageID)
-
-		// non-fatal errors should not bubble up - we trigger a MessageInvalid event instead
-		err = nil
-		return
-	}
-
-	return
-}
-
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
 func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
 	conflictIDs := make(ledgerstate.ConflictIDs)

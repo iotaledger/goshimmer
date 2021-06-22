@@ -175,6 +175,9 @@ func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessag
 
 // SolidifierEvents represents events happening in the Solidifier.
 type SolidifierEvents struct {
+	// Error is triggered when an unexpected error occurred.
+	Error *events.Event
+
 	// MessageWeaklySolid is triggered when a message becomes weakly solid, i.e. its weak references are solid and its
 	// payload is solid.
 	MessageWeaklySolid *events.Event
@@ -261,6 +264,7 @@ type S0lidifier struct {
 func NewS0lidifier(tangle *Tangle) (solidifier *S0lidifier) {
 	solidifier = &S0lidifier{
 		Events: &SolidifierEvents{
+			Error:              events.NewEvent(events.ErrorCaller),
 			MessageWeaklySolid: events.NewEvent(MessageIDCaller),
 			MessageSolid:       events.NewEvent(MessageIDCaller),
 			MessageMissing:     events.NewEvent(MessageIDCaller),
@@ -438,7 +442,13 @@ func (s *S0lidifier) isPayloadSolid(message *Message) (solid bool) {
 		attachment.SetModified()
 		attachment.Persist()
 
-		solid = s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
+		_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
+		if err != nil {
+			s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
+
+			return nil
+		}
+		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
 
 		return attachment
 	})
@@ -446,8 +456,10 @@ func (s *S0lidifier) isPayloadSolid(message *Message) (solid bool) {
 		return solid
 	}
 
-	s.tangle.LedgerState.UTXODAG.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		solid = transactionMetadata.Solid()
+	s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		solidityType := transactionMetadata.SolidityType()
+
+		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
 	})
 
 	return solid
