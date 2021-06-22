@@ -17,9 +17,8 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork("common_TestSynchronization", 5, framework.CreateNetworkConfig{
 		Faucet:      true,
-		Mana:        true,
 		StartSynced: true,
 	})
 	require.NoError(t, err)
@@ -33,11 +32,8 @@ func TestFaucetPersistence(t *testing.T) {
 	// master node sends funds to all peers in the network
 	ids, addrBalance := tests.SendFaucetRequestOnRandomPeer(t, peers[1:], 10)
 
-	// wait for messages to be gossiped
-	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
-
 	// check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true, 30*time.Second)
 
 	// wait for transactions to be gossiped
 	time.Sleep(2 * framework.DefaultUpperBoundNetworkDelay)
@@ -63,7 +59,7 @@ func TestFaucetPersistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, n.Peers(), ids, false)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, false, 30*time.Second)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)

@@ -16,13 +16,17 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 4,
-  "iteration": 1622489182454,
+  "id": 2,
+  "iteration": 1623219730285,
   "links": [],
   "panels": [
     {
       "collapsed": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -33,6 +37,227 @@
       "panels": [],
       "title": "MPS, Autopeering, Traffic, Resources",
       "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "MPS"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 11,
+        "x": 0,
+        "y": 1
+      },
+      "id": 80,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\"}[1m])) by (instance)",
+          "interval": "",
+          "legendFormat": "Message Per Second {{instance}}",
+          "queryType": "randomWalk",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"TransactionType(1337)\"}[1m])) by (instance)",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Transaction Per Second {{instance}}",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"dRNG(111)\"}[1m])) by (instance)",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "dRNG Message Per Second {{instance}}",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"faucet(2)\"}[1m])) by (instance)",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Faucet Message Per Second {{instance}}",
+          "refId": "D"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"networkdelay(189)\"}[1m])) by (instance)",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Network Delay Message Per Second {{instance}}",
+          "refId": "E"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"Statement(3)\"}[1m])) by (instance)",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Statements Per Second {{instance}}",
+          "refId": "F"
+        }
+      ],
+      "title": "Message Per Second Per Type",
+      "type": "timeseries"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 11,
+        "w": 13,
+        "x": 11,
+        "y": 1
+      },
+      "hiddenSeries": false,
+      "id": 78,
+      "legend": {
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.0",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(irate(tangle_messages_per_component_count{component=\"Booker\",instance=~\"$instance\"}[5m])) by (instance)",
+          "interval": "",
+          "legendFormat": "MPS {{instance}} ",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Message Per Second Per Instance Booker",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:136",
+          "format": "MPS",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "$$hashKey": "object:137",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     },
     {
       "aliasColors": {},
@@ -52,7 +277,7 @@
         "h": 11,
         "w": 11,
         "x": 0,
-        "y": 1
+        "y": 11
       },
       "hiddenSeries": false,
       "id": 32,
@@ -72,7 +297,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.6",
+      "pluginVersion": "8.0.0",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -138,203 +363,6 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 11,
-        "w": 13,
-        "x": 11,
-        "y": 1
-      },
-      "hiddenSeries": false,
-      "id": 78,
-      "legend": {
-        "avg": false,
-        "current": true,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": true
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "7.5.6",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_component_count{component=\"Booker\",instance=~\"$instance\"}[5m])) by (instance)",
-          "interval": "",
-          "legendFormat": "MPS {{instance}} ",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Message Per Second Per Instance",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:136",
-          "format": "MPS",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "$$hashKey": "object:137",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
-      "fieldConfig": {
-        "defaults": {
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 11,
-        "x": 0,
-        "y": 12
-      },
-      "hiddenSeries": false,
-      "id": 77,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "7.5.6",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "tangle_message_missing_count_db{instance=~\"$instance\"}",
-          "interval": "",
-          "legendFormat": "Missing Messages {{instance}}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Missing Messages",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:313",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "$$hashKey": "object:314",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
       "description": "Shows tips in message and value layer.",
       "fieldConfig": {
         "defaults": {
@@ -368,7 +396,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.6",
+      "pluginVersion": "8.0.0",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -434,7 +462,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Number of messages currently requested by the message tangle.",
+      "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -447,10 +475,10 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 20
+        "y": 22
       },
       "hiddenSeries": false,
-      "id": 69,
+      "id": 77,
       "legend": {
         "avg": false,
         "current": false,
@@ -467,7 +495,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.6",
+      "pluginVersion": "8.0.0",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -478,9 +506,9 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_message_request_queue_size{instance=~\"$instance\"}",
+          "expr": "tangle_message_missing_count_db{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "Message Request Queue Size",
+          "legendFormat": "Missing Messages {{instance}}",
           "refId": "A"
         }
       ],
@@ -488,7 +516,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Message Request Queue Size",
+      "title": "Missing Messages",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -504,22 +532,22 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:389",
+          "$$hashKey": "object:313",
           "format": "short",
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": "0",
+          "min": null,
           "show": true
         },
         {
-          "$$hashKey": "object:390",
+          "$$hashKey": "object:314",
           "format": "short",
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": "0",
-          "show": false
+          "min": null,
+          "show": true
         }
       ],
       "yaxis": {
@@ -568,7 +596,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.6",
+      "pluginVersion": "8.0.0",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -648,6 +676,105 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
+      "description": "Number of messages currently requested by the message tangle.",
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 30
+      },
+      "hiddenSeries": false,
+      "id": 69,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.0",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "tangle_message_request_queue_size{instance=~\"$instance\"}",
+          "interval": "",
+          "legendFormat": "Message Request Queue Size",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Message Request Queue Size",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:389",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "$$hashKey": "object:390",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
       "description": "Average time it takes to solidify messages.",
       "fieldConfig": {
         "defaults": {
@@ -681,7 +808,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.6",
+      "pluginVersion": "8.0.0",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -743,7 +870,7 @@
     }
   ],
   "refresh": "10s",
-  "schemaVersion": 27,
+  "schemaVersion": 30,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -774,7 +901,6 @@
         "skipUrlSync": false,
         "sort": 0,
         "tagValuesQuery": "",
-        "tags": [],
         "tagsQuery": "",
         "type": "query",
         "useTags": false
@@ -801,5 +927,5 @@
   "timezone": "",
   "title": "GoShimmer Debugging",
   "uid": "kjOQZ2ZMs",
-  "version": 2
+  "version": 3
 }

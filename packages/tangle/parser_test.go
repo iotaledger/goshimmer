@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"context"
-	"crypto"
 	"strconv"
 	"testing"
 	"time"
@@ -64,7 +63,7 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 
 var (
 	testPeer       *peer.Peer
-	testWorker     = pow.New(crypto.BLAKE2b_512, 1)
+	testWorker     = pow.New(1)
 	testDifficulty = 10
 )
 

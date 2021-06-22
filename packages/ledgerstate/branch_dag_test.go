@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
@@ -12,7 +14,7 @@ import (
 )
 
 func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -58,7 +60,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 }
 
 func TestBranchDAG_normalizeBranches(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -354,7 +356,7 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchLiked(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -449,7 +451,7 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchMonotonicallyLiked(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -554,7 +556,7 @@ func TestBranchDAG_SetBranchMonotonicallyLiked(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchFinalized(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -703,7 +705,7 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchLiked2(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -865,7 +867,7 @@ func TestBranchDAG_SetBranchLiked2(t *testing.T) {
 }
 
 func TestBranchDAG_ConflictMembers(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -908,7 +910,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 }
 
 func TestBranchDAG_MergeToMaster(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
