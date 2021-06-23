@@ -61,8 +61,7 @@ func (a *ApprovalWeightManager) Setup() {
 		return
 	}
 
-	a.tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(a.ProcessMessage))
-	a.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(a.ProcessMessage))
+	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.ProcessMessage))
 	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.moveMessageWeightToNewBranch))
 	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.moveMarkerWeightToNewBranch))
 }

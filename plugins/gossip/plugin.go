@@ -82,7 +82,8 @@ func configureMessageLayer() {
 		messagelayer.Tangle().ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
-	gossipClosure := func(messageID tangle.MessageID) {
+	// configure flow of outgoing messages (gossip after ordering)
+	messagelayer.Tangle().Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 				// do not gossip requested messages
@@ -92,11 +93,7 @@ func configureMessageLayer() {
 				mgr.SendMessage(message.Bytes())
 			})
 		})
-	}
-
-	// configure flow of outgoing messages (gossip after booking)
-	messagelayer.Tangle().FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(gossipClosure))
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(gossipClosure))
+	}))
 
 	// request missing messages
 	messagelayer.Tangle().Requester.Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {

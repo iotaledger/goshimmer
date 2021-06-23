@@ -41,7 +41,11 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
-func (o *Orderer) Setup() {}
+func (o *Orderer) Setup() {
+	o.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(o.onMessageScheduled))
+	o.tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(o.onMessageScheduled))
+	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.onMessageBooked))
+}
 
 // Shutdown shuts down the Orderer and persists its state.
 func (o *Orderer) Shutdown() {

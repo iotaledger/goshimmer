@@ -48,8 +48,7 @@ func New() *TangleLedger {
 			}
 		})
 	})
-	messagelayer.Tangle().FIFOScheduler.Events.MessageScheduled.Attach(t.txBookedClosure)
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(t.txBookedClosure)
+	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(t.txBookedClosure)
 
 	return t
 }
@@ -57,8 +56,7 @@ func New() *TangleLedger {
 // Detach detaches the event handlers
 func (t *TangleLedger) Detach() {
 	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(t.txConfirmedClosure)
-	messagelayer.Tangle().FIFOScheduler.Events.MessageScheduled.Detach(t.txBookedClosure)
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Detach(t.txBookedClosure)
+	messagelayer.Tangle().Booker.Events.MessageBooked.Detach(t.txBookedClosure)
 }
 
 // EventTransactionConfirmed returns an event that triggers when a transaction is confirmed

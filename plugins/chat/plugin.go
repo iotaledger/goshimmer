@@ -30,8 +30,7 @@ func App() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	messagelayer.Tangle().FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 	configureWebAPI()
 }
 
