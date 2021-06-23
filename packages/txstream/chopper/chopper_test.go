@@ -118,7 +118,7 @@ func TestTooLongData(t *testing.T) {
 	tooLong := int(1.5 * 1024 * 1024) // 1.5 MB
 	short := 10000
 	chunk := 500
-	assert.True(t, tooLong/chunk >= 255)
+	assert.True(t, tooLong/chunk >= chopper.MaxNChunks)
 
 	dataLong := make([]byte, tooLong)
 	rand.Read(dataLong)

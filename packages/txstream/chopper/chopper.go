@@ -13,11 +13,12 @@ import (
 
 const (
 	// for the final data packet to be not bigger than tangle.MaxMessageSize
-	// 4 - chunk id, 1 seq nr, 2 num chunks, 2 - data len
-	chunkHeaderSize     = 4 + 1 + 2 + 2
+	// 4 - chunk id, 2 seq nr, 2 num chunks, 2 - data len
+	chunkHeaderSize     = 4 + 2 + 2 + 2
 	maxTTL              = 5 * time.Minute
 	cleanupLoopInterval = 10 * time.Second
-	maxNChunks          = 2200
+	// MaxNChunks maximum number of chunks
+	MaxNChunks = 2200
 )
 
 // Chopper handles the splitting and joining of large messages
@@ -86,7 +87,7 @@ func NumChunks(dataLen, maxMsgSize, includingChoppingOverhead int) (uint16, int,
 	}
 	maxChunkSize := maxMsgSize - includingChoppingOverhead
 	maxSizeWithoutHeader := maxChunkSize - chunkHeaderSize
-	if dataLen > maxChunkSize*maxNChunks {
+	if dataLen > maxChunkSize*MaxNChunks {
 		return 0, 0, fmt.Errorf("chopper.NumChunks: too long data to chop")
 	}
 	numChunks := dataLen / maxSizeWithoutHeader
