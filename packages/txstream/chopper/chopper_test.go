@@ -115,10 +115,10 @@ func TestMaxTangleMessage(t *testing.T) {
 
 //goland:noinspection ALL
 func TestTooLongData(t *testing.T) {
-	tooLong := 1000000
+	tooLong := int(1.5 * 1024 * 1024) // 1.5 MB
 	short := 10000
 	chunk := 500
-	assert.True(t, tooLong/chunk+1 > 255)
+	assert.True(t, tooLong/chunk >= 255)
 
 	dataLong := make([]byte, tooLong)
 	rand.Read(dataLong)
