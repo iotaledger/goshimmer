@@ -453,7 +453,7 @@ func (s *S0lidifier) isPayloadSolid(message *Message) (solid bool) {
 		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
 
 		return attachment
-	})
+	}).Release()
 	if isNew {
 		return solid
 	}

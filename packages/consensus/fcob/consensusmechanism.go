@@ -200,8 +200,6 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		timestamp = transactionMetadata.SolidificationTime()
 	})
 
-	fmt.Println(timestamp)
-
 	// filters both rejected and invalid branch
 	branchInclusionState := f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID))
 	if branchInclusionState == ledgerstate.Rejected {
