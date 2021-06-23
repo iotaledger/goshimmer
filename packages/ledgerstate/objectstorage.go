@@ -94,6 +94,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 		ChildBranchKeyPartition,
 		cacheProvider.CacheTime(branchCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
 	}
 
 	options.conflictStorageOptions = []objectstorage.Option{
@@ -105,11 +106,13 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 		ConflictMemberKeyPartition,
 		cacheProvider.CacheTime(conflictCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
 	}
 
 	options.transactionStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(transactionCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
 	}
 
 	options.transactionMetadataStorageOptions = []objectstorage.Option{
@@ -120,6 +123,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 	options.outputStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
 	}
 
 	options.outputMetadataStorageOptions = []objectstorage.Option{
@@ -137,6 +141,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 		cacheProvider.CacheTime(addressCacheTime),
 		objectstorage.PartitionKey(AddressLength, OutputIDLength),
 		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
 	}
 
 	return &options
