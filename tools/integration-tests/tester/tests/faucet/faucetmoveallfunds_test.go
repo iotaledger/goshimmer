@@ -22,7 +22,7 @@ func TestPrepareFaucet(t *testing.T) {
 		framework.ParaPoWDifficulty = prevPoWDiff
 		framework.ParaFaucetPreparedOutputsCount = prevFaucetPreparedOutputsCount
 	}()
-	n, err := f.CreateNetwork("faucet_testPrepareGenesis", 2, framework.CreateNetworkConfig{Faucet: true, Mana: true, StartSynced: true})
+	n, err := f.CreateNetwork("faucet_testPrepareGenesis", 2, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

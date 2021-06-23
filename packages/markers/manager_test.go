@@ -3,6 +3,8 @@ package markers
 import (
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -11,7 +13,7 @@ import (
 
 func TestManagerConvergence(t *testing.T) {
 	db := mapdb.NewMapDB()
-	manager := NewManager(db)
+	manager := NewManager(db, database.NewCacheTimeProvider(0))
 
 	structureDetails1, newSequenceCreated1 := manager.InheritStructureDetails(nil, alwaysIncreaseIndex, NewSequenceAlias([]byte("1")))
 	assert.True(t, structureDetails1.PastMarkers.Equals(NewMarkers(NewMarker(1, 1))))
@@ -85,7 +87,7 @@ func TestManager(t *testing.T) {
 
 	messageDB := makeMessageDB(testMessages...)
 	db := mapdb.NewMapDB()
-	manager := NewManager(db)
+	manager := NewManager(db, database.NewCacheTimeProvider(0))
 
 	for _, message := range testMessages {
 		if futureMarkerToPropagate := inheritPastMarkers(message, manager, messageDB); futureMarkerToPropagate != nil {

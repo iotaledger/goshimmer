@@ -2,7 +2,6 @@ package pow
 
 import (
 	"context"
-	"crypto"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -19,7 +18,7 @@ const (
 	target  = 10
 )
 
-var testWorker = New(crypto.BLAKE2b_512, workers)
+var testWorker = New(workers)
 
 func TestWorker_Work(t *testing.T) {
 	nonce, err := testWorker.Mine(context.Background(), nil, target)
@@ -41,7 +40,7 @@ func TestWorker_Validate(t *testing.T) {
 		{msg: make([]byte, 10240), nonce: 0, expLeadingZeros: 1, expErr: nil},
 	}
 
-	w := &Worker{hash: crypto.BLAKE2b_512}
+	w := &Worker{}
 	for _, tt := range tests {
 		zeros, err := w.LeadingZerosWithNonce(tt.msg, tt.nonce)
 		assert.Equal(t, tt.expLeadingZeros, zeros)

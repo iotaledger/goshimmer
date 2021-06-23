@@ -24,11 +24,11 @@ type LedgerState struct {
 
 // NewLedgerState is the constructor of the LedgerState component.
 func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
-	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store)
+	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store, tangle.Options.CacheTimeProvider)
 	return &LedgerState{
 		tangle:    tangle,
 		BranchDAG: branchDAG,
-		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, branchDAG),
+		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, tangle.Options.CacheTimeProvider, branchDAG),
 	}
 }
 
@@ -219,9 +219,9 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 					unspentOutputs[i] = true
 					includeTransaction = true
 				} else {
-					tx := copyLedgerState[outputMetadata.ConfirmedConsumer()]
+					tx, exist := copyLedgerState[outputMetadata.ConfirmedConsumer()]
 					// ignore consumers that are not confirmed long enough or even in the future.
-					if startSnapshot.Sub(tx.Essence().Timestamp()) < minAge {
+					if !exist || startSnapshot.Sub(tx.Essence().Timestamp()) < minAge {
 						unspentOutputs[i] = true
 						includeTransaction = true
 					}
