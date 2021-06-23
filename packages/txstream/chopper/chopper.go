@@ -13,10 +13,11 @@ import (
 
 const (
 	// for the final data packet to be not bigger than tangle.MaxMessageSize
-	// 4 - chunk id, 1 seq nr, 1 num chunks, 2 - data len
-	chunkHeaderSize     = 4 + 1 + 1 + 2
+	// 4 - chunk id, 1 seq nr, 2 num chunks, 2 - data len
+	chunkHeaderSize     = 4 + 1 + 2 + 2
 	maxTTL              = 5 * time.Minute
 	cleanupLoopInterval = 10 * time.Second
+	maxNChunks          = 2200
 )
 
 // Chopper handles the splitting and joining of large messages
@@ -79,23 +80,23 @@ func (c *Chopper) getNextMsgID() uint32 {
 }
 
 // NumChunks returns the expected amount of chunks for the given data length
-func NumChunks(dataLen, maxMsgSize, includingChoppingOverhead int) (byte, int, error) {
+func NumChunks(dataLen, maxMsgSize, includingChoppingOverhead int) (uint16, int, error) {
 	if dataLen <= maxMsgSize {
 		return 0, 0, nil // no need to split
 	}
 	maxChunkSize := maxMsgSize - includingChoppingOverhead
 	maxSizeWithoutHeader := maxChunkSize - chunkHeaderSize
-	if dataLen > maxChunkSize*255 {
+	if dataLen > maxChunkSize*maxNChunks {
 		return 0, 0, fmt.Errorf("chopper.NumChunks: too long data to chop")
 	}
 	numChunks := dataLen / maxSizeWithoutHeader
 	if dataLen%maxSizeWithoutHeader > 0 {
 		numChunks++
 	}
-	if numChunks < 2 {
+	if numChunks < 2 { //nolint:gomnd
 		panic("ChopData: internal inconsistency")
 	}
-	return byte(numChunks), maxChunkSize, nil
+	return uint16(numChunks), maxChunkSize, nil
 }
 
 // ChopData chops data into pieces (not more than 255) and adds chopper header to each piece
@@ -112,7 +113,7 @@ func (c *Chopper) ChopData(data []byte, maxMsgSize, includingChoppingOverhead in
 	id := c.getNextMsgID()
 	ret := make([][]byte, 0, numChunks)
 	var d []byte
-	for i := byte(0); i < numChunks; i++ {
+	for i := uint16(0); i < numChunks; i++ {
 		if len(data) > maxSizeWithoutHeader {
 			d = data[:maxSizeWithoutHeader]
 			data = data[maxSizeWithoutHeader:]
