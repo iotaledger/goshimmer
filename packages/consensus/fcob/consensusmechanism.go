@@ -57,10 +57,14 @@ func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 // Setup sets up the behavior of the ConsensusMechanism by making it attach to the relevant events in the Tangle.
 func (f *ConsensusMechanism) Setup() {
 	f.tangle.LedgerState.BranchDAG.Events.BranchConfirmed.Attach(events.NewClosure(func(branchDAGEvent *ledgerstate.BranchDAGEvent) {
+		fmt.Println("WAS")
+
 		defer branchDAGEvent.Release()
 		f.SetTransactionLiked(branchDAGEvent.Branch.ID().TransactionID(), true)
 	}))
 	f.tangle.LedgerState.BranchDAG.Events.BranchRejected.Attach(events.NewClosure(func(branchDAGEvent *ledgerstate.BranchDAGEvent) {
+		fmt.Println("WUS")
+
 		defer branchDAGEvent.Release()
 		f.SetTransactionLiked(branchDAGEvent.Branch.ID().TransactionID(), false)
 	}))
@@ -176,6 +180,8 @@ func (f *ConsensusMechanism) OpinionsEssence(targetID ledgerstate.TransactionID,
 }
 
 func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) {
+	fmt.Println("WADDEWADDE")
+
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	isReattachment := false
