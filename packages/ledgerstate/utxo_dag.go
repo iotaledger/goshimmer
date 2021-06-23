@@ -1253,11 +1253,11 @@ type SolidityType uint8
 const SolidityTypeLength = 1
 
 const (
-	// UndefinedSolidityType represents
+	// UndefinedSolidityType represents the zero value of the SolidityType.
 	UndefinedSolidityType SolidityType = iota
 
 	// Unsolid represents transactions that are not solid, yet.
-	Unsolid
+	Unsolid = iota
 
 	// LazySolid represents transactions that are solid but not fully booked because they spend funds of rejected or
 	// invalid Branches.

@@ -819,7 +819,7 @@ func (t *TransactionMetadata) SetSolidityType(solidityType SolidityType) (previo
 		return
 	}
 
-	if previousValue == Unsolid && solidityType >= LazySolid {
+	if (previousValue == UndefinedSolidityType || previousValue == Unsolid) && solidityType >= LazySolid {
 		t.solidificationTimeMutex.Lock()
 		t.solidificationTime = time.Now()
 		t.solidificationTimeMutex.Unlock()
