@@ -3,6 +3,7 @@ package faucet
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +33,6 @@ func TestFaucetRequest(t *testing.T) {
 	faucet, peers := n.Peers()[0], n.Peers()[1:]
 
 	// each non-faucet peer issues numRequests requests
-	// TODO: can the faucet request funds for itself?
 	for _, peer := range peers {
 		for idx := 0; idx < numRequests; idx++ {
 			tests.SendFaucetRequest(t, peer, peer.Address(idx))
@@ -45,7 +45,7 @@ func TestFaucetRequest(t *testing.T) {
 			require.Eventuallyf(t, func() bool {
 				balance := tests.Balance(t, peer, peer.Address(idx), ledgerstate.ColorIOTA)
 				return balance == uint64(faucet.Config().TokensPerRequest)
-			}, tests.UntilDeadline(t), tests.Tick,
+			}, time.Minute, tests.Tick,
 				"peer %s did not register its requested funds on address %s", peer, peer.Address(idx).Base58())
 		}
 	}

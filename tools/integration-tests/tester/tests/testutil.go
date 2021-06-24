@@ -58,12 +58,6 @@ func Context(ctx context.Context, t *testing.T) (context.Context, context.Cancel
 	return context.WithCancel(ctx)
 }
 
-// UntilDeadline returns the duration until the test deadline.
-func UntilDeadline(t *testing.T) time.Duration {
-	d, _ := t.Deadline()
-	return time.Until(d.Add(-shutdownGraceTime))
-}
-
 // Synced returns whether node is synchronized.
 func Synced(t *testing.T, node *framework.Node) bool {
 	info, err := node.Info()

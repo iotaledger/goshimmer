@@ -3,6 +3,7 @@ package faucet
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -35,7 +36,7 @@ func TestFaucetPrepare(t *testing.T) {
 		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCount).Base58()})
 		require.NoError(t, err)
 		return len(resp.UnspentOutputs[0].Outputs) > 0
-	}, tests.UntilDeadline(t), tests.Tick)
+	}, time.Minute, tests.Tick)
 
 	// check that each of the preparedOutputsCount addresses holds the correct balance
 	remainderBalance := uint64(framework.GenesisTokenAmount - preparedOutputsCount*tokensPerRequest)
@@ -52,7 +53,7 @@ func TestFaucetPrepare(t *testing.T) {
 	// wait for the peer to register a balance change
 	require.Eventually(t, func() bool {
 		return tests.Balance(t, peer, peer.Address(preparedOutputsCount-1), ledgerstate.ColorIOTA) > 0
-	}, tests.UntilDeadline(t), tests.Tick)
+	}, time.Minute, tests.Tick)
 
 	// one prepared output is left on the last address.
 	require.EqualValues(t, tokensPerRequest, tests.Balance(t, faucet, faucet.Address(preparedOutputsCount), ledgerstate.ColorIOTA))
@@ -69,7 +70,7 @@ func TestFaucetPrepare(t *testing.T) {
 		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCount + preparedOutputsCount).Base58()})
 		require.NoError(t, err)
 		return len(resp.UnspentOutputs[0].Outputs) > 0
-	}, tests.UntilDeadline(t), tests.Tick)
+	}, time.Minute, tests.Tick)
 
 	// check that each of the preparedOutputsCount addresses holds the correct balance
 	remainderBalance -= uint64(preparedOutputsCount * tokensPerRequest)
