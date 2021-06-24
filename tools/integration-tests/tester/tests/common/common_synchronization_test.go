@@ -78,7 +78,6 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 7. issue some messages on old peers so that new peer can sync again
 	log.Printf("Issuing %d messages on the %d initial peers...", numMessages, initialPeers)
-	// TODO: How can we make sure that this is always sufficient to trigger the MarkerConfirmation threshold?
 	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numMessages, ids)
 	log.Println("Issuing messages... done")
 
@@ -88,7 +87,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// check that the new node is synced
 	require.Eventuallyf(t,
 		func() bool { return tests.Synced(t, newPeer) },
-		tests.WaitFor, tests.Tick,
+		tests.Timeout, tests.Tick,
 		"the peer %s did not sync again after restart", newPeer)
 }
 

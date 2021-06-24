@@ -49,7 +49,7 @@ func TestTransactionPersistence(t *testing.T) {
 	for _, peer := range peers {
 		require.Eventually(t, func() bool {
 			return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) == tokensPerRequest
-		}, tests.WaitFor, tests.Tick)
+		}, tests.Timeout, tests.Tick)
 	}
 
 	// send IOTA tokens from every peer
@@ -61,7 +61,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// check ledger state
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.WaitFor, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	// send colored tokens from every peer
@@ -71,7 +71,7 @@ func TestTransactionPersistence(t *testing.T) {
 		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
 	}
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.WaitFor, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	log.Printf("Restarting %d peers...", len(peers))
@@ -83,7 +83,7 @@ func TestTransactionPersistence(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.WaitFor, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 }
 
@@ -119,7 +119,7 @@ func TestAlias_Persistence(t *testing.T) {
 			Rejected:  tests.False(),
 		},
 	}
-	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.WaitFor, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
 
 	aliasOutputID := checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -133,7 +133,7 @@ func TestAlias_Persistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
-	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.WaitFor, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
 
 	checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -225,7 +225,7 @@ func TestAlias_Delegation(t *testing.T) {
 		tx.ID().Base58(): {
 			Confirmed: tests.True(),
 		},
-	}, tests.WaitFor, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 
 	aManaReceiverCurrMana, err := peer.GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
 	require.NoError(t, err)

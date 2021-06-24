@@ -44,10 +44,10 @@ func TestManaPersistence(t *testing.T) {
 	log.Println("Waiting for peer to get mana...")
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peer).Access > minAccessMana
-	}, tests.WaitFor, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peer).Consensus > 0
-	}, tests.WaitFor, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 	log.Println("Waiting for peer to get mana... done")
 
 	// restart the peer
@@ -99,7 +99,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	require.Eventually(t, func() bool {
 		outputs := tests.AddressUnspentOutputs(t, faucet, faucet.Address(faucet.Config().Faucet.PreparedOutputsCount))
 		return len(outputs) > 0
-	}, tests.WaitFor, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 
 	// pledge mana to allowed peers
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
@@ -147,21 +147,21 @@ func TestManaApis(t *testing.T) {
 	faucet := peers[0]
 
 	log.Println("Request mana from faucet...")
-	// wait for the faucet to have access mana, just to make sure
+	// TODO: why can it happen that the faucet doesn't have mana
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, faucet).Access > minAccessMana
-	}, tests.WaitFor, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 	// request mana for peer 1; do this twice to assure that peer 1 gets more mana than peer 2
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(0))
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(1))
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[1]).Access > minAccessMana
-	}, tests.WaitFor, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 	// request mana for peer 2
 	tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[2]).Access > minAccessMana
-	}, tests.WaitFor, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 	log.Println("Request mana from faucet... done")
 
 	// Test /mana

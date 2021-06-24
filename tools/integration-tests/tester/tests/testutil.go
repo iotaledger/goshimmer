@@ -24,7 +24,8 @@ import (
 var faucetPoWDifficulty = framework.PeerConfig.Faucet.PowDifficulty
 
 const (
-	WaitFor = 3 * time.Minute
+	// Timeout denotes the default condition polling timout duration.
+	Timeout = 3 * time.Minute
 	// Tick denotes the default condition polling tick time.
 	Tick = 500 * time.Millisecond
 
@@ -37,10 +38,6 @@ type DataMessageSent struct {
 	id              string
 	data            []byte
 	issuerPublicKey string
-}
-
-type Shutdowner interface {
-	Shutdown(context.Context) error
 }
 
 // TransactionConfig defines the configuration for a transaction.
@@ -392,7 +389,7 @@ func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedS
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
-func ShutdownNetwork(ctx context.Context, t *testing.T, n Shutdowner) {
+func ShutdownNetwork(ctx context.Context, t *testing.T, n interface{ Shutdown(context.Context) error }) {
 	log.Println("Shutting down network...")
 	require.NoError(t, n.Shutdown(ctx))
 	log.Println("Shutting down network... done")

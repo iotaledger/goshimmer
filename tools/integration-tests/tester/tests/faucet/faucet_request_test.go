@@ -44,10 +44,8 @@ func TestFaucetRequest(t *testing.T) {
 			require.Eventuallyf(t, func() bool {
 				balance := tests.Balance(t, peer, peer.Address(idx), ledgerstate.ColorIOTA)
 				return balance == uint64(faucet.Config().TokensPerRequest)
-			}, tests.WaitFor, tests.Tick,
+			}, tests.Timeout, tests.Tick,
 				"peer %s did not register its requested funds on address %s", peer, peer.Address(idx).Base58())
 		}
 	}
-
-	// TODO: why was there a restart of the non-faucet peers before? This does not test anything faucet related.
 }

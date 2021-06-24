@@ -54,14 +54,14 @@ type POW struct {
 }
 
 // Webapi defines the parameters of the Web API plugin.
-type Webapi struct { // TODO: Why is this not WebAPI?
+type Webapi struct {
 	Enabled bool
 
 	BindAddress string
 }
 
 // Autopeering defines the parameters of the autopeering plugin.
-type Autopeering struct { // TODO: Why is this not AutoPeering?
+type Autopeering struct {
 	Enabled bool
 
 	Port       int
@@ -130,7 +130,7 @@ type DRNG struct {
 	Enabled bool
 
 	Custom struct {
-		InstanceId        int // TODO: should we change that to InstanceID
+		InstanceId        int
 		Threshold         int
 		DistributedPubKey string
 		CommitteeMembers  []string
