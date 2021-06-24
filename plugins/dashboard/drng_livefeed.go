@@ -16,7 +16,7 @@ import (
 var (
 	drngLiveFeedWorkerCount     = 1
 	drngLiveFeedWorkerQueueSize = 50
-	drngLiveFeedWorkerPool      *workerpool.WorkerPool
+	drngLiveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 )
 
 type drngMsg struct {
@@ -29,7 +29,7 @@ type drngMsg struct {
 }
 
 func configureDrngLiveFeed() {
-	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
+	drngLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		newRandomness := task.Param(0).(*drngpkg.State)
 
 		// assign the name of the instance based on its instanceID
@@ -72,7 +72,6 @@ func runDrngLiveFeed() {
 		})
 		drng.Instance().Events.Randomness.Attach(notifyNewRandomness)
 
-		drngLiveFeedWorkerPool.Start()
 		defer drngLiveFeedWorkerPool.Stop()
 
 		<-shutdownSignal

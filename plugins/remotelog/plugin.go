@@ -48,7 +48,7 @@ var (
 	myID        string
 	myGitHead   string
 	myGitBranch string
-	workerPool  *workerpool.WorkerPool
+	workerPool  *workerpool.NonBlockingQueuedWorkerPool
 
 	remoteLogger     *RemoteLoggerConn
 	remoteLoggerOnce sync.Once
@@ -81,7 +81,7 @@ func configure(plugin *node.Plugin) {
 
 	getGitInfo()
 
-	workerPool = workerpool.New(func(task workerpool.Task) {
+	workerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
 
 		task.Return(nil)
@@ -95,7 +95,6 @@ func run(plugin *node.Plugin) {
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		logger.Events.AnyMsg.Attach(logEvent)
-		workerPool.Start()
 		<-shutdownSignal
 		plugin.LogInfof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)

@@ -26,11 +26,11 @@ const (
 var (
 	fpcLiveFeedWorkerCount     = 1
 	fpcLiveFeedWorkerQueueSize = 300
-	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
+	fpcLiveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 
 	fpcStoreFinalizedWorkerCount     = runtime.GOMAXPROCS(0)
 	fpcStoreFinalizedWorkerQueueSize = 300
-	fpcStoreFinalizedWorkerPool      *workerpool.WorkerPool
+	fpcStoreFinalizedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 
 	activeConflicts = newActiveConflictSet()
 )
@@ -45,14 +45,14 @@ func configureFPCLiveFeed() {
 		mongoDB()
 	}
 
-	fpcLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
+	fpcLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		newMsg := task.Param(0).(*FPCUpdate)
 		broadcastWsMessage(&wsmsg{MsgTypeFPC, newMsg}, true)
 		task.Return(nil)
 	}, workerpool.WorkerCount(fpcLiveFeedWorkerCount), workerpool.QueueSize(fpcLiveFeedWorkerQueueSize))
 
 	if config.Node().Bool(CfgMongoDBEnabled) {
-		fpcStoreFinalizedWorkerPool = workerpool.New(func(task workerpool.Task) {
+		fpcStoreFinalizedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 			storeFinalizedVoteContext(task.Param(0).(FPCRecords))
 			task.Return(nil)
 		}, workerpool.WorkerCount(fpcStoreFinalizedWorkerCount), workerpool.QueueSize(fpcStoreFinalizedWorkerQueueSize))
@@ -66,11 +66,9 @@ func runFPCLiveFeed() {
 		})
 		analysis.Events.FPCHeartbeat.Attach(onFPCHeartbeatReceived)
 
-		fpcLiveFeedWorkerPool.Start()
 		defer fpcLiveFeedWorkerPool.Stop()
 
 		if config.Node().Bool(CfgMongoDBEnabled) {
-			fpcStoreFinalizedWorkerPool.Start()
 			defer fpcStoreFinalizedWorkerPool.Stop()
 		}
 

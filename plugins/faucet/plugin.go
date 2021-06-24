@@ -67,7 +67,7 @@ var (
 	faucetOnce             sync.Once
 	log                    *logger.Logger
 	powVerifier            = pow.New()
-	fundingWorkerPool      *workerpool.WorkerPool
+	fundingWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
 	fundingWorkerQueueSize = 500
 	targetPoWDifficulty    int
@@ -131,7 +131,7 @@ func configure(*node.Plugin) {
 	blacklistCapacity = config.Node().Int(CfgFaucetBlacklistCapacity)
 	Faucet()
 
-	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
+	fundingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		msg := task.Param(0).(*tangle.Message)
 		addr := msg.Payload().(*faucet.Request).Address()
 		msg, txID, err := Faucet().FulFillFundingRequest(msg)
@@ -170,11 +170,7 @@ func run(*node.Plugin) {
 		}
 		log.Info("Deriving faucet state from the ledger... done")
 
-		log.Info("Starting funding workerpools...")
-		// start the funding workerpool
-		fundingWorkerPool.Start()
 		defer fundingWorkerPool.Stop()
-		log.Info("Starting funding workerpools... done")
 		initDone.Store(true)
 
 		<-shutdownSignal
