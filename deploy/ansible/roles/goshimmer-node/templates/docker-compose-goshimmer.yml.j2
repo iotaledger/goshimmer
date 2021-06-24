@@ -1,0 +1,45 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: '3.3'
+
+services:
+  goshimmer:
+    image: iotaledger/goshimmer:latest
+    container_name: goshimmer_bootstrap1
+    network_mode: "host"
+    volumes:
+      - "./db:/db"
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - DATABASE_DIRECTORY=/db/mainnetdb
+      - ANALYSIS_CLIENT_SERVERADDRESS=ressims.iota.cafe:21888
+      - AUTOPEERING_SEED=base58:2GfcAyMQ3f2uWhPEyRVKSejNt7x3Lw8WJ4fvogXH2Kks
+      - AUTOPEERING_PORT=33501
+      - DASHBOARD_BINDADDRESS=0.0.0.0:9001
+      - GOSSIP_PORT=33601
+      - WEBAPI_BINDADDRESS=0.0.0.0:9101
+      - PROFILING_BINDADDRESS=0.0.0.0:6061
+      - FPC_BINDADDRESS=0.0.0.0:10891
+    entrypoint: /run/goshimmer
+    command: >
+      --skip-config=true
+      --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626
+      --networkdelay.originPublicKey=9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd
+      --node.disablePlugins=
+      --node.enablePlugins=remotelog,networkdelay,prometheus,activity,snapshot,"WebAPI tools Endpoint"
+      --prometheus.bindAddress=0.0.0.0:9313
+      --messageLayer.snapshot.file=/snapshot.bin
+      --faucet.powDifficulty=22
+      --pow.difficulty=22
+      --pow.numThreads=8
+      --pow.timeout=60s
+      --logger.level=info
+      --logger.disableEvents=false
+      --logger.remotelog.serverAddress=ressims.iota.cafe:5213
+      --messageLayer.startSynced=true
+      --statement.writeStatement=true
+      --drng.pollen.instanceId=1
+      --drng.pollen.threshold=3
+      --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
+      --drng.xteam.instanceId=1339
+      --drng.xteam.threshold=4
+      --drng.xteam.committeeMembers=GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo,68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt,Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1,75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs,CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf,7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16,CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx

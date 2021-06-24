@@ -1,0 +1,31 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: "3"
+
+services:
+  analysis_server:
+    image: iotaledger/goshimmer:latest
+    container_name: analysis_server
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "./db:/db"
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - DATABASE_DIRECTORY=/db/mainnetdb
+      - PROFILING_BINDADDRESS=0.0.0.0:6063
+    entrypoint: /run/goshimmer
+    command: >
+      --skip-config=true
+      --autopeering.entryNodes=
+      --analysis.client.serverAddress=
+      --analysis.server.bindAddress=0.0.0.0:21888
+      --analysis.dashboard.bindAddress=0.0.0.0:28080
+      --analysis.dashboard.mongodb.enabled=true
+      --analysis.dashboard.mongodb.hostAddress=127.0.0.1:27117
+      --analysis.dashboard.manaAddress="http://ressims.iota.cafe:9001"
+      --prometheus.bindAddress=127.0.0.1:9312
+      --metrics.local=false
+      --metrics.global=true
+      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
+      --node.disablePlugins=autopeering,portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --logger.level=debug
