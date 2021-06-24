@@ -39,10 +39,6 @@ type Database struct {
 type Gossip struct {
 	Enabled bool
 
-	TipsBroadcaster struct {
-		Enable bool
-	}
-
 	Port int
 }
 
