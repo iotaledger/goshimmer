@@ -13,17 +13,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 var (
 	// plugin is the plugin instance of the web API info endpoint plugin.
-	plugin              *node.Plugin
-	once                sync.Once
-	powVerifier         = pow.New()
-	targetPoWDifficulty int
+	plugin *node.Plugin
+	once   sync.Once
 )
 
 // Plugin gets the plugin instance.
@@ -72,13 +69,6 @@ func requestFunds(c echo.Context) error {
 	}
 
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
-
-	// verify PoW
-	_, err = powVerifier.LeadingZeros(faucetPayload.Bytes())
-	if err != nil {
-		plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
-		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Could not verify PoW"})
-	}
 
 	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload)
 	if err != nil {
