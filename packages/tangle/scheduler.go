@@ -104,7 +104,16 @@ func (s *Scheduler) Shutdown() {
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
-func (s *Scheduler) Setup() {}
+func (s *Scheduler) Setup() {
+	// pass booked messages to the scheduler
+	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+		if err := s.SubmitAndReady(messageID); err != nil {
+			s.tangle.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+		}
+	}))
+
+	s.Start()
+}
 
 // SetRate sets the rate of the scheduler.
 func (s *Scheduler) SetRate(rate time.Duration) {

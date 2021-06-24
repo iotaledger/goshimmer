@@ -65,14 +65,6 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("message with %s rejected in Parser: %v", ev.Message.ID().Base58(), err)
 	}))
 
-	Tangle().FIFOScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message discarded in FIFOScheduler %s", messageID.Base58())
-	}))
-
-	Tangle().FIFOScheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("node %s is blacklisted in FIFOScheduler", nodeID.String())
-	}))
-
 	Tangle().Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		plugin.LogInfof("message rejected in Scheduler: %s", messageID.Base58())
 	}))
