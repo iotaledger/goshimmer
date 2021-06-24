@@ -116,7 +116,7 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 // SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
 func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int) (string, DataMessageSent) {
 	id, err := node.Data(data)
-	require.NoErrorf(t, err, "node=%s, Data failed", node)
+	require.NoErrorf(t, err, "node=%s, 'Data' failed", node)
 
 	sent := DataMessageSent{
 		number: number,
@@ -141,8 +141,7 @@ func SendDataMessages(t *testing.T, peers []*framework.Node, numMessages int, id
 	for i := 0; i < numMessages; i++ {
 		data := []byte(fmt.Sprintf("Test: %d", i))
 
-		peer := peers[i%len(peers)]
-		id, sent := SendDataMessage(t, peer, data, i)
+		id, sent := SendDataMessage(t, peers[i%len(peers)], data, i)
 		result[id] = sent
 	}
 	return result
@@ -232,7 +231,7 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 				if errors.Is(err, client.ErrNotFound) {
 					continue
 				}
-				require.NoErrorf(t, err, "node=%s, messageID=%s, GetMessage failed", node, messageID)
+				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessage' failed", node, messageID)
 				require.Equal(t, messageID, msg.ID)
 				delete(nodeMissing, messageID)
 				if len(nodeMissing) == 0 {
@@ -254,11 +253,11 @@ func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID ma
 	for _, node := range nodes {
 		for messageID := range messagesByID {
 			resp, err := node.GetMessage(messageID)
-			require.NoErrorf(t, err, "node=%s, messageID=%s, GetMessage failed", node, messageID)
+			require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessage' failed", node, messageID)
 			require.Equal(t, resp.ID, messageID)
 
 			respMetadata, err := node.GetMessageMetadata(messageID)
-			require.NoErrorf(t, err, "node=%s, messageID=%s, GetMessageMetadata failed", node, messageID)
+			require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
 			require.Equal(t, respMetadata.ID, messageID)
 
 			// check for general information
@@ -341,7 +340,7 @@ func RequireTransactionsEqual(t *testing.T, nodes []*framework.Node, transaction
 	for _, node := range nodes {
 		for txID, expTransaction := range transactionsByID {
 			transaction, err := node.GetTransaction(txID)
-			require.NoErrorf(t, err, "node%s, txID=%s, GetTransaction failed", node, txID)
+			require.NoErrorf(t, err, "node%s, txID=%s, 'GetTransaction' failed", node, txID)
 
 			if expTransaction != nil {
 				if expTransaction.Inputs != nil {
@@ -369,7 +368,7 @@ func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedS
 				if errors.Is(err, client.ErrNotFound) {
 					continue
 				}
-				require.NoErrorf(t, err, "node=%s, txID=%, GetTransaction failed", node, txID)
+				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
 				// the inclusion state can change, so we should check all transactions every time
 				if !inclusionStateEqual(t, node, txID, expInclState) {
@@ -404,11 +403,11 @@ func OutputIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 
 func inclusionStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedInclusionState) bool {
 	inclusionState, err := node.GetTransactionInclusionState(txID)
-	require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionInclusionState failed")
+	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionInclusionState' failed")
 	metadata, err := node.GetTransactionMetadata(txID)
-	require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionMetadata failed")
+	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 	consensusData, err := node.GetTransactionConsensusMetadata(txID)
-	require.NoErrorf(t, err, "node=%s, txID=%, GetTransactionConsensusMetadata failed")
+	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionConsensusMetadata' failed")
 
 	if (expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed) ||
 		(expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized) ||

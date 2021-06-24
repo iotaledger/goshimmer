@@ -111,7 +111,7 @@ func (n *Network) Split(ctx context.Context, partitions ...[]*Node) error {
 		}
 	}
 	// wait until pumba containers are started and block traffic between partitions
-	time.Sleep(5 * time.Second)
+	time.Sleep(graceTimePumba)
 
 	return nil
 }
@@ -173,8 +173,8 @@ func (n *Network) WaitForPeerDiscovery(ctx context.Context) error {
 		return true, nil
 	}
 
-	log.Println("Waiting for peer discovery...")
-	defer log.Println("Waiting for peer discovery... done")
+	log.Println("Waiting for complete peer discovery...")
+	defer log.Println("Waiting for complete peer discovery... done")
 	return eventually(ctx, condition, time.Second)
 }
 
@@ -321,10 +321,12 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 			fmt.Sprintf("%s@%s:%d", base58.Encode(n.entryNode.Identity.PublicKey().Bytes()), n.entryNode.Name(), peeringPort),
 		}
 	}
+	if networkConfig.Activity {
+		conf.Activity.Enabled = true
+	}
 	if networkConfig.FPC {
 		conf.Consensus.Enabled = true
 		conf.FPC.Enabled = true
-		conf.Activity.Enabled = true
 	}
 
 	// the first peer is the master peer, it uses a special conf

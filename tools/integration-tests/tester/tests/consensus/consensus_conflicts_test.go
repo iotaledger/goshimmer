@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -27,10 +26,11 @@ func TestConsensusConflicts(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), numberOfPeers, framework.CreateNetworkConfig{
-		Faucet:      true,
 		StartSynced: true,
-		FPC:         true,
+		Faucet:      true,
 		Autopeering: true,
+		Activity:    true,
+		FPC:         true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -174,7 +174,7 @@ func TestConsensusConflicts(t *testing.T) {
 	assert.Equal(t, 0, confirmed[1], "the confirmed count for second transaction should be equal to 0")
 	assert.Equal(t, len(n.Peers()), confirmed[0], "the confirmed count for first transaction should be equal to the amount of peers %d", len(n.Peers()))
 
-	t.Log("Waiting for the potentially last rounds")
+	log.Println("Waiting for the potentially last rounds...")
 	time.Sleep(30 * time.Second)
 }
 

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	webapi "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -137,8 +136,8 @@ func TestManaApis(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		FPC:         true, // TODO: Do we really need full FPC here?
 		Autopeering: true, // we need to discover online peers
+		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -147,17 +146,17 @@ func TestManaApis(t *testing.T) {
 	faucet := peers[0]
 
 	log.Println("Request mana from faucet...")
-	// TODO: why can it happen that the faucet doesn't have mana
+	// waiting for the faucet to have access mana
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, faucet).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
-	// request mana for peer 1; do this twice to assure that peer 1 gets more mana than peer 2
+	// request mana for peer #1; do this twice to assure that peer #1 gets more mana than peer #2
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(0))
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(1))
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[1]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
-	// request mana for peer 2
+	// request mana for peer #2
 	tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[2]).Access > minAccessMana
@@ -174,7 +173,7 @@ func TestManaApis(t *testing.T) {
 		assert.Greater(t, resp.Access, minAccessMana)
 		assert.Greater(t, resp.Consensus, minConsensusMana)
 
-		// TODO: Add more documentation why the emptyNodeID is supposed to have consensus but no access mana
+		// on startup, the faucet pledges consensus mana to the emptyNodeID
 		resp, err = faucet.GetManaFullNodeID(fullID(emptyNodeID))
 		require.NoError(t, err)
 		t.Logf("/mana %+v", resp)
@@ -196,7 +195,6 @@ func TestManaApis(t *testing.T) {
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	t.Run("mana/*/nhighest", func(t *testing.T) {
-		// TODO: What is the "GenesisNode" in this list? How can we test for it?
 		expectedAccessOrder := []identity.ID{faucet.ID(), peers[1].ID(), peers[2].ID()}
 		aResp, err := faucet.GetNHighestAccessMana(len(expectedAccessOrder))
 		require.NoError(t, err)

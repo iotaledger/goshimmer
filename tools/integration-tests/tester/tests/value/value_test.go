@@ -21,14 +21,14 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-// TestTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
-func TestTransactionPersistence(t *testing.T) {
+// TestValueTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
+func TestValueTransactionPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		Faucet:      true,
 		StartSynced: true,
-		FPC:         true, // TODO: Why do we need FPC but do not autopeering
+		Faucet:      true,
+		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -87,14 +87,14 @@ func TestTransactionPersistence(t *testing.T) {
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 }
 
-// TestAlias_Persistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
-func TestAlias_Persistence(t *testing.T) {
+// TestValueAliasPersistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
+func TestValueAliasPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		FPC:         true, // TODO: Why do we need FPC but do not autopeering
+		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -154,14 +154,14 @@ func TestAlias_Persistence(t *testing.T) {
 	}
 }
 
-// TestAlias_Delegation tests if a delegation output can be used to refresh mana.
-func TestAlias_Delegation(t *testing.T) {
+// TestValueAliasDelegation tests if a delegation output can be used to refresh mana.
+func TestValueAliasDelegation(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		FPC:         true, // TODO: Why do we need FPC but do not autopeering
+		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

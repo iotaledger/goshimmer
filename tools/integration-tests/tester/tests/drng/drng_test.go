@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -36,7 +35,6 @@ func TestDRNG(t *testing.T) {
 		round := firstRound + uint64(i)
 		// eventually all peers should be in the same round
 		log.Printf("Waiting for all peers to receive round %d...", round)
-		// TODO: Is there some configuration to query/get the interval between rounds to set the waitFor?
 		require.Eventually(t,
 			func() bool {
 				for _, peer := range n.Peers() {
