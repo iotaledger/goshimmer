@@ -21,8 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-var maxAwaitDuration = time.Minute
-
 // TestTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
 func TestTransactionPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -51,7 +49,7 @@ func TestTransactionPersistence(t *testing.T) {
 	for _, peer := range peers {
 		require.Eventually(t, func() bool {
 			return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) == tokensPerRequest
-		}, time.Minute, tests.Tick)
+		}, tests.WaitFor, tests.Tick)
 	}
 
 	// send IOTA tokens from every peer
@@ -63,7 +61,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// check ledger state
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, maxAwaitDuration, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.WaitFor, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	// send colored tokens from every peer
@@ -73,7 +71,7 @@ func TestTransactionPersistence(t *testing.T) {
 		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
 	}
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, maxAwaitDuration, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.WaitFor, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	log.Printf("Restarting %d peers...", len(peers))
@@ -85,7 +83,7 @@ func TestTransactionPersistence(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, maxAwaitDuration, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.WaitFor, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 }
 
@@ -121,7 +119,7 @@ func TestAlias_Persistence(t *testing.T) {
 			Rejected:  tests.False(),
 		},
 	}
-	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, maxAwaitDuration, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.WaitFor, tests.Tick)
 
 	aliasOutputID := checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -135,7 +133,7 @@ func TestAlias_Persistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
-	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, maxAwaitDuration, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.WaitFor, tests.Tick)
 
 	checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -227,7 +225,7 @@ func TestAlias_Delegation(t *testing.T) {
 		tx.ID().Base58(): {
 			Confirmed: tests.True(),
 		},
-	}, maxAwaitDuration, tests.Tick)
+	}, tests.WaitFor, tests.Tick)
 
 	aManaReceiverCurrMana, err := peer.GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
 	require.NoError(t, err)

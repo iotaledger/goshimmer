@@ -88,7 +88,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// check that the new node is synced
 	require.Eventuallyf(t,
 		func() bool { return tests.Synced(t, newPeer) },
-		time.Minute, tests.Tick,
+		tests.WaitFor, tests.Tick,
 		"the peer %s did not sync again after restart", newPeer)
 }
 

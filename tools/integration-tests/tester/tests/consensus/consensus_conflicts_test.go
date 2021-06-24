@@ -126,7 +126,7 @@ func TestConsensusConflicts(t *testing.T) {
 			Solid:       tests.True(),
 		}
 	}
-	tests.RequireInclusionStateEqual(t, n.Peers(), expStates, time.Minute, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expStates, tests.WaitFor, tests.Tick)
 
 	expTransactions := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
@@ -149,7 +149,7 @@ func TestConsensusConflicts(t *testing.T) {
 	expStates[conflictingTxIDs[1]] = tests.ExpectedInclusionState{
 		Finalized: tests.False(),
 	}
-	tests.RequireInclusionStateEqual(t, n.Peers(), expStates, time.Minute, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expStates, tests.WaitFor, tests.Tick)
 
 	// now all transactions must be finalized and at most one must be confirmed
 	rejected := make([]int, 2)

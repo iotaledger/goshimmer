@@ -96,7 +96,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 			Conflicting: tests.False(), Solid: tests.True(),
 			Rejected: tests.False(), Liked: tests.True(),
 		},
-	}, time.Minute, tests.Tick)
+	}, tests.WaitFor, tests.Tick)
 	tests.RequireTransactionsEqual(t, n.Peers(), map[string]*tests.ExpectedTransaction{
 		txID: {Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks},
 	})
@@ -149,7 +149,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// Wait for the approval weigth to build up via the sync beacon.
 	time.Sleep(20 * time.Second)
 	log.Println("checking that the 2nd batch transactions are finalized/confirmed")
-	tests.RequireInclusionStateEqual(t, n.Peers(), secondReceiverExpectedStates, time.Minute, tests.Tick)
+	tests.RequireInclusionStateEqual(t, n.Peers(), secondReceiverExpectedStates, tests.WaitFor, tests.Tick)
 	tests.RequireTransactionsEqual(t, n.Peers(), secondReceiverExpectedTransactions)
 
 	log.Println("check that the 2nd batch of receive addresses is the same on all peers")

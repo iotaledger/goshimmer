@@ -70,7 +70,7 @@ func TestFaucetPrepare(t *testing.T) {
 		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCount + preparedOutputsCount).Base58()})
 		require.NoError(t, err)
 		return len(resp.UnspentOutputs[0].Outputs) > 0
-	}, time.Minute, tests.Tick)
+	}, tests.WaitFor, tests.Tick)
 
 	// check that each of the preparedOutputsCount addresses holds the correct balance
 	remainderBalance -= uint64(preparedOutputsCount * tokensPerRequest)

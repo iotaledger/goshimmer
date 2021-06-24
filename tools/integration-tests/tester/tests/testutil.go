@@ -24,6 +24,7 @@ import (
 var faucetPoWDifficulty = framework.PeerConfig.Faucet.PowDifficulty
 
 const (
+	WaitFor = 3 * time.Minute
 	// Tick denotes the default condition polling tick time.
 	Tick = 500 * time.Millisecond
 

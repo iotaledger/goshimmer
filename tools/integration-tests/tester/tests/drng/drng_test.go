@@ -27,7 +27,7 @@ func TestDRNG(t *testing.T) {
 	log.Println("Waiting for randomness generation to be started...")
 	require.Eventually(t,
 		func() bool { return getRandomness(t, n.Peers()[0]).Round > 0 },
-		time.Minute, tests.Tick)
+		tests.WaitFor, tests.Tick)
 	log.Println("Waiting for randomness generation to be started... done")
 
 	firstRound := getRandomness(t, n.Peers()[0]).Round

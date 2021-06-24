@@ -3,7 +3,6 @@ package faucet
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -45,7 +44,7 @@ func TestFaucetRequest(t *testing.T) {
 			require.Eventuallyf(t, func() bool {
 				balance := tests.Balance(t, peer, peer.Address(idx), ledgerstate.ColorIOTA)
 				return balance == uint64(faucet.Config().TokensPerRequest)
-			}, time.Minute, tests.Tick,
+			}, tests.WaitFor, tests.Tick,
 				"peer %s did not register its requested funds on address %s", peer, peer.Address(idx).Base58())
 		}
 	}
