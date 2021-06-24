@@ -73,7 +73,7 @@ type TransactionMetrics struct {
 	DeltaConfirmed     int64     `json:"deltaConfirmed"`
 }
 
-// TransactionOpinionMetrics defines the transaction opinion metrics record to sent be to remote logger.
+// TransactionOpinionMetrics defines the transaction opinion metrics record to sent to the remote logger.
 type TransactionOpinionMetrics struct {
 	Type             string                `json:"type" bson:"type"`
 	NodeID           string                `json:"nodeID" bson:"nodeID"`
