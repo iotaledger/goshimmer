@@ -237,6 +237,16 @@ func (i Inputs) Strings() (result []string) {
 	return
 }
 
+func (i Inputs) Filter(condition func(Input) bool) (filteredInputs Inputs) {
+	filteredInputs = make(Inputs, 0)
+	for _, input := range i {
+		if condition(input) {
+			filteredInputs = append(filteredInputs, input)
+		}
+	}
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region UTXOInput ////////////////////////////////////////////////////////////////////////////////////////////////////

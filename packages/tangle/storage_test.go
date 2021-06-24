@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"github.com/iotaledger/hive.go/types"
 	"math/rand"
 	"testing"
 
@@ -50,4 +51,33 @@ func TestStorage_Attachments(t *testing.T) {
 			cachedAttachment.Release()
 		}
 	}
+}
+
+func TestStorage_UnconfirmedTransactionDependencies(t *testing.T) {
+	tangle := newTestTangle()
+	defer tangle.Shutdown()
+
+	transactionID, err := ledgerstate.TransactionIDFromRandomness()
+	assert.NoError(t, err)
+	transactionIDs := make(ledgerstate.TransactionIDs, 2)
+	dependency1TxID, err := ledgerstate.TransactionIDFromRandomness()
+	assert.NoError(t, err)
+	dependency2TxID, err := ledgerstate.TransactionIDFromRandomness()
+	assert.NoError(t, err)
+	transactionIDs[dependency1TxID] = types.Void
+	transactionIDs[dependency2TxID] = types.Void
+
+	dependencies := NewUnconfirmedTxDependency(&transactionID)
+	dependencies.AddDependency(&dependency1TxID)
+	dependencies.AddDependency(&dependency2TxID)
+
+	cachedDependencies := tangle.Storage.UnconfirmedTransactionDependencies(&transactionID)
+	assert.NotNil(t, cachedDependencies)
+
+	tangle.Storage.StoreUnconfirmedTransactionDependencies(dependencies)
+	cachedDependencies = tangle.Storage.UnconfirmedTransactionDependencies(&transactionID)
+	assert.NotNil(t, cachedDependencies)
+
+	assert.Equal(t, transactionID, cachedDependencies.Unwrap().dependencyTxID)
+	assert.Equal(t, transactionIDs, cachedDependencies.Unwrap().dependentTxIDs)
 }

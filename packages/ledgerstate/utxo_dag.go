@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/mock"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -67,6 +70,84 @@ type IUTXODAG interface {
 	ManageStoreAddressOutputMapping(output Output)
 	// StoreAddressOutputMapping stores the address-output mapping.
 	StoreAddressOutputMapping(address Address, outputID OutputID)
+}
+
+type utxoDagMock struct {
+	mock.Mock
+	test    *testing.T
+	utxoDag IUTXODAG
+}
+
+func NewUtxoDagMock(t *testing.T, utxoDag IUTXODAG) *utxoDagMock {
+	u := &utxoDagMock{
+		test: t,
+	}
+	u.Test(t)
+	u.utxoDag = utxoDag
+	return u
+}
+
+func (u *utxoDagMock) Events() *UTXODAGEvents {
+	return u.Events()
+}
+
+func (u *utxoDagMock) InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error) {
+	args := u.Called(transactionID)
+	inclusionState = args.Get(0).(InclusionState)
+	return
+}
+
+func (u *utxoDagMock) Shutdown() {
+	u.utxoDag.Shutdown()
+	return
+}
+
+func (u *utxoDagMock) CheckTransaction(transaction *Transaction) (err error) {
+	return u.utxoDag.CheckTransaction(transaction)
+}
+
+func (u *utxoDagMock) CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction) {
+	return u.utxoDag.CachedTransaction(transactionID)
+}
+
+func (u *utxoDagMock) Transaction(transactionID TransactionID) (transaction *Transaction) {
+	return u.utxoDag.Transaction(transactionID)
+}
+
+func (u *utxoDagMock) Transactions() (transactions map[TransactionID]*Transaction) {
+	return u.utxoDag.Transactions()
+}
+
+func (u *utxoDagMock) CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata) {
+	return u.utxoDag.CachedTransactionMetadata(transactionID)
+}
+
+func (u *utxoDagMock) CachedOutput(outputID OutputID) (cachedOutput *CachedOutput) {
+	return u.utxoDag.CachedOutput(outputID)
+}
+
+func (u *utxoDagMock) CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata) {
+	return u.utxoDag.CachedOutputMetadata(outputID)
+}
+
+func (u *utxoDagMock) CachedConsumers(outputID OutputID) (cachedConsumers CachedConsumers) {
+	return u.utxoDag.CachedConsumers(outputID)
+}
+
+func (u *utxoDagMock) LoadSnapshot(snapshot *Snapshot) {
+	u.utxoDag.LoadSnapshot(snapshot)
+}
+
+func (u *utxoDagMock) CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings) {
+	return u.utxoDag.CachedAddressOutputMapping(address)
+}
+
+func (u *utxoDagMock) SetTransactionConfirmed(transactionID TransactionID) (err error) {
+	return u.utxoDag.SetTransactionConfirmed(transactionID)
+}
+
+func (u *utxoDagMock) ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
+	return u.utxoDag.ConsumedOutputs(transaction)
 }
 
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of

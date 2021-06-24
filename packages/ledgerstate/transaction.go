@@ -96,6 +96,21 @@ func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transac
 	return
 }
 
+// TransactionIDsFromMarshalUtil unmarshals TransactionIDs using a MarshalUtil (for easier unmarshaling).
+func TransactionIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionIDs TransactionIDs, err error) {
+	transactionIDs = make(TransactionIDs)
+	for !marshalUtil.DoneReading() {
+		var transactionID TransactionID
+		transactionID, err = TransactionIDFromMarshalUtil(marshalUtil)
+		if err != nil {
+			err = errors.Errorf("failed to parse TransactionIDs: %w", err)
+			return nil, err
+		}
+		transactionIDs[transactionID] = types.Void
+	}
+	return
+}
+
 // TransactionIDFromRandomness returns a random TransactionID which can for example be used in unit tests.
 func TransactionIDFromRandomness() (transactionID TransactionID, err error) {
 	_, err = rand.Read(transactionID[:])
