@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -129,7 +128,8 @@ func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int
 	return id, sent
 }
 
-// SendDataMessages sends a total of numMessages data messages on a random peer and saves the sent message to a map.
+// SendDataMessages sends a total of numMessages data messages and saves the sent message to a map.
+// It chooses the peers to send the messages from in a round-robin fashion.
 func SendDataMessages(t *testing.T, peers []*framework.Node, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
 	var result map[string]DataMessageSent
 	if len(idsMap) > 0 {
@@ -141,12 +141,9 @@ func SendDataMessages(t *testing.T, peers []*framework.Node, numMessages int, id
 	for i := 0; i < numMessages; i++ {
 		data := []byte(fmt.Sprintf("Test: %d", i))
 
-		peer := peers[rand.Intn(len(peers))]
+		peer := peers[i%len(peers)]
 		id, sent := SendDataMessage(t, peer, data, i)
-
-		if len(idsMap) > 0 {
-			result[id] = sent
-		}
+		result[id] = sent
 	}
 	return result
 }
