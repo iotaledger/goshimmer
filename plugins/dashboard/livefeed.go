@@ -13,11 +13,11 @@ import (
 var (
 	liveFeedWorkerCount     = 1
 	liveFeedWorkerQueueSize = 50
-	liveFeedWorkerPool      *workerpool.WorkerPool
+	liveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 )
 
 func configureLiveFeed() {
-	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
+	liveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		message := task.Param(0).(*tangle.Message)
 
 		broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().Base58(), 0, uint32(message.Payload().Type())}})
@@ -35,7 +35,6 @@ func runLiveFeed() {
 
 	if err := daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
-		liveFeedWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[MsgUpdater] ...")
 		messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)

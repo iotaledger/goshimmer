@@ -1045,8 +1045,7 @@ func (c CachedIndividuallyMappedMessages) String() string {
 // storage.
 var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceIDLength, markers.IndexLength)
 
-// MarkerMessageMapping is a data structure that denotes if a Message has its BranchID set individually in its own
-// MessageMetadata.
+// MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
 type MarkerMessageMapping struct {
 	marker    *markers.Marker
 	messageID MessageID

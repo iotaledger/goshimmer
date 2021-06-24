@@ -115,8 +115,6 @@ func run(*node.Plugin) {
 func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
-	// start the web socket worker pool
-	wsSendWorkerPool.Start()
 	defer wsSendWorkerPool.Stop()
 
 	// submit the mps to the worker pool when triggered

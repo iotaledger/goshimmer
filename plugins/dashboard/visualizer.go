@@ -19,7 +19,7 @@ import (
 var (
 	visualizerWorkerCount     = 1
 	visualizerWorkerQueueSize = 500
-	visualizerWorkerPool      *workerpool.WorkerPool
+	visualizerWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 
 	msgHistoryMutex    sync.RWMutex
 	msgFinalized       map[string]bool
@@ -49,7 +49,7 @@ type history struct {
 }
 
 func configureVisualizer() {
-	visualizerWorkerPool = workerpool.New(func(task workerpool.Task) {
+	visualizerWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
 		case *tangle.Message:
 			sendVertex(x, task.Param(1).(bool))
@@ -116,7 +116,6 @@ func runVisualizer() {
 		defer messagelayer.Tangle().TipManager.Events.TipAdded.Detach(notifyNewTip)
 		messagelayer.Tangle().TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
 		defer messagelayer.Tangle().TipManager.Events.TipRemoved.Detach(notifyDeletedTip)
-		visualizerWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[Visualizer] ...")
 		visualizerWorkerPool.Stop()

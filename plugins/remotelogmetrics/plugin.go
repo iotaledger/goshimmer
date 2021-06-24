@@ -85,6 +85,7 @@ func configureDRNGMetrics() {
 }
 
 func configureTransactionMetrics() {
+	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onTransactionOpinionFormed))
 	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }
 
