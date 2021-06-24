@@ -15,6 +15,7 @@ type GoShimmer struct {
 
 	// individual plugin configurations
 	Database
+	Gossip
 	POW
 	Webapi
 	Autopeering
@@ -32,6 +33,17 @@ type Database struct {
 	Enabled bool
 
 	ForceCacheTime time.Duration
+}
+
+// Gossip defines the parameters of the gossip plugin.
+type Gossip struct {
+	Enabled bool
+
+	TipsBroadcaster struct {
+		Enable bool
+	}
+
+	Port int
 }
 
 // POW defines the parameters of the PoW plugin.

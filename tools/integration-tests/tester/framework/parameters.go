@@ -67,6 +67,13 @@ var PeerConfig = config.GoShimmer{
 		Enabled:        true,
 		ForceCacheTime: 0, // disable caching for tests
 	},
+	Gossip: config.Gossip{
+		Enabled: true,
+		Port:    gossipPort,
+		TipsBroadcaster: struct{ Enable bool }{
+			Enable: false, // disable tip broadcasting in tests
+		},
+	},
 	POW: config.POW{
 		Enabled:    true,
 		Difficulty: 2,
@@ -127,8 +134,9 @@ var PeerConfig = config.GoShimmer{
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.
 var EntryNodeConfig = config.GoShimmer{
 	DisabledPlugins: append(PeerConfig.DisabledPlugins,
-		"gossip", "issuer", "metrics", "valuetransfers", "consensus"),
+		"issuer", "metrics", "valuetransfers", "consensus"),
 	Database: PeerConfig.Database,
+	Gossip:   config.Gossip{Enabled: false},
 	POW:      PeerConfig.POW,
 	Webapi:   PeerConfig.Webapi,
 	Autopeering: config.Autopeering{
