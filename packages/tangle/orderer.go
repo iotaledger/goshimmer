@@ -44,7 +44,6 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 func (o *Orderer) Setup() {
 	o.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(o.onMessageScheduled))
 	o.tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(o.onMessageScheduled))
-	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.onMessageBooked))
 }
 
 // Shutdown shuts down the Orderer and persists its state.
@@ -65,51 +64,23 @@ func (o *Orderer) run() {
 
 		for {
 			select {
-			case bookedMessage := <-o.bookedMessageChan:
-				if _, exists := o.parentsMap[bookedMessage]; !exists {
-					continue
-				}
-
-				for _, childID := range o.parentsMap[bookedMessage] {
-					o.tryToSchedule(childID)
-				}
-				delete(o.parentsMap, bookedMessage)
-			default:
-			}
-
-			select {
-			case bookedMessage := <-o.bookedMessageChan:
-				if _, exists := o.parentsMap[bookedMessage]; !exists {
-					continue
-				}
-
-				for _, childID := range o.parentsMap[bookedMessage] {
-					o.tryToSchedule(childID)
-				}
-				delete(o.parentsMap, bookedMessage)
 			case messageID := <-o.inbox:
-				parentsToBook := o.tryToSchedule(messageID)
+				parentsToGossip := o.tryToGossip(messageID)
+				o.updateParentsMap(messageID, parentsToGossip)
 
-				for _, parent := range parentsToBook {
-					if _, exists := o.parentsMap[parent]; !exists {
-						o.parentsMap[parent] = make([]MessageID, 0)
-					}
-					o.parentsMap[parent] = append(o.parentsMap[parent], messageID)
-				}
 			case <-o.shutdownSignal:
-				if len(o.inbox) == 0 {
-					return
-				}
+				// no need to wait for unordered messages
+				return
 			}
 		}
 	}()
 }
 
-func (o *Orderer) parentsToBook(messageID MessageID) (parents MessageIDs) {
+func (o *Orderer) parentsToGossip(messageID MessageID) (parents MessageIDs) {
 	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		message.ForEachParent(func(parent Parent) {
 			o.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-				if !messageMetadata.IsBooked() {
+				if !messageMetadata.Scheduled() {
 					parents = append(parents, parent.ID)
 				}
 			})
@@ -119,20 +90,39 @@ func (o *Orderer) parentsToBook(messageID MessageID) (parents MessageIDs) {
 	return parents
 }
 
-func (o *Orderer) tryToSchedule(messageID MessageID) (parentsToBook []MessageID) {
-	parentsToBook = o.parentsToBook(messageID)
-	if len(parentsToBook) > 0 {
+func (o *Orderer) tryToGossip(messageID MessageID) (parentsToGossip []MessageID) {
+	parentsToGossip = o.parentsToGossip(messageID)
+	if len(parentsToGossip) > 0 {
 		return
 	}
 
-	// all parents are booked
+	// all parents are scheduled
 	o.Events.MessageOrdered.Trigger(messageID)
 
 	return
 }
 
-func (o *Orderer) onMessageBooked(messageID MessageID) {
-	o.bookedMessageChan <- messageID
+func (o *Orderer) updateParentsMap(messageID MessageID, parentsToGossip []MessageID) {
+	// try to order children if it's ordered
+	if len(parentsToGossip) == 0 {
+		if _, exists := o.parentsMap[messageID]; !exists {
+			return
+		}
+
+		for _, childID := range o.parentsMap[messageID] {
+			o.tryToGossip(childID)
+		}
+		delete(o.parentsMap, messageID)
+		return
+	}
+
+	// update parent list if its parent(s) are not yet scheduled
+	for _, parent := range parentsToGossip {
+		if _, exists := o.parentsMap[parent]; !exists {
+			o.parentsMap[parent] = make([]MessageID, 0)
+		}
+		o.parentsMap[parent] = append(o.parentsMap[parent], messageID)
+	}
 }
 
 func (o *Orderer) onMessageScheduled(messageID MessageID) {
