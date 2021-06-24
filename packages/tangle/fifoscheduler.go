@@ -17,15 +17,13 @@ const (
 type FIFOScheduler struct {
 	Events *FIFOSchedulerEvents
 
-	tangle                 *Tangle
-	inbox                  chan MessageID
-	scheduledMessages      set.Set
-	allMessagesScheduledWG sync.WaitGroup
-	shutdownSignal         chan struct{}
-	shutdown               sync.WaitGroup
-	shutdownOnce           sync.Once
-	onOpinionFormed        *events.Closure
-	onMessageInvalid       *events.Closure
+	tangle            *Tangle
+	inbox             chan MessageID
+	scheduledMessages set.Set
+	shutdownSignal    chan struct{}
+	shutdownOnce      sync.Once
+	onOpinionFormed   *events.Closure
+	onMessageInvalid  *events.Closure
 }
 
 // NewFIFOScheduler returns a new scheduler.
@@ -71,8 +69,6 @@ func (s *FIFOScheduler) Shutdown() {
 		close(s.shutdownSignal)
 	})
 
-	s.shutdown.Wait()
-	s.allMessagesScheduledWG.Wait()
 	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Detach(s.onOpinionFormed)
 	s.tangle.Events.MessageInvalid.Detach(s.onMessageInvalid)
 }
@@ -83,9 +79,7 @@ func (s *FIFOScheduler) mainLoop() {
 		case messageID := <-s.inbox:
 			s.scheduleMessage(messageID)
 		case <-s.shutdownSignal:
-			if len(s.inbox) == 0 {
-				return
-			}
+			return
 		}
 	}
 }
@@ -93,9 +87,7 @@ func (s *FIFOScheduler) mainLoop() {
 func (s *FIFOScheduler) scheduleMessage(messageID MessageID) {
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.SetScheduled(true) {
-			if s.scheduledMessages.Add(messageID) {
-				s.allMessagesScheduledWG.Add(1)
-			}
+			s.scheduledMessages.Add(messageID)
 			s.Events.MessageScheduled.Trigger(messageID)
 		}
 	})
@@ -114,15 +106,11 @@ type FIFOSchedulerEvents struct {
 }
 
 func (s *FIFOScheduler) messageInvalidHandler(messageID MessageID) {
-	if s.scheduledMessages.Delete(messageID) {
-		s.allMessagesScheduledWG.Done()
-	}
+	s.scheduledMessages.Delete(messageID)
 }
 
 func (s *FIFOScheduler) opinionFormedHandler(messageID MessageID) {
-	if s.scheduledMessages.Delete(messageID) {
-		s.allMessagesScheduledWG.Done()
-	}
+	s.scheduledMessages.Delete(messageID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
