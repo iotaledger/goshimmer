@@ -3,6 +3,8 @@ package remotelogmetrics
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -69,6 +71,19 @@ type TransactionMetrics struct {
 	DeltaScheduled     int64     `json:"deltaArrival"`
 	DeltaBooked        int64     `json:"deltaBooked"`
 	DeltaConfirmed     int64     `json:"deltaConfirmed"`
+}
+
+// TransactionOpinionMetrics defines the transaction opinion metrics record to sent to the remote logger.
+type TransactionOpinionMetrics struct {
+	Type             string                `json:"type" bson:"type"`
+	NodeID           string                `json:"nodeID" bson:"nodeID"`
+	MessageID        string                `json:"messageID" bson:"messageID"`
+	TransactionID    string                `json:"transactionID" bson:"transactionID"`
+	Fcob1Time        time.Time             `json:"fcob1Time" bson:"fcob1Time"`
+	Fcob2Time        time.Time             `json:"fcob2Time" bson:"fcob2Time"`
+	Liked            bool                  `json:"liked" bson:"liked"`
+	LevelOfKnowledge fcob.LevelOfKnowledge `json:"levelOfKnowledge" bson:"levelOfKnowledge"`
+	Timestamp        time.Time             `json:"timestamp" bson:"timestamp"`
 }
 
 // DRNGMetrics defines the DRNG metrics record to sent be to remote logger.
