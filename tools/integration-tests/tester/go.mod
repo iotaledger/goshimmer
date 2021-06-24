@@ -12,6 +12,7 @@ require (
 	github.com/drand/drand v1.1.1
 	github.com/iotaledger/goshimmer v0.1.3
 	github.com/iotaledger/hive.go v0.0.0-20210528180853-73ecfbb76bd7
+	github.com/labstack/echo v3.3.10+incompatible // indirect
 	github.com/mr-tron/base58 v1.2.0
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/stretchr/testify v1.7.0
