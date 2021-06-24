@@ -147,6 +147,10 @@ func TestManaApis(t *testing.T) {
 	faucet := peers[0]
 
 	log.Println("Request mana from faucet...")
+	// wait for the faucet to have access mana, just to make sure
+	require.Eventually(t, func() bool {
+		return tests.Mana(t, faucet).Access > minAccessMana
+	}, tests.WaitFor, tests.Tick)
 	// request mana for peer 1; do this twice to assure that peer 1 gets more mana than peer 2
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(0))
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(1))
