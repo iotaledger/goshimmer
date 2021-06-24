@@ -1,8 +1,9 @@
 package remotelogmetrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 
 	"github.com/iotaledger/hive.go/events"
 )

@@ -18,7 +18,6 @@ func onTransactionOpinionFormed(messageID tangle.MessageID) {
 	}
 
 	messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-
 		messagelayer.ConsensusMechanism().Storage.Opinion(transactionID).Consume(func(opinion *fcob.Opinion) {
 			record := &remotelogmetrics.TransactionOpinionMetrics{
 				Type:             "transactionOpinion",
