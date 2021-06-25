@@ -69,6 +69,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			MessageScheduled: events.NewEvent(MessageIDCaller),
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
+			Error:            events.NewEvent(events.ErrorCaller),
 		},
 		tangle:         tangle,
 		rate:           atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
@@ -108,7 +109,7 @@ func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
 	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
 		if err := s.SubmitAndReady(messageID); err != nil {
-			s.tangle.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+			s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 		}
 	}))
 
@@ -381,6 +382,7 @@ type SchedulerEvents struct {
 	MessageScheduled *events.Event
 	MessageDiscarded *events.Event
 	NodeBlacklisted  *events.Event
+	Error            *events.Event
 }
 
 // NodeIDCaller is the caller function for events that hand over a NodeID.

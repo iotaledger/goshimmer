@@ -124,6 +124,10 @@ func (t *Tangle) Setup() {
 	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
 	}))
+
+	t.Scheduler.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
+	}))
 }
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
