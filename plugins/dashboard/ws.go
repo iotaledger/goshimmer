@@ -53,7 +53,8 @@ func configureWebSocketWorkerPool() {
 			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
 			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, &tipsInfo{
 				TotalTips: messagelayer.Tangle().TipManager.StrongTipCount() + messagelayer.Tangle().TipManager.WeakTipCount(),
-				WeakTips:  messagelayer.Tangle().TipManager.WeakTipCount()}})
+				WeakTips:  messagelayer.Tangle().TipManager.WeakTipCount(),
+			}})
 		case *componentsmetric:
 			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
 		}
