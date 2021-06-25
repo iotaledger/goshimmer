@@ -22,7 +22,7 @@ import (
 var (
 	manaFeedWorkerCount     = 1
 	manaFeedWorkerQueueSize = 500
-	manaFeedWorkerPool      *workerpool.WorkerPool
+	manaFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 	manaBuffer              *ManaBuffer
 	manaBufferOnce          sync.Once
 )
@@ -36,7 +36,7 @@ func ManaBufferInstance() *ManaBuffer {
 }
 
 func configureManaFeed() {
-	manaFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
+	manaFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch task.Param(0).(byte) {
 		case MsgTypeManaValue:
 			sendManaValue()
@@ -63,7 +63,6 @@ func runManaFeed() {
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(shutdownSignal <-chan struct{}) {
 		mana.Events().Pledged.Attach(notifyManaPledge)
 		mana.Events().Revoked.Attach(notifyManaRevoke)
-		manaFeedWorkerPool.Start()
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {
