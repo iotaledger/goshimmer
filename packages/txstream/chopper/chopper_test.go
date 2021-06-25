@@ -115,9 +115,10 @@ func TestMaxTangleMessage(t *testing.T) {
 
 //goland:noinspection ALL
 func TestTooLongData(t *testing.T) {
-	tooLong := int(1.5 * 1024 * 1024) // 1.5 MB
 	short := 10000
 	chunk := 500
+	tooLong := (chunk * chopper.MaxNChunks)
+
 	assert.True(t, tooLong/chunk >= chopper.MaxNChunks)
 
 	dataLong := make([]byte, tooLong)

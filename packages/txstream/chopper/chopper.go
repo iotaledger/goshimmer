@@ -7,6 +7,7 @@ package chopper
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 )
@@ -18,7 +19,7 @@ const (
 	maxTTL              = 5 * time.Minute
 	cleanupLoopInterval = 10 * time.Second
 	// MaxNChunks maximum number of chunks
-	MaxNChunks = 2200
+	MaxNChunks = math.MaxUint16
 )
 
 // Chopper handles the splitting and joining of large messages
