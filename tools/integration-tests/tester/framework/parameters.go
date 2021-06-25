@@ -16,7 +16,6 @@ const (
 	peeringPort = 14626
 	fpcPort     = 10895
 
-	containerNameTester      = "/tester"
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
 	containerNameDrand       = "drand_"

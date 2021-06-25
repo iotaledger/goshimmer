@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/hex"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -46,7 +47,7 @@ func newFramework(ctx context.Context) (*Framework, error) {
 		return nil, err
 	}
 
-	tester, err := NewDockerContainerFromExisting(ctx, dockerClient, containerNameTester)
+	tester, err := NewDockerContainerFromExisting(ctx, dockerClient, os.Getenv("HOSTNAME"))
 	if err != nil {
 		return nil, err
 	}
