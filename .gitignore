@@ -41,3 +41,4 @@ book
 
 config.json
 .env
+.vscode
