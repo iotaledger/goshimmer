@@ -2,7 +2,6 @@ package value
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -22,161 +21,80 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-// TestValueTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
+// TestValueTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
 func TestValueTransactionPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		Faucet:      true,
 		StartSynced: true,
-		FPC:         true, // TODO: Why do we need FPC but do not autopeering
+		Faucet:      true,
+		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// master node sends funds to all peers in the network
-	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
-	txIds := make(map[string]*tests.ExpectedTransaction)
-	for _, txID := range txIdsSlice {
-		txIds[txID] = nil
+	faucet, peers := n.Peers()[0], n.Peers()[1:]
+	tokensPerRequest := uint64(faucet.Config().Faucet.TokensPerRequest)
+
+	addrBalance := make(map[string]map[ledgerstate.Color]uint64)
+
+	// request funds from faucet
+	for _, peer := range peers {
+		addr := peer.Address(0)
+		tests.SendFaucetRequest(t, peer, addr)
+		addrBalance[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: tokensPerRequest}
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(10 * time.Second)
+	for _, peer := range peers {
+		require.Eventually(t, func() bool {
+			return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) == tokensPerRequest
+		}, tests.Timeout, tests.Tick)
+	}
 
-	// check whether the first issued transaction is available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
+	// send IOTA tokens from every peer
+	expectedStates := make(map[string]tests.ExpectedInclusionState)
+	for _, peer := range peers {
+		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
+		require.NoError(t, err)
+		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
+	}
 
 	// check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
-	// send value message randomly
-	randomTxIDs := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10, 100)
-	for _, randomTxID := range randomTxIDs {
-		txIds[randomTxID] = nil
-	}
-
-	// wait for messages to be gossiped
-	time.Sleep(10 * time.Second)
-
-	// check whether all issued transactions are available on all nodes and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
-
-	// check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
-
-	// 3. stop all nodes
-	for _, peer := range n.Peers()[1:] {
-		err = peer.Stop(ctx)
+	// send colored tokens from every peer
+	for _, peer := range peers {
+		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
+		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
 	}
 
-	// 4. start all nodes
-	for _, peer := range n.Peers()[1:] {
-		err = peer.Start(context.Background())
-		require.NoError(t, err)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
+
+	log.Printf("Restarting %d peers...", len(peers))
+	for _, peer := range peers {
+		require.NoError(t, peer.Restart(ctx))
 	}
+	log.Println("Restarting peers... done")
 
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	// check whether all issued transactions are available on all nodes and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, false, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
-
-	// 5. check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 }
 
-// TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
-func TestValueColoredPersistence(t *testing.T) {
+// TestValueAliasPersistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
+func TestValueAliasPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		FPC:         true, // TODO: Why do we need FPC but do not autopeering
-	})
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(ctx, t, n)
-
-	// master node sends funds to all peers in the network
-	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
-	txIds := make(map[string]*tests.ExpectedTransaction)
-	for _, txID := range txIdsSlice {
-		txIds[txID] = nil
-	}
-
-	// wait for messages to be gossiped
-	time.Sleep(10 * time.Second)
-
-	// check whether the transactions are available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
-
-	// check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
-
-	// send funds to node 2
-	for _, peer := range n.Peers()[1:] {
-		fail, txId := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
-		require.False(t, fail)
-		txIds[txId] = nil
-		time.Sleep(2 * time.Second)
-	}
-	// wait for value messages to be gossiped
-	time.Sleep(10 * time.Second)
-
-	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
-
-	// check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
-
-	// stop all nodes
-	for _, peer := range n.Peers()[1:] {
-		err = peer.Stop(ctx)
-		require.NoError(t, err)
-	}
-
-	// start all nodes
-	for _, peer := range n.Peers()[1:] {
-		err = peer.Start(ctx)
-		require.NoError(t, err)
-	}
-
-	err = n.DoManualPeering(ctx)
-	require.NoError(t, err)
-
-	log.Println("Waiting for nodes to become synced...")
-	require.NoError(t, tests.AwaitSync(t, n.Peers(), 30*time.Second))
-	log.Println("Waiting for nodes to become synced... done")
-
-	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(),
-	})
-
-	// 5. check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
-}
-
-// TestAliasPersistence creates an alias output, restarts all nodes, and checks whether the output is persisted.
-func TestAliasPersistence(t *testing.T) {
-	ctx, cancel := tests.Context(context.Background(), t)
-	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		StartSynced: true,
-		Faucet:      true,
-		FPC:         true, // TODO: Why do we need FPC but do not autopeering
+		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -194,72 +112,34 @@ func TestAliasPersistence(t *testing.T) {
 		createnftoptions.WaitForConfirmation(true),
 	)
 	require.NoError(t, err)
-	aliasOutputID := ledgerstate.OutputID{}
 
-	for i, peer := range n.Peers() {
-		inclusionState, err := peer.GetTransactionInclusionState(tx.ID().Base58())
-		require.NoError(t, err)
-		require.True(t, inclusionState.Confirmed)
-		require.False(t, inclusionState.Rejected)
-		require.False(t, inclusionState.Pending)
-
-		resp, err := peer.GetAddressUnspentOutputs(aliasID.Base58())
-		require.NoError(t, err)
-		// there should be only this output
-		require.True(t, len(resp.Outputs) == 1)
-		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
-		require.NoError(t, err)
-		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
-		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
-		require.True(t, ok)
-		require.Equal(t, aliasID.Base58(), alias.GetAliasAddress().Base58())
-		switch i {
-		case 0:
-			aliasOutputID = alias.ID()
-		default:
-			require.Equal(t, aliasOutputID.Base58(), alias.ID().Base58())
-		}
+	inclusionState := map[string]tests.ExpectedInclusionState{
+		tx.ID().Base58(): {
+			Confirmed: tests.True(),
+			Rejected:  tests.False(),
+		},
 	}
+	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
 
-	// stop all nodes
+	aliasOutputID := checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
+
+	// restart all nodes
 	for _, peer := range n.Peers()[1:] {
-		err = peer.Stop(ctx)
-		require.NoError(t, err)
+		require.NoError(t, peer.Restart(ctx))
 	}
 
-	// start all nodes
-	for _, peer := range n.Peers()[1:] {
-		err = peer.Start(ctx)
-		require.NoError(t, err)
-	}
-
+	// wait for peers to start
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
-	for _, peer := range n.Peers() {
-		inclusionState, err := peer.GetTransactionInclusionState(tx.ID().Base58())
-		require.NoError(t, err)
-		require.True(t, inclusionState.Confirmed)
-		require.False(t, inclusionState.Rejected)
-		require.False(t, inclusionState.Pending)
+	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
 
-		resp, err := peer.GetAddressUnspentOutputs(aliasID.Base58())
-		require.NoError(t, err)
-		// there should be only this output
-		require.True(t, len(resp.Outputs) == 1)
-		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
-		require.NoError(t, err)
-		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
-		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
-		require.True(t, ok)
-		require.Equal(t, aliasID.Base58(), alias.GetAliasAddress().Base58())
-	}
+	checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
 	_, err = w.DestroyNFT(destroynftoptions.Alias(aliasID.Base58()), destroynftoptions.WaitForConfirmation(true))
 	require.NoError(t, err)
-	// give enough time to all peers
-	time.Sleep(20 * time.Second)
+
 	// check if all nodes destroyed it
 	for _, peer := range n.Peers() {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
@@ -274,14 +154,14 @@ func TestAliasPersistence(t *testing.T) {
 	}
 }
 
-// TestAlias_Delegation tests if a delegation output can be used to refresh mana.
-func TestAliasDelegation(t *testing.T) {
+// TestValueAliasDelegation tests if a delegation output can be used to refresh mana.
+func TestValueAliasDelegation(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		Faucet:      true,
 		StartSynced: true,
-		FPC:         true, // TODO: Why do we need FPC but do not autopeering
+		Faucet:      true,
+		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -296,13 +176,11 @@ func TestAliasDelegation(t *testing.T) {
 
 	dumbWallet := createWallets(1)[0]
 	delegationAddress := dumbWallet.address
-	tx, delegationIDs, err := w.DelegateFunds(
+	_, delegationIDs, err := w.DelegateFunds(
 		delegateoptions.Destination(address.Address{AddressBytes: delegationAddress.Array()}, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 1000}),
 		delegateoptions.WaitForConfirmation(true),
 	)
 	require.NoError(t, err)
-	// give enough time to all peers
-	time.Sleep(5 * time.Second)
 
 	delegatedAliasOutputID := ledgerstate.OutputID{}
 	delegatedAliasOutput := &ledgerstate.AliasOutput{}
@@ -332,35 +210,22 @@ func TestAliasDelegation(t *testing.T) {
 	require.NoError(t, err)
 	cManaReceiver, err := identity.RandomID()
 	require.NoError(t, err)
+
 	// let's try to "refresh mana"
 	nextOutput := delegatedAliasOutput.NewAliasOutputNext(false)
 	essence := ledgerstate.NewTransactionEssence(0, time.Now(),
 		aManaReceiver, cManaReceiver,
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(delegatedAliasOutputID)),
 		ledgerstate.NewOutputs(nextOutput))
-	tx = ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
+	tx := ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
 	_, err = peer.PostTransaction(tx.Bytes())
 	require.NoError(t, err)
-	// give enough time to all peers
-	time.Sleep(5 * time.Second)
 
-	confirmed := false
-	timeout := 150 // seconds
-	timeoutCounter := 0
-	for !confirmed {
-		inc, err := peer.GetTransactionInclusionState(tx.ID().Base58())
-		require.NoError(t, err)
-		if inc.Confirmed {
-			confirmed = true
-		} else {
-			time.Sleep(time.Second)
-			timeoutCounter++
-			if timeoutCounter >= timeout {
-				break
-			}
-		}
-	}
-	require.True(t, confirmed, fmt.Sprintf("mana refersh tx didn't confirm in %d seconds", timeout))
+	tests.RequireInclusionStateEqual(t, n.Peers(), map[string]tests.ExpectedInclusionState{
+		tx.ID().Base58(): {
+			Confirmed: tests.True(),
+		},
+	}, tests.Timeout, tests.Tick)
 
 	aManaReceiverCurrMana, err := peer.GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
 	require.NoError(t, err)
@@ -370,6 +235,30 @@ func TestAliasDelegation(t *testing.T) {
 	// check that the pledge actually worked
 	require.True(t, aManaReceiverCurrMana.Access > 0)
 	require.True(t, cManaReceiverCurrMana.Consensus > 0)
+}
+
+func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr *ledgerstate.AliasAddress) ledgerstate.OutputID {
+	aliasOutputID := ledgerstate.OutputID{}
+
+	for i, peer := range peers {
+		resp, err := peer.GetAddressUnspentOutputs(aliasAddr.Base58())
+		require.NoError(t, err)
+		// there should be only this output
+		require.True(t, len(resp.Outputs) == 1)
+		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
+		require.NoError(t, err)
+		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
+		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
+		require.True(t, ok)
+		require.Equal(t, aliasAddr.Base58(), alias.GetAliasAddress().Base58())
+		switch i {
+		case 0:
+			aliasOutputID = alias.ID()
+		default:
+			require.Equal(t, aliasOutputID.Base58(), alias.ID().Base58())
+		}
+	}
+	return aliasOutputID
 }
 
 type simpleWallet struct {

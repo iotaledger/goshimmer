@@ -8,20 +8,23 @@ import (
 // Partition represents a network partition.
 // It contains its peers and the corresponding Pumba instances that block all traffic to peers in other partitions.
 type Partition struct {
-	name     string
-	peers    []*Node
-	peersMap map[string]*Node
-	pumbas   []*DockerContainer
+	name   string
+	peers  []*Node
+	pumbas []*DockerContainer
 }
 
-// Peers returns the partition's peers.
+// Peers returns the peers in the partition.
 func (p *Partition) Peers() []*Node {
 	return p.peers
 }
 
-// PeersMap returns the partition's peers map.
-func (p *Partition) PeersMap() map[string]*Node {
-	return p.peersMap
+// PeerIDs returns the IDs of the peers in the partition
+func (p *Partition) PeerIDs() []string {
+	ids := make([]string, 0, len(p.peers))
+	for _, peer := range p.peers {
+		ids = append(ids, peer.ID().String())
+	}
+	return ids
 }
 
 // deletePartition deletes a partition, all its Pumba containers and creates logs for them.

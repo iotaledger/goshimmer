@@ -28,7 +28,6 @@ func onVoteFinalized(ev *vote.OpinionEvent) {
 	if err := remotelog.RemoteLogger().Send(record); err != nil {
 		plugin.Logger().Errorw("Failed to send FPC conflict record on vote finalized event", "err", err)
 	}
-
 }
 
 func onVoteRoundExecuted(roundStats *vote.RoundStats) {

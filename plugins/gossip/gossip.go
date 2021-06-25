@@ -39,9 +39,9 @@ func createManager() {
 	log := logger.NewLogger(PluginName)
 
 	// announce the gossip service
-	gossipPort := config.Node().Int(CfgGossipPort)
+	gossipPort := Parameters.Port
 	if !netutil.IsValidPort(gossipPort) {
-		log.Fatalf("Invalid port number (%s): %d", CfgGossipPort, gossipPort)
+		log.Fatalf("Invalid port number: %d", gossipPort)
 	}
 
 	lPeer := local.GetInstance()

@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -27,10 +26,11 @@ func TestConsensusConflicts(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), numberOfPeers, framework.CreateNetworkConfig{
-		Faucet:      true,
 		StartSynced: true,
-		FPC:         true,
+		Faucet:      true,
 		Autopeering: true,
+		Activity:    true,
+		FPC:         true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -119,23 +119,19 @@ func TestConsensusConflicts(t *testing.T) {
 		time.Sleep(FCoBQuarantineTime)
 	}
 
-	log.Println("waiting for transactions to be available on all peers...")
-	missing, err := tests.AwaitTransactionAvailability(n.Peers(), conflictingTxIDs, time.Duration(3)*time.Minute)
-	if err != nil {
-		assert.NoError(t, err, "transactions should have been available")
-		for p, missingOnPeer := range missing {
-			log.Printf("missing on peer %s:", p)
-			for missingTx := range missingOnPeer {
-				log.Println("tx id: ", missingTx)
-			}
+	expStates := map[string]tests.ExpectedInclusionState{}
+	for _, txID := range conflictingTxIDs {
+		expStates[txID] = tests.ExpectedInclusionState{
+			Conflicting: tests.True(),
+			Solid:       tests.True(),
 		}
-		return
 	}
+	tests.RequireInclusionStateEqual(t, n.Peers(), expStates, tests.Timeout, tests.Tick)
 
-	expectations := map[string]*tests.ExpectedTransaction{}
+	expTransactions := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
 		utilsTx := jsonmodels.NewTransaction(conflictingTx)
-		expectations[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
+		expTransactions[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
 			Inputs:       utilsTx.Inputs,
 			Outputs:      utilsTx.Outputs,
 			UnlockBlocks: utilsTx.UnlockBlocks,
@@ -143,25 +139,17 @@ func TestConsensusConflicts(t *testing.T) {
 	}
 
 	// check that the transactions are marked as conflicting
-	tests.CheckTransactions(t, n.Peers(), expectations, true, tests.ExpectedInclusionState{
-		Finalized:   tests.False(),
-		Conflicting: tests.True(),
-		Solid:       tests.True(),
-	})
+	tests.RequireTransactionsEqual(t, n.Peers(), expTransactions)
 
 	// wait until the voting has finalized
-	log.Println("waiting for voting/transaction finalization to be done on all peers...")
-	awaitFinalization := map[string]tests.ExpectedInclusionState{}
-
-	awaitFinalization[conflictingTxIDs[0]] = tests.ExpectedInclusionState{
+	log.Println("Waiting for voting/transaction finalization to be done on all peers...")
+	expStates[conflictingTxIDs[0]] = tests.ExpectedInclusionState{
 		Finalized: tests.True(),
 	}
-	awaitFinalization[conflictingTxIDs[1]] = tests.ExpectedInclusionState{
+	expStates[conflictingTxIDs[1]] = tests.ExpectedInclusionState{
 		Finalized: tests.False(),
 	}
-
-	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 30*time.Second)
-	assert.NoError(t, err)
+	tests.RequireInclusionStateEqual(t, n.Peers(), expStates, tests.Timeout, tests.Tick)
 
 	// now all transactions must be finalized and at most one must be confirmed
 	rejected := make([]int, 2)
@@ -186,7 +174,7 @@ func TestConsensusConflicts(t *testing.T) {
 	assert.Equal(t, 0, confirmed[1], "the confirmed count for second transaction should be equal to 0")
 	assert.Equal(t, len(n.Peers()), confirmed[0], "the confirmed count for first transaction should be equal to the amount of peers %d", len(n.Peers()))
 
-	t.Log("Waiting for the potentially last rounds")
+	log.Println("Waiting for the potentially last rounds...")
 	time.Sleep(30 * time.Second)
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -27,7 +26,7 @@ func TestDRNG(t *testing.T) {
 	log.Println("Waiting for randomness generation to be started...")
 	require.Eventually(t,
 		func() bool { return getRandomness(t, n.Peers()[0]).Round > 0 },
-		tests.WaitForDeadline(t), tests.Tick)
+		tests.Timeout, tests.Tick)
 	log.Println("Waiting for randomness generation to be started... done")
 
 	firstRound := getRandomness(t, n.Peers()[0]).Round

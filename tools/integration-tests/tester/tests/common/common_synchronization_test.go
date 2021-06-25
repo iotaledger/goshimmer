@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-
-	"github.com/stretchr/testify/require"
 )
 
 // TestCommonSynchronization checks whether messages are relayed through the network,
@@ -18,9 +18,9 @@ import (
 // are available on all nodes at the end (persistence).
 func TestCommonSynchronization(t *testing.T) {
 	const (
-		initialPeers      = 2
-		numSyncedMessages = 50
-		numMessages       = 5
+		initialPeers    = 2
+		numMessages     = 100
+		numSyncMessages = 2 * initialPeers
 	)
 
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -31,11 +31,9 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	tests.CheckSynchronized(t, n.Peers())
-
 	// 1. issue data messages
-	log.Printf("Issuing %d messages to sync...", numSyncedMessages)
-	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers(), numSyncedMessages)
+	log.Printf("Issuing %d messages to sync...", numMessages)
+	ids := tests.SendDataMessages(t, n.Peers(), numMessages)
 	log.Println("Issuing messages... done")
 
 	// 2. spawn peer without knowledge of previous messages
@@ -47,12 +45,13 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Spawning new node... done")
 
 	// 3. issue some messages on old peers so that new peer can solidify
-	log.Printf("Issuing %d messages on the %d initial peers...", numMessages, initialPeers)
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numMessages, ids)
+	log.Printf("Issuing %d messages on the %d initial peers...", numSyncMessages, initialPeers)
+	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncMessages, ids)
 	log.Println("Issuing messages... done")
 
 	// 4. check whether all issued messages are available on to the new peer
-	tests.CheckForMessageIDs(t, []*framework.Node{newPeer}, ids, 30*time.Second)
+	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
 	require.True(t, tests.Synced(t, newPeer))
 
 	// 5. shut down newly added peer
@@ -60,8 +59,8 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, newPeer.Stop(ctx))
 	log.Println("Stopping new node... done")
 
-	log.Printf("Issuing %d messages and waiting until they have old tangle time...", numSyncedMessages)
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numSyncedMessages, ids)
+	log.Printf("Issuing %d messages and waiting until they have old tangle time...", numMessages)
+	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numMessages, ids)
 	// wait to assure that the new peer is actually out of sync when starting
 	time.Sleep(newPeer.Config().MessageLayer.TangleTimeWindow)
 	log.Println("Issuing messages... done")
@@ -78,16 +77,17 @@ func TestCommonSynchronization(t *testing.T) {
 	require.False(t, tests.Synced(t, newPeer))
 
 	// 7. issue some messages on old peers so that new peer can sync again
-	log.Printf("Issuing %d messages on the %d initial peers...", numMessages, initialPeers)
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], numMessages, ids)
+	log.Printf("Issuing %d messages on the %d initial peers...", numSyncMessages, initialPeers)
+	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncMessages, ids)
 	log.Println("Issuing messages... done")
 
 	// 9. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIDs(t, []*framework.Node{newPeer}, ids, time.Minute)
+	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
 	// check that the new node is synced
 	require.Eventuallyf(t,
 		func() bool { return tests.Synced(t, newPeer) },
-		time.Minute, tests.Tick,
+		tests.Timeout, tests.Tick,
 		"the peer %s did not sync again after restart", newPeer)
 }
 

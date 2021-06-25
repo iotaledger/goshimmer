@@ -46,7 +46,7 @@ func (config GoShimmer) CreateFlags() []string {
 
 	flags = append(
 		[]string{
-			"--node.enablePlugins=Webapi tools Endpoint", // TODO: Why doesn't this plugin have a proper name?
+			"--node.enablePlugins=Webapi tools Endpoint",
 			fmt.Sprintf("--autopeering.seed=base58:%s", base58.Encode(config.Seed)),
 			fmt.Sprintf("--node.enablePlugins=%s", setToString(enabledPlugins)),
 			fmt.Sprintf("--node.disablePlugins=%s", setToString(disabledPlugins)),

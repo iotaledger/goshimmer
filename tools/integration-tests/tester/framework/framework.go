@@ -85,6 +85,10 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 		if err != nil {
 			return nil, errors.Wrap(err, "autopeering failed")
 		}
+		err = network.WaitForPeerDiscovery(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "peer discovery failed")
+		}
 	} else {
 		err = network.DoManualPeering(ctx)
 		if err != nil {
@@ -92,12 +96,6 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 		}
 	}
 
-	if conf.FPC && conf.Autopeering {
-		err = network.WaitForPeerDiscovery(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "peer discovery failed")
-		}
-	}
 	return network, nil
 }
 
@@ -123,7 +121,7 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 		return nil, err
 	}
 	// wait until pumba is started and the traffic is blocked
-	time.Sleep(2 * time.Second)
+	time.Sleep(graceTimePumba)
 	log.Println("Starting entry node... done")
 
 	err = network.createPeers(ctx, numPeers, conf)

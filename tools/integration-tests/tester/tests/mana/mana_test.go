@@ -4,15 +4,16 @@ import (
 	"context"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	webapi "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -42,10 +43,10 @@ func TestManaPersistence(t *testing.T) {
 	log.Println("Waiting for peer to get mana...")
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peer).Access > minAccessMana
-	}, tests.WaitForDeadline(t), tests.Tick)
+	}, tests.Timeout, tests.Tick)
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peer).Consensus > 0
-	}, tests.WaitForDeadline(t), tests.Tick)
+	}, tests.Timeout, tests.Tick)
 	log.Println("Waiting for peer to get mana... done")
 
 	// restart the peer
@@ -56,9 +57,13 @@ func TestManaPersistence(t *testing.T) {
 }
 
 func TestManaPledgeFilter(t *testing.T) {
+	const (
+		numPeers         = 2
+		tokensPerRequest = 100
+	)
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 	})
 	require.NoError(t, err)
@@ -74,6 +79,8 @@ func TestManaPledgeFilter(t *testing.T) {
 	faucetConfig := framework.PeerConfig
 	faucetConfig.MessageLayer.StartSynced = true
 	faucetConfig.Faucet.Enabled = true
+	faucetConfig.Faucet.PreparedOutputsCount = 3 // we require exactly three outputs
+	faucetConfig.Faucet.TokensPerRequest = tokensPerRequest
 	faucetConfig.Mana = config.Mana{
 		Enabled:                       true,
 		AllowedAccessPledge:           []string{accessPeerID},
@@ -89,52 +96,38 @@ func TestManaPledgeFilter(t *testing.T) {
 
 	// wait for the faucet to prepare all outputs
 	require.Eventually(t, func() bool {
-		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(1).Base58()})
-		require.NoError(t, err)
-		return len(resp.UnspentOutputs[0].Outputs) > 0
-	}, tests.WaitForDeadline(t), tests.Tick)
+		outputs := tests.AddressUnspentOutputs(t, faucet, faucet.Address(faucet.Config().Faucet.PreparedOutputsCount))
+		return len(outputs) > 0
+	}, tests.Timeout, tests.Tick)
 
-	addrBalance := make(map[string]map[ledgerstate.Color]int64)
-	faucetAddrStr := faucet.Address(1).Base58()
-	addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
-	addrBalance[accessPeer.Address(0).Base58()] = make(map[ledgerstate.Color]int64)
-	addrBalance[consensusPeer.Address(0).Base58()] = make(map[ledgerstate.Color]int64)
-
-	// get faucet balances
-	unspentOutputs, err := faucet.PostAddressUnspentOutputs([]string{faucetAddrStr})
-	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucet.String())
-	out, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
-	require.NoError(t, err)
-	balanceValue, exist := out.Balances().Get(ledgerstate.ColorIOTA)
-	require.Equal(t, true, exist)
-	addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = int64(balanceValue)
-
-	// pledge mana to allowed pledge
-	fail, _ := tests.SendIotaTransaction(t, faucet, accessPeer, addrBalance, 100, tests.TransactionConfig{
+	// pledge mana to allowed peers
+	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      1,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
-	require.False(t, fail)
+	require.NoError(t, err)
 
-	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
+	// pledge consensus mana to forbidden peer
+	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      2,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: accessPeer.Identity.ID(),
 	})
-	require.True(t, fail)
+	require.ErrorIs(t, err, client.ErrBadRequest)
+	require.Contains(t, err.Error(), webapi.ErrNotAllowedToPledgeManaToNode.Error())
 
-	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
-		FromAddressIndex:      2,
+	// pledge access mana to forbidden peer
+	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+		FromAddressIndex:      3,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    consensusPeer.Identity.ID(),
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
-	require.True(t, fail)
+	require.ErrorIs(t, err, client.ErrBadRequest)
+	require.Contains(t, err.Error(), webapi.ErrNotAllowedToPledgeManaToNode.Error())
 }
 
 func TestManaApis(t *testing.T) {
@@ -143,8 +136,8 @@ func TestManaApis(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		FPC:         true, // TODO: Do we really need full FPC here?
-		Autopeering: true,
+		Autopeering: true, // we need to discover online peers
+		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -153,17 +146,21 @@ func TestManaApis(t *testing.T) {
 	faucet := peers[0]
 
 	log.Println("Request mana from faucet...")
-	// request mana for peer 1; do this twice to assure that peer 1 gets more mana than peer 2
+	// waiting for the faucet to have access mana
+	require.Eventually(t, func() bool {
+		return tests.Mana(t, faucet).Access > minAccessMana
+	}, tests.Timeout, tests.Tick)
+	// request mana for peer #1; do this twice to assure that peer #1 gets more mana than peer #2
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(0))
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(1))
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[1]).Access > minAccessMana
-	}, time.Minute, tests.Tick)
-	// request mana for peer 2
+	}, tests.Timeout, tests.Tick)
+	// request mana for peer #2
 	tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[2]).Access > minAccessMana
-	}, time.Minute, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 	log.Println("Request mana from faucet... done")
 
 	// Test /mana
@@ -176,7 +173,7 @@ func TestManaApis(t *testing.T) {
 		assert.Greater(t, resp.Access, minAccessMana)
 		assert.Greater(t, resp.Consensus, minConsensusMana)
 
-		// TODO: Add more documentation why the emptyNodeID is supposed to have consensus but no access mana
+		// on startup, the faucet pledges consensus mana to the emptyNodeID
 		resp, err = faucet.GetManaFullNodeID(fullID(emptyNodeID))
 		require.NoError(t, err)
 		t.Logf("/mana %+v", resp)
@@ -198,7 +195,6 @@ func TestManaApis(t *testing.T) {
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	t.Run("mana/*/nhighest", func(t *testing.T) {
-		// TODO: What is the "GenesisNode" in this list? How can we test for it?
 		expectedAccessOrder := []identity.ID{faucet.ID(), peers[1].ID(), peers[2].ID()}
 		aResp, err := faucet.GetNHighestAccessMana(len(expectedAccessOrder))
 		require.NoError(t, err)

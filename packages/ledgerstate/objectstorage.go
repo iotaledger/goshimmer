@@ -3,6 +3,8 @@ package ledgerstate
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
@@ -38,66 +40,109 @@ const (
 	PrefixAddressOutputMappingStorage
 )
 
-// branchStorageOptions contains a list of default settings for the Branch object storage.
-var branchStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(60 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
+// block of default cache time
+const (
+	branchCacheTime      = 60 * time.Second
+	conflictCacheTime    = 60 * time.Second
+	transactionCacheTime = 10 * time.Second
+	outputCacheTime      = 10 * time.Second
+	consumerCacheTime    = 10 * time.Second
+	addressCacheTime     = 10 * time.Second
+)
+
+type storageOptions struct {
+	// branchStorageOptions contains a list of default settings for the Branch object storage.
+	branchStorageOptions []objectstorage.Option
+
+	// childBranchStorageOptions contains a list of default settings for the ChildBranch object storage.
+	childBranchStorageOptions []objectstorage.Option
+
+	// conflictStorageOptions contains a list of default settings for the Conflict object storage.
+	conflictStorageOptions []objectstorage.Option
+
+	// conflictMemberStorageOptions contains a list of default settings for the ConflictMember object storage.
+	conflictMemberStorageOptions []objectstorage.Option
+
+	// transactionStorageOptions contains a list of default settings for the Transaction object storage.
+	transactionStorageOptions []objectstorage.Option
+
+	// transactionMetadataStorageOptions contains a list of default settings for the TransactionMetadata object storage.
+	transactionMetadataStorageOptions []objectstorage.Option
+
+	// outputStorageOptions contains a list of default settings for the Output object storage.
+	outputStorageOptions []objectstorage.Option
+
+	// outputMetadataStorageOptions contains a list of default settings for the OutputMetadata object storage.
+	outputMetadataStorageOptions []objectstorage.Option
+
+	// consumerStorageOptions contains a list of default settings for the Consumer object storage.
+	consumerStorageOptions []objectstorage.Option
+
+	// addressOutputMappingStorageOptions contains a list of default settings for the AddressOutputMapping object storage.
+	addressOutputMappingStorageOptions []objectstorage.Option
 }
 
-// childBranchStorageOptions contains a list of default settings for the ChildBranch object storage.
-var childBranchStorageOptions = []objectstorage.Option{
-	ChildBranchKeyPartition,
-	objectstorage.CacheTime(60 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
-}
+func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *storageOptions {
+	options := storageOptions{}
 
-// conflictStorageOptions contains a list of default settings for the Conflict object storage.
-var conflictStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(60 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
-}
+	options.branchStorageOptions = []objectstorage.Option{
+		cacheProvider.CacheTime(branchCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+	}
 
-// conflictMemberStorageOptions contains a list of default settings for the ConflictMember object storage.
-var conflictMemberStorageOptions = []objectstorage.Option{
-	ConflictMemberKeyPartition,
-	objectstorage.CacheTime(60 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
-}
+	options.childBranchStorageOptions = []objectstorage.Option{
+		ChildBranchKeyPartition,
+		cacheProvider.CacheTime(branchCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	}
 
-// transactionStorageOptions contains a list of default settings for the Transaction object storage.
-var transactionStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
-}
+	options.conflictStorageOptions = []objectstorage.Option{
+		cacheProvider.CacheTime(consumerCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+	}
 
-// transactionMetadataStorageOptions contains a list of default settings for the TransactionMetadata object storage.
-var transactionMetadataStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
-}
+	options.conflictMemberStorageOptions = []objectstorage.Option{
+		ConflictMemberKeyPartition,
+		cacheProvider.CacheTime(conflictCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	}
 
-// outputStorageOptions contains a list of default settings for the Output object storage.
-var outputStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
-}
+	options.transactionStorageOptions = []objectstorage.Option{
+		cacheProvider.CacheTime(transactionCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	}
 
-// outputMetadataStorageOptions contains a list of default settings for the OutputMetadata object storage.
-var outputMetadataStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
-}
+	options.transactionMetadataStorageOptions = []objectstorage.Option{
+		cacheProvider.CacheTime(transactionCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+	}
 
-// consumerStorageOptions contains a list of default settings for the OutputMetadata object storage.
-var consumerStorageOptions = []objectstorage.Option{
-	ConsumerPartitionKeys,
-	objectstorage.CacheTime(10 * time.Second),
-	objectstorage.LeakDetectionEnabled(false),
-}
+	options.outputStorageOptions = []objectstorage.Option{
+		cacheProvider.CacheTime(outputCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	}
 
-// addressOutputMappingStorageOptions contains a list of default settings for the AddressOutputMapping object storage.
-var addressOutputMappingStorageOptions = []objectstorage.Option{
-	objectstorage.CacheTime(10 * time.Second),
-	objectstorage.PartitionKey(AddressLength, OutputIDLength),
-	objectstorage.LeakDetectionEnabled(false),
+	options.outputMetadataStorageOptions = []objectstorage.Option{
+		cacheProvider.CacheTime(outputCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+	}
+
+	options.consumerStorageOptions = []objectstorage.Option{
+		ConsumerPartitionKeys,
+		cacheProvider.CacheTime(consumerCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+	}
+
+	options.addressOutputMappingStorageOptions = []objectstorage.Option{
+		cacheProvider.CacheTime(addressCacheTime),
+		objectstorage.PartitionKey(AddressLength, OutputIDLength),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	}
+
+	return &options
 }

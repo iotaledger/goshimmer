@@ -111,7 +111,7 @@ func (n *Network) Split(ctx context.Context, partitions ...[]*Node) error {
 		}
 	}
 	// wait until pumba containers are started and block traffic between partitions
-	time.Sleep(5 * time.Second)
+	time.Sleep(graceTimePumba)
 
 	return nil
 }
@@ -173,8 +173,8 @@ func (n *Network) WaitForPeerDiscovery(ctx context.Context) error {
 		return true, nil
 	}
 
-	log.Println("Waiting for peer discovery...")
-	defer log.Println("Waiting for peer discovery... done")
+	log.Println("Waiting for complete peer discovery...")
+	defer log.Println("Waiting for complete peer discovery... done")
 	return eventually(ctx, condition, time.Second)
 }
 
@@ -321,10 +321,12 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 			fmt.Sprintf("%s@%s:%d", base58.Encode(n.entryNode.Identity.PublicKey().Bytes()), n.entryNode.Name(), peeringPort),
 		}
 	}
+	if networkConfig.Activity {
+		conf.Activity.Enabled = true
+	}
 	if networkConfig.FPC {
 		conf.Consensus.Enabled = true
 		conf.FPC.Enabled = true
-		conf.Activity.Enabled = true
 	}
 
 	// the first peer is the master peer, it uses a special conf
@@ -416,15 +418,15 @@ func (n *Network) namePrefix(suffix string) string {
 // createPartition creates a partition with the given peers.
 // It starts a Pumba container for every peer that blocks traffic to all other partitions.
 func (n *Network) createPartition(ctx context.Context, nodes []*Node) error {
-	peersMap := make(map[string]*Node)
+	idSet := make(map[string]struct{})
 	for _, peer := range nodes {
-		peersMap[peer.ID().String()] = peer
+		idSet[peer.ID().String()] = struct{}{}
 	}
 
 	// block all traffic to all other nodes except in the current partition
 	var targetIPs []string
 	for _, peer := range n.peers {
-		if _, ok := peersMap[peer.ID().String()]; ok {
+		if _, ok := idSet[peer.ID().String()]; ok {
 			continue
 		}
 
@@ -448,10 +450,9 @@ func (n *Network) createPartition(ctx context.Context, nodes []*Node) error {
 	}
 
 	partition := &Partition{
-		name:     partitionName,
-		peers:    nodes,
-		peersMap: peersMap,
-		pumbas:   pumbas,
+		name:   partitionName,
+		peers:  nodes,
+		pumbas: pumbas,
 	}
 	n.partitions = append(n.partitions, partition)
 

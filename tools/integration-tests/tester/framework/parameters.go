@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -23,6 +22,8 @@ const (
 	containerNameDrand       = "drand_"
 	containerNameSuffixPumba = "_pumba"
 
+	graceTimePumba = 3 * time.Second
+
 	logsDir             = "/tmp/logs/"
 	dockerLogsPrefixLen = 8
 )
@@ -34,11 +35,6 @@ var (
 	GenesisSeed = []byte{
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
 		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
-	}
-	// TODO: what is this?
-	GenesisNodeID = identity.ID{
-		18, 238, 36, 222, 162, 108, 254, 201, 233, 20, 37, 40, 192, 253, 228, 151,
-		179, 44, 73, 178, 9, 249, 86, 104, 109, 204, 56, 129, 128, 83, 169, 194,
 	}
 
 	// MasterSeed denotes the identity seed of the master peer.
@@ -56,6 +52,8 @@ type CreateNetworkConfig struct {
 	Autopeering bool
 	// Faucet specifies whether the first peer should have the faucet enabled.
 	Faucet bool
+	// Activity specifies whether nodes schedule activity messages in regular intervals.
+	Activity bool
 	// FPC specified whether FPC is enabled.
 	FPC bool
 }
@@ -63,6 +61,17 @@ type CreateNetworkConfig struct {
 // PeerConfig specifies the default config of a standard GoShimmer peer.
 var PeerConfig = config.GoShimmer{
 	DisabledPlugins: []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"},
+	Database: config.Database{
+		Enabled:        true,
+		ForceCacheTime: 0, // disable caching for tests
+	},
+	Gossip: config.Gossip{
+		Enabled: true,
+		Port:    gossipPort,
+		TipsBroadcaster: struct{ Enable bool }{
+			Enable: false, // disable tip broadcasting in tests
+		},
+	},
 	POW: config.POW{
 		Enabled:    true,
 		Difficulty: 2,
@@ -85,7 +94,7 @@ var PeerConfig = config.GoShimmer{
 			GenesisNode string
 		}{
 			File:        fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed)),
-			GenesisNode: "", // TODO: what is this?
+			GenesisNode: "", // use the default
 		},
 		TangleTimeWindow: 2 * time.Minute,
 		StartSynced:      false,
@@ -113,7 +122,7 @@ var PeerConfig = config.GoShimmer{
 	},
 	Activity: config.Activity{
 		Enabled:              false,
-		BroadcastIntervalSec: 1,
+		BroadcastIntervalSec: 1, // increase frequency to speedup tests
 	},
 	DRNG: config.DRNG{
 		Enabled: false,
@@ -123,9 +132,11 @@ var PeerConfig = config.GoShimmer{
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.
 var EntryNodeConfig = config.GoShimmer{
 	DisabledPlugins: append(PeerConfig.DisabledPlugins,
-		"gossip", "issuer", "metrics", "valuetransfers", "consensus"),
-	POW:    PeerConfig.POW,
-	Webapi: PeerConfig.Webapi,
+		"issuer", "metrics", "valuetransfers", "consensus"),
+	Database: PeerConfig.Database,
+	Gossip:   config.Gossip{Enabled: false},
+	POW:      PeerConfig.POW,
+	Webapi:   PeerConfig.Webapi,
 	Autopeering: config.Autopeering{
 		Enabled:    true,
 		Port:       peeringPort,
