@@ -1,23 +1,18 @@
 ---
 ## This playbook deploys the whole application stack in this site.
 
-- hosts: monitoring
+- hosts: metrics
   roles:
-#    - monitoring
+    - metrics
 
 - hosts: supports
   roles:
-    - goshimmer-node
+#    - goshimmer-node
 #    - goshimmer-node
 
 - hosts: goshimmers
   roles:
 #    - goshimmer-node
-
-- hosts: faucets
-  roles:
-#    - goshimmer-node
-
 
 - hosts: drands
   roles:

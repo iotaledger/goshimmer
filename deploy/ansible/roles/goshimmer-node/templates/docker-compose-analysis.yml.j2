@@ -21,9 +21,9 @@ services:
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
       --analysis.dashboard.mongodb.enabled=true
-      --analysis.dashboard.mongodb.hostAddress=127.0.0.1:27117
-      --analysis.dashboard.manaAddress="http://ressims.iota.cafe:9001"
-      --prometheus.bindAddress=127.0.0.1:9312
+      --analysis.dashboard.mongodb.hostAddress=metrics-01.devnet.shimmer.iota.cafe:27117
+      --analysis.dashboard.manaAddress="http://bootstrap-01.devnet.shimmer.iota.cafe:9001"
+      --prometheus.bindAddress=0.0.0.0:9312
       --metrics.local=false
       --metrics.global=true
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus

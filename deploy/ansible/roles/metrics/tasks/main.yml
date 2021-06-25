@@ -1,0 +1,19 @@
+- name: Create node directory
+  file:
+    path: /opt/metrics
+    state: directory
+    mode: '0755'
+
+
+- name: Copy configs
+  copy:
+    src: .
+    dest: /opt/metrics
+    mode: '0644'
+
+- name: Run services
+  community.general.docker_compose:
+    project_src: /opt/metrics
+    timeout: 180
+    state: present
+    pull: yes

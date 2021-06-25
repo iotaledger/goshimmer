@@ -1,0 +1,14 @@
+scrape_configs:
+    - job_name: analysis_server
+      scrape_interval: 5s
+      static_configs:
+      - targets:
+        - analysisentry-01.devnet.shimmer.iota.cafe:9312
+        - bootstrap-01.devnet.shimmer.iota.cafe:9312
+        - vanilla-01.devnet.shimmer.iota.cafe:9312
+        - drng-01.devnet.shimmer.iota.cafe:9312
+        - drng-02.devnet.shimmer.iota.cafe:9312
+        - drng-03.devnet.shimmer.iota.cafe:9312
+        - drng-04.devnet.shimmer.iota.cafe:9312
+        - drng-05.devnet.shimmer.iota.cafe:9312
+        - faucet-01.devnet.shimmer.iota.cafe:9312
