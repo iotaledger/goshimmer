@@ -236,6 +236,11 @@ type neighbormetric struct {
 	BytesWritten     uint64 `json:"bytes_written"`
 }
 
+type tipsInfo struct {
+	TotalTips int `json:"totaltips"`
+	WeakTips  int `json:"weaktips"`
+}
+
 type componentsmetric struct {
 	Store      uint64 `json:"store"`
 	Solidifier uint64 `json:"solidifier"`

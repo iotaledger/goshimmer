@@ -44,11 +44,6 @@ type wsclient struct {
 	exit chan struct{}
 }
 
-type TipsInfo struct {
-	Total int
-	Weak  int
-}
-
 func configureWebSocketWorkerPool() {
 	wsSendWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
@@ -56,9 +51,9 @@ func configureWebSocketWorkerPool() {
 			broadcastWsMessage(&wsmsg{MsgTypeMPSMetric, x})
 			broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
 			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
-			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, &TipsInfo{
-				Total: messagelayer.Tangle().TipManager.StrongTipCount() + messagelayer.Tangle().TipManager.WeakTipCount(),
-				Weak:  messagelayer.Tangle().TipManager.WeakTipCount()}})
+			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, &tipsInfo{
+				TotalTips: messagelayer.Tangle().TipManager.StrongTipCount() + messagelayer.Tangle().TipManager.WeakTipCount(),
+				WeakTips:  messagelayer.Tangle().TipManager.WeakTipCount()}})
 		case *componentsmetric:
 			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
 		}
