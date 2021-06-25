@@ -33,7 +33,7 @@ class MemoryMetrics {
 }
 
 class TipsMetric {
-    tips: number;
+    alltips: number;
     weaktips: number;
     ts: string;
 }
@@ -337,7 +337,7 @@ export class NodeStore {
         for (let i = 0; i < this.collected_tips_metrics.length; i++) {
             let metric: TipsMetric = this.collected_tips_metrics[i];
             labels.push(metric.ts);
-            totaltips.data.push(metric.tips);
+            totaltips.data.push(metric.alltips);
             weaktips.data.push(metric.weaktips);
         }
 
