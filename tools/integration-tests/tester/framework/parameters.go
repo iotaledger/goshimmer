@@ -126,6 +126,12 @@ var PeerConfig = config.GoShimmer{
 	DRNG: config.DRNG{
 		Enabled: false,
 	},
+	Prometheus: config.Prometheus{
+		Enabled: false,
+	},
+	Profiling: config.Profiling{
+		Enabled: false,
+	},
 }
 
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.

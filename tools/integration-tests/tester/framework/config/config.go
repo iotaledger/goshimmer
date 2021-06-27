@@ -28,6 +28,8 @@ type GoShimmer struct {
 	FPC
 	Activity
 	DRNG
+	Prometheus
+	Profiling
 }
 
 // Database defines the parameters of the database plugin.
@@ -137,4 +139,20 @@ type DRNG struct {
 		DistributedPubKey string
 		CommitteeMembers  []string
 	}
+}
+
+// Prometheus defines the parameters of the Prometheus plugin.
+type Prometheus struct {
+	Enabled bool
+
+	BindAddress       string
+	GoMetrics         bool
+	ProcessMetrics    bool
+	PromhttpMetrics   bool
+	WorkerpoolMetrics bool
+}
+
+// Profiling defines the parameters of the Profiling plugin.
+type Profiling struct {
+	Enabled bool
 }
