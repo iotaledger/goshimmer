@@ -127,7 +127,12 @@ var PeerConfig = config.GoShimmer{
 		Enabled: false,
 	},
 	Prometheus: config.Prometheus{
-		Enabled: false,
+		Enabled:           false,
+		BindAddress:       "0.0.0.0:9311",
+		GoMetrics:         false,
+		ProcessMetrics:    true,
+		PromhttpMetrics:   false,
+		WorkerpoolMetrics: false,
 	},
 	Profiling: config.Profiling{
 		Enabled: false,
