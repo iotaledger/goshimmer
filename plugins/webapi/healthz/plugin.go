@@ -5,7 +5,6 @@ import (
 	goSync "sync"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/labstack/echo"
@@ -23,8 +22,6 @@ var (
 	once   goSync.Once
 
 	healthy typeutils.AtomicBool
-
-	log *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -36,13 +33,12 @@ func Plugin() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	log = logger.NewLogger(PluginName)
 	webapi.Server().GET("healthz", getHealthz)
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityHealthz); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -51,7 +47,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer healthy.SetTo(false)
 
 	healthy.SetTo(true)
-	log.Info("All plugins started successfully")
+	Plugin().LogInfo("All plugins started successfully")
 	<-shutdownSignal
 }
 
