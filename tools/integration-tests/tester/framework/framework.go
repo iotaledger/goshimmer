@@ -47,6 +47,8 @@ func newFramework(ctx context.Context) (*Framework, error) {
 		return nil, err
 	}
 
+	// Since we are running within a container, the HOSTNAME environment variable defaults
+	// to a shortened the container Id.
 	tester, err := NewDockerContainerFromExisting(ctx, dockerClient, os.Getenv("HOSTNAME"))
 	if err != nil {
 		return nil, err
