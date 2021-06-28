@@ -40,7 +40,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Spawning new node to sync...")
 	newPeer, err := n.CreatePeer(ctx, createNewPeerConfig())
 	require.NoError(t, err)
-	err = n.DoManualPeering(context.Background())
+	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 	log.Println("Spawning new node... done")
 
@@ -81,7 +81,7 @@ func TestCommonSynchronization(t *testing.T) {
 	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncMessages, ids)
 	log.Println("Issuing messages... done")
 
-	// 9. check whether all issued messages are available on all nodes
+	// 9. check whether all issued messages are available on to the new peer
 	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
 	// check that the new node is synced
