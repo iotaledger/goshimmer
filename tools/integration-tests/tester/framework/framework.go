@@ -142,7 +142,7 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 		}
 	}
 	// wait until pumba containers are started and block traffic between partitions
-	time.Sleep(5 * time.Second)
+	time.Sleep(graceTimePumba)
 	log.Println("Creating partitions... done")
 
 	// delete pumba for entry node
