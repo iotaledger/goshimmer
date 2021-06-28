@@ -6,14 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -141,9 +142,9 @@ func TestConsensus(t *testing.T) {
 
 	// check that the transactions are marked as conflicting
 	tests.CheckTransactions(t, n.Peers(), expectations, true, tests.ExpectedInclusionState{
-		Finalized:   tests.False(),
-		Conflicting: tests.True(),
-		Solid:       tests.True(),
+		Finalized:    tests.False(),
+		Conflicting:  tests.True(),
+		SolidityType: tests.Solid(),
 	})
 
 	// wait until the voting has finalized

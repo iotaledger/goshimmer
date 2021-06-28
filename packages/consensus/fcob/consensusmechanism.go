@@ -178,18 +178,13 @@ func (f *ConsensusMechanism) OpinionsEssence(targetID ledgerstate.TransactionID,
 func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) {
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
-	isReattachment := false
-	f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+	if f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormed event
 			f.onPayloadOpinionFormed(messageID, opinion.liked)
 		}
-		// otherwise the PayloadOpinionFormed will be triggered by iterating over the Attachments
-		// either after FCOB or as a result of an FPC voting.
-		isReattachment = true
-	})
-	if isReattachment {
+	}) {
 		return
 	}
 

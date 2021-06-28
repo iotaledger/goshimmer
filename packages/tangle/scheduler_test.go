@@ -385,11 +385,15 @@ func BenchmarkScheduler(b *testing.B) {
 	b.StopTimer()
 }
 
+var timeOffset = time.Nanosecond
+
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
+	timeOffset += time.Nanosecond
+
 	return NewMessage(
 		[]MessageID{EmptyMessageID},
 		[]MessageID{},
-		time.Now(),
+		time.Now().Add(timeOffset),
 		issuerPublicKey,
 		0,
 		payload.NewGenericDataPayload([]byte("")),

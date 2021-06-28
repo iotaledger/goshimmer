@@ -112,7 +112,7 @@ type DiagnosticBranchInfo struct {
 	MonotonicallyLiked bool
 	InclusionState     string
 	Finalized          bool
-	LazyBooked         bool
+	SolidityType       string
 	TransactionLiked   bool
 }
 
@@ -144,7 +144,7 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
 			conflictInfo.Finalized = transactionMetadata.Finalized()
-			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
+			conflictInfo.SolidityType = transactionMetadata.SolidityType().String()
 			conflictInfo.TransactionLiked = messagelayer.ConsensusMechanism().TransactionLiked(transactionID)
 		})
 	})
@@ -163,7 +163,7 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		fmt.Sprint(d.MonotonicallyLiked),
 		d.InclusionState,
 		fmt.Sprint(d.Finalized),
-		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.SolidityType),
 		fmt.Sprint(d.TransactionLiked),
 	}
 

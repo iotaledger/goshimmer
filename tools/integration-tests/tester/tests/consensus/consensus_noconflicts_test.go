@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -90,7 +91,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 		txID: {Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks},
 	}, true, tests.ExpectedInclusionState{
 		Confirmed: tests.True(), Finalized: tests.True(),
-		Conflicting: tests.False(), Solid: tests.True(),
+		Conflicting: tests.False(), SolidityType: tests.Solid(),
 		Rejected: tests.False(), Liked: tests.True(),
 	})
 
@@ -139,7 +140,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.CheckTransactions(t, n.Peers(), secondReceiverExpectedTransactions, true,
 		tests.ExpectedInclusionState{
 			Confirmed: tests.True(), Finalized: tests.True(),
-			Conflicting: tests.False(), Solid: tests.True(),
+			Conflicting: tests.False(), SolidityType: tests.Solid(),
 			Rejected: tests.False(), Liked: tests.True(),
 		},
 	)

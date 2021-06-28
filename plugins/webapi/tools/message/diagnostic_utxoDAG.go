@@ -96,7 +96,7 @@ type DiagnosticUTXODAGInfo struct {
 	Conflicting              bool
 	InclusionState           string
 	Finalized                bool
-	LazyBooked               bool
+	SolidityType             string
 	Liked                    bool
 	LoK                      string
 	FCOBTime1                time.Time
@@ -132,7 +132,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 
 		txInfo.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
 		txInfo.Finalized = transactionMetadata.Finalized()
-		txInfo.LazyBooked = transactionMetadata.LazyBooked()
+		txInfo.SolidityType = transactionMetadata.SolidityType().String()
 		txInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(transactionMetadata.BranchID()).String()
 		txInfo.Liked = messagelayer.ConsensusMechanism().TransactionLiked(transactionID)
 	})
@@ -166,7 +166,7 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 		fmt.Sprint(d.Conflicting),
 		d.InclusionState,
 		fmt.Sprint(d.Finalized),
-		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.SolidityType),
 		fmt.Sprint(d.Liked),
 		d.LoK,
 		fmt.Sprint(d.FCOBTime1.UnixNano()),

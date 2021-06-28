@@ -17,6 +17,7 @@ import (
 func TestScenario_1(t *testing.T) {
 	tangle := newTestTangle()
 	defer tangle.Shutdown()
+	tangle.Solidifier.Setup()
 	tangle.Booker.Setup()
 
 	wallets := make(map[string]wallet)
@@ -259,6 +260,7 @@ func TestScenario_1(t *testing.T) {
 func TestScenario_2(t *testing.T) {
 	tangle := newTestTangle()
 	defer tangle.Shutdown()
+	tangle.Solidifier.Setup()
 	tangle.Booker.Setup()
 
 	wallets := make(map[string]wallet)
@@ -623,6 +625,7 @@ func TestScenario_2(t *testing.T) {
 func TestScenario_3(t *testing.T) {
 	tangle := newTestTangle()
 	defer tangle.Shutdown()
+	tangle.Solidifier.Setup()
 	tangle.Booker.Setup()
 
 	wallets := make(map[string]wallet)

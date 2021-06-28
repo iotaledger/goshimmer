@@ -35,7 +35,7 @@ type Tangle struct {
 	Options               *Options
 	Parser                *Parser
 	Storage               *Storage
-	Solidifier            *Solidifier
+	Solidifier            *S0lidifier
 	Scheduler             *Scheduler
 	FIFOScheduler         *FIFOScheduler
 	Orderer               *Orderer
@@ -72,7 +72,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
-	tangle.Solidifier = NewSolidifier(tangle)
+	tangle.Solidifier = NewS0lidifier(tangle)
 	tangle.FIFOScheduler = NewFIFOScheduler(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.Booker = NewBooker(tangle)

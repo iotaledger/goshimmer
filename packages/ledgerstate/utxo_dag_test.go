@@ -33,18 +33,27 @@ func TestExampleC(t *testing.T) {
 	{
 		outputs["A"] = generateOutput(utxoDAG, wallets[0].address, 0)
 		transactions["TX1"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
-		targetBranch1, err := utxoDAG.BookTransaction(transactions["TX1"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX1"])
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX1"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book TX2
 	{
 		outputs["B"] = generateOutput(utxoDAG, wallets[0].address, 1)
 		transactions["TX2"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch2, err := utxoDAG.BookTransaction(transactions["TX2"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX2"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book TX3
@@ -53,25 +62,40 @@ func TestExampleC(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
-		targetBranch3, err := utxoDAG.BookTransaction(transactions["TX3"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX3"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book Tx4 (double spending B)
 	{
 		transactions["TX4"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch4, err := utxoDAG.BookTransaction(transactions["TX4"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX4"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, NewBranchID(transactions["TX4"].ID()), transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book TX5 (double spending A)
 	{
 		transactions["TX5"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["A"]})
-		targetBranch5, err := utxoDAG.BookTransaction(transactions["TX5"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX5"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX5"].ID()), targetBranch5)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX5"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, NewBranchID(transactions["TX5"].ID()), transactionMetadata.BranchID())
+		}))
 	}
 
 	// Checking TX3
@@ -111,18 +135,28 @@ func TestExampleB(t *testing.T) {
 	{
 		outputs["A"] = generateOutput(utxoDAG, wallets[0].address, 0)
 		transactions["TX1"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
-		targetBranch1, err := utxoDAG.BookTransaction(transactions["TX1"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX1"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX1"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book TX2
 	{
 		outputs["B"] = generateOutput(utxoDAG, wallets[0].address, 1)
 		transactions["TX2"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch2, err := utxoDAG.BookTransaction(transactions["TX2"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX2"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book TX3
@@ -131,17 +165,27 @@ func TestExampleB(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
-		targetBranch3, err := utxoDAG.BookTransaction(transactions["TX3"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX3"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book Tx4
 	{
 		transactions["TX4"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["D"]})
-		targetBranch4, err := utxoDAG.BookTransaction(transactions["TX4"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX4"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, NewBranchID(transactions["TX4"].ID()), transactionMetadata.BranchID())
+		}))
 	}
 
 	// Checking TX3
@@ -174,9 +218,14 @@ func TestExampleB(t *testing.T) {
 	// Prepare and book TX5
 	{
 		transactions["TX5"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch5, err := utxoDAG.BookTransaction(transactions["TX5"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX5"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX5"].ID()), targetBranch5)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX5"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, NewBranchID(transactions["TX5"].ID()), transactionMetadata.BranchID())
+		}))
 	}
 
 	// Checking that the BranchID of TX2 is correct and it is the parent of both TX3 and TX4.
@@ -210,18 +259,28 @@ func TestExampleA(t *testing.T) {
 	{
 		outputs["A"] = generateOutput(utxoDAG, wallets[0].address, 0)
 		transactions["TX1"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
-		targetBranch1, err := utxoDAG.BookTransaction(transactions["TX1"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX1"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX1"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book TX2
 	{
 		outputs["B"] = generateOutput(utxoDAG, wallets[0].address, 1)
 		transactions["TX2"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch2, err := utxoDAG.BookTransaction(transactions["TX2"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX2"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book TX3
@@ -230,17 +289,27 @@ func TestExampleA(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
-		targetBranch3, err := utxoDAG.BookTransaction(transactions["TX3"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX3"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+		}))
 	}
 
 	// Prepare and book Tx4 (double spending B)
 	{
 		transactions["TX4"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch4, err := utxoDAG.BookTransaction(transactions["TX4"])
+		stored, solidityType, err := utxoDAG.StoreTransaction(transactions["TX4"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		require.True(t, stored)
+		require.Equal(t, solidityType, Solid)
+		require.NoError(t, err)
+		require.True(t, utxoDAG.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Equal(t, NewBranchID(transactions["TX4"].ID()), transactionMetadata.BranchID())
+		}))
 	}
 
 	// Checking TX2
@@ -266,7 +335,7 @@ func TestExampleA(t *testing.T) {
 	}
 }
 
-func TestBookTransaction(t *testing.T) {
+func TestStoreTransaction(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
 
@@ -274,9 +343,14 @@ func TestBookTransaction(t *testing.T) {
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
 
 	tx := buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{input})
-	targetBranch, err := utxoDAG.BookTransaction(tx)
+	stored, solidityType, err := utxoDAG.StoreTransaction(tx)
 	require.NoError(t, err)
-	assert.Equal(t, MasterBranchID, targetBranch)
+	require.True(t, stored)
+	require.Equal(t, solidityType, Solid)
+	require.NoError(t, err)
+	require.True(t, utxoDAG.CachedTransactionMetadata(tx.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+		assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+	}))
 }
 
 func TestBookInvalidTransaction(t *testing.T) {
@@ -296,10 +370,10 @@ func TestBookInvalidTransaction(t *testing.T) {
 		inputsMetadata = append(inputsMetadata, metadata)
 	})
 
-	utxoDAG.bookInvalidTransaction(tx, txMetadata, inputsMetadata)
+	utxoDAG.bookInvalidTransaction(tx, txMetadata)
 
 	assert.Equal(t, InvalidBranchID, txMetadata.branchID)
-	assert.True(t, txMetadata.Solid())
+	assert.Equal(t, Invalid, txMetadata.SolidityType())
 	assert.True(t, txMetadata.Finalized())
 
 	// check that the inputs are still marked as unspent
@@ -327,11 +401,10 @@ func TestBookRejectedTransaction(t *testing.T) {
 		inputsMetadata = append(inputsMetadata, metadata)
 	})
 
-	utxoDAG.bookRejectedTransaction(tx, txMetadata, inputsMetadata, rejectedBranch.ID())
+	utxoDAG.bookRejectedTransaction(tx, txMetadata, rejectedBranch.ID())
 
 	assert.Equal(t, rejectedBranch.ID(), txMetadata.branchID)
-	assert.True(t, txMetadata.Solid())
-	assert.True(t, txMetadata.LazyBooked())
+	assert.Equal(t, LazySolid, txMetadata.SolidityType())
 
 	// check that the inputs are still marked as unspent
 	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
@@ -357,14 +430,13 @@ func TestBookRejectedConflictingTransaction(t *testing.T) {
 		inputsMetadata = append(inputsMetadata, metadata)
 	})
 
-	_, err := utxoDAG.bookRejectedConflictingTransaction(tx, txMetadata, inputsMetadata)
+	_, err := utxoDAG.bookRejectedConflictingTransaction(tx, txMetadata)
 	require.NoError(t, err)
 
 	utxoDAG.branchDAG.Branch(txMetadata.BranchID()).Consume(func(branch Branch) {
 		assert.False(t, branch.Liked())
 		assert.True(t, branch.Finalized())
-		assert.True(t, txMetadata.Solid())
-		assert.True(t, txMetadata.LazyBooked())
+		assert.Equal(t, LazySolid, txMetadata.SolidityType())
 	})
 }
 
@@ -391,7 +463,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	utxoDAG.branchDAG.Branch(txMetadata.BranchID()).Consume(func(branch Branch) {
 		assert.Equal(t, MasterBranchID, txMetadata.BranchID())
-		assert.True(t, txMetadata.Solid())
+		assert.Equal(t, Solid, txMetadata.SolidityType())
 	})
 
 	inclusionState, err := utxoDAG.InclusionState(tx.ID())
@@ -444,7 +516,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	utxoDAG.branchDAG.Branch(txMetadata2.BranchID()).Consume(func(branch Branch) {
 		assert.Equal(t, targetBranch2, txMetadata2.BranchID())
-		assert.True(t, txMetadata2.Solid())
+		assert.Equal(t, Solid, txMetadata2.SolidityType())
 	})
 
 	assert.NotEqual(t, MasterBranchID, txMetadata.BranchID())
@@ -556,10 +628,17 @@ func TestInputsSpentByConfirmedTransaction(t *testing.T) {
 	assert.False(t, spent)
 
 	// testing after booking consumers.
-	utxoDAG.bookConsumers(outputsMetadata, tx.ID(), types.True)
-	spent, err = utxoDAG.inputsSpentByConfirmedTransaction(outputsMetadata)
-	assert.NoError(t, err)
-	assert.True(t, spent)
+	assert.True(t, utxoDAG.CachedTransactionMetadata(tx.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+		utxoDAG.updateConsumers(tx, transactionMetadata.SetSolidityType(Solid), Solid)
+
+		for _, inputMetadata := range outputsMetadata {
+			inputMetadata.RegisterConsumer(tx.ID())
+		}
+
+		spent, err = utxoDAG.inputsSpentByConfirmedTransaction(outputsMetadata)
+		assert.NoError(t, err)
+		assert.True(t, spent)
+	}))
 }
 
 func TestOutputsUnspent(t *testing.T) {
@@ -995,7 +1074,6 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(tx.ID())
-	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetBranchID(MasterBranchID)
 
 	if finalized {
@@ -1030,7 +1108,7 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
-	// store aggreagated branch
+	// store aggregated branch
 	normalizedBranchIDs, _ := utxoDAG.branchDAG.normalizeBranches(branchIDs)
 	cachedAggregatedBranch, _, _ := utxoDAG.branchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
 	branchID := BranchID{}
@@ -1040,7 +1118,7 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(tx.ID())
-	transactionMetadata.SetSolid(true)
+	transactionMetadata.SetSolidityType(Solid)
 	transactionMetadata.SetBranchID(branchID)
 	if finalized {
 		transactionMetadata.SetFinalized(true)
