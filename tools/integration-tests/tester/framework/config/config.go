@@ -155,4 +155,6 @@ type Prometheus struct {
 // Profiling defines the parameters of the Profiling plugin.
 type Profiling struct {
 	Enabled bool
+
+	BindAddress string
 }

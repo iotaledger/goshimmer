@@ -135,7 +135,8 @@ var PeerConfig = config.GoShimmer{
 		WorkerpoolMetrics: false,
 	},
 	Profiling: config.Profiling{
-		Enabled: false,
+		Enabled:     false,
+		BindAddress: "0.0.0.0:6061",
 	},
 }
 
