@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -635,6 +637,8 @@ func totalAccessManaRetriever() float64 {
 
 // newTestTangle returns a Tangle instance with a testing schedulerConfig
 func newTestTangle(options ...Option) *Tangle {
-	options = append(options, SchedulerConfig(testSchedulerParams))
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
+
+	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
 	return New(options...)
 }

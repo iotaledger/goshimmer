@@ -2280,7 +2280,8 @@ func checkIndividuallyMappedMessages(t *testing.T, testFramework *MessageTestFra
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
 	for messageID, expectedMarkersOfMessage := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.Equal(t, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers, "Markers of %s are wrong", messageID)
+			assert.True(t, expectedMarkersOfMessage.Equals(messageMetadata.StructureDetails().PastMarkers), "Markers of %s are wrong.\n"+
+				"Expected: %+v\nActual: %+v", messageID, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers)
 		}))
 
 		// if we have only a single marker - check if the marker is mapped to this message (or its inherited past marker)

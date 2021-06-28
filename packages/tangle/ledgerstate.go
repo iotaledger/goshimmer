@@ -24,11 +24,11 @@ type LedgerState struct {
 
 // NewLedgerState is the constructor of the LedgerState component.
 func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
-	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store)
+	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store, tangle.Options.CacheTimeProvider)
 	return &LedgerState{
 		tangle:    tangle,
 		BranchDAG: branchDAG,
-		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, branchDAG),
+		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, tangle.Options.CacheTimeProvider, branchDAG),
 	}
 }
 

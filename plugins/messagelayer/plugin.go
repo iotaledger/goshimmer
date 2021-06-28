@@ -155,6 +155,7 @@ func Tangle() *tangle.Tangle {
 			}),
 			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 			tangle.StartSynced(Parameters.StartSynced),
+			tangle.CacheTimeProvider(database.CacheTimeProvider()),
 		)
 
 		tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)

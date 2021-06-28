@@ -144,6 +144,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--mana.allowedConsensusPledge=%s", func() string {
 				return strings.Join(config.ManaAllowedConsensusPledge[:], ",")
 			}()),
+			fmt.Sprintf("--database.forceCacheTime=%s", config.ForceCacheTime),
 		},
 	}
 

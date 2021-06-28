@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -22,37 +26,97 @@ import (
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// PluginName is the name of the web API plugin.
+const (
+	PluginName                       = "WebAPI ledgerstate Endpoint"
+	DoubleSpendFilterCleanupInterval = 10 * time.Second
+)
+
 var (
 	// plugin holds the singleton instance of the plugin.
 	plugin *node.Plugin
 
 	// pluginOnce is used to ensure that the plugin is a singleton.
 	pluginOnce sync.Once
+
+	// doubleSpendFilter helps to filter out double spends locally.
+	doubleSpendFilter *DoubleSpendFilter
+
+	// doubleSpendFilterOnce ensures that doubleSpendFilter is a singleton.
+	doubleSpendFilterOnce sync.Once
+
+	// closure to be executed on transaction confirmation.
+	onTransactionConfirmedClosure *events.Closure
+
+	// logger
+	log *logger.Logger
 )
 
 // Plugin returns the plugin as a singleton.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
-		plugin = node.NewPlugin("WebAPI ledgerstate Endpoint", node.Enabled, func(*node.Plugin) {
-			webapi.Server().GET("ledgerstate/addresses/:address", GetAddress)
-			webapi.Server().GET("ledgerstate/addresses/:address/unspentOutputs", GetAddressUnspentOutputs)
-			webapi.Server().POST("ledgerstate/addresses/unspentOutputs", PostAddressUnspentOutputs)
-			webapi.Server().GET("ledgerstate/branches/:branchID", GetBranch)
-			webapi.Server().GET("ledgerstate/branches/:branchID/children", GetBranchChildren)
-			webapi.Server().GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
-			webapi.Server().GET("ledgerstate/outputs/:outputID", GetOutput)
-			webapi.Server().GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
-			webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
-			webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransaction)
-			webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
-			webapi.Server().GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
-			webapi.Server().GET("ledgerstate/transactions/:transactionID/consensus", GetTransactionConsensusMetadata)
-			webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
-			webapi.Server().POST("ledgerstate/transactions", PostTransaction)
-		})
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
 
 	return plugin
+}
+
+// Filter returns the double spend filter singleton.
+func Filter() *DoubleSpendFilter {
+	doubleSpendFilterOnce.Do(func() {
+		doubleSpendFilter = NewDoubleSpendFilter()
+	})
+	return doubleSpendFilter
+}
+
+func configure(*node.Plugin) {
+	doubleSpendFilter = Filter()
+	onTransactionConfirmedClosure = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+		doubleSpendFilter.Remove(transactionID)
+	})
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	log = logger.NewLogger(PluginName)
+}
+
+func run(*node.Plugin) {
+	if err := daemon.BackgroundWorker("WebAPI Double Spend Filter", worker, shutdown.PriorityWebAPI); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	// register endpoints
+	webapi.Server().GET("ledgerstate/addresses/:address", GetAddress)
+	webapi.Server().GET("ledgerstate/addresses/:address/unspentOutputs", GetAddressUnspentOutputs)
+	webapi.Server().POST("ledgerstate/addresses/unspentOutputs", PostAddressUnspentOutputs)
+	webapi.Server().GET("ledgerstate/branches/:branchID", GetBranch)
+	webapi.Server().GET("ledgerstate/branches/:branchID/children", GetBranchChildren)
+	webapi.Server().GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
+	webapi.Server().GET("ledgerstate/outputs/:outputID", GetOutput)
+	webapi.Server().GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
+	webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransaction)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID/consensus", GetTransactionConsensusMetadata)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
+	webapi.Server().POST("ledgerstate/transactions", PostTransaction)
+}
+
+func worker(shutdownSignal <-chan struct{}) {
+	defer log.Infof("Stopping %s ... done", PluginName)
+	func() {
+		ticker := time.NewTicker(DoubleSpendFilterCleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-shutdownSignal:
+				return
+			case <-ticker.C:
+				doubleSpendFilter.CleanUp()
+			}
+		}
+	}()
+	log.Infof("Stopping %s ...", PluginName)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -421,7 +485,7 @@ func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err err
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region postTransaction //////////////////////////////////////////////////////////////////////////////////////////////
+// region PostTransaction //////////////////////////////////////////////////////////////////////////////////////////////
 
 const maxBookedAwaitTime = 5 * time.Second
 
@@ -438,6 +502,13 @@ func PostTransaction(c echo.Context) error {
 	// parse tx
 	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
 	if err != nil {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
+
+	// check if it would introduce a double spend known to the node locally
+	has, conflictingID := doubleSpendFilter.HasConflict(tx.Essence().Inputs())
+	if has {
+		err = errors.Errorf("transaction is conflicting with previously submitted transaction %s", conflictingID.Base58())
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
@@ -481,7 +552,11 @@ func PostTransaction(c echo.Context) error {
 		return messagelayer.Tangle().IssuePayload(tx)
 	}
 
+	// add tx to double spend doubleSpendFilter
+	doubleSpendFilter.Add(tx)
 	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
+		// if we failed to issue the transaction, we remove it
+		doubleSpendFilter.Remove(tx.ID())
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})

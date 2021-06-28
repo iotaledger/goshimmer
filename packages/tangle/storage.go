@@ -59,10 +59,10 @@ const (
 
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
-)
 
-// CacheTime defines how long the object stay in the cache of the object storage.
-var CacheTime = 2 * time.Second
+	// cacheTime defines the number of seconds an object will wait in storage cache
+	cacheTime = 2 * time.Second
+)
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -89,22 +89,23 @@ type Storage struct {
 // NewStorage creates a new Storage.
 func NewStorage(tangle *Tangle) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixTangle)
+	cacheProvider := tangle.Options.CacheTimeProvider
 
 	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
-		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage:            osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:                   osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
-		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false)),
-		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
+		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		messageMetadataStorage:            osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:                   osFactory.New(PrefixApprovers, ApproverFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),

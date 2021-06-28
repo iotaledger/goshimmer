@@ -1,3 +1,11 @@
+# v0.7.2 - 2021-06-17
+* Add local double spend filter in webAPI
+* Add SetBranchFinalized to FCoB
+* Set message of the weak parents finalized rather than only their payload
+* Update snapshot file with DevNet UTXO at 2021-06-17 08:52 UTC
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
 # v0.7.1 - 2021-06-15
 * Improve Faucet
 * Improve docs
