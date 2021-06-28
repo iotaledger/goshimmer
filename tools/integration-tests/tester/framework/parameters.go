@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -67,9 +68,18 @@ var PeerConfig = config.GoShimmer{
 	},
 	Gossip: config.Gossip{
 		Enabled: true,
-		Port:    gossipPort,
-		TipsBroadcaster: struct{ Enable bool }{
-			Enable: false, // disable tip broadcasting in tests
+		//Port:    gossipPort,
+		//TipsBroadcaster: struct{ Enable bool }{
+		//	Enable: false, // disable tip broadcasting in tests
+		//},
+		ParametersType: gossip.ParametersType{
+			Port: gossipPort,
+			TipsBroadcaster: struct {
+				Enable   bool          `default:"true" usage:"enable/disable tip re-broadcasting"`
+				Interval time.Duration `default:"10s" usage:"the interval in which the oldest known tip is re-broadcast"`
+			}{
+				Enable: false,
+			},
 		},
 	},
 	POW: config.POW{
