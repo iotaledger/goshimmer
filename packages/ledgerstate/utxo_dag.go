@@ -394,6 +394,10 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 		return
 	}
 
+	for _, output := range transaction.Essence().Outputs() {
+		u.ManageStoreAddressOutputMapping(output)
+	}
+
 	u.Events.TransactionSolid.Trigger(transaction.ID())
 
 	for transactionID := range u.consumingTransactionIDs(transaction, Unsolid) {
