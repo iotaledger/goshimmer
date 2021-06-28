@@ -352,6 +352,10 @@ func (s *S0lidifier) isMessageWeaklySolid(message *Message, messageMetadata *Mes
 		return false
 	}
 
+	if !s.parentsAgeValid(message.IssuingTime(), message.WeakParents()) {
+		return false
+	}
+
 	return s.isPayloadSolid(message)
 }
 
@@ -370,6 +374,14 @@ func (s *S0lidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 			solid = s.isMessageMarkedAsSolid(parentMessageID, requestMissingMessages) && solid
 		}
 	})
+	if !solid {
+		return false
+	}
+
+	if !s.parentsAgeValid(message.IssuingTime(), message.StrongParents()) {
+		return false
+	}
+
 	message.ForEachWeakParent(func(parentMessageID MessageID) {
 		if solid || requestMissingMessages {
 			solid = s.isMessageMarkedAsWeaklySolid(parentMessageID, requestMissingMessages) && solid
@@ -379,7 +391,25 @@ func (s *S0lidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 		return false
 	}
 
+	if !s.parentsAgeValid(message.IssuingTime(), message.WeakParents()) {
+		return false
+	}
+
 	return s.isPayloadSolid(message)
+}
+
+func (s *S0lidifier) parentsAgeValid(issuingTime time.Time, parentMessageIDs MessageIDs) (valid bool) {
+	for _, parentMessageID := range parentMessageIDs {
+		if !s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
+			timeDifference := issuingTime.Sub(parentMessage.IssuingTime())
+
+			valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
+		}) || !valid {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s *S0lidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingMessages bool) (solid bool) {

@@ -1257,7 +1257,7 @@ const (
 	UndefinedSolidityType SolidityType = iota
 
 	// Unsolid represents transactions that are not solid, yet.
-	Unsolid = iota
+	Unsolid
 
 	// LazySolid represents transactions that are solid but not fully booked because they spend funds of rejected or
 	// invalid Branches.
