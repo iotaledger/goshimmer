@@ -1,18 +1,27 @@
 ---
-## This playbook deploys the whole application stack in this site.
+## This playbook sets up the whole network stack.
 
 - hosts: metrics
   roles:
     - metrics
 
 - hosts: supports
+  vars:
+    nodeType: entrynode
   roles:
-#    - goshimmer-node
-#    - goshimmer-node
+    - goshimmer-node
+
+- hosts: supports
+  vars:
+    nodeType: analysis
+  roles:
+    - goshimmer-node
 
 - hosts: goshimmers
+  vars:
+    nodeType: goshimmer
   roles:
-#    - goshimmer-node
+    - goshimmer-node
 
 - hosts: drands
   roles:
