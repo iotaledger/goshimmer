@@ -7,7 +7,7 @@ import (
 )
 
 // Parameters contains the configuration parameters used by the gossip plugin.
-var Parameters = struct {
+type ParametersType struct {
 	// NetworkVersion defines the config flag of the network version.
 	Port int `default:"14666" usage:"tcp port for gossip connection"`
 
@@ -19,7 +19,9 @@ var Parameters = struct {
 		// Interval defines the interval to broadcast tips.
 		Interval time.Duration `default:"10s" usage:"the interval in which the oldest known tip is re-broadcast"`
 	}
-}{}
+}
+
+var Parameters = ParametersType{}
 
 func init() {
 	configuration.BindParameters(&Parameters, "gossip")
