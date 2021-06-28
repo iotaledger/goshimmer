@@ -11,9 +11,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -21,6 +18,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
@@ -519,7 +520,7 @@ type ExpectedInclusionState struct {
 	// The optional conflict state to check against.
 	Conflicting *bool
 	// The optional solid state to check against.
-	Solid *bool
+	SolidityType *string
 	// The optional rejected state to check against.
 	Rejected *bool
 	// The optional liked state to check against.
@@ -537,6 +538,12 @@ func True() *bool {
 // False returns a pointer to a false bool.
 func False() *bool {
 	x := false
+	return &x
+}
+
+// Solid returns a pointer to the string representation of the Solid SolidityType.
+func Solid() *string {
+	x := ledgerstate.Solid.String()
 	return &x
 }
 
@@ -582,8 +589,8 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 			if expectedInclusionState.Conflicting != nil {
 				assert.Equal(t, *expectedInclusionState.Conflicting, inclusionState.Conflicting, "conflict state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
-			if expectedInclusionState.Solid != nil {
-				assert.Equal(t, *expectedInclusionState.Solid, metadata.Solid, "solid state doesn't match - tx %s - peer '%s'", txId, peer)
+			if expectedInclusionState.SolidityType != nil {
+				assert.Equal(t, *expectedInclusionState.SolidityType, metadata.SolidityType, "solid state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Rejected != nil {
 				assert.Equal(t, *expectedInclusionState.Rejected, inclusionState.Rejected, "rejected state doesn't match - tx %s - peer '%s'", txId, peer)
@@ -700,7 +707,7 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 					if expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected {
 						continue
 					}
-					if expInclState.Solid != nil && *expInclState.Solid != metadata.Solid {
+					if expInclState.SolidityType != nil && *expInclState.SolidityType != metadata.SolidityType {
 						continue
 					}
 					atomic.AddInt32(&counter, -1)
