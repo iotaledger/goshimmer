@@ -111,7 +111,7 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 	return stored, solidityType, err
 }
 
-// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
+// CheckTransaction checks if a Transaction is objectively valid.
 func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
@@ -121,14 +121,8 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	if !u.allOutputsExist(consumedOutputs) {
 		return errors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
 	}
-	if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
-		return errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
-	}
-	if !UnlockBlocksValid(consumedOutputs, transaction) {
-		return errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
-	}
 
-	return nil
+	return u.transactionObjectivelyValid(transaction, consumedOutputs)
 }
 
 // InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
@@ -380,7 +374,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 		return
 	}
 
-	if valid, validErr := u.transactionObjectivelyValid(transaction, consumedOutputs); !valid {
+	if validErr := u.transactionObjectivelyValid(transaction, consumedOutputs); validErr != nil {
 		u.Events.TransactionInvalid.Trigger(transaction, validErr)
 
 		return
@@ -421,16 +415,16 @@ func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType
 	}
 }
 
-func (u *UTXODAG) transactionObjectivelyValid(transaction *Transaction, consumedOutputs Outputs) (valid bool, err error) {
+func (u *UTXODAG) transactionObjectivelyValid(transaction *Transaction, consumedOutputs Outputs) (err error) {
 	if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
-		return false, errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
+		return errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
 	}
 
 	if !UnlockBlocksValid(consumedOutputs, transaction) {
-		return false, errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
+		return errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 	}
 
-	return true, nil
+	return nil
 }
 
 func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, consumedOutputs Outputs) (targetBranch BranchID, err error) {
