@@ -1,8 +1,11 @@
 package config
 
 import (
+	"fmt"
+	"reflect"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -31,6 +34,56 @@ type GoShimmer struct {
 	DRNG
 }
 
+func NewGoShimmer() (config *GoShimmer) {
+	config = &GoShimmer{}
+	fillStructFromDefaultTag(config)
+
+	fmt.Println("Gossip config:", config.Gossip.TipsBroadcaster.Enable, config.Gossip.TipsBroadcaster.Interval)
+
+	return
+}
+
+// fillStructFromDefaultTag recursively explores the given struct pointer and sets values of fields to the `default` as
+// specified in the struct's tags.
+func fillStructFromDefaultTag(s interface{}) {
+	val := reflect.ValueOf(s).Elem()
+	for i := 0; i < val.NumField(); i++ {
+		valueField := val.Field(i)
+		typeField := val.Type().Field(i)
+
+		if valueField.Kind() == reflect.Struct {
+			fillStructFromDefaultTag(valueField.Addr().Interface())
+			continue
+		}
+
+		tagDefaultValue, exists := typeField.Tag.Lookup("default")
+		if !exists {
+			continue
+		}
+
+		var err error
+		switch defaultValue := valueField.Interface().(type) {
+		case bool:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case time.Duration:
+			if defaultValue, err = time.ParseDuration(tagDefaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case int:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		default:
+			panic(fmt.Sprintf("type `%s` not implemented", reflect.TypeOf(defaultValue)))
+		}
+	}
+}
+
 // Database defines the parameters of the database plugin.
 type Database struct {
 	Enabled bool
@@ -42,11 +95,7 @@ type Database struct {
 type Gossip struct {
 	Enabled bool
 
-	TipsBroadcaster struct {
-		Enable bool
-	}
-
-	Port int
+	gossip.ParametersType
 }
 
 // POW defines the parameters of the PoW plugin.
