@@ -56,7 +56,7 @@ export default class TipsChart extends React.Component<Props, any> {
                 <Card.Body>
                     <Card.Title>Current Tips</Card.Title>
                     <small>
-                        Tips: {this.props.nodeStore.last_tips_metric.tips}.
+                        Tips: {this.props.nodeStore.last_tips_metric.totaltips}.
                     </small>
 
                     <Line height={50} data={this.props.nodeStore.tipsSeries} options={lineChartOptions}/>
