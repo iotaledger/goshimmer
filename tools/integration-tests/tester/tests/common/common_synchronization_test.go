@@ -20,7 +20,7 @@ func TestCommonSynchronization(t *testing.T) {
 	const (
 		initialPeers    = 2
 		numMessages     = 100
-		numSyncMessages = 2 * initialPeers
+		numSyncMessages = 5 * initialPeers
 	)
 
 	ctx, cancel := tests.Context(context.Background(), t)
