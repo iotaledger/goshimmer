@@ -2,6 +2,9 @@ package config
 
 import (
 	"time"
+
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 // GoShimmer defines the config of a GoShimmer node.
@@ -135,4 +138,20 @@ type DRNG struct {
 		DistributedPubKey string
 		CommitteeMembers  []string
 	}
+}
+
+// CreateIdentity returns an identity based on the config.
+// If a Seed is specified, it is used to derive the identity. Otherwise a new key pair is generated and Seed set accordingly.
+func (s *GoShimmer) CreateIdentity() (*identity.Identity, error) {
+	if s.Seed != nil {
+		publicKey := ed25519.PrivateKeyFromSeed(s.Seed).Public()
+		return identity.New(publicKey), nil
+	}
+
+	publicKey, privateKey, err := ed25519.GenerateKey()
+	if err != nil {
+		return nil, err
+	}
+	s.Seed = privateKey.Seed().Bytes()
+	return identity.New(publicKey), nil
 }

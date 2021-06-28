@@ -10,19 +10,19 @@ import (
 )
 
 // CreateFlags converts a GoShimmer config into the corresponding command line flags.
-func (config GoShimmer) CreateFlags() []string {
+func (s GoShimmer) CreateFlags() []string {
 	var (
 		enabledPlugins  = map[string]struct{}{}
 		disabledPlugins = map[string]struct{}{}
 		flags           []string
 	)
 
-	for _, name := range config.DisabledPlugins {
+	for _, name := range s.DisabledPlugins {
 		name = strings.ToLower(name)
 		disabledPlugins[name] = struct{}{}
 	}
 
-	configVal := reflect.ValueOf(config)
+	configVal := reflect.ValueOf(s)
 	for i := 0; i < configVal.NumField(); i++ {
 		field := configVal.Type().Field(i)
 		if field.Type.Kind() != reflect.Struct {
@@ -47,7 +47,7 @@ func (config GoShimmer) CreateFlags() []string {
 	flags = append(
 		[]string{
 			"--node.enablePlugins=Webapi tools Endpoint",
-			fmt.Sprintf("--autopeering.seed=base58:%s", base58.Encode(config.Seed)),
+			fmt.Sprintf("--autopeering.seed=base58:%s", base58.Encode(s.Seed)),
 			fmt.Sprintf("--node.enablePlugins=%s", setToString(enabledPlugins)),
 			fmt.Sprintf("--node.disablePlugins=%s", setToString(disabledPlugins)),
 		},

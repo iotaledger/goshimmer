@@ -3,6 +3,8 @@ package framework
 import (
 	"context"
 	"fmt"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // Partition represents a network partition.
@@ -29,12 +31,16 @@ func (p *Partition) PeerIDs() []string {
 
 // deletePartition deletes a partition, all its Pumba containers and creates logs for them.
 func (p *Partition) deletePartition(ctx context.Context) error {
-	// stop containers
+	// stop all pumba instances in parallel
+	var eg errgroup.Group
 	for _, pumba := range p.pumbas {
-		err := pumba.Stop(ctx)
-		if err != nil {
-			return err
-		}
+		pumba := pumba // capture range variable
+		eg.Go(func() error {
+			return pumba.Stop(ctx)
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 
 	// retrieve logs
