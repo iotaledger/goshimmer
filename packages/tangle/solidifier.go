@@ -400,6 +400,10 @@ func (s *S0lidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 
 func (s *S0lidifier) parentsAgeValid(issuingTime time.Time, parentMessageIDs MessageIDs) (valid bool) {
 	for _, parentMessageID := range parentMessageIDs {
+		if parentMessageID == EmptyMessageID {
+			continue
+		}
+
 		if !s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
 			timeDifference := issuingTime.Sub(parentMessage.IssuingTime())
 
