@@ -366,6 +366,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
+	tangle.Solidifier.Setup()
 
 	wallets := make(map[string]wallet)
 	walletsByAddress := make(map[ledgerstate.Address]wallet)
