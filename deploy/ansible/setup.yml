@@ -13,7 +13,7 @@
 
 - hosts: supports
   vars:
-    nodeType: analysis
+    nodeType: analysis-server
   roles:
     - goshimmer-node
 
