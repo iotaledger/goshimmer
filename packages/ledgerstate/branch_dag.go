@@ -1368,7 +1368,7 @@ ProcessStack:
 			b.Events.BranchConfirmed.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		case Rejected:
 			// abort if the current Branch is liked or not finalized
-			if currentBranch.Liked() || (!currentBranch.Finalized() && currentBranch.Type() != AggregatedBranchType) {
+			if currentBranch.MonotonicallyLiked() {
 				currentCachedBranch.Release()
 				continue
 			}
