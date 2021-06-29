@@ -60,10 +60,10 @@ func start(shutdownSignal <-chan struct{}) {
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node().String(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
+	address := net.JoinHostPort(config.Node().String(local.ParametersNetwork.BindAddress), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
+		log.Fatalf("Error resolving: %v", err)
 	}
 
 	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
