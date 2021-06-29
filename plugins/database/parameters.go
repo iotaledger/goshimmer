@@ -6,8 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/configuration"
 )
 
-// Parameters contains configuration parameters used by the storage layer.
-var Parameters = struct {
+// ParametersDefinition contains the definition of configuration parameters used by the storage layer.
+type ParametersDefinition struct {
 	// Directory defines the directory of the database.
 	Directory string `default:"mainnetdb" usage:"path to the database folder"`
 
@@ -19,7 +19,10 @@ var Parameters = struct {
 
 	// ForceCacheTime is a new global cache time in seconds for object storage.
 	ForceCacheTime time.Duration `default:"-1s" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`
-}{}
+}
+
+// Parameters contains configuration parameters used by the storage layer.
+var Parameters = ParametersDefinition{}
 
 func init() {
 	configuration.BindParameters(&Parameters, "database")
