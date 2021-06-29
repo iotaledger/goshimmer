@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -38,9 +37,8 @@ func Selection() *selection.Protocol {
 // BindAddress returns the string form of the autopeering bind address.
 func BindAddress() string {
 	peering := local.GetInstance().Services().Get(service.PeeringKey)
-	host := config.Node().String(local.CfgBind)
 	port := strconv.Itoa(peering.Port())
-	return net.JoinHostPort(host, port)
+	return net.JoinHostPort(local.ParametersNetwork.BindAddress, port)
 }
 
 func createPeerSel() {
@@ -80,7 +78,7 @@ func start(shutdownSignal <-chan struct{}) {
 	// resolve the bind address
 	localAddr, err := net.ResolveUDPAddr(peering.Network(), BindAddress())
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
+		log.Fatalf("Error resolving: %v", err)
 	}
 
 	conn, err := net.ListenUDP(peering.Network(), localAddr)
