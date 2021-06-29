@@ -15,7 +15,6 @@ import (
 	"github.com/labstack/echo/middleware"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the web API plugin.
@@ -51,10 +50,10 @@ func Server() *echo.Echo {
 		}))
 
 		// if enabled, configure basic-auth
-		if config.Node().Bool(CfgBasicAuthEnabled) {
+		if Parameters.BasicAuth.Enabled {
 			server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-				if username == config.Node().String(CfgBasicAuthUsername) &&
-					password == config.Node().String(CfgBasicAuthPassword) {
+				if username == Parameters.BasicAuth.Username &&
+					password == Parameters.BasicAuth.Password {
 					return true, nil
 				}
 				return false, nil
@@ -120,9 +119,9 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node().String(CfgBindAddress)
+	bindAddr := Parameters.BindAddress
 	go func() {
-		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().Bool(CfgBasicAuthEnabled))
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, Parameters.BasicAuth.Enabled)
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)

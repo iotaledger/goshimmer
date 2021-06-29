@@ -67,7 +67,7 @@ func init() {
 }
 
 func configure(plugin *node.Plugin) {
-	if config.Node().Bool(CfgDisableEvents) {
+	if Parameters.DisableEvents {
 		plugin.LogFatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
 		return
 	}

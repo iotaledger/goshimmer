@@ -8,13 +8,11 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
-	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	clockPlugin "github.com/iotaledger/goshimmer/plugins/clock"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
@@ -22,9 +20,6 @@ import (
 const (
 	// PluginName contains the human readable name of the plugin.
 	PluginName = "NetworkDelay"
-
-	// CfgNetworkDelayOriginPublicKey defines the config flag of the issuer node public key.
-	CfgNetworkDelayOriginPublicKey = "networkdelay.originPublicKey"
 
 	remoteLogType = "networkdelay"
 )
@@ -44,10 +39,6 @@ var (
 	clockEnabled bool
 )
 
-func init() {
-	flag.String(CfgNetworkDelayOriginPublicKey, "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd", "default issuer node public key")
-}
-
 // App gets the plugin instance.
 func App() *node.Plugin {
 	once.Do(func() {
@@ -65,13 +56,13 @@ func configure(_ *node.Plugin) {
 	}
 
 	// get origin public key from config
-	bytes, err := base58.Decode(config.Node().String(CfgNetworkDelayOriginPublicKey))
+	bytes, err := base58.Decode(Parameters.OriginPublicKey)
 	if err != nil {
-		app.LogFatalf("could not parse %s config entry as base58. %v", CfgNetworkDelayOriginPublicKey, err)
+		app.LogFatalf("could not parse originPublicKey config entry as base58. %v", err)
 	}
 	originPublicKey, _, err = ed25519.PublicKeyFromBytes(bytes)
 	if err != nil {
-		app.LogFatalf("could not parse %s config entry as public key. %v", CfgNetworkDelayOriginPublicKey, err)
+		app.LogFatalf("could not parse originPublicKey config entry as public key. %v", err)
 	}
 
 	configureWebAPI()
