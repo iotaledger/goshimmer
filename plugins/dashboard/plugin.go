@@ -23,7 +23,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/chat"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -76,10 +75,10 @@ func configureServer() {
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if config.Node().Bool(CfgBasicAuthEnabled) {
+	if Parameters.BasicAuth.Enabled {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.Node().String(CfgBasicAuthUsername) &&
-				password == config.Node().String(CfgBasicAuthPassword) {
+			if username == Parameters.BasicAuth.Username &&
+				password == Parameters.BasicAuth.Password {
 				return true, nil
 			}
 			return false, nil
@@ -123,10 +122,9 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node().String(CfgBindAddress)
 	go func() {
-		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().Bool(CfgBasicAuthEnabled))
-		if err := server.Start(bindAddr); err != nil {
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, Parameters.BindAddress, Parameters.BasicAuth.Enabled)
+		if err := server.Start(Parameters.BindAddress); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
 			}
