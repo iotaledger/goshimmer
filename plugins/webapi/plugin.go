@@ -50,10 +50,10 @@ func Server() *echo.Echo {
 		}))
 
 		// if enabled, configure basic-auth
-		if Parameters.BasicAuthEnabled {
+		if Parameters.BasicAuth.Enabled {
 			server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-				if username == Parameters.BasicAuthUsername &&
-					password == Parameters.BasicAuthPassword {
+				if username == Parameters.BasicAuth.Username &&
+					password == Parameters.BasicAuth.Password {
 					return true, nil
 				}
 				return false, nil
@@ -121,7 +121,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
 	bindAddr := Parameters.BindAddress
 	go func() {
-		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, Parameters.BasicAuthEnabled)
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, Parameters.BasicAuth.Enabled)
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
