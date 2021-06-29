@@ -353,6 +353,10 @@ func (s *S0lidifier) isMessageWeaklySolid(message *Message, messageMetadata *Mes
 	}
 
 	if !s.parentsAgeValid(message.IssuingTime(), message.WeakParents()) {
+		if messageMetadata.SetInvalid(true) {
+			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		}
+
 		return false
 	}
 
@@ -379,6 +383,10 @@ func (s *S0lidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 	}
 
 	if !s.parentsAgeValid(message.IssuingTime(), message.StrongParents()) {
+		if len(message.WeakParents()) == 0 && messageMetadata.SetInvalid(true) {
+			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		}
+
 		return false
 	}
 
@@ -392,6 +400,10 @@ func (s *S0lidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 	}
 
 	if !s.parentsAgeValid(message.IssuingTime(), message.WeakParents()) {
+		if messageMetadata.SetInvalid(true) {
+			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		}
+
 		return false
 	}
 

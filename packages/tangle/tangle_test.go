@@ -347,7 +347,7 @@ func TestTangle_Flow(t *testing.T) {
 		targetPOW   = 2
 
 		solidMsgCount   = 2000
-		invalidMsgCount = 0
+		invalidMsgCount = 10
 		tangleWidth     = 250
 		networkDelay    = 5 * time.Millisecond
 	)
@@ -476,7 +476,7 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// message invalid events
-	tangle.Solidifier.Events.MessageWeaklySolid.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&invalidMessages, 1)
 		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
@@ -557,7 +557,7 @@ func TestTangle_Flow(t *testing.T) {
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
-	//assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&opinionFormedTransactions))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
