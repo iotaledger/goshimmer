@@ -1,4 +1,4 @@
-- name: Create node directory
+- name: Create directory
   file:
     path: /opt/metrics
     state: directory
@@ -10,6 +10,18 @@
     src: .
     dest: /opt/metrics
     mode: '0644'
+
+- name: Stop existing services gracefully
+  community.general.docker_compose:
+    project_src: /opt/metrics
+    timeout: 180
+    state: present
+    stopped: yes
+
+- name: Tear down existing services
+  community.general.docker_compose:
+    project_src: /opt/metrics
+    state: absent
 
 - name: Run services
   community.general.docker_compose:

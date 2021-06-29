@@ -10,7 +10,6 @@
     src: docker-compose-{{ nodeType }}.yml.j2
     dest: /opt/{{ nodeType }}/docker-compose.yml
     mode: '0644'
-  tags: compose
 
 - name: Stop existing services gracefully
   community.general.docker_compose:
@@ -23,7 +22,6 @@
   community.general.docker_compose:
     project_src: /opt/{{ nodeType }}
     state: absent
-  tags: [ config, peering, compose ]
 
 - name: Create enrtynode db directory
   file:
