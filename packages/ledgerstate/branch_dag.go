@@ -439,30 +439,30 @@ func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
 	if stored {
 		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch Branch) {
-			branch.SetLiked(true)
-			branch.SetMonotonicallyLiked(true)
-			branch.SetFinalized(true)
-			branch.SetInclusionState(Confirmed)
+			branch.setLiked(true)
+			branch.setMonotonicallyLiked(true)
+			branch.setFinalized(true)
+			branch.setInclusionState(Confirmed)
 		})
 	}
 
 	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
 	if stored {
 		(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-			branch.SetLiked(false)
-			branch.SetMonotonicallyLiked(false)
-			branch.SetFinalized(true)
-			branch.SetInclusionState(Rejected)
+			branch.setLiked(false)
+			branch.setMonotonicallyLiked(false)
+			branch.setFinalized(true)
+			branch.setInclusionState(Rejected)
 		})
 	}
 
 	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
 	if stored {
 		(&CachedBranch{CachedObject: cachedLazyBookedConflictsBranch}).Consume(func(branch Branch) {
-			branch.SetLiked(false)
-			branch.SetMonotonicallyLiked(false)
-			branch.SetFinalized(true)
-			branch.SetInclusionState(Rejected)
+			branch.setLiked(false)
+			branch.setMonotonicallyLiked(false)
+			branch.setFinalized(true)
+			branch.setInclusionState(Rejected)
 		})
 	}
 }
@@ -756,7 +756,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 		}
 
 		// abort if the branch was liked already
-		if modified = conflictBranch.SetLiked(true); !modified {
+		if modified = conflictBranch.setLiked(true); !modified {
 			return
 		}
 
@@ -776,7 +776,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 		}
 	case false:
 		// set the branch to be not liked
-		if modified = conflictBranch.SetLiked(false); modified {
+		if modified = conflictBranch.setLiked(false); modified {
 			// trigger event
 			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(cachedBranch))
 
@@ -863,7 +863,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 		}
 
 		// trigger event if we changed the flag
-		if branch.SetLiked(true) {
+		if branch.setLiked(true) {
 			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(cachedBranch))
 		}
 
@@ -880,7 +880,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 		}
 	case false:
 		// abort if the Branch is already not liked
-		if !branch.SetLiked(false) {
+		if !branch.setLiked(false) {
 			return
 		}
 
@@ -933,7 +933,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 	}
 
 	// abort if the ConflictBranch was marked correctly already
-	if modified = branch.SetFinalized(finalized); !modified {
+	if modified = branch.setFinalized(finalized); !modified {
 		return
 	}
 
@@ -1073,12 +1073,12 @@ func (b *BranchDAG) updateLikedOfAggregatedBranch(currentCachedBranch *CachedBra
 		}
 
 		// trigger event if the value was changed
-		if currentBranch.SetLiked(true) {
+		if currentBranch.setLiked(true) {
 			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	case false:
 		// trigger event if the value was changed
-		if currentBranch.SetLiked(false) {
+		if currentBranch.setLiked(false) {
 			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	}
@@ -1157,12 +1157,12 @@ func (b *BranchDAG) updateFinalizedOfAggregatedBranch(currentCachedBranch *Cache
 		}
 
 		// trigger event if the value was changed
-		if currentBranch.SetFinalized(true) {
+		if currentBranch.setFinalized(true) {
 			b.Events.BranchFinalized.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	case false:
 		// trigger event if the value was changed
-		if currentBranch.SetFinalized(false) {
+		if currentBranch.setFinalized(false) {
 			b.Events.BranchUnfinalized.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	}
@@ -1231,7 +1231,7 @@ ProcessStack:
 			}
 
 			// abort if the Branch is already liked
-			if !currentBranch.SetMonotonicallyLiked(true) {
+			if !currentBranch.setMonotonicallyLiked(true) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1246,7 +1246,7 @@ ProcessStack:
 			b.Events.BranchMonotonicallyLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		case false:
 			// abort if the current Branch is disliked already
-			if !currentBranch.SetMonotonicallyLiked(false) {
+			if !currentBranch.setMonotonicallyLiked(false) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1345,7 +1345,7 @@ ProcessStack:
 			}
 
 			// abort if the Branch is already confirmed
-			if !currentBranch.SetInclusionState(Confirmed) {
+			if !currentBranch.setInclusionState(Confirmed) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1353,8 +1353,8 @@ ProcessStack:
 			// trigger event
 			b.Events.BranchConfirmed.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		case Rejected:
-			// abort if the current Branch is not confirmed already
-			if !currentBranch.SetInclusionState(Rejected) {
+			// abort if the current Branch is not rejected already
+			if !currentBranch.setInclusionState(Rejected) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1362,8 +1362,8 @@ ProcessStack:
 			// trigger event
 			b.Events.BranchRejected.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		case Pending:
-			// abort if the current Branch is not confirmed already
-			if !currentBranch.SetInclusionState(Pending) {
+			// abort if the current Branch is not pending already
+			if !currentBranch.setInclusionState(Pending) {
 				currentCachedBranch.Release()
 				continue
 			}
