@@ -18,9 +18,9 @@ type ParametersDefinition struct {
 	WorkerpoolMetrics bool `default:"false" usage:"include workerpool metrics"`
 }
 
-// Parameters contains the configuration used by the profiling plugin.
+// Parameters contains the configuration used by the prometheus plugin.
 var Parameters = ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "profiling")
+	configuration.BindParameters(&Parameters, "prometheus")
 }

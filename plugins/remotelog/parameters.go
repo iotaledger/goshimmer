@@ -12,7 +12,7 @@ type ParametersDefinition struct {
 	DisableEvents bool `default:"false" usage:"disable events capturing"`
 }
 
-// Parameters contains the configuration used by the profiling plugin.
+// Parameters contains the configuration used by the remotelog plugin.
 var Parameters = ParametersDefinition{}
 
 func init() {

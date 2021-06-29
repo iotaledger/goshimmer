@@ -18,7 +18,7 @@ type ParametersDefinition struct {
 	} `name:"basic_auth"`
 }
 
-// Parameters contains the configuration used by the webapi plugin
+// Parameters contains the configuration used by the webapi plugin.
 var Parameters = ParametersDefinition{}
 
 func init() {

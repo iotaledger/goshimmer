@@ -4,11 +4,11 @@ import "github.com/iotaledger/hive.go/configuration"
 
 // ParametersDefinition contains the definition of the parameters used by the manarefresher plugin.
 type ParametersDefinition struct {
-	// RefreshInterval defines the interval for refreshing delegated mana
+	// RefreshInterval defines the interval for refreshing delegated mana.
 	RefreshInterval uint `default:"25" usage:"interval for refreshing delegated mana (minutes)"`
 }
 
-// Parameters contains the configuration used by the manarefresher plugin
+// Parameters contains the configuration used by the manarefresher plugin.
 var Parameters = ParametersDefinition{}
 
 func init() {

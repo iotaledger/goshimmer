@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/configuration"
 )
 
-// ParametersDefinition contains the definition of the parameters used by the message layer.
+// ParametersDefinition contains the definition of the parameters used by the messagelayer plugin.
 type ParametersDefinition struct {
 	// TangleWidth can be used to specify the number of tips the Tangle tries to maintain.
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
@@ -49,13 +49,13 @@ type FPCParametersDefinition struct {
 	// TotalRoundsFinalization defines the amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
 	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)"`
 
-	// DRNGInstanceID the instanceID of the dRNG to be used with FPC
+	// DRNGInstanceID the instanceID of the dRNG to be used with FPC.
 	DRNGInstanceID uint32 `default:"1339" usage:"The instanceID of the dRNG to be used with FPC"`
 
 	// AwaitOffset defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
 	AwaitOffset int64 `default:"3" usage:"The max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed"`
 
-	// DefaultRandomness defines default randomness used by FPC when no random is received from the dRNG
+	// DefaultRandomness defines default randomness used by FPC when no random is received from the dRNG.
 	DefaultRandomness float64 `default:"0.5" usage:"The default randomness used by FPC when no random is received from the dRNG"`
 }
 
