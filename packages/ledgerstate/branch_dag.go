@@ -741,33 +741,12 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 	// execute case dependent logic
 	switch liked {
 	case true:
-		// iterate through all Conflicts of the current Branch and set their ConflictMembers to be not liked
-		for conflictID := range conflictBranch.Conflicts() {
-			// iterate through all ConflictMembers and set them to not liked
-			cachedConflictMembers := b.ConflictMembers(conflictID)
-			for _, cachedConflictMember := range cachedConflictMembers {
-				// unwrap the ConflictMember
-				conflictMember := cachedConflictMember.Unwrap()
-				if conflictMember == nil {
-					cachedConflictMembers.Release()
-					err = errors.Errorf("failed to load ConflictMember of %s: %w", conflictID, cerrors.ErrFatal)
-					return
-				}
-
-				// skip the current Branch
-				if conflictMember.BranchID() == conflictBranch.ID() {
-					continue
-				}
-
-				// update the other ConflictMembers to be not liked
-				if _, err = b.setBranchLiked(b.Branch(conflictMember.BranchID()), false); err != nil {
-					cachedConflictMembers.Release()
-					err = errors.Errorf("failed to propagate liked changes to other ConflictMembers: %w", err)
-					return
-				}
+		b.ForEachConflictingBranchID(cachedBranch.ID(), func(conflictingBranchID BranchID) {
+			if _, err = b.setBranchLiked(b.Branch(conflictingBranchID), false); err != nil {
+				err = errors.Errorf("failed to propagate liked changes to other ConflictMembers: %w", err)
+				return
 			}
-			cachedConflictMembers.Release()
-		}
+		})
 
 		// abort if the branch was liked already
 		if modified = conflictBranch.setLiked(true); !modified {
