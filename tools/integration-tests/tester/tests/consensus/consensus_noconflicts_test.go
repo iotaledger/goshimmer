@@ -1,39 +1,45 @@
 package consensus
 
 import (
+	"context"
 	"log"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
+const UpperBoundNetworkDelay = 5 * time.Second
+
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, framework.CreateNetworkConfig{Faucet: true, StartSynced: true})
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		StartSynced: true,
+		Faucet:      true,
+		Autopeering: true,
+		Activity:    true,
+		FPC:         true,
+	})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(ctx, t, n)
 
-	time.Sleep(5 * time.Second)
+	faucet := n.Peers()[0]
 
-	// genesis wallet
-	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
-	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
-
-	genesisSeed := seed.NewSeed(genesisSeedBytes)
+	genesisSeed := seed.NewSeed(framework.GenesisSeed)
 	genesisAddr := genesisSeed.Address(0).Address()
-	unspentOutputs, err := n.Peers()[0].PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
+	unspentOutputs, err := faucet.PostAddressUnspentOutputs([]string{genesisAddr.Base58()})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
 	genesisOutput, err := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.ToLedgerstateOutput()
 	require.NoError(t, err)
@@ -43,17 +49,15 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	firstReceiver := seed.NewSeed()
 	const depositCount = 10
-	deposit := uint64(genesisBalance / depositCount)
-	firstReceiverAddresses := make([]string, depositCount)
+	deposit := genesisBalance / depositCount
 	firstReceiverDepositAddrs := make([]ledgerstate.Address, depositCount)
 	firstReceiverDepositOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
-	firstReceiverExpectedBalances := make(map[string]map[ledgerstate.Color]int64)
+	firstReceiverExpectedBalances := make(map[string]map[ledgerstate.Color]uint64)
 	for i := 0; i < depositCount; i++ {
 		addr := firstReceiver.Address(uint64(i)).Address()
 		firstReceiverDepositAddrs[i] = addr
-		firstReceiverAddresses[i] = addr.Base58()
 		firstReceiverDepositOutputs[addr] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit})
-		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
+		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}
 	}
 
 	// issue transaction spending from the genesis output
@@ -76,37 +80,41 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(framework.DefaultUpperBoundNetworkDelay*2 + framework.DefaultUpperBoundNetworkDelay/2)
+	time.Sleep(UpperBoundNetworkDelay*2 + UpperBoundNetworkDelay/2)
 
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
 	log.Println("checking that genesis has no UTXOs")
-	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), []string{genesisAddr.Base58()})
+	tests.RequireNoUnspentOutputs(t, n.Peers(), genesisAddr)
 
 	// Wait for the approval weigth to build up via the sync beacon.
 	time.Sleep(20 * time.Second)
 	log.Println("check that the transaction is finalized/confirmed by all peers")
-	tests.CheckTransactions(t, n.Peers(), map[string]*tests.ExpectedTransaction{
+	tests.RequireInclusionStateEqual(t, n.Peers(), map[string]tests.ExpectedInclusionState{
+		txID: {
+			Confirmed: tests.True(), Finalized: tests.True(),
+			Conflicting: tests.False(), Solid: tests.True(),
+			Rejected: tests.False(), Liked: tests.True(),
+		},
+	}, tests.Timeout, tests.Tick)
+	tests.RequireTransactionsEqual(t, n.Peers(), map[string]*tests.ExpectedTransaction{
 		txID: {Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks},
-	}, true, tests.ExpectedInclusionState{
-		Confirmed: tests.True(), Finalized: tests.True(),
-		Conflicting: tests.False(), Solid: tests.True(),
-		Rejected: tests.False(), Liked: tests.True(),
 	})
 
 	// check balances on peers
 	log.Println("ensure that all the peers have the same ledger state")
-	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
+	tests.RequireBalancesEqual(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
 	secondReceiverSeed := seed.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
-	secondReceiverExpectedBalances := map[string]map[ledgerstate.Color]int64{}
+	secondReceiverExpectedBalances := map[string]map[ledgerstate.Color]uint64{}
+	secondReceiverExpectedStates := map[string]tests.ExpectedInclusionState{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
 
 	for i := 0; i < depositCount; i++ {
 		addr := secondReceiverSeed.Address(uint64(i)).Address()
-		input := ledgerstate.NewUTXOInput(tx1.Essence().Outputs()[int(tests.SelectIndex(tx1, firstReceiver.Address(uint64(i)).Address()))].ID())
+		input := ledgerstate.NewUTXOInput(tx1.Essence().Outputs()[tests.OutputIndex(tx1, firstReceiver.Address(uint64(i)).Address())].ID())
 		output := ledgerstate.NewSigLockedSingleOutput(deposit, addr)
 		tx2Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 		kp := *firstReceiver.KeyPair(uint64(i))
@@ -121,7 +129,12 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 		utilsTx := jsonmodels.NewTransaction(tx)
 
-		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
+		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}
+		secondReceiverExpectedStates[txID] = tests.ExpectedInclusionState{
+			Confirmed: tests.True(), Finalized: tests.True(),
+			Conflicting: tests.False(), Solid: tests.True(),
+			Rejected: tests.False(), Liked: tests.True(),
+		}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks,
 		}
@@ -129,21 +142,16 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// wait again some network delays for the transactions to materialize
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(framework.DefaultUpperBoundNetworkDelay*2 + framework.DefaultUpperBoundNetworkDelay/2)
+	time.Sleep(UpperBoundNetworkDelay*2 + UpperBoundNetworkDelay/2)
 	log.Println("checking that first set of addresses contain no UTXOs")
-	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
+	tests.RequireNoUnspentOutputs(t, n.Peers(), firstReceiverDepositAddrs...)
 
 	// Wait for the approval weigth to build up via the sync beacon.
 	time.Sleep(20 * time.Second)
 	log.Println("checking that the 2nd batch transactions are finalized/confirmed")
-	tests.CheckTransactions(t, n.Peers(), secondReceiverExpectedTransactions, true,
-		tests.ExpectedInclusionState{
-			Confirmed: tests.True(), Finalized: tests.True(),
-			Conflicting: tests.False(), Solid: tests.True(),
-			Rejected: tests.False(), Liked: tests.True(),
-		},
-	)
+	tests.RequireInclusionStateEqual(t, n.Peers(), secondReceiverExpectedStates, tests.Timeout, tests.Tick)
+	tests.RequireTransactionsEqual(t, n.Peers(), secondReceiverExpectedTransactions)
 
 	log.Println("check that the 2nd batch of receive addresses is the same on all peers")
-	tests.CheckBalances(t, n.Peers(), secondReceiverExpectedBalances)
+	tests.RequireBalancesEqual(t, n.Peers(), secondReceiverExpectedBalances)
 }
