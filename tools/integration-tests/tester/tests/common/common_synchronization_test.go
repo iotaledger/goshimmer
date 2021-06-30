@@ -20,7 +20,7 @@ func TestCommonSynchronization(t *testing.T) {
 	const (
 		initialPeers    = 2
 		numMessages     = 100
-		numSyncMessages = 2 * initialPeers
+		numSyncMessages = 5 * initialPeers
 	)
 
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -40,7 +40,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Spawning new node to sync...")
 	newPeer, err := n.CreatePeer(ctx, createNewPeerConfig())
 	require.NoError(t, err)
-	err = n.DoManualPeering(context.Background())
+	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 	log.Println("Spawning new node... done")
 
@@ -81,7 +81,7 @@ func TestCommonSynchronization(t *testing.T) {
 	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncMessages, ids)
 	log.Println("Issuing messages... done")
 
-	// 9. check whether all issued messages are available on all nodes
+	// 9. check whether all issued messages are available on to the new peer
 	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
 	// check that the new node is synced
@@ -92,7 +92,7 @@ func TestCommonSynchronization(t *testing.T) {
 }
 
 func createNewPeerConfig() config.GoShimmer {
-	conf := framework.PeerConfig
+	conf := framework.PeerConfig()
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
 	conf.MessageLayer.TangleTimeWindow = 30 * time.Second
 	return conf

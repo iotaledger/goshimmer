@@ -41,18 +41,18 @@ func createManager() {
 	// announce the gossip service
 	gossipPort := Parameters.Port
 	if !netutil.IsValidPort(gossipPort) {
-		log.Fatalf("Invalid port number: %d", gossipPort)
+		plugin.LogFatalf("Invalid port number: %d", gossipPort)
 	}
 
 	lPeer := local.GetInstance()
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
-		log.Fatalf("could not update services: %s", err)
+		plugin.LogFatalf("could not update services: %s", err)
 	}
 	mgr = gossip.NewManager(lPeer, loadMessage, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + PluginName + " ... done")
+	defer plugin.LogInfo("Stopping " + PluginName + " ... done")
 
 	lPeer := local.GetInstance()
 
@@ -60,28 +60,28 @@ func start(shutdownSignal <-chan struct{}) {
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node().String(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
+	address := net.JoinHostPort(config.Node().String(local.ParametersNetwork.BindAddress), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
+		plugin.LogFatalf("Error resolving: %v", err)
 	}
 
 	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
 	if err != nil {
-		log.Fatalf("Error listening: %v", err)
+		plugin.LogFatalf("Error listening: %v", err)
 	}
 	defer listener.Close()
 
-	srv := server.ServeTCP(lPeer, listener, log)
+	srv := server.ServeTCP(lPeer, listener, plugin.Logger())
 	defer srv.Close()
 
 	mgr.Start(srv)
 	defer mgr.Stop()
 
-	log.Infof("%s started: bind-address=%s", PluginName, localAddr.String())
+	plugin.LogInfof("%s started: bind-address=%s", PluginName, localAddr.String())
 
 	<-shutdownSignal
-	log.Info("Stopping " + PluginName + " ...")
+	plugin.LogInfo("Stopping " + PluginName + " ...")
 }
 
 // loads the given message from the message layer and returns it or an error if not found.

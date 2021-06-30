@@ -12,16 +12,16 @@ import (
 // msgChunk is a special wrapper message for chunks of larger than buffer messages
 type msgChunk struct {
 	msgID       uint32
-	chunkSeqNum byte
-	numChunks   byte
+	chunkSeqNum uint16
+	numChunks   uint16
 	data        []byte
 }
 
 func (c *msgChunk) encode() []byte {
 	m := marshalutil.New()
 	m.WriteUint32(c.msgID)
-	m.WriteByte(c.numChunks)
-	m.WriteByte(c.chunkSeqNum)
+	m.WriteUint16(c.numChunks)
+	m.WriteUint16(c.chunkSeqNum)
 	m.WriteUint16(uint16(len(c.data)))
 	m.WriteBytes(c.data)
 	return m.Bytes()
@@ -33,10 +33,10 @@ func (c *msgChunk) decode(data []byte, maxChunkSizeWithoutHeader int) error {
 	if c.msgID, err = m.ReadUint32(); err != nil {
 		return err
 	}
-	if c.numChunks, err = m.ReadByte(); err != nil {
+	if c.numChunks, err = m.ReadUint16(); err != nil {
 		return err
 	}
-	if c.chunkSeqNum, err = m.ReadByte(); err != nil {
+	if c.chunkSeqNum, err = m.ReadUint16(); err != nil {
 		return err
 	}
 	var size uint16

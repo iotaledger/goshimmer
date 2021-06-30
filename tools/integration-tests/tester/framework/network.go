@@ -9,17 +9,13 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
-
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 // Network represents a complete GoShimmer network within Docker.
@@ -252,7 +248,7 @@ func (n *Network) Shutdown(ctx context.Context) error {
 func (n *Network) createNode(ctx context.Context, name string, conf config.GoShimmer) (*Node, error) {
 	conf.Name = name
 
-	nodeID, err := createIdentity(&conf)
+	nodeID, err := conf.CreateIdentity()
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +296,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 		panic("entry node already present")
 	}
 
-	node, err := n.createNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig)
+	node, err := n.createNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig())
 	if err != nil {
 		return err
 	}
@@ -311,7 +307,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 
 func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig CreateNetworkConfig) error {
 	// create a peer conf from the network conf
-	conf := PeerConfig
+	conf := PeerConfig()
 	if networkConfig.StartSynced {
 		conf.MessageLayer.StartSynced = true
 	}
@@ -348,20 +344,6 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	log.Println("Starting peers... done")
 
 	return nil
-}
-
-func createIdentity(conf *config.GoShimmer) (*identity.Identity, error) {
-	if conf.Seed != nil {
-		publicKey := ed25519.PrivateKeyFromSeed(conf.Seed).Public()
-		return identity.New(publicKey), nil
-	}
-
-	publicKey, privateKey, err := ed25519.GenerateKey()
-	if err != nil {
-		return nil, err
-	}
-	conf.Seed = privateKey.Seed().Bytes()
-	return identity.New(publicKey), nil
 }
 
 // addManualPeers instructs each node to add all the other nodes as peers.

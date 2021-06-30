@@ -10,19 +10,21 @@ import (
 )
 
 // CreateFlags converts a GoShimmer config into the corresponding command line flags.
-func (config GoShimmer) CreateFlags() []string {
+func (s GoShimmer) CreateFlags() []string {
 	var (
 		enabledPlugins  = map[string]struct{}{}
 		disabledPlugins = map[string]struct{}{}
 		flags           []string
 	)
 
-	for _, name := range config.DisabledPlugins {
+	s.Autopeering.Seed = "base58:" + base58.Encode(s.Seed)
+
+	for _, name := range s.DisabledPlugins {
 		name = strings.ToLower(name)
 		disabledPlugins[name] = struct{}{}
 	}
 
-	configVal := reflect.ValueOf(config)
+	configVal := reflect.ValueOf(s)
 	for i := 0; i < configVal.NumField(); i++ {
 		field := configVal.Type().Field(i)
 		if field.Type.Kind() != reflect.Struct {
@@ -47,11 +49,22 @@ func (config GoShimmer) CreateFlags() []string {
 	flags = append(
 		[]string{
 			"--node.enablePlugins=Webapi tools Endpoint",
-			fmt.Sprintf("--autopeering.seed=base58:%s", base58.Encode(config.Seed)),
 			fmt.Sprintf("--node.enablePlugins=%s", setToString(enabledPlugins)),
 			fmt.Sprintf("--node.disablePlugins=%s", setToString(disabledPlugins)),
 		},
 		flags...)
+
+	// manually add seed to flags if autopeering is disabled
+	var seedProvided bool
+	for _, f := range flags {
+		if strings.Contains(f, "autopeering.seed") {
+			seedProvided = true
+		}
+	}
+	if !seedProvided {
+		flags = append(flags, fmt.Sprintf("--autopeering.seed=base58:%s", base58.Encode(s.Seed)))
+	}
+
 	return flags
 }
 
@@ -63,11 +76,20 @@ func pluginCommands(prefix string, val reflect.Value) []string {
 			continue
 		}
 
+		name := lowerCamelCase(field.Name)
+		if value, ok := field.Tag.Lookup("name"); ok {
+			name = value
+		}
+
 		switch field.Type.Kind() {
 		case reflect.Struct:
-			s = append(s, pluginCommands(prefix+lowerCamelCase(field.Name)+".", val.Field(i))...)
+			if strings.Contains(field.Name, "ParametersDefinition") {
+				s = append(s, pluginCommands(prefix, val.Field(i))...)
+			} else {
+				s = append(s, pluginCommands(prefix+name+".", val.Field(i))...)
+			}
 		default:
-			s = append(s, fmt.Sprintf("%s%s=%s", prefix, lowerCamelCase(field.Name), valueToString(val.Field(i))))
+			s = append(s, fmt.Sprintf("%s%s=%s", prefix, name, valueToString(val.Field(i))))
 		}
 	}
 	return s

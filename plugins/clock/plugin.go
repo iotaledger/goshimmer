@@ -5,20 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
-	flag "github.com/spf13/pflag"
-
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
-	// CfgNTPPools defines the config flag of the NTP pools.
-	CfgNTPPools = "clock.ntpPools"
-
 	maxTries     = 3
 	syncInterval = 30 * time.Minute
 )
@@ -26,7 +20,6 @@ const (
 var (
 	plugin     *node.Plugin
 	pluginOnce sync.Once
-	ntpPools   []string
 )
 
 // Plugin gets the clock plugin instance.
@@ -37,14 +30,9 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-func init() {
-	flag.StringSlice(CfgNTPPools, []string{"0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org"}, "list of NTP pools to synchronize time from")
-}
-
 func configure(plugin *node.Plugin) {
-	ntpPools = config.Node().Strings(CfgNTPPools)
-	if len(ntpPools) == 0 {
-		plugin.LogFatalf("%s needs to provide at least 1 NTP pool to synchronize the local clock.", CfgNTPPools)
+	if len(Parameters.NtpPools) == 0 {
+		plugin.LogFatalf("at least 1 NTP pool needs to be provided to synchronize the local clock.")
 	}
 }
 
@@ -66,8 +54,8 @@ func run(plugin *node.Plugin) {
 func queryNTPPool() {
 	plugin.LogDebug("Synchronizing clock...")
 	for t := maxTries; t > 0; t-- {
-		index := rand.Int() % len(ntpPools)
-		err := clock.FetchTimeOffset(ntpPools[index])
+		index := rand.Int() % len(Parameters.NtpPools)
+		err := clock.FetchTimeOffset(Parameters.NtpPools[index])
 		if err == nil {
 			plugin.LogDebug("Synchronizing clock... done")
 			return

@@ -350,6 +350,7 @@ func (m *Manager) processPacketMessage(data []byte, nbr *Neighbor) {
 	packet := new(pb.Message)
 	if err := proto.Unmarshal(data[1:], packet); err != nil {
 		m.log.Debugw("error processing packet", "err", err)
+		return
 	}
 	m.events.MessageReceived.Trigger(&MessageReceivedEvent{Data: packet.GetData(), Peer: nbr.Peer})
 }
@@ -358,16 +359,19 @@ func (m *Manager) processMessageRequest(data []byte, nbr *Neighbor) {
 	packet := new(pb.MessageRequest)
 	if err := proto.Unmarshal(data[1:], packet); err != nil {
 		m.log.Debugw("invalid packet", "err", err)
+		return
 	}
 
 	msgID, _, err := tangle.MessageIDFromBytes(packet.GetId())
 	if err != nil {
 		m.log.Debugw("invalid message id:", "err", err)
+		return
 	}
 
 	msgBytes, err := m.loadMessageFunc(msgID)
 	if err != nil {
 		m.log.Debugw("error loading message", "msg-id", msgID, "err", err)
+		return
 	}
 
 	// send the loaded message directly to the neighbor

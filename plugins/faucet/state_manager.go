@@ -131,9 +131,9 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 	}
 
 	endIndex := (GenesisTokenAmount - s.remainderOutput.Balance) / s.tokensPerRequest
-	log.Infof("%d indices have already been used based on found remainder output", endIndex)
+	plugin.LogInfof("%d indices have already been used based on found remainder output", endIndex)
 
-	log.Infof("Looking for prepared outputs in the Tangle...")
+	plugin.LogInfof("Looking for prepared outputs in the Tangle...")
 
 	for i := startIndex; uint64(i) <= endIndex; i++ {
 		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(s.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
@@ -164,8 +164,8 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 			})
 		})
 	}
-	log.Infof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
-	log.Infof("Looking for prepared outputs in the Tangle... DONE")
+	plugin.LogInfof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
+	plugin.LogInfof("Looking for prepared outputs in the Tangle... DONE")
 
 	if len(foundPreparedOutputs) == 0 {
 		// prepare more funding outputs if we did not find any
@@ -177,7 +177,7 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 		// else just save the found outputs into the state
 		s.saveFundingOutputs(foundPreparedOutputs)
 	}
-	log.Infof("Remainder output %s had %d funds", s.remainderOutput.ID.Base58(), s.remainderOutput.Balance)
+	plugin.LogInfof("Remainder output %s had %d funds", s.remainderOutput.ID.Base58(), s.remainderOutput.Balance)
 	// ignore toBeSweptOutputs
 	return err
 }
@@ -195,13 +195,13 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	// we don't have funding outputs
 	if errors.Is(fErr, ErrNotEnoughFundingOutputs) {
 		// try preparing them
-		log.Infof("Preparing more outputs...")
+		plugin.LogInfof("Preparing more outputs...")
 		pErr := s.prepareMoreFundingOutputs()
 		if pErr != nil {
 			err = errors.Errorf("failed to prepare more outputs: %w", pErr)
 			return
 		}
-		log.Infof("Preparing more outputs... DONE")
+		plugin.LogInfof("Preparing more outputs... DONE")
 		// and try getting the output again
 		fundingOutput, fErr = s.getFundingOutput()
 		if fErr != nil {
@@ -282,8 +282,8 @@ func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 	}
 	s.lastFundingOutputAddressIndex = s.fundingOutputs.Back().Value.(*FaucetOutput).AddressIndex
 
-	log.Infof("Added %d new funding outputs, last used address index is %d", len(fundingOutputs), s.lastFundingOutputAddressIndex)
-	log.Infof("There are currently %d prepared outputs in the faucet", s.fundingOutputs.Len())
+	plugin.LogInfof("Added %d new funding outputs, last used address index is %d", len(fundingOutputs), s.lastFundingOutputAddressIndex)
+	plugin.LogInfof("There are currently %d prepared outputs in the faucet", s.fundingOutputs.Len())
 }
 
 // getFundingOutput returns the first funding output in the list.
