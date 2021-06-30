@@ -48,11 +48,6 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-	if Parameters.TipsBroadcaster.Enable {
-		if err := daemon.BackgroundWorker(tipsBroadcasterName, startTipBroadcaster, shutdown.PriorityGossip); err != nil {
-			log.Panicf("Failed to start as daemon: %s", err)
-		}
-	}
 }
 
 func configureLogging() {

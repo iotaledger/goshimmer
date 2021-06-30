@@ -68,9 +68,6 @@ var PeerConfig = config.GoShimmer{
 	Gossip: config.Gossip{
 		Enabled: true,
 		Port:    gossipPort,
-		TipsBroadcaster: struct{ Enable bool }{
-			Enable: false, // disable tip broadcasting in tests
-		},
 	},
 	POW: config.POW{
 		Enabled:    true,
