@@ -242,7 +242,7 @@ type TimeManagerEvents struct {
 	SyncChanged *events.Event
 }
 
-// SyncChangedEvent represents a syn changed event.
+// SyncChangedEvent represents a sync changed event.
 type SyncChangedEvent struct {
 	Synced bool
 }
