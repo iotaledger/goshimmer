@@ -28,7 +28,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9312
       --messageLayer.snapshot.file=/snapshot.bin
      {% if faucet|default(false) %}
-      --faucet.seed=EZ9HRRdcB7z9H1BfBFWYA7t8RPzyrEWZwCYsEBsXR9oZ
+      --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000
      {% endif %}
       --faucet.powDifficulty=22

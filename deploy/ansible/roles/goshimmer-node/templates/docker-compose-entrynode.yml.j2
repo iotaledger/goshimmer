@@ -12,7 +12,7 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
-      - AUTOPEERING_SEED=base58:WtPKPcsFVSfMBcgZ3XfP6mA1DhsJErAxSUndRCUdsw9
+      - AUTOPEERING_SEED={{ entryNodeSeed }}
       - PROFILING_BINDADDRESS=0.0.0.0:6060
     entrypoint: /run/goshimmer
     command: >
