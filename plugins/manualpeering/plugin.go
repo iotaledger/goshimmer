@@ -81,6 +81,9 @@ func addPeersFromConfigToManager(mgr *manualpeering.Manager) {
 }
 
 func getKnownPeersFromConfig() ([]*manualpeering.KnownPeerToAdd, error) {
+	if Parameters.KnownPeers == "" {
+		return []*manualpeering.KnownPeerToAdd{}, nil
+	}
 	rawMap := Parameters.KnownPeers
 	// This is a hack to transform a map from config into peer.Peer struct.
 	jsonData, err := json.Marshal(rawMap)
