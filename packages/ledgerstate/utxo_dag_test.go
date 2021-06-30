@@ -315,7 +315,7 @@ func TestBookRejectedTransaction(t *testing.T) {
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
 
 	rejectedBranch := NewConflictBranch(BranchID(tx.ID()), nil, nil)
-	rejectedBranch.SetFinalized(true)
+	rejectedBranch.setFinalized(true)
 	utxoDAG.branchDAG.branchStorage.Store(rejectedBranch).Release()
 
 	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
@@ -588,10 +588,10 @@ func TestInputsInRejectedBranch(t *testing.T) {
 	cachedRejectedBranch, _ := branchDAG.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(tx.ID()), nil, nil))
 
 	(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-		branch.SetLiked(false)
-		branch.SetMonotonicallyLiked(false)
-		branch.SetFinalized(true)
-		branch.SetInclusionState(Rejected)
+		branch.setLiked(false)
+		branch.setMonotonicallyLiked(false)
+		branch.setFinalized(true)
+		branch.setInclusionState(Rejected)
 	})
 
 	outputsMetadata := []*OutputMetadata{
