@@ -1,6 +1,7 @@
 package autopeering
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,10 +11,20 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-func TestNetworkSplit(t *testing.T) {
-	n, err := f.CreateNetworkWithPartitions("autopeering_TestNetworkSplit", 6, 2, 2, framework.CreateNetworkConfig{StartSynced: true})
+func TestAutopeeringNetworkSplit(t *testing.T) {
+	const (
+		numPeers      = 6
+		numPartitions = 2
+	)
+
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetworkWithPartitions(ctx, t.Name(), numPeers, numPartitions, framework.CreateNetworkConfig{
+		StartSynced: true,
+		Autopeering: true,
+	})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(ctx, t, n)
 
 	// test that nodes only have neighbors from same partition
 	for _, partition := range n.Partitions() {
@@ -22,19 +33,17 @@ func TestNetworkSplit(t *testing.T) {
 			require.NoError(t, err)
 
 			// check that all neighbors are indeed in the same partition
-			for _, n := range resp.Accepted {
-				assert.Contains(t, partition.PeersMap(), n.ID)
-			}
-			for _, n := range resp.Chosen {
-				assert.Contains(t, partition.PeersMap(), n.ID)
+			for _, n := range append(resp.Accepted, resp.Chosen...) {
+				assert.Containsf(t, partition.PeerIDs(), n.ID,
+					"peer '%s' has a neighbor outside it's partition", peer)
 			}
 		}
 	}
 
-	err = n.DeletePartitions()
+	err = n.DeletePartitions(ctx)
 	require.NoError(t, err)
 
 	// let them mingle and check that they all peer with each other
-	err = n.WaitForAutopeering(4)
+	err = n.WaitForAutopeering(ctx)
 	require.NoError(t, err)
 }
