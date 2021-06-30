@@ -105,18 +105,6 @@ func PeerConfig() config.GoShimmer {
 	c.DRNG.Enabled = false
 
 	return c
-	},
-	Prometheus: config.Prometheus{
-		Enabled:           false,
-		BindAddress:       "0.0.0.0:9311",
-		GoMetrics:         false,
-		ProcessMetrics:    true,
-		PromhttpMetrics:   false,
-		WorkerpoolMetrics: false,
-	},
-	Profiling: config.Profiling{
-		Enabled:     false,
-		BindAddress: "0.0.0.0:6061",
 }
 
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.

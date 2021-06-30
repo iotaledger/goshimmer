@@ -17,6 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/pow"
+	"github.com/iotaledger/goshimmer/plugins/profiling"
+	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
@@ -256,6 +258,20 @@ type DRNG struct {
 	drng.ParametersDefinition
 }
 
+// Prometheus defines the parameters of the Prometheus plugin.
+type Prometheus struct {
+	Enabled bool
+
+	prometheus.ParametersDefinition
+}
+
+// Profiling defines the parameters of the Profiling plugin.
+type Profiling struct {
+	Enabled bool
+
+	profiling.ParametersDefinition
+}
+
 // CreateIdentity returns an identity based on the config.
 // If a Seed is specified, it is used to derive the identity. Otherwise a new key pair is generated and Seed set accordingly.
 func (s *GoShimmer) CreateIdentity() (*identity.Identity, error) {
@@ -270,22 +286,4 @@ func (s *GoShimmer) CreateIdentity() (*identity.Identity, error) {
 	}
 	s.Seed = privateKey.Seed().Bytes()
 	return identity.New(publicKey), nil
-}
-
-// Prometheus defines the parameters of the Prometheus plugin.
-type Prometheus struct {
-	Enabled bool
-
-	BindAddress       string
-	GoMetrics         bool
-	ProcessMetrics    bool
-	PromhttpMetrics   bool
-	WorkerpoolMetrics bool
-}
-
-// Profiling defines the parameters of the Profiling plugin.
-type Profiling struct {
-	Enabled bool
-
-	BindAddress string
 }
