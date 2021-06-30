@@ -57,7 +57,7 @@ func Plugin() *node.Plugin {
 }
 
 func configure(plugin *node.Plugin) {
-	if Parameters.DisableEvents {
+	if logger.Parameters.DisableEvents {
 		return
 	}
 
@@ -152,7 +152,7 @@ func getGitDir() string {
 // RemoteLogger represents a connection to our remote log server.
 func RemoteLogger() *RemoteLoggerConn {
 	remoteLoggerOnce.Do(func() {
-		r, err := newRemoteLoggerConn(Parameters.ServerAddress)
+		r, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
 		if err != nil {
 			plugin.LogFatal(err)
 			return
