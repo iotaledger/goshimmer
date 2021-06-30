@@ -53,6 +53,18 @@ func (s GoShimmer) CreateFlags() []string {
 			fmt.Sprintf("--node.disablePlugins=%s", setToString(disabledPlugins)),
 		},
 		flags...)
+
+	// manually add seed to flags if autopeering is disabled
+	var seedProvided bool
+	for _, f := range flags {
+		if strings.Contains(f, "autopeering.seed") {
+			seedProvided = true
+		}
+	}
+	if !seedProvided {
+		flags = append(flags, fmt.Sprintf("--autopeering.seed=base58:%s", base58.Encode(s.Seed)))
+	}
+
 	return flags
 }
 
