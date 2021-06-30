@@ -135,7 +135,7 @@ var StatementParameters = StatementParametersDefinition{}
 // ManaParameters contains the mana configuration used by the messagelayer plugin.
 var ManaParameters = ManaParametersDefinition{}
 
-// RateSeetterParameters contains the rate setter configuration used by the messagelayer plugin.
+// RateSetterParameters contains the rate setter configuration used by the messagelayer plugin.
 var RateSetterParameters = RateSetterParametersDefinition{}
 
 // SchedulerParameters contains the scheduler configuration used by the messagelayer plugin.
