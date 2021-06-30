@@ -63,6 +63,8 @@ func PeerConfig() config.GoShimmer {
 
 	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
 
+	c.Network.Enabled = true
+
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
 

@@ -65,7 +65,15 @@ func pluginCommands(prefix string, val reflect.Value) []string {
 
 		switch field.Type.Kind() {
 		case reflect.Struct:
-			s = append(s, pluginCommands(prefix+lowerCamelCase(field.Name)+".", val.Field(i))...)
+			if strings.Contains(field.Name, "ParametersDefinition") {
+				s = append(s, pluginCommands(prefix, val.Field(i))...)
+			} else {
+				name := lowerCamelCase(field.Name)
+				if value, ok := field.Tag.Lookup("name"); ok {
+					name = value
+				}
+				s = append(s, pluginCommands(prefix+name+".", val.Field(i))...)
+			}
 		default:
 			s = append(s, fmt.Sprintf("%s%s=%s", prefix, lowerCamelCase(field.Name), valueToString(val.Field(i))))
 		}

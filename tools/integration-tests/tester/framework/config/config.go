@@ -31,6 +31,9 @@ type GoShimmer struct {
 	// Seed specifies identity.
 	Seed []byte
 
+	// Network specifies network-level configurations
+	Network
+
 	// individual plugin configurations
 	Database
 	Gossip
@@ -159,6 +162,12 @@ func fillStructFromDefaultTag(s interface{}) {
 	}
 }
 
+type Network struct {
+	Enabled bool
+
+	local.ParametersDefinitionNetwork
+}
+
 // Database defines the parameters of the database plugin.
 type Database struct {
 	Enabled bool
@@ -194,7 +203,6 @@ type Autopeering struct {
 	autopeering.ParametersDefinition
 	discovery.ParametersDefinitionDiscovery
 	local.ParametersDefinitionLocal
-	local.ParametersDefinitionNetwork
 }
 
 // Faucet defines the parameters of the faucet plugin.
