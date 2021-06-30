@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"sync"
-	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -13,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -25,8 +23,7 @@ var (
 	plugin *node.Plugin
 	once   sync.Once
 
-	log                     *logger.Logger
-	tipsBroadcasterInterval time.Duration
+	log *logger.Logger
 
 	requestedMsgs *requestedMessages
 )
@@ -41,7 +38,6 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
 	requestedMsgs = newRequestedMessages()
 
 	configureLogging()
@@ -50,9 +46,6 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
-	}
-	if err := daemon.BackgroundWorker(tipsBroadcasterName, startTipBroadcaster, shutdown.PriorityGossip); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
