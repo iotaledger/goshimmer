@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -54,7 +53,7 @@ func getRandomness(t *testing.T, node *framework.Node) jsonmodels.Randomness {
 	resp, err := node.GetRandomness()
 	require.NoError(t, err)
 
-	id := uint32(drng.Parameters.Custom.InstanceID)
+	id := uint32(node.Config().DRNG.Custom.InstanceID)
 	for i := range resp.Randomness {
 		if resp.Randomness[i].InstanceID == id {
 			return resp.Randomness[i]
