@@ -52,8 +52,10 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Ansible deploy
+        env:
+          DEVELOPMENT_GOSHIMMER_SEEDS: '${{ secrets.DEVELOPMENT_GOSHIMMER_SEEDS }}'
         uses: run |
-          eval ${{ secrets.DEVELOPMENT_GOSHIMMER_SEEDS }}
+          eval $DEVELOPMENT_GOSHIMMER_SEEDS
           ansible-playbook  -u root -i deploy/ansible/hosts.yml --extra-vars \
           "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
           BOOTSTRAP_01_SEED=$BOOTSTRAP_01_SEED
