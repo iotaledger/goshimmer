@@ -189,7 +189,7 @@ func (m *Manager) getNeighborsByIDOrRandom(ids ...identity.ID) []*Neighbor {
 	if len(ids) > 0 {
 		return m.getNeighborsByID(ids)
 	}
-	const randomNeighborsNum = 3
+	const randomNeighborsNum = 4
 	return m.getRandomNeighbors(randomNeighborsNum)
 }
 
@@ -209,6 +209,10 @@ func (m *Manager) getRandomNeighbors(amount int) []*Neighbor {
 
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
+	if len(ids) == 0 {
+		return result
+	}
+
 	m.neighborsMutex.RLock()
 	defer m.neighborsMutex.RUnlock()
 	for _, id := range ids {
@@ -220,7 +224,10 @@ func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 }
 
 func (m *Manager) send(b []byte, to ...identity.ID) {
-	neighbors := m.getNeighborsByIDOrRandom(to...)
+	neighbors := m.getNeighborsByID(to)
+	if len(neighbors) == 0 {
+		neighbors = m.AllNeighbors()
+	}
 
 	for _, nbr := range neighbors {
 		if _, err := nbr.Write(b); err != nil {

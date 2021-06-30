@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -24,8 +25,6 @@ var (
 	once   sync.Once
 
 	log *logger.Logger
-
-	requestedMsgs *requestedMessages
 )
 
 // Plugin gets the plugin instance.
@@ -38,7 +37,6 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	requestedMsgs = newRequestedMessages()
 
 	configureLogging()
 	configureMessageLayer()
@@ -78,13 +76,12 @@ func configureMessageLayer() {
 	// configure flow of outgoing messages (gossip after booking)
 	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-				// do not gossip requested messages
-				if requested := requestedMsgs.delete(messageID); requested {
-					return
-				}
-				mgr.SendMessage(message.Bytes())
-			})
+			// avoid gossiping old messages
+			if clock.Since(message.IssuingTime()) > oldMessageThreshold {
+				return
+			}
+
+			mgr.SendMessage(message.Bytes())
 		})
 	}))
 
@@ -92,9 +89,4 @@ func configureMessageLayer() {
 	messagelayer.Tangle().Requester.Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
 		mgr.RequestMessage(sendRequest.ID[:])
 	}))
-
-	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(requestedMsgs.append))
-
-	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
-	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) { requestedMsgs.delete(messageID) }))
 }
