@@ -1,11 +1,7 @@
 package framework
 
 import (
-	"fmt"
 	"time"
-
-	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
@@ -61,102 +57,90 @@ type CreateNetworkConfig struct {
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.
 var PeerConfig = config.GoShimmer{
-	DisabledPlugins: []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"},
-	Database: config.Database{
-		Enabled:        true,
-		ForceCacheTime: 0, // disable caching for tests
-	},
-	Gossip: config.Gossip{
-		Enabled: true,
-		//Port:    gossipPort,
-		//TipsBroadcaster: struct{ Enable bool }{
-		//	Enable: false, // disable tip broadcasting in tests
-		//},
-		ParametersType: gossip.ParametersType{
-			Port: gossipPort,
-			TipsBroadcaster: struct {
-				Enable   bool          `default:"true" usage:"enable/disable tip re-broadcasting"`
-				Interval time.Duration `default:"10s" usage:"the interval in which the oldest known tip is re-broadcast"`
-			}{
-				Enable: false,
-			},
-		},
-	},
-	POW: config.POW{
-		Enabled:    true,
-		Difficulty: 2,
-	},
-	Webapi: config.Webapi{
-		Enabled:     true,
-		BindAddress: fmt.Sprintf(":%d", apiPort),
-	},
-	Autopeering: config.Autopeering{
-		Enabled: false,
-		Port:    peeringPort,
-	},
-	MessageLayer: config.MessageLayer{
-		Enabled: true,
-		FCOB: struct{ QuarantineTime int }{
-			QuarantineTime: 2,
-		},
-		Snapshot: struct {
-			File        string
-			GenesisNode string
-		}{
-			File:        fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed)),
-			GenesisNode: "", // use the default
-		},
-		TangleTimeWindow: 2 * time.Minute,
-		StartSynced:      false,
-	},
-	Faucet: config.Faucet{
-		Enabled:              false,
-		Seed:                 base58.Encode(GenesisSeed),
-		TokensPerRequest:     1000000,
-		PowDifficulty:        3,
-		PreparedOutputsCount: 10,
-	},
-	Mana: config.Mana{
-		Enabled:                       true,
-		AllowedAccessFilterEnabled:    false,
-		AllowedConsensusFilterEnabled: false,
-	},
-	Consensus: config.Consensus{
-		Enabled: false,
-	},
-	FPC: config.FPC{
-		Enabled:                 false,
-		BindAddress:             fmt.Sprintf(":%d", fpcPort),
-		RoundInterval:           5,
-		TotalRoundsFinalization: 10,
-	},
-	Activity: config.Activity{
-		Enabled:              false,
-		BroadcastIntervalSec: 1, // increase frequency to speedup tests
-	},
-	DRNG: config.DRNG{
-		Enabled: false,
-	},
+	//DisabledPlugins: []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"},
+	//Database: config.Database{
+	//	Enabled:        true,
+	//	ForceCacheTime: 0, // disable caching for tests
+	//},
+	//Gossip: config.Gossip{
+	//	Enabled: true,
+	//	Port:    gossipPort,
+	//},
+	//POW: config.POW{
+	//	Enabled:    true,
+	//	Difficulty: 2,
+	//},
+	//Webapi: config.Webapi{
+	//	Enabled:     true,
+	//	BindAddress: fmt.Sprintf(":%d", apiPort),
+	//},
+	//Autopeering: config.Autopeering{
+	//	Enabled: false,
+	//	Port:    peeringPort,
+	//},
+	//MessageLayer: config.MessageLayer{
+	//	Enabled: true,
+	//	FCOB: struct{ QuarantineTime int }{
+	//		QuarantineTime: 2,
+	//	},
+	//	Snapshot: struct {
+	//		File        string
+	//		GenesisNode string
+	//	}{
+	//		File:        fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed)),
+	//		GenesisNode: "", // use the default
+	//	},
+	//	TangleTimeWindow: 2 * time.Minute,
+	//	StartSynced:      false,
+	//},
+	//Faucet: config.Faucet{
+	//	Enabled:              false,
+	//	Seed:                 base58.Encode(GenesisSeed),
+	//	TokensPerRequest:     1000000,
+	//	PowDifficulty:        3,
+	//	PreparedOutputsCount: 10,
+	//},
+	//Mana: config.Mana{
+	//	Enabled:                       true,
+	//	AllowedAccessFilterEnabled:    false,
+	//	AllowedConsensusFilterEnabled: false,
+	//},
+	//Consensus: config.Consensus{
+	//	Enabled: false,
+	//},
+	//FPC: config.FPC{
+	//	Enabled:                 false,
+	//	BindAddress:             fmt.Sprintf(":%d", fpcPort),
+	//	RoundInterval:           5,
+	//	TotalRoundsFinalization: 10,
+	//},
+	//Activity: config.Activity{
+	//	Enabled:              false,
+	//	BroadcastIntervalSec: 1, // increase frequency to speedup tests
+	//},
+	//DRNG: config.DRNG{
+	//	Enabled: false,
+	//},
 }
 
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.
 var EntryNodeConfig = config.GoShimmer{
-	DisabledPlugins: append(PeerConfig.DisabledPlugins,
-		"issuer", "metrics", "valuetransfers", "consensus"),
-	Database: PeerConfig.Database,
-	Gossip:   config.Gossip{Enabled: false},
-	POW:      PeerConfig.POW,
-	Webapi:   PeerConfig.Webapi,
-	Autopeering: config.Autopeering{
-		Enabled:    true,
-		Port:       peeringPort,
-		EntryNodes: nil,
-	},
-	MessageLayer: config.MessageLayer{Enabled: false},
-	Faucet:       config.Faucet{Enabled: false},
-	Mana:         config.Mana{Enabled: false},
-	Consensus:    config.Consensus{Enabled: false},
-	FPC:          config.FPC{Enabled: false},
-	Activity:     config.Activity{Enabled: false},
-	DRNG:         config.DRNG{Enabled: false},
+	//DisabledPlugins: append(PeerConfig.DisabledPlugins,
+	//	"issuer", "metrics", "valuetransfers", "consensus"),
+	//Database: PeerConfig.Database,
+	//Gossip:   config.Gossip{Enabled: false},
+	//POW:      PeerConfig.POW,
+	//Webapi:   PeerConfig.Webapi,
+	//Autopeering: config.Autopeering{
+	//	Enabled:    true,
+	//	Port:       peeringPort,
+	//	EntryNodes: nil,
+	//},
+	//MessageLayer: config.MessageLayer{Enabled: false},
+	//Faucet:       config.Faucet{Enabled: false},
+	//Mana:         config.Mana{Enabled: false},
+	//Consensus:    config.Consensus{Enabled: false},
+	//FPC:          config.FPC{Enabled: false},
+	//Activity:     config.Activity{Enabled: false},
+	//DRNG:         config.DRNG{Enabled: false},
 }
