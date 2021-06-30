@@ -4,15 +4,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/markers"
-
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/timeutil"
 )
 
 const (
@@ -32,7 +32,11 @@ type TimeManager struct {
 
 	lastConfirmedMutex   sync.RWMutex
 	lastConfirmedMessage LastConfirmedMessage
+	lastSyncedMutex      sync.RWMutex
 	lastSynced           bool
+
+	shutdownSignal chan struct{}
+	shutdownOnce   sync.Once
 }
 
 // NewTimeManager is the constructor for TimeManager.
@@ -41,8 +45,9 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 		Events: &TimeManagerEvents{
 			SyncChanged: events.NewEvent(SyncChangedCaller),
 		},
-		tangle:      tangle,
-		startSynced: tangle.Options.StartSynced,
+		tangle:         tangle,
+		startSynced:    tangle.Options.StartSynced,
+		shutdownSignal: make(chan struct{}),
 	}
 
 	// initialize with Genesis
@@ -68,6 +73,11 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	return t
 }
 
+// Start starts the TimeManager.
+func (t *TimeManager) Start() {
+	go t.mainLoop()
+}
+
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TimeManager) Setup() {
 	t.tangle.ApprovalWeightManager.Events.MarkerConfirmation.Attach(events.NewClosure(t.updateTime))
@@ -82,6 +92,10 @@ func (t *TimeManager) Shutdown() {
 		t.tangle.Events.Error.Trigger(errors.Errorf("failed to persists LastConfirmedMessage (%v): %w", err, cerrors.ErrFatal))
 		return
 	}
+
+	t.shutdownOnce.Do(func() {
+		close(t.shutdownSignal)
+	})
 }
 
 // LastConfirmedMessage returns the last confirmed message.
@@ -103,9 +117,8 @@ func (t *TimeManager) Time() time.Time {
 // Synced returns whether the node is in sync based on the difference between TangleTime and current wall time which can
 // be configured via SyncTimeWindow.
 func (t *TimeManager) Synced() bool {
-	t.lastConfirmedMutex.RLock()
-	defer t.lastConfirmedMutex.RUnlock()
-
+	t.lastSyncedMutex.RLock()
+	defer t.lastSyncedMutex.RUnlock()
 	return t.lastSynced
 }
 
@@ -117,31 +130,52 @@ func (t *TimeManager) synced() bool {
 	return clock.Since(t.lastConfirmedMessage.Time) < t.tangle.Options.SyncTimeWindow
 }
 
+// checks whether the synced state needs to be updated and if so,
+// triggers a corresponding event reflecting the new state.
+func (t *TimeManager) updateSyncedState() {
+	t.lastSyncedMutex.Lock()
+	defer t.lastSyncedMutex.Unlock()
+	if newSynced := t.synced(); t.lastSynced != newSynced {
+		t.lastSynced = newSynced
+		// trigger the event inside the lock to assure that the status is still correct
+		t.Events.SyncChanged.Trigger(&SyncChangedEvent{Synced: newSynced})
+	}
+}
+
 // updateTime updates the last confirmed message.
 func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
 	if transition != events.ThresholdLevelIncreased {
 		return
 	}
-	// get message ID of marker
+
 	messageID := t.tangle.Booker.MarkersManager.MessageID(&marker)
 
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		t.lastConfirmedMutex.Lock()
 		defer t.lastConfirmedMutex.Unlock()
 
-		if t.lastConfirmedMessage.Time.Before(message.IssuingTime()) {
-			t.lastConfirmedMessage = LastConfirmedMessage{
-				MessageID: messageID,
-				Time:      message.IssuingTime(),
-			}
-
-			if newSynced := t.synced(); t.lastSynced != newSynced {
-				t.lastSynced = newSynced
-				// trigger the event inside the lock to assure that the status is still correct
-				t.Events.SyncChanged.Trigger(&SyncChangedEvent{Synced: newSynced})
-			}
+		if t.lastConfirmedMessage.Time.After(message.IssuingTime()) {
+			return
 		}
+
+		t.lastConfirmedMessage = LastConfirmedMessage{
+			MessageID: messageID,
+			Time:      message.IssuingTime(),
+		}
+
+		t.updateSyncedState()
 	})
+}
+
+// the main loop runs the updateSyncedState at least every synced time window interval to keep the synced state updated
+// even if no updateTime is ever called.
+func (t *TimeManager) mainLoop() {
+	timeutil.NewTicker(t.updateSyncedState, func() time.Duration {
+		if t.tangle.Options.SyncTimeWindow == 0 {
+			return DefaultSyncTimeWindow
+		}
+		return t.tangle.Options.SyncTimeWindow
+	}(), t.shutdownSignal).WaitForShutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
