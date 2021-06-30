@@ -54,7 +54,7 @@ jobs:
       - name: Ansible deploy
         env:
           DEVELOPMENT_GOSHIMMER_SEEDS: '${{ secrets.DEVELOPMENT_GOSHIMMER_SEEDS }}'
-        uses: run |
+        run: |
           eval $DEVELOPMENT_GOSHIMMER_SEEDS
           ansible-playbook  -u root -i deploy/ansible/hosts.yml --extra-vars \
           "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
