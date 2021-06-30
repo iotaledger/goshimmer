@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
 )
 
 const (
@@ -57,7 +58,7 @@ func Plugin() *node.Plugin {
 }
 
 func configure(plugin *node.Plugin) {
-	if logger.Parameters.DisableEvents {
+	if logger_plugin.Parameters.DisableEvents {
 		return
 	}
 

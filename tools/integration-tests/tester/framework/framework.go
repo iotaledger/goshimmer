@@ -13,8 +13,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 var (
@@ -199,16 +197,13 @@ func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, numMembe
 		}
 	}
 
-	conf := PeerConfig
-	conf.DRNG = config.DRNG{
-		Enabled: true,
-		Custom: struct {
-			InstanceId        int
-			Threshold         int
-			DistributedPubKey string
-			CommitteeMembers  []string
-		}{111, 3, hex.EncodeToString(drng.distKey), drngCommittee},
-	}
+	conf := PeerConfig()
+	conf.DRNG.Enabled = true
+	conf.DRNG.Custom.InstanceID = 111
+	conf.DRNG.Custom.Threshold = 3
+	conf.DRNG.Custom.DistributedPubKey = hex.EncodeToString(drng.distKey)
+	conf.DRNG.Custom.CommitteeMembers = drngCommittee
+
 	conf.MessageLayer.StartSynced = true
 
 	// create numPeers/GoShimmer nodes

@@ -1,11 +1,23 @@
 package config
 
 import (
+	"encoding/csv"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/activity"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/drng"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/pow"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -34,12 +46,10 @@ type GoShimmer struct {
 	DRNG
 }
 
-func NewGoShimmer() (config *GoShimmer) {
-	config = &GoShimmer{}
-	fillStructFromDefaultTag(config)
-
-	fmt.Println("Gossip config:", config.Gossip.TipsBroadcaster.Enable, config.Gossip.TipsBroadcaster.Interval)
-
+// NewGoShimmer creates a GoShimmer config initialized with default values.
+func NewGoShimmer() (config GoShimmer) {
+	config = GoShimmer{}
+	fillStructFromDefaultTag(&config)
 	return
 }
 
@@ -78,6 +88,71 @@ func fillStructFromDefaultTag(s interface{}) {
 				panic(err)
 			}
 			valueField.Set(reflect.ValueOf(defaultValue))
+		case int8:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case int16:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case int32:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case int64:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case uint:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case uint8:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case uint16:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case uint32:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case uint64:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case string:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case float32:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case float64:
+			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
+		case []string:
+			if defaultValue, err = csv.NewReader(strings.NewReader(tagDefaultValue)).Read(); err != nil {
+				panic(err)
+			}
+			valueField.Set(reflect.ValueOf(defaultValue))
 		default:
 			panic(fmt.Sprintf("type `%s` not implemented", reflect.TypeOf(defaultValue)))
 		}
@@ -88,72 +163,59 @@ func fillStructFromDefaultTag(s interface{}) {
 type Database struct {
 	Enabled bool
 
-	ForceCacheTime time.Duration
+	database.ParametersDefinition
 }
 
 // Gossip defines the parameters of the gossip plugin.
 type Gossip struct {
 	Enabled bool
 
-	gossip.ParametersType
+	gossip.ParametersDefinition
 }
 
 // POW defines the parameters of the PoW plugin.
 type POW struct {
 	Enabled bool
 
-	Difficulty int
+	pow.ParametersDefinition
 }
 
 // Webapi defines the parameters of the Web API plugin.
 type Webapi struct {
 	Enabled bool
 
-	BindAddress string
+	webapi.ParametersDefinition
 }
 
 // Autopeering defines the parameters of the autopeering plugin.
 type Autopeering struct {
 	Enabled bool
 
-	Port       int
-	EntryNodes []string
+	autopeering.ParametersDefinition
+	discovery.ParametersDefinitionDiscovery
+	local.ParametersDefinitionLocal
+	local.ParametersDefinitionNetwork
 }
 
 // Faucet defines the parameters of the faucet plugin.
 type Faucet struct {
 	Enabled bool
 
-	Seed                 string
-	TokensPerRequest     int
-	PowDifficulty        int
-	PreparedOutputsCount int
+	faucet.ParametersDefinition
 }
 
 // Mana defines the parameters of the Mana plugin.
 type Mana struct {
 	Enabled bool
 
-	AllowedAccessPledge           []string
-	AllowedAccessFilterEnabled    bool
-	AllowedConsensusPledge        []string
-	AllowedConsensusFilterEnabled bool
+	messagelayer.ManaParametersDefinition
 }
 
 // MessageLayer defines the parameters used by the message layer.
 type MessageLayer struct {
 	Enabled bool
 
-	Snapshot struct {
-		File        string
-		GenesisNode string
-	}
-	FCOB struct {
-		QuarantineTime int
-	}
-
-	TangleTimeWindow time.Duration
-	StartSynced      bool
+	messagelayer.ParametersDefinition
 }
 
 // Consensus defines the parameters of the consensus plugin.
@@ -165,28 +227,21 @@ type Consensus struct {
 type FPC struct {
 	Enabled bool
 
-	BindAddress             string
-	RoundInterval           int
-	TotalRoundsFinalization int
+	messagelayer.FPCParametersDefinition
 }
 
 // Activity defines the parameters of the activity plugin.
 type Activity struct {
 	Enabled bool
 
-	BroadcastIntervalSec int
+	activity.ParametersDefinition
 }
 
 // DRNG defines the parameters of the DRNG plugin.
 type DRNG struct {
 	Enabled bool
 
-	Custom struct {
-		InstanceId        int
-		Threshold         int
-		DistributedPubKey string
-		CommitteeMembers  []string
-	}
+	drng.ParametersDefinition
 }
 
 // CreateIdentity returns an identity based on the config.
