@@ -28,8 +28,8 @@ func TestLowerCamelCase(t *testing.T) {
 }
 
 func TestCreateFlags(t *testing.T) {
-	config := GoShimmer{
-		POW: POW{true, 10},
-	}
+	var config GoShimmer
+	config.POW.Enabled = true
+	config.POW.Difficulty = 10
 	assert.Contains(t, config.CreateFlags(), "--pow.difficulty=10")
 }
