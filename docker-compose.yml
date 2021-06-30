@@ -2,12 +2,11 @@ version: '3.3'
 
 networks:
   outside:
-    external:
-      name: shimmer
+    name: shimmer
 
 services:
   goshimmer:
-    image: iotaledger/goshimmer:latest
+    image: goshimmer:params
     container_name: goshimmer
     hostname: goshimmer
     stop_grace_period: 2m
