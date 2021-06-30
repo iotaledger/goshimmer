@@ -1,8 +1,8 @@
 package prometheus
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
