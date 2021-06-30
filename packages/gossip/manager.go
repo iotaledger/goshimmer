@@ -189,7 +189,7 @@ func (m *Manager) getNeighborsByIDOrRandom(ids ...identity.ID) []*Neighbor {
 	if len(ids) > 0 {
 		return m.getNeighborsByID(ids)
 	}
-	const randomNeighborsNum = 4
+	const randomNeighborsNum = 3
 	return m.getRandomNeighbors(randomNeighborsNum)
 }
 
