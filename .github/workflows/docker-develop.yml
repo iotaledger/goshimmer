@@ -52,15 +52,16 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2.3.0
-        with:
-          key: ${{ secrets.DEVELOPMENT_SSH_PRIVATE_KEY }}
-          known_hosts: ''
-          config: '
-          Host *
-            StrictHostKeyChecking no
-            UserKnownHostsFile=/dev/null
-          '
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEVELOPMENT_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          echo '
+               Host *
+                 StrictHostKeyChecking no
+                 UserKnownHostsFile=/dev/null
+               ' > ~/.ssh/config
 
       - name: Ansible deploy
         env:
