@@ -12,7 +12,7 @@ const (
 	DefaultRetryInterval = 10 * time.Second
 
 	// the maximum amount of requests before we abort
-	maxRequestThreshold = 50
+	maxRequestThreshold = 500
 )
 
 // RequesterOptions holds options for a message requester.

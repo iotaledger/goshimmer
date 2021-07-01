@@ -1,13 +1,12 @@
 package gossip
 
 import (
-	"bytes"
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/emirpasic/gods/sets/treeset"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
@@ -18,6 +17,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+)
+
+const (
+	oldMessageThreshold = 30 * time.Minute
 )
 
 // ErrMessageNotFound is returned when a message could not be found in the Tangle.
@@ -93,38 +96,4 @@ func loadMessage(msgID tangle.MessageID) ([]byte, error) {
 	}
 	msg := cachedMessage.Unwrap()
 	return msg.Bytes(), nil
-}
-
-// requestedMessages represents a list of requested messages that will not be gossiped.
-type requestedMessages struct {
-	sync.Mutex
-
-	msgs *treeset.Set
-}
-
-func newRequestedMessages() *requestedMessages {
-	return &requestedMessages{
-		msgs: treeset.NewWith(func(a, b interface{}) int {
-			aMsgID, bMsgID := a.(tangle.MessageID), b.(tangle.MessageID)
-			return bytes.Compare(aMsgID.Bytes(), bMsgID.Bytes())
-		}),
-	}
-}
-
-func (r *requestedMessages) append(msgID tangle.MessageID) {
-	r.Lock()
-	defer r.Unlock()
-	r.msgs.Add(msgID)
-}
-
-func (r *requestedMessages) delete(msgID tangle.MessageID) (deleted bool) {
-	r.Lock()
-	defer r.Unlock()
-
-	if exists := r.msgs.Contains(msgID); exists {
-		r.msgs.Remove(msgID)
-		return true
-	}
-
-	return false
 }

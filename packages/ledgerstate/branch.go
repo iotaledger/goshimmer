@@ -341,29 +341,29 @@ type Branch interface {
 	// Liked returns true if the branch is "liked within it's scope" (ignoring monotonicity).
 	Liked() bool
 
-	// SetLiked sets the liked property to the given value. It returns true if the value has been updated.
-	SetLiked(liked bool) (modified bool)
+	// setLiked sets the liked property to the given value. It returns true if the value has been updated.
+	setLiked(liked bool) (modified bool)
 
 	// MonotonicallyLiked returns true if the branch is monotonically liked (all parents are also liked).
 	MonotonicallyLiked() bool
 
-	// SetMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has
+	// setMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has
 	// been updated.
-	SetMonotonicallyLiked(monotonicallyLiked bool) (modified bool)
+	setMonotonicallyLiked(monotonicallyLiked bool) (modified bool)
 
 	// Finalized returns true if the decision whether it is liked has been finalized.
 	Finalized() bool
 
-	// SetFinalized sets the finalized property to the given value. It returns true if the value has been updated.
-	SetFinalized(finalized bool) (modified bool)
+	// setFinalized sets the finalized property to the given value. It returns true if the value has been updated.
+	setFinalized(finalized bool) (modified bool)
 
 	// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
 	// ledger state.
 	InclusionState() InclusionState
 
-	// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+	// setInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
 	// ledger state. It returns true if the value has been updated.
-	SetInclusionState(inclusionState InclusionState) (modified bool)
+	setInclusionState(inclusionState InclusionState) (modified bool)
 
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
@@ -665,8 +665,8 @@ func (c *ConflictBranch) Liked() bool {
 	return c.liked
 }
 
-// SetLiked sets the liked property to the given value. It returns true if the value has been updated.
-func (c *ConflictBranch) SetLiked(liked bool) (modified bool) {
+// setLiked sets the liked property to the given value. It returns true if the value has been updated.
+func (c *ConflictBranch) setLiked(liked bool) (modified bool) {
 	c.likedMutex.Lock()
 	defer c.likedMutex.Unlock()
 
@@ -689,9 +689,9 @@ func (c *ConflictBranch) MonotonicallyLiked() bool {
 	return c.monotonicallyLiked
 }
 
-// SetMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has been
+// setMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has been
 // updated.
-func (c *ConflictBranch) SetMonotonicallyLiked(monotonicallyLiked bool) (modified bool) {
+func (c *ConflictBranch) setMonotonicallyLiked(monotonicallyLiked bool) (modified bool) {
 	c.monotonicallyLikedMutex.Lock()
 	defer c.monotonicallyLikedMutex.Unlock()
 
@@ -714,8 +714,8 @@ func (c *ConflictBranch) Finalized() bool {
 	return c.finalized
 }
 
-// SetFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
-func (c *ConflictBranch) SetFinalized(finalized bool) (modified bool) {
+// setFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
+func (c *ConflictBranch) setFinalized(finalized bool) (modified bool) {
 	c.finalizedMutex.Lock()
 	defer c.finalizedMutex.Unlock()
 
@@ -739,9 +739,9 @@ func (c *ConflictBranch) InclusionState() (inclusionState InclusionState) {
 	return c.inclusionState
 }
 
-// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+// setInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
 // ledger state. It returns true if the value has been updated.
-func (c *ConflictBranch) SetInclusionState(inclusionState InclusionState) (modified bool) {
+func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modified bool) {
 	c.inclusionStateMutex.Lock()
 	defer c.inclusionStateMutex.Unlock()
 
@@ -925,8 +925,8 @@ func (a *AggregatedBranch) Liked() bool {
 	return a.liked
 }
 
-// SetLiked sets the liked property to the given value. It returns true if the value has been updated.
-func (a *AggregatedBranch) SetLiked(liked bool) (modified bool) {
+// setLiked sets the liked property to the given value. It returns true if the value has been updated.
+func (a *AggregatedBranch) setLiked(liked bool) (modified bool) {
 	a.likedMutex.Lock()
 	defer a.likedMutex.Unlock()
 
@@ -949,9 +949,9 @@ func (a *AggregatedBranch) MonotonicallyLiked() bool {
 	return a.monotonicallyLiked
 }
 
-// SetMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has been
+// setMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has been
 // updated.
-func (a *AggregatedBranch) SetMonotonicallyLiked(monotonicallyLiked bool) (modified bool) {
+func (a *AggregatedBranch) setMonotonicallyLiked(monotonicallyLiked bool) (modified bool) {
 	a.monotonicallyLikedMutex.Lock()
 	defer a.monotonicallyLikedMutex.Unlock()
 
@@ -974,8 +974,8 @@ func (a *AggregatedBranch) Finalized() bool {
 	return a.finalized
 }
 
-// SetFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
-func (a *AggregatedBranch) SetFinalized(finalized bool) (modified bool) {
+// setFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
+func (a *AggregatedBranch) setFinalized(finalized bool) (modified bool) {
 	a.finalizedMutex.Lock()
 	defer a.finalizedMutex.Unlock()
 
@@ -999,9 +999,9 @@ func (a *AggregatedBranch) InclusionState() (inclusionState InclusionState) {
 	return a.inclusionState
 }
 
-// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+// setInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
 // ledger state. It returns true if the value has been updated.
-func (a *AggregatedBranch) SetInclusionState(inclusionState InclusionState) (modified bool) {
+func (a *AggregatedBranch) setInclusionState(inclusionState InclusionState) (modified bool) {
 	a.inclusionStateMutex.Lock()
 	defer a.inclusionStateMutex.Unlock()
 
