@@ -55,7 +55,12 @@ jobs:
         uses: shimataro/ssh-key-action@v2.3.0
         with:
           key: ${{ secrets.DEVELOPMENT_SSH_PRIVATE_KEY }}
-#          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          known_hosts: ''
+          config: '
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+          '
 
       - name: Ansible deploy
         env:
