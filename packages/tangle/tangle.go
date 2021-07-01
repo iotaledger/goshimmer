@@ -26,6 +26,8 @@ import (
 const (
 	// DefaultGenesisTime is the default time (Unix in seconds) of the genesis, i.e., the start of the epochs at 2021-03-19 9:00:00 UTC.
 	DefaultGenesisTime int64 = 1616144400
+	// DefaultSyncTimeWindow is the default sync time window.
+	DefaultSyncTimeWindow = 2 * time.Minute
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -140,6 +142,8 @@ func (t *Tangle) Setup() {
 	} else {
 		t.Scheduler.Start()
 	}
+
+	t.TimeManager.Start()
 
 	// pass solid messages to the scheduler
 	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(t.schedule))
