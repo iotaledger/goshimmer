@@ -1,0 +1,111 @@
+package entitylogger
+
+import (
+	"time"
+
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/objectstorage"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+)
+
+// region LoggerFactory ////////////////////////////////////////////////////////////////////////////////////////////////
+
+type LoggerFactory func(entityLogger *EntityLogger, entityID ...marshalutil.SimpleBinaryMarshaler) Logger
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EntityLogger /////////////////////////////////////////////////////////////////////////////////////////////////
+
+type EntityLogger struct {
+	branchLogStorage *objectstorage.ObjectStorage
+	loggerFactories  map[string]LoggerFactory
+}
+
+func New(store kvstore.KVStore) *EntityLogger {
+	return &EntityLogger{}
+}
+
+func (e *EntityLogger) LogEntryID() LogEntryID {
+	return LogEntryID(0)
+}
+
+func (e *EntityLogger) StoreLogEntry(logEntry LogEntry) {
+
+}
+
+func (e *EntityLogger) Logger(entityName string, entityID ...marshalutil.SimpleBinaryMarshaler) Logger {
+	return e.loggerFactories[entityName](e, entityID...)
+}
+
+func (e *EntityLogger) BranchLog(branchID ledgerstate.BranchID) Logger {
+	return &BranchLogger{
+		entityLogger: e,
+		branchID:     branchID,
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region LogEntryID ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+var latestLogEntryID = LogEntryID(0)
+
+type LogEntryID = uint64
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region LogLevel /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type LogLevel uint8
+
+const (
+	Debug LogLevel = iota
+
+	Info
+
+	Warn
+
+	Error
+)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Logger ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Logger interface {
+	LogDebug(args ...interface{})
+
+	LogDebugf(format string, args ...interface{})
+
+	LogInfo(args ...interface{})
+
+	LogInfof(format string, args ...interface{})
+
+	LogWarn(args ...interface{})
+
+	LogWarnf(format string, args ...interface{})
+
+	LogError(args ...interface{})
+
+	LogErrorf(format string, args ...interface{})
+
+	Entries() []LogEntry
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region LogEntry /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type LogEntry interface {
+	EntityID() [32]byte
+	LogLevel() LogLevel
+	LogEntryID() LogEntryID
+	Time() time.Time
+	Message() string
+
+	objectstorage.StorableObject
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
