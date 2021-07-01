@@ -3,7 +3,6 @@ package gossip
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"runtime"
 	"sync"
@@ -183,28 +182,6 @@ func (m *Manager) AllNeighbors() []*Neighbor {
 		result = append(result, n)
 	}
 	return result
-}
-
-func (m *Manager) getNeighborsByIDOrRandom(ids ...identity.ID) []*Neighbor {
-	if len(ids) > 0 {
-		return m.getNeighborsByID(ids)
-	}
-	const randomNeighborsNum = 3
-	return m.getRandomNeighbors(randomNeighborsNum)
-}
-
-func (m *Manager) getRandomNeighbors(amount int) []*Neighbor {
-	allNeighbors := m.AllNeighbors()
-	neighborsNum := len(allNeighbors)
-	if amount > neighborsNum {
-		amount = neighborsNum
-	}
-	randomIndexes := rand.Perm(neighborsNum)
-	sample := make([]*Neighbor, amount)
-	for i := range sample {
-		sample[i] = allNeighbors[randomIndexes[i]]
-	}
-	return sample
 }
 
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
