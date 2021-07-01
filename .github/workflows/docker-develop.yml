@@ -57,6 +57,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh/
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          sudo chmod 600 ~/.ssh/id_ed25519
           echo '
                Host *
                  StrictHostKeyChecking no
