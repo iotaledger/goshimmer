@@ -33,6 +33,8 @@ RUN --mount=target=. \
     -o /go/bin/goshimmer; \
     ./check_static.sh
 
+RUN wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
+
 ############################
 # Image
 ############################
@@ -44,7 +46,7 @@ EXPOSE 14666/tcp
 EXPOSE 14626/udp
 
 # Copy configuration
-COPY snapshot.bin /snapshot.bin
+COPY --from=build /tmp/snapshot.bin /snapshot.bin
 COPY config.default.json /config.json
 
 # Copy the Pre-built binary file from the previous stage
