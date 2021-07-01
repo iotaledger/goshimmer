@@ -8,7 +8,7 @@
 *.dat.bkp
 
 # Snapshots are stored in bin format
-# *.bin
+*.bin
 
 # cli-wallet config
 tools/cli-wallet/config.json
@@ -41,3 +41,4 @@ book
 
 config.json
 .env
+.vscode

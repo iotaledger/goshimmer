@@ -115,8 +115,6 @@ func run(*node.Plugin) {
 func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
-	// start the web socket worker pool
-	wsSendWorkerPool.Start()
 	defer wsSendWorkerPool.Stop()
 
 	// submit the mps to the worker pool when triggered
@@ -236,6 +234,11 @@ type neighbormetric struct {
 	ConnectionOrigin string `json:"connection_origin"`
 	BytesRead        uint64 `json:"bytes_read"`
 	BytesWritten     uint64 `json:"bytes_written"`
+}
+
+type tipsInfo struct {
+	TotalTips int `json:"totaltips"`
+	WeakTips  int `json:"weaktips"`
 }
 
 type componentsmetric struct {

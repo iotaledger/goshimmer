@@ -20,7 +20,7 @@ var (
 	// settings
 	wsSendWorkerCount     = 1
 	wsSendWorkerQueueSize = 250
-	wsSendWorkerPool      *workerpool.WorkerPool
+	wsSendWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 	webSocketWriteTimeout = time.Duration(3) * time.Second
 
 	// clients
@@ -45,13 +45,16 @@ type wsclient struct {
 }
 
 func configureWebSocketWorkerPool() {
-	wsSendWorkerPool = workerpool.New(func(task workerpool.Task) {
+	wsSendWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
 		case uint64:
 			broadcastWsMessage(&wsmsg{MsgTypeMPSMetric, x})
 			broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
 			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
-			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, messagelayer.Tangle().TipManager.StrongTipCount()})
+			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, &tipsInfo{
+				TotalTips: messagelayer.Tangle().TipManager.StrongTipCount() + messagelayer.Tangle().TipManager.WeakTipCount(),
+				WeakTips:  messagelayer.Tangle().TipManager.WeakTipCount(),
+			}})
 		case *componentsmetric:
 			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
 		}
@@ -76,7 +79,6 @@ func runWebSocketStreams() {
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(shutdownSignal <-chan struct{}) {
 		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
 		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
-		wsSendWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
 		metrics.Events.ReceivedMPSUpdated.Detach(updateStatus)

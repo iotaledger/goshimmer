@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
@@ -12,7 +14,7 @@ import (
 )
 
 func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -58,7 +60,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 }
 
 func TestBranchDAG_normalizeBranches(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -354,7 +356,7 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchLiked(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -449,7 +451,7 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchMonotonicallyLiked(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -554,7 +556,7 @@ func TestBranchDAG_SetBranchMonotonicallyLiked(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchFinalized(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -703,7 +705,7 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchLiked2(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -865,7 +867,7 @@ func TestBranchDAG_SetBranchLiked2(t *testing.T) {
 }
 
 func TestBranchDAG_ConflictMembers(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -908,7 +910,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 }
 
 func TestBranchDAG_MergeToMaster(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -1068,6 +1070,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch2, err = result.cachedBranch2.UnwrapConflictBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch2.ID(), "Branch2")
 
 	if result.cachedBranch3, _, err = branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})); err != nil {
 		return
@@ -1075,6 +1078,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch3, err = result.cachedBranch3.UnwrapConflictBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch3.ID(), "Branch3")
 
 	if result.cachedBranch4, _, err = branchDAG.CreateConflictBranch(BranchID{4}, NewBranchIDs(result.branch2.ID()), NewConflictIDs(ConflictID{1})); err != nil {
 		return
@@ -1082,6 +1086,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch4, err = result.cachedBranch4.UnwrapConflictBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch4.ID(), "Branch4")
 
 	if result.cachedBranch5, _, err = branchDAG.CreateConflictBranch(BranchID{5}, NewBranchIDs(result.branch2.ID()), NewConflictIDs(ConflictID{1})); err != nil {
 		return
@@ -1089,6 +1094,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch5, err = result.cachedBranch5.UnwrapConflictBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch5.ID(), "Branch5")
 
 	if result.cachedBranch6, _, err = branchDAG.CreateConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2})); err != nil {
 		return
@@ -1096,6 +1102,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch6, err = result.cachedBranch6.UnwrapConflictBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch6.ID(), "Branch6")
 
 	if result.cachedBranch7, _, err = branchDAG.CreateConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2})); err != nil {
 		return
@@ -1103,6 +1110,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch7, err = result.cachedBranch7.UnwrapConflictBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch7.ID(), "Branch7")
 
 	if result.cachedBranch8, _, err = branchDAG.AggregateBranches(NewBranchIDs(result.branch4.ID(), result.branch6.ID())); err != nil {
 		return
@@ -1110,6 +1118,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch8, err = result.cachedBranch8.UnwrapAggregatedBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch8.ID(), "Branch8 = Branch4 + Branch6")
 
 	if result.cachedBranch9, _, err = branchDAG.AggregateBranches(NewBranchIDs(result.branch5.ID(), result.branch7.ID())); err != nil {
 		return
@@ -1117,6 +1126,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch9, err = result.cachedBranch9.UnwrapAggregatedBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch8.ID(), "Branch9 = Branch5 + Branch7")
 
 	if result.cachedBranch10, _, err = branchDAG.AggregateBranches(NewBranchIDs(result.branch3.ID(), result.branch6.ID())); err != nil {
 		return
@@ -1124,6 +1134,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch10, err = result.cachedBranch10.UnwrapAggregatedBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch10.ID(), "Branch10 = Branch3 + Branch6")
 
 	if result.cachedBranch11, _, err = branchDAG.CreateConflictBranch(BranchID{11}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3})); err != nil {
 		return
@@ -1131,6 +1142,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch11, err = result.cachedBranch11.UnwrapConflictBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch11.ID(), "Branch11")
 
 	if result.cachedBranch12, _, err = branchDAG.CreateConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3})); err != nil {
 		return
@@ -1138,6 +1150,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch12, err = result.cachedBranch12.UnwrapConflictBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch12.ID(), "Branch12")
 
 	if result.cachedBranch13, _, err = branchDAG.AggregateBranches(NewBranchIDs(result.branch6.ID(), result.branch11.ID())); err != nil {
 		return
@@ -1145,6 +1158,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch13, err = result.cachedBranch13.UnwrapAggregatedBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch13.ID(), "Branch13 = Branch6 + Branch11")
 
 	if result.cachedBranch14, _, err = branchDAG.AggregateBranches(NewBranchIDs(result.branch10.ID(), result.branch13.ID())); err != nil {
 		return
@@ -1152,6 +1166,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch14, err = result.cachedBranch14.UnwrapAggregatedBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch14.ID(), "Branch14 = Branch3 + Branch6 + Branch11")
 
 	if result.cachedBranch15, _, err = branchDAG.AggregateBranches(NewBranchIDs(result.branch2.ID(), result.branch7.ID(), result.branch12.ID())); err != nil {
 		return
@@ -1159,6 +1174,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch15, err = result.cachedBranch15.UnwrapAggregatedBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch15.ID(), "Branch15 = Branch2 + Branch7 + Branch12")
 
 	if result.cachedBranch16, _, err = branchDAG.AggregateBranches(NewBranchIDs(result.branch9.ID(), result.branch15.ID())); err != nil {
 		return
@@ -1166,6 +1182,7 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	if result.branch16, err = result.cachedBranch16.UnwrapAggregatedBranch(); err != nil {
 		return
 	}
+	RegisterBranchIDAlias(result.branch16.ID(), "Branch16 = Branch5 + Branch7 + Branch12")
 
 	return
 }

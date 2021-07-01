@@ -34,14 +34,15 @@ type BranchDAG struct {
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
+func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider) (newBranchDAG *BranchDAG) {
+	options := buildObjectStorageOptions(cacheProvider)
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
 		Events:                NewBranchDAGEvents(),
-		branchStorage:         osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, branchStorageOptions...),
-		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, childBranchStorageOptions...),
-		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, conflictStorageOptions...),
-		conflictMemberStorage: osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, conflictMemberStorageOptions...),
+		branchStorage:         osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, options.branchStorageOptions...),
+		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
+		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, options.conflictStorageOptions...),
+		conflictMemberStorage: osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, options.conflictMemberStorageOptions...),
 	}
 	newBranchDAG.init()
 
@@ -438,30 +439,30 @@ func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
 	if stored {
 		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch Branch) {
-			branch.SetLiked(true)
-			branch.SetMonotonicallyLiked(true)
-			branch.SetFinalized(true)
-			branch.SetInclusionState(Confirmed)
+			branch.setLiked(true)
+			branch.setMonotonicallyLiked(true)
+			branch.setFinalized(true)
+			branch.setInclusionState(Confirmed)
 		})
 	}
 
 	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
 	if stored {
 		(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-			branch.SetLiked(false)
-			branch.SetMonotonicallyLiked(false)
-			branch.SetFinalized(true)
-			branch.SetInclusionState(Rejected)
+			branch.setLiked(false)
+			branch.setMonotonicallyLiked(false)
+			branch.setFinalized(true)
+			branch.setInclusionState(Rejected)
 		})
 	}
 
 	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
 	if stored {
 		(&CachedBranch{CachedObject: cachedLazyBookedConflictsBranch}).Consume(func(branch Branch) {
-			branch.SetLiked(false)
-			branch.SetMonotonicallyLiked(false)
-			branch.SetFinalized(true)
-			branch.SetInclusionState(Rejected)
+			branch.setLiked(false)
+			branch.setMonotonicallyLiked(false)
+			branch.setFinalized(true)
+			branch.setInclusionState(Rejected)
 		})
 	}
 }
@@ -620,15 +621,15 @@ func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID B
 
 // aggregateNormalizedBranches is an internal utility function that retrieves the AggregatedBranch that corresponds to
 // the given normalized BranchIDs. It automatically creates the AggregatedBranch if it didn't exist, yet.
-func (b *BranchDAG) aggregateNormalizedBranches(normalizedBranchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
-	if len(normalizedBranchIDs) == 1 {
-		for firstBranchID := range normalizedBranchIDs {
+func (b *BranchDAG) aggregateNormalizedBranches(parentBranchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
+	if len(parentBranchIDs) == 1 {
+		for firstBranchID := range parentBranchIDs {
 			cachedAggregatedBranch = b.Branch(firstBranchID)
 			return
 		}
 	}
 
-	aggregatedBranch := NewAggregatedBranch(normalizedBranchIDs)
+	aggregatedBranch := NewAggregatedBranch(parentBranchIDs)
 	cachedAggregatedBranch = &CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		newBranchCreated = true
 
@@ -639,38 +640,52 @@ func (b *BranchDAG) aggregateNormalizedBranches(normalizedBranchIDs BranchIDs) (
 	})}
 
 	if newBranchCreated {
-		for parentBranchID := range normalizedBranchIDs {
+		liked := true
+		monotonicallyLiked := true
+		finalized := true
+		inclusionState := Confirmed
+
+		for parentBranchID := range parentBranchIDs {
 			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, aggregatedBranch.ID(), AggregatedBranchType)); stored {
 				cachedChildBranch.Release()
 			}
-		}
 
-		for normalizedBranchID := range normalizedBranchIDs {
-			if !b.Branch(normalizedBranchID).Consume(func(normalizedBranch Branch) {
-				if likedErr := b.updateLikedOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Liked()); likedErr != nil {
-					err = errors.Errorf("failed to update liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
-					return
-				}
-				if _, monotonicallyLikedErr := b.updateMonotonicallyLikedStatus(cachedAggregatedBranch.ID(), normalizedBranch.MonotonicallyLiked()); monotonicallyLikedErr != nil {
-					err = errors.Errorf("failed to update monotonically liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), monotonicallyLikedErr)
-					return
-				}
-				if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Finalized()); finalizedErr != nil {
-					err = errors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
-					return
-				}
-				if inclusionStateErr := b.updateInclusionState(aggregatedBranch.ID(), normalizedBranch.InclusionState()); inclusionStateErr != nil {
-					err = errors.Errorf("failed to update inclusion state of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), inclusionStateErr)
-					return
+			if !b.Branch(parentBranchID).Consume(func(normalizedBranch Branch) {
+				liked = liked && normalizedBranch.Liked()
+				monotonicallyLiked = monotonicallyLiked && normalizedBranch.MonotonicallyLiked()
+				finalized = finalized && normalizedBranch.Finalized()
+				switch normalizedBranch.InclusionState() {
+				case Rejected:
+					inclusionState = Rejected
+				case Pending:
+					if inclusionState == Rejected {
+						break
+					}
+
+					inclusionState = Pending
 				}
 			}) {
-				err = errors.Errorf("failed to load parent Branch with %s: %w", normalizedBranchID, cerrors.ErrFatal)
+				err = errors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+				return
 			}
-
-			return
 		}
 
-		err = errors.Errorf("failed to load parent Branch: %w", cerrors.ErrFatal)
+		if likedErr := b.updateLikedOfAggregatedBranch(cachedAggregatedBranch.Retain(), liked); likedErr != nil {
+			err = errors.Errorf("failed to update liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
+			return
+		}
+		if _, monotonicallyLikedErr := b.updateMonotonicallyLikedStatus(cachedAggregatedBranch.ID(), monotonicallyLiked); monotonicallyLikedErr != nil {
+			err = errors.Errorf("failed to update monotonically liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), monotonicallyLikedErr)
+			return
+		}
+		if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), finalized); finalizedErr != nil {
+			err = errors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
+			return
+		}
+		if inclusionStateErr := b.updateInclusionState(aggregatedBranch.ID(), inclusionState); inclusionStateErr != nil {
+			err = errors.Errorf("failed to update inclusion state of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), inclusionStateErr)
+			return
+		}
 	}
 
 	return
@@ -726,36 +741,15 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 	// execute case dependent logic
 	switch liked {
 	case true:
-		// iterate through all Conflicts of the current Branch and set their ConflictMembers to be not liked
-		for conflictID := range conflictBranch.Conflicts() {
-			// iterate through all ConflictMembers and set them to not liked
-			cachedConflictMembers := b.ConflictMembers(conflictID)
-			for _, cachedConflictMember := range cachedConflictMembers {
-				// unwrap the ConflictMember
-				conflictMember := cachedConflictMember.Unwrap()
-				if conflictMember == nil {
-					cachedConflictMembers.Release()
-					err = errors.Errorf("failed to load ConflictMember of %s: %w", conflictID, cerrors.ErrFatal)
-					return
-				}
-
-				// skip the current Branch
-				if conflictMember.BranchID() == conflictBranch.ID() {
-					continue
-				}
-
-				// update the other ConflictMembers to be not liked
-				if _, err = b.setBranchLiked(b.Branch(conflictMember.BranchID()), false); err != nil {
-					cachedConflictMembers.Release()
-					err = errors.Errorf("failed to propagate liked changes to other ConflictMembers: %w", err)
-					return
-				}
+		b.ForEachConflictingBranchID(cachedBranch.ID(), func(conflictingBranchID BranchID) {
+			if _, err = b.setBranchLiked(b.Branch(conflictingBranchID), false); err != nil {
+				err = errors.Errorf("failed to propagate liked changes to other ConflictMembers: %w", err)
+				return
 			}
-			cachedConflictMembers.Release()
-		}
+		})
 
 		// abort if the branch was liked already
-		if modified = conflictBranch.SetLiked(true); !modified {
+		if modified = conflictBranch.setLiked(true); !modified {
 			return
 		}
 
@@ -775,7 +769,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 		}
 	case false:
 		// set the branch to be not liked
-		if modified = conflictBranch.SetLiked(false); modified {
+		if modified = conflictBranch.setLiked(false); modified {
 			// trigger event
 			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(cachedBranch))
 
@@ -862,7 +856,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 		}
 
 		// trigger event if we changed the flag
-		if branch.SetLiked(true) {
+		if branch.setLiked(true) {
 			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(cachedBranch))
 		}
 
@@ -879,7 +873,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 		}
 	case false:
 		// abort if the Branch is already not liked
-		if !branch.SetLiked(false) {
+		if !branch.setLiked(false) {
 			return
 		}
 
@@ -932,7 +926,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 	}
 
 	// abort if the ConflictBranch was marked correctly already
-	if modified = branch.SetFinalized(finalized); !modified {
+	if modified = branch.setFinalized(finalized); !modified {
 		return
 	}
 
@@ -1072,12 +1066,12 @@ func (b *BranchDAG) updateLikedOfAggregatedBranch(currentCachedBranch *CachedBra
 		}
 
 		// trigger event if the value was changed
-		if currentBranch.SetLiked(true) {
+		if currentBranch.setLiked(true) {
 			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	case false:
 		// trigger event if the value was changed
-		if currentBranch.SetLiked(false) {
+		if currentBranch.setLiked(false) {
 			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	}
@@ -1156,12 +1150,12 @@ func (b *BranchDAG) updateFinalizedOfAggregatedBranch(currentCachedBranch *Cache
 		}
 
 		// trigger event if the value was changed
-		if currentBranch.SetFinalized(true) {
+		if currentBranch.setFinalized(true) {
 			b.Events.BranchFinalized.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	case false:
 		// trigger event if the value was changed
-		if currentBranch.SetFinalized(false) {
+		if currentBranch.setFinalized(false) {
 			b.Events.BranchUnfinalized.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	}
@@ -1230,7 +1224,7 @@ ProcessStack:
 			}
 
 			// abort if the Branch is already liked
-			if !currentBranch.SetMonotonicallyLiked(true) {
+			if !currentBranch.setMonotonicallyLiked(true) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1245,7 +1239,7 @@ ProcessStack:
 			b.Events.BranchMonotonicallyLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		case false:
 			// abort if the current Branch is disliked already
-			if !currentBranch.SetMonotonicallyLiked(false) {
+			if !currentBranch.setMonotonicallyLiked(false) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1344,7 +1338,7 @@ ProcessStack:
 			}
 
 			// abort if the Branch is already confirmed
-			if !currentBranch.SetInclusionState(Confirmed) {
+			if !currentBranch.setInclusionState(Confirmed) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1352,8 +1346,14 @@ ProcessStack:
 			// trigger event
 			b.Events.BranchConfirmed.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		case Rejected:
-			// abort if the current Branch is not confirmed already
-			if !currentBranch.SetInclusionState(Rejected) {
+			// abort if the current Branch is liked or not finalized
+			if currentBranch.MonotonicallyLiked() {
+				currentCachedBranch.Release()
+				continue
+			}
+
+			// abort if the current Branch is not rejected already
+			if !currentBranch.setInclusionState(Rejected) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1361,8 +1361,8 @@ ProcessStack:
 			// trigger event
 			b.Events.BranchRejected.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		case Pending:
-			// abort if the current Branch is not confirmed already
-			if !currentBranch.SetInclusionState(Pending) {
+			// abort if the current Branch is not pending already
+			if !currentBranch.setInclusionState(Pending) {
 				currentCachedBranch.Release()
 				continue
 			}

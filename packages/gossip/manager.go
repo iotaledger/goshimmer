@@ -3,7 +3,6 @@ package gossip
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"runtime"
 	"sync"
@@ -45,8 +44,6 @@ type Manager struct {
 	events          Events
 	neighborsEvents map[NeighborsGroup]NeighborsEvents
 
-	wg sync.WaitGroup
-
 	server      *server.TCP
 	serverMutex sync.RWMutex
 
@@ -54,9 +51,9 @@ type Manager struct {
 	neighborsMutex sync.RWMutex
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
-	messageWorkerPool *workerpool.WorkerPool
+	messageWorkerPool *workerpool.NonBlockingQueuedWorkerPool
 
-	messageRequestWorkerPool *workerpool.WorkerPool
+	messageRequestWorkerPool *workerpool.NonBlockingQueuedWorkerPool
 }
 
 // NewManager creates a new Manager.
@@ -76,13 +73,13 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 		server:    nil,
 	}
 
-	m.messageWorkerPool = workerpool.New(func(task workerpool.Task) {
+	m.messageWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		m.processPacketMessage(task.Param(0).([]byte), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
 
-	m.messageRequestWorkerPool = workerpool.New(func(task workerpool.Task) {
+	m.messageRequestWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		m.processMessageRequest(task.Param(0).([]byte), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
@@ -97,9 +94,6 @@ func (m *Manager) Start(srv *server.TCP) {
 	defer m.serverMutex.Unlock()
 
 	m.server = srv
-
-	m.messageWorkerPool.Start()
-	m.messageRequestWorkerPool.Start()
 }
 
 // Stop stops the manager and closes all established connections.
@@ -190,30 +184,12 @@ func (m *Manager) AllNeighbors() []*Neighbor {
 	return result
 }
 
-func (m *Manager) getNeighborsByIDOrRandom(ids ...identity.ID) []*Neighbor {
-	if len(ids) > 0 {
-		return m.getNeighborsByID(ids)
-	}
-	const randomNeighborsNum = 3
-	return m.getRandomNeighbors(randomNeighborsNum)
-}
-
-func (m *Manager) getRandomNeighbors(amount int) []*Neighbor {
-	allNeighbors := m.AllNeighbors()
-	neighborsNum := len(allNeighbors)
-	if amount > neighborsNum {
-		amount = neighborsNum
-	}
-	randomIndexes := rand.Perm(neighborsNum)
-	sample := make([]*Neighbor, amount)
-	for i := range sample {
-		sample[i] = allNeighbors[randomIndexes[i]]
-	}
-	return sample
-}
-
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
+	if len(ids) == 0 {
+		return result
+	}
+
 	m.neighborsMutex.RLock()
 	defer m.neighborsMutex.RUnlock()
 	for _, id := range ids {
@@ -225,7 +201,10 @@ func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 }
 
 func (m *Manager) send(b []byte, to ...identity.ID) {
-	neighbors := m.getNeighborsByIDOrRandom(to...)
+	neighbors := m.getNeighborsByID(to)
+	if len(neighbors) == 0 {
+		neighbors = m.AllNeighbors()
+	}
 
 	for _, nbr := range neighbors {
 		if _, err := nbr.Write(b); err != nil {
@@ -355,6 +334,7 @@ func (m *Manager) processPacketMessage(data []byte, nbr *Neighbor) {
 	packet := new(pb.Message)
 	if err := proto.Unmarshal(data[1:], packet); err != nil {
 		m.log.Debugw("error processing packet", "err", err)
+		return
 	}
 	m.events.MessageReceived.Trigger(&MessageReceivedEvent{Data: packet.GetData(), Peer: nbr.Peer})
 }
@@ -363,16 +343,19 @@ func (m *Manager) processMessageRequest(data []byte, nbr *Neighbor) {
 	packet := new(pb.MessageRequest)
 	if err := proto.Unmarshal(data[1:], packet); err != nil {
 		m.log.Debugw("invalid packet", "err", err)
+		return
 	}
 
 	msgID, _, err := tangle.MessageIDFromBytes(packet.GetId())
 	if err != nil {
 		m.log.Debugw("invalid message id:", "err", err)
+		return
 	}
 
 	msgBytes, err := m.loadMessageFunc(msgID)
 	if err != nil {
 		m.log.Debugw("error loading message", "msg-id", msgID, "err", err)
+		return
 	}
 
 	// send the loaded message directly to the neighbor

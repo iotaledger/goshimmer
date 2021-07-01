@@ -1,6 +1,6 @@
-import {action, computed, observable, ObservableMap} from 'mobx';
+import { action, computed, observable, ObservableMap } from 'mobx';
 import * as dateformat from 'dateformat';
-import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from "app/misc/WS";
+import { connectWebSocket, registerHandler, unregisterHandler, WSMsgType } from "app/misc/WS";
 
 class MPSMetric {
     mps: number;
@@ -33,7 +33,8 @@ class MemoryMetrics {
 }
 
 class TipsMetric {
-    tips: number;
+    totaltips: number;
+    weaktips: number;
     ts: string;
 }
 
@@ -285,9 +286,7 @@ export class NodeStore {
     }
 
     @action
-    updateLastTipsMetric = (tips: number) => {
-        let tipsMetric = new TipsMetric();
-        tipsMetric.tips = tips;
+    updateLastTipsMetric = (tipsMetric: TipsMetric) => {
         tipsMetric.ts = dateformat(Date.now(), "HH:MM:ss");
         this.last_tips_metric = tipsMetric;
         if (this.collected_tips_metrics.length > maxMetricsDataPoints) {
@@ -327,20 +326,24 @@ export class NodeStore {
 
     @computed
     get tipsSeries() {
-        let tips = Object.assign({}, chartSeriesOpts,
-            series("Tips", 'rgba(250, 140, 30,1)', 'rgba(250, 140, 30,0.4)')
+        let totaltips = Object.assign({}, chartSeriesOpts,
+            series("All tips", 'rgba(67, 196, 99,1)', 'rgba(67, 196, 99,0.4)')
+        );
+        let weaktips = Object.assign({}, chartSeriesOpts,
+            series("Weak tips", 'rgba(250, 140, 30,1)', 'rgba(250, 140, 30,0.4)')
         );
 
         let labels = [];
         for (let i = 0; i < this.collected_tips_metrics.length; i++) {
             let metric: TipsMetric = this.collected_tips_metrics[i];
             labels.push(metric.ts);
-            tips.data.push(metric.tips);
+            totaltips.data.push(metric.totaltips);
+            weaktips.data.push(metric.weaktips);
         }
 
         return {
             labels: labels,
-            datasets: [tips],
+            datasets: [totaltips, weaktips],
         };
     }
 

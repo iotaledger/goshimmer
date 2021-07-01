@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -24,6 +26,8 @@ import (
 const (
 	// DefaultGenesisTime is the default time (Unix in seconds) of the genesis, i.e., the start of the epochs at 2021-03-19 9:00:00 UTC.
 	DefaultGenesisTime int64 = 1616144400
+	// DefaultSyncTimeWindow is the default sync time window.
+	DefaultSyncTimeWindow = 2 * time.Minute
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -138,6 +142,8 @@ func (t *Tangle) Setup() {
 	} else {
 		t.Scheduler.Start()
 	}
+
+	t.TimeManager.Start()
 
 	// pass solid messages to the scheduler
 	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(t.schedule))
@@ -292,6 +298,7 @@ type Options struct {
 	WeightProvider               WeightProvider
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
+	CacheTimeProvider            *database.CacheTimeProvider
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -378,6 +385,13 @@ func SyncTimeWindow(syncTimeWindow time.Duration) Option {
 func StartSynced(startSynced bool) Option {
 	return func(options *Options) {
 		options.StartSynced = startSynced
+	}
+}
+
+// CacheTimeProvider is an Option for the Tangle that allows to override hard coded cache time.
+func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
+	return func(options *Options) {
+		options.CacheTimeProvider = cacheTimeProvider
 	}
 }
 

@@ -51,7 +51,7 @@ func NewConsensusMechanism() *ConsensusMechanism {
 // Init initializes the ConsensusMechanism by making the Tangle object available that is using it.
 func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 	f.tangle = tangle
-	f.Storage = NewStorage(tangle.Options.Store)
+	f.Storage = NewStorage(tangle.Options.Store, tangle.Options.CacheTimeProvider)
 }
 
 // Setup sets up the behavior of the ConsensusMechanism by making it attach to the relevant events in the Tangle.
@@ -312,12 +312,6 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 				_, err := f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
 				if err != nil {
 					panic(err)
-				}
-				if !liked {
-					_, err := f.tangle.LedgerState.BranchDAG.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
-					if err != nil {
-						panic(err)
-					}
 				}
 			}
 		})

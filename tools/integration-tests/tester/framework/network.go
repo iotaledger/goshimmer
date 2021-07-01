@@ -4,22 +4,18 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
-	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"golang.org/x/sync/errgroup"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 // Network represents a complete GoShimmer network within Docker.
@@ -28,483 +24,72 @@ type Network struct {
 	id   string
 	name string
 
-	peers  []*Peer
+	docker *client.Client
 	tester *DockerContainer
 
-	entryNode         *DockerContainer
-	entryNodeIdentity *identity.Identity
+	entryNode *Node
+	peers     []*Node
 
 	partitions []*Partition
-
-	dockerClient *client.Client
 }
 
-// newNetwork returns a Network instance, creates its underlying Docker network and adds the tester container to the network.
-func newNetwork(dockerClient *client.Client, name string, tester *DockerContainer) (*Network, error) {
+// NewNetwork returns a Network instance, creates its underlying Docker network and adds the tester container to the network.
+func NewNetwork(ctx context.Context, dockerClient *client.Client, name string, tester *DockerContainer) (*Network, error) {
 	// create Docker network
-	resp, err := dockerClient.NetworkCreate(context.Background(), name, types.NetworkCreate{})
+	resp, err := dockerClient.NetworkCreate(ctx, name, types.NetworkCreate{})
 	if err != nil {
 		return nil, err
 	}
 
 	// the tester container needs to join the Docker network in order to communicate with the peers
-	err = tester.ConnectToNetwork(resp.ID)
+	err = tester.ConnectToNetwork(ctx, resp.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Network{
-		id:           resp.ID,
-		name:         name,
-		tester:       tester,
-		dockerClient: dockerClient,
+		id:     resp.ID,
+		name:   name,
+		tester: tester,
+		docker: dockerClient,
 	}, nil
 }
 
-// createEntryNode creates the network's entry node.
-func (n *Network) createEntryNode() error {
-	// create identity
-	publicKey, privateKey, err := ed25519.GenerateKey()
-	if err != nil {
-		return err
-	}
-
-	n.entryNodeIdentity = identity.New(publicKey)
-	seed := privateKey.Seed().String()
-
-	// create entry node container
-	n.entryNode = NewDockerContainer(n.dockerClient)
-	err = n.entryNode.CreateGoShimmerEntryNode(n.namePrefix(containerNameEntryNode), seed)
-	if err != nil {
-		return err
-	}
-	err = n.entryNode.ConnectToNetwork(n.id)
-	if err != nil {
-		return err
-	}
-	err = n.entryNode.Start()
-	if err != nil {
-		return err
-	}
-
-	return nil
+// Peers returns all available peers in the network.
+func (n *Network) Peers() []*Node {
+	return n.peers
 }
 
-// CreatePeer creates a new peer/GoShimmer node in the network and returns it.
-// Passing bootstrap true enables the bootstrap plugin on the given peer.
-func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
+// CreatePeer creates and returns a new GoShimmer peer.
+// It blocks until this peer has started.
+func (n *Network) CreatePeer(ctx context.Context, conf config.GoShimmer) (*Node, error) {
 	name := n.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
-	config := c
-
-	// create identity
-	var publicKey ed25519.PublicKey
-	var privateKey ed25519.PrivateKey
-	var err error
-	if config.Seed == "" {
-		publicKey, privateKey, err = ed25519.GenerateKey()
-		if err != nil {
-			return nil, err
-		}
-		seed := privateKey.Seed().String()
-		config.Seed = seed
-	} else {
-		bytes, encodeErr := base58.Decode(config.Seed)
-		if encodeErr != nil {
-			return nil, encodeErr
-		}
-		publicKey = ed25519.PrivateKeyFromSeed(bytes).Public()
-	}
-
-	config.Name = name
-	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
-	config.EntryNodePublicKey = n.entryNodePublicKey()
-	config.DisabledPlugins = disabledPluginsPeer
-	config.EnabledPlugins = enabledPluginsPeer
-	config.SnapshotFilePath = snapshotFilePath
-	if config.FPCRoundInterval == 0 {
-		config.FPCRoundInterval = 5
-	}
-	if config.FPCTotalRoundsFinalization == 0 {
-		config.FPCTotalRoundsFinalization = 10
-	}
-
-	// create wallet
-	var nodeSeed *walletseed.Seed
-	if c.Faucet == true {
-		nodeSeed = walletseed.NewSeed(genesisSeed)
-	} else {
-		nodeSeed = walletseed.NewSeed()
-	}
-
-	// create Docker container
-	container := NewDockerContainer(n.dockerClient)
-	err = container.CreateGoShimmerPeer(config)
-	if err != nil {
-		return nil, err
-	}
-	err = container.ConnectToNetwork(n.id)
-	if err != nil {
-		return nil, err
-	}
-	err = container.Start()
+	peer, err := n.createNode(ctx, name, conf)
 	if err != nil {
 		return nil, err
 	}
 
-	peer, err := newPeer(name, identity.New(publicKey), container, nodeSeed, n)
-	if err != nil {
-		return nil, err
-	}
 	n.peers = append(n.peers, peer)
 	return peer, nil
 }
 
-// CreatePeerWithMana creates a new peers/Goshimmer node in the network and returns it.
-// It requests funds from the faucet and pledges mana to itself.
-func (n *Network) CreatePeerWithMana(c GoShimmerConfig) (*Peer, error) {
-	peer, err := n.CreatePeer(c)
-	if err != nil {
-		return nil, err
-	}
-	time.Sleep(15 * time.Second)
-	addr := peer.Seed.Address(uint64(0)).Address()
-	ID := base58.Encode(peer.ID().Bytes())
-	_, err = n.peers[0].SendFaucetRequest(addr.Base58(), ParaPoWFaucetDifficulty, ID, ID)
-	if err != nil {
-		_ = peer.Stop()
-		return nil, fmt.Errorf("error sending faucet request... shutting down: %w", err)
-	}
-	err = n.WaitForMana(peer)
-	if err != nil {
-		return nil, err
-	}
-	return peer, nil
-}
-
-// Shutdown creates logs and removes network and containers.
-// Should always be called when a network is not needed anymore!
-func (n *Network) Shutdown() error {
-	// stop containers
-	err := n.entryNode.Stop()
-	if err != nil {
-		return err
-	}
-	var wg sync.WaitGroup
-
-	wg.Add(len(n.peers))
-	errs := make([]error, len(n.peers))
-	for i := range n.peers {
-		go func(index int) {
-			defer wg.Done()
-			err = n.peers[index].Stop()
-			if err != nil {
-				errs[index] = err
-			}
-		}(i)
-	}
-
-	wg.Wait()
-
-	for _, e := range errs {
-		if e != nil {
-			return e
-		}
-	}
-	// delete all partitions
-	err = n.DeletePartitions()
-	if err != nil {
-		return err
-	}
-
-	// retrieve logs
-	logs, err := n.entryNode.Logs()
-	if err != nil {
-		return err
-	}
-	err = createLogFile(n.namePrefix(containerNameEntryNode), logs)
-	if err != nil {
-		return err
-	}
-	for _, p := range n.peers {
-		logs, err = p.Logs()
-		if err != nil {
-			return err
-		}
-		err = createLogFile(p.name, logs)
-		if err != nil {
-			return err
-		}
-	}
-
-	// save exit status of containers to check at end of shutdown process
-	exitStatus := make(map[string]int, len(n.peers)+1)
-	exitStatus[containerNameEntryNode], err = n.entryNode.ExitStatus()
-	if err != nil {
-		return err
-	}
-	for _, p := range n.peers {
-		exitStatus[p.name], err = p.ExitStatus()
-		if err != nil {
-			return err
-		}
-	}
-
-	// remove containers
-	err = n.entryNode.Remove()
-	if err != nil {
-		return err
-	}
-	for _, p := range n.peers {
-		err = p.Remove()
-		if err != nil {
-			return err
-		}
-	}
-
-	// disconnect tester from network otherwise the network can't be removed
-	err = n.tester.DisconnectFromNetwork(n.id)
-	if err != nil {
-		return err
-	}
-
-	// remove network
-	err = n.dockerClient.NetworkRemove(context.Background(), n.id)
-	if err != nil {
-		return err
-	}
-
-	// check exit codes of containers
-	for name, status := range exitStatus {
-		if status != exitStatusSuccessful {
-			return fmt.Errorf("container %s exited with code %d", name, status)
-		}
-	}
-
-	return nil
-}
-
-func (n *Network) DoManualPeeringAndWait(peers ...*Peer) error {
-	if err := n.DoManualPeering(peers...); err != nil {
-		return errors.WithStack(err)
-	}
-	if err := n.WaitForManualpeering(peers...); err != nil {
-		return errors.WithStack(err)
-	}
-	return nil
-}
-
-func (n *Network) DoManualPeering(peers ...*Peer) error {
-	if len(peers) == 0 {
-		peers = n.peers
-	}
-	for idx, p := range peers {
-		allOtherPeers := make([]*Peer, 0, len(peers)-1)
-		allOtherPeers = append(allOtherPeers, peers[:idx]...)
-		allOtherPeers = append(allOtherPeers, peers[idx+1:]...)
-		peersToAdd := ToKnownPeers(allOtherPeers)
-		if err := p.AddManualPeers(peersToAdd); err != nil {
-			return errors.Wrap(err, "failed to add manual peers via API")
-		}
-	}
-	return nil
-}
-
-// WaitForAutopeering waits until all peers have reached the minimum amount of neighbors.
-// Returns error if this minimum is not reached after peeringMaxTries.
-func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
-	getNeighborsFn := func(p *Peer) (int, error) {
-		resp, err := p.GetAutopeeringNeighbors(false)
-		if err != nil {
-			return 0, errors.Wrap(err, "client failed to return autopeering neighbors")
-		}
-		return len(resp.Chosen) + len(resp.Accepted), nil
-	}
-	err := n.waitForPeering(minimumNeighbors, getNeighborsFn)
-	return errors.WithStack(err)
-}
-
-// WaitForManualpeering waits until all peers have reached together as neighbors.
-func (n *Network) WaitForManualpeering(peers ...*Peer) error {
-	getNeighborsFn := func(p *Peer) (int, error) {
-		peers, err := p.GetManualPeers(manualpeering.WithOnlyConnectedPeers())
-		if err != nil {
-			return 0, errors.Wrap(err, "client failed to return manually connected peers")
-		}
-		return len(peers), nil
-	}
-	if len(peers) == 0 {
-		peers = n.peers
-	}
-	err := n.waitForPeering(len(peers)-1, getNeighborsFn, peers...)
-	return errors.Wrap(err, "failed to wait for manual peering to succeed")
-}
-
-type getNeighborsNumberFunc func(p *Peer) (int, error)
-
-func (n *Network) waitForPeering(minimumNeighbors int, getNeighborsFn getNeighborsNumberFunc, peers ...*Peer) error {
-	log.Printf("Waiting for peering...\n")
-	defer log.Printf("Waiting for peering... done\n")
-
-	if minimumNeighbors == 0 {
-		return nil
-	}
-	if len(peers) == 0 {
-		peers = n.peers
-	}
-
-	for i := peeringMaxTries; i > 0; i-- {
-		for _, p := range peers {
-			if neighborsNumber, err := getNeighborsFn(p); err != nil {
-				log.Printf("request error: %v\n", err)
-			} else {
-				p.SetNeighborsNumber(neighborsNumber)
-			}
-		}
-
-		// verify neighbor requirement
-		min := math.MaxInt64
-		total := 0
-		for _, p := range peers {
-			neighbors := p.TotalNeighbors()
-			if neighbors < min {
-				min = neighbors
-			}
-			total += neighbors
-		}
-		if min >= minimumNeighbors {
-			log.Printf("Neighbors: min=%d avg=%.2f\n", min, float64(total)/float64(len(n.peers)))
-			return nil
-		}
-
-		log.Println("Not done yet. Try again in 5 seconds...")
-		time.Sleep(5 * time.Second)
-	}
-
-	return fmt.Errorf("peering not successful")
-}
-
-// WaitForMana waits until all peers have access mana.
-// Returns error if all peers don't have mana after waitForManaMaxTries
-func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
-	log.Printf("Waiting for nodes to get at least %f access mana...\n", tangle.MinMana)
-	defer log.Printf("Waiting for nodes to get mana... done\n")
-
-	peers := n.peers
-	if len(optionalPeers) > 0 {
-		peers = optionalPeers
-	}
-	m := make(map[*Peer]struct{})
-	for _, peer := range peers {
-		m[peer] = struct{}{}
-	}
-	for i := waitForManaMaxTries; i > 0; i-- {
-		for peer := range m {
-			infoRes, err := peer.Info()
-			if err != nil {
-				log.Printf("err getting info for peer %s: %v", peer.ID(), err)
-				continue
-			}
-			log.Println("node: ", peer.ID().String(), " - mana: ", infoRes.Mana.Access)
-			if infoRes.Mana.Access >= tangle.MinMana {
-				delete(m, peer)
-			}
-		}
-		log.Println("remaining... ", len(m))
-		if len(m) == 0 {
-			return nil
-		}
-		log.Println("Not done yet. Try again in 5 seconds...")
-		time.Sleep(5 * time.Second)
-	}
-	return fmt.Errorf("waiting for mana not successful")
-}
-
-// namePrefix returns the suffix prefixed with the name.
-func (n *Network) namePrefix(suffix string) string {
-	return fmt.Sprintf("%s-%s", n.name, suffix)
-}
-
-// entryNodePublicKey returns the entry node's public key encoded as base58
-func (n *Network) entryNodePublicKey() string {
-	return n.entryNodeIdentity.PublicKey().String()
-}
-
-// Peers returns all available peers in the network.
-func (n *Network) Peers() []*Peer {
-	return n.peers
-}
-
-// RandomPeer returns a random peer out of the list of peers.
-func (n *Network) RandomPeer() *Peer {
-	return n.peers[rand.Intn(len(n.peers))]
-}
-
-// createPumba creates and starts a Pumba Docker container.
-func (n *Network) createPumba(name string, containerName string, targetIPs []string) (*DockerContainer, error) {
-	container := NewDockerContainer(n.dockerClient)
-	err := container.CreatePumba(name, containerName, targetIPs)
-	if err != nil {
-		return nil, err
-	}
-	err = container.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	return container, nil
-}
-
-// createPartition creates a partition with the given peers.
-// It starts a Pumba container for every peer that blocks traffic to all other partitions.
-func (n *Network) createPartition(peers []*Peer) (*Partition, error) {
-	peersMap := make(map[string]*Peer)
-	for _, peer := range peers {
-		peersMap[peer.ID().String()] = peer
-	}
-
-	// block all traffic to all other peers except in the current partition
-	var targetIPs []string
-	for _, peer := range n.peers {
-		if _, ok := peersMap[peer.ID().String()]; ok {
-			continue
-		}
-		targetIPs = append(targetIPs, peer.ip)
-	}
-
-	partitionName := n.namePrefix(fmt.Sprintf("partition_%d-", len(n.partitions)))
-
-	// create pumba container for every peer in the partition
-	pumbas := make([]*DockerContainer, len(peers))
-	for i, p := range peers {
-		name := partitionName + p.name + containerNameSuffixPumba
-		pumba, err := n.createPumba(name, p.name, targetIPs)
-		if err != nil {
-			return nil, err
-		}
-		pumbas[i] = pumba
-		time.Sleep(1 * time.Second)
-	}
-
-	partition := &Partition{
-		name:     partitionName,
-		peers:    peers,
-		peersMap: peersMap,
-		pumbas:   pumbas,
-	}
-	n.partitions = append(n.partitions, partition)
-
-	return partition, nil
-}
-
 // DeletePartitions deletes all partitions of the network.
 // All nodes can communicate with the full network again.
-func (n *Network) DeletePartitions() error {
-	for _, p := range n.partitions {
-		err := p.deletePartition()
-		if err != nil {
-			return err
-		}
+func (n *Network) DeletePartitions(ctx context.Context) error {
+	log.Println("Deleting partitions...")
+	defer log.Println("Deleting partitions... done")
+
+	var eg errgroup.Group
+	for _, partition := range n.partitions {
+		partition := partition // capture range variable
+		eg.Go(func() error {
+			return partition.deletePartition(ctx)
+		})
 	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
 	n.partitions = nil
 	return nil
 }
@@ -515,70 +100,401 @@ func (n *Network) Partitions() []*Partition {
 }
 
 // Split splits the existing network in given partitions.
-func (n *Network) Split(partitions ...[]*Peer) error {
+func (n *Network) Split(ctx context.Context, partitions ...[]*Node) error {
 	for _, peers := range partitions {
-		_, err := n.createPartition(peers)
-		if err != nil {
+		if err := n.createPartition(ctx, peers); err != nil {
 			return err
 		}
 	}
 	// wait until pumba containers are started and block traffic between partitions
-	time.Sleep(5 * time.Second)
+	time.Sleep(graceTimePumba)
 
 	return nil
 }
 
-// Partition represents a network partition.
-// It contains its peers and the corresponding Pumba instances that block all traffic to peers in other partitions.
-type Partition struct {
-	name     string
-	peers    []*Peer
-	peersMap map[string]*Peer
-	pumbas   []*DockerContainer
+// DoManualPeering creates a complete network topology between nodes using manual peering.
+// If the optional list of nodes is not provided all network peers are used.
+// DoManualPeering blocks until all connections are established or the ctx has expired.
+func (n *Network) DoManualPeering(ctx context.Context, nodes ...*Node) error {
+	if len(nodes) == 0 {
+		nodes = n.peers
+	}
+
+	if err := n.addManualPeers(nodes); err != nil {
+		return errors.Wrap(err, "adding manual peers failed")
+	}
+	if err := n.waitForManualPeering(ctx, nodes); err != nil {
+		return errors.Wrap(err, "manual peering failed")
+	}
+	return nil
 }
 
-// Peers returns the partition's peers.
-func (p *Partition) Peers() []*Peer {
-	return p.peers
+// WaitForAutopeering blocks until a fully connected network of neighbors has been found.
+func (n *Network) WaitForAutopeering(ctx context.Context) error {
+	condition := func() (bool, error) {
+		// connection graph of all the nodes
+		connections := make(map[string]map[string]struct{}, len(n.peers))
+		// query all nodes and add their neighbors to the connection graph
+		for _, peer := range n.peers {
+			resp, err := peer.GetAutopeeringNeighbors(false)
+			if err != nil {
+				return false, errors.Wrap(err, "client failed to return autopeering connections")
+			}
+			neighbors := make(map[string]struct{}, len(n.peers))
+			connections[peer.ID().String()] = neighbors
+			for _, neighbor := range append(resp.Chosen, resp.Accepted...) {
+				neighbors[neighbor.ID] = struct{}{}
+			}
+		}
+		return n.isConnected(connections), nil
+	}
+
+	log.Printf("Waiting for %d peers to connect...", len(n.peers))
+	defer log.Println("Waiting for peers to connect... done")
+	return eventually(ctx, condition, time.Second)
 }
 
-// PeersMap returns the partition's peers map.
-func (p *Partition) PeersMap() map[string]*Peer {
-	return p.peersMap
+// WaitForPeerDiscovery waits until all peers have discovered each other.
+func (n *Network) WaitForPeerDiscovery(ctx context.Context) error {
+	condition := func() (bool, error) {
+		for _, peer := range n.peers {
+			resp, err := peer.GetAutopeeringNeighbors(true)
+			if err != nil {
+				return false, errors.Wrap(err, "client failed to return known peers")
+			}
+			if !containsPeers(n.peers, peer, resp.KnownPeers) {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
+	log.Println("Waiting for complete peer discovery...")
+	defer log.Println("Waiting for complete peer discovery... done")
+	return eventually(ctx, condition, time.Second)
 }
 
-func (p *Partition) String() string {
-	return fmt.Sprintf("Partition{%s, %s}", p.name, p.peers)
-}
+// Shutdown creates logs and removes network and containers.
+// Should always be called when a network is not needed anymore.
+func (n *Network) Shutdown(ctx context.Context) error {
+	// save exit status of containers to check at end of shutdown process
+	exitStatus := make(map[string]int)
 
-// deletePartition deletes a partition, all its Pumba containers and creates logs for them.
-func (p *Partition) deletePartition() error {
-	// stop containers
-	for _, pumba := range p.pumbas {
-		err := pumba.Stop()
+	// stop the entry peer first
+	if n.entryNode != nil {
+		status, err := n.entryNode.Shutdown(ctx)
 		if err != nil {
+			return err
+		}
+		exitStatus[n.entryNode.Name()] = status
+	}
+
+	// stop all peers in parallel
+	var eg errgroup.Group
+	for _, peer := range n.peers {
+		peer := peer // capture range variable
+		eg.Go(func() error {
+			status, err := peer.Shutdown(ctx)
+			exitStatus[peer.Name()] = status
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	// delete all partitions
+	if err := n.DeletePartitions(ctx); err != nil {
+		return err
+	}
+
+	// remove entryNode container
+	if n.entryNode != nil {
+		if err := n.entryNode.Remove(ctx); err != nil {
 			return err
 		}
 	}
 
-	// retrieve logs
-	for i, pumba := range p.pumbas {
-		logs, err := pumba.Logs()
-		if err != nil {
-			return err
-		}
-		err = createLogFile(fmt.Sprintf("%s%s", p.name, p.peers[i].name), logs)
-		if err != nil {
-			return err
-		}
+	// remove all peer containers in parallel
+	for _, peer := range n.peers {
+		peer := peer // capture range variable
+		eg.Go(func() error {
+			return peer.Remove(ctx)
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 
-	for _, pumba := range p.pumbas {
-		err := pumba.Remove()
-		if err != nil {
+	// disconnect tester from network otherwise the network can't be removed
+	if err := n.tester.DisconnectFromNetwork(ctx, n.id); err != nil {
+		return err
+	}
+
+	// remove network
+	if err := n.docker.NetworkRemove(ctx, n.id); err != nil {
+		return err
+	}
+
+	// check exit codes of containers
+	for name, status := range exitStatus {
+		if status != 0 {
+			return fmt.Errorf("container %s exited with code %d", name, status)
+		}
+	}
+	return nil
+}
+
+func (n *Network) createNode(ctx context.Context, name string, conf config.GoShimmer) (*Node, error) {
+	conf.Name = name
+
+	nodeID, err := conf.CreateIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	// create wallet
+	nodeSeed := walletseed.NewSeed()
+	if conf.Faucet.Enabled {
+		nodeSeed = walletseed.NewSeed(GenesisSeed)
+	}
+
+	// create Docker container
+	container := NewDockerContainer(n.docker)
+	if err := container.CreateNode(ctx, conf); err != nil {
+		return nil, err
+	}
+	if err := container.ConnectToNetwork(ctx, n.id); err != nil {
+		return nil, err
+	}
+
+	node := NewNode(conf, nodeID, container, nodeSeed)
+	if err := node.Start(ctx); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+// createPumba creates and starts a Pumba Docker container.
+func (n *Network) createPumba(ctx context.Context, effectedNode *Node, targetIPs []string) (*DockerContainer, error) {
+	name := effectedNode.Name() + containerNameSuffixPumba
+	container := NewDockerContainer(n.docker)
+	err := container.CreatePumba(ctx, name, effectedNode.Name(), targetIPs)
+	if err != nil {
+		return nil, err
+	}
+	err = container.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return container, nil
+}
+
+// createEntryNode creates the network's entry node.
+func (n *Network) createEntryNode(ctx context.Context) error {
+	if n.entryNode != nil {
+		panic("entry node already present")
+	}
+
+	node, err := n.createNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig)
+	if err != nil {
+		return err
+	}
+
+	n.entryNode = node
+	return nil
+}
+
+func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig CreateNetworkConfig) error {
+	// create a peer conf from the network conf
+	conf := PeerConfig
+	if networkConfig.StartSynced {
+		conf.MessageLayer.StartSynced = true
+	}
+	if networkConfig.Autopeering {
+		conf.Autopeering.Enabled = true
+		conf.Autopeering.EntryNodes = []string{
+			fmt.Sprintf("%s@%s:%d", base58.Encode(n.entryNode.Identity.PublicKey().Bytes()), n.entryNode.Name(), peeringPort),
+		}
+	}
+	if networkConfig.Activity {
+		conf.Activity.Enabled = true
+	}
+	if networkConfig.FPC {
+		conf.Consensus.Enabled = true
+		conf.FPC.Enabled = true
+	}
+
+	// the first peer is the master peer, it uses a special conf
+	masterConfig := conf
+	masterConfig.Seed = MasterSeed
+	if networkConfig.Faucet {
+		masterConfig.Faucet.Enabled = true
+	}
+
+	log.Printf("Starting %d peers...", numPeers)
+	if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
+		return err
+	}
+	for i := 1; i < numPeers; i++ {
+		if _, err := n.CreatePeer(ctx, conf); err != nil {
 			return err
 		}
 	}
+	log.Println("Starting peers... done")
 
 	return nil
+}
+
+// addManualPeers instructs each node to add all the other nodes as peers.
+func (n *Network) addManualPeers(nodes []*Node) error {
+	log.Printf("Adding manual peers to %d nodes...", len(nodes))
+	for i := range nodes {
+		// connect to all other nodes
+		var peers []*manualpeering.KnownPeerToAdd
+		for j, node := range nodes {
+			if i == j {
+				continue
+			}
+			p := &manualpeering.KnownPeerToAdd{
+				PublicKey: node.PublicKey(),
+				Address:   fmt.Sprintf("%s:%d", node.Name(), gossipPort),
+			}
+			peers = append(peers, p)
+		}
+
+		if err := nodes[i].AddManualPeers(peers); err != nil {
+			return errors.Wrap(err, "failed to add manual nodes via API")
+		}
+	}
+	log.Println("Adding manual peers... done")
+	return nil
+}
+
+func (n *Network) waitForManualPeering(ctx context.Context, nodes []*Node) error {
+	condition := func() (bool, error) {
+		for _, node := range nodes {
+			peers, err := node.GetManualPeers()
+			if err != nil {
+				return false, errors.Wrap(err, "client failed to return manually connected peers")
+			}
+			for _, p := range peers {
+				if p.ConnStatus != manualpeering.ConnStatusConnected {
+					return false, nil
+				}
+			}
+		}
+		return true, nil
+	}
+
+	log.Printf("Waiting for %d nodes to connect to their manual peers...", len(nodes))
+	defer log.Println("Waiting for nodes to connect to their manual peers... done")
+	return eventually(ctx, condition, time.Second)
+}
+
+// namePrefix returns the suffix prefixed with the name.
+func (n *Network) namePrefix(suffix string) string {
+	return fmt.Sprintf("%s-%s", n.name, suffix)
+}
+
+// createPartition creates a partition with the given peers.
+// It starts a Pumba container for every peer that blocks traffic to all other partitions.
+func (n *Network) createPartition(ctx context.Context, nodes []*Node) error {
+	idSet := make(map[string]struct{})
+	for _, peer := range nodes {
+		idSet[peer.ID().String()] = struct{}{}
+	}
+
+	// block all traffic to all other nodes except in the current partition
+	var targetIPs []string
+	for _, peer := range n.peers {
+		if _, ok := idSet[peer.ID().String()]; ok {
+			continue
+		}
+
+		ip, err := peer.DockerContainer.IP(ctx, n.name)
+		if err != nil {
+			return errors.Wrap(err, "failed to get container's IP")
+		}
+		targetIPs = append(targetIPs, ip)
+	}
+
+	partitionName := n.namePrefix(fmt.Sprintf("partition_%d-", len(n.partitions)))
+
+	// create pumba container for every node in the partition
+	pumbas := make([]*DockerContainer, len(nodes))
+	for i, p := range nodes {
+		pumba, err := n.createPumba(ctx, p, targetIPs)
+		if err != nil {
+			return err
+		}
+		pumbas[i] = pumba
+	}
+
+	partition := &Partition{
+		name:   partitionName,
+		peers:  nodes,
+		pumbas: pumbas,
+	}
+	n.partitions = append(n.partitions, partition)
+
+	return nil
+}
+
+// isConnected checks whether connections describes a fully connected network of all peers.
+func (n *Network) isConnected(connections map[string]map[string]struct{}) bool {
+	if len(n.Partitions()) == 0 {
+		return isConnected(n.Peers(), connections)
+	}
+
+	for _, partition := range n.Partitions() {
+		if !isConnected(partition.Peers(), connections) {
+			return false
+		}
+	}
+	return true
+}
+
+func isConnected(nodes []*Node, connections map[string]map[string]struct{}) bool {
+	if len(nodes) == 0 {
+		return true
+	}
+	visited := make(map[string]struct{}, len(connections))
+
+	// simple DFS to determine reachable nodes
+	var u string
+	stack := []string{nodes[0].ID().String()}
+	for len(stack) > 0 {
+		u, stack = stack[len(stack)-1], stack[:len(stack)-1]
+		for v := range connections[u] {
+			if _, ok := visited[v]; ok {
+				continue
+			}
+			visited[v] = struct{}{}
+			stack = append(stack, v)
+		}
+	}
+
+	for _, node := range nodes {
+		if _, ok := visited[node.ID().String()]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func containsPeers(allPeers []*Node, peer *Node, neighbors []jsonmodels.Neighbor) bool {
+	neighborMap := make(map[string]struct{})
+	for i := range neighbors {
+		neighborMap[neighbors[i].ID] = struct{}{}
+	}
+	for i := range allPeers {
+		if peer == allPeers[i] {
+			continue
+		}
+		if _, ok := neighborMap[allPeers[i].ID().String()]; !ok {
+			return false
+		}
+	}
+	return true
 }

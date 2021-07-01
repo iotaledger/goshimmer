@@ -35,7 +35,9 @@ type MessageMetadata struct {
 	StructureDetails   *StructureDetails `json:"structureDetails,omitempty"`
 	BranchID           string            `json:"branchID"`
 	Scheduled          bool              `json:"scheduled"`
+	ScheduledTime      int64             `json:"scheduledTime"`
 	Booked             bool              `json:"booked"`
+	BookedTime         int64             `json:"bookedTime"`
 	Eligible           bool              `json:"eligible"`
 	Invalid            bool              `json:"invalid"`
 	Finalized          bool              `json:"finalized"`
