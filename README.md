@@ -64,7 +64,7 @@ We always recommend running your node via [Docker](https://goshimmer.docs.iota.o
 
 Please follow this guide: https://github.com/facebook/rocksdb/blob/master/INSTALL.md to build above libs.
 
-Finally, when compiling GoShimmer, just run the build script:
+When compiling GoShimmer, just run the build script:
 
 ```bash
 ./scripts/build.sh
@@ -73,6 +73,12 @@ Finally, when compiling GoShimmer, just run the build script:
 If you also want to link the libraries statically (only on Linux) run this instead:
 ```bash
 ./scripts/build_goshimmer_rocksdb_builtin.sh
+```
+
+Finally, download the latest snapshot and make sure to place it in the root folder of GoShimmer:
+
+```bash
+wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
 ```
 
 ## Supporting the project
