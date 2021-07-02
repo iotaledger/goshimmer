@@ -74,90 +74,25 @@ func fillStructFromDefaultTag(s interface{}) {
 			continue
 		}
 
-		var err error
-		switch defaultValue := valueField.Interface().(type) {
-		case bool:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+		switch valueField.Interface().(type) {
+		case string: // no conversion needed
+			valueField.SetString(tagDefaultValue)
+		case []string: // parse comma separated strings instead of JSON-style lists
+			defaultValue, err := csv.NewReader(strings.NewReader(tagDefaultValue)).Read()
+			if err != nil {
 				panic(err)
 			}
 			valueField.Set(reflect.ValueOf(defaultValue))
-		case time.Duration:
-			if defaultValue, err = time.ParseDuration(tagDefaultValue); err != nil {
+		case time.Duration: // Duration does not implement encoding.TextUnmarshaler, so we have to do it manually
+			defaultValue, err := time.ParseDuration(tagDefaultValue)
+			if err != nil {
 				panic(err)
 			}
 			valueField.Set(reflect.ValueOf(defaultValue))
-		case int:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
+		default: // use the JSON unmarshaler for everything else
+			if err := json.Unmarshal([]byte(tagDefaultValue), valueField.Addr().Interface()); err != nil {
 				panic(err)
 			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int8:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int16:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int32:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int64:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint8:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint16:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint32:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint64:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case string:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case float32:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case float64:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case []string:
-			if defaultValue, err = csv.NewReader(strings.NewReader(tagDefaultValue)).Read(); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		default:
-			panic(fmt.Sprintf("type `%s` not implemented", reflect.TypeOf(defaultValue)))
 		}
 	}
 }
