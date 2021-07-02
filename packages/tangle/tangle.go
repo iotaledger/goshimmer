@@ -49,7 +49,6 @@ type Tangle struct {
 	Events                *Events
 
 	setupParserOnce sync.Once
-	shutdownSignal  chan struct{}
 }
 
 // New is the constructor for the Tangle.
@@ -60,7 +59,6 @@ func New(options ...Option) (tangle *Tangle) {
 			MessageInvalid:  events.NewEvent(MessageIDCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},
-		shutdownSignal: make(chan struct{}),
 	}
 
 	tangle.Configure(options...)
@@ -185,8 +183,6 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
-	close(t.shutdownSignal)
-
 	t.MessageFactory.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()
