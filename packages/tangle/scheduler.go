@@ -109,7 +109,11 @@ func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
 	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
 		if err := s.SubmitAndReady(messageID); err != nil {
-			s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+			if !errors.Is(err, schedulerutils.ErrBufferFull) &&
+				!errors.Is(err, schedulerutils.ErrInboxExceeded) &&
+				!errors.Is(err, schedulerutils.ErrInsufficientMana) {
+				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+			}
 		}
 	}))
 
@@ -236,7 +240,7 @@ func (s *Scheduler) submit(message *Message) error {
 	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 	if mana < MinMana {
 		s.Events.MessageDiscarded.Trigger(message.ID())
-		return errors.Errorf("%w: id=%s, mana=%f", schedulerutils.ErrInsufficientMana, nodeID, mana)
+		return schedulerutils.ErrInsufficientMana
 	}
 
 	err := s.buffer.Submit(message, mana)
