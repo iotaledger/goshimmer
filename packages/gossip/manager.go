@@ -3,7 +3,6 @@ package gossip
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"runtime"
 	"sync"
@@ -185,30 +184,12 @@ func (m *Manager) AllNeighbors() []*Neighbor {
 	return result
 }
 
-func (m *Manager) getNeighborsByIDOrRandom(ids ...identity.ID) []*Neighbor {
-	if len(ids) > 0 {
-		return m.getNeighborsByID(ids)
-	}
-	const randomNeighborsNum = 3
-	return m.getRandomNeighbors(randomNeighborsNum)
-}
-
-func (m *Manager) getRandomNeighbors(amount int) []*Neighbor {
-	allNeighbors := m.AllNeighbors()
-	neighborsNum := len(allNeighbors)
-	if amount > neighborsNum {
-		amount = neighborsNum
-	}
-	randomIndexes := rand.Perm(neighborsNum)
-	sample := make([]*Neighbor, amount)
-	for i := range sample {
-		sample[i] = allNeighbors[randomIndexes[i]]
-	}
-	return sample
-}
-
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
+	if len(ids) == 0 {
+		return result
+	}
+
 	m.neighborsMutex.RLock()
 	defer m.neighborsMutex.RUnlock()
 	for _, id := range ids {
@@ -220,7 +201,10 @@ func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 }
 
 func (m *Manager) send(b []byte, to ...identity.ID) {
-	neighbors := m.getNeighborsByIDOrRandom(to...)
+	neighbors := m.getNeighborsByID(to)
+	if len(neighbors) == 0 {
+		neighbors = m.AllNeighbors()
+	}
 
 	for _, nbr := range neighbors {
 		if _, err := nbr.Write(b); err != nil {
