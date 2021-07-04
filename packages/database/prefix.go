@@ -24,4 +24,6 @@ const (
 
 	// PrefixEpochs defines the storage prefix for the epochs package.
 	PrefixEpochs
+
+	PrefixEntityLogger
 )

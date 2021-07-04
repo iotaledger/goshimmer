@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -18,8 +18,30 @@ type BranchLogger struct {
 	branchID     ledgerstate.BranchID
 }
 
+func NewBranchLogger(entityLogger *EntityLogger, entityID ...marshalutil.SimpleBinaryMarshaler) Logger {
+	var branchID ledgerstate.BranchID
+	if len(entityID) >= 1 {
+		branchID = entityID[0].(ledgerstate.BranchID)
+	}
+
+	return &BranchLogger{
+		entityLogger: entityLogger,
+		branchID:     branchID,
+	}
+}
+
 func (b *BranchLogger) Entries() []LogEntry {
-	panic("implement me")
+	if b.branchID == ledgerstate.UndefinedBranchID {
+		b.entityLogger.LogEntries("Branch").Consume(func(wrappedLogEntry *WrappedLogEntry) {
+			fmt.Println(wrappedLogEntry)
+		})
+	} else {
+		b.entityLogger.LogEntries("Branch", b.branchID).Consume(func(wrappedLogEntry *WrappedLogEntry) {
+			fmt.Println(wrappedLogEntry)
+		})
+	}
+
+	return nil
 }
 
 func (b *BranchLogger) LogDebug(args ...interface{}) {
@@ -30,19 +52,19 @@ func (b *BranchLogger) LogDebugf(format string, args ...interface{}) {
 	b.storeLogEntryF(Debug, format, args...)
 }
 
-func (b BranchLogger) LogInfo(args ...interface{}) {
+func (b *BranchLogger) LogInfo(args ...interface{}) {
 	b.storeLogEntry(Info, args...)
 }
 
-func (b BranchLogger) LogInfof(format string, args ...interface{}) {
+func (b *BranchLogger) LogInfof(format string, args ...interface{}) {
 	b.storeLogEntryF(Info, format, args...)
 }
 
-func (b BranchLogger) LogWarn(args ...interface{}) {
+func (b *BranchLogger) LogWarn(args ...interface{}) {
 	b.storeLogEntry(Warn, args...)
 }
 
-func (b BranchLogger) LogWarnf(format string, args ...interface{}) {
+func (b *BranchLogger) LogWarnf(format string, args ...interface{}) {
 	b.storeLogEntryF(Warn, format, args...)
 }
 
@@ -50,16 +72,30 @@ func (b *BranchLogger) LogError(args ...interface{}) {
 	b.storeLogEntry(Error, args...)
 }
 
-func (b BranchLogger) LogErrorf(format string, args ...interface{}) {
+func (b *BranchLogger) LogErrorf(format string, args ...interface{}) {
 	b.storeLogEntryF(Error, format, args...)
 }
 
+func (b *BranchLogger) UnmarshalLogEntry(data []byte) (logEntry LogEntry, err error) {
+	marshalUtil := marshalutil.New(data)
+
+	branchLogEntry := &BranchLogEntry{}
+	if branchLogEntry.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		return nil, err
+	}
+	if branchLogEntry.time, err = marshalUtil.ReadTime(); err != nil {
+		return nil, err
+	}
+
+	return branchLogEntry, nil
+}
+
 func (b *BranchLogger) storeLogEntry(logLevel LogLevel, args ...interface{}) {
-	b.entityLogger.StoreLogEntry(NewBranchLogEntry(b.branchID, logLevel, b.entityLogger.LogEntryID(), fmt.Sprint(args...)))
+	b.entityLogger.StoreLogEntry(NewBranchLogEntry(b.branchID, logLevel, fmt.Sprint(args...)))
 }
 
 func (b *BranchLogger) storeLogEntryF(logLevel LogLevel, format string, args ...interface{}) {
-	b.entityLogger.StoreLogEntry(NewBranchLogEntry(b.branchID, logLevel, b.entityLogger.LogEntryID(), fmt.Sprintf(format, args...)))
+	b.entityLogger.StoreLogEntry(NewBranchLogEntry(b.branchID, logLevel, fmt.Sprintf(format, args...)))
 }
 
 var _ Logger = &BranchLogger{}
@@ -70,36 +106,34 @@ var _ Logger = &BranchLogger{}
 
 // BranchLogEntry represents a log entry related to Branches in the ledger state.
 type BranchLogEntry struct {
-	branchID   ledgerstate.BranchID
-	logLevel   LogLevel
-	logEntryID LogEntryID
-	time       time.Time
-	message    string
+	branchID ledgerstate.BranchID
+	logLevel LogLevel
+	time     time.Time
+	message  string
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewBranchLogEntry returns a new log entry that contains Branch related information.
-func NewBranchLogEntry(branchID ledgerstate.BranchID, logLevel LogLevel, logEntryID LogEntryID, message string) *BranchLogEntry {
+func NewBranchLogEntry(branchID ledgerstate.BranchID, logLevel LogLevel, message string) *BranchLogEntry {
 	return &BranchLogEntry{
-		branchID:   branchID,
-		logLevel:   logLevel,
-		logEntryID: logEntryID,
-		time:       time.Now(),
-		message:    message,
+		branchID: branchID,
+		logLevel: logLevel,
+		time:     time.Now(),
+		message:  message,
 	}
 }
 
-func (b *BranchLogEntry) EntityID() [32]byte {
-	return blake2b.Sum256(b.branchID[:])
+func (b *BranchLogEntry) Entity() string {
+	return "Branch"
+}
+
+func (b *BranchLogEntry) EntityID() marshalutil.SimpleBinaryMarshaler {
+	return b.branchID
 }
 
 func (b *BranchLogEntry) LogLevel() LogLevel {
-	panic("implement me")
-}
-
-func (b *BranchLogEntry) LogEntryID() LogEntryID {
-	return b.logEntryID
+	return b.logLevel
 }
 
 // BranchID returns the identifier of the Branch that this log entry belongs to.
@@ -133,16 +167,11 @@ func (b *BranchLogEntry) String() string {
 	)
 }
 
-func (b *BranchLogEntry) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
-func (b *BranchLogEntry) ObjectStorageKey() []byte {
-	panic("implement me")
-}
-
-func (b *BranchLogEntry) ObjectStorageValue() []byte {
-	panic("implement me")
+func (b *BranchLogEntry) Bytes() []byte {
+	return marshalutil.New().
+		Write(b.branchID).
+		WriteTime(b.time).
+		Bytes()
 }
 
 // code contract (make sure the struct implements all required methods)
