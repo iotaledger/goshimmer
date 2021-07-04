@@ -347,6 +347,16 @@ const (
 	Error
 )
 
+func LogLevelFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (logLevel LogLevel, err error) {
+	logLevelByte, err := marshalUtil.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	logLevel = LogLevel(logLevelByte)
+
+	return
+}
+
 func (l LogLevel) String() string {
 	switch l {
 	case Debug:
@@ -360,6 +370,10 @@ func (l LogLevel) String() string {
 	default:
 		return "LogLevel(Unknown=" + strconv.Itoa(int(l)) + ")"
 	}
+}
+
+func (l LogLevel) Bytes() []byte {
+	return []byte{byte(l)}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

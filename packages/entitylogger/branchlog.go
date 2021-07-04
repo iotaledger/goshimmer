@@ -86,6 +86,9 @@ func (b *BranchLogger) UnmarshalLogEntry(data []byte) (logEntry LogEntry, err er
 	if branchLogEntry.time, err = marshalUtil.ReadTime(); err != nil {
 		return nil, err
 	}
+	if branchLogEntry.logLevel, err = LogLevelFromMarshalUtil(marshalUtil); err != nil {
+		return nil, err
+	}
 
 	return branchLogEntry, nil
 }
@@ -171,6 +174,7 @@ func (b *BranchLogEntry) Bytes() []byte {
 	return marshalutil.New().
 		Write(b.branchID).
 		WriteTime(b.time).
+		Write(b.logLevel).
 		Bytes()
 }
 

@@ -14,7 +14,7 @@ func Test_EntityLogger(t *testing.T) {
 	entityLogger := New(mapdb.NewMapDB())
 	entityLogger.RegisterEntity("Branch", NewBranchLogger)
 
-	entityLogger.Logger("Branch", ledgerstate.BranchID{1}).LogDebug("Hallo :D")
+	entityLogger.Logger("Branch", ledgerstate.BranchID{1}).LogInfo("Hallo :D")
 	entityLogger.Logger("Branch", ledgerstate.BranchID{1}).LogDebug("Was")
 	entityLogger.Logger("Branch", ledgerstate.BranchID{2}).LogDebug("Was")
 
