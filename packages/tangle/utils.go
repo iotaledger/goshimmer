@@ -111,13 +111,14 @@ func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.Tra
 // TransactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
 // indirectly approved by the given Message.
 func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
-	for _, attachmentMessageID := range u.tangle.Storage.AttachmentMessageIDs(transactionID) {
-		if attachmentMessageID == messageID {
+	attachmentMessageIDs := u.tangle.Storage.AttachmentMessageIDs(transactionID)
+	for i := range attachmentMessageIDs {
+		if attachmentMessageIDs[i] == messageID {
 			return true
 		}
 
 		var attachmentBooked bool
-		u.tangle.Storage.MessageMetadata(attachmentMessageID).Consume(func(attachmentMetadata *MessageMetadata) {
+		u.tangle.Storage.MessageMetadata(attachmentMessageIDs[i]).Consume(func(attachmentMetadata *MessageMetadata) {
 			attachmentBooked = attachmentMetadata.IsBooked()
 		})
 		if !attachmentBooked {
@@ -127,13 +128,13 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 		bookedParents := make(MessageIDs, 0)
 
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			approved = u.checkBookedParents(message, &attachmentMessageID, func(message *Message) MessageIDs {
+			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
 				return message.WeakParents()
 			}, nil)
 			if approved {
 				return
 			}
-			approved = u.checkBookedParents(message, &attachmentMessageID, func(message *Message) MessageIDs {
+			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
 				return message.StrongParents()
 			}, &bookedParents)
 		})
@@ -143,7 +144,7 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 
 		// Only now check all parents.
 		for _, bookedParent := range bookedParents {
-			if u.MessageApprovedBy(attachmentMessageID, bookedParent) {
+			if u.MessageApprovedBy(attachmentMessageIDs[i], bookedParent) {
 				approved = true
 				return
 			}
