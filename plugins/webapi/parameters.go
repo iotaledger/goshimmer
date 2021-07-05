@@ -19,8 +19,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the webapi plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "webapi")
+	configuration.BindParameters(Parameters, "webapi")
 }

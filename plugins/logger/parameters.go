@@ -22,4 +22,4 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration parameters of the logger plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}

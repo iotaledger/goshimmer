@@ -15,8 +15,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the manaeventlogger plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "manaeventlogger")
+	configuration.BindParameters(Parameters, "manaeventlogger")
 }

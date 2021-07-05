@@ -23,12 +23,12 @@ type ParametersDefinitionNetwork struct {
 }
 
 // ParametersLocal contains the configuration parameters of the local peer.
-var ParametersLocal = ParametersDefinitionLocal{}
+var ParametersLocal = &ParametersDefinitionLocal{}
 
 // ParametersNetwork contains the configuration parameters of the local peer's network.
-var ParametersNetwork = ParametersDefinitionNetwork{}
+var ParametersNetwork = &ParametersDefinitionNetwork{}
 
 func init() {
-	configuration.BindParameters(&ParametersLocal, "autopeering")
-	configuration.BindParameters(&ParametersNetwork, "network")
+	configuration.BindParameters(ParametersLocal, "autopeering")
+	configuration.BindParameters(ParametersNetwork, "network")
 }

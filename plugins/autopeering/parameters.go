@@ -17,8 +17,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration parameters of the autopeering plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "autopeering")
+	configuration.BindParameters(Parameters, "autopeering")
 }

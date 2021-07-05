@@ -9,8 +9,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the manualpeering plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "manualpeering")
+	configuration.BindParameters(Parameters, "manualpeering")
 }

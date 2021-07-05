@@ -25,8 +25,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration parameters of the dashboard plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "dashboard")
+	configuration.BindParameters(Parameters, "dashboard")
 }

@@ -12,8 +12,8 @@ type ParametersDefinitionDiscovery struct {
 }
 
 // Parameters contains the configuration parameters of the autopeering peer discovery.
-var Parameters = ParametersDefinitionDiscovery{}
+var Parameters = &ParametersDefinitionDiscovery{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "autopeering")
+	configuration.BindParameters(Parameters, "autopeering")
 }

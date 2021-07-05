@@ -19,8 +19,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the prometheus plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "prometheus")
+	configuration.BindParameters(Parameters, "prometheus")
 }

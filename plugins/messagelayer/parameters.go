@@ -124,28 +124,28 @@ type SchedulerParametersDefinition struct {
 }
 
 // Parameters contains the general configuration used by the messagelayer plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 // FPCParameters contains the FPC configuration used by the messagelayer plugin.
-var FPCParameters = FPCParametersDefinition{}
+var FPCParameters = &FPCParametersDefinition{}
 
 // StatementParameters contains the FPC statement configuration used by the messagelayer plugin.
-var StatementParameters = StatementParametersDefinition{}
+var StatementParameters = &StatementParametersDefinition{}
 
 // ManaParameters contains the mana configuration used by the messagelayer plugin.
-var ManaParameters = ManaParametersDefinition{}
+var ManaParameters = &ManaParametersDefinition{}
 
 // RateSetterParameters contains the rate setter configuration used by the messagelayer plugin.
-var RateSetterParameters = RateSetterParametersDefinition{}
+var RateSetterParameters = &RateSetterParametersDefinition{}
 
 // SchedulerParameters contains the scheduler configuration used by the messagelayer plugin.
-var SchedulerParameters = SchedulerParametersDefinition{}
+var SchedulerParameters = &SchedulerParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "messageLayer")
-	configuration.BindParameters(&FPCParameters, "fpc")
-	configuration.BindParameters(&StatementParameters, "statement")
-	configuration.BindParameters(&ManaParameters, "mana")
-	configuration.BindParameters(&RateSetterParameters, "rateSetter")
-	configuration.BindParameters(&SchedulerParameters, "scheduler")
+	configuration.BindParameters(Parameters, "messageLayer")
+	configuration.BindParameters(FPCParameters, "fpc")
+	configuration.BindParameters(StatementParameters, "statement")
+	configuration.BindParameters(ManaParameters, "mana")
+	configuration.BindParameters(RateSetterParameters, "rateSetter")
+	configuration.BindParameters(SchedulerParameters, "scheduler")
 }

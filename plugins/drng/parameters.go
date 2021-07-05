@@ -53,8 +53,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration parameters of the drng plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "drng")
+	configuration.BindParameters(Parameters, "drng")
 }

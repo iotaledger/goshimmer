@@ -32,7 +32,7 @@ func Plugin() *node.Plugin {
 }
 
 func configure(plugin *node.Plugin) {
-	if len(Parameters.NtpPools) == 0 {
+	if len(Parameters.NTPPools) == 0 {
 		Plugin().LogFatalf("at least 1 NTP pool needs to be provided to synchronize the local clock.")
 	}
 }
@@ -55,8 +55,8 @@ func run(plugin *node.Plugin) {
 func queryNTPPool() {
 	Plugin().LogDebug("Synchronizing clock...")
 	for t := maxTries; t > 0; t-- {
-		index := rand.Int() % len(Parameters.NtpPools)
-		err := clock.FetchTimeOffset(Parameters.NtpPools[index])
+		index := rand.Int() % len(Parameters.NTPPools)
+		err := clock.FetchTimeOffset(Parameters.NTPPools[index])
 		if err == nil {
 			Plugin().LogDebug("Synchronizing clock... done")
 			return

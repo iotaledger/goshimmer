@@ -19,8 +19,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration parameters of the config plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "node")
+	configuration.BindParameters(Parameters, "node")
 }
