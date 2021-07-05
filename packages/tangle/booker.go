@@ -84,7 +84,10 @@ func (b *Booker) run() {
 					b.Events.Error.Trigger(errors.Errorf("failed to book message with %s: %w", messageID, err))
 				}
 			case <-b.shutdown:
-				return
+				// wait until all messages are booked
+				if len(b.bookerQueue) == 0 {
+					return
+				}
 			}
 		}
 	}()
