@@ -26,7 +26,7 @@ import (
 
 // IUTXODAG is the interface for UTXODAG which is the core of the ledger state
 // that is formed by Transactions consuming Inputs and creating Outputs.  It represents all the methods
-//that helps to keep track of the balances and the different perceptions of potential conflicts.
+// that helps to keep track of the balances and the different perceptions of potential conflicts.
 type IUTXODAG interface {
 	// Events returns all events of the UTXODAG
 	Events() *UTXODAGEvents
