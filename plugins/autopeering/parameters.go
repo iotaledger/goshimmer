@@ -11,7 +11,7 @@ type ParametersDefinition struct {
 	R int `default:"40" usage:"R parameter"`
 
 	// Ro defines the config flag of Ro.
-	Ro float64 `default:"2." usage:"Ro parameter"`
+	Ro float64 `default:"2.0" usage:"Ro parameter"`
 
 	EnableGossipIntegration bool `default:"true" usage:"enable/disable autopeering for gossip layer"`
 }
