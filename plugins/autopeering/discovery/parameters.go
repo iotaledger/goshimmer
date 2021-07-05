@@ -8,7 +8,7 @@ var Parameters = struct {
 	NetworkVersion int `default:"36" usage:"autopeering network version"`
 
 	// EntryNodes defines the config flag of the entry nodes.
-	EntryNodes []string `default:"2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entryshimmer.tanglebay.com:14646" usage:"list of trusted entry nodes for auto peering"`
+	EntryNodes []string `default:"2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646" usage:"list of trusted entry nodes for auto peering"`
 }{}
 
 func init() {
