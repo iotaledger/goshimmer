@@ -55,6 +55,7 @@ func (s GoShimmer) CreateFlags() []string {
 		flags...)
 
 	// manually add seed to flags if autopeering is disabled
+	// this is necessary due to the fact that the seed is currently still part of the autopeering configuration
 	var seedProvided bool
 	for _, f := range flags {
 		if strings.Contains(f, "autopeering.seed") {

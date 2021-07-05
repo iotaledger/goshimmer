@@ -1,11 +1,10 @@
 package config
 
 import (
-	"encoding/csv"
-	"fmt"
 	"reflect"
-	"strings"
-	"time"
+
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
@@ -18,8 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // GoShimmer defines the config of a GoShimmer node.
@@ -52,49 +49,8 @@ type GoShimmer struct {
 // NewGoShimmer creates a GoShimmer config initialized with default values.
 func NewGoShimmer() (config GoShimmer) {
 	config = GoShimmer{}
-	fillStructFromDefaultTag(&config)
+	fillStructFromDefaultTag(reflect.ValueOf(&config).Elem())
 	return
-}
-
-// fillStructFromDefaultTag recursively explores the given struct pointer and sets values of fields to the `default` as
-// specified in the struct's tags.
-func fillStructFromDefaultTag(s interface{}) {
-	val := reflect.ValueOf(s).Elem()
-	for i := 0; i < val.NumField(); i++ {
-		valueField := val.Field(i)
-		typeField := val.Type().Field(i)
-
-		if valueField.Kind() == reflect.Struct {
-			fillStructFromDefaultTag(valueField.Addr().Interface())
-			continue
-		}
-
-		tagDefaultValue, exists := typeField.Tag.Lookup("default")
-		if !exists {
-			continue
-		}
-
-		switch valueField.Interface().(type) {
-		case string: // no conversion needed
-			valueField.SetString(tagDefaultValue)
-		case []string: // parse comma separated strings instead of JSON-style lists
-			defaultValue, err := csv.NewReader(strings.NewReader(tagDefaultValue)).Read()
-			if err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case time.Duration: // Duration does not implement encoding.TextUnmarshaler, so we have to do it manually
-			defaultValue, err := time.ParseDuration(tagDefaultValue)
-			if err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		default: // use the JSON unmarshaler for everything else
-			if err := json.Unmarshal([]byte(tagDefaultValue), valueField.Addr().Interface()); err != nil {
-				panic(err)
-			}
-		}
-	}
 }
 
 type Network struct {
