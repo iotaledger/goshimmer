@@ -211,7 +211,6 @@ func TestScheduler_Issue(t *testing.T) {
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
-	tangle.Booker.Setup()
 	tangle.Scheduler.Setup()
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
 		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
@@ -253,7 +252,6 @@ func TestSchedulerFlow(t *testing.T) {
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
-	tangle.Booker.Setup()
 	tangle.Scheduler.Setup()
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
 		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
@@ -282,15 +280,6 @@ func TestSchedulerFlow(t *testing.T) {
 
 	messageScheduled := make(chan MessageID, len(messages))
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
-
-	// Bypass the Booker
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBooked(true)
-			tangle.Booker.Events.MessageBooked.Trigger(messageID)
-			tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-		})
-	}))
 
 	for _, message := range messages {
 		tangle.Storage.StoreMessage(message)
@@ -327,7 +316,6 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
-	tangle.Booker.Setup()
 	tangle.Scheduler.Setup()
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
 		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
