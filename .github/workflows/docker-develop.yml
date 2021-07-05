@@ -53,7 +53,7 @@ jobs:
 
       - name: Install SSH Key
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.DEVELOPMENT_SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.PRE_DEVNET_SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh/
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
@@ -66,9 +66,9 @@ jobs:
 
       - name: Ansible deploy
         env:
-          DEVELOPMENT_GOSHIMMER_SEEDS: '${{ secrets.DEVELOPMENT_GOSHIMMER_SEEDS }}'
+          PRE_DEVNET_GOSHIMMER_SEEDS: '${{ secrets.PRE_DEVNET_GOSHIMMER_SEEDS }}'
         run: |
-          eval $DEVELOPMENT_GOSHIMMER_SEEDS
+          eval $PRE_DEVNET_GOSHIMMER_SEEDS
           ansible-playbook  -u root -i deploy/ansible/hosts.yml --extra-vars \
           "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
           BOOTSTRAP_01_SEED=$BOOTSTRAP_01_SEED
