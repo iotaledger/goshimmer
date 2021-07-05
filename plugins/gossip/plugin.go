@@ -42,7 +42,7 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
-		plugin.Logger().Panicf("Failed to start as daemon: %s", err)
+		Plugin().Logger().Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -52,13 +52,13 @@ func configureLogging() {
 
 	// log the gossip events
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
-		plugin.LogInfof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
+		Plugin().LogInfof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
-		plugin.LogInfof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+		Plugin().LogInfof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
-		plugin.LogInfof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+		Plugin().LogInfof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
 }
 

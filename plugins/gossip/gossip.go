@@ -41,18 +41,18 @@ func createManager() {
 	// announce the gossip service
 	gossipPort := Parameters.Port
 	if !netutil.IsValidPort(gossipPort) {
-		plugin.LogFatalf("Invalid port number: %d", gossipPort)
+		Plugin().LogFatalf("Invalid port number: %d", gossipPort)
 	}
 
 	lPeer := local.GetInstance()
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
-		plugin.LogFatalf("could not update services: %s", err)
+		Plugin().LogFatalf("could not update services: %s", err)
 	}
 	mgr = gossip.NewManager(lPeer, loadMessage, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer plugin.LogInfo("Stopping " + PluginName + " ... done")
+	defer Plugin().LogInfo("Stopping " + PluginName + " ... done")
 
 	lPeer := local.GetInstance()
 
@@ -63,25 +63,25 @@ func start(shutdownSignal <-chan struct{}) {
 	address := net.JoinHostPort(config.Node().String(local.ParametersNetwork.BindAddress), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
-		plugin.LogFatalf("Error resolving: %v", err)
+		Plugin().LogFatalf("Error resolving: %v", err)
 	}
 
 	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
 	if err != nil {
-		plugin.LogFatalf("Error listening: %v", err)
+		Plugin().LogFatalf("Error listening: %v", err)
 	}
 	defer listener.Close()
 
-	srv := server.ServeTCP(lPeer, listener, plugin.Logger())
+	srv := server.ServeTCP(lPeer, listener, Plugin().Logger())
 	defer srv.Close()
 
 	mgr.Start(srv)
 	defer mgr.Stop()
 
-	plugin.LogInfof("%s started: bind-address=%s", PluginName, localAddr.String())
+	Plugin().LogInfof("%s started: bind-address=%s", PluginName, localAddr.String())
 
 	<-shutdownSignal
-	plugin.LogInfo("Stopping " + PluginName + " ...")
+	Plugin().LogInfo("Stopping " + PluginName + " ...")
 }
 
 // loads the given message from the message layer and returns it or an error if not found.

@@ -33,7 +33,7 @@ func configure(*node.Plugin) {
 	go func() {
 		<-gracefulStop
 
-		plugin.LogWarnf("Received shutdown request - waiting (max %d) to finish processing ...", Parameters.WaitToKillTime)
+		Plugin().LogWarnf("Received shutdown request - waiting (max %d) to finish processing ...", Parameters.WaitToKillTime)
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
@@ -50,9 +50,9 @@ func configure(*node.Plugin) {
 						sort.Strings(runningBackgroundWorkers)
 						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
 					}
-					plugin.LogWarnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", Parameters.WaitToKillTime-int(secondsSinceStart), processList)
+					Plugin().LogWarnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", Parameters.WaitToKillTime-int(secondsSinceStart), processList)
 				} else {
-					plugin.LogError("Background processes did not terminate in time! Forcing shutdown ...")
+					Plugin().LogError("Background processes did not terminate in time! Forcing shutdown ...")
 					pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
 					os.Exit(1)
 				}
@@ -73,6 +73,6 @@ func Plugin() *node.Plugin {
 
 // ShutdownWithError prints out an error message and shuts down the default daemon instance.
 func ShutdownWithError(err error) {
-	plugin.LogError(err)
+	Plugin().LogError(err)
 	gracefulStop <- syscall.SIGINT
 }

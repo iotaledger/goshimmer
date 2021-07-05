@@ -63,20 +63,20 @@ func Plugin() *node.Plugin {
 func Faucet() *StateManager {
 	faucetOnce.Do(func() {
 		if Parameters.Seed == "" {
-			plugin.LogFatal("a seed must be defined when enabling the faucet plugin")
+			Plugin().LogFatal("a seed must be defined when enabling the faucet plugin")
 		}
 		seedBytes, err := base58.Decode(Parameters.Seed)
 		if err != nil {
-			plugin.LogFatalf("configured seed for the faucet is invalid: %s", err)
+			Plugin().LogFatalf("configured seed for the faucet is invalid: %s", err)
 		}
 		if Parameters.TokensPerRequest <= 0 {
-			plugin.LogFatalf("the amount of tokens to fulfill per request must be above zero")
+			Plugin().LogFatalf("the amount of tokens to fulfill per request must be above zero")
 		}
 		if Parameters.MaxTransactionBookedAwaitTimeSeconds <= 0 {
-			plugin.LogFatalf("the max transaction booked await time must be more than 0")
+			Plugin().LogFatalf("the max transaction booked await time must be more than 0")
 		}
 		if Parameters.PreparedOutputsCount <= 0 {
-			plugin.LogFatalf("the number of faucet prepared outputs should be more than 0")
+			Plugin().LogFatalf("the number of faucet prepared outputs should be more than 0")
 		}
 		_faucet = NewStateManager(
 			uint64(Parameters.TokensPerRequest),
@@ -100,10 +100,10 @@ func configure(*node.Plugin) {
 		addr := msg.Payload().(*faucet.Request).Address()
 		msg, txID, err := Faucet().FulFillFundingRequest(msg)
 		if err != nil {
-			plugin.LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
+			Plugin().LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			return
 		}
-		plugin.LogInfof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
+		Plugin().LogInfof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()
@@ -111,36 +111,36 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
-		defer plugin.LogInfof("Stopping %s ... done", PluginName)
+		defer Plugin().LogInfof("Stopping %s ... done", PluginName)
 
-		plugin.LogInfo("Waiting for node to become synced...")
+		Plugin().LogInfo("Waiting for node to become synced...")
 		if !waitUntilSynced(shutdownSignal) {
 			return
 		}
-		plugin.LogInfo("Waiting for node to become synced... done")
+		Plugin().LogInfo("Waiting for node to become synced... done")
 
-		plugin.LogInfo("Waiting for node to have sufficient access mana")
+		Plugin().LogInfo("Waiting for node to have sufficient access mana")
 		if err := waitForMana(shutdownSignal); err != nil {
-			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
+			Plugin().LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
-		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
+		Plugin().LogInfo("Waiting for node to have sufficient access mana... done")
 
-		plugin.LogInfof("Deriving faucet state from the ledger...")
+		Plugin().LogInfof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
 		if err := Faucet().DeriveStateFromTangle(startIndex); err != nil {
-			plugin.LogErrorf("failed to derive state: %s", err)
+			Plugin().LogErrorf("failed to derive state: %s", err)
 			return
 		}
-		plugin.LogInfo("Deriving faucet state from the ledger... done")
+		Plugin().LogInfo("Deriving faucet state from the ledger... done")
 
 		defer fundingWorkerPool.Stop()
 		initDone.Store(true)
 
 		<-shutdownSignal
-		plugin.LogInfof("Stopping %s ...", PluginName)
+		Plugin().LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
-		plugin.Logger().Panicf("Failed to start daemon: %s", err)
+		Plugin().Logger().Panicf("Failed to start daemon: %s", err)
 	}
 }
 
@@ -190,7 +190,7 @@ func waitForMana(shutdownSignal <-chan struct{}) error {
 		if aMana >= tangle.MinMana {
 			return nil
 		}
-		plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangle.MinMana)
+		Plugin().LogDebugf("insufficient access mana: %f < %f", aMana, tangle.MinMana)
 		time.Sleep(waitForManaWindow)
 	}
 }
@@ -214,17 +214,17 @@ func configureEvents() {
 			// verify PoW
 			leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
 			if err != nil {
-				plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
+				Plugin().LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
 				return
 			}
 
 			if leadingZeroes < targetPoWDifficulty {
-				plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
+				Plugin().LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
 				return
 			}
 
 			if IsAddressBlackListed(addr) {
-				plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
+				Plugin().LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
 				return
 			}
 
@@ -232,10 +232,10 @@ func configureEvents() {
 			_, added := fundingWorkerPool.TrySubmit(message)
 			if !added {
 				RemoveAddressFromBlacklist(addr)
-				plugin.LogInfo("dropped funding request for address %s as queue is full", addr.Base58())
+				Plugin().LogInfo("dropped funding request for address %s as queue is full", addr.Base58())
 				return
 			}
-			plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
+			Plugin().LogInfof("enqueued funding request for address %s", addr.Base58())
 		})
 	}))
 }
