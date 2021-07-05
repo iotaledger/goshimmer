@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -55,7 +56,9 @@ func configure(plugin *node.Plugin) {
 	}
 
 	if metrics.Parameters.Local {
-		registerAutopeeringMetrics()
+		if !node.IsSkipped(autopeering.Plugin()) {
+			registerAutopeeringMetrics()
+		}
 		registerDBMetrics()
 		registerFPCMetrics()
 		registerInfoMetrics()
