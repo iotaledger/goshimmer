@@ -33,23 +33,11 @@ Let's define the terms related to markers:
 Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of $[SID, MI]$. 
 
 #### Marker Structure
-<table>
-    <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-    </tr>
-    <tr>
-        <td>SequenceID</td>
-        <td>uint64</td>
-        <td>The Sequence identifier of the marker.</td>
-    </tr>
-    <tr>
-        <td>Index</td>
-        <td>uint64</td>
-        <td>The index of the marker in the sequence.</td>
-    </tr>
-</table>
+|Name|Type|Description|
+|--- |--- |--- |
+|SequenceID|uint64|The Sequence identifier of the marker.|
+|Index|uint64|The index of the marker in the sequence.|
+
 
 #### Create Markers
 A new marker is created when:
@@ -86,33 +74,13 @@ These lists for past markers and future markers are used to determine whether a 
 #### StructureDetails Structure
 StructureDetails is a structure that will be in the message metadata containing marker information.
 
-<table>
-    <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-    </tr>
-    <tr>
-        <td>Rank</td>
-        <td>uint64</td>
-        <td>The rank of the message.</td>
-    </tr>
-    <tr>
-        <td>IsPastMarker</td>
-        <td>bool</td>
-        <td>A flag to indicate whether a message is a marker.</td>
-    </tr>
-    <tr>
-        <td>PastMarkers</td>
-        <td>map[SequenceID]Index</td>
-        <td><b>PM list</b>, a list of PMs from different sequences.</td>
-    </tr>
-    <tr>
-        <td>FutureMarkers</td>
-        <td>map[SequenceID]Index</td>
-        <td><b>FM list</b>, a list of FMs from different sequences.</td>     
-    </tr>
-</table>
+|Name|Type|Description|
+|--- |--- |--- |
+|Rank|uint64|The rank of the message.|
+|IsPastMarker|bool|A flag to indicate whether a message is a marker.|
+|PastMarkers|map[SequenceID]Index|PM list, a list of PMs from different sequences.|
+|FutureMarkers|map[SequenceID]Index|FM list, a list of FMs from different sequences.|
+
 
 ##### Past Markers
 * The `PM` list of a marker contains the marker itself only.
@@ -130,39 +98,14 @@ The `FM` list of a message is empty at start and gets updated when a new marker 
 Sequences are used to track the UTXO DAG branches, each branch corresponds to a sequence with a unique `SID`, and the sequences form a DAG as well.
 
 #### Sequence Structure
+|Name|Type|Description|
+|--- |--- |--- |
+|id|uint64|The sequence identifier of the sequence.|
+|parentReferences|map[uint64]Thresholdmap|The marker referenced map of each parent marker.|
+|rank|uint64|The rank of the sequence in the marker DAG.|
+|highestIndex|uint64|The highest MI of the marker sequence.|
+|lowestIndex|uint64|The lowest MI of the sequence.|
 
-<table>
-    <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-    </tr>
-    <tr>
-        <td>id</td>
-        <td>uint64</td>
-        <td>The sequence identifier of the sequence.</td>
-    </tr>
-    <tr>
-        <td>parentReferences</td>
-        <td>map[uint64]Thresholdmap</td>
-        <td>The marker referenced map of each parent marker.</td>
-    </tr>
-    <tr>
-        <td>rank</td>
-        <td>uint64</td>
-        <td>The rank of the sequence in the marker DAG.</td>
-    </tr>
-    <tr>
-        <td>highestIndex</td>
-        <td>uint64</td>
-        <td>The highest MI of the marker sequence.</td>
-    </tr>
-    <tr>
-        <td>lowestIndex</td>
-        <td>uint64</td>
-        <td>The lowest MI of the sequence.</td>
-    </tr>
-</table>
 
 
 #### Create Sequence

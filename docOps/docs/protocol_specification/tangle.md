@@ -1,24 +1,24 @@
 # Tangle
 
 ## Data types
-| Name   | Description   |
-| ------ | ------------- |
-| uint8  | An unsigned 8 bit integer encoded in Little Endian. |
-| uint16  | An unsigned 16 bit integer encoded in Little Endian. |
-| uint32  | An unsigned 32 bit integer encoded in Little Endian. |
-| uint64  | An unsigned 64 bit integer encoded in Little Endian. |
-| ByteArray[N] | A static size array of size N.   |
-| ByteArray | A dynamically sized array. A uint32 denotes its length.   |
-| string | A dynamically sized array of an UTF-8 encoded string. A uint16 denotes its length.   |
-| time    | Unix time in nanoseconds stored as `int64`, i.e., the number of nanoseconds elapsed since January 1, 1970 UTC. |
+| Name         | Description                                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
+| uint8        | An unsigned 8 bit integer encoded in Little Endian.                                                            |
+| uint16       | An unsigned 16 bit integer encoded in Little Endian.                                                           |
+| uint32       | An unsigned 32 bit integer encoded in Little Endian.                                                           |
+| uint64       | An unsigned 64 bit integer encoded in Little Endian.                                                           |
+| ByteArray[N] | A static size array of size N.                                                                                 |
+| ByteArray    | A dynamically sized array. A uint32 denotes its length.                                                        |
+| string       | A dynamically sized array of an UTF-8 encoded string. A uint16 denotes its length.                             |
+| time         | Unix time in nanoseconds stored as `int64`, i.e., the number of nanoseconds elapsed since January 1, 1970 UTC. |
 
 ## Subschema Notation
-| Name   | Description   |
-| :------ | :------------- |
-| oneOf  | One of the listed subschemas. |
-| optOneOf | Optionally one of the listed subschemas. |
-| anyOf | Any (one or more) of the listed subschemas. |
-| <code>between(x,y)</code> | Between (but including) x and y of the listed subschemas. |
+| Name           | Description                                               |
+| :------------- | :-------------------------------------------------------- |
+| oneOf          | One of the listed subschemas.                             |
+| optOneOf       | Optionally one of the listed subschemas.                  |
+| anyOf          | Any (one or more) of the listed subschemas.               |
+| `between(x,y)` | Between (but including) x and y of the listed subschemas. |
 
 ## Parameters
 - `MAX_MESSAGE_SIZE=64 KB` The maximum allowed message size.
@@ -47,114 +47,36 @@ Messages are created and signed by nodes. Next to several fields of metadata, th
 BLAKE2b-256 hash of the byte contents of the message. It should be used by the nodes to index the messages and by external APIs.
 
 ### Message structure
-<table>
-    <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-    </tr>
-    <tr>
-        <td>Version</td>
-        <td>uint8</td>
-        <td>The message version. The schema specified in this RFC is for version <strong>1</strong> only. </td>
-    </tr>
-    <tr>
-        <td>Parents count</td>
-        <td>uint8</td>
-        <td>The amount of parents preceding the current message.</td>
-    </tr>
-    <tr>
-        <td>Parents type</td>
-        <td>uint8</td>
-        <td>Bitwise encoding of parent type matching the order of preceding parents starting at <code>least significant bit</code>. <code>1</code> indicates a strong parent, while <code>0</code> signals a weak parent. At least <code>MIN_STRONG_PARENTS</code> parent type must be strong.</td>
-    </tr>
-    <tr>
-        <td colspan="1">
-            Parents <code>between(1,8)</code>
-        </td>
-        <td colspan="2">
-            <details open="true">
-                <summary>Parents, ordered by hash ASC</summary>
-                <table>
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Description</th>
-                    </tr>
-                    <tr>
-                        <td>Parent</td>
-                        <td>ByteArray[32]</td>
-                        <td>The Message ID of the <i>parent Message</i>.</td>
-                    </tr>
-                </table>
-            </details>
-        </td>
-    </tr>
-    <tr>
-        <td>Issuer public key (Ed25519)</td>
-        <td>ByteArray[32]</td>
-        <td>The public key of the node issuing the message.</td>
-    </tr>
-    <tr>
-        <td>Issuing time</td>
-        <td>time</td>
-        <td>The time the message was issued.</td>
-    </tr>
-    <tr>
-        <td>Sequence number</td>
-        <td>uint64</td>
-        <td>The always increasing number of issued messages of the issuing node.</td>
-    </tr>
-    <tr>
-        <td>Payload length</td>
-        <td>uint32</td>
-        <td>The length of the Payload. Since its type may be unknown to the node, it must be declared in advance. 0 length means no payload will be attached.</td>
-    </tr>
-    <tr>
-        <td colspan="1">
-            Payload
-        </td>
-        <td colspan="2">
-            <details open="true">
-                <summary>Generic Payload</summary>
-                <blockquote>
-                An outline of a general payload
-                </blockquote>
-                <table>
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Description</th>
-                    </tr>
-                    <tr>
-                        <td>Payload Type</td>
-                        <td>uint32</td>
-                        <td>
-                            The type of the payload. It will instruct the node how to parse the fields that follow. Types in the range of 0-127 are "core types", that all nodes are expected to know.
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Data Fields</td>
-                        <td>ANY</td>
-                        <td>A sequence of fields, where the structure depends on <code>payload type</code>.</td>
-                    </tr>
-                </table>
-            </details>
-            </td>
-    </tr>
-    <tr>
-        <td>Nonce</td>
-        <td>uint64</td>
-        <td>The nonce which lets this message fulfill the adaptive Proof-of-Work requirement.</td>
-    </tr>
-    <tr>
-        <td>Signature (Ed25519)</td>
-        <td>ByteArray[64]</td>
-        <td>Signature of the issuing node's private key signing the entire message bytes.</td>
-    </tr>
-</table>
+| Name                        | Type                                | Description                                                                                                                                                                                                                    |
+| --------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Version                     | uint8                               | The message version. The schema specified in this RFC is for version 1 only.                                                                                                                                                   |
+| Parents count               | uint8                               | The amount of parents preceding the current message.                                                                                                                                                                           |
+| Parents type                | uint8                               | Bitwise encoding of parent type matching the order of preceding parents starting at least significant bit. 1 indicates a strong parent, while 0 signals a weak parent. At least MIN_STRONG_PARENTS parent type must be strong. |
+| Parents between(1,8)        | [Parent](#parent)                   | Parents, ordered by hash ASC                                                                                                                                                                                                   |
+| Issuer public key (Ed25519) | ByteArray[32]                       | The public key of the node issuing the message.                                                                                                                                                                                |
+| Issuing time                | time                                | The time the message was issued.                                                                                                                                                                                               |
+| Sequence number             | uint64                              | The always increasing number of issued messages of the issuing node.                                                                                                                                                           |
+| Payload length              | uint32                              | The length of the Payload. Since its type may be unknown to the node, it must be declared in advance. 0 length means no payload will be attached.                                                                              |
+| Payload                     | [Generic Payload](#generic-payload) | An outline of a general payload                                                                                                                                                                                                |
+| Nonce                       | uint64                              | The nonce which lets this message fulfill the adaptive Proof-of-Work requirement.                                                                                                                                              |
+| Signature (Ed25519)         | ByteArray[64]                       | Signature of the issuing node's private key signing the entire message bytes.                                                                                                                                                  |
 
 
+#### Parent
+
+| Name   | Type          | Description                           |
+| ------ | ------------- | ------------------------------------- |
+| Parent | ByteArray[32] | The Message ID of the parent Message. |
+
+
+#### Generic Payload
+
+| Name         | Type   | Description                                                                                                                                                                |
+| ------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Payload Type | uint32 | The type of the payload. It will instruct the node how to parse the fields that follow. Types in the range of 0-127 are "core types", that all nodes are expected to know. |
+| Data Fields  | ANY    | A sequence of fields, where the structure depends on payload type.                                                                                                         |
+
+            
 ### Syntactical Validation
 Messages that do no pass the Syntactical Validation are discarded. Only syntactically valid messages continue in the data flow, i.e., pass to the Semantic Validation.
 

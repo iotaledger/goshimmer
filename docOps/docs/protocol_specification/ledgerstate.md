@@ -8,376 +8,142 @@ The following image depicts the flow of funds using UTXO:
 ![Flow of funds using UTXO](../../static/img/protocol_specification/utxo_fund_flow.png "Flow of funds using UTXO")
 ## Transaction Layout
 
-A <i>Transaction</i> payload is made up of two parts:
-1. The <i>Transaction Essence</i> part contains: version, timestamp, nodeID of the aMana pledge, nodeID of the cMana pledge, inputs, outputs and an optional data payload.
-2. The <i>Unlock Blocks</i> which unlock the <i>Transaction Essence</i>'s inputs. In case the unlock block contains a signature, it signs the entire <i>Transaction Essence</i> part.
+A _Transaction_ payload is made up of two parts:
+1. The _Transaction Essence_ part contains: version, timestamp, nodeID of the aMana pledge, nodeID of the cMana pledge, inputs, outputs and an optional data payload.
+2. The _Unlock Blocks_ which unlock the _Transaction Essence_'s inputs. In case the unlock block contains a signature, it signs the entire _Transaction Essence_ part.
 
 All values are serialized in little-endian encoding (it stores the most significant byte of a word at the largest address and the smallest byte at the smallest address). The serialized form of the transaction is deterministic, meaning the same logical transaction always results in the same serialized byte sequence.
 
 ### Transaction Essence
 
-The <i>Transaction Essence</i> of a <i>Transaction</i> carries a version, timestamp, nodeID of the aMana pledge, nodeID of the cMana pledge, inputs, outputs and an optional data payload.
+The _Transaction Essence_ of a _Transaction_ carries a version, timestamp, nodeID of the aMana pledge, nodeID of the cMana pledge, inputs, outputs and an optional data payload.
 
 ### Inputs
 
-The <i>Inputs</i> part holds the inputs to consume, that in turn fund the outputs of the <i>Transaction Essence</i>. There is only one supported type of input as of now, the <i>UTXO Input</i>. In the future, more types of inputs may be specified as part of protocol upgrades.
+The _Inputs_ part holds the inputs to consume, that in turn fund the outputs of the _Transaction Essence_. There is only one supported type of input as of now, the _UTXO Input_. In the future, more types of inputs may be specified as part of protocol upgrades.
 
-Each defined input must be accompanied by a corresponding <i>Unlock Block</i> at the same index in the <i>Unlock Blocks</i> part of the <i>Transaction</i>. 
-If multiple inputs may be unlocked through the same <i>Unlock Block</i>, the given <i>Unlock Block</i> only needs to be specified at the index of the first input that gets unlocked by it. 
-Subsequent inputs that are unlocked through the same data must have a <i>Reference Unlock Block</i> pointing to the previous <i>Unlock Block</i>. 
+Each defined input must be accompanied by a corresponding _Unlock Block_ at the same index in the _Unlock Blocks_ part of the _Transaction_. 
+If multiple inputs may be unlocked through the same _Unlock Block_, the given _Unlock Block_ only needs to be specified at the index of the first input that gets unlocked by it. 
+Subsequent inputs that are unlocked through the same data must have a _Reference Unlock Block_ pointing to the previous _Unlock Block_. 
 This ensures that no duplicate data needs to occur in the same transaction.
 
 #### UTXO Input
 
-<table>
-        <tr>
-            <td><b>Name</b></td>
-            <td><b>Type</b></td>
-            <td><b>Description</b></td>
-        </tr>
-        <tr>
-            <td>Input Type</td>
-            <td>uint8</td>
-            <td>
-                Set to <strong>value 0</strong> to denote an <i>UTXO Input</i>.
-            </td>
-        </tr>
-        <tr>
-            <td>Transaction ID</td>
-            <td>ByteArray[32]</td>
-            <td>The BLAKE2b-256 hash of the transaction from which the UTXO comes from.</td>
-        </tr>
-        <tr>
-            <td>Transaction Output Index</td>
-            <td>uint16</td>
-            <td>The index of the output on the referenced transaction to consume.</td>
-        </tr>
-</table>
+| Name                     | Type          | Description                                                             |
+| ------------------------ | ------------- | ----------------------------------------------------------------------- |
+| Input Type               | uint8         | Set to value 0 to denote an _UTXO Input_.                               |
+| Transaction ID           | ByteArray[32] | The BLAKE2b-256 hash of the transaction from which the UTXO comes from. |
+| Transaction Output Index | uint16        | The index of the output on the referenced transaction to consume.       |
 
 
-A <i>UTXO Input</i> is an input which references an output of a previous transaction by using the given transaction's BLAKE2b-256 hash + the index of the output on that transaction. 
-A <i>UTXO Input</i> must be accompanied by an <i>Unlock Block</i> for the corresponding type of output the <i>UTXO Input</i> is referencing.
 
-Example: If the input references outputs to an Ed25519 address, then the corresponding unlock block must be of type <i>Signature Unlock Block</i> holding an Ed25519 signature.
+A _UTXO Input_ is an input which references an output of a previous transaction by using the given transaction's BLAKE2b-256 hash + the index of the output on that transaction. 
+A _UTXO Input_ must be accompanied by an _Unlock Block_ for the corresponding type of output the _UTXO Input_ is referencing.
+
+Example: If the input references outputs to an Ed25519 address, then the corresponding unlock block must be of type _Signature Unlock Block_ holding an Ed25519 signature.
 
 ### Outputs
 
-The <i>Outputs</i> part holds the outputs to create with this <i>Transaction Payload</i>. There are different types of output: 
-* <i>SigLockedSingleOutput</i>
-* <i>SigLockedAssetOutput</i>
+The _Outputs_ part holds the outputs to create with this _Transaction Payload_. There are different types of output: 
+* _SigLockedSingleOutput_
+* _SigLockedAssetOutput_
 
 #### SigLockedSingleOutput
 
-<table>
-        <tr>
-            <td><b>Name</b></td>
-            <td><b>Type</b></td>
-            <td><b>Description</b></td>
-        </tr>
-        <tr>
-            <td>Output Type</td>
-            <td>uint8</td>
-            <td>
-                Set to <strong>value 0</strong> to denote a <i>SigLockedSingleOutput</i>.
-            </td>
-        </tr>
-        <tr>
-            <td valign="top">Address <code>oneOf</code></td>
-            <td colspan="2">
-                 <details>
-                    <summary>Ed25519 Address</summary>
-                    <table>
-                        <tr>
-                            <td><b>Name</b></td>
-                            <td><b>Type</b></td>
-                            <td><b>Description</b></td>
-                        </tr>
-                        <tr>
-                            <td>Address Type</td>
-                            <td>uint8</td>
-                            <td>
-                                Set to <strong>value 0</strong> to denote an <i>Ed25519 Address</i>.
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Address</td>
-                            <td>ByteArray[32]</td>
-                            <td>The raw bytes of the Ed25519 address which is a BLAKE2b-256 hash of the Ed25519 public key.</td>
-                        </tr>
-                    </table>
-                </details>
-                <details>
-                    <summary>BLS Address</summary>
-                    <table>
-                        <tr>
-                            <td><b>Name</b></td>
-                            <td><b>Type</b></td>
-                            <td><b>Description</b></td>
-                        </tr>
-                        <tr>
-                            <td>Address Type</td>
-                            <td>uint8</td>
-                            <td>
-                                Set to <strong>value 1</strong> to denote a <i>BLS Address</i>.
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Address</td>
-                            <td>ByteArray[49]</td>
-                              <td>The raw bytes of the BLS address which is a BLAKE2b-256 hash of the BLS public key.</td>
-                        </tr>
-                    </table>
-                </details>
-            </td>
-        </tr>
-        <tr>
-            <td>Balance</td>
-            <td>uint64</td>
-            <td>The balance of IOTA tokens to deposit with this <i>SigLockedSingleOutput</i> output.</td>
-        </tr>
-</table>
+| Name            | Type                                                               | Description                                                                                         |
+| --------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Output Type     | uint8                                                              | Set to value 0 to denote a _SigLockedSingleOutput_.                                                 |
+| Address `oneOf` | [Ed25519 Address](#ed25519-address) \| [BLS Address](#bls-address) | The raw bytes of the Ed25519/BLS address which is a BLAKE2b-256 hash of the Ed25519/BLS  public key |
+| Balance         | uint64                                                             | The balance of IOTA tokens to deposit with this _SigLockedSingleOutput_ output.                     |
 
-The <i>SigLockedSingleOutput</i> defines an output holding an IOTA balance linked to a single address; it is unlocked via a valid signature proving ownership over the given address. Such output may hold an address of different types.
+
+##### Ed25519 Address
+
+| Name         | Type          | Description                                                                                 |
+| ------------ | ------------- | ------------------------------------------------------------------------------------------- |
+| Address Type | uint8         | Set to value 0 to denote an _Ed25519 Address_.                                              |
+| Address      | ByteArray[32] | The raw bytes of the Ed25519 address which is a BLAKE2b-256 hash of the Ed25519 public key. |
+
+
+#### BLS Address
+
+| Name         | Type          | Description                                                                         |
+| ------------ | ------------- | ----------------------------------------------------------------------------------- |
+| Address Type | uint8         | Set to value 1 to denote a _BLS Address_.                                           |
+| Address      | ByteArray[49] | The raw bytes of the BLS address which is a BLAKE2b-256 hash of the BLS public key. |
+
+
+The _SigLockedSingleOutput_ defines an output holding an IOTA balance linked to a single address; it is unlocked via a valid signature proving ownership over the given address. Such output may hold an address of different types.
 
 #### SigLockedAssetOutput
 
-<table>
-        <tr>
-            <td><b>Name</b></td>
-            <td><b>Type</b></td>
-            <td><b>Description</b></td>
-        </tr>
-        <tr>
-            <td>Output Type</td>
-            <td>uint8</td>
-            <td>
-                Set to <strong>value 1</strong> to denote a <i>SigLockedAssetOutput</i>.
-            </td>
-        </tr>
-        <tr>
-            <td valign="top">Address <code>oneOf</code></td>
-            <td colspan="2">
-                <details>
-                    <summary>Ed25519 Address</summary>
-                    <table>
-                        <tr>
-                            <td><b>Name</b></td>
-                            <td><b>Type</b></td>
-                            <td><b>Description</b></td>
-                        </tr>
-                        <tr>
-                            <td>Address Type</td>
-                            <td>uint8</td>
-                            <td>
-                                Set to <strong>value 0</strong> to denote an <i>Ed25519 Address</i>.
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Address</td>
-                            <td>ByteArray[32]</td>
-                            <td>The raw bytes of the Ed25519 address which is a BLAKE2b-256 hash of the Ed25519 public key.</td>
-                        </tr>
-                    </table>
-                </details>
-                <details>
-                    <summary>BLS Address</summary>
-                    <table>
-                        <tr>
-                            <td><b>Name</b></td>
-                            <td><b>Type</b></td>
-                            <td><b>Description</b></td>
-                        </tr>
-                        <tr>
-                            <td>Address Type</td>
-                            <td>uint8</td>
-                            <td>
-                                Set to <strong>value 1</strong> to denote a <i>BLS Address</i>.
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Address</td>
-                            <td>ByteArray[49]</td>
-                              <td>The raw bytes of the BLS address which is a BLAKE2b-256 hash of the BLS public key.</td>
-                        </tr>
-                    </table>
-                </details>
-            </td>
-        </tr>
-        <tr>
-            <td>Balances count</td>
-            <td>uint32</td>
-            <td>The number of individual balances.</td>
-            <tr>
-                <td valign="top">AssetBalance <code>anyOf</code></td>
-                <td colspan="2">
-                    <details>
-                        <summary>Asset Balance</summary>
-                        <blockquote>
-                        The balance of the tokenized asset.
-                        </blockquote>
-                        <table>
-                            <tr>
-                                <td><b>Name</b></td>
-                                <td><b>Type</b></td>
-                                <td><b>Description</b></td>
-                            </tr>
-                            <tr>
-                                <td>AssetID</td>
-                                <td>ByteArray[32]</td>
-                                <td>The ID of the tokenized asset</td>
-                            </tr>
-                            <tr>
-                                <td>Balance</td>
-                                <td>uint64</td>
-                                <td>The balance of the tokenized asset.</td>
-                            </tr>
-                        </table>
-                    </details>
-                </td>
-            </tr>
-        </tr>
-</table>
+| Name                 | Type                                                               | Description                                                                                         |
+| -------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Output Type          | uint8                                                              | Set to value 1 to denote a _SigLockedAssetOutput_.                                                  |
+| Address `oneOf`      | [Ed25519 Address](#ed25519-address) \| [BLS Address](#bls-address) | The raw bytes of the Ed25519/BLS address which is a BLAKE2b-256 hash of the Ed25519/BLS  public key |
+| Balances count       | uint32                                                             | The number of individual balances.                                                                  |
+| AssetBalance `anyOf` | [Asset Balance](#asset-balance)                                    | The balance of the tokenized asset.                                                                 |
 
-The <i>SigLockedAssetOutput</i> defines an output holding a balance for each specified tokenized asset linked to a single address; it is unlocked via a valid signature proving ownership over the given address. Such output may hold an address of different types.
+
+##### Asset Balance
+
+The balance of the tokenized asset.
+
+| Name    | Type          | Description                         |
+| ------- | ------------- | ----------------------------------- |
+| AssetID | ByteArray[32] | The ID of the tokenized asset       |
+| Balance | uint64        | The balance of the tokenized asset. |
+
+The _SigLockedAssetOutput_ defines an output holding a balance for each specified tokenized asset linked to a single address; it is unlocked via a valid signature proving ownership over the given address. Such output may hold an address of different types.
 The ID of any tokenized asset is defined by the BLAKE2b-256 hash of the OutputID that created the asset.
 
 ### Payload
 
-The payload part of a <i>Transaction Essence</i> may hold an optional payload. This payload does not affect the validity of the <i>Transaction Essence</i>. If the transaction is not valid, then the payload *shall* be discarded.
+The payload part of a _Transaction Essence_ may hold an optional payload. This payload does not affect the validity of the _Transaction Essence_. If the transaction is not valid, then the payload *shall* be discarded.
 
 ### Unlock Blocks
 
-The <i>Unlock Blocks</i> part holds the unlock blocks unlocking inputs within a <i>Transaction Essence</i>.
+The _Unlock Blocks_ part holds the unlock blocks unlocking inputs within a _Transaction Essence_.
 
-There are different types of <i>Unlock Blocks</i>:
-<table>
-    <tr>
-        <td><b>Name</b></td>
-        <td><b>Unlock Type</b></td>
-        <td><b>Description</b></td>
-    </tr>
-    <tr>
-        <td>Signature Unlock Block</td>
-        <td>0</td>
-        <td>An unlock block holding one or more signatures unlocking one or more inputs.</td>
-    </tr>
-<tr>
-        <td>Reference Unlock Block</td>
-        <td>1</td>
-        <td>An unlock block which must reference a previous unlock block which unlocks also the input at the same index as this <i>Reference Unlock Block</i>.</td>
-    </tr>
-</table>
+There are different types of _Unlock Blocks_:
+| Name                   | Unlock Type | Description                                                                                                                                   |
+| ---------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Signature Unlock Block | 0           | An unlock block holding one or more signatures unlocking one or more inputs.                                                                  |
+| Reference Unlock Block | 1           | An unlock block which must reference a previous unlock block which unlocks also the input at the same index as this _Reference Unlock Block_. |
 
 #### Signature Unlock Block
 
-<table>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-        </tr>
-        <tr>
-            <td>Unlock Type</td>
-            <td>uint8</td>
-            <td>
-                Set to <strong>value 0</strong> to denote a <i>Signature Unlock Block</i>.
-            </td>
-        </tr>
-        <tr>
-            <td valign="top">Signature <code>oneOf</code></td>
-            <td colspan="2">
-                <details>
-                    <summary>BLS Signature</summary>
-                    <table>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Description</th>
-                        </tr>
-                        <tr>
-                            <td>Signature Type</td>
-                            <td>uint8</td>
-                            <td>
-                                Set to <strong>value 0</strong> to denote a <i>BLS Signature</i>.
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Signature</td>
-                            <td>ByteArray</td>
-                            <td>The signature signing the serialized <i>Transaction Essence</i>.</td>
-                        </tr>
-                    </table>
-                </details>
-                 <details>
-                    <summary>Ed25519 Signature</summary>
-                    <table>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Description</th>
-                        </tr>
-                        <tr>
-                            <td>Signature Type</td>
-                            <td>uint8</td>
-                            <td>
-                                Set to <strong>value 1</strong> to denote an <i>Ed25519 Signature</i>.
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Public key</td>
-                            <td>ByteArray[32]</td>
-                            <td>The public key of the Ed25519 keypair which is used to verify the signature.</td>
-                        </tr>
-                        <tr>
-                            <td>Signature</td>
-                            <td>ByteArray[64]</td>
-                            <td>The signature signing the serialized <i>Transaction Essence</i>.</td>
-                        </tr>
-                    </table>
-                </details>
-            </td>
-        </tr>
-</table>
+| Name              | Type                                                               | Description                                                                                         |
+| ----------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Unlock Type       | uint8                                                              | Set to value 0 to denote a _Signature Unlock Block_.                                                |
+| Signature `oneOf` | [Ed25519 Address](#ed25519-address) \| [BLS Address](#bls-address) | The raw bytes of the Ed25519/BLS address which is a BLAKE2b-256 hash of the Ed25519/BLS  public key |
 
-A <i>Signature Unlock Block</i> defines an <i>Unlock Block</i> which holds one or more signatures unlocking one or more inputs.
-Such a block signs the entire <i>Transaction Essence</i> part of a <i>Transaction Payload</i> including the optional payload.
+
+A _Signature Unlock Block_ defines an _Unlock Block_ which holds one or more signatures unlocking one or more inputs.
+Such a block signs the entire _Transaction Essence_ part of a _Transaction Payload_ including the optional payload.
 
 #### Reference Unlock block
 
-<table>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-        </tr>
-        <tr>
-            <td>Unlock Type</td>
-            <td>uint8</td>
-            <td>
-                Set to <strong>value 1</strong> to denote a <i>Reference Unlock Block</i>.
-            </td>
-        </tr>
-        <tr>
-            <td>Reference</td>
-            <td>uint16</td>
-            <td>Represents the index of a previous unlock block.</td>
-        </tr>
-</table>
+| Name        | Type   | Description                                          |
+| ----------- | ------ | ---------------------------------------------------- |
+| Unlock Type | uint8  | Set to value 1 to denote a _Reference Unlock Block_. |
+| Reference   | uint16 | Represents the index of a previous unlock block.     |
 
-A <i>Reference Unlock Block</i> defines an <i>Unlock Block</i> that references a previous <i>Unlock Block</i> (that must not be another <i>Reference Unlock Block</i>). It must be used if multiple inputs can be unlocked through the same origin <i>Unlock Block</i>.
+
+A _Reference Unlock Block_ defines an _Unlock Block_ that references a previous _Unlock Block_ (that must not be another _Reference Unlock Block_). It must be used if multiple inputs can be unlocked through the same origin _Unlock Block_.
 
 Example:
-Consider a <i>Transaction Essence</i> containing <i>UTXO Inputs</i> A, B and C, where A and C are both spending the UTXOs originating from the same Ed25519 address. The <i>Unlock Block</i> part must thereby have the following structure:
+Consider a _Transaction Essence_ containing _UTXO Inputs_ A, B and C, where A and C are both spending the UTXOs originating from the same Ed25519 address. The _Unlock Block_ part must thereby have the following structure:
 
-| Index | Must Contain                                                                                                         |
-| ----- | ---------------------------------------------------------------------------------------------------------------- |
-| 0     | A <i>Signature Unlock Block</i> holding the corresponding Ed25519 signature to unlock A and C.                    |
-| 1     | A <i>Signature Unlock Block</i> that unlocks B.                                                                 |
-| 2     | A <i>Reference Unlock Block</i> that references index 0, since C also gets unlocked by the same signature as A. |
+| Index | Must Contain                                                                                               |
+| ----- | ---------------------------------------------------------------------------------------------------------- |
+| 0     | A _Signature Unlock Block_ holding the corresponding Ed25519 signature to unlock A and C.                  |
+| 1     | A _Signature Unlock Block_ that unlocks B.                                                                 |
+| 2     | A _Reference Unlock Block_ that references index 0, since C also gets unlocked by the same signature as A. |
 
 ## Validation
 
-A <i>Transaction</i> payload has different validation stages since some validation steps can only be executed at the point when certain information has (or has not) been received. We, therefore, distinguish between syntactical and semantic validation.
+A _Transaction_ payload has different validation stages since some validation steps can only be executed at the point when certain information has (or has not) been received. We, therefore, distinguish between syntactical and semantic validation.
 
 ### Transaction Syntactical Validation
 
@@ -386,9 +152,9 @@ This validation can commence as soon as the transaction data has been received i
 The following criteria define whether the transaction passes the syntactical validation:
 * Transaction Essence:
     * `Transaction Essence Version` value must be 0.
-    * The `timestamp` of the <i>Transaction Essence</i> must be older than (or equal to) the `timestamp` of the message
+    * The `timestamp` of the _Transaction Essence_ must be older than (or equal to) the `timestamp` of the message
       containing the transaction by at most 10 minutes.
-    * A <i>Transaction Essence</i> must contain at least one input and output.
+    * A _Transaction Essence_ must contain at least one input and output.
 * Inputs:
     * `Inputs Count` must be 0 < x < 128.
     * At least one input must be specified.
@@ -405,7 +171,7 @@ The following criteria define whether the transaction passes the syntactical val
         * `Address Type` must either be 0 or 1, denoting an `Ed25519` - or `BLS` address .
         * The `Address` must be unique in the set of `SigLockedSingleOutputs`.
         * `Amount` must be > 0.
-    * Outputs must be in lexicographical order by their serialized form.<sup>1</sup>
+    * Outputs must be in lexicographical order by their serialized form. This ensures that serialization of the transaction becomes deterministic, meaning that libraries always produce the same bytes given the logical transaction.
     * Accumulated output balance must not exceed the total supply of tokens `2,779,530,283,277,761`.
 * `Payload Length` must be 0 (to indicate that there's no payload) or be valid for the specified payload type.
 * `Payload Type` must be one of the supported payload types if `Payload Length` is not 0.
@@ -414,17 +180,16 @@ The following criteria define whether the transaction passes the syntactical val
 * `Signature Unlock Blocks` must define either an `Ed25519`- or `BLS Signature`.
 * A `Signature Unlock Block` unlocking multiple inputs must only appear once (be unique) and be positioned at the same index of the first input it unlocks. All other inputs unlocked by the same `Signature Unlock Block` must have a companion `Reference Unlock Block` at the same index as the corresponding input that points to the origin `Signature Unlock Block`.
 * `Reference Unlock Blocks` must specify a previous `Unlock Block` that is not of type `Reference Unlock Block`. The referenced index must therefore be smaller than the index of the `Reference Unlock Block`.
-* Given the type and length information, the <i>Transaction</i> must consume the entire byte array the `Payload Length` field in the <i>Message</i> defines.
+* Given the type and length information, the _Transaction_ must consume the entire byte array the `Payload Length` field in the _Message_ defines.
 
-<sup>1</sup> ensures that serialization of the transaction becomes deterministic, meaning that libraries always produce the same bytes given the logical transaction.
 
 ### Transaction Semantic Validation
 
 The following criteria define whether the transaction passes the semantic validation:
 1. All the UTXOs the transaction references are known (booked) and unspent.
 1. The transaction is spending the entirety of the funds of the referenced UTXOs to the outputs.
-1. The address type of the referenced UTXO must match the signature type contained in the corresponding <i>Signature Unlock Block</i>.
-1. The <i>Signature Unlock Blocks</i> are valid, i.e. the signatures prove ownership over the addresses of the referenced UTXOs.
+1. The address type of the referenced UTXO must match the signature type contained in the corresponding _Signature Unlock Block_.
+1. The _Signature Unlock Blocks_ are valid, i.e. the signatures prove ownership over the addresses of the referenced UTXOs.
 
 If a transaction passes the semantic validation, its referenced UTXOs *shall* be marked as spent and the corresponding new outputs *shall* be booked/specified in the ledger. 
 
