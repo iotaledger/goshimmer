@@ -39,7 +39,7 @@ For a documentation, including tutorials and resources, we refer to the [Documen
 ## Design
 The code in GoShimmer is modular, where each module represents either one of the *IOTA 2.0 components*, or a basic node function such as the gossip, ledger state, and API - just to mention a few.  
 
-![Layers](docs/protocol_specification/layers.png)
+![Layers](docOps/static/img/protocol_specification/layers.png)
 
 GoShimmer's modularity is based on a combination of [event-driven](https://goshimmer.docs.iota.org/implementation_design/event_driven_model.html) and [layer-based](https://goshimmer.docs.iota.org/protocol_specification/components.html) approaches.
 
