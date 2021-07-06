@@ -10,6 +10,11 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 )
 
+type schedulingInfo struct {
+	avgDelay      int64
+	scheduledMsgs int
+}
+
 func main() {
 	clients := make([]*client.GoShimmerAPI, 2)
 
@@ -23,23 +28,24 @@ func main() {
 		return
 	}
 
-	clients[0] = client.NewGoShimmerAPI(masterAPIURL, client.WithHTTPClient(http.Client{Timeout: 60 * time.Second}))
-	clients[1] = client.NewGoShimmerAPI(replicaAPIURL, client.WithHTTPClient(http.Client{Timeout: 60 * time.Second}))
+	clients[0] = client.NewGoShimmerAPI(masterAPIURL, client.WithHTTPClient(http.Client{Timeout: 180 * time.Second}))
+	clients[1] = client.NewGoShimmerAPI(replicaAPIURL, client.WithHTTPClient(http.Client{Timeout: 180 * time.Second}))
 
 	// ignore messages that are issued 10 more mins before now
-	collectTime := time.Now().Add(-5 * time.Minute)
+	collectTime := time.Now().Add(-10 * time.Minute)
 	masterDelayMap := analyzeSchedulingDelay(clients[0], collectTime)
 	replicaDelayMap := analyzeSchedulingDelay(clients[1], collectTime)
 
 	fmt.Println("The average scheduling delay of different issuers on different nodes:")
-	fmt.Printf("%-20s %-20s %-20s\n\n", "NodeID", "masterNode", "replicaNode")
+	fmt.Printf("%-20s %-20s %-15s %-20s %-15s\n\n", "NodeID", "masterNode", "sent msgs", "replicaNode", "sent msgs")
 	for nodeID, delay := range masterDelayMap {
-		padded := fmt.Sprintf("%-20s %-20v %-20v", nodeID, time.Duration(delay)*time.Nanosecond, time.Duration(replicaDelayMap[nodeID])*time.Nanosecond)
+		padded := fmt.Sprintf("%-20s %-20v %-15d %-20v %-15d", nodeID, time.Duration(delay.avgDelay)*time.Nanosecond, delay.scheduledMsgs,
+			time.Duration(replicaDelayMap[nodeID].avgDelay)*time.Nanosecond, replicaDelayMap[nodeID].scheduledMsgs)
 		fmt.Println(padded)
 	}
 }
 
-func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, collectTime time.Time) map[string]int64 {
+func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, collectTime time.Time) map[string]schedulingInfo {
 	csvRes, err := goshimmerAPI.GetDiagnosticsMessages()
 	if err != nil {
 		fmt.Println(err)
@@ -49,13 +55,16 @@ func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, collectTime time.
 	scheduleDelays := calculateSchedulingDelay(csvRes, collectTime)
 
 	// the average of delay per node
-	avgScheduleDelay := make(map[string]int64)
+	avgScheduleDelay := make(map[string]schedulingInfo)
 	for nodeID, delays := range scheduleDelays {
 		var sum int64 = 0
 		for _, d := range delays {
 			sum += d.Nanoseconds()
 		}
-		avgScheduleDelay[nodeID] = sum / int64(len(delays))
+		avgScheduleDelay[nodeID] = schedulingInfo{
+			avgDelay:      sum / int64(len(delays)),
+			scheduledMsgs: len(delays),
+		}
 	}
 
 	return avgScheduleDelay
