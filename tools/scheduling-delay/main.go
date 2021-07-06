@@ -27,7 +27,7 @@ func main() {
 	clients[1] = client.NewGoShimmerAPI(replicaAPIURL, client.WithHTTPClient(http.Client{Timeout: 60 * time.Second}))
 
 	// ignore messages that are issued 10 more mins before now
-	collectTime := time.Now().Add(-10 * time.Minute)
+	collectTime := time.Now().Add(-5 * time.Minute)
 	masterDelayMap := analyzeSchedulingDelay(clients[0], collectTime)
 	replicaDelayMap := analyzeSchedulingDelay(clients[1], collectTime)
 
@@ -66,9 +66,9 @@ func calculateSchedulingDelay(response *csv.Reader, collectTime time.Time) map[s
 	messageInfos, _ := response.ReadAll()
 
 	for _, msg := range messageInfos {
-		issueTime := timestampFromString(msg[3])
+		arrivalTime := timestampFromString(msg[4])
 		// ignore data that is issued before collectTime
-		if issueTime.Before(collectTime) {
+		if arrivalTime.Before(collectTime) {
 			continue
 		}
 
@@ -79,7 +79,7 @@ func calculateSchedulingDelay(response *csv.Reader, collectTime time.Time) map[s
 		}
 
 		issuer := msg[1]
-		nodeDelayMap[issuer] = append(nodeDelayMap[issuer], scheduledTime.Sub(issueTime))
+		nodeDelayMap[issuer] = append(nodeDelayMap[issuer], scheduledTime.Sub(arrivalTime))
 	}
 	return nodeDelayMap
 }
