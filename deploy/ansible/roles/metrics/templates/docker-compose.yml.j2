@@ -1,3 +1,4 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
 version: "3"
 
 services:
@@ -8,8 +9,8 @@ services:
     ports:
       - "27117:27117"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_ROOT_USERNAME: {{ mongoDBUser }}
+      MONGO_INITDB_ROOT_PASSWORD: {{ mongoDBPassword }}
     volumes:
       - mongodb_data:/data/db
     command: >
