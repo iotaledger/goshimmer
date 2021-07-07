@@ -409,7 +409,7 @@ chmod -R 777 prometheus
 #### Create Grafana configs
 1. Create necessary config dirs in `/opt/goshimmer/`.
 ```
-mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers
+mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers grafana/provisioning/plugins
 mkdir -p grafana/dashboards
 ```
 2. Create a datasource configuration file in `grafana/provisioning/datasources`:
