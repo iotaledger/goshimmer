@@ -4,7 +4,7 @@
 # golang 1.16.3-buster amd64
 FROM golang@sha256:dfa3cef088454200d6b48e2a911138f7d5d9afff77f89243eea6342f16ddcfb0 AS build
 
-ARG BUILD_TAGS=rocksdb,builtin_static,netgo
+ARG BUILD_TAGS=rocksdb,builtin_static
 
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates
@@ -29,9 +29,8 @@ RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
     GOOS=linux GOARCH=amd64 go build \
     -tags="$BUILD_TAGS" \
-    -ldflags='-w -s -extldflags "-static"' \
-    -o /go/bin/goshimmer; \
-    ./check_static.sh
+    -ldflags='-w -s' \
+    -o /go/bin/goshimmer
 
 RUN wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
 
