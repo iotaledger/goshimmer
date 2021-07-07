@@ -564,7 +564,13 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		if err != nil {
 			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
 		}
-		cachedConsumingConflictBranch.Release()
+		cachedConsumingConflictBranch.Consume(func(newBranch Branch) {
+			// copying the branch metadata properties from the original branch to the newly created.
+			u.branchDAG.Branch(txMetadata.BranchID()).Consume(func(oldBranch Branch) {
+				newBranch.setLiked(oldBranch.Liked())
+				newBranch.setMonotonicallyLiked(oldBranch.MonotonicallyLiked())
+			})
+		})
 
 		txMetadata.SetBranchID(conflictBranchID)
 		u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
