@@ -24,31 +24,7 @@
     - goshimmer-node
 
 - hosts: drands
-  vars:
-    drandNumber: 1
+  with_items: [ 1, 2, 3, 4, 5 ]
   roles:
-    - drand
-
-- hosts: drands
-  vars:
-    drandNumber: 2
-  roles:
-    - drand
-
-- hosts: drands
-  vars:
-    drandNumber: 3
-  roles:
-    - drand
-
-- hosts: drands
-  vars:
-    drandNumber: 4
-  roles:
-    - drand
-
-- hosts: drands
-  vars:
-    drandNumber: 5
-  roles:
-    - drand
+    - role: drand
+      drandNumber: {{ item }}
