@@ -240,11 +240,15 @@ func (s *Storage) StoreUnconfirmedTransactionDependencies(dependencies *Unconfir
 }
 
 // UnconfirmedTransactionDependencies gets the CachedUnconfirmedTransactionDependencies from the objectStorage that matches provided transactionID
-func (s *Storage) UnconfirmedTransactionDependencies(transactionID *ledgerstate.TransactionID) (cachedDependencies *CachedUnconfirmedTxDependency) {
-	cachedObject := s.unconfirmedTxDependenciesStorage.Load(transactionID.Bytes())
-	if !typeutils.IsInterfaceNil(cachedObject) {
-		cachedDependencies = &CachedUnconfirmedTxDependency{CachedObject: cachedObject}
-	}
+func (s *Storage) UnconfirmedTransactionDependencies(transactionID *ledgerstate.TransactionID) (matchedCachedDependencies *CachedUnconfirmedTxDependency) {
+	s.unconfirmedTxDependenciesStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedDependencies := CachedUnconfirmedTxDependency{CachedObject: cachedObject}
+		if cachedDependencies.ID() == *transactionID {
+			matchedCachedDependencies = &cachedDependencies
+			return false
+		}
+		return true
+	})
 	return
 }
 
@@ -1221,6 +1225,16 @@ func (u *UnconfirmedTxDependency) ObjectStorageValue() []byte {
 // accessor methods with a type-casted one.
 type CachedUnconfirmedTxDependency struct {
 	objectstorage.CachedObject
+}
+
+//TODO what for?
+// ID returns the dependency transactionID of the UnconfirmedTxDependency.
+func (c *CachedUnconfirmedTxDependency) ID() (id ledgerstate.TransactionID) {
+	id, _, err := ledgerstate.TransactionIDFromBytes(c.Key())
+	if err != nil {
+		panic(err)
+	}
+	return
 }
 
 // Retain marks the CachedObject to still be in use by the program.
