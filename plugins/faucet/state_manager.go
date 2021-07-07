@@ -376,8 +376,8 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	})
 
 	// listen on confirmation
-	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(monitorTxConfirmation)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	// issue the tx
 	issuedMsg, issueErr := s.issueTX(tx)

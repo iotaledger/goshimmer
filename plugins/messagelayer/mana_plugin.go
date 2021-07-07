@@ -102,7 +102,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	// mana.Events().Pledged.Attach(onPledgeEventClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -224,7 +224,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
