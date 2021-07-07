@@ -4,6 +4,8 @@ go 1.16
 
 replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210518222204-d6ea5eedcfb9
 
+replace github.com/iotaledger/hive.go => /home/galr/IdeaProjects/hive.go
+
 require (
 	github.com/DataDog/zstd v1.4.8 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -12,7 +14,6 @@ require (
 	github.com/cockroachdb/errors v1.8.4
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
-	github.com/emirpasic/gods v1.12.0
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
