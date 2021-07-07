@@ -11,6 +11,18 @@
     dest: /opt/metrics
     mode: '0644'
 
+- name: Template docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/metrics/docker-compose.yml
+    mode: '0644'
+
+- name: Template prometheus.yml
+  template:
+    src: prometheus.yml.j2
+    dest: /opt/metrics/prometheus.yml
+    mode: '0644'
+
 - name: Stop existing services gracefully
   community.general.docker_compose:
     project_src: /opt/metrics
