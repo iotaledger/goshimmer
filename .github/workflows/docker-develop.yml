@@ -84,4 +84,4 @@ jobs:
           FAUCET_01_FAUCET_SEED=$FAUCET_01_FAUCET_SEED
           mongoDBUser=$MONGODB_USER
           mongoDBPassword=$MONGODB_PASSWORD" \
-          deploy/ansible/deploy.yml
+          deploy/ansible/initial-setup.yml
