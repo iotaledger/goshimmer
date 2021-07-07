@@ -3,9 +3,6 @@ scrape_configs:
       scrape_interval: 5s
       static_configs:
       - targets:
-      {% for host in groups['supports'] %}
-        - host:9312
-      {% endfor %}
-      {% for host in groups['goshimmers'] %}
-        - host:9312
+      {% for host in groups['supports'] + groups['goshimmers']%}
+        - {{ host }}:9312
       {% endfor %}
