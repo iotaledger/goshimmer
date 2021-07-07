@@ -166,7 +166,6 @@ func TestScenario_1(t *testing.T) {
 	require.NoError(t, err)
 
 	branches["yellow"] = ledgerstate.NewBranchID(transactions["4"].ID())
-	ledgerstate.RegisterBranchIDAlias(branches["yellow"], "yellow")
 
 	msgBranchID, err = messageBranchID(tangle, messages["5"].ID())
 	require.NoError(t, err)
@@ -186,11 +185,13 @@ func TestScenario_1(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, branches["red"], txBranchID)
 
+	// assess that after forking transaction 3 and thus introducing the red branch, the properties of that branch are correct
 	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["red"]).Consume(func(branch ledgerstate.Branch) {
 		assert.True(t, branch.Liked())
 		assert.True(t, branch.MonotonicallyLiked())
 	}))
 
+	// assess that the properties of the yellow branch are correct
 	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["yellow"]).Consume(func(branch ledgerstate.Branch) {
 		assert.False(t, branch.Liked())
 		assert.False(t, branch.MonotonicallyLiked())
