@@ -46,6 +46,9 @@ Messages are created and signed by nodes. Next to several fields of metadata, th
 ### Message ID
 BLAKE2b-256 hash of the byte contents of the message. It should be used by the nodes to index the messages and by external APIs.
 
+### Transaction ID
+The BLAKE2b-256 hash of the transaction from which the UTXO comes from.
+
 ### Message structure
 <table>
     <tr>
@@ -59,22 +62,18 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
         <td>The message version. The schema specified in this RFC is for version <strong>1</strong> only. </td>
     </tr>
     <tr>
-        <td>Parents count</td>
+        <td>Parents blocks count</td>
         <td>uint8</td>
-        <td>The amount of parents preceding the current message.</td>
+        <td>The amount of parents block preceding the current message.</td>
     </tr>
     <tr>
-        <td>Parents type</td>
-        <td>uint8</td>
-        <td>Bitwise encoding of parent type matching the order of preceding parents starting at <code>least significant bit</code>. <code>1</code> indicates a strong parent, while <code>0</code> signals a weak parent. At least <code>MIN_STRONG_PARENTS</code> parent type must be strong.</td>
-    </tr>
-    <tr>
-        <td colspan="1">
-            Parents <code>between(1,8)</code>
-        </td>
+        <td valign="top">Parents Blocks <code>anyOf</code></td>
         <td colspan="2">
             <details open="true">
-                <summary>Parents, ordered by hash ASC</summary>
+                <summary>Strong Parents Block</summary>
+                <blockquote>
+                Defines a parents block containing strong parents references.
+                </blockquote>
                 <table>
                     <tr>
                         <th>Name</th>
@@ -82,14 +81,210 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
                         <th>Description</th>
                     </tr>
                     <tr>
-                        <td>Parent</td>
-                        <td>ByteArray[32]</td>
-                        <td>The Message ID of the <i>parent Message</i>.</td>
+                        <td>Parent Type</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>value 0</strong> to denote a <i>Strong Parents Block</i>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Parent Count</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>number</strong> of parent references in this block.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="top">Reference <code>between(1,8)</code></td>
+                        <td colspan="2">
+                             <details>
+                                <summary>Message Reference</summary>
+                                <table>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                    <tr>
+                                        <td>Reference Type</td>
+                                        <td>uint8</td>
+                                        <td>
+                                            Set to <strong>value 0</strong> to denote a <i>Message Reference</i>.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Reference</td>
+                                        <td>ByteArray[32]</td>
+                                        <td>Reference to a Message ID.</td>
+                                    </tr>
+                                </table>
+                            </details>
+                        </td>
                     </tr>
                 </table>
             </details>
-        </td>
-    </tr>
+            <details open="true">
+                <summary>Weak Parents Block</summary>
+                <blockquote>
+                Defines a parents block containing weak parents references.
+                </blockquote>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Parent Type</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>value 1</strong> to denote a <i>Weak Parents Block</i>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Parent Count</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>number</strong> of parent references in this block.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="top">Reference <code>between(1,8)</code></td>
+                        <td colspan="2">
+                            <details>
+                                <summary>Message Reference</summary>
+                                <table>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                    <tr>
+                                        <td>Reference Type</td>
+                                        <td>uint8</td>
+                                        <td>
+                                            Set to <strong>value 0</strong> to denote a <i>Message Reference</i>.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Reference</td>
+                                        <td>ByteArray[32]</td>
+                                        <td>Reference to a Message ID.</td>
+                                    </tr>
+                                </table>
+                            </details>
+                        </td>
+                    </tr>
+                </table>
+            </details>
+            <details open="true">
+                <summary>Dislike Parents Block</summary>
+                <blockquote>
+                Defines a parents block containing dislike parents references.
+                </blockquote>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Parent Type</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>value 2</strong> to denote a <i>Dislike Parents Block</i>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Parent Count</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>number</strong> of parent references in this block.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="top">Reference <code>between(1,8)</code></td>
+                        <td colspan="2">
+                            <details>
+                                <summary>Transaction Reference</summary>
+                                <table>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                    <tr>
+                                        <td>Reference Type</td>
+                                        <td>uint8</td>
+                                        <td>
+                                            Set to <strong>value 1</strong> to denote a <i>Transaction Reference</i>.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Reference</td>
+                                        <td>ByteArray[32]</td>
+                                        <td>Blake2b hash of the referenced Transaction ID.</td>
+                                    </tr>
+                                </table>
+                            </details>
+                        </td>
+                    </tr>
+                </table>
+            </details>
+            <details open="true">
+                <summary>Like Parents Block</summary>
+                <blockquote>
+                Defines a parents block containing like parents references.
+                </blockquote>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Parent Type</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>value 3</strong> to denote a <i>Like Parents Block</i>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Parent Count</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>number</strong> of parent references in this block.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="top">Reference <code>between(1,8)</code></td>
+                        <td colspan="2">
+                             <details>
+                                <summary>Transaction Reference</summary>
+                                <table>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                    <tr>
+                                        <td>Reference Type</td>
+                                        <td>uint8</td>
+                                        <td>
+                                            Set to <strong>value 1</strong> to denote a <i>Transaction Reference</i>.
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Reference</td>
+                                        <td>ByteArray[32]</td>
+                                        <td>Blake2b hash of the referenced Transaction ID.</td>
+                                    </tr>
+                                </table>
+                            </details>
+                        </td>
+                    </tr>
+                </table>
+            </details>
     <tr>
         <td>Issuer public key (Ed25519)</td>
         <td>ByteArray[32]</td>
@@ -160,8 +355,11 @@ Messages that do no pass the Syntactical Validation are discarded. Only syntacti
 
 A message is syntactically valid if:
 1. The message length does not exceed `MAX_MESSAGE_SIZE` bytes.
-2. When the message parsing is complete, there are not any trailing bytes left that were not parsed.
-4. At least 1 and at most 8 distinct parents are given, ordered ASC and at least `MIN_STRONG_PARENTS` are strong parents.
+1. When the message parsing is complete, there are not any trailing bytes left that were not parsed.
+1. Parents Blocks must be ordered by ASC type.
+1. Exactly 1 <i>Strong Parents Block</i> must exist.
+1. Parents in each Parents Block types must be ordered ASC without repetition. 
+1. Parents must be unique across Parents Blocks.
 
 ### Semantic Validation
 Messages that do not pass the Semantic Validation are discarded. Only semantically valid messages continue in the data flow.
@@ -170,6 +368,22 @@ A message is semantically valid if:
 1. The Message PoW Hash contains at least the number of leading 0 defined as required by the PoW.
 2. The signature of the issuing node is valid.
 3. It passes [parents age checks](#age-of-parents).
+
+
+#### Votes Validation
+
+1. If more than one like parent is set, they cannot belong to the same conflict set.
+1. The dislike parent must be in the past cone of a strong parent.
+1. If a like parent is specified, at least one dislike parent from the same conflict set must be specified.
+1. For every dislike parent, a like parent must also exist to the supported transaction within the same conflict set, provided that such transaction is not already present in the past cone of any strong parent.
+1. For each referenced conflict set, from all parents types, for each referenced conflict set, must result in only a single transaction support.
+1. Within the same conflict set:
+   1. 1 dislike parent, no weak parents.
+   1. multiple strong parents, no weak parents.
+
+2. Only one like or weak parent can be within the same conflict set.
+3. If a dislike parent is specified, at most one like parent must exist within the same conflict set. 
+
 
 
 ## Payloads
