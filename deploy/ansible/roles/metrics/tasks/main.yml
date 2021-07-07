@@ -34,6 +34,7 @@
   community.general.docker_compose:
     project_src: /opt/metrics
     state: absent
+    remove_volumes: yes
 
 - name: Run services
   community.general.docker_compose:
