@@ -43,6 +43,8 @@ services:
     user: "104"
     volumes:
     - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
     networks:
       - back-tier
       - front-tier
