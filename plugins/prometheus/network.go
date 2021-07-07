@@ -1,6 +1,7 @@
 package prometheus
 
 import (
+	"github.com/iotaledger/hive.go/node"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
@@ -47,11 +48,13 @@ func registerNetworkMetrics() {
 		Help: "traffic_Analysis client TX network traffic [bytes].",
 	})
 
+	if !node.IsSkipped(autopeering.Plugin()) {
+		registry.MustRegister(autopeeringInboundBytes)
+		registry.MustRegister(autopeeringOutboundBytes)
+	}
 	registry.MustRegister(fpcInboundBytes)
 	registry.MustRegister(fpcOutboundBytes)
 	registry.MustRegister(analysisOutboundBytes)
-	registry.MustRegister(autopeeringInboundBytes)
-	registry.MustRegister(autopeeringOutboundBytes)
 	registry.MustRegister(gossipInboundBytes)
 	registry.MustRegister(gossipOutboundBytes)
 
@@ -59,11 +62,13 @@ func registerNetworkMetrics() {
 }
 
 func collectNetworkMetrics() {
+	if !node.IsSkipped(autopeering.Plugin()) {
+		autopeeringInboundBytes.Set(float64(autopeering.Conn.RXBytes()))
+		autopeeringOutboundBytes.Set(float64(autopeering.Conn.TXBytes()))
+	}
 	fpcInboundBytes.Set(float64(metrics.FPCInboundBytes()))
 	fpcOutboundBytes.Set(float64(metrics.FPCOutboundBytes()))
 	analysisOutboundBytes.Set(float64(metrics.AnalysisOutboundBytes()))
-	autopeeringInboundBytes.Set(float64(autopeering.Conn.RXBytes()))
-	autopeeringOutboundBytes.Set(float64(autopeering.Conn.TXBytes()))
 	gossipInboundBytes.Set(float64(metrics.GossipInboundBytes()))
 	gossipOutboundBytes.Set(float64(metrics.GossipOutboundBytes()))
 }
