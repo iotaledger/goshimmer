@@ -5,7 +5,8 @@ services:
     image: mongo:latest
     container_name: mongodb
     restart: unless-stopped
-    network_mode: "host"
+    ports:
+      - "27117:27117"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: password
@@ -13,28 +14,37 @@ services:
       - mongodb_data:/data/db
     command: >
       --port=27117
+    networks:
+      - back-tier
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     restart: unless-stopped
-    network_mode: "host"
+    expose:
+      - "9090"
     command:
     - --config.file=/etc/prometheus/prometheus.yml
     - --web.listen-address=:9090
     volumes:
     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - back-tier
 
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
     restart: unless-stopped
-    network_mode: "host"
     environment:
       - GF_SERVER_HTTP_PORT=3000
+    ports:
+      "3000:3000"
     user: "104"
     volumes:
     - grafana_data:/var/lib/grafana
+    networks:
+      - back-tier
+      - front-tier
 
   elasticsearch:
     container_name: elasticsearch
@@ -49,15 +59,15 @@ services:
       - type: volume
         source: elasticsearch_data
         target: /usr/share/elasticsearch/data
-    ports:
-      - "9200:9200"
+    expose:
+      - "9200"
     environment:
       ES_JAVA_OPTS: "-Xmx2g -Xms2g"
       # Use single node discovery in order to disable production mode and avoid bootstrap checks
       # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
     networks:
-      - elk
+      - back-tier
 
   logstash:
     container_name: logstash
@@ -80,7 +90,8 @@ services:
     depends_on:
       - elasticsearch
     networks:
-      - elk
+      - back-tier
+      - front-tier
 
   kibana:
     container_name: kibana
@@ -97,10 +108,13 @@ services:
     depends_on:
       - elasticsearch
     networks:
-      - elk
+      - back-tier
+      - front-tier
 
 networks:
-  elk:
+  back-tier:
+    driver: bridge
+  front-tier:
     driver: bridge
 
 volumes:
