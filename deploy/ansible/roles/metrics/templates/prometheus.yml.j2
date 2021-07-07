@@ -1,0 +1,11 @@
+scrape_configs:
+    - job_name: analysis_server
+      scrape_interval: 5s
+      static_configs:
+      - targets:
+      {% for host in groups['supports'] %}
+        - host:9312
+      {% endfor %}
+      {% for host in groups['goshimmers'] %}
+        - host:9312
+      {% endfor %}
