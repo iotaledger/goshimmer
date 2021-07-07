@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iotaledger/hive.go/typeutils"
+
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
+
+const BranchEntityName = "Branch"
 
 // region BranchLogger /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -30,18 +34,18 @@ func NewBranchLogger(entityLogger *EntityLogger, entityID ...marshalutil.SimpleB
 	}
 }
 
-func (b *BranchLogger) Entries() []LogEntry {
+func (b *BranchLogger) Entries() (entries []LogEntry) {
 	if b.branchID == ledgerstate.UndefinedBranchID {
-		b.entityLogger.LogEntries("Branch").Consume(func(wrappedLogEntry *WrappedLogEntry) {
-			fmt.Println(wrappedLogEntry)
+		b.entityLogger.LogEntries(BranchEntityName).Consume(func(wrappedLogEntry *WrappedLogEntry) {
+			entries = append(entries, wrappedLogEntry.logEntry)
 		})
 	} else {
-		b.entityLogger.LogEntries("Branch", b.branchID).Consume(func(wrappedLogEntry *WrappedLogEntry) {
-			fmt.Println(wrappedLogEntry)
+		b.entityLogger.LogEntries(BranchEntityName, b.branchID).Consume(func(wrappedLogEntry *WrappedLogEntry) {
+			entries = append(entries, wrappedLogEntry.logEntry)
 		})
 	}
 
-	return nil
+	return
 }
 
 func (b *BranchLogger) LogDebug(args ...interface{}) {
@@ -89,6 +93,12 @@ func (b *BranchLogger) UnmarshalLogEntry(data []byte) (logEntry LogEntry, err er
 	if branchLogEntry.logLevel, err = LogLevelFromMarshalUtil(marshalUtil); err != nil {
 		return nil, err
 	}
+	messageLength, err := marshalUtil.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	messageBytes, err := marshalUtil.ReadBytes(int(messageLength))
+	branchLogEntry.message = typeutils.BytesToString(messageBytes)
 
 	return branchLogEntry, nil
 }
@@ -128,7 +138,7 @@ func NewBranchLogEntry(branchID ledgerstate.BranchID, logLevel LogLevel, message
 }
 
 func (b *BranchLogEntry) Entity() string {
-	return "Branch"
+	return BranchEntityName
 }
 
 func (b *BranchLogEntry) EntityID() marshalutil.SimpleBinaryMarshaler {
@@ -171,10 +181,14 @@ func (b *BranchLogEntry) String() string {
 }
 
 func (b *BranchLogEntry) Bytes() []byte {
+	messageBytes := typeutils.StringToBytes(b.Message())
+
 	return marshalutil.New().
 		Write(b.branchID).
 		WriteTime(b.time).
 		Write(b.logLevel).
+		WriteUint64(uint64(len(messageBytes))).
+		WriteBytes(messageBytes).
 		Bytes()
 }
 
