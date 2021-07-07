@@ -24,7 +24,14 @@
     - goshimmer-node
 
 - hosts: drands
-  with_items: [ 1, 2, 3, 4, 5 ]
   roles:
     - role: drand
-      drandNumber: "{{ item }}"
+      drandNumber: 1
+    - role: drand
+      drandNumber: 2
+    - role: drand
+      drandNumber: 3
+    - role: drand
+      drandNumber: 4
+    - role: drand
+      drandNumber: 5
