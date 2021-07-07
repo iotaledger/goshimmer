@@ -9,8 +9,8 @@ services:
     ports:
       - "27117:27117"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: {{ mongoDBUser }}
-      MONGO_INITDB_ROOT_PASSWORD: {{ mongoDBPassword }}
+      MONGO_INITDB_ROOT_USERNAME: "{{ mongoDBUser }}"
+      MONGO_INITDB_ROOT_PASSWORD: "{{ mongoDBPassword }}"
     volumes:
       - mongodb_data:/data/db
     command: >

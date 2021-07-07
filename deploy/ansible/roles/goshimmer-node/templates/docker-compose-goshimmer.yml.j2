@@ -12,7 +12,7 @@ services:
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - ANALYSIS_CLIENT_SERVERADDRESS=analysisentry-01.pre-devnet.shimmer.iota.cafe:21888
-      - AUTOPEERING_SEED={{ seed }}
+      - AUTOPEERING_SEED="{{ seed }}"
       - AUTOPEERING_PORT=33501
       - DASHBOARD_BINDADDRESS=0.0.0.0:9001
       - GOSSIP_PORT=33601
@@ -29,7 +29,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9312
       --messageLayer.snapshot.file=/snapshot.bin
      {% if faucet|default(false) %}
-      --faucet.seed={{ faucetSeed }}
+      --faucet.seed="{{ faucetSeed }}"
       --faucet.tokensPerRequest=1000000
      {% endif %}
       --faucet.powDifficulty=22
