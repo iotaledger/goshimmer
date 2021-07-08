@@ -36,10 +36,10 @@ type IUTXODAG interface {
 	Events() *UTXODAGEvents
 	// Shutdown shuts down the UTXODAG and persists its state.
 	Shutdown()
+	// StoreTransaction stores the transaction
+	StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error)
 	// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
 	CheckTransaction(transaction *Transaction) (err error)
-	// BookTransaction books a Transaction into the ledger state.
-	BookTransaction(transaction *Transaction) (targetBranch BranchID, err error)
 	// InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
 	// Pending, Confirmed or Rejected.
 	InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error)
@@ -50,13 +50,13 @@ type IUTXODAG interface {
 	// Transactions returns all the transactions, consumed.
 	Transactions() (transactions map[TransactionID]*Transaction)
 	// CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-	CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata)
+	CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata)
 	// CachedOutput retrieves the Output with the given OutputID from the object storage.
 	CachedOutput(outputID OutputID) (cachedOutput *CachedOutput)
 	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
 	CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata)
 	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
-	CachedConsumers(outputID OutputID) (cachedConsumers CachedConsumers)
+	CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers)
 	// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 	LoadSnapshot(snapshot *Snapshot)
 	// CachedAddressOutputMapping retrieves the outputs for the given address.
@@ -89,7 +89,7 @@ func NewUtxoDagMock(t *testing.T, utxoDag IUTXODAG) *utxoDagMock {
 }
 
 func (u *utxoDagMock) Events() *UTXODAGEvents {
-	return u.Events()
+	return u.utxoDag.Events()
 }
 
 func (u *utxoDagMock) InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error) {
@@ -101,6 +101,10 @@ func (u *utxoDagMock) InclusionState(transactionID TransactionID) (inclusionStat
 func (u *utxoDagMock) Shutdown() {
 	u.utxoDag.Shutdown()
 	return
+}
+
+func (u *utxoDagMock) StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error) {
+	return u.utxoDag.StoreTransaction(transaction)
 }
 
 func (u *utxoDagMock) CheckTransaction(transaction *Transaction) (err error) {
@@ -119,8 +123,8 @@ func (u *utxoDagMock) Transactions() (transactions map[TransactionID]*Transactio
 	return u.utxoDag.Transactions()
 }
 
-func (u *utxoDagMock) CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata) {
-	return u.utxoDag.CachedTransactionMetadata(transactionID)
+func (u *utxoDagMock) CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata) {
+	return u.utxoDag.CachedTransactionMetadata(transactionID, computeIfAbsentCallback...)
 }
 
 func (u *utxoDagMock) CachedOutput(outputID OutputID) (cachedOutput *CachedOutput) {
@@ -131,8 +135,8 @@ func (u *utxoDagMock) CachedOutputMetadata(outputID OutputID) (cachedOutput *Cac
 	return u.utxoDag.CachedOutputMetadata(outputID)
 }
 
-func (u *utxoDagMock) CachedConsumers(outputID OutputID) (cachedConsumers CachedConsumers) {
-	return u.utxoDag.CachedConsumers(outputID)
+func (u *utxoDagMock) CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers) {
+	return u.utxoDag.CachedConsumers(outputID, optionalSolidityType...)
 }
 
 func (u *utxoDagMock) LoadSnapshot(snapshot *Snapshot) {
@@ -149,10 +153,6 @@ func (u *utxoDagMock) SetTransactionConfirmed(transactionID TransactionID) (err 
 
 func (u *utxoDagMock) ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
 	return u.utxoDag.ConsumedOutputs(transaction)
-}
-
-func (u *utxoDagMock) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
-	return u.utxoDag.BookTransaction(transaction)
 }
 
 func (u *utxoDagMock) ManageStoreAddressOutputMapping(output Output) {
