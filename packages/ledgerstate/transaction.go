@@ -99,7 +99,15 @@ func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transac
 // TransactionIDsFromMarshalUtil unmarshals TransactionIDs using a MarshalUtil (for easier unmarshaling).
 func TransactionIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionIDs TransactionIDs, err error) {
 	transactionIDs = make(TransactionIDs)
-	for !marshalUtil.DoneReading() {
+	for {
+		doneReading, err := marshalUtil.DoneReading()
+		if err != nil {
+			return nil, err
+		}
+		if doneReading {
+			break
+		}
+
 		var transactionID TransactionID
 		transactionID, err = TransactionIDFromMarshalUtil(marshalUtil)
 		if err != nil {
