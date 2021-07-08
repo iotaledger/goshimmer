@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/entitylogger"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 
 	"github.com/cockroachdb/errors"
@@ -292,6 +294,7 @@ type Options struct {
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
 	ConsensusMechanism           ConsensusMechanism
+	EntityLogger                 *entitylogger.EntityLogger
 	GenesisNode                  *ed25519.PublicKey
 	SchedulerParams              SchedulerParams
 	RateSetterParams             RateSetterParams
@@ -392,6 +395,14 @@ func StartSynced(startSynced bool) Option {
 func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
 		options.CacheTimeProvider = cacheTimeProvider
+	}
+}
+
+// EntityLogger is an Option for the Tangle that allows to provide an EntityLogger that logs entity specific debug
+// information.
+func EntityLogger(entityLogger *entitylogger.EntityLogger) Option {
+	return func(options *Options) {
+		options.EntityLogger = entityLogger
 	}
 }
 

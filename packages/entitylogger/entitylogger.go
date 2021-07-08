@@ -32,15 +32,15 @@ func New(store kvstore.KVStore) (entityLogger *EntityLogger) {
 		loggerFactories: make(map[EntityTypeID]LoggerFactory),
 	}
 
-	entityLogger.entityLogStorage = objectstorage.New(store.WithRealm([]byte{database.PrefixEntityLogger}), entityLogger.UnmarshalWrappedLogEntry, WrappedLogEntryPartitionKeys, objectstorage.CacheTime(0))
+	entityLogger.entityLogStorage = objectstorage.New(store.WithRealm([]byte{database.PrefixEntityLogger}), entityLogger.UnmarshalEntityLogEntry, EntityLogEntryPartitionKeys, objectstorage.CacheTime(0))
 
 	return entityLogger
 }
 
-func (e *EntityLogger) UnmarshalWrappedLogEntry(key, data []byte) (wrappedLogEntry objectstorage.StorableObject, err error) {
+func (e *EntityLogger) UnmarshalEntityLogEntry(key, data []byte) (wrappedLogEntry objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(byteutils.ConcatBytes(key, data))
 
-	result := &WrappedLogEntry{}
+	result := &EntityLogEntry{}
 	entityTypeIDBytes, err := marshalUtil.ReadBytes(32)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (e *EntityLogger) UnmarshalWrappedLogEntry(key, data []byte) (wrappedLogEnt
 	}
 	result.logEntryID = LogEntryID(logEntryIDBytes)
 
-	if result.logEntry, err = e.loggerFactories[result.entityTypeID](e).UnmarshalLogEntry(marshalUtil.ReadRemainingBytes()); err != nil {
+	if result.LogEntry, err = e.loggerFactories[result.entityTypeID](e).UnmarshalLogEntry(marshalUtil.ReadRemainingBytes()); err != nil {
 		return nil, err
 	}
 
@@ -88,11 +88,11 @@ func (e *EntityLogger) NewLogEntryID() LogEntryID {
 }
 
 func (e *EntityLogger) StoreLogEntry(logEntry LogEntry) {
-	cachedObject, stored := e.entityLogStorage.StoreIfAbsent(&WrappedLogEntry{
-		entityTypeID: e.EntityTypeID(logEntry.Entity()),
+	cachedObject, stored := e.entityLogStorage.StoreIfAbsent(&EntityLogEntry{
+		entityTypeID: e.EntityTypeID(logEntry.EntityName()),
 		entityID:     e.EntityID(logEntry.EntityID()),
 		logEntryID:   e.NewLogEntryID(),
-		logEntry:     logEntry,
+		LogEntry:     logEntry,
 	})
 	if stored {
 		cachedObject.Release()
@@ -103,7 +103,7 @@ func (e *EntityLogger) EntityID(entityID marshalutil.SimpleBinaryMarshaler) Enti
 	return blake2b.Sum256(entityID.Bytes())
 }
 
-func (e *EntityLogger) LogEntries(entityName string, entityID ...marshalutil.SimpleBinaryMarshaler) (cachedLogEntries CachedWrappedLogEntries) {
+func (e *EntityLogger) LogEntries(entityName string, entityID ...marshalutil.SimpleBinaryMarshaler) (cachedLogEntries CachedEntityLogEntries) {
 	hashedLogEntityType := blake2b.Sum256([]byte(entityName))
 	var iterationPrefix []byte
 	if len(entityID) >= 1 {
@@ -113,9 +113,9 @@ func (e *EntityLogger) LogEntries(entityName string, entityID ...marshalutil.Sim
 		iterationPrefix = hashedLogEntityType[:]
 	}
 
-	cachedLogEntries = make(CachedWrappedLogEntries, 0)
+	cachedLogEntries = make(CachedEntityLogEntries, 0)
 	e.entityLogStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedLogEntries = append(cachedLogEntries, &CachedWrappedLogEntry{CachedObject: cachedObject})
+		cachedLogEntries = append(cachedLogEntries, &CachedEntityLogEntry{CachedObject: cachedObject})
 		return true
 	}, objectstorage.WithIteratorPrefix(iterationPrefix))
 
@@ -157,7 +157,7 @@ type Logger interface {
 // region LogEntry /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type LogEntry interface {
-	Entity() string
+	EntityName() string
 	EntityID() marshalutil.SimpleBinaryMarshaler
 	LogLevel() LogLevel
 	Time() time.Time
@@ -169,66 +169,66 @@ type LogEntry interface {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region WrappedLogEntry //////////////////////////////////////////////////////////////////////////////////////////////
+// region EntityLogEntry ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// WrappedLogEntryPartitionKeys defines the "layout" of the key. This enables prefix iterations in the objectstorage.
-var WrappedLogEntryPartitionKeys = objectstorage.PartitionKey([]int{32, 32, marshalutil.Uint64Size}...)
+// EntityLogEntryPartitionKeys defines the "layout" of the key. This enables prefix iterations in the objectstorage.
+var EntityLogEntryPartitionKeys = objectstorage.PartitionKey([]int{32, 32, marshalutil.Uint64Size}...)
 
-type WrappedLogEntry struct {
+type EntityLogEntry struct {
 	entityTypeID EntityTypeID
 	entityID     EntityID
 	logEntryID   LogEntryID
-	logEntry     LogEntry
+	LogEntry     LogEntry
 
 	objectstorage.StorableObjectFlags
 }
 
-func (w *WrappedLogEntry) Update(objectstorage.StorableObject) {
+func (w *EntityLogEntry) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
-func (w *WrappedLogEntry) ObjectStorageKey() []byte {
+func (w *EntityLogEntry) ObjectStorageKey() []byte {
 	return marshalutil.New().
 		WriteBytes(w.entityTypeID[:]).
 		WriteBytes(w.entityID[:]).
 		WriteUint64(uint64(w.logEntryID)).
-		Write(w.logEntry).
+		Write(w.LogEntry).
 		Bytes()
 }
 
-func (w *WrappedLogEntry) ObjectStorageValue() []byte {
-	return w.logEntry.Bytes()
+func (w *EntityLogEntry) ObjectStorageValue() []byte {
+	return w.LogEntry.Bytes()
 }
 
-func (w *WrappedLogEntry) String() string {
-	return stringify.Struct("WrappedLogEntry",
+func (w *EntityLogEntry) String() string {
+	return stringify.Struct("EntityLogEntry",
 		stringify.StructField("EntityTypeID", w.entityTypeID),
 		stringify.StructField("EntityID", w.entityID),
 		stringify.StructField("LogEntryID", w.logEntryID),
-		stringify.StructField("LogEntry", w.logEntry),
+		stringify.StructField("LogEntry", w.LogEntry),
 	)
 }
 
-var _ objectstorage.StorableObject = &WrappedLogEntry{}
+var _ objectstorage.StorableObject = &EntityLogEntry{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedWrappedLogEntry ////////////////////////////////////////////////////////////////////////////////////////
+// region CachedEntityLogEntry /////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedWrappedLogEntry is a wrapper for a stored cached object representing an approver.
-type CachedWrappedLogEntry struct {
+// CachedEntityLogEntry is a wrapper for a stored cached object representing an approver.
+type CachedEntityLogEntry struct {
 	objectstorage.CachedObject
 }
 
 // Unwrap unwraps the cached approver into the underlying approver.
 // If stored object cannot be cast into an approver or has been deleted, it returns nil.
-func (c *CachedWrappedLogEntry) Unwrap() *WrappedLogEntry {
+func (c *CachedEntityLogEntry) Unwrap() *EntityLogEntry {
 	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
 
-	typedObject := untypedObject.(*WrappedLogEntry)
+	typedObject := untypedObject.(*EntityLogEntry)
 	if typedObject == nil || typedObject.IsDeleted() {
 		return nil
 	}
@@ -236,38 +236,38 @@ func (c *CachedWrappedLogEntry) Unwrap() *WrappedLogEntry {
 	return typedObject
 }
 
-// Consume consumes the cachedWrappedLogEntry.
+// Consume consumes the cachedEntityLogEntry.
 // It releases the object when the callback is done.
 // It returns true if the callback was called.
-func (c *CachedWrappedLogEntry) Consume(consumer func(approver *WrappedLogEntry), forceRelease ...bool) (consumed bool) {
+func (c *CachedEntityLogEntry) Consume(consumer func(approver *EntityLogEntry), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*WrappedLogEntry))
+		consumer(object.(*EntityLogEntry))
 	}, forceRelease...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedWrappedLogEntries //////////////////////////////////////////////////////////////////////////////////////
+// region CachedEntityLogEntries ///////////////////////////////////////////////////////////////////////////////////////
 
-// CachedWrappedLogEntries defines a slice of *CachedWrappedLogEntry.
-type CachedWrappedLogEntries []*CachedWrappedLogEntry
+// CachedEntityLogEntries defines a slice of *CachedEntityLogEntry.
+type CachedEntityLogEntries []*CachedEntityLogEntry
 
 // Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
 // does not exist.
-func (c CachedWrappedLogEntries) Unwrap() (unwrappedWrappedLogEntries []*WrappedLogEntry) {
-	unwrappedWrappedLogEntries = make([]*WrappedLogEntry, len(c))
-	for i, cachedWrappedLogEntry := range c {
-		untypedObject := cachedWrappedLogEntry.Get()
+func (c CachedEntityLogEntries) Unwrap() (unwrappedEntityLogEntries []*EntityLogEntry) {
+	unwrappedEntityLogEntries = make([]*EntityLogEntry, len(c))
+	for i, cachedEntityLogEntry := range c {
+		untypedObject := cachedEntityLogEntry.Get()
 		if untypedObject == nil {
 			continue
 		}
 
-		typedObject := untypedObject.(*WrappedLogEntry)
+		typedObject := untypedObject.(*EntityLogEntry)
 		if typedObject == nil || typedObject.IsDeleted() {
 			continue
 		}
 
-		unwrappedWrappedLogEntries[i] = typedObject
+		unwrappedEntityLogEntries[i] = typedObject
 	}
 
 	return
@@ -276,26 +276,26 @@ func (c CachedWrappedLogEntries) Unwrap() (unwrappedWrappedLogEntries []*Wrapped
 // Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
 // is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
 // least one object was consumed.
-func (c CachedWrappedLogEntries) Consume(consumer func(approver *WrappedLogEntry), forceRelease ...bool) (consumed bool) {
-	for _, cachedWrappedLogEntry := range c {
-		consumed = cachedWrappedLogEntry.Consume(consumer, forceRelease...) || consumed
+func (c CachedEntityLogEntries) Consume(consumer func(approver *EntityLogEntry), forceRelease ...bool) (consumed bool) {
+	for _, cachedEntityLogEntry := range c {
+		consumed = cachedEntityLogEntry.Consume(consumer, forceRelease...) || consumed
 	}
 
 	return
 }
 
 // Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedWrappedLogEntries) Release(force ...bool) {
-	for _, cachedWrappedLogEntry := range c {
-		cachedWrappedLogEntry.Release(force...)
+func (c CachedEntityLogEntries) Release(force ...bool) {
+	for _, cachedEntityLogEntry := range c {
+		cachedEntityLogEntry.Release(force...)
 	}
 }
 
-// String returns a human-readable version of the CachedWrappedLogEntries.
-func (c CachedWrappedLogEntries) String() string {
-	structBuilder := stringify.StructBuilder("CachedWrappedLogEntries")
-	for i, cachedWrappedLogEntry := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedWrappedLogEntry))
+// String returns a human-readable version of the CachedEntityLogEntries.
+func (c CachedEntityLogEntries) String() string {
+	structBuilder := stringify.StructBuilder("CachedEntityLogEntries")
+	for i, cachedEntityLogEntry := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedEntityLogEntry))
 	}
 
 	return structBuilder.String()

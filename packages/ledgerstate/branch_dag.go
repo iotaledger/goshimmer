@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/entitylogger"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -26,6 +28,9 @@ type BranchDAG struct {
 	// Events is a container for all of the BranchDAG related events.
 	Events *BranchDAGEvents
 
+	// EntityLogger contains a specialized logger for debug purposes that logs relevant changes per entity.
+	EntityLogger *entitylogger.EntityLogger
+
 	branchStorage         *objectstorage.ObjectStorage
 	childBranchStorage    *objectstorage.ObjectStorage
 	conflictStorage       *objectstorage.ObjectStorage
@@ -34,11 +39,12 @@ type BranchDAG struct {
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider) (newBranchDAG *BranchDAG) {
+func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider, entityLogger *entitylogger.EntityLogger) (newBranchDAG *BranchDAG) {
 	options := buildObjectStorageOptions(cacheProvider)
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
 		Events:                NewBranchDAGEvents(),
+		EntityLogger:          entityLogger,
 		branchStorage:         osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, options.branchStorageOptions...),
 		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
 		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, options.conflictStorageOptions...),
