@@ -240,17 +240,8 @@ func (s *Storage) StoreUnconfirmedTransactionDependencies(dependencies *Unconfir
 }
 
 // UnconfirmedTransactionDependencies gets the CachedUnconfirmedTransactionDependencies from the objectStorage that matches provided transactionID
-func (s *Storage) UnconfirmedTransactionDependencies(transactionID *ledgerstate.TransactionID) (matchedCachedDependencies *CachedUnconfirmedTxDependency) {
-	s.unconfirmedTxDependenciesStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedDependencies := CachedUnconfirmedTxDependency{CachedObject: cachedObject}
-		if cachedDependencies.ID() == *transactionID {
-			matchedCachedDependencies = &cachedDependencies
-			return false
-		}
-		cachedDependencies.Release()
-		return true
-	})
-	return
+func (s *Storage) UnconfirmedTransactionDependencies(transactionID ledgerstate.TransactionID) (matchedCachedDependencies *CachedUnconfirmedTxDependency) {
+	return &CachedUnconfirmedTxDependency{CachedObject: s.unconfirmedTxDependenciesStorage.Load(transactionID[:])}
 }
 
 // StoreAttachment stores a new attachment if not already stored.
@@ -1161,8 +1152,6 @@ func (c *CachedMissingMessage) String() string {
 
 // region UnconfirmedTxDependency //////////////////////////////////////////////////////////////////////////////////////
 
-var UnconfirmedTxDependencyPartitionKeys = objectstorage.PartitionKey(ledgerstate.TransactionIDLength)
-
 // UnconfirmedTxDependency maps a transaction to all of the transactions that create its inputs which are not yet confirmed
 type UnconfirmedTxDependency struct {
 	objectstorage.StorableObjectFlags
@@ -1173,19 +1162,20 @@ type UnconfirmedTxDependency struct {
 }
 
 // NewUnconfirmedTxDependency creates an empty mapping for txID
-func NewUnconfirmedTxDependency(txID *ledgerstate.TransactionID) *UnconfirmedTxDependency {
+func NewUnconfirmedTxDependency(txID ledgerstate.TransactionID) *UnconfirmedTxDependency {
 	return &UnconfirmedTxDependency{
-		dependencyTxID: *txID,
+		dependencyTxID: txID,
 		dependentTxIDs: make(ledgerstate.TransactionIDs, 0),
 	}
 }
 
 // AddDependency adds a transaction id dependency
-func (u *UnconfirmedTxDependency) AddDependency(txID *ledgerstate.TransactionID) {
+func (u *UnconfirmedTxDependency) AddDependency(txID ledgerstate.TransactionID) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	u.dependentTxIDs[*txID] = types.Void
+	u.dependentTxIDs[txID] = types.Void
+	u.SetModified()
 }
 
 // DeleteDependency deletes a transaction id dependency
@@ -1193,9 +1183,8 @@ func (u *UnconfirmedTxDependency) DeleteDependency(txID ledgerstate.TransactionI
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	if _, ok := u.dependentTxIDs[txID]; ok {
-		delete(u.dependentTxIDs, txID)
-	}
+	delete(u.dependentTxIDs, txID)
+	u.SetModified()
 }
 
 func (u *UnconfirmedTxDependency) Update(other objectstorage.StorableObject) {

@@ -92,8 +92,8 @@ func (e *EligibilityManager) storeMissingDependencies(dependentTxID *ledgerstate
 		})
 		return nil
 	}
-	txDependency := NewUnconfirmedTxDependency(dependencyTxID)
-	txDependency.AddDependency(dependentTxID)
+	txDependency := NewUnconfirmedTxDependency(*dependencyTxID)
+	txDependency.AddDependency(*dependentTxID)
 	cachedDependency := storage.StoreUnconfirmedTransactionDependencies(txDependency)
 	if cachedDependency == nil {
 		return errors.Errorf("failed to store dependency, txID: %s", dependentTxID)

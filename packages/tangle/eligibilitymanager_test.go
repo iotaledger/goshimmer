@@ -58,7 +58,7 @@ func TestDataMessageAlwaysEligible(t *testing.T) {
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		eligibilityResult = messageMetadata.IsEligible()
 	})
-	assert.True(t, eligibilityResult, "Data messages should awlays be eligible")
+	assert.True(t, eligibilityResult, "Data messages should always be eligible")
 }
 
 func TestDependencyDirectApproval(t *testing.T) {
