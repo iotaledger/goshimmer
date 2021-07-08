@@ -92,7 +92,7 @@ func TestCommonSynchronization(t *testing.T) {
 }
 
 func createNewPeerConfig() config.GoShimmer {
-	conf := framework.PeerConfig
+	conf := framework.PeerConfig()
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
 	conf.MessageLayer.TangleTimeWindow = 30 * time.Second
 	return conf

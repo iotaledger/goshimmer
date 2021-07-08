@@ -1,23 +1,26 @@
 package webapi
 
 import (
-	flag "github.com/spf13/pflag"
+	"github.com/iotaledger/hive.go/configuration"
 )
 
-const (
-	// CfgBindAddress defines the config flag of the web API binding address.
-	CfgBindAddress = "webapi.bindAddress"
-	// CfgBasicAuthEnabled defines the config flag of the webapi basic auth enabler.
-	CfgBasicAuthEnabled = "webapi.basic_auth.enabled"
-	// CfgBasicAuthUsername defines the config flag of the webapi basic auth username.
-	CfgBasicAuthUsername = "webapi.basic_auth.username"
-	// CfgBasicAuthPassword defines the config flag of the webapi basic auth password.
-	CfgBasicAuthPassword = "webapi.basic_auth.password"
-)
+// ParametersDefinition contains the definition of the parameters used by the webapi plugin.
+type ParametersDefinition struct {
+	// BindAddress defines the bind address for the web API.
+	BindAddress string `default:"127.0.0.1:8080" usage:"the bind address for the web API"`
+	BasicAuth   struct {
+		// Enabled defines whether basic HTTP authentication is required to access the API.
+		Enabled bool `default:"false" usage:"whether to enable HTTP basic auth"`
+		// Username defines the user used by the basic HTTP authentication.
+		Username string `default:"goshimmer" usage:"HTTP basic auth username"`
+		// Password defines the password used by the basic HTTP authentication.
+		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
+	} `name:"basic_auth"`
+}
+
+// Parameters contains the configuration used by the webapi plugin.
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	flag.String(CfgBindAddress, "127.0.0.1:8080", "the bind address for the web API")
-	flag.Bool(CfgBasicAuthEnabled, false, "whether to enable HTTP basic auth")
-	flag.String(CfgBasicAuthUsername, "goshimmer", "HTTP basic auth username")
-	flag.String(CfgBasicAuthPassword, "goshimmer", "HTTP basic auth password")
+	configuration.BindParameters(Parameters, "webapi")
 }
