@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -23,8 +22,6 @@ var (
 	// plugin is the plugin instance of the gossip plugin.
 	plugin *node.Plugin
 	once   sync.Once
-
-	log *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -36,8 +33,6 @@ func Plugin() *node.Plugin {
 }
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
-
 	configureLogging()
 	configureMessageLayer()
 }

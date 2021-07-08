@@ -8,7 +8,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -38,9 +37,6 @@ func Manager() *gossip.Manager {
 }
 
 func createManager() {
-	// assure that the logger is available
-	log := logger.NewLogger(PluginName)
-
 	// announce the gossip service
 	gossipPort := Parameters.Port
 	if !netutil.IsValidPort(gossipPort) {
@@ -51,7 +47,7 @@ func createManager() {
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
 		Plugin().LogFatalf("could not update services: %s", err)
 	}
-	mgr = gossip.NewManager(lPeer, loadMessage, log)
+	mgr = gossip.NewManager(lPeer, loadMessage, Plugin().Logger())
 }
 
 func start(shutdownSignal <-chan struct{}) {
