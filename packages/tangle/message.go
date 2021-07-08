@@ -3,7 +3,6 @@ package tangle
 import (
 	"bytes"
 	"fmt"
-	"math/bits"
 	"sort"
 	"sync"
 	"time"
@@ -36,17 +35,17 @@ const (
 	// MessageIDLength defines the length of an MessageID.
 	MessageIDLength = 32
 
-	// StrongParent identifies a strong parent in the bitmask.
-	StrongParent uint8 = 1
-
-	// WeakParent identifies a weak parent in the bitmask.
-	WeakParent uint8 = 0
-
-	// MinParentsCount defines the minimum number of parents a message must have.
+	// MinParentsCount defines the minimum number of parents each parents block must have.
 	MinParentsCount = 1
 
-	// MaxParentsCount defines the maximum number of parents a message must have.
+	// MaxParentsCount defines the maximum number of parents each parents block must have.
 	MaxParentsCount = 8
+
+	// defines the minimum number of parents each parents block must have.
+	MinParentsBlocksCount = 1
+
+	// defines the maximum number of parents each parents block must have.
+	MaxParentsBlocksCount = 4
 
 	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
 	MinStrongParentsCount = 1
@@ -97,14 +96,14 @@ func MessageIDFromBytes(bytes []byte) (result MessageID, consumedBytes int, err 
 	return
 }
 
-// MessageIDFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func MessageIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
+// ReferenceFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func ReferenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (Reference, error) {
 	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return MessageIDFromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse message ID: %w", err)
-		return MessageID{}, err
+		return Reference{}, err
 	}
-	return id.(MessageID), nil
+	return id.(Reference), nil
 }
 
 // MarshalBinary marshals the MessageID into bytes.
@@ -180,21 +179,40 @@ func (ids MessageIDs) ToStrings() []string {
 
 // region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+type ParentsType uint8
+
+const (
+	StrongParentType ParentsType = iota
+	WeakParentType
+	DislikeParentType
+	LikeParentType
+)
+
+type Reference interface {
+	Bytes() []byte
+}
+
+type ParentsBlock struct {
+	ParentsType
+	ParentsCount uint8
+	References   []Reference
+}
+
 // Message represents the core message for the base layer Tangle.
 type Message struct {
 	// base functionality of StorableObject
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	version         uint8
-	strongParents   []MessageID
-	weakParents     []MessageID
-	issuerPublicKey ed25519.PublicKey
-	issuingTime     time.Time
-	sequenceNumber  uint64
-	payload         payload.Payload
-	nonce           uint64
-	signature       ed25519.Signature
+	version            uint8
+	parentsBlocksCount uint8
+	parentsBlocks      []ParentsBlock
+	issuerPublicKey    ed25519.PublicKey
+	issuingTime        time.Time
+	sequenceNumber     uint64
+	payload            payload.Payload
+	nonce              uint64
+	signature          ed25519.Signature
 
 	// derived properties
 	id         *MessageID
@@ -204,38 +222,96 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func NewMessage(strongParents, weakParents, dislikeParents, likeParents []Reference, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	// remove duplicates, sort in ASC
 	sortedStrongParents := sortParents(strongParents)
 	sortedWeakParents := sortParents(weakParents)
+	sortedDislikeParents := sortParents(dislikeParents)
+	sortedLikeParents := sortParents(likeParents)
 
 	// syntactical validation
 	parentsCount := len(sortedStrongParents) + len(sortedWeakParents)
-	if parentsCount < MinParentsCount || parentsCount > MaxParentsCount {
-		panic(fmt.Sprintf("amount of parents (%d) not in valid range (%d-%d)", parentsCount, MinParentsCount, MaxParentsCount))
-	}
 
-	if len(sortedStrongParents) < MinStrongParentsCount {
+	strongParentsCount := len(sortedStrongParents)
+	weakParentsCount := len(sortedWeakParents)
+	dislikeParentsCount := len(sortedDislikeParents)
+	likeParentsCount := len(sortedLikeParents)
+
+	if strongParentsCount < MinStrongParentsCount {
 		panic(fmt.Sprintf("amount of strong parents (%d) failed to reach MinStrongParentsCount (%d)", len(strongParents), MinStrongParentsCount))
 	}
 
+	if strongParentsCount > MaxParentsCount {
+		panic(fmt.Sprintf("amount of strong parents (%d) not in valid range (%d-%d)", parentsCount, MinParentsCount, MaxParentsCount))
+	}
+
+	if weakParentsCount > MaxParentsCount {
+		panic(fmt.Sprintf("amount of weak parents (%d) above maximum allowed (%d)", weakParentsCount, MaxParentsCount))
+	}
+
+	if dislikeParentsCount > MaxParentsCount {
+		panic(fmt.Sprintf("amount of dislike parents (%d) above maximum allowed (%d)", dislikeParentsCount, MaxParentsCount))
+	}
+
+	if likeParentsCount > MaxParentsCount {
+		panic(fmt.Sprintf("amount of like parents (%d) above maximum allowed (%d)", likeParentsCount, MaxParentsCount))
+	}
+
+	parentsBlocksCount := 0
+
+	var parentsBlock []ParentsBlock
+
+	parentsBlock = append(parentsBlock, ParentsBlock{
+		ParentsType:  StrongParentType,
+		ParentsCount: uint8(strongParentsCount),
+		References:   strongParents,
+	})
+	parentsCount++
+
+	if weakParentsCount > 0 {
+		parentsBlock = append(parentsBlock, ParentsBlock{
+			ParentsType:  WeakParentType,
+			ParentsCount: uint8(weakParentsCount),
+			References:   weakParents,
+		})
+		parentsBlocksCount++
+	}
+
+	if dislikeParentsCount > 0 {
+		parentsBlock = append(parentsBlock, ParentsBlock{
+			ParentsType:  DislikeParentType,
+			ParentsCount: uint8(dislikeParentsCount),
+			References:   dislikeParents,
+		})
+		parentsBlocksCount++
+	}
+
+	if likeParentsCount > 0 {
+		parentsBlock = append(parentsBlock, ParentsBlock{
+			ParentsType:  LikeParentType,
+			ParentsCount: uint8(likeParentsCount),
+			References:   likeParents,
+		})
+		parentsBlocksCount++
+	}
+
 	return &Message{
-		version:         MessageVersion,
-		strongParents:   sortedStrongParents,
-		weakParents:     sortedWeakParents,
-		issuerPublicKey: issuerPublicKey,
-		issuingTime:     issuingTime,
-		sequenceNumber:  sequenceNumber,
-		payload:         payload,
-		nonce:           nonce,
-		signature:       signature,
+		version:            MessageVersion,
+		parentsBlocksCount: uint8(parentsBlocksCount),
+		parentsBlocks:      parentsBlock,
+		issuerPublicKey:    issuerPublicKey,
+		issuingTime:        issuingTime,
+		sequenceNumber:     sequenceNumber,
+		payload:            payload,
+		nonce:              nonce,
+		signature:          signature,
 	}
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
-func sortParents(parents []MessageID) (sorted []MessageID) {
-	seen := make(map[MessageID]types.Empty)
-	sorted = make([]MessageID, 0, len(parents))
+func sortParents(parents []Reference) (sorted []Reference) {
+	seen := make(map[Reference]types.Empty)
+	sorted = make([]Reference, 0, len(parents))
 
 	// filter duplicates
 	for _, parent := range parents {
@@ -281,52 +357,41 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		return
 	}
 
-	var parentsCount uint8
-	if parentsCount, err = marshalUtil.ReadByte(); err != nil {
+	var parentsBlocksCount uint8
+	if parentsBlocksCount, err = marshalUtil.ReadByte(); err != nil {
 		err = errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		return
 	}
-	if parentsCount < MinParentsCount || parentsCount > MaxParentsCount {
-		err = errors.Errorf("parents count %d not allowed: %w", parentsCount, cerrors.ErrParseBytesFailed)
+	if parentsBlocksCount < MinParentsBlocksCount || parentsBlocksCount > MaxParentsBlocksCount {
+		err = errors.Errorf("parents blocks count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	var parentTypes uint8
-	if parentTypes, err = marshalUtil.ReadByte(); err != nil {
-		err = errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
-		return
-	}
-	if bits.OnesCount8(parentTypes) < 1 {
-		err = errors.Errorf("invalid parent types, no strong parent specified: %b", parentTypes)
-		return
-	}
-	bitMask := bitmask.BitMask(parentTypes)
+	result.parentsBlocks = make([]ParentsBlock, parentsBlocksCount)
 
-	var previousParent MessageID
-	for i := 0; i < int(parentsCount); i++ {
-		var parentID MessageID
-		if parentID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse parent %d from MarshalUtil: %w", i, err)
+	for i := 0; i < int(parentsBlocksCount); i++ {
+		var parentType uint8
+		if parentType, err = marshalUtil.ReadByte(); err != nil {
+			err = errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
 			return
 		}
-		if bitMask.HasBit(uint(i)) {
-			result.strongParents = append(result.strongParents, parentID)
-		} else {
-			result.weakParents = append(result.weakParents, parentID)
-		}
-
-		// verify that parents are sorted lexicographically ASC and unique
-		// if parentID is EmptyMessageID, bytes.Compare returns 0 in the first iteration
-		if bytes.Compare(previousParent.Bytes(), parentID.Bytes()) > 0 {
-			err = errors.Errorf("parents not sorted lexicographically ascending: %w", cerrors.ErrParseBytesFailed)
+		var parentsCount uint8
+		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
+			err = errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 			return
 		}
-		previousParent = parentID
-	}
-
-	if len(result.strongParents) < MinStrongParentsCount {
-		err = errors.Errorf("strong parents count %d not allowed: %w", len(result.strongParents), cerrors.ErrParseBytesFailed)
-		return
+		references := make([]Reference, parentsCount)
+		for j := 0; j < int(parentsCount); j++ {
+			if references[i], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+				err = errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
+				return
+			}
+		}
+		result.parentsBlocks[i] = ParentsBlock{
+			ParentsType:  ParentsType(parentType),
+			ParentsCount: parentsCount,
+			References:   references,
+		}
 	}
 
 	if result.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
@@ -377,7 +442,7 @@ func MessageFromObjectStorage(key []byte, data []byte) (result objectstorage.Sto
 	}
 
 	// parse the ID from they key
-	id, err := MessageIDFromMarshalUtil(marshalutil.New(key))
+	id, err := ReferenceFromMarshalUtil(marshalutil.New(key))
 	if err != nil {
 		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
 		return
@@ -711,7 +776,7 @@ func MessageMetadataFromBytes(bytes []byte) (result *MessageMetadata, consumedBy
 func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
 	result = &MessageMetadata{}
 
-	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
 		return
 	}

@@ -116,14 +116,14 @@ func TestMessageIDFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		randID := randomMessageID()
 		marshalUtil := marshalutil.New(randID.Bytes())
-		result, err := MessageIDFromMarshalUtil(marshalUtil)
+		result, err := ReferenceFromMarshalUtil(marshalUtil)
 		assert.NoError(t, err)
 		assert.Equal(t, randID, result)
 	})
 
 	t.Run("CASE: Wrong bytes in MarshalUtil", func(t *testing.T) {
 		marshalUtil := marshalutil.New(randomBytes(MessageIDLength - 1))
-		result, err := MessageIDFromMarshalUtil(marshalUtil)
+		result, err := ReferenceFromMarshalUtil(marshalUtil)
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "failed to parse message ID"))
 		assert.Equal(t, EmptyMessageID, result)

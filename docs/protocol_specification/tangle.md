@@ -95,31 +95,9 @@ The BLAKE2b-256 hash of the transaction from which the UTXO comes from.
                         </td>
                     </tr>
                     <tr>
-                        <td valign="top">Reference <code>between(1,8)</code></td>
-                        <td colspan="2">
-                             <details>
-                                <summary>Message Reference</summary>
-                                <table>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Type</th>
-                                        <th>Description</th>
-                                    </tr>
-                                    <tr>
-                                        <td>Reference Type</td>
-                                        <td>uint8</td>
-                                        <td>
-                                            Set to <strong>value 0</strong> to denote a <i>Message Reference</i>.
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Reference</td>
-                                        <td>ByteArray[32]</td>
-                                        <td>Reference to a Message ID.</td>
-                                    </tr>
-                                </table>
-                            </details>
-                        </td>
+                        <td>Reference <code>between(1,8)</code></td>
+                        <td>ByteArray[32]</td>
+                        <td>Reference to a Message ID.</td>
                     </tr>
                 </table>
             </details>
@@ -149,31 +127,9 @@ The BLAKE2b-256 hash of the transaction from which the UTXO comes from.
                         </td>
                     </tr>
                     <tr>
-                        <td valign="top">Reference <code>between(1,8)</code></td>
-                        <td colspan="2">
-                            <details>
-                                <summary>Message Reference</summary>
-                                <table>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Type</th>
-                                        <th>Description</th>
-                                    </tr>
-                                    <tr>
-                                        <td>Reference Type</td>
-                                        <td>uint8</td>
-                                        <td>
-                                            Set to <strong>value 0</strong> to denote a <i>Message Reference</i>.
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Reference</td>
-                                        <td>ByteArray[32]</td>
-                                        <td>Reference to a Message ID.</td>
-                                    </tr>
-                                </table>
-                            </details>
-                        </td>
+                        <td>Reference <code>between(1,8)</code></td>
+                        <td>ByteArray[32]</td>
+                        <td>Reference to a Message ID.</td>
                     </tr>
                 </table>
             </details>
@@ -203,31 +159,10 @@ The BLAKE2b-256 hash of the transaction from which the UTXO comes from.
                         </td>
                     </tr>
                     <tr>
-                        <td valign="top">Reference <code>between(1,8)</code></td>
-                        <td colspan="2">
-                            <details>
-                                <summary>Transaction Reference</summary>
-                                <table>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Type</th>
-                                        <th>Description</th>
-                                    </tr>
-                                    <tr>
-                                        <td>Reference Type</td>
-                                        <td>uint8</td>
-                                        <td>
-                                            Set to <strong>value 1</strong> to denote a <i>Transaction Reference</i>.
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Reference</td>
-                                        <td>ByteArray[32]</td>
-                                        <td>Blake2b hash of the referenced Transaction ID.</td>
-                                    </tr>
-                                </table>
-                            </details>
-                        </td>
+                    <tr>
+                        <td>Reference <code>between(1,8)</code></td>
+                        <td>ByteArray[32]</td>
+                        <td>Reference to a Transaction ID.</td>
                     </tr>
                 </table>
             </details>
@@ -257,31 +192,9 @@ The BLAKE2b-256 hash of the transaction from which the UTXO comes from.
                         </td>
                     </tr>
                     <tr>
-                        <td valign="top">Reference <code>between(1,8)</code></td>
-                        <td colspan="2">
-                             <details>
-                                <summary>Transaction Reference</summary>
-                                <table>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Type</th>
-                                        <th>Description</th>
-                                    </tr>
-                                    <tr>
-                                        <td>Reference Type</td>
-                                        <td>uint8</td>
-                                        <td>
-                                            Set to <strong>value 1</strong> to denote a <i>Transaction Reference</i>.
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Reference</td>
-                                        <td>ByteArray[32]</td>
-                                        <td>Blake2b hash of the referenced Transaction ID.</td>
-                                    </tr>
-                                </table>
-                            </details>
-                        </td>
+                        <td>Reference <code>between(1,8)</code></td>
+                        <td>ByteArray[32]</td>
+                        <td>Reference to a Transaction ID.</td>
                     </tr>
                 </table>
             </details>

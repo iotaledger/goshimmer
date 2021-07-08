@@ -863,7 +863,7 @@ func IndividuallyMappedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
-	if individuallyMappedMessage.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if individuallyMappedMessage.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}
@@ -1080,7 +1080,7 @@ func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 		return
 	}
-	if markerMessageMapping.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if markerMessageMapping.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}
