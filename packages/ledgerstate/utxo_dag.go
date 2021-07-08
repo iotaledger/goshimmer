@@ -150,6 +150,18 @@ func (u *utxoDagMock) ConsumedOutputs(transaction *Transaction) (cachedInputs Ca
 	return u.utxoDag.ConsumedOutputs(transaction)
 }
 
+func (u *utxoDagMock) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
+	return u.utxoDag.BookTransaction(transaction)
+}
+
+func (u *utxoDagMock) ManageStoreAddressOutputMapping(output Output) {
+	u.utxoDag.ManageStoreAddressOutputMapping(output)
+}
+
+func (u *utxoDagMock) StoreAddressOutputMapping(address Address, outputID OutputID) {
+	u.utxoDag.StoreAddressOutputMapping(address, outputID)
+}
+
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
 // the ledger state and keeps track of the balances and the different perceptions of potential conflicts.
 type UTXODAG struct {
