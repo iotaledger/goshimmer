@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -73,14 +74,18 @@ func TestStorage_UnconfirmedTransactionDependencies(t *testing.T) {
 	dependencies.AddDependency(dependency2TxID)
 
 	cachedDependencies := tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
+	assert.Nil(t, cachedDependencies.Unwrap())
 	cachedDependencies.Release()
-	assert.NotNil(t, cachedDependencies)
 
-	tangle.Storage.StoreUnconfirmedTransactionDependencies(dependencies)
-	cachedDependencies = tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
-	cachedDependencies.Release()
-	assert.NotNil(t, cachedDependencies)
+	tangle.Storage.StoreUnconfirmedTransactionDependencies(dependencies).Release()
+	fmt.Println(cachedDependencies.Unwrap().dependencyTxID)
+	fmt.Println(cachedDependencies.Unwrap().dependentTxIDs)
+	cachedDependencies2 := tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
+	defer cachedDependencies2.Release()
+	assert.NotNil(t, cachedDependencies2.Unwrap())
 
+	fmt.Println(cachedDependencies.Unwrap().dependencyTxID)
+	fmt.Println(cachedDependencies.Unwrap().dependentTxIDs)
 	assert.Equal(t, transactionID, cachedDependencies.Unwrap().dependencyTxID)
-	assert.Equal(t, transactionIDs, cachedDependencies.Unwrap().dependentTxIDs)
+	assert.Equal(t, transactionIDs, cachedDependencies2.Unwrap().dependentTxIDs)
 }
