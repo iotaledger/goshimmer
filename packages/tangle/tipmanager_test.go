@@ -14,7 +14,7 @@ import (
 )
 
 func TestTipManager_AddTip(t *testing.T) {
-	tangle := newTestTangle()
+	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
@@ -183,7 +183,7 @@ func TestTipManager_AddTip(t *testing.T) {
 }
 
 func TestTipManager_DataMessageTips(t *testing.T) {
-	tangle := newTestTangle()
+	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
 
@@ -363,7 +363,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 func TestTipManager_TransactionTips(t *testing.T) {
 	// set up scenario (images/tipmanager-TransactionTips-test.png)
-	tangle := newTestTangle()
+	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
 

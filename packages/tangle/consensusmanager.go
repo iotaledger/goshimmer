@@ -131,7 +131,7 @@ type ConsensusMechanism interface {
 // ConsensusMechanism2 is a generic interface allowing the Tangle to use different methods to reach consensus.
 type ConsensusMechanism2 interface {
 	// Opinion retrieves the opinion of the given branches.
-	Opinion(branches ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error)
+	Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error)
 
 	// LikedFromConflictSet returns the liked branch out of the conflict set of the given branch.
 	LikedFromConflictSet(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, err error)

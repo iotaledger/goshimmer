@@ -11,7 +11,7 @@ import (
 func TestFifoScheduler(t *testing.T) {
 	// create Scheduler dependencies
 	// create the tangle
-	tangle := newTestTangle()
+	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
 	// setup tangle up till the FIFOScheduler

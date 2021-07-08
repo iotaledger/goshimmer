@@ -28,7 +28,7 @@ const (
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
 	selfLocalIdentity := identity.GenerateLocalIdentity()
-	tangle := newTestTangle(Identity(selfLocalIdentity))
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	tangle.MessageFactory = NewMessageFactory(
@@ -118,7 +118,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
-	tangle := newTestTangle()
+	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
 	msgFactory := NewMessageFactory(
@@ -148,7 +148,7 @@ func TestMessageFactory_POW(t *testing.T) {
 }
 
 func TestWorkerFunc_PayloadSize(t *testing.T) {
-	testTangle := newTestTangle()
+	testTangle := NewTestTangle()
 	defer testTangle.Shutdown()
 
 	msgFactory := NewMessageFactory(
