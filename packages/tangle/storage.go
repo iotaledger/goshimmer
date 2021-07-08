@@ -476,6 +476,7 @@ func (s *Storage) Shutdown() {
 	s.statementStorage.Shutdown()
 	s.branchWeightStorage.Shutdown()
 	s.markerMessageMappingStorage.Shutdown()
+	s.unconfirmedTxDependenciesStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -495,6 +496,7 @@ func (s *Storage) Prune() error {
 		s.statementStorage,
 		s.branchWeightStorage,
 		s.markerMessageMappingStorage,
+		s.unconfirmedTxDependenciesStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
@@ -1227,7 +1229,6 @@ type CachedUnconfirmedTxDependency struct {
 	objectstorage.CachedObject
 }
 
-//TODO what for?
 // ID returns the dependency transactionID of the UnconfirmedTxDependency.
 func (c *CachedUnconfirmedTxDependency) ID() (id ledgerstate.TransactionID) {
 	id, _, err := ledgerstate.TransactionIDFromBytes(c.Key())
