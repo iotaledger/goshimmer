@@ -5,6 +5,7 @@
 * Fix using weak parents for direct approvers when looking for transactions that are approved by a message
 * Update entry node from community
 * Update docs
+* Update snapshot file with DevNet UTXO at 2021-07-08 07:09 UTC
 * **Breaking**: bumps network and database versions
 
 # v0.7.3 - 2021-07-01
