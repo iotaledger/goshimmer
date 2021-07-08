@@ -247,6 +247,7 @@ func (s *Storage) UnconfirmedTransactionDependencies(transactionID *ledgerstate.
 			matchedCachedDependencies = &cachedDependencies
 			return false
 		}
+		cachedDependencies.Release()
 		return true
 	})
 	return
