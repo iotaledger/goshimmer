@@ -68,16 +68,16 @@ func TestStorage_UnconfirmedTransactionDependencies(t *testing.T) {
 	transactionIDs[dependency1TxID] = types.Void
 	transactionIDs[dependency2TxID] = types.Void
 
-	dependencies := NewUnconfirmedTxDependency(&transactionID)
-	dependencies.AddDependency(&dependency1TxID)
-	dependencies.AddDependency(&dependency2TxID)
+	dependencies := NewUnconfirmedTxDependency(transactionID)
+	dependencies.AddDependency(dependency1TxID)
+	dependencies.AddDependency(dependency2TxID)
 
-	cachedDependencies := tangle.Storage.UnconfirmedTransactionDependencies(&transactionID)
+	cachedDependencies := tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
 	cachedDependencies.Release()
 	assert.NotNil(t, cachedDependencies)
 
 	tangle.Storage.StoreUnconfirmedTransactionDependencies(dependencies)
-	cachedDependencies = tangle.Storage.UnconfirmedTransactionDependencies(&transactionID)
+	cachedDependencies = tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
 	cachedDependencies.Release()
 	assert.NotNil(t, cachedDependencies)
 

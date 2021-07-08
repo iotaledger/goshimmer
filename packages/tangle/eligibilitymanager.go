@@ -86,9 +86,9 @@ func (e *EligibilityManager) storeMissingDependencies(dependentTxID *ledgerstate
 	defer e.storageMutex.Unlock()
 
 	storage := e.tangle.Storage
-	if cachedDependencies := storage.UnconfirmedTransactionDependencies(dependencyTxID); cachedDependencies != nil {
+	if cachedDependencies := storage.UnconfirmedTransactionDependencies(*dependencyTxID); cachedDependencies != nil {
 		cachedDependencies.Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
-			unconfirmedTxDependency.AddDependency(dependentTxID)
+			unconfirmedTxDependency.AddDependency(*dependentTxID)
 		})
 		return nil
 	}
@@ -131,7 +131,7 @@ func (e *EligibilityManager) Setup() {
 func (e *EligibilityManager) updateEligibilityAfterDependencyConfirmation(dependencyTxID *ledgerstate.TransactionID) error {
 	dependentTxs := make([]*ledgerstate.Transaction, 0)
 	// get all txID dependent on this transactionID
-	if cachedDependencies := e.tangle.Storage.UnconfirmedTransactionDependencies(dependencyTxID); cachedDependencies != nil {
+	if cachedDependencies := e.tangle.Storage.UnconfirmedTransactionDependencies(*dependencyTxID); cachedDependencies != nil {
 		// tx that need to be checked for the eligibility after one of dependency has been confirmed
 		cachedDependencies.Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
 			// get tx from storage
@@ -141,7 +141,7 @@ func (e *EligibilityManager) updateEligibilityAfterDependencyConfirmation(depend
 				})
 			}
 		})
-		e.tangle.Storage.deleteUnconfirmedTxDependencies(dependencyTxID)
+		e.tangle.Storage.deleteUnconfirmedTxDependencies(*dependencyTxID)
 	}
 
 	for _, dependentTx := range dependentTxs {

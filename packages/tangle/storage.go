@@ -113,7 +113,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
-		unconfirmedTxDependenciesStorage:  osFactory.New(PrefixUnconfirmedTxDependencies, UnconfirmedTxDependenciesFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), UnconfirmedTxDependencyPartitionKeys),
+		unconfirmedTxDependenciesStorage:  osFactory.New(PrefixUnconfirmedTxDependencies, UnconfirmedTxDependenciesFromObjectStorage, cacheProvider.CacheTime(cacheTime)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -459,7 +459,7 @@ func (s *Storage) deleteWeakApprover(approvedMessageID MessageID, approvingMessa
 	s.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), WeakApprover.Bytes(), approvingMessage.Bytes()))
 }
 
-func (s *Storage) deleteUnconfirmedTxDependencies(transactionID *ledgerstate.TransactionID) {
+func (s *Storage) deleteUnconfirmedTxDependencies(transactionID ledgerstate.TransactionID) {
 	s.unconfirmedTxDependenciesStorage.Delete(transactionID.Bytes())
 }
 
