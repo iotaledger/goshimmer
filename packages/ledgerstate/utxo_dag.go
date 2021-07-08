@@ -78,6 +78,7 @@ type utxoDagMock struct {
 	utxoDag IUTXODAG
 }
 
+// NewUtxoDagMock creates a mock for UTXODAG
 func NewUtxoDagMock(t *testing.T, utxoDag IUTXODAG) *utxoDagMock {
 	u := &utxoDagMock{
 		test: t,
