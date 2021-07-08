@@ -518,7 +518,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 	}
 
 	if validErr := u.transactionObjectivelyValid(transaction, consumedOutputs); validErr != nil {
-		u.Events.TransactionInvalid.Trigger(transaction, validErr)
+		u.Events().TransactionInvalid.Trigger(transaction, validErr)
 
 		return
 	}
@@ -526,7 +526,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 	if _, err = u.bookTransaction(transaction, transactionMetadata, consumedOutputs); err != nil {
 		err = errors.Errorf("failed to book Transaction with %s: %w", transaction.ID(), err)
 
-		u.Events.Error.Trigger(err)
+		u.Events().Error.Trigger(err)
 
 		return
 	}
@@ -535,7 +535,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 		u.ManageStoreAddressOutputMapping(output)
 	}
 
-	u.Events.TransactionSolid.Trigger(transaction.ID())
+	u.Events().TransactionSolid.Trigger(transaction.ID())
 
 	for transactionID := range u.consumingTransactionIDs(transaction, Unsolid) {
 		propagationWalker.Push(transactionID)
