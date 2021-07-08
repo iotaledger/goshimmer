@@ -296,7 +296,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 		panic("entry node already present")
 	}
 
-	node, err := n.createNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig)
+	node, err := n.createNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig())
 	if err != nil {
 		return err
 	}
@@ -307,7 +307,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 
 func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig CreateNetworkConfig) error {
 	// create a peer conf from the network conf
-	conf := PeerConfig
+	conf := PeerConfig()
 	if networkConfig.StartSynced {
 		conf.MessageLayer.StartSynced = true
 	}

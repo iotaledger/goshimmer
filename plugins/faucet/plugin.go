@@ -9,11 +9,9 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
-	flag "github.com/spf13/pflag"
 	"go.uber.org/atomic"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -23,41 +21,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 const (
 	// PluginName is the name of the faucet plugin.
 	PluginName = "Faucet"
-
-	// CfgFaucetSeed defines the base58 encoded seed the faucet uses.
-	CfgFaucetSeed = "faucet.seed"
-	// CfgFaucetTokensPerRequest defines the amount of tokens the faucet should send for each request.
-	CfgFaucetTokensPerRequest = "faucet.tokensPerRequest"
-	// CfgFaucetMaxTransactionBookedAwaitTimeSeconds defines the time to await for the transaction fulfilling a funding request
-	// to become booked in the value layer.
-	CfgFaucetMaxTransactionBookedAwaitTimeSeconds = "faucet.maxTransactionBookedAwaitTimeSeconds"
-	// CfgFaucetPoWDifficulty defines the PoW difficulty for faucet payloads.
-	CfgFaucetPoWDifficulty = "faucet.powDifficulty"
-	// CfgFaucetBlacklistCapacity holds the maximum amount the address blacklist holds.
-	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
-	CfgFaucetBlacklistCapacity = "faucet.blacklistCapacity"
-	// CfgFaucetPreparedOutputsCount is the number of outputs the faucet prepares for requests.
-	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCount"
-	// CfgFaucetStartIndex defines from which address index the faucet should start gathering outputs.
-	CfgFaucetStartIndex = "faucet.startIndex"
 )
-
-func init() {
-	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this faucet is enabled")
-	flag.Int(CfgFaucetTokensPerRequest, 1000000, "the amount of tokens the faucet should send for each request")
-	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer")
-	flag.Int(CfgFaucetPoWDifficulty, 22, "defines the PoW difficulty for faucet payloads")
-	flag.Int(CfgFaucetBlacklistCapacity, 10000, "holds the maximum amount the address blacklist holds")
-	flag.Int(CfgFaucetPreparedOutputsCount, 126, "number of outputs the faucet prepares")
-	flag.Int(CfgFaucetStartIndex, 0, "address index to start faucet with")
-}
 
 var (
 	// Plugin is the "plugin" instance of the faucet application.
@@ -65,7 +35,6 @@ var (
 	pluginOnce             sync.Once
 	_faucet                *StateManager
 	faucetOnce             sync.Once
-	log                    *logger.Logger
 	powVerifier            = pow.New()
 	fundingWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
@@ -93,42 +62,37 @@ func Plugin() *node.Plugin {
 // Faucet gets the faucet component instance the faucet plugin has initialized.
 func Faucet() *StateManager {
 	faucetOnce.Do(func() {
-		base58Seed := config.Node().String(CfgFaucetSeed)
-		if base58Seed == "" {
-			log.Fatal("a seed must be defined when enabling the faucet plugin")
+		if Parameters.Seed == "" {
+			Plugin().LogFatal("a seed must be defined when enabling the faucet plugin")
 		}
-		seedBytes, err := base58.Decode(base58Seed)
+		seedBytes, err := base58.Decode(Parameters.Seed)
 		if err != nil {
-			log.Fatalf("configured seed for the faucet is invalid: %s", err)
+			Plugin().LogFatalf("configured seed for the faucet is invalid: %s", err)
 		}
-		tokensPerRequest := config.Node().Int64(CfgFaucetTokensPerRequest)
-		if tokensPerRequest <= 0 {
-			log.Fatalf("the amount of tokens to fulfill per request must be above zero")
+		if Parameters.TokensPerRequest <= 0 {
+			Plugin().LogFatalf("the amount of tokens to fulfill per request must be above zero")
 		}
-		maxTxBookedAwaitTime := config.Node().Int64(CfgFaucetMaxTransactionBookedAwaitTimeSeconds)
-		if maxTxBookedAwaitTime <= 0 {
-			log.Fatalf("the max transaction booked await time must be more than 0")
+		if Parameters.MaxTransactionBookedAwaitTimeSeconds <= 0 {
+			Plugin().LogFatalf("the max transaction booked await time must be more than 0")
 		}
-		preparedOutputsCount := config.Node().Int(CfgFaucetPreparedOutputsCount)
-		if preparedOutputsCount <= 0 {
-			log.Fatalf("the number of faucet prepared outputs should be more than 0")
+		if Parameters.PreparedOutputsCount <= 0 {
+			Plugin().LogFatalf("the number of faucet prepared outputs should be more than 0")
 		}
 		_faucet = NewStateManager(
-			uint64(tokensPerRequest),
+			uint64(Parameters.TokensPerRequest),
 			walletseed.NewSeed(seedBytes),
-			uint64(preparedOutputsCount),
-			time.Duration(maxTxBookedAwaitTime)*time.Second,
+			uint64(Parameters.PreparedOutputsCount),
+			time.Duration(Parameters.MaxTransactionBookedAwaitTimeSeconds)*time.Second,
 		)
 	})
 	return _faucet
 }
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
-	targetPoWDifficulty = config.Node().Int(CfgFaucetPoWDifficulty)
-	startIndex = config.Node().Int(CfgFaucetStartIndex)
+	targetPoWDifficulty = Parameters.PowDifficulty
+	startIndex = Parameters.StartIndex
 	blacklist = orderedmap.New()
-	blacklistCapacity = config.Node().Int(CfgFaucetBlacklistCapacity)
+	blacklistCapacity = Parameters.BlacklistCapacity
 	Faucet()
 
 	fundingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
@@ -136,10 +100,10 @@ func configure(*node.Plugin) {
 		addr := msg.Payload().(*faucet.Request).Address()
 		msg, txID, err := Faucet().FulFillFundingRequest(msg)
 		if err != nil {
-			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
+			Plugin().LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			return
 		}
-		log.Infof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
+		Plugin().LogInfof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()
@@ -147,36 +111,36 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
-		defer log.Infof("Stopping %s ... done", PluginName)
+		defer Plugin().LogInfof("Stopping %s ... done", PluginName)
 
-		log.Info("Waiting for node to become synced...")
+		Plugin().LogInfo("Waiting for node to become synced...")
 		if !waitUntilSynced(shutdownSignal) {
 			return
 		}
-		log.Info("Waiting for node to become synced... done")
+		Plugin().LogInfo("Waiting for node to become synced... done")
 
-		log.Info("Waiting for node to have sufficient access mana")
+		Plugin().LogInfo("Waiting for node to have sufficient access mana")
 		if err := waitForMana(shutdownSignal); err != nil {
-			log.Errorf("failed to get sufficient access mana: %s", err)
+			Plugin().LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
-		log.Info("Waiting for node to have sufficient access mana... done")
+		Plugin().LogInfo("Waiting for node to have sufficient access mana... done")
 
-		log.Infof("Deriving faucet state from the ledger...")
+		Plugin().LogInfof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
 		if err := Faucet().DeriveStateFromTangle(startIndex); err != nil {
-			log.Errorf("failed to derive state: %s", err)
+			Plugin().LogErrorf("failed to derive state: %s", err)
 			return
 		}
-		log.Info("Deriving faucet state from the ledger... done")
+		Plugin().LogInfo("Deriving faucet state from the ledger... done")
 
 		defer fundingWorkerPool.Stop()
 		initDone.Store(true)
 
 		<-shutdownSignal
-		log.Infof("Stopping %s ...", PluginName)
+		Plugin().LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
-		log.Panicf("Failed to start daemon: %s", err)
+		Plugin().Logger().Panicf("Failed to start daemon: %s", err)
 	}
 }
 
@@ -226,7 +190,7 @@ func waitForMana(shutdownSignal <-chan struct{}) error {
 		if aMana >= tangle.MinMana {
 			return nil
 		}
-		plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangle.MinMana)
+		Plugin().LogDebugf("insufficient access mana: %f < %f", aMana, tangle.MinMana)
 		time.Sleep(waitForManaWindow)
 	}
 }
@@ -250,17 +214,17 @@ func configureEvents() {
 			// verify PoW
 			leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
 			if err != nil {
-				log.Infof("couldn't verify PoW of funding request for address %s", addr.Base58())
+				Plugin().LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
 				return
 			}
 
 			if leadingZeroes < targetPoWDifficulty {
-				log.Infof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
+				Plugin().LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
 				return
 			}
 
 			if IsAddressBlackListed(addr) {
-				log.Infof("can't fund address %s since it is blacklisted", addr.Base58())
+				Plugin().LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
 				return
 			}
 
@@ -268,10 +232,10 @@ func configureEvents() {
 			_, added := fundingWorkerPool.TrySubmit(message)
 			if !added {
 				RemoveAddressFromBlacklist(addr)
-				log.Info("dropped funding request for address %s as queue is full", addr.Base58())
+				Plugin().LogInfo("dropped funding request for address %s as queue is full", addr.Base58())
 				return
 			}
-			log.Infof("enqueued funding request for address %s", addr.Base58())
+			Plugin().LogInfof("enqueued funding request for address %s", addr.Base58())
 		})
 	}))
 }

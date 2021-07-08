@@ -16,21 +16,16 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
-	flag "github.com/spf13/pflag"
 	"gopkg.in/src-d/go-git.v4"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
 )
 
 const (
-	// CfgLoggerRemotelogServerAddress defines the config flag of the server address.
-	CfgLoggerRemotelogServerAddress = "logger.remotelog.serverAddress"
-	// CfgDisableEvents defines the config flag for disabling logger events.
-	CfgDisableEvents = "logger.disableEvents"
 	// PluginName is the name of the remote log plugin.
 	PluginName = "RemoteLog"
 
@@ -62,13 +57,8 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-func init() {
-	flag.String(CfgLoggerRemotelogServerAddress, "ressims.iota.cafe:5213", "RemoteLog server address")
-}
-
 func configure(plugin *node.Plugin) {
-	if config.Node().Bool(CfgDisableEvents) {
-		plugin.LogFatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
+	if logger_plugin.Parameters.DisableEvents {
 		return
 	}
 
@@ -163,7 +153,7 @@ func getGitDir() string {
 // RemoteLogger represents a connection to our remote log server.
 func RemoteLogger() *RemoteLoggerConn {
 	remoteLoggerOnce.Do(func() {
-		r, err := newRemoteLoggerConn(config.Node().String(CfgLoggerRemotelogServerAddress))
+		r, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
 		if err != nil {
 			plugin.LogFatal(err)
 			return

@@ -12,7 +12,6 @@ import (
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
 
 	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
@@ -41,10 +40,10 @@ func Worker() *pow.Worker {
 	workerOnce.Do(func() {
 		log = logger.NewLogger(PluginName)
 		// load the parameters
-		difficulty = config.Node().Int(CfgPOWDifficulty)
-		numWorkers = config.Node().Int(CfgPOWNumThreads)
-		timeout = config.Node().Duration(CfgPOWTimeout)
-		parentsRefreshInterval = config.Node().Duration(CfgPOWParentsRefreshInterval)
+		difficulty = Parameters.Difficulty
+		numWorkers = Parameters.NumThreads
+		timeout = Parameters.Timeout
+		parentsRefreshInterval = Parameters.ParentsRefreshInterval
 		// create the worker
 		worker = pow.New(numWorkers)
 	})

@@ -151,6 +151,11 @@ func TestScenario_1(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], txBranchID)
 
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(txBranchID).Consume(func(branch ledgerstate.Branch) {
+		assert.True(t, branch.Liked())
+		assert.True(t, branch.MonotonicallyLiked())
+	}))
+
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
@@ -179,6 +184,18 @@ func TestScenario_1(t *testing.T) {
 	txBranchID, err = transactionBranchID(tangle, transactions["3"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["red"], txBranchID)
+
+	// assess that after forking transaction 3 and thus introducing the red branch, the properties of that branch are correct
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["red"]).Consume(func(branch ledgerstate.Branch) {
+		assert.True(t, branch.Liked())
+		assert.True(t, branch.MonotonicallyLiked())
+	}))
+
+	// assess that the properties of the yellow branch are correct
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["yellow"]).Consume(func(branch ledgerstate.Branch) {
+		assert.False(t, branch.Liked())
+		assert.False(t, branch.MonotonicallyLiked())
+	}))
 
 	// Message 6
 	inputs["E"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["2"].ID(), 0))

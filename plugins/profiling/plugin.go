@@ -10,9 +10,6 @@ import (
 
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	flag "github.com/spf13/pflag"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the profiling plugin.
@@ -25,9 +22,6 @@ var (
 	log    *logger.Logger
 )
 
-// CfgProfilingBindAddress defines the config flag of the profiling binding address.
-const CfgProfilingBindAddress = "profiling.bindAddress"
-
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
@@ -36,16 +30,12 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-func init() {
-	flag.String(CfgProfilingBindAddress, "127.0.0.1:6061", "bind address for the pprof server")
-}
-
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 }
 
 func run(_ *node.Plugin) {
-	bindAddr := config.Node().String(CfgProfilingBindAddress)
+	bindAddr := Parameters.BindAddress
 
 	runtime.SetMutexProfileFraction(5)
 	runtime.SetBlockProfileRate(5)

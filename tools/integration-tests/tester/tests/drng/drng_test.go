@@ -53,7 +53,7 @@ func getRandomness(t *testing.T, node *framework.Node) jsonmodels.Randomness {
 	resp, err := node.GetRandomness()
 	require.NoError(t, err)
 
-	id := uint32(node.Config().DRNG.Custom.InstanceId)
+	id := uint32(node.Config().DRNG.Custom.InstanceID)
 	for i := range resp.Randomness {
 		if resp.Randomness[i].InstanceID == id {
 			return resp.Randomness[i]
