@@ -1,9 +1,10 @@
 package tangle
 
 import (
-	"github.com/iotaledger/hive.go/types"
 	"math/rand"
 	"testing"
+
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/stretchr/testify/assert"
 
@@ -72,10 +73,12 @@ func TestStorage_UnconfirmedTransactionDependencies(t *testing.T) {
 	dependencies.AddDependency(&dependency2TxID)
 
 	cachedDependencies := tangle.Storage.UnconfirmedTransactionDependencies(&transactionID)
+	cachedDependencies.Release()
 	assert.NotNil(t, cachedDependencies)
 
 	tangle.Storage.StoreUnconfirmedTransactionDependencies(dependencies)
 	cachedDependencies = tangle.Storage.UnconfirmedTransactionDependencies(&transactionID)
+	cachedDependencies.Release()
 	assert.NotNil(t, cachedDependencies)
 
 	assert.Equal(t, transactionID, cachedDependencies.Unwrap().dependencyTxID)
