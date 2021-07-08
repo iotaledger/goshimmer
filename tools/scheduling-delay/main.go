@@ -10,6 +10,9 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 )
 
+// only messages issued in the last timeWindow mins are taken into analysis
+var timeWindow = -10 * time.Minute
+
 type schedulingInfo struct {
 	avgDelay      int64
 	scheduledMsgs int
@@ -32,9 +35,10 @@ func main() {
 	clients[1] = client.NewGoShimmerAPI(replicaAPIURL, client.WithHTTPClient(http.Client{Timeout: 180 * time.Second}))
 
 	// ignore messages that are issued 10 more mins before now
-	collectTime := time.Now().Add(-10 * time.Minute)
-	masterDelayMap := analyzeSchedulingDelay(clients[0], collectTime)
-	replicaDelayMap := analyzeSchedulingDelay(clients[1], collectTime)
+	endTime := time.Now()
+
+	masterDelayMap := analyzeSchedulingDelay(clients[0], endTime)
+	replicaDelayMap := analyzeSchedulingDelay(clients[1], endTime)
 
 	fmt.Println("The average scheduling delay of different issuers on different nodes:")
 	fmt.Printf("%-20s %-20s %-15s %-20s %-15s\n\n", "NodeID", "masterNode", "sent msgs", "replicaNode", "sent msgs")
@@ -45,14 +49,14 @@ func main() {
 	}
 }
 
-func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, collectTime time.Time) map[string]schedulingInfo {
+func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, endTime time.Time) map[string]schedulingInfo {
 	csvRes, err := goshimmerAPI.GetDiagnosticsMessages()
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
 
-	scheduleDelays := calculateSchedulingDelay(csvRes, collectTime)
+	scheduleDelays := calculateSchedulingDelay(csvRes, endTime)
 
 	// the average of delay per node
 	avgScheduleDelay := make(map[string]schedulingInfo)
@@ -70,20 +74,21 @@ func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, collectTime time.
 	return avgScheduleDelay
 }
 
-func calculateSchedulingDelay(response *csv.Reader, collectTime time.Time) map[string][]time.Duration {
+func calculateSchedulingDelay(response *csv.Reader, endTime time.Time) map[string][]time.Duration {
+	startTime := endTime.Add(timeWindow)
 	nodeDelayMap := make(map[string][]time.Duration)
 	messageInfos, _ := response.ReadAll()
 
 	for _, msg := range messageInfos {
 		arrivalTime := timestampFromString(msg[4])
 		// ignore data that is issued before collectTime
-		if arrivalTime.Before(collectTime) {
+		if arrivalTime.Before(startTime) || arrivalTime.After(endTime) {
 			continue
 		}
 
 		scheduledTime := timestampFromString(msg[6])
 		// ignore if the message is not yet scheduled
-		if scheduledTime.Before(collectTime) {
+		if scheduledTime.Before(startTime) || scheduledTime.After(endTime) {
 			continue
 		}
 
