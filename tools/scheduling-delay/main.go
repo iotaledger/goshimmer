@@ -19,34 +19,35 @@ type schedulingInfo struct {
 }
 
 func main() {
-	clients := make([]*client.GoShimmerAPI, 2)
-
-	// master node has around 66.3% of a-mana (the master node in the docker-network)
-	masterAPIURL := "http://127.0.0.1:8080"
-	// replica node has only 1 a-mana (peer_replicas in the docker-network)
-	replicaAPIURL := "http://127.0.0.1:8070"
-
-	if masterAPIURL == replicaAPIURL {
-		fmt.Println("Please use 2 different nodes to issue a double-spend")
-		return
+	apiUrls := []string{
+		// master node has around 66.3% of a-mana (the master node in the docker-network)
+		"http://127.0.0.1:8080",
+		// replica node has only 1 a-mana (peer_replicas in the docker-network)
+		"http://127.0.0.1:8070",
 	}
 
-	clients[0] = client.NewGoShimmerAPI(masterAPIURL, client.WithHTTPClient(http.Client{Timeout: 180 * time.Second}))
-	clients[1] = client.NewGoShimmerAPI(replicaAPIURL, client.WithHTTPClient(http.Client{Timeout: 180 * time.Second}))
+	clients := createClients(apiUrls)
 
-	// ignore messages that are issued 10 more mins before now
 	endTime := time.Now()
-
-	masterDelayMap := analyzeSchedulingDelay(clients[0], endTime)
-	replicaDelayMap := analyzeSchedulingDelay(clients[1], endTime)
-
-	fmt.Println("The average scheduling delay of different issuers on different nodes:")
-	fmt.Printf("%-20s %-20s %-15s %-20s %-15s\n\n", "NodeID", "masterNode", "sent msgs", "replicaNode", "sent msgs")
-	for nodeID, delay := range masterDelayMap {
-		padded := fmt.Sprintf("%-20s %-20v %-15d %-20v %-15d", nodeID, time.Duration(delay.avgDelay)*time.Nanosecond, delay.scheduledMsgs,
-			time.Duration(replicaDelayMap[nodeID].avgDelay)*time.Nanosecond, replicaDelayMap[nodeID].scheduledMsgs)
-		fmt.Println(padded)
+	delayMaps := make(map[string]map[string]schedulingInfo, len(apiUrls))
+	for _, client := range clients {
+		nodeInfo, err := client.Info()
+		if err != nil {
+			fmt.Println(client.BaseURL(), "crashed")
+			continue
+		}
+		delayMaps[nodeInfo.IdentityIDShort] = analyzeSchedulingDelay(client, endTime)
 	}
+
+	printResults(delayMaps)
+}
+
+func createClients(apiUrls []string) []*client.GoShimmerAPI {
+	clients := make([]*client.GoShimmerAPI, len(apiUrls))
+	for i, url := range apiUrls {
+		clients[i] = client.NewGoShimmerAPI(url, client.WithHTTPClient(http.Client{Timeout: 180 * time.Second}))
+	}
+	return clients
 }
 
 func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, endTime time.Time) map[string]schedulingInfo {
@@ -101,4 +102,25 @@ func calculateSchedulingDelay(response *csv.Reader, endTime time.Time) map[strin
 func timestampFromString(timeString string) time.Time {
 	timeInt64, _ := strconv.ParseInt(timeString, 10, 64)
 	return time.Unix(0, timeInt64)
+}
+
+func printResults(delayMaps map[string]map[string]schedulingInfo) {
+	fmt.Printf("The average scheduling delay of different issuers on different nodes:\n\n")
+
+	var nodeOrder []string
+	title := fmt.Sprintf("%-15s", "Issuer\\NodeID")
+	for nodeID := range delayMaps {
+		nodeOrder = append(nodeOrder, nodeID)
+		title = fmt.Sprintf("%s %-15s %-15s", title, nodeID, "scheduled msgs")
+	}
+	fmt.Printf("%s\n\n", title)
+
+	for _, issuer := range nodeOrder {
+		row := fmt.Sprintf("%-15s", issuer)
+		for _, nodeID := range nodeOrder {
+			row = fmt.Sprintf("%s %-15v %-15d", row, time.Duration(delayMaps[nodeID][issuer].avgDelay)*time.Nanosecond,
+				delayMaps[nodeID][issuer].scheduledMsgs)
+		}
+		fmt.Println(row)
+	}
 }
