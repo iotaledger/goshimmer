@@ -13,8 +13,8 @@ module.exports = {
   // But you can create a sidebar manually
   docs: [{
     type: 'doc',
-    label: 'GoShimmer',
-    id: 'goshimmer',
+    label: 'Welcome',
+    id: 'welcome',
   },
   {
     type: 'doc',
@@ -32,7 +32,7 @@ module.exports = {
     {
       type: 'doc',
       label: 'Obtain tokens',
-      id: 'tutorials/request_funds',
+      id: 'tutorials/send_transaction',
     },
     {
       type: 'doc',

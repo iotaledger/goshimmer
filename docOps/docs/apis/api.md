@@ -1,4 +1,4 @@
-# Client Lib: Interaction with layers
+# Client Lib: Interaction With Layers
 
 > This guide is meant for developers familiar with the Go programming language.
 

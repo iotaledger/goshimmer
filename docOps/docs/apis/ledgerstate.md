@@ -18,7 +18,7 @@
 * [/ledgerstate/addresses/unspentOutputs](#ledgerstateaddressesunspentoutputs)
 
 
-## Client lib APIs:
+## Client Lib APIs:
 * [GetAddressOutputs()](#client-lib---getaddressoutputs)
 * [GetAddressUnspentOutputs()](#client-lib---getaddressunspentoutputs)
 * [GetBranch()](#client-lib---getbranch)

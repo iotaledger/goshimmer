@@ -5,7 +5,7 @@ or command line wallet [Command Line Wallet](wallet.md). However, there is also 
 For code examples you can go directly to [Code examples](send_transaction.md#code-examples).
 
 ## Funds
-To create a transaction, firstly we need to be in possession of tokens. We can receive them from other network users or request them from the faucet. For more details on how to request funds, see [this](request_funds.md) tutorial.
+To create a transaction, firstly we need to be in possession of tokens. We can receive them from other network users or request them from the faucet. For more details on how to request funds, see [this](obtain_tokens.md) tutorial.
 
 ## Preparing transaction
 A transaction is built from two parts: a transaction essence, and the unlock blocks. The transaction essence contains, among other information, the amount, the origin and where the funds should be sent. The unlock block makes sure that only the owner of the funds being transferred is allowed to successfully perform this transaction.

@@ -11,25 +11,24 @@ module.exports = {
   onBrokenMarkdownLinks: 'throw',
   favicon: '/img/logo/favicon.ico',
   organizationName: 'iotaledger', // Usually your GitHub org/user name.
-  projectName: 'Goshimmer', // Usually your repo name.
+  projectName: 'GoShimmer', // Usually your repo name.
   stylesheets: [
     'https://fonts.googleapis.com/css?family=Material+Icons',
-    'https://iota-community.github.io/iota-wiki/assets/css/styles.f9f708da.css',//replace this URL
   ],
   themeConfig: {
     navbar: {
       title: 'Goshimmer',
       logo: {
         alt: 'IOTA',
-        src: '/img/logo/Logo_Swirl_Dark.png',
+        src: 'img/logo/Logo_Swirl_Dark.png',
       },
       items: [
-//        {
-//          type: 'doc',
-//          docId: 'goshimmer',
-//          position: 'left',
-//          label: 'Documentation',
-//        },
+        {
+          type: 'doc',
+          docId: 'welcome',
+          position: 'left',
+          label: 'Documentation',
+        },
         {
           href: 'https://github.com/iotaledger/Goshimmer',
           label: 'GitHub',
@@ -40,31 +39,43 @@ module.exports = {
         footer: {
       style: 'dark',
       links: [
-//        {
-//          title: 'Documentation',
-//          items: [
-//            {
-//              label: 'Welcome',
-//              to: '/docs/',
-//            },
-//            {
-//              label: 'Overview',
-//              to: '/docs/overview',
-//            },
-//            {
-//              label: 'Libraries',
-//              to: '/docs/libraries/overview',
-//            },
-//            {
-//              label: 'Specification',
-//              to: '/docs/specification',
-//            },
-//            {
-//              label: 'Contribute',
-//              to: '/docs/contribute',
-//            },
-//          ],
-//        },
+        {
+          title: 'Documentation',
+          items: [
+            {
+              label: 'Welcome',
+              to: '/docs/welcome',
+            },
+            {
+              label: 'FAQ',
+              to: '/docs/faq',
+            },
+            {
+              label: 'Tutorials',
+              to: '/docs/tutorials/set-up-a-goshimmer-node',
+            },
+            {
+              label: 'Implementation Design',
+              to: '/docs/implementation_design/event_driven_model',
+            },
+            {
+              label: 'Protocol Specification',
+              to: '/docs/protocol_specification',
+            },
+            {
+              label: 'API',
+              to: '/docs/apis/api',
+            },
+            {
+              label: 'Tooling',
+              to: '/docs/tooling',
+            },
+            {
+              label: 'Team Resources',
+              to: '/docs/teamresources/release',
+            },
+          ],
+        },
         {
           title: 'More',
           items: [
@@ -94,7 +105,7 @@ module.exports = {
             'https://github.com/iotaledger/Goshimmer/tree/main/docs',
         },
         theme: {
-          customCss: require.resolve('./src/css/custom.css'),
+          customCss: require.resolve('./src/css/iota.css'),
         },
       },
     ],
