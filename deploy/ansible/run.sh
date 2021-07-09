@@ -13,5 +13,7 @@ FAUCET_01_FAUCET_SEED=$FAUCET_01_FAUCET_SEED
 mongoDBUser=$MONGODB_USER
 mongoDBPassword=$MONGODB_PASSWORD
 networkVersion=$NETWORK_VERSION
-grafanaAdminPassword=$GRAFANA_ADMIN_PASSWORD" \
+grafanaAdminPassword=$GRAFANA_ADMIN_PASSWORD
+elkElasticUser=$ELK_ELASTIC_USER
+elkElasticPassword=$ELK_ELASTIC_PASSWORD" \
   deploy/ansible/"${1:-deploy.yml}"

@@ -72,6 +72,9 @@ services:
       # Use single node discovery in order to disable production mode and avoid bootstrap checks
       # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_USERNAME: "{{ elkElasticUser }}"
+      ELASTIC_PASSWORD: "{{ elkElasticPassword }}"
     networks:
       - back-tier
 

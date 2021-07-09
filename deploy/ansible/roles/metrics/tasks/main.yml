@@ -29,6 +29,18 @@
     dest: /opt/metrics/prometheus.yml
     mode: '0644'
 
+- name: Template logstash.yml
+  template:
+    src: logstash.yml.j2
+    dest: /opt/metrics/logstash/logstash.yml
+    mode: '0644'
+
+- name: Template kibana.yml
+  template:
+    src: kibana.yml.j2
+    dest: /opt/metrics/kibana.yml
+    mode: '0644'
+
 - name: Stop existing services gracefully
   community.general.docker_compose:
     project_src: /opt/metrics

@@ -70,6 +70,8 @@ jobs:
           MONGODB_USER: '${{ secrets.MONGODB_USER }}'
           MONGODB_PASSWORD: '${{ secrets.MONGODB_PASSWORD }}'
           GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
+          ELK_ELASTIC_PASSWORD: '${{ secrets.ELK_ELASTIC_PASSWORD }}'
+          ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
         run: |
           NETWORK_VERSION=$((16#$(git rev-parse --short "$GITHUB_SHA")%1000000000+1000))
           ./deploy/ansible/run.sh
