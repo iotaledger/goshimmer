@@ -16,6 +16,14 @@ type BranchMeta struct {
 	ApprovalWeight float64
 }
 
+func (bm *BranchMeta) ToConflictMembers() []*ConflictMember {
+	m := make([]*ConflictMember, 0)
+	for conflictID := range bm.Conflicting {
+		m = append(m, NewConflictMember(conflictID, bm.BranchID))
+	}
+	return m
+}
+
 type Scenario map[string]*BranchMeta
 
 // IDsToNames returns a mapping of BranchIDs to their alias.
@@ -68,15 +76,92 @@ func WeightFuncFromScenario(t *testing.T, scenario Scenario) WeightFunc {
 	}
 }
 
+func TestResolve(t *testing.T) {
+	type test struct {
+		Scenario   Scenario
+		WeightFunc WeightFunc
+		args       []*ConflictMember
+		wanted     []*ConflictMember
+	}
+
+	tests := []struct {
+		name     string
+		test     test
+		scenario Scenario
+		wantErr  bool
+	}{
+		{
+			name: "pair-wise conflicting (inverse)",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{0}),
+						ApprovalWeight: 0.1,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.1,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					args: []*ConflictMember{
+						NewConflictMember(ConflictID{1}, BranchID{2}),
+						NewConflictMember(ConflictID{1}, BranchID{4}),
+					},
+					wanted: []*ConflictMember{
+						NewConflictMember(ConflictID{1}, BranchID{4}),
+					},
+				}
+			}(),
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
+			for name, m := range tt.test.Scenario {
+				createTestBranch(t, branchDAG, name, m)
+			}
+			o := &OnTangleVoting{branchDAG: branchDAG, weightFunc: tt.test.WeightFunc}
+
+			filtered := o.resolve(tt.test.args)
+			require.EqualValues(t, tt.test.wanted, filtered)
+		})
+	}
+}
+
 func TestOnTangleVoting_Opinion(t *testing.T) {
+	type ExpectedBranchesFunc func(branchIDs BranchIDs)
+	type ExpectedBranchesPairFunc func(liked, disliked BranchIDs)
+
+	mustMatch := func(expected BranchIDs) ExpectedBranchesFunc {
+		return func(actual BranchIDs) {
+			require.EqualValues(t, expected, actual)
+		}
+	}
 
 	type test struct {
 		Scenario     Scenario
 		WeightFunc   WeightFunc
 		args         BranchIDs
-		wantLiked    BranchIDs
-		wantDisliked BranchIDs
+		wantLiked    ExpectedBranchesFunc
+		wantDisliked ExpectedBranchesFunc
+		wanted       ExpectedBranchesPairFunc
 	}
+
 	tests := []struct {
 		name     string
 		test     test
@@ -104,8 +189,8 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 				return test{
 					Scenario:     scenario,
 					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    scenario.BranchIDs("A"),
-					wantDisliked: scenario.BranchIDs("B"),
+					wantLiked:    mustMatch(scenario.BranchIDs("A")),
+					wantDisliked: mustMatch(scenario.BranchIDs("B")),
 					args:         scenario.BranchIDs(),
 				}
 			}(),
@@ -138,8 +223,8 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 				return test{
 					Scenario:     scenario,
 					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    scenario.BranchIDs("B", "C"),
-					wantDisliked: scenario.BranchIDs("A"),
+					wantLiked:    mustMatch(scenario.BranchIDs("B", "C")),
+					wantDisliked: mustMatch(scenario.BranchIDs("A")),
 					args:         scenario.BranchIDs(),
 				}
 			}(),
@@ -172,47 +257,96 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 				return test{
 					Scenario:     scenario,
 					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    scenario.BranchIDs("A"),
-					wantDisliked: scenario.BranchIDs("B", "C"),
+					wantLiked:    mustMatch(scenario.BranchIDs("A")),
+					wantDisliked: mustMatch(scenario.BranchIDs("B", "C")),
 					args:         scenario.BranchIDs(),
 				}
 			}(),
 			wantErr: false,
 		},
-/*		{
-			name: "metastable pair-wise conflict set",
+		{
+			name: "pair-wise conflicting (inverse)",
 			test: func() test {
 				scenario := Scenario{
 					"A": {
 						BranchID:       BranchID{2},
 						ParentBranches: NewBranchIDs(MasterBranchID),
 						Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
-						ApprovalWeight: 0.33,
+						ApprovalWeight: 0.2,
 					},
 					"B": {
 						BranchID:       BranchID{3},
 						ParentBranches: NewBranchIDs(MasterBranchID),
 						Conflicting:    NewConflictIDs(ConflictID{0}),
-						ApprovalWeight: 0.33,
+						ApprovalWeight: 0.3,
 					},
 					"C": {
 						BranchID:       BranchID{4},
 						ParentBranches: NewBranchIDs(MasterBranchID),
 						Conflicting:    NewConflictIDs(ConflictID{1}),
-						ApprovalWeight: 0.33,
+						ApprovalWeight: 0.1,
 					},
 				}
 
 				return test{
 					Scenario:     scenario,
 					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    scenario.BranchIDs("A"),
-					wantDisliked: scenario.BranchIDs("B", "C"),
-					args:         scenario.BranchIDs(),
+					wantLiked:    mustMatch(scenario.BranchIDs("C")),
+					wantDisliked: mustMatch(NewBranchIDs()),
+					args:         scenario.BranchIDs("C"),
 				}
 			}(),
 			wantErr: false,
-		},*/
+		},
+		/*		{
+				name: "metastable pair-wise conflict set",
+				test: func() test {
+					scenario := Scenario{
+						"A": {
+							BranchID:       BranchID{3},
+							ParentBranches: NewBranchIDs(MasterBranchID),
+							Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
+							ApprovalWeight: 0.33,
+						},
+						"B": {
+							BranchID:       BranchID{2},
+							ParentBranches: NewBranchIDs(MasterBranchID),
+							Conflicting:    NewConflictIDs(ConflictID{0}),
+							ApprovalWeight: 0.33,
+						},
+						"C": {
+							BranchID:       BranchID{4},
+							ParentBranches: NewBranchIDs(MasterBranchID),
+							Conflicting:    NewConflictIDs(ConflictID{1}),
+							ApprovalWeight: 0.33,
+						},
+					}
+
+					return test{
+						Scenario:   scenario,
+						WeightFunc: WeightFuncFromScenario(t, scenario),
+						wanted: func(liked, disliked BranchIDs) {
+							var notOk bool
+							defer func() {
+								require.False(t, notOk)
+							}()
+							switch {
+							case reflect.DeepEqual(liked, scenario.BranchIDs("A")) && reflect.DeepEqual(disliked, scenario.BranchIDs("B", "C")):
+							case reflect.DeepEqual(liked, scenario.BranchIDs("B")) && reflect.DeepEqual(disliked, scenario.BranchIDs("A")):
+							case reflect.DeepEqual(liked, scenario.BranchIDs("B")) && reflect.DeepEqual(disliked, scenario.BranchIDs("A", "C")):
+							case reflect.DeepEqual(liked, scenario.BranchIDs("C")) && reflect.DeepEqual(disliked, scenario.BranchIDs("A")):
+							case reflect.DeepEqual(liked, scenario.BranchIDs("C")) && reflect.DeepEqual(disliked, scenario.BranchIDs("A", "B")):
+							case reflect.DeepEqual(liked, scenario.BranchIDs("B", "C")) && reflect.DeepEqual(disliked, scenario.BranchIDs("A")):
+							default:
+								fmt.Println(liked, disliked)
+								notOk = true
+							}
+						},
+						args: scenario.BranchIDs(),
+					}
+				}(),
+				wantErr: false,
+			},*/
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -227,8 +361,12 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 				require.NoError(t, err)
 				return
 			}
-			require.EqualValues(t, tt.test.wantLiked, gotLiked)
-			require.EqualValues(t, tt.test.wantDisliked, gotDisliked)
+			if tt.test.wanted != nil {
+				tt.test.wanted(gotLiked, gotDisliked)
+				return
+			}
+			tt.test.wantLiked(gotLiked)
+			tt.test.wantDisliked(gotDisliked)
 		})
 	}
 }
