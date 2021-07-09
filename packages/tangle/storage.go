@@ -241,7 +241,7 @@ func (s *Storage) UnconfirmedTransactionDependencies(transactionID ledgerstate.T
 			return computeIfAbsentCallback[0]()
 		})}
 	}
-	return &CachedUnconfirmedTxDependency{CachedObject: s.unconfirmedTxDependenciesStorage.Load(transactionID[:])}
+	return &CachedUnconfirmedTxDependency{CachedObject: s.unconfirmedTxDependenciesStorage.Load(transactionID.Bytes())}
 }
 
 // StoreAttachment stores a new attachment if not already stored.
@@ -1218,15 +1218,6 @@ func (u *UnconfirmedTxDependency) ObjectStorageValue() []byte {
 // accessor methods with a type-casted one.
 type CachedUnconfirmedTxDependency struct {
 	objectstorage.CachedObject
-}
-
-// ID returns the dependency transactionID of the UnconfirmedTxDependency.
-func (c *CachedUnconfirmedTxDependency) ID() (id ledgerstate.TransactionID) {
-	id, _, err := ledgerstate.TransactionIDFromBytes(c.Key())
-	if err != nil {
-		panic(err)
-	}
-	return
 }
 
 // Retain marks the CachedObject to still be in use by the program.

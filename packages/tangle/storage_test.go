@@ -82,10 +82,6 @@ func TestStorage_UnconfirmedTransactionDependencies(t *testing.T) {
 
 	tangle.Storage.UnconfirmedTransactionDependencies(transactionID).Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
 		assert.Equal(t, transactionID, unconfirmedTxDependency.transactionID)
-		depCount := 0
-		for dependency := range unconfirmedTxDependency.txDependentIDs {
-			assert.Equal(t, dependencies[depCount], dependency)
-			depCount += 1
-		}
+		assert.Equal(t, 3, len(unconfirmedTxDependency.txDependentIDs))
 	})
 }
