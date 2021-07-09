@@ -66,24 +66,10 @@ jobs:
 
       - name: Ansible deploy
         env:
-          PRE_DEVNET_GOSHIMMER_SEEDS: '${{ secrets.PRE_DEVNET_GOSHIMMER_SEEDS }}'
+          GOSHIMMER_SEEDS: '${{ secrets.PRE_DEVNET_GOSHIMMER_SEEDS }}'
           MONGODB_USER: '${{ secrets.MONGODB_USER }}'
           MONGODB_PASSWORD: '${{ secrets.MONGODB_PASSWORD }}'
+          GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
         run: |
-          eval $PRE_DEVNET_GOSHIMMER_SEEDS
           NETWORK_VERSION=$((16#$(git rev-parse --short "$GITHUB_SHA")%1000000000+1000))
-          ansible-playbook  -u root -i deploy/ansible/hosts.yml --extra-vars \
-          "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
-          BOOTSTRAP_01_SEED=$BOOTSTRAP_01_SEED
-          VANILLA_01_SEED=$VANILLA_01_SEED
-          DRNG_01_SEED=$DRNG_01_SEED
-          DRNG_02_SEED=$DRNG_02_SEED
-          DRNG_03_SEED=$DRNG_03_SEED
-          DRNG_04_SEED=$DRNG_04_SEED
-          DRNG_05_SEED=$DRNG_05_SEED
-          FAUCET_01_SEED=$FAUCET_01_SEED
-          FAUCET_01_FAUCET_SEED=$FAUCET_01_FAUCET_SEED
-          mongoDBUser=$MONGODB_USER
-          mongoDBPassword=$MONGODB_PASSWORD
-          networkVersion=$NETWORK_VERSION" \
-          deploy/ansible/deploy.yml
+          ./deploy/ansible/run.sh
