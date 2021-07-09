@@ -26,7 +26,7 @@ func main() {
 		"http://127.0.0.1:8070",
 	}
 
-	clients := createClients(apiUrls)
+	clients := createGoShimmerClients(apiUrls)
 
 	endTime := time.Now()
 	delayMaps := make(map[string]map[string]schedulingInfo, len(apiUrls))
@@ -42,7 +42,7 @@ func main() {
 	printResults(delayMaps)
 }
 
-func createClients(apiUrls []string) []*client.GoShimmerAPI {
+func createGoShimmerClients(apiUrls []string) []*client.GoShimmerAPI {
 	clients := make([]*client.GoShimmerAPI, len(apiUrls))
 	for i, url := range apiUrls {
 		clients[i] = client.NewGoShimmerAPI(url, client.WithHTTPClient(http.Client{Timeout: 180 * time.Second}))
