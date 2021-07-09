@@ -233,14 +233,14 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 	return
 }
 
-// StoreUnconfirmedTransactionDependencies stores the dependencies
-func (s *Storage) StoreUnconfirmedTransactionDependencies(dependencies *UnconfirmedTxDependency) *CachedUnconfirmedTxDependency {
-	cachedDependencies := s.unconfirmedTxDependenciesStorage.Store(dependencies)
-	return &CachedUnconfirmedTxDependency{CachedObject: cachedDependencies}
-}
-
 // UnconfirmedTransactionDependencies gets the CachedUnconfirmedTransactionDependencies from the objectStorage that matches provided transactionID
-func (s *Storage) UnconfirmedTransactionDependencies(transactionID ledgerstate.TransactionID) (matchedCachedDependencies *CachedUnconfirmedTxDependency) {
+// or if computeIfAbsentCallback is provided and storage is empty it creates and store new instance of UnconfirmedTxDependency.
+func (s *Storage) UnconfirmedTransactionDependencies(transactionID ledgerstate.TransactionID, computeIfAbsentCallback ...func() *UnconfirmedTxDependency) *CachedUnconfirmedTxDependency {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedUnconfirmedTxDependency{s.unconfirmedTxDependenciesStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
 	return &CachedUnconfirmedTxDependency{CachedObject: s.unconfirmedTxDependenciesStorage.Load(transactionID[:])}
 }
 
@@ -1152,20 +1152,21 @@ func (c *CachedMissingMessage) String() string {
 
 // region UnconfirmedTxDependency //////////////////////////////////////////////////////////////////////////////////////
 
-// UnconfirmedTxDependency maps a transaction to all of the transactions that create its inputs which are not yet confirmed
+// UnconfirmedTxDependency maps an unconfirmed transaction to all transactions that are dependent on it (use this transaction outputs).
+// It is used in EligibilityManager to track eligibility status of the attachment message.
 type UnconfirmedTxDependency struct {
 	objectstorage.StorableObjectFlags
 
-	dependencyTxID ledgerstate.TransactionID
-	dependentTxIDs ledgerstate.TransactionIDs
+	transactionID  ledgerstate.TransactionID
+	txDependentIDs ledgerstate.TransactionIDs
 	mutex          sync.RWMutex
 }
 
 // NewUnconfirmedTxDependency creates an empty mapping for txID
 func NewUnconfirmedTxDependency(txID ledgerstate.TransactionID) *UnconfirmedTxDependency {
 	return &UnconfirmedTxDependency{
-		dependencyTxID: txID,
-		dependentTxIDs: make(ledgerstate.TransactionIDs, 0),
+		transactionID:  txID,
+		txDependentIDs: make(ledgerstate.TransactionIDs, 0),
 	}
 }
 
@@ -1174,7 +1175,7 @@ func (u *UnconfirmedTxDependency) AddDependency(txID ledgerstate.TransactionID) 
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	u.dependentTxIDs[txID] = types.Void
+	u.txDependentIDs[txID] = types.Void
 	u.SetModified()
 }
 
@@ -1183,7 +1184,7 @@ func (u *UnconfirmedTxDependency) DeleteDependency(txID ledgerstate.TransactionI
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	delete(u.dependentTxIDs, txID)
+	delete(u.txDependentIDs, txID)
 	u.SetModified()
 }
 
@@ -1195,15 +1196,15 @@ func (u *UnconfirmedTxDependency) ObjectStorageKey() []byte {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
-	return u.dependencyTxID.Bytes()
+	return u.transactionID.Bytes()
 }
 
 func (u *UnconfirmedTxDependency) ObjectStorageValue() []byte {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
-	marshalUtil := marshalutil.New(ledgerstate.TransactionIDLength * len(u.dependentTxIDs))
-	for dependency := range u.dependentTxIDs {
+	marshalUtil := marshalutil.New(ledgerstate.TransactionIDLength * len(u.txDependentIDs))
+	for dependency := range u.txDependentIDs {
 		marshalUtil.WriteBytes(dependency.Bytes())
 	}
 	return marshalUtil.Bytes()

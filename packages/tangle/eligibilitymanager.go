@@ -85,20 +85,11 @@ func (e *EligibilityManager) storeMissingDependencies(dependentTxID *ledgerstate
 	e.storageMutex.Lock()
 	defer e.storageMutex.Unlock()
 
-	storage := e.tangle.Storage
-	if cachedDependencies := storage.UnconfirmedTransactionDependencies(*dependencyTxID); cachedDependencies != nil {
-		cachedDependencies.Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
-			unconfirmedTxDependency.AddDependency(*dependentTxID)
-		})
-		return nil
-	}
-	txDependency := NewUnconfirmedTxDependency(*dependencyTxID)
-	txDependency.AddDependency(*dependentTxID)
-	cachedDependency := storage.StoreUnconfirmedTransactionDependencies(txDependency)
-	if cachedDependency == nil {
-		return errors.Errorf("failed to store dependency, txID: %s", dependentTxID)
-	}
-	cachedDependency.Release()
+	e.tangle.Storage.UnconfirmedTransactionDependencies(*dependencyTxID, func() *UnconfirmedTxDependency {
+		return NewUnconfirmedTxDependency(*dependencyTxID)
+	}).Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
+		unconfirmedTxDependency.AddDependency(*dependentTxID)
+	})
 
 	return nil
 }
@@ -135,7 +126,7 @@ func (e *EligibilityManager) updateEligibilityAfterDependencyConfirmation(depend
 		// tx that need to be checked for the eligibility after one of dependency has been confirmed
 		cachedDependencies.Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
 			// get tx from storage
-			for txID := range unconfirmedTxDependency.dependentTxIDs {
+			for txID := range unconfirmedTxDependency.txDependentIDs {
 				e.tangle.LedgerState.Transaction(txID).Consume(func(tx *ledgerstate.Transaction) {
 					dependentTxs = append(dependentTxs, tx)
 				})
@@ -209,8 +200,8 @@ func UnconfirmedTxDependencyFromBytes(bytes []byte) (unconfirmedTxDependency *Un
 	}
 
 	unconfirmedTxDependency = &UnconfirmedTxDependency{
-		dependencyTxID: txID,
-		dependentTxIDs: txDependencies,
+		transactionID:  txID,
+		txDependentIDs: txDependencies,
 	}
 
 	consumedBytes = marshalUtil.ReadOffset()
