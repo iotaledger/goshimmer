@@ -17,6 +17,12 @@
     dest: /opt/metrics/docker-compose.yml
     mode: '0644'
 
+- name: Template grafana-admin-password
+  template:
+    src: grafana-admin-password.j2
+    dest: /opt/metrics/grafana/admin-password
+    mode: '0644'
+
 - name: Template prometheus.yml
   template:
     src: prometheus.yml.j2
