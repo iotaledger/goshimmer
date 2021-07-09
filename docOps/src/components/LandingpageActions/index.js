@@ -6,7 +6,7 @@ import styles from './styles.module.css';
 const ActionList = [
   {
     title: 'Learn',
-    link: 'welcome',
+    link: 'docs/welcome/',
     description: (
       <>
         Learn the Basics about the IOTA Identity Wallet Library and how it works behind the scenes. 
@@ -15,7 +15,7 @@ const ActionList = [
   },
   {
     title: 'Build',
-    link: 'post_installation/post_installation',
+    link: 'docs/tutorials/set-up-a-goshimmer-node/',
     description: (
       <>
         Follow our tutorial to build your own IOTA application. IOTA Identity supports Rust, Python and Javascript.
@@ -24,7 +24,7 @@ const ActionList = [
   },
   {
     title: 'Participate',
-    link: 'contribute/contribute',
+    link: 'docs/teamresources/release/',
     description: (
       <>
         You want to be a part of the IOTA mission? Join the IOTA community or join the IOTA Libraries X-Team.
