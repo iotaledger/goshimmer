@@ -6,6 +6,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/types"
 )
 
 // WeightFunc returns the approval weight for the given branch.
@@ -28,51 +29,12 @@ func NewOnTangleVoting(weightFunc WeightFunc, branchDAG *ledgerstate.BranchDAG) 
 func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
 	liked, disliked = ledgerstate.NewBranchIDs(), ledgerstate.NewBranchIDs()
 	for branchID := range branchIDs {
-		resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
+		if o.doILike(branchID, ledgerstate.NewConflictIDs()) {
+			liked[branchID] = types.Void
+		} else {
+			disliked[branchID] = types.Void
 		}
-		_ = resolvedConflictBranchIDs
-
-		o.forEveryConflictSet(branchID, func(conflictID ledgerstate.ConflictID, conflictMember *ledgerstate.ConflictMember) {
-			if conflictMember.BranchID() == branchID {
-				return
-			}
-			fmt.Println("outer conflict set member", conflictMember.BranchID())
-
-			o.forEveryConflictSet(conflictMember.BranchID(), func(innerConflictID ledgerstate.ConflictID, innerConflictMember *ledgerstate.ConflictMember) {
-				if innerConflictMember.BranchID() == conflictMember.BranchID() {
-					return
-				}
-				if innerConflictID == conflictID {
-					return
-				}
-				fmt.Println("inner conflict set", innerConflictMember.BranchID())
-			})
-		})
-
-		/*
-			allParentsHaveHighestWeight := true
-			for conflictBranchID := range resolvedConflictBranchIDs {
-
-				_, highestWeightedBranchID := o.highestWeightedBranchFromConflictSets(conflictBranchID)
-				fmt.Println(conflictBranchID, highestWeightedBranchID)
-				if highestWeightedBranchID != conflictBranchID {
-					disliked[branchID] = types.Void
-					allParentsHaveHighestWeight = false
-					break
-				}
-			}
-
-			if allParentsHaveHighestWeight {
-				liked[branchID] = types.Void
-			}
-		*/
 	}
-
-	// TODO: given the liked set, examine whether they are conflicting with each other and then reduce the set
-	// to the ones which have a higher approval weight within their conflict set.
-
 	return
 }
 
@@ -106,51 +68,43 @@ func (o *OnTangleVoting) highestWeightedBranchFromConflictSets(conflictBranchID 
 	return
 }
 
-func (o *OnTangleVoting) resolve(conflictMembers []*ledgerstate.ConflictMember) []*ledgerstate.ConflictMember {
-	var filteredMembers []*ledgerstate.ConflictMember
-	for _, conflictMember := range conflictMembers {
-		conflictSets := o.conflictsSets(conflictMember.BranchID())
-		if len(conflictSets) == 1 {
-			filteredMembers = append(filteredMembers, conflictMember)
+// Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
+// it is the branch with the highest approval weight across all its conflict sets of it is a member.
+func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) bool {
+	conflictSets := o.conflictsSets(branchID)
+	for conflictSet := range conflictSets {
+		// Don't visit same conflict sets again
+		if _, ok := visitedConflicts[conflictSet]; ok {
 			continue
 		}
-
-		isWinnerAcrossAllConflictSets := true
-		for conflictSet := range conflictSets {
-			if conflictSet == conflictMember.ConflictID() {
+		innervisitedConflicts := visitedConflicts.Clone()
+		innervisitedConflicts[conflictSet] = types.Void
+		innerConflictMembers := o.branchDAG.ConflictMembers(conflictSet).Unwrap()
+		for _, innerConflictMember := range innerConflictMembers {
+			// I skip myself from the conflict set
+			if innerConflictMember.BranchID() == branchID {
 				continue
 			}
-
-			innerConflictMembers := o.branchDAG.ConflictMembers(conflictSet).Unwrap()
-			for i, innerConflictMember := range innerConflictMembers {
-				if innerConflictMember.BranchID() == conflictMember.BranchID() {
-					innerConflictMembers = append(innerConflictMembers[:i], innerConflictMembers[i+1:]...)
-					break
+			if o.doILike(innerConflictMember.BranchID(), innervisitedConflicts) {
+				if !o.weightComparison(branchID, innerConflictMember.BranchID()) {
+					fmt.Println(branchID, false)
+					return false
 				}
 			}
-			innerConflictMembers = o.resolve(innerConflictMembers)
-			if !o.winner(conflictMember.BranchID(), innerConflictMembers) {
-				isWinnerAcrossAllConflictSets = false
-				break
-			}
-		}
-		if isWinnerAcrossAllConflictSets {
-			filteredMembers = append(filteredMembers, conflictMember)
 		}
 	}
-	return filteredMembers
+	fmt.Println(branchID, true)
+	return true
 }
 
-func (o *OnTangleVoting) winner(candidate ledgerstate.BranchID, conflictMembers []*ledgerstate.ConflictMember) bool {
-	var highestWeight float64
-	var highestBranch ledgerstate.BranchID
-	for _, conflictMember := range conflictMembers {
-		if weight := o.weightFunc(conflictMember.BranchID()); weight > highestWeight {
-			highestWeight = weight
-			highestBranch = conflictMember.BranchID()
-		}
+func (o *OnTangleVoting) weightComparison(branchA ledgerstate.BranchID, branchB ledgerstate.BranchID) bool {
+	weight := o.weightFunc(branchA)
+	weightConflict := o.weightFunc(branchB)
+	if weight < weightConflict ||
+		(weight == weightConflict && (bytes.Compare(branchA.Bytes(), branchB.Bytes()) > 0)) {
+		return false
 	}
-	return highestBranch == candidate
+	return true
 }
 
 func (o *OnTangleVoting) conflictsSets(conflictBranchID ledgerstate.BranchID) (conflicts ledgerstate.ConflictIDs) {
