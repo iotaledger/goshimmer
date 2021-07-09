@@ -1,11 +1,8 @@
 package tangle
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
-
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/stretchr/testify/assert"
 
@@ -61,31 +58,34 @@ func TestStorage_UnconfirmedTransactionDependencies(t *testing.T) {
 
 	transactionID, err := ledgerstate.TransactionIDFromRandomness()
 	assert.NoError(t, err)
-	transactionIDs := make(ledgerstate.TransactionIDs, 2)
-	dependency1TxID, err := ledgerstate.TransactionIDFromRandomness()
-	assert.NoError(t, err)
-	dependency2TxID, err := ledgerstate.TransactionIDFromRandomness()
-	assert.NoError(t, err)
-	transactionIDs[dependency1TxID] = types.Void
-	transactionIDs[dependency2TxID] = types.Void
 
-	dependencies := NewUnconfirmedTxDependency(transactionID)
-	dependencies.AddDependency(dependency1TxID)
-	dependencies.AddDependency(dependency2TxID)
+	dependencies := make([]ledgerstate.TransactionID, 3)
+	for i := 0; i < 3; i++ {
+		transactionID, err = ledgerstate.TransactionIDFromRandomness()
+		assert.NoError(t, err)
+		dependencies[i] = transactionID
+	}
 
-	cachedDependencies := tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
-	assert.Nil(t, cachedDependencies.Unwrap())
-	cachedDependencies.Release()
+	// storage is empty
+	emptyCachedDependency := tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
+	assert.Nil(t, emptyCachedDependency.Unwrap())
+	emptyCachedDependency.Release()
 
-	tangle.Storage.StoreUnconfirmedTransactionDependencies(dependencies).Release()
-	fmt.Println(cachedDependencies.Unwrap().dependencyTxID)
-	fmt.Println(cachedDependencies.Unwrap().dependentTxIDs)
-	cachedDependencies2 := tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
-	defer cachedDependencies2.Release()
-	assert.NotNil(t, cachedDependencies2.Unwrap())
+	// store dependencies
+	tangle.Storage.UnconfirmedTransactionDependencies(transactionID, func() *UnconfirmedTxDependency {
+		return NewUnconfirmedTxDependency(transactionID)
+	}).Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
+		unconfirmedTxDependency.AddDependency(dependencies[0])
+		unconfirmedTxDependency.AddDependency(dependencies[1])
+		unconfirmedTxDependency.AddDependency(dependencies[2])
+	})
 
-	fmt.Println(cachedDependencies.Unwrap().dependencyTxID)
-	fmt.Println(cachedDependencies.Unwrap().dependentTxIDs)
-	assert.Equal(t, transactionID, cachedDependencies.Unwrap().dependencyTxID)
-	assert.Equal(t, transactionIDs, cachedDependencies2.Unwrap().dependentTxIDs)
+	tangle.Storage.UnconfirmedTransactionDependencies(transactionID).Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
+		assert.Equal(t, transactionID, unconfirmedTxDependency.transactionID)
+		depCount := 0
+		for dependency := range unconfirmedTxDependency.txDependentIDs {
+			assert.Equal(t, dependencies[depCount], dependency)
+			depCount += 1
+		}
+	})
 }
