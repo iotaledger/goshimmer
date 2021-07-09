@@ -27,12 +27,12 @@ messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5f
 // invoke go get github.com/iotaledger/goshimmer/client/wallet for wallet usage
 // get the given address from a wallet instance and
 connector := wallet.GenericConnector(wallet.NewWebConnector("http://localhost:8080"))
-addr := wallet.New(connector).Seed().Address(0)
+addr := wallet.New(connector).ReceiveAddress()
 // use String() to get base58 representation
 // the proof of work difficulty,
 // the optional aManaPledgeID (Base58 encoded),
 // the optional cManaPledgeID (Base58 encoded)
-messageID, err := goshimAPI.SendFaucetRequest(addr.String(), 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
+messageID, err := goshimAPI.SendFaucetRequest(addr.Base58(), 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
 ```
 
 ### Via the wallet
