@@ -4,8 +4,6 @@ go 1.16
 
 replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210518222204-d6ea5eedcfb9
 
-replace github.com/iotaledger/hive.go => /home/galr/IdeaProjects/hive.go
-
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/beevik/ntp v0.3.0
@@ -19,7 +17,7 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20210623095912-c1c6f098a6db
+	github.com/iotaledger/hive.go v0.0.0-20210708115003-f1a9732260a8
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/linxGnu/grocksdb v1.6.35 // indirect
