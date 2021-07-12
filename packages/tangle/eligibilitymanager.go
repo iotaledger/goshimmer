@@ -80,7 +80,7 @@ func (e *EligibilityManager) checkEligibility(messageID MessageID) error {
 }
 
 // storeMissingDependencies adds missing dependencies to the object storage
-// or append if already exist append dependent txID to the existing one
+// or if already exist it appends dependent txID to the existing object storage.
 func (e *EligibilityManager) storeMissingDependencies(dependentTxID *ledgerstate.TransactionID, dependencyTxID *ledgerstate.TransactionID) error {
 	e.storageMutex.Lock()
 	defer e.storageMutex.Unlock()
@@ -116,9 +116,9 @@ func (e *EligibilityManager) Setup() {
 	}))
 }
 
-// updateEligibilityAfterDependencyConfirmation triggered on transaction confirmation event
-// remove unconfirmed dependency from object storage and checks if any of dependent transactions
-// can be set to eligible
+// updateEligibilityAfterDependencyConfirmation is triggered on transaction confirmation event.
+// It removes confirmed dependency along with dependent transactions from object storage and checks if any of dependent
+// transactions can be set to eligible.
 func (e *EligibilityManager) updateEligibilityAfterDependencyConfirmation(dependencyTxID *ledgerstate.TransactionID) error {
 	dependentTxs := make([]*ledgerstate.Transaction, 0)
 	// get all txID dependent on this transactionID
@@ -147,7 +147,7 @@ func (e *EligibilityManager) updateEligibilityAfterDependencyConfirmation(depend
 	return nil
 }
 
-// obtainPendingDependencies return all transaction ids that are still pending confirmation that tx depends upon
+// obtainPendingDependencies returns all transactionIDs that are still pending confirmation that tx depends upon
 func (e *EligibilityManager) obtainPendingDependencies(tx *ledgerstate.Transaction) (ledgerstate.TransactionIDs, error) {
 	pendingDependencies := make(ledgerstate.TransactionIDs)
 	for _, input := range tx.Essence().Inputs() {
@@ -164,7 +164,7 @@ func (e *EligibilityManager) obtainPendingDependencies(tx *ledgerstate.Transacti
 	return pendingDependencies, nil
 }
 
-// makeAttachmentsEligible set eligibility to true for all transaction's attachments if all dependencies has been confirmed
+// makeAttachmentsEligible sets eligibility to true for all transaction's attachments if all dependencies has been confirmed
 func (e *EligibilityManager) makeAttachmentsEligible(dependentTx *ledgerstate.Transaction) {
 	// set eligible all tx dependent attachments
 	messageIDs := e.tangle.Storage.AttachmentMessageIDs(dependentTx.ID())
