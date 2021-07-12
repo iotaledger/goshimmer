@@ -2,7 +2,6 @@ package otv
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/types"
@@ -30,7 +29,19 @@ func NewOnTangleVoting(weightFunc WeightFunc, branchDAG *ledgerstate.BranchDAG) 
 func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
 	liked, disliked = ledgerstate.NewBranchIDs(), ledgerstate.NewBranchIDs()
 	for branchID := range branchIDs {
-		if o.doILike(branchID, ledgerstate.NewConflictIDs()) {
+		resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
+		}
+
+		allParentsLiked := true
+		for resolvedBranch := range resolvedConflictBranchIDs {
+			if !o.doILike(resolvedBranch, ledgerstate.NewConflictIDs()) {
+				allParentsLiked = false
+				break
+			}
+		}
+		if allParentsLiked {
 			liked[branchID] = types.Void
 		} else {
 			disliked[branchID] = types.Void
@@ -78,13 +89,11 @@ func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts
 			}
 			if o.doILike(conflictBranchID, innervisitedConflicts) {
 				if !o.weighsMore(branchID, conflictBranchID) {
-					fmt.Println(branchID, false)
 					return false
 				}
 			}
 		}
 	}
-	fmt.Println(branchID, true)
 	return true
 }
 
