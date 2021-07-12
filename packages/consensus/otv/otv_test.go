@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/database"
-	. "github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/database"
+	. "github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 type BranchMeta struct {
@@ -210,10 +211,9 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		test     test
-		scenario Scenario
-		wantErr  bool
+		name    string
+		test    test
+		wantErr bool
 	}{
 		{
 			name: "1",
@@ -623,16 +623,21 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
+			// TODO: make sure that all objects are properly released
+			// defer branchDAG.Shutdown()
+
 			for name, m := range tt.test.Scenario {
 				createTestBranch(t, branchDAG, name, m)
 			}
 			o := &OnTangleVoting{branchDAG: branchDAG, weightFunc: tt.test.WeightFunc}
 
 			gotLiked, gotDisliked, err := o.Opinion(tt.test.args)
-			if (err != nil) != tt.wantErr {
-				require.NoError(t, err)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
+
 			if tt.test.wanted != nil {
 				tt.test.wanted(gotLiked, gotDisliked)
 				return
