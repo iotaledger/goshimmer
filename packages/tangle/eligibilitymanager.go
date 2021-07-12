@@ -109,8 +109,8 @@ func (e *EligibilityManager) Setup() {
 		}
 	}))
 
-	e.tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(func(transactionID *ledgerstate.TransactionID) {
-		if err := e.updateEligibilityAfterDependencyConfirmation(transactionID); err != nil {
+	e.tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+		if err := e.updateEligibilityAfterDependencyConfirmation(&transactionID); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to update eligibility after tx %s was confirmed. %w", transactionID.Base58(), err))
 		}
 	}))
