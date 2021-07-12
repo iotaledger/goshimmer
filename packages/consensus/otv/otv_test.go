@@ -76,7 +76,436 @@ func WeightFuncFromScenario(t *testing.T, scenario Scenario) WeightFunc {
 		return meta.ApprovalWeight
 	}
 }
+func TestLikedFromConflictSet(t *testing.T) {
 
+	type ExpectedBranchFunc func(branchID BranchID)
+
+	mustMatch := func(expected BranchID) ExpectedBranchFunc {
+		return func(actual BranchID) {
+			require.Equal(t, expected, actual)
+		}
+	}
+	type test struct {
+		Scenario   Scenario
+		WeightFunc WeightFunc
+		args       BranchID
+		wantLiked  ExpectedBranchFunc
+	}
+
+	tests := []struct {
+		name     string
+		test     test
+		scenario Scenario
+		wantErr  bool
+	}{
+		{
+			name: "1",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.6,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{2}),
+					args:       BranchID{3},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "2",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.6,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.8,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{4}),
+					args:       BranchID{4},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "3",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.5,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.4,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{2}),
+					args:       BranchID{4},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "4",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{2}),
+					args:       BranchID{4},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "4.5",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{200},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{4}),
+					args:       BranchID{4},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "5",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.1,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{4}),
+					args:       BranchID{2},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "6",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{7}),
+						ApprovalWeight: 0.4,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"D": {
+						BranchID:       BranchID{5},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{7}),
+						ApprovalWeight: 0.1,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{3}),
+					args:       BranchID{3},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "7",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.1,
+					},
+					"D": {
+						BranchID:       BranchID{5},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.15,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{3}),
+					args:       BranchID{2},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "8",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.1,
+					},
+					"D": {
+						BranchID:       BranchID{5},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.15,
+					},
+					"E": {
+						BranchID:       BranchID{6},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{0}),
+						ApprovalWeight: 0.5,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{2}),
+					args:       BranchID{4},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "9",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.1,
+					},
+					"D": {
+						BranchID:       BranchID{5},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.15,
+					},
+					"E": {
+						BranchID:       BranchID{6},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{0}),
+						ApprovalWeight: 0.1,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{5}),
+					args:       BranchID{4},
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "10",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
+						ApprovalWeight: 0.1,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+				}
+
+				return test{
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					wantLiked:  mustMatch(BranchID{4}),
+					args:       BranchID{2},
+				}
+			}(),
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
+			for name, m := range tt.test.Scenario {
+				createTestBranch(t, branchDAG, name, m)
+			}
+			o := &OnTangleVoting{branchDAG: branchDAG, weightFunc: tt.test.WeightFunc}
+
+			liked, err := o.LikedFromConflictSet(tt.test.args)
+			require.NoError(t, err)
+			tt.test.wantLiked(liked)
+		})
+	}
+}
 func TestDoILike(t *testing.T) {
 	type test struct {
 		Scenario   Scenario
