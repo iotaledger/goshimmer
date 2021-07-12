@@ -72,29 +72,53 @@ func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (li
 // Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
 // it is the branch with the highest approval weight across all its conflict sets of it is a member.
 func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) bool {
+	if parentsLiked := o.areParentsLiked(branchID, visitedConflicts); !parentsLiked {
+		return false
+	}
+
 	conflictSets := o.conflictsSets(branchID)
 	for conflictSet := range conflictSets {
 		// Don't visit same conflict sets again
 		if _, ok := visitedConflicts[conflictSet]; ok {
 			continue
 		}
-		innervisitedConflicts := visitedConflicts.Clone()
-		innervisitedConflicts[conflictSet] = types.Void
-		innerConflictMembers := o.branchDAG.ConflictMembers(conflictSet).Unwrap()
-		for _, innerConflictMember := range innerConflictMembers {
+		innerVisitedConflicts := visitedConflicts.Clone()
+		innerVisitedConflicts[conflictSet] = types.Void
+		cachedInnerConflictMembers := o.branchDAG.ConflictMembers(conflictSet)
+		for _, innerConflictMember := range cachedInnerConflictMembers.Unwrap() {
 			conflictBranchID := innerConflictMember.BranchID()
 			// I skip myself from the conflict set
 			if conflictBranchID == branchID {
 				continue
 			}
-			if o.doILike(conflictBranchID, innervisitedConflicts) {
+			if o.doILike(conflictBranchID, innerVisitedConflicts) {
 				if !o.weighsMore(branchID, conflictBranchID) {
+					cachedInnerConflictMembers.Release()
 					return false
 				}
 			}
 		}
+		cachedInnerConflictMembers.Release()
 	}
 	return true
+}
+
+// checks whether all parents of the given branchID are liked.
+func (o *OnTangleVoting) areParentsLiked(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) bool {
+	parentsLiked := true
+	o.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		for parent := range branch.Parents() {
+			if parent == ledgerstate.MasterBranchID {
+				continue
+			}
+			if !o.doILike(parent, visitedConflicts) {
+				parentsLiked = false
+				break
+			}
+		}
+	})
+
+	return parentsLiked
 }
 
 func (o *OnTangleVoting) weighsMore(branchA ledgerstate.BranchID, branchB ledgerstate.BranchID) bool {
