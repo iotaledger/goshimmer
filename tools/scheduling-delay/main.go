@@ -40,6 +40,8 @@ func main() {
 	}
 
 	printResults(delayMaps)
+	manaPercentage := fetchManaPercentage(clients[0])
+	renderChart(delayMaps, manaPercentage)
 }
 
 func createGoShimmerClients(apiUrls []string) []*client.GoShimmerAPI {
@@ -97,6 +99,21 @@ func calculateSchedulingDelay(response *csv.Reader, endTime time.Time) map[strin
 		nodeDelayMap[issuer] = append(nodeDelayMap[issuer], scheduledTime.Sub(arrivalTime))
 	}
 	return nodeDelayMap
+}
+
+func fetchManaPercentage(goshimmerAPI *client.GoShimmerAPI) map[string]float64 {
+	manaPercentageMap := make(map[string]float64)
+	res, _ := goshimmerAPI.GetNHighestAccessMana(0)
+
+	totalAccessMana := 0.0
+	for _, node := range res.Nodes {
+		totalAccessMana += node.Mana
+	}
+
+	for _, node := range res.Nodes {
+		manaPercentageMap[node.ShortNodeID] = node.Mana / totalAccessMana
+	}
+	return manaPercentageMap
 }
 
 func timestampFromString(timeString string) time.Time {
