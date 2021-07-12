@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -666,7 +667,9 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 
 	mustMatch := func(s *Scenario, aliases ...string) ExpectedBranchesFunc {
 		return func(actual BranchIDs) {
-			require.EqualValues(t, s.BranchIDs(aliases...), actual)
+			if !assert.EqualValues(t, s.BranchIDs(aliases...), actual) {
+				fmt.Println("expected", s.BranchIDs(aliases...), "actual", actual)
+			}
 		}
 	}
 
@@ -1200,12 +1203,543 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 			}(),
 			wantErr: false,
 		},
+		{
+			name: "14",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.4,
+					},
+					"D": {
+						BranchID:       BranchID{5},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{3}),
+						ApprovalWeight: 0.15,
+					},
+					"E": {
+						BranchID:       BranchID{6},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{3}),
+						ApprovalWeight: 0.35,
+					},
+					"C+E": {
+						Order:          2,
+						ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}),
+						Conflicting:    NewConflictIDs(),
+						ApprovalWeight: -1,
+						IsAggregated:   true,
+					},
+					"F": {
+						Order:          1,
+						BranchID:       BranchID{7},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.02,
+					},
+					"G": {
+						Order:          1,
+						BranchID:       BranchID{8},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.17,
+					},
+					"C+E+G": {
+						Order:          2,
+						ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}, BranchID{8}),
+						Conflicting:    NewConflictIDs(),
+						ApprovalWeight: -1,
+						IsAggregated:   true,
+					},
+					"H": {
+						Order:          1,
+						BranchID:       BranchID{9},
+						ParentBranches: NewBranchIDs(BranchID{6}),
+						Conflicting:    NewConflictIDs(ConflictID{10}),
+						ApprovalWeight: 0.1,
+					},
+					"I": {
+						Order:          1,
+						BranchID:       BranchID{10},
+						ParentBranches: NewBranchIDs(BranchID{6}),
+						Conflicting:    NewConflictIDs(ConflictID{10}),
+						ApprovalWeight: 0.05,
+					},
+					"J": {
+						Order:          2,
+						BranchID:       BranchID{11},
+						ParentBranches: NewBranchIDs(BranchID{9}),
+						Conflicting:    NewConflictIDs(ConflictID{15}),
+						ApprovalWeight: 0.04,
+					},
+					"K": {
+						Order:          2,
+						BranchID:       BranchID{12},
+						ParentBranches: NewBranchIDs(BranchID{9}),
+						Conflicting:    NewConflictIDs(ConflictID{15}),
+						ApprovalWeight: 0.06,
+					},
+				}
+
+				return test{
+					Scenario:     scenario,
+					WeightFunc:   WeightFuncFromScenario(t, scenario),
+					wantLiked:    mustMatch(&scenario, "A", "C", "E", "G", "H", "K", "C+E", "C+E+G"),
+					wantDisliked: mustMatch(&scenario, "B", "D", "F", "J", "I"),
+					args:         argsFunc(&scenario),
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "15",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"D": {
+						BranchID:       BranchID{5},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{3}),
+						ApprovalWeight: 0.15,
+					},
+					"E": {
+						BranchID:       BranchID{6},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{3}),
+						ApprovalWeight: 0.35,
+					},
+					"C+E": {
+						Order:          2,
+						ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}),
+						Conflicting:    NewConflictIDs(),
+						ApprovalWeight: -1,
+						IsAggregated:   true,
+					},
+					"F": {
+						Order:          1,
+						BranchID:       BranchID{7},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.02,
+					},
+					"G": {
+						Order:          1,
+						BranchID:       BranchID{8},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.17,
+					},
+					"C+E+G": {
+						Order:          2,
+						ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}, BranchID{8}),
+						Conflicting:    NewConflictIDs(),
+						ApprovalWeight: -1,
+						IsAggregated:   true,
+					},
+					"H": {
+						Order:          1,
+						BranchID:       BranchID{9},
+						ParentBranches: NewBranchIDs(BranchID{6}),
+						Conflicting:    NewConflictIDs(ConflictID{10}),
+						ApprovalWeight: 0.1,
+					},
+					"I": {
+						Order:          1,
+						BranchID:       BranchID{10},
+						ParentBranches: NewBranchIDs(BranchID{6}),
+						Conflicting:    NewConflictIDs(ConflictID{10}),
+						ApprovalWeight: 0.05,
+					},
+					"J": {
+						Order:          2,
+						BranchID:       BranchID{11},
+						ParentBranches: NewBranchIDs(BranchID{9}),
+						Conflicting:    NewConflictIDs(ConflictID{15}),
+						ApprovalWeight: 0.04,
+					},
+					"K": {
+						Order:          2,
+						BranchID:       BranchID{12},
+						ParentBranches: NewBranchIDs(BranchID{9}),
+						Conflicting:    NewConflictIDs(ConflictID{15}),
+						ApprovalWeight: 0.06,
+					},
+				}
+
+				return test{
+					Scenario:     scenario,
+					WeightFunc:   WeightFuncFromScenario(t, scenario),
+					wantLiked:    mustMatch(&scenario, "B", "E", "H", "K"),
+					wantDisliked: mustMatch(&scenario, "A", "C", "D", "F", "G", "J", "I", "C+E", "C+E+G"),
+					args:         argsFunc(&scenario),
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "16",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"F": {
+						Order:          1,
+						BranchID:       BranchID{7},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.02,
+					},
+					"G": {
+						Order:          1,
+						BranchID:       BranchID{8},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.03,
+					},
+					"H": {
+						Order:          1,
+						BranchID:       BranchID{9},
+						ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+						ApprovalWeight: 0.15,
+					},
+				}
+
+				return test{
+					Scenario:     scenario,
+					WeightFunc:   WeightFuncFromScenario(t, scenario),
+					wantLiked:    mustMatch(&scenario, "B"),
+					wantDisliked: mustMatch(&scenario, "A", "C", "F", "G", "H"),
+					args:         argsFunc(&scenario),
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "17",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.1,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"F": {
+						Order:          1,
+						BranchID:       BranchID{7},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.02,
+					},
+					"G": {
+						Order:          1,
+						BranchID:       BranchID{8},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.03,
+					},
+					"H": {
+						Order:          1,
+						BranchID:       BranchID{9},
+						ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+						ApprovalWeight: 0.15,
+					},
+				}
+
+				return test{
+					Scenario:     scenario,
+					WeightFunc:   WeightFuncFromScenario(t, scenario),
+					wantLiked:    mustMatch(&scenario, "A", "C", "G"),
+					wantDisliked: mustMatch(&scenario, "F", "B", "H"),
+					args:         argsFunc(&scenario),
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "18",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.1,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.05,
+					},
+					"F": {
+						Order:          1,
+						BranchID:       BranchID{7},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.02,
+					},
+					"G": {
+						Order:          1,
+						BranchID:       BranchID{8},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.03,
+					},
+					"H": {
+						Order:          1,
+						BranchID:       BranchID{9},
+						ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+						ApprovalWeight: 0.15,
+					},
+					"K": {
+						BranchID:       BranchID{10},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{17}),
+						ApprovalWeight: 0.1,
+					},
+					"L": {
+						BranchID:       BranchID{11},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{17}),
+						ApprovalWeight: 0.2,
+					},
+					"M": {
+						Order:          1,
+						BranchID:       BranchID{12},
+						ParentBranches: NewBranchIDs(BranchID{11}),
+						Conflicting:    NewConflictIDs(ConflictID{19}),
+						ApprovalWeight: 0.05,
+					},
+					"N": {
+						Order:          1,
+						BranchID:       BranchID{13},
+						ParentBranches: NewBranchIDs(BranchID{11}),
+						Conflicting:    NewConflictIDs(ConflictID{19}),
+						ApprovalWeight: 0.06,
+					},
+					"I": {
+						Order:          2,
+						BranchID:       BranchID{14},
+						ParentBranches: NewBranchIDs(BranchID{9}),
+						Conflicting:    NewConflictIDs(ConflictID{14}),
+						ApprovalWeight: 0.07,
+					},
+					"J": {
+						Order:          2,
+						BranchID:       BranchID{15},
+						ParentBranches: NewBranchIDs(BranchID{9}),
+						Conflicting:    NewConflictIDs(ConflictID{14}),
+						ApprovalWeight: 0.08,
+					},
+					"O": {
+						Order:          2,
+						BranchID:       BranchID{16},
+						ParentBranches: NewBranchIDs(BranchID{9}, BranchID{11}),
+						Conflicting:    NewConflictIDs(ConflictID{14}, ConflictID{19}),
+						ApprovalWeight: 0.05,
+					},
+					"J+N": {
+						Order:          3,
+						IsAggregated:   true,
+						ParentBranches: NewBranchIDs(BranchID{15}, BranchID{13}),
+						Conflicting:    NewConflictIDs(),
+						ApprovalWeight: -1,
+					},
+				}
+
+				return test{
+					Scenario:     scenario,
+					WeightFunc:   WeightFuncFromScenario(t, scenario),
+					wantLiked:    mustMatch(&scenario, "A", "H", "L", "N", "J", "J+N"),
+					wantDisliked: mustMatch(&scenario, "F", "B", "G", "C", "I", "K", "M", "O"),
+					args:         argsFunc(&scenario),
+				}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "19",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.3,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.1,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.05,
+					},
+					"F": {
+						Order:          1,
+						BranchID:       BranchID{7},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.02,
+					},
+					"G": {
+						Order:          1,
+						BranchID:       BranchID{8},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.03,
+					},
+					"H": {
+						Order:          1,
+						BranchID:       BranchID{9},
+						ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+						ApprovalWeight: 0.15,
+					},
+					"K": {
+						BranchID:       BranchID{10},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{17}),
+						ApprovalWeight: 0.1,
+					},
+					"L": {
+						BranchID:       BranchID{11},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{17}),
+						ApprovalWeight: 0.2,
+					},
+					"M": {
+						Order:          1,
+						BranchID:       BranchID{12},
+						ParentBranches: NewBranchIDs(BranchID{11}),
+						Conflicting:    NewConflictIDs(ConflictID{19}),
+						ApprovalWeight: 0.05,
+					},
+					"N": {
+						Order:          1,
+						BranchID:       BranchID{13},
+						ParentBranches: NewBranchIDs(BranchID{11}),
+						Conflicting:    NewConflictIDs(ConflictID{19}),
+						ApprovalWeight: 0.06,
+					},
+					"I": {
+						Order:          2,
+						BranchID:       BranchID{14},
+						ParentBranches: NewBranchIDs(BranchID{9}),
+						Conflicting:    NewConflictIDs(ConflictID{14}),
+						ApprovalWeight: 0.07,
+					},
+					"J": {
+						Order:          2,
+						BranchID:       BranchID{15},
+						ParentBranches: NewBranchIDs(BranchID{9}),
+						Conflicting:    NewConflictIDs(ConflictID{14}),
+						ApprovalWeight: 0.08,
+					},
+					"O": {
+						Order:          2,
+						BranchID:       BranchID{16},
+						ParentBranches: NewBranchIDs(BranchID{9}, BranchID{11}),
+						Conflicting:    NewConflictIDs(ConflictID{14}, ConflictID{19}),
+						ApprovalWeight: 0.09,
+					},
+					"J+N": {
+						Order:          3,
+						IsAggregated:   true,
+						ParentBranches: NewBranchIDs(BranchID{15}, BranchID{13}),
+						Conflicting:    NewConflictIDs(),
+						ApprovalWeight: -1,
+					},
+				}
+
+				return test{
+					Scenario:     scenario,
+					WeightFunc:   WeightFuncFromScenario(t, scenario),
+					wantLiked:    mustMatch(&scenario, "A", "H", "L", "O"),
+					wantDisliked: mustMatch(&scenario, "F", "B", "G", "C", "I", "N", "K", "M", "J", "J+N"),
+					args:         argsFunc(&scenario),
+				}
+			}(),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
-			// TODO: make sure that all objects are properly released
-			// defer branchDAG.Shutdown()
+			defer branchDAG.Shutdown()
 
 			tt.test.Scenario.CreateBranches(t, branchDAG)
 			o := NewOnTangleVoting(tt.test.WeightFunc, branchDAG)
