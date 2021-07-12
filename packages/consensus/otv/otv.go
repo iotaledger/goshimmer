@@ -36,7 +36,7 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 
 		allParentsLiked := true
 		for resolvedBranch := range resolvedConflictBranchIDs {
-			if !o.doILike(resolvedBranch, ledgerstate.NewConflictIDs()) {
+			if innerLiked, _ := o.doILike(resolvedBranch, ledgerstate.NewConflictIDs()); !innerLiked {
 				allParentsLiked = false
 				break
 			}
@@ -50,17 +50,18 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 	return
 }
 
-func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (liked ledgerstate.BranchID, err error) {
+func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (likedInstead map[ledgerstate.BranchID]ledgerstate.BranchIDs, err error) {
 	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+	likedInstead = make(map[ledgerstate.BranchID]ledgerstate.BranchIDs)
+	likedInstead[branchID] = ledgerstate.NewBranchIDs()
 	if err != nil {
-		return ledgerstate.BranchID{}, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
+		return likedInstead, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
 	}
 
-	liked = branchID
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
-				liked = conflictingBranchID
+			if innerLiked, _ := o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()); innerLiked {
+				likedInstead[branchID][conflictingBranchID] = types.Void
 			}
 
 		})
@@ -71,7 +72,10 @@ func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (li
 
 // Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
 // it is the branch with the highest approval weight across all its conflict sets of it is a member.
-func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) bool {
+func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) (liked bool, likedInstead map[ledgerstate.BranchID]ledgerstate.BranchIDs) {
+	liked = true
+	likedInstead = make(map[ledgerstate.BranchID]ledgerstate.BranchIDs)
+	likedInstead[branchID] = ledgerstate.NewBranchIDs()
 	conflictSets := o.conflictsSets(branchID)
 	for conflictSet := range conflictSets {
 		// Don't visit same conflict sets again
@@ -87,14 +91,15 @@ func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts
 			if conflictBranchID == branchID {
 				continue
 			}
-			if o.doILike(conflictBranchID, innervisitedConflicts) {
+			if innerLiked, _ := o.doILike(conflictBranchID, innervisitedConflicts); innerLiked {
 				if !o.weighsMore(branchID, conflictBranchID) {
-					return false
+					likedInstead[branchID][conflictBranchID] = types.Void
+					liked = false
 				}
 			}
 		}
 	}
-	return true
+	return
 }
 
 func (o *OnTangleVoting) weighsMore(branchA ledgerstate.BranchID, branchB ledgerstate.BranchID) bool {
@@ -117,22 +122,3 @@ func (o *OnTangleVoting) conflictsSets(conflictBranchID ledgerstate.BranchID) (c
 }
 
 type ConflictSetMemberFunc func(conflictID ledgerstate.ConflictID, conflictMember *ledgerstate.ConflictMember)
-
-func (o *OnTangleVoting) forEveryConflictSet(conflictBranchID ledgerstate.BranchID, onConflictMember ConflictSetMemberFunc) bool {
-	return o.branchDAG.Branch(conflictBranchID).Consume(func(branch ledgerstate.Branch) {
-		// go through all conflict sets that the conflictBranchID is part of
-		for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
-			cachedMembers := o.branchDAG.ConflictMembers(conflictID)
-			members := cachedMembers.Unwrap()
-			/*
-				sort.Slice(members, func(i, j int) bool {
-					return bytes.Compare(members[i].BranchID().Bytes(), members[j].BranchID().Bytes()) == 1
-				})
-			*/
-			for _, member := range members {
-				onConflictMember(conflictID, member)
-			}
-			cachedMembers.Release()
-		}
-	})
-}
