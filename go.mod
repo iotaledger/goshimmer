@@ -12,13 +12,12 @@ require (
 	github.com/cockroachdb/errors v1.8.4
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
-	github.com/emirpasic/gods v1.12.0
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20210528180853-73ecfbb76bd7
+	github.com/iotaledger/hive.go v0.0.0-20210625103722-68b2cf52ef4e
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/linxGnu/grocksdb v1.6.35 // indirect

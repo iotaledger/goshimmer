@@ -1,6 +1,7 @@
 package remotelogmetrics
 
 import (
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -8,6 +9,33 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
+
+// Evaluate evaluates the opinion of the given messageID.
+func onTransactionOpinionFormed(messageID tangle.MessageID) {
+	var nodeID string
+	if local.GetInstance() != nil {
+		nodeID = local.GetInstance().ID().String()
+	}
+
+	messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		messagelayer.ConsensusMechanism().Storage.Opinion(transactionID).Consume(func(opinion *fcob.Opinion) {
+			record := &remotelogmetrics.TransactionOpinionMetrics{
+				Type:             "transactionOpinion",
+				NodeID:           nodeID,
+				TransactionID:    transactionID.Base58(),
+				Fcob1Time:        opinion.FCOBTime1(),
+				Fcob2Time:        opinion.FCOBTime2(),
+				Liked:            opinion.Liked(),
+				LevelOfKnowledge: opinion.LevelOfKnowledge(),
+				Timestamp:        opinion.Timestamp(),
+				MessageID:        messageID.Base58(),
+			}
+			if err := remotelog.RemoteLogger().Send(record); err != nil {
+				plugin.Logger().Errorw("Failed to send Transaction record", "err", err)
+			}
+		})
+	})
+}
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 	if !messagelayer.Tangle().Synced() {

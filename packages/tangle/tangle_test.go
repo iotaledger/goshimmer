@@ -436,13 +436,12 @@ func TestTangle_Flow(t *testing.T) {
 	tangle.Parser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
 
 	// create inboxWP to act as the gossip layer
-	inboxWP := workerpool.New(func(task workerpool.Task) {
+	inboxWP := workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		time.Sleep(networkDelay)
 		tangle.ProcessGossipMessage(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
-	inboxWP.Start()
 	defer inboxWP.Stop()
 
 	// generate the messages we want to solidify
@@ -535,7 +534,7 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// data messages should not trigger this event
-	tangle.LedgerState.UTXODAG.Events.TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
 		t.Logf("opinion formed transaction %d/%d - %s", n, totalMsgCount, transactionID)
 	}))

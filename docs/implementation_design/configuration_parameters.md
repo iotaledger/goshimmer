@@ -67,7 +67,8 @@ config.Node().Int(CfgGossipPort)
 Defining configuration parameters using the new way is really similar, however the parameters are not registered directly with the package reading the configuration,
 but rather with our custom package that contains all the logic required to make it work seamlessly. 
 
-In this approach, instead of defining a parameter name, a new structure is defined with all necessary parameters, their default values and usage descriptions using Go's struct field tags.
+In this approach, instead of defining a parameter name, a new type is defined with all necessary parameters, their default values and usage descriptions using Go's struct field tags.
+A variable is then initialized with the defined type.
 
 One difference is that parameter names do not contain the namespace they belong to, the namespace is set when registering the parameters structure with the `configuration` package. One `parameters.go` file can contain definitions and register multiple parameter structures.
 
@@ -77,7 +78,7 @@ package customPlugin
 import "github.com/iotaledger/hive.go/configuration"
 
 // Parameters contains the configuration parameters used by the custom plugin.
-var Parameters = struct {
+type ParametersDefinition struct {
 	// ParamName contains some value used within the plugin
 	ParamName float64 `default:"0.31" usage:"ParamName used in some calculation"`
 
@@ -88,10 +89,12 @@ var Parameters = struct {
 		// DetailedParam2 is the example value
 		DetailedParam2        string `default:"defaultValue" usage:"DetailedParam2 used in the plugin"`
 	}
-}{}
+}
+
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "customPlugin")
+	configuration.BindParameters(Parameters, "customPlugin")
 }
 ```
 

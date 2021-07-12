@@ -1,3 +1,30 @@
+# v0.7.4 - 2021-07-08
+* Add ParametersDefinition structs in integration test framework
+* Add UTXO-DAG interface
+* Fix setting correct properties to newly forked branches
+* Fix using weak parents for direct approvers when looking for transactions that are approved by a message
+* Update entry node from community
+* Update docs
+* Update snapshot file with DevNet UTXO at 2021-07-08 07:09 UTC
+* **Breaking**: bumps network and database versions
+
+# v0.7.3 - 2021-07-01
+* Add latest snapshot download from S3
+* Add weak tips on local dashboard
+* Improve integration test framework
+* Add FCoB metrics to remote logger
+* Remove tips broadcaster
+* Improve APIs
+* Fix Sync status
+* Fix gossip and requester issues
+* Fix Inclusion state inconsistencies
+* Fix Prometheus issues when autopeering is not enabled
+* Increase maxVerticesWithoutFutureMarker to 3000000
+* Update snapshot file with DevNet UTXO at 2021-06-30 21:16 UTC
+* Update JS dependencies
+* Update hive.go
+* **Breaking**: bumps network and database versions
+
 # v0.7.2 - 2021-06-17
 * Add local double spend filter in webAPI
 * Add SetBranchFinalized to FCoB

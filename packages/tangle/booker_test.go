@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -152,6 +151,11 @@ func TestScenario_1(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], txBranchID)
 
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(txBranchID).Consume(func(branch ledgerstate.Branch) {
+		assert.True(t, branch.Liked())
+		assert.True(t, branch.MonotonicallyLiked())
+	}))
+
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
@@ -180,6 +184,18 @@ func TestScenario_1(t *testing.T) {
 	txBranchID, err = transactionBranchID(tangle, transactions["3"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["red"], txBranchID)
+
+	// assess that after forking transaction 3 and thus introducing the red branch, the properties of that branch are correct
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["red"]).Consume(func(branch ledgerstate.Branch) {
+		assert.True(t, branch.Liked())
+		assert.True(t, branch.MonotonicallyLiked())
+	}))
+
+	// assess that the properties of the yellow branch are correct
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["yellow"]).Consume(func(branch ledgerstate.Branch) {
+		assert.False(t, branch.Liked())
+		assert.False(t, branch.MonotonicallyLiked())
+	}))
 
 	// Message 6
 	inputs["E"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["2"].ID(), 0))
@@ -908,39 +924,39 @@ func TestScenario_3(t *testing.T) {
 	assert.Equal(t, branches["purple"], txBranchID)
 }
 
-func TestBookerNewAutomaticSequence(t *testing.T) {
-	tangle := newTestTangle()
-	defer tangle.Shutdown()
+// func TestBookerNewAutomaticSequence(t *testing.T) {
+// 	tangle := newTestTangle()
+// 	defer tangle.Shutdown()
 
-	testFramework := NewMessageTestFramework(tangle)
+// 	testFramework := NewMessageTestFramework(tangle)
 
-	tangle.Setup()
+// 	tangle.Setup()
 
-	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"))
-	testFramework.CreateMessage("Message2", WithStrongParents("Message1"))
-	testFramework.IssueMessages("Message1", "Message2").WaitMessagesBooked()
+// 	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"))
+// 	testFramework.CreateMessage("Message2", WithStrongParents("Message1"))
+// 	testFramework.IssueMessages("Message1", "Message2").WaitMessagesBooked()
 
-	messageAliases := []string{"Message1"}
-	for i := 0; i < 3020; i++ {
-		parentMessageAlias := messageAliases[i]
-		currentMessageAlias := "Message" + strconv.Itoa(i+3)
-		messageAliases = append(messageAliases, currentMessageAlias)
-		testFramework.CreateMessage(currentMessageAlias, WithStrongParents(parentMessageAlias))
-		testFramework.IssueMessages(currentMessageAlias)
-		testFramework.WaitMessagesBooked()
-	}
+// 	messageAliases := []string{"Message1"}
+// 	for i := 0; i < 3020; i++ {
+// 		parentMessageAlias := messageAliases[i]
+// 		currentMessageAlias := "Message" + strconv.Itoa(i+3)
+// 		messageAliases = append(messageAliases, currentMessageAlias)
+// 		testFramework.CreateMessage(currentMessageAlias, WithStrongParents(parentMessageAlias))
+// 		testFramework.IssueMessages(currentMessageAlias)
+// 		testFramework.WaitMessagesBooked()
+// 	}
 
-	assert.True(t, tangle.Storage.MessageMetadata(testFramework.Message("Message3009").ID()).Consume(func(messageMetadata *MessageMetadata) {
-		assert.Equal(t, &markers.StructureDetails{
-			Rank:          3008,
-			PastMarkerGap: 0,
-			IsPastMarker:  true,
-			SequenceID:    2,
-			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 9)),
-			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 10)),
-		}, messageMetadata.StructureDetails())
-	}))
-}
+// 	assert.True(t, tangle.Storage.MessageMetadata(testFramework.Message("Message3009").ID()).Consume(func(messageMetadata *MessageMetadata) {
+// 		assert.Equal(t, &markers.StructureDetails{
+// 			Rank:          3008,
+// 			PastMarkerGap: 0,
+// 			IsPastMarker:  true,
+// 			SequenceID:    2,
+// 			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 9)),
+// 			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 10)),
+// 		}, messageMetadata.StructureDetails())
+// 	}))
+// }
 
 func TestBookerMarkerMappings(t *testing.T) {
 	tangle := newTestTangle()
@@ -2277,7 +2293,8 @@ func checkIndividuallyMappedMessages(t *testing.T, testFramework *MessageTestFra
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
 	for messageID, expectedMarkersOfMessage := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.Equal(t, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers, "Markers of %s are wrong", messageID)
+			assert.True(t, expectedMarkersOfMessage.Equals(messageMetadata.StructureDetails().PastMarkers), "Markers of %s are wrong.\n"+
+				"Expected: %+v\nActual: %+v", messageID, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers)
 		}))
 
 		// if we have only a single marker - check if the marker is mapped to this message (or its inherited past marker)

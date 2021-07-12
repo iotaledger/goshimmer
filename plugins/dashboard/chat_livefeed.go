@@ -12,7 +12,7 @@ import (
 var (
 	chatLiveFeedWorkerCount     = 1
 	chatLiveFeedWorkerQueueSize = 50
-	chatLiveFeedWorkerPool      *workerpool.WorkerPool
+	chatLiveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 )
 
 type chatMsg struct {
@@ -24,7 +24,7 @@ type chatMsg struct {
 }
 
 func configureChatLiveFeed() {
-	chatLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
+	chatLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		newMessage := task.Param(0).(*chat.ChatEvent)
 
 		broadcastWsMessage(&wsmsg{MsgTypeChat, &chatMsg{
@@ -46,7 +46,6 @@ func runChatLiveFeed() {
 		})
 		chat.Events.MessageReceived.Attach(notifyNewMessages)
 
-		chatLiveFeedWorkerPool.Start()
 		defer chatLiveFeedWorkerPool.Stop()
 
 		<-shutdownSignal
