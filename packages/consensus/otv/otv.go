@@ -39,33 +39,22 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 	return
 }
 
-func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (likedBranchIDs ledgerstate.BranchIDs, err error) {
+func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (liked ledgerstate.BranchID, err error) {
 	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
+		return ledgerstate.BranchID{}, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
 	}
 
-	branchWeights := make(map[ledgerstate.BranchID]float64)
-	for conflictBranchID := range resolvedConflictBranchIDs {
-		weight, branchID := o.highestWeightedBranchFromConflictSets(conflictBranchID)
-		branchWeights[branchID] = weight
-	}
-	return
-}
-
-// returns the branch with the highest approval weight from all the conflict sets of which the given branch is a member of.
-func (o *OnTangleVoting) highestWeightedBranchFromConflictSets(conflictBranchID ledgerstate.BranchID) (highestWeight float64, highestWeightedBranch ledgerstate.BranchID) {
-	o.forEveryConflictSet(conflictBranchID,
-		func(_ ledgerstate.ConflictID, conflictMember *ledgerstate.ConflictMember) {
-			weight := o.weightFunc(conflictMember.BranchID())
-			// if the current highest weighted branch and the candidate branch share the same weight
-			// we pick the branch with the lower lexical byte slice value to gain determinism
-			if weight > highestWeight ||
-				(weight == highestWeight && (bytes.Compare(highestWeightedBranch.Bytes(), conflictMember.Bytes()) == 1)) {
-				highestWeight = weight
-				highestWeightedBranch = conflictMember.BranchID()
+	liked = branchID
+	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
+		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
+			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
+				liked = conflictingBranchID
 			}
+
 		})
+	}
+
 	return
 }
 
@@ -82,12 +71,13 @@ func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts
 		innervisitedConflicts[conflictSet] = types.Void
 		innerConflictMembers := o.branchDAG.ConflictMembers(conflictSet).Unwrap()
 		for _, innerConflictMember := range innerConflictMembers {
+			conflictBranchID := innerConflictMember.BranchID()
 			// I skip myself from the conflict set
-			if innerConflictMember.BranchID() == branchID {
+			if conflictBranchID == branchID {
 				continue
 			}
-			if o.doILike(innerConflictMember.BranchID(), innervisitedConflicts) {
-				if !o.weightComparison(branchID, innerConflictMember.BranchID()) {
+			if o.doILike(conflictBranchID, innervisitedConflicts) {
+				if !o.weighsMore(branchID, conflictBranchID) {
 					fmt.Println(branchID, false)
 					return false
 				}
@@ -98,9 +88,11 @@ func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts
 	return true
 }
 
-func (o *OnTangleVoting) weightComparison(branchA ledgerstate.BranchID, branchB ledgerstate.BranchID) bool {
+func (o *OnTangleVoting) weighsMore(branchA ledgerstate.BranchID, branchB ledgerstate.BranchID) bool {
 	weight := o.weightFunc(branchA)
 	weightConflict := o.weightFunc(branchB)
+	// if the current highest weighted branch and the candidate branch share the same weight
+	// we pick the branch with the lower lexical byte slice value to gain determinism
 	if weight < weightConflict ||
 		(weight == weightConflict && (bytes.Compare(branchA.Bytes(), branchB.Bytes()) > 0)) {
 		return false
