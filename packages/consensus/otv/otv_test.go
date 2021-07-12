@@ -654,7 +654,7 @@ func TestDoILike(t *testing.T) {
 			o := &OnTangleVoting{branchDAG: branchDAG, weightFunc: tt.test.WeightFunc}
 
 			//filtered := o.resolve(tt.test.args)
-			liked, _ := o.doILike(BranchID{5}, NewConflictIDs())
+			liked := o.doILike(BranchID{5}, NewConflictIDs())
 			fmt.Println(liked)
 			//require.EqualValues(t, tt.test.wanted, filtered)
 		})

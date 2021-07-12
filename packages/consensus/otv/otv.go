@@ -36,7 +36,7 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 
 		allParentsLiked := true
 		for resolvedBranch := range resolvedConflictBranchIDs {
-			if innerLiked, _ := o.doILike(resolvedBranch, ledgerstate.NewConflictIDs()); !innerLiked {
+			if !o.doILike(resolvedBranch, ledgerstate.NewConflictIDs()) {
 				allParentsLiked = false
 				break
 			}
@@ -60,7 +60,7 @@ func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (li
 
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-			if innerLiked, _ := o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()); innerLiked {
+			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
 				likedInstead[branchID][conflictingBranchID] = types.Void
 			}
 
@@ -72,10 +72,7 @@ func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (li
 
 // Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
 // it is the branch with the highest approval weight across all its conflict sets of it is a member.
-func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) (liked bool, likedInstead map[ledgerstate.BranchID]ledgerstate.BranchIDs) {
-	liked = true
-	likedInstead = make(map[ledgerstate.BranchID]ledgerstate.BranchIDs)
-	likedInstead[branchID] = ledgerstate.NewBranchIDs()
+func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) bool {
 	conflictSets := o.conflictsSets(branchID)
 	for conflictSet := range conflictSets {
 		// Don't visit same conflict sets again
@@ -91,15 +88,14 @@ func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts
 			if conflictBranchID == branchID {
 				continue
 			}
-			if innerLiked, _ := o.doILike(conflictBranchID, innervisitedConflicts); innerLiked {
+			if o.doILike(conflictBranchID, innervisitedConflicts) {
 				if !o.weighsMore(branchID, conflictBranchID) {
-					likedInstead[branchID][conflictBranchID] = types.Void
-					liked = false
+					return false
 				}
 			}
 		}
 	}
-	return
+	return true
 }
 
 func (o *OnTangleVoting) weighsMore(branchA ledgerstate.BranchID, branchB ledgerstate.BranchID) bool {
