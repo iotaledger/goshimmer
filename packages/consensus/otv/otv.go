@@ -5,8 +5,9 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // WeightFunc returns the approval weight for the given branch.
