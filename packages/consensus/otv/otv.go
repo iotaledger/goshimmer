@@ -26,12 +26,13 @@ func NewOnTangleVoting(weightFunc WeightFunc, branchDAG *ledgerstate.BranchDAG) 
 
 // Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
 // it is the branch with the highest approval weight across all its conflict sets of it is a member.
-func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
+func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, likedInstead map[ledgerstate.BranchID]ledgerstate.BranchIDs, err error) {
 	liked, disliked = ledgerstate.NewBranchIDs(), ledgerstate.NewBranchIDs()
+	likedInstead = make(map[ledgerstate.BranchID]ledgerstate.BranchIDs)
 	for branchID := range branchIDs {
 		resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
+			return nil, nil, nil, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
 		}
 
 		allParentsLiked := true
@@ -45,15 +46,19 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 			liked[branchID] = types.Void
 		} else {
 			disliked[branchID] = types.Void
+			innerLikedInstead, err := o.LikedFromConflictSet(branchID)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			likedInstead[branchID] = innerLikedInstead
 		}
 	}
 	return
 }
 
-func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (likedInstead map[ledgerstate.BranchID]ledgerstate.BranchIDs, err error) {
+func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (likedInstead ledgerstate.BranchIDs, err error) {
 	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	likedInstead = make(map[ledgerstate.BranchID]ledgerstate.BranchIDs)
-	likedInstead[branchID] = ledgerstate.NewBranchIDs()
+	likedInstead = ledgerstate.NewBranchIDs()
 	if err != nil {
 		return likedInstead, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
 	}
@@ -61,7 +66,7 @@ func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (li
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
-				likedInstead[branchID][conflictingBranchID] = types.Void
+				likedInstead[conflictingBranchID] = types.Void
 			}
 
 		})
