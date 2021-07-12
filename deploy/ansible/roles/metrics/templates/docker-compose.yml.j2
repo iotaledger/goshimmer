@@ -73,6 +73,8 @@ services:
       # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
       xpack.security.enabled: "true"
+      http.cors.enabled: "true"
+      http.cors.allow-origin: "*"
       ELASTIC_USERNAME: "{{ elkElasticUser }}"
       ELASTIC_PASSWORD: "{{ elkElasticPassword }}"
     networks:

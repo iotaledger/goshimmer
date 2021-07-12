@@ -1,3 +1,4 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
 input {
 	udp {
         port => 5213
@@ -25,6 +26,8 @@ output {
     if [log][type] == "networkdelay" {
         elasticsearch {
             hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
             ilm_rollover_alias => "networkdelay"
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
@@ -32,6 +35,8 @@ output {
     } else if [log][type] == "statement" {
         elasticsearch {
             hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
             ilm_rollover_alias => "statement"
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
@@ -39,6 +44,8 @@ output {
     } else if [log][type] == "fpc" {
       elasticsearch {
           hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
           ilm_rollover_alias => "fpc"
           ilm_pattern => "000001"
           ilm_policy => "logstash-policy"
@@ -46,6 +53,8 @@ output {
     } else if [log][type] == "sync" {
         elasticsearch {
             hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
             ilm_rollover_alias => "sync"
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
@@ -53,6 +62,8 @@ output {
     } else if [log][type] == "drng" {
         elasticsearch {
             hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
             ilm_rollover_alias => "drng"
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
@@ -60,6 +71,8 @@ output {
     } else if [log][type] == "transaction" {
         elasticsearch {
             hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
             ilm_rollover_alias => "transaction"
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
@@ -67,6 +80,8 @@ output {
     } else{
         elasticsearch {
             hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
         }
     }
 }

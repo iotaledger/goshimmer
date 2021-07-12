@@ -31,8 +31,14 @@
 
 - name: Template logstash.yml
   template:
-    src: logstash.yml.j2
+    src: logstash/logstash.yml.j2
     dest: /opt/metrics/logstash/logstash.yml
+    mode: '0644'
+
+- name: Template logstash.conf
+  template:
+    src: logstash/pipeline/logstash.conf.j2
+    dest: /opt/metrics/logstash/pipeline/logstash.conf
     mode: '0644'
 
 - name: Template kibana.yml
