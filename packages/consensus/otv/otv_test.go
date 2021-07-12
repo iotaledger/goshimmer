@@ -16,6 +16,7 @@ type BranchMeta struct {
 	ParentBranches BranchIDs
 	Conflicting    ConflictIDs
 	ApprovalWeight float64
+	IsAggregated   bool
 }
 
 func (bm *BranchMeta) ToConflictMembers() []*ConflictMember {
@@ -58,11 +59,26 @@ func (s *Scenario) BranchIDs(aliases ...string) BranchIDs {
 	return branchIDs
 }
 
-func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMeta *BranchMeta) bool {
-	cachedConflictBranch, newBranchCreated, err := branchDAG.CreateConflictBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
+func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMeta *BranchMeta, isAggregated bool) bool {
+	var cachedBranch *CachedBranch
+	var newBranchCreated bool
+	var err error
+	if isAggregated {
+		if len(branchMeta.ParentBranches) == 0 {
+			panic("an aggregated branch must have parents defined")
+		}
+		cachedBranch, newBranchCreated, err = branchDAG.AggregateBranches(branchMeta.ParentBranches)
+		branchMeta.BranchID = cachedBranch.ID()
+	} else {
+		emptyBranch := BranchID{}
+		if branchMeta.BranchID == emptyBranch {
+			panic("a non aggr. branch must have its ID defined in its BranchMeta")
+		}
+		cachedBranch, newBranchCreated, err = branchDAG.CreateConflictBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
+	}
 	require.NoError(t, err)
 	require.True(t, newBranchCreated)
-	defer cachedConflictBranch.Release()
+	defer cachedBranch.Release()
 	RegisterBranchIDAlias(branchMeta.BranchID, alias)
 	return newBranchCreated
 }
@@ -497,7 +513,7 @@ func TestLikedFromConflictSet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 			for name, m := range tt.test.Scenario {
-				createTestBranch(t, branchDAG, name, m)
+				createTestBranch(t, branchDAG, name, m, m.IsAggregated)
 			}
 			o := &OnTangleVoting{branchDAG: branchDAG, weightFunc: tt.test.WeightFunc}
 
@@ -608,7 +624,7 @@ func TestDoILike(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 			for name, m := range tt.test.Scenario {
-				createTestBranch(t, branchDAG, name, m)
+				createTestBranch(t, branchDAG, name, m, m.IsAggregated)
 			}
 			o := &OnTangleVoting{branchDAG: branchDAG, weightFunc: tt.test.WeightFunc}
 
@@ -1048,6 +1064,58 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 			}(),
 			wantErr: false,
 		},
+		{
+			name: "12",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.25,
+					},
+					"D": {
+						BranchID:       BranchID{5},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{3}),
+						ApprovalWeight: 0.15,
+					},
+					"E": {
+						BranchID:       BranchID{6},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{3}),
+						ApprovalWeight: 0.35,
+					},
+					"C+E": {
+						ParentBranches: NewBranchIDs(BranchID{5}, BranchID{6}),
+						Conflicting:    NewConflictIDs(),
+						ApprovalWeight: 0.35,
+						IsAggregated:   true,
+					},
+				}
+
+				return test{
+					Scenario:     scenario,
+					WeightFunc:   WeightFuncFromScenario(t, scenario),
+					wantLiked:    mustMatch(scenario.BranchIDs("C+E")),
+					wantDisliked: mustMatch(scenario.BranchIDs("A", "B")),
+					args:         scenario.BranchIDs(),
+				}
+			}(),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1056,7 +1124,7 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 			// defer branchDAG.Shutdown()
 
 			for name, m := range tt.test.Scenario {
-				createTestBranch(t, branchDAG, name, m)
+				createTestBranch(t, branchDAG, name, m, m.IsAggregated)
 			}
 			o := &OnTangleVoting{branchDAG: branchDAG, weightFunc: tt.test.WeightFunc}
 
