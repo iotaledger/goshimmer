@@ -3,7 +3,10 @@ package tangle
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -57,6 +60,9 @@ const (
 	// PrefixMarkerMessageMapping defines the storage prefix for the MarkerMessageMapping.
 	PrefixMarkerMessageMapping
 
+	// PrefixUnconfirmedTxDependencies defines the storage prefix for the
+	PrefixUnconfirmedTxDependencies
+
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
 
@@ -81,6 +87,7 @@ type Storage struct {
 	statementStorage                  *objectstorage.ObjectStorage
 	branchWeightStorage               *objectstorage.ObjectStorage
 	markerMessageMappingStorage       *objectstorage.ObjectStorage
+	unconfirmedTxDependenciesStorage  *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -106,6 +113,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
+		unconfirmedTxDependenciesStorage:  osFactory.New(PrefixUnconfirmedTxDependencies, UnconfirmedTxDependenciesFromObjectStorage, cacheProvider.CacheTime(cacheTime)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -223,6 +231,17 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 		return true
 	})
 	return
+}
+
+// UnconfirmedTransactionDependencies gets the CachedUnconfirmedTransactionDependencies from the objectStorage that matches provided transactionID
+// or if computeIfAbsentCallback is provided and storage is empty it creates and store new instance of UnconfirmedTxDependency.
+func (s *Storage) UnconfirmedTransactionDependencies(transactionID ledgerstate.TransactionID, computeIfAbsentCallback ...func() *UnconfirmedTxDependency) *CachedUnconfirmedTxDependency {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedUnconfirmedTxDependency{s.unconfirmedTxDependenciesStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+	return &CachedUnconfirmedTxDependency{CachedObject: s.unconfirmedTxDependenciesStorage.Load(transactionID.Bytes())}
 }
 
 // StoreAttachment stores a new attachment if not already stored.
@@ -431,6 +450,10 @@ func (s *Storage) deleteWeakApprover(approvedMessageID MessageID, approvingMessa
 	s.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), WeakApprover.Bytes(), approvingMessage.Bytes()))
 }
 
+func (s *Storage) deleteUnconfirmedTxDependencies(transactionID ledgerstate.TransactionID) {
+	s.unconfirmedTxDependenciesStorage.Delete(transactionID.Bytes())
+}
+
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (s *Storage) Shutdown() {
 	s.messageStorage.Shutdown()
@@ -445,6 +468,7 @@ func (s *Storage) Shutdown() {
 	s.statementStorage.Shutdown()
 	s.branchWeightStorage.Shutdown()
 	s.markerMessageMappingStorage.Shutdown()
+	s.unconfirmedTxDependenciesStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -464,6 +488,7 @@ func (s *Storage) Prune() error {
 		s.statementStorage,
 		s.branchWeightStorage,
 		s.markerMessageMappingStorage,
+		s.unconfirmedTxDependenciesStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
@@ -1070,8 +1095,6 @@ func (m *MissingMessage) ObjectStorageValue() (result []byte) {
 		Bytes()
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region CachedMissingMessage /////////////////////////////////////////////////////////////////////////////////////////
 
 // CachedMissingMessage is a wrapper for the generic CachedObject returned by the object storage that overrides the
@@ -1121,6 +1144,118 @@ func (c *CachedMissingMessage) Consume(consumer func(missingMessage *MissingMess
 // String returns a human readable version of the CachedMissingMessage.
 func (c *CachedMissingMessage) String() string {
 	return stringify.Struct("CachedMissingMessage",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region UnconfirmedTxDependency //////////////////////////////////////////////////////////////////////////////////////
+
+// UnconfirmedTxDependency maps an unconfirmed transaction to all transactions that are dependent on it (use this transaction outputs).
+// It is used in EligibilityManager to track eligibility status of the attachment message.
+type UnconfirmedTxDependency struct {
+	objectstorage.StorableObjectFlags
+
+	transactionID  ledgerstate.TransactionID
+	txDependentIDs ledgerstate.TransactionIDs
+	mutex          sync.RWMutex
+}
+
+// NewUnconfirmedTxDependency creates an empty mapping for txID
+func NewUnconfirmedTxDependency(txID ledgerstate.TransactionID) *UnconfirmedTxDependency {
+	return &UnconfirmedTxDependency{
+		transactionID:  txID,
+		txDependentIDs: make(ledgerstate.TransactionIDs),
+	}
+}
+
+// AddDependency adds a transaction id dependency
+func (u *UnconfirmedTxDependency) AddDependency(txID ledgerstate.TransactionID) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	u.txDependentIDs[txID] = types.Void
+	u.SetModified()
+}
+
+// DeleteDependency deletes a transaction id dependency
+func (u *UnconfirmedTxDependency) DeleteDependency(txID ledgerstate.TransactionID) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	delete(u.txDependentIDs, txID)
+	u.SetModified()
+}
+
+// Update update the UnconfirmedTxDependency.
+// It should never happen and will panic if called.
+func (u *UnconfirmedTxDependency) Update(other objectstorage.StorableObject) {
+	panic("UnconfirmedTxDependency shouldn't be updated this way")
+}
+
+// ObjectStorageKey returns the key of the stored UnconfirmedTxDependency.
+// This returns the bytes of the transactionID of the dependency transaction.
+func (u *UnconfirmedTxDependency) ObjectStorageKey() []byte {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	return u.transactionID.Bytes()
+}
+
+// ObjectStorageValue returns the value of the stored UnconfirmedTxDependency.
+func (u *UnconfirmedTxDependency) ObjectStorageValue() []byte {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	marshalUtil := marshalutil.New(ledgerstate.TransactionIDLength * len(u.txDependentIDs))
+	for dependency := range u.txDependentIDs {
+		marshalUtil.WriteBytes(dependency.Bytes())
+	}
+	return marshalUtil.Bytes()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedUnconfirmedTxDependency ////////////////////////////////////////////////////////////////////////////////
+
+// CachedUnconfirmedTxDependency is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedUnconfirmedTxDependency struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedUnconfirmedTxDependency) Retain() *CachedUnconfirmedTxDependency {
+	return &CachedUnconfirmedTxDependency{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedUnconfirmedTxDependency) Unwrap() *UnconfirmedTxDependency {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*UnconfirmedTxDependency)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedUnconfirmedTxDependency) Consume(consumer func(unconfirmedTxDependency *UnconfirmedTxDependency), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*UnconfirmedTxDependency))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedMissingMessage.
+func (c *CachedUnconfirmedTxDependency) String() string {
+	return stringify.Struct("CachedUnconfirmedTxDependency",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
 }

@@ -51,3 +51,37 @@ func TestStorage_Attachments(t *testing.T) {
 		}
 	}
 }
+
+func TestStorage_UnconfirmedTransactionDependencies(t *testing.T) {
+	tangle := newTestTangle()
+	defer tangle.Shutdown()
+
+	transactionID, err := ledgerstate.TransactionIDFromRandomness()
+	assert.NoError(t, err)
+
+	dependencies := make([]ledgerstate.TransactionID, 3)
+	for i := 0; i < 3; i++ {
+		transactionID, err = ledgerstate.TransactionIDFromRandomness()
+		assert.NoError(t, err)
+		dependencies[i] = transactionID
+	}
+
+	// storage is empty
+	emptyCachedDependency := tangle.Storage.UnconfirmedTransactionDependencies(transactionID)
+	assert.Nil(t, emptyCachedDependency.Unwrap())
+	emptyCachedDependency.Release()
+
+	// store dependencies
+	tangle.Storage.UnconfirmedTransactionDependencies(transactionID, func() *UnconfirmedTxDependency {
+		return NewUnconfirmedTxDependency(transactionID)
+	}).Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
+		unconfirmedTxDependency.AddDependency(dependencies[0])
+		unconfirmedTxDependency.AddDependency(dependencies[1])
+		unconfirmedTxDependency.AddDependency(dependencies[2])
+	})
+
+	tangle.Storage.UnconfirmedTransactionDependencies(transactionID).Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
+		assert.Equal(t, transactionID, unconfirmedTxDependency.transactionID)
+		assert.Equal(t, 3, len(unconfirmedTxDependency.txDependentIDs))
+	})
+}

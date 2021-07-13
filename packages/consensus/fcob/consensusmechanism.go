@@ -125,8 +125,6 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 		LoK:       Two,
 	})
 
-	f.setEligibility(messageID)
-
 	f.setTimestampOpinionDone(messageID)
 
 	if f.messageDone(messageID) {

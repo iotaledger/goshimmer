@@ -74,7 +74,7 @@ func configure(*node.Plugin) {
 	onTransactionConfirmedClosure = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		doubleSpendFilter.Remove(transactionID)
 	})
-	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -116,7 +116,7 @@ func worker(shutdownSignal <-chan struct{}) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -17,7 +17,7 @@ import (
 type LedgerState struct {
 	tangle    *Tangle
 	BranchDAG *ledgerstate.BranchDAG
-	UTXODAG   *ledgerstate.UTXODAG
+	UTXODAG   ledgerstate.IUTXODAG
 
 	totalSupply uint64
 }

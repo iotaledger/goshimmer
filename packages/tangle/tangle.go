@@ -49,6 +49,7 @@ type Tangle struct {
 	LedgerState           *LedgerState
 	Utils                 *Utils
 	WeightProvider        WeightProvider
+	EligibilityManager    *EligibilityManager
 	Events                *Events
 
 	setupParserOnce sync.Once
@@ -60,9 +61,8 @@ type Tangle struct {
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
-			MessageEligible: events.NewEvent(MessageIDCaller),
-			MessageInvalid:  events.NewEvent(MessageIDCaller),
-			Error:           events.NewEvent(events.ErrorCaller),
+			MessageInvalid: events.NewEvent(MessageIDCaller),
+			Error:          events.NewEvent(events.ErrorCaller),
 		},
 		shutdownSignal: make(chan struct{}),
 	}
@@ -84,6 +84,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Orderer = NewOrderer(tangle)
+	tangle.EligibilityManager = NewEligibilityManager(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
 
@@ -122,6 +123,7 @@ func (t *Tangle) Setup() {
 	t.TimeManager.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
+	t.EligibilityManager.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
@@ -255,9 +257,6 @@ func (t *Tangle) schedule(id MessageID) {
 type Events struct {
 	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
 	MessageInvalid *events.Event
-
-	// Fired when a message has been eligible.
-	MessageEligible *events.Event
 
 	// Error is triggered when the Tangle faces an error from which it can not recover.
 	Error *events.Event
