@@ -25,5 +25,6 @@ const (
 	// PrefixEpochs defines the storage prefix for the epochs package.
 	PrefixEpochs
 
+	// PrefixEntityLogger defines the storage prefix for the entitylogger package.
 	PrefixEntityLogger
 )
