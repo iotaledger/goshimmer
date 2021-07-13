@@ -85,7 +85,7 @@ func (e *EligibilityManager) storeMissingDependencies(dependentTxID, dependencyT
 	e.storageMutex.Lock()
 	defer e.storageMutex.Unlock()
 
-	var isStored bool
+	isStored := false
 	e.tangle.Storage.UnconfirmedTransactionDependencies(*dependencyTxID, func() *UnconfirmedTxDependency {
 		return NewUnconfirmedTxDependency(*dependencyTxID)
 	}).Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
