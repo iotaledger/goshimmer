@@ -1,15 +1,21 @@
-# Create a static identity
+# Create a Static Identity
 
-To create a static GoShimmer identity, you will need to generate a random 32byte autopeering seed. You can use `openssl` or the `rand-seed` tool we provide under the GoShimmer folder `tools/rand-seed`.
-For example, by running:
-* `openssl rand -base64 32`: generates a random 32 byte sequence encoded in base64. The output should look like: `gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSyY=`
-* `go run main.go` under the GoShimmer folder `tools/rand-seed`: generates a random 32 byte sequence encoded in both base64 and base58. The output is written into the file `random-seed.txt` and should look like:
-```
-base64:nQW9MhNSLpIqBUiZe90XI320g680zxFoB1UIK09Acus=
-base58:BZx5tDLymckUV5wiswXJtajgQrBEzTBBRR4uGfr1YNGS
-```
+To create a static GoShimmer identity, you will need to generate a random 32byte autopeering seed. You can use `openssl` or the `rand-seed` tools we provide under the GoShimmer folder `tools/rand-seed`.
 
-You can now copy one of that strings (together with the encoding type prefix) and paste it into the GoShimmer `config.json` under the `autopeering` section:
+* `openssl rand -base64 32`: Generates a random 32 byte sequence encoded in base64. The output should look like:
+  
+    ```
+    gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSy=
+    ```
+  
+* `go run main.go` under the GoShimmer folder `tools/rand-seed`: Generates a random 32 byte sequence encoded in both base64 and base58. The output is written into the file `random-seed.txt` and should look like:
+
+    ```
+    base64:nQW9MhNSLpIqBUiZe90XI320g680zxFoB1UIK09Acus=
+    base58:BZx5tDLymckUV5wiswXJtajgQrBEzTBBRR4uGfr1YNGS
+    ```
+
+You can now copy one of that strings (together with the encoding type prefix), and paste it into the GoShimmer `config.json` under the `autopeering` section:
 
 ```
 "autopeering": {
@@ -21,7 +27,8 @@ You can now copy one of that strings (together with the encoding type prefix) an
   },
 ``` 
 
-Or if you are using docker and prefer to set this with a command, you can define the same by changing the GoShimmer docker-compose.yml:
+If you are using docker, and prefer to set this with a command, you can define the same by changing the GoShimmer docker-compose.yml:
+
 ```yml
 goshimmer:
     network_mode: host

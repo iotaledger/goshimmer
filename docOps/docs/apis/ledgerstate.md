@@ -58,7 +58,7 @@ curl http://localhost:8080/ledgerstate/addresses/:address \
 where `:address` is the base58 encoded address, e.g. 6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK.
 
 #### Client lib - `GetAddressOutputs()`
-```Go
+```go
 resp, err := goshimAPI.GetAddressOutputs("6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK")
 if err != nil {
     // return error
@@ -154,7 +154,7 @@ where `:address` is the base58 encoded address, e.g. 6PQqFcwarCVbEMxWFeAqj7YswK8
 
 #### Client lib - `GetAddressUnspentOutputs()`
 
-```Go
+```go
 address := "6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK"
 resp, err := goshimAPI.GetAddressUnspentOutputs(address)
 if err != nil {
@@ -250,7 +250,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID \
 where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
 
 #### Client lib - `GetBranch()`
-```Go
+```go
 resp, err := goshimAPI.GetBranch("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
     // return error
@@ -319,7 +319,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/children \
 where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
 
 #### Client lib - `GetBranchChildren()`
-```Go
+```go
 resp, err := goshimAPI.GetBranchChildren("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
     //return error
@@ -386,7 +386,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/conflicts \
 where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
 
 #### Client lib - `GetBranchConflicts()`
-```Go
+```go
 resp, err := goshimAPI.GetBranchConflicts("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
     // return error
@@ -468,7 +468,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID \
 where `:outputID` is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
 
 #### Client lib - `GetOutput()`
-```Go
+```go
 resp, err := goshimAPI.GetOutput("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
     // return error
@@ -536,7 +536,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID/consumers \
 where `:outputID` is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
 
 #### Client lib - `GetOutputConsumers()`
-```Go
+```go
 resp, err := goshimAPI.GetOutputConsumers("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
     // return error
@@ -618,7 +618,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID/metadata \
 where `:outputID` is the ID of the output, e.g. 41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK.
 
 #### Client lib - `GetOutputMetadata()`
-```Go
+```go
 resp, err := goshimAPI.GetOutputMetadata("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
     // return error
@@ -693,7 +693,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID \
 where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
 
 #### Client lib - `GetTransaction()`
-```Go
+```go
 resp, err := goshimAPI.GetTransaction("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
     // return error
@@ -830,7 +830,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/metadata \
 where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
 
 #### Client lib - `GetTransactionMetadata()`
-```Go
+```go
 resp, err := goshimAPI.GetTransactionMetadata("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
     // return error
@@ -886,7 +886,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/inclusionStat
 where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
 
 #### Client lib - `GetTransactionInclusionState()`
-```Go
+```go
 resp, err := goshimAPI.GetTransactionInclusionState("41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK")
 if err != nil {
     // return error
@@ -938,7 +938,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/consensus \
 where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
 
 #### Client lib - `GetTransactionConsensusMetadata()`
-```Go
+```go
 resp, err := goshimAPI.GetTransactionConsensusMetadata("DNSN8GaCeep6CVuUV6KXAabXkL3bv4PUP4NkTNKoZMqS")
 if err != nil {
     // return err
@@ -998,7 +998,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/attachments \
 where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
 
 #### Client lib - `GetTransactionAttachments()`
-```Go
+```go
 resp, err := goshimAPI.GetTransactionAttachments("DNSN8GaCeep6CVuUV6KXAabXkL3bv4PUP4NkTNKoZMqS")
 if err != nil {
     // return error
@@ -1076,7 +1076,7 @@ curl http://localhost:8080/ledgerstate/addresses/unspentOutputs \
 ```
 
 #### Client lib - `PostAddressUnspentOutputs()`
-```Go
+```go
 resp, err := goshimAPI.PostAddressUnspentOutputs([]string{"H36sZQkopfoEzP3WCMThSjUv5v9MLVYuaQ73tsKgVzXo"})
 if err != nil {
     return

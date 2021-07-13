@@ -1,3 +1,3 @@
-# dRNG API
+# Set Up a Custom dRNG Committee
 
-All the steps are described in the [dRNG wiki](https://github.com/iotaledger/drng/wiki).
+You can find detailed information on setting up a custom dRNG committee in the [dRNG wiki](https://github.com/iotaledger/drng/wiki).

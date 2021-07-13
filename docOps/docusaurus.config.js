@@ -92,7 +92,7 @@ module.exports = {
       copyright: `Copyright © ${new Date().getFullYear()} IOTA Foundation, Built with Docusaurus.`,
     },
     prism: {
-        additionalLanguages: ['rust'],
+        additionalLanguages: ['rust', 'go'],
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
     },

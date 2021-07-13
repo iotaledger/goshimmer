@@ -292,7 +292,7 @@ The `Immutable Data` field of the output can only be defined upon creation and c
 it is perfect to store metadata belonging to the NFT.
 
 The ID of an IOTA NFT is also a valid address, therefore the NFT itself can receive and manage funds and other NFTs as
-well. Refer to the [cli-wallet tutorial](../tutorials/wallet.md) for an overview of what you can do with an NFT.
+well. Refer to the [cli-wallet tutorial](../tutorials/wallet_library.md) for an overview of what you can do with an NFT.
 
 Interestingly, minting an IOTA NFT costs you only the minimum required deposit balance (0.0001 MI at the moment), which
 you can take back when you destroy the NFT. This is required so that NFTs are not minted out of thin air, and there are
