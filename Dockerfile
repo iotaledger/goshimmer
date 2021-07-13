@@ -29,9 +29,8 @@ RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
     GOOS=linux GOARCH=amd64 go build \
     -tags="$BUILD_TAGS" \
-    -ldflags='-w -s -extldflags "-static"' \
-    -o /go/bin/goshimmer; \
-    ./check_static.sh
+    -ldflags='-w -s' \
+    -o /go/bin/goshimmer
 
 RUN wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
 
