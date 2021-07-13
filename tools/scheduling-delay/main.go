@@ -16,6 +16,7 @@ var timeWindow = -10 * time.Minute
 type schedulingInfo struct {
 	avgDelay      int64
 	scheduledMsgs int
+	nodeQLen      int
 }
 
 func main() {
@@ -37,6 +38,13 @@ func main() {
 			continue
 		}
 		delayMaps[nodeInfo.IdentityIDShort] = analyzeSchedulingDelay(client, endTime)
+
+		// get node queue sizes
+		for issuer, qLen := range nodeInfo.Scheduler.NodeQueueSizes {
+			t := delayMaps[nodeInfo.IdentityIDShort][issuer]
+			t.nodeQLen = qLen
+			delayMaps[nodeInfo.IdentityIDShort][issuer] = t
+		}
 	}
 
 	printResults(delayMaps)
@@ -128,15 +136,16 @@ func printResults(delayMaps map[string]map[string]schedulingInfo) {
 	title := fmt.Sprintf("%-15s", "Issuer\\NodeID")
 	for nodeID := range delayMaps {
 		nodeOrder = append(nodeOrder, nodeID)
-		title = fmt.Sprintf("%s %-15s %-15s", title, nodeID, "scheduled msgs")
+		title = fmt.Sprintf("%s %-30s %-15s", title, nodeID, "scheduled msgs")
 	}
 	fmt.Printf("%s\n\n", title)
 
 	for _, issuer := range nodeOrder {
 		row := fmt.Sprintf("%-15s", issuer)
 		for _, nodeID := range nodeOrder {
-			row = fmt.Sprintf("%s %-15v %-15d", row, time.Duration(delayMaps[nodeID][issuer].avgDelay)*time.Nanosecond,
-				delayMaps[nodeID][issuer].scheduledMsgs)
+			delayQLenstr := fmt.Sprintf("%v (Q size:%d)", time.Duration(delayMaps[nodeID][issuer].avgDelay)*time.Nanosecond,
+				delayMaps[nodeID][issuer].nodeQLen)
+			row = fmt.Sprintf("%s %-30s %-15d", row, delayQLenstr, delayMaps[nodeID][issuer].scheduledMsgs)
 		}
 		fmt.Println(row)
 	}
