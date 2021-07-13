@@ -1,19 +1,20 @@
 package ledgerstate
 
 import (
-	"github.com/stretchr/testify/mock"
 	"testing"
+
+	"github.com/stretchr/testify/mock"
 )
 
-type utxoDagMock struct {
+type UtxoDagMock struct {
 	mock.Mock
 	test    *testing.T
 	utxoDag IUTXODAG
 }
 
 // NewUtxoDagMock creates a mock for UTXODAG
-func NewUtxoDagMock(t *testing.T, utxoDag IUTXODAG) *utxoDagMock {
-	u := &utxoDagMock{
+func NewUtxoDagMock(t *testing.T, utxoDag IUTXODAG) *UtxoDagMock {
+	u := &UtxoDagMock{
 		test: t,
 	}
 	u.Test(t)
@@ -21,77 +22,76 @@ func NewUtxoDagMock(t *testing.T, utxoDag IUTXODAG) *utxoDagMock {
 	return u
 }
 
-func (u *utxoDagMock) Events() *UTXODAGEvents {
+func (u *UtxoDagMock) Events() *UTXODAGEvents {
 	return u.utxoDag.Events()
 }
 
-func (u *utxoDagMock) InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error) {
+func (u *UtxoDagMock) InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error) {
 	args := u.Called(transactionID)
 	inclusionState = args.Get(0).(InclusionState)
 	return
 }
 
-func (u *utxoDagMock) Shutdown() {
+func (u *UtxoDagMock) Shutdown() {
 	u.utxoDag.Shutdown()
-	return
 }
 
-func (u *utxoDagMock) StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error) {
+func (u *UtxoDagMock) StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error) {
 	return u.utxoDag.StoreTransaction(transaction)
 }
 
-func (u *utxoDagMock) CheckTransaction(transaction *Transaction) (err error) {
+func (u *UtxoDagMock) CheckTransaction(transaction *Transaction) (err error) {
 	return u.utxoDag.CheckTransaction(transaction)
 }
 
-func (u *utxoDagMock) CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction) {
+func (u *UtxoDagMock) CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction) {
 	return u.utxoDag.CachedTransaction(transactionID)
 }
 
-func (u *utxoDagMock) Transaction(transactionID TransactionID) (transaction *Transaction) {
+func (u *UtxoDagMock) Transaction(transactionID TransactionID) (transaction *Transaction) {
 	return u.utxoDag.Transaction(transactionID)
 }
 
-func (u *utxoDagMock) Transactions() (transactions map[TransactionID]*Transaction) {
+func (u *UtxoDagMock) Transactions() (transactions map[TransactionID]*Transaction) {
 	return u.utxoDag.Transactions()
 }
 
-func (u *utxoDagMock) CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata) {
+func (u *UtxoDagMock) CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata) {
 	return u.utxoDag.CachedTransactionMetadata(transactionID, computeIfAbsentCallback...)
 }
 
-func (u *utxoDagMock) CachedOutput(outputID OutputID) (cachedOutput *CachedOutput) {
+func (u *UtxoDagMock) CachedOutput(outputID OutputID) (cachedOutput *CachedOutput) {
 	return u.utxoDag.CachedOutput(outputID)
 }
 
-func (u *utxoDagMock) CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata) {
+func (u *UtxoDagMock) CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata) {
 	return u.utxoDag.CachedOutputMetadata(outputID)
 }
 
-func (u *utxoDagMock) CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers) {
+func (u *UtxoDagMock) CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers) {
 	return u.utxoDag.CachedConsumers(outputID, optionalSolidityType...)
 }
 
-func (u *utxoDagMock) LoadSnapshot(snapshot *Snapshot) {
+func (u *UtxoDagMock) LoadSnapshot(snapshot *Snapshot) {
 	u.utxoDag.LoadSnapshot(snapshot)
 }
 
-func (u *utxoDagMock) CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings) {
+func (u *UtxoDagMock) CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings) {
 	return u.utxoDag.CachedAddressOutputMapping(address)
 }
 
-func (u *utxoDagMock) SetTransactionConfirmed(transactionID TransactionID) (err error) {
+func (u *UtxoDagMock) SetTransactionConfirmed(transactionID TransactionID) (err error) {
 	return u.utxoDag.SetTransactionConfirmed(transactionID)
 }
 
-func (u *utxoDagMock) ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
+func (u *UtxoDagMock) ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
 	return u.utxoDag.ConsumedOutputs(transaction)
 }
 
-func (u *utxoDagMock) ManageStoreAddressOutputMapping(output Output) {
+func (u *UtxoDagMock) ManageStoreAddressOutputMapping(output Output) {
 	u.utxoDag.ManageStoreAddressOutputMapping(output)
 }
 
-func (u *utxoDagMock) StoreAddressOutputMapping(address Address, outputID OutputID) {
+func (u *UtxoDagMock) StoreAddressOutputMapping(address Address, outputID OutputID) {
 	u.utxoDag.StoreAddressOutputMapping(address, outputID)
 }
