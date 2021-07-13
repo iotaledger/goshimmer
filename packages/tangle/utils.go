@@ -90,7 +90,7 @@ func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMe
 
 // region structural checks ////////////////////////////////////////////////////////////////////////////////////////////
 
-// AllTransactionsApprovedByMessages checks if all Transactions were attached by at least one Message that was directly
+// AllTransactionsDirectlyApprovedByMessages checks if all Transactions were attached by at least one Message that was directly
 // approved by the given Message.
 func (u *Utils) AllTransactionsDirectlyApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs ...MessageID) (approved bool) {
 	transactionIDs = transactionIDs.Clone()

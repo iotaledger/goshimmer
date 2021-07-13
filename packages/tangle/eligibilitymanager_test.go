@@ -316,8 +316,6 @@ func scenarioMessagesApproveDependency(t *testing.T, tangle *Tangle, wallets map
 	attachment, stored := tangle.Storage.StoreAttachment(transactions["1"].ID(), messages["1"].ID())
 	assert.True(t, stored)
 	attachment.Release()
-
-	return
 }
 
 // creates transaction that is dependent on two other transactions and is not connected by direct approval of their messages

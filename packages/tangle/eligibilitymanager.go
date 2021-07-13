@@ -81,7 +81,7 @@ func (e *EligibilityManager) checkEligibility(messageID MessageID) error {
 
 // storeMissingDependencies adds missing dependencies to the object storage
 // or if already exist it appends dependent txID to the existing object storage.
-func (e *EligibilityManager) storeMissingDependencies(dependentTxID *ledgerstate.TransactionID, dependencyTxID *ledgerstate.TransactionID) error {
+func (e *EligibilityManager) storeMissingDependencies(dependentTxID, dependencyTxID *ledgerstate.TransactionID) error {
 	e.storageMutex.Lock()
 	defer e.storageMutex.Unlock()
 

@@ -1166,7 +1166,7 @@ type UnconfirmedTxDependency struct {
 func NewUnconfirmedTxDependency(txID ledgerstate.TransactionID) *UnconfirmedTxDependency {
 	return &UnconfirmedTxDependency{
 		transactionID:  txID,
-		txDependentIDs: make(ledgerstate.TransactionIDs, 0),
+		txDependentIDs: make(ledgerstate.TransactionIDs),
 	}
 }
 
@@ -1188,10 +1188,14 @@ func (u *UnconfirmedTxDependency) DeleteDependency(txID ledgerstate.TransactionI
 	u.SetModified()
 }
 
+// Update update the UnconfirmedTxDependency.
+// It should never happen and will panic if called.
 func (u *UnconfirmedTxDependency) Update(other objectstorage.StorableObject) {
 	panic("UnconfirmedTxDependency shouldn't be updated this way")
 }
 
+// ObjectStorageKey returns the key of the stored UnconfirmedTxDependency.
+// This returns the bytes of the transactionID of the dependency transaction.
 func (u *UnconfirmedTxDependency) ObjectStorageKey() []byte {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
@@ -1199,6 +1203,7 @@ func (u *UnconfirmedTxDependency) ObjectStorageKey() []byte {
 	return u.transactionID.Bytes()
 }
 
+// ObjectStorageValue returns the value of the stored UnconfirmedTxDependency.
 func (u *UnconfirmedTxDependency) ObjectStorageValue() []byte {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
