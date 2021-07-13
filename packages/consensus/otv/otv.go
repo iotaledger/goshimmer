@@ -49,7 +49,7 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 			liked.Add(branchID)
 		} else {
 			disliked.Add(branchID)
-			innerLikedInstead, err := o.LikedFromConflictSet(branchID)
+			innerLikedInstead, err := o.LikedInstead(branchID)
 			if err != nil {
 				return nil, nil, nil, err
 			}
@@ -59,7 +59,7 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 	return
 }
 
-func (o *OnTangleVoting) LikedFromConflictSet(branchID ledgerstate.BranchID) (likedInstead ledgerstate.BranchIDs, err error) {
+func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (likedInstead ledgerstate.BranchIDs, err error) {
 	likedInstead = ledgerstate.NewBranchIDs()
 	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
