@@ -14,8 +14,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the remotelog plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "logger")
+	configuration.BindParameters(Parameters, "logger")
 }

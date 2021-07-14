@@ -5,11 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 
 const (
@@ -31,13 +32,13 @@ func Plugin() *node.Plugin {
 }
 
 func configure(plugin *node.Plugin) {
-	if len(Parameters.NtpPools) == 0 {
-		plugin.LogFatalf("at least 1 NTP pool needs to be provided to synchronize the local clock.")
+	if len(Parameters.NTPPools) == 0 {
+		Plugin().LogFatalf("at least 1 NTP pool needs to be provided to synchronize the local clock.")
 	}
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker(plugin.Name, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(Plugin().Name, func(shutdownSignal <-chan struct{}) {
 		// sync clock on startup
 		queryNTPPool()
 
@@ -46,21 +47,21 @@ func run(plugin *node.Plugin) {
 
 		<-shutdownSignal
 	}, shutdown.PrioritySynchronization); err != nil {
-		plugin.Panicf("Failed to start as daemon: %s", err)
+		Plugin().Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
 // queryNTPPool queries configured ntpPools for maxTries.
 func queryNTPPool() {
-	plugin.LogDebug("Synchronizing clock...")
+	Plugin().LogDebug("Synchronizing clock...")
 	for t := maxTries; t > 0; t-- {
-		index := rand.Int() % len(Parameters.NtpPools)
-		err := clock.FetchTimeOffset(Parameters.NtpPools[index])
+		index := rand.Int() % len(Parameters.NTPPools)
+		err := clock.FetchTimeOffset(Parameters.NTPPools[index])
 		if err == nil {
-			plugin.LogDebug("Synchronizing clock... done")
+			Plugin().LogDebug("Synchronizing clock... done")
 			return
 		}
 	}
 
-	plugin.LogWarn("error while trying to sync clock")
+	Plugin().LogWarn("error while trying to sync clock")
 }

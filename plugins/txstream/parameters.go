@@ -11,8 +11,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the txstream plugin
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "txstream")
+	configuration.BindParameters(Parameters, "txstream")
 }

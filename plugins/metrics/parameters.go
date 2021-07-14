@@ -17,8 +17,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the metrics plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "metrics")
+	configuration.BindParameters(Parameters, "metrics")
 }

@@ -13,8 +13,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration parameters of the activity plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "activity")
+	configuration.BindParameters(Parameters, "activity")
 }

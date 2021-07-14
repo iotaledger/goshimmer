@@ -11,8 +11,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the networkdelay plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "networkdelay")
+	configuration.BindParameters(Parameters, "networkdelay")
 }

@@ -11,8 +11,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration parameters of the graceful shutdown plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "gracefulshutdown")
+	configuration.BindParameters(Parameters, "gracefulshutdown")
 }

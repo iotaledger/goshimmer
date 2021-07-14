@@ -22,8 +22,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains configuration parameters used by the storage layer.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "database")
+	configuration.BindParameters(Parameters, "database")
 }

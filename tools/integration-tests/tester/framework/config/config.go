@@ -1,11 +1,10 @@
 package config
 
 import (
-	"encoding/csv"
-	"fmt"
 	"reflect"
-	"strings"
-	"time"
+
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
@@ -20,8 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // GoShimmer defines the config of a GoShimmer node.
@@ -58,114 +55,8 @@ type GoShimmer struct {
 // NewGoShimmer creates a GoShimmer config initialized with default values.
 func NewGoShimmer() (config GoShimmer) {
 	config = GoShimmer{}
-	fillStructFromDefaultTag(&config)
+	fillStructFromDefaultTag(reflect.ValueOf(&config).Elem())
 	return
-}
-
-// fillStructFromDefaultTag recursively explores the given struct pointer and sets values of fields to the `default` as
-// specified in the struct's tags.
-func fillStructFromDefaultTag(s interface{}) {
-	val := reflect.ValueOf(s).Elem()
-	for i := 0; i < val.NumField(); i++ {
-		valueField := val.Field(i)
-		typeField := val.Type().Field(i)
-
-		if valueField.Kind() == reflect.Struct {
-			fillStructFromDefaultTag(valueField.Addr().Interface())
-			continue
-		}
-
-		tagDefaultValue, exists := typeField.Tag.Lookup("default")
-		if !exists {
-			continue
-		}
-
-		var err error
-		switch defaultValue := valueField.Interface().(type) {
-		case bool:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case time.Duration:
-			if defaultValue, err = time.ParseDuration(tagDefaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int8:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int16:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int32:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case int64:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint8:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint16:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint32:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case uint64:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case string:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case float32:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case float64:
-			if _, err = fmt.Sscan(tagDefaultValue, &defaultValue); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		case []string:
-			if defaultValue, err = csv.NewReader(strings.NewReader(tagDefaultValue)).Read(); err != nil {
-				panic(err)
-			}
-			valueField.Set(reflect.ValueOf(defaultValue))
-		default:
-			panic(fmt.Sprintf("type `%s` not implemented", reflect.TypeOf(defaultValue)))
-		}
-	}
 }
 
 type Network struct {

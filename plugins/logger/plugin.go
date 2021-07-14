@@ -37,7 +37,7 @@ func Init() {
 func init() {
 	plugin = Plugin()
 
-	configuration.BindParameters(&Parameters, "logger")
+	configuration.BindParameters(Parameters, "logger")
 
 	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := logger.InitGlobalLogger(config.Node()); err != nil {

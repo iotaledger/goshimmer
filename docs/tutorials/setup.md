@@ -191,7 +191,7 @@ services:
       - PROMETHEUS_BINDADDRESS=0.0.0.0:9311
     command: >
       --skip-config=true
-      --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entryshimmer.tanglebay.com:14646
+      --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
       --node.disablePlugins=
       --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
       --logger.level=info
@@ -409,7 +409,7 @@ chmod -R 777 prometheus
 #### Create Grafana configs
 1. Create necessary config dirs in `/opt/goshimmer/`.
 ```
-mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers
+mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers grafana/provisioning/plugins
 mkdir -p grafana/dashboards
 ```
 2. Create a datasource configuration file in `grafana/provisioning/datasources`:

@@ -9,8 +9,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the manarefresher plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "manarefresher")
+	configuration.BindParameters(Parameters, "manarefresher")
 }

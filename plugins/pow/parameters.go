@@ -19,8 +19,8 @@ type ParametersDefinition struct {
 }
 
 // Parameters contains the configuration used by the pow plugin.
-var Parameters = ParametersDefinition{}
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "pow")
+	configuration.BindParameters(Parameters, "pow")
 }
