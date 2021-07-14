@@ -7,9 +7,9 @@ This environment is deployed automatically on every commit into "develop" branch
 Here is the list of hosts and services that they run:
 - metrics-01.pre-devnet.shimmer.iota.cafe:
   - MongoDB: PORT=27117
-  - Prometheus: PORT=9090 (not opened to the world)
+  - Prometheus: PORT=9090 (not opened to the internet)
   - Grafana: PORT=3000
-  - Elasticsearch: PORT=9200 (not opened to the world)
+  - Elasticsearch: PORT=9200 (not opened to the internet)
   - Logstash: PORT=5213
   - Kibana: PORT=5601
     

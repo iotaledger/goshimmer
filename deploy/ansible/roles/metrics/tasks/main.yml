@@ -35,7 +35,7 @@
     dest: /opt/metrics/logstash/logstash.yml
     mode: '0644'
 
-- name: Template logstash.conf
+- name: Template pipeline logstash.conf
   template:
     src: logstash/pipeline/logstash.conf.j2
     dest: /opt/metrics/logstash/pipeline/logstash.conf

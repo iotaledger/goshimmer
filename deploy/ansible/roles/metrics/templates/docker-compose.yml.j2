@@ -41,7 +41,6 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/admin_password
     ports:
       - "3000:3000"
-    user: "104"
     volumes:
     - grafana_data:/var/lib/grafana
     - ./grafana/provisioning/:/etc/grafana/provisioning/

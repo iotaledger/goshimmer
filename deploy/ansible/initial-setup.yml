@@ -6,16 +6,11 @@
     - metrics
 
 - hosts: supports
-  vars:
-    nodeType: entrynode
   roles:
-    - goshimmer-node
-
-- hosts: supports
-  vars:
-    nodeType: analysis-server
-  roles:
-    - goshimmer-node
+    - role: goshimmer-node
+      nodeType: entrynode
+    - role: goshimmer-node
+      nodeType: analysis-server
 
 - hosts: goshimmers
   vars:
