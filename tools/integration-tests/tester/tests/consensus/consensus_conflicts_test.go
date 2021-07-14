@@ -21,7 +21,7 @@ import (
 
 func TestConsensusConflicts(t *testing.T) {
 	const numberOfPeers = 6
-	FCoBQuarantineTime := time.Duration(framework.PeerConfig.FCOB.QuarantineTime) * time.Second
+	FCoBQuarantineTime := time.Duration(framework.PeerConfig().FCOB.QuarantineTime) * time.Second
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()

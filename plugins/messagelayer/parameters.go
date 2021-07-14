@@ -6,20 +6,22 @@ import (
 	"github.com/iotaledger/hive.go/configuration"
 )
 
-// Parameters contains the configuration parameters used by the message layer.
-var Parameters = struct {
+// ParametersDefinition contains the definition of the parameters used by the messagelayer plugin.
+type ParametersDefinition struct {
 	// TangleWidth can be used to specify the number of tips the Tangle tries to maintain.
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
 
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
 		// File is the path to the snapshot file.
-		File        string `default:"./snapshot.bin" usage:"the path to the snapshot file"`
+		File string `default:"./snapshot.bin" usage:"the path to the snapshot file"`
+		// GenesisNode is the identity of the node that is allowed to attach to the Genesis message.
 		GenesisNode string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24" usage:"the node (base58 public key) that is allowed to attach to the genesis message"`
 	}
 
 	// FCOB contains parameters related to the transaction quarantine time before applying (if necessary) FPC.
 	FCOB struct {
+		// QuarantineTime determines the duration of the the first half of the quarantime time of the FCoB rule, in seconds.
 		QuarantineTime int `default:"2" usage:"the duration for the first half of the quarantine time of the FCoB rule in sec"`
 	}
 
@@ -28,10 +30,10 @@ var Parameters = struct {
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`
-}{}
+}
 
-// FPCParameters contains the configuration parameters used by the FPC consensus.
-var FPCParameters = struct {
+// FPCParametersDefinition contains the definition of parameters used by the FPC consensus.
+type FPCParametersDefinition struct {
 	// BindAddress defines on which address the FPC service should listen.
 	BindAddress string `default:"0.0.0.0:10895" usage:"the bind address on which the FPC vote server binds to"`
 
@@ -47,18 +49,18 @@ var FPCParameters = struct {
 	// TotalRoundsFinalization defines the amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
 	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)"`
 
-	// DRNGInstanceID the instanceID of the dRNG to be used with FPC
+	// DRNGInstanceID the instanceID of the dRNG to be used with FPC.
 	DRNGInstanceID uint32 `default:"1339" usage:"The instanceID of the dRNG to be used with FPC"`
 
 	// AwaitOffset defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
 	AwaitOffset int64 `default:"3" usage:"The max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed"`
 
-	// DefaultRandomness defines default randomness used by FPC when no random is received from the dRNG
+	// DefaultRandomness defines default randomness used by FPC when no random is received from the dRNG.
 	DefaultRandomness float64 `default:"0.5" usage:"The default randomness used by FPC when no random is received from the dRNG"`
-}{}
+}
 
-// StatementParameters contains the configuration parameters used by the FPC statements in the tangle.
-var StatementParameters = struct {
+// StatementParametersDefinition contains the definition of the parameters used by the FPC statements in the tangle.
+type StatementParametersDefinition struct {
 	// WaitForStatement is the time in seconds for which the node wait for receiving the new statement.
 	WaitForStatement int `default:"5" usage:"the time in seconds for which the node wait for receiving the new statement"`
 
@@ -76,10 +78,10 @@ var StatementParameters = struct {
 
 	// DeleteAfter defines the time [in minutes] after which older statements are deleted from the registry.
 	DeleteAfter int `default:"5" usage:"the time in minutes after which older statements are deleted from the registry"`
-}{}
+}
 
-// ManaParameters contains the configuration parameters used by the mana plugin.
-var ManaParameters = struct {
+// ManaParametersDefinition contains the definition of the parameters used by the mana plugin.
+type ManaParametersDefinition struct {
 	// EmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
 	EmaCoefficient1 float64 `default:"0.00003209" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
 	// EmaCoefficient2 defines the coefficient used for Effective Base Mana 2 (moving average) calculation.
@@ -105,27 +107,45 @@ var ManaParameters = struct {
 	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
 	// SnapshotResetTime defines if the aMana Snapshot should be reset to the current Time.
 	SnapshotResetTime bool `default:"false" usage:"when loading snapshot reset to current time when true"`
-}{}
+}
 
-// RateSetterParameters contains the configuration parameters used by the Rate Setter.
-var RateSetterParameters = struct {
+// RateSetterParametersDefinition contains the definition of the parameters used by the Rate Setter.
+type RateSetterParametersDefinition struct {
 	// Initial defines the initial rate of rate setting.
 	Initial float64 `default:"100000" usage:"the initial rate of rate setting"`
-}{}
+}
 
-// SchedulerParameters contains the configuration parameters used by the Scheduler.
-var SchedulerParameters = struct {
+// SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
+type SchedulerParametersDefinition struct {
 	// MaxBufferSize defines the maximum buffer size (in bytes).
 	MaxBufferSize int `default:"100000000" usage:"maximum buffer size (in bytes)"` // 100 MB
 	// SchedulerRate defines the frequency to schedule a message.
 	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
-}{}
+}
+
+// Parameters contains the general configuration used by the messagelayer plugin.
+var Parameters = &ParametersDefinition{}
+
+// FPCParameters contains the FPC configuration used by the messagelayer plugin.
+var FPCParameters = &FPCParametersDefinition{}
+
+// StatementParameters contains the FPC statement configuration used by the messagelayer plugin.
+var StatementParameters = &StatementParametersDefinition{}
+
+// ManaParameters contains the mana configuration used by the messagelayer plugin.
+var ManaParameters = &ManaParametersDefinition{}
+
+// RateSetterParameters contains the rate setter configuration used by the messagelayer plugin.
+var RateSetterParameters = &RateSetterParametersDefinition{}
+
+// SchedulerParameters contains the scheduler configuration used by the messagelayer plugin.
+var SchedulerParameters = &SchedulerParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(&Parameters, "messageLayer")
-	configuration.BindParameters(&FPCParameters, "fpc")
-	configuration.BindParameters(&StatementParameters, "statement")
-	configuration.BindParameters(&ManaParameters, "mana")
-	configuration.BindParameters(&RateSetterParameters, "rateSetter")
-	configuration.BindParameters(&SchedulerParameters, "scheduler")
+	configuration.BindParameters(Parameters, "messageLayer")
+	configuration.BindParameters(FPCParameters, "fpc")
+	configuration.BindParameters(StatementParameters, "statement")
+	configuration.BindParameters(ManaParameters, "mana")
+	configuration.BindParameters(RateSetterParameters, "rateSetter")
+	configuration.BindParameters(SchedulerParameters, "scheduler")
 }
