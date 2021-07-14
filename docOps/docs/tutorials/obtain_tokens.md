@@ -1,7 +1,7 @@
 # How to obtain tokens from the faucet
 
 ## The faucet dApp
-The faucet is a dApp built on top of the [value and communication layer](../concepts/layers.md). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing a special payload with an address encoded in Base58, the aManaPledgeID, the cManaPledgeID and a nonce as a proof that some Proof Of Work has been computed. The PoW is just a way to rate limit and avoid abuse of the Faucet. The Faucet has an additional protection by means of granting request to a given address only once. That means that, in order to receive funds from the Faucet multuple times, the address must be different.
+The faucet is a dApp built on top of the [value and communication layer](../apis/communication.md)). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing a special payload with an address encoded in Base58, the aManaPledgeID, the cManaPledgeID and a nonce as a proof that some Proof Of Work has been computed. The PoW is just a way to rate limit and avoid abuse of the Faucet. The Faucet has an additional protection by means of granting request to a given address only once. That means that, in order to receive funds from the Faucet multuple times, the address must be different.
 
 After sending a faucet request message, you can check your balances via [`GetAddressUnspentOutputs()`](../apis/ledgerstate.md).
 
@@ -45,14 +45,13 @@ You can request funds by pressing the `Request Funds` in the wallet.
 
 **Note**: You need to create a wallet first before requesting funds.
 
-<img src="https://user-images.githubusercontent.com/11289354/88524828-70edea00-d02c-11ea-9a01-d7e1a8b7bdfd.png" height="450">
+![Pollen Wallet](../../static/img/tutorials/request_funds/pollen_wallet.png "Pollen Wallet")
 
 
 This may take a while to receive funds:
 
-<img src="https://user-images.githubusercontent.com/11289354/88525200-e0fc7000-d02c-11ea-9f7f-a545cf14b318.png" width="450">
+![Pollen Wallet requesting funds](../../static/img/tutorials/request_funds/pollen_wallet_requesting_funds.png "Pollen Wallet requesting funds")
 
 When the faucet request is successful, you can check the received balances:
 
-<img src="https://user-images.githubusercontent.com/11289354/88525478-38024500-d02d-11ea-92c7-25c80eb6a947.png" width="450">
-
+![Pollen Wallet transfer success](../../static/img/tutorials/request_funds/pollen_wallet_transfer_success.png "Pollen Wallet requesting transfer success")

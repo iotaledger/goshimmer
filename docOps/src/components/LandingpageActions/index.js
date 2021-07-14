@@ -15,19 +15,19 @@ const ActionList = [
   },
   {
     title: 'Build',
-    link: 'docs/tutorials/set-up-a-goshimmer-node/',
+    link: 'docs/tutorials/dApp/',
     description: (
       <>
-        Follow our tutorial to build your own IOTA application. IOTA Identity supports Rust, Python and Javascript.
+        Follow our tutorials to build your own simple IOTA dApp as goShimmer plugin.
       </>
     ),
   },
   {
     title: 'Participate',
-    link: 'docs/teamresources/release/',
+    link: 'docs/tutorials/set-up-a-goshimmer-node/',
     description: (
       <>
-        You want to be a part of the IOTA mission? Join the IOTA community or join the IOTA Libraries X-Team.
+        Do you want to become part of the network? Learn how to setup your own goShimmer Node software with our simple guide.
       </>
     ),
   },
