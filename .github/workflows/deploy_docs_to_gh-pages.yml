@@ -2,9 +2,9 @@ name: deploy
 
 on:
   pull_request:
-    branches: [docs/migrateToDocusaurus, dev, main]
+    branches: [develop, main]
   push:
-    branches: [docs/migrateToDocusaurus, dev, main]
+    branches: [dev, main]
 
 jobs:
   checks:
@@ -50,3 +50,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docOps/build
+          cname: goshimmer.docs.iota.org
