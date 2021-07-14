@@ -89,6 +89,11 @@ func (e *EntityLog) Logger(entityName string, entityID ...marshalutil.SimpleBina
 	return e.loggerFactories[newEntityTypeID(entityName)](e, entityID...)
 }
 
+// Shutdown shuts down the EntityLog and persist the collected LogEntries to the disk.
+func (e *EntityLog) Shutdown() {
+	e.logEntryStorage.Shutdown()
+}
+
 // unmarshalEntityLogEntry is the factory method for the object storage that takes care of correctly unmarshaling the different log entries.
 func (e *EntityLog) unmarshalEntityLogEntry(key, data []byte) (logEntry objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(byteutils.ConcatBytes(key, data))
@@ -134,25 +139,36 @@ func (e *EntityLog) nextLogEntryID() logEntryID {
 
 // region Logger ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Logger represents the interface for the Logger of a specific entity type.
 type Logger interface {
+	// LogDebug writes a log message with a LogLevel of Debug.
 	LogDebug(args ...interface{})
 
+	// LogDebugf formats and writes a log message with a LogLevel of Debug.
 	LogDebugf(format string, args ...interface{})
 
+	// LogInfo writes a log message with a LogLevel of Info.
 	LogInfo(args ...interface{})
 
+	// LogInfof formats and writes a log message with a LogLevel of Info.
 	LogInfof(format string, args ...interface{})
 
+	// LogWarn writes a log message with a LogLevel of Warn.
 	LogWarn(args ...interface{})
 
+	// LogWarnf formats and writes a log message with a LogLevel of Warn.
 	LogWarnf(format string, args ...interface{})
 
+	// LogError writes a log message with a LogLevel of Error.
 	LogError(args ...interface{})
 
+	// LogErrorf formats and writes a log message with a LogLevel of Error.
 	LogErrorf(format string, args ...interface{})
 
+	// Entries return a slice of LogEntries that have been stored in the Logger.
 	Entries() []LogEntry
 
+	// UnmarshalLogEntry unmarshals a LogEntry from a sequence of bytes.
 	UnmarshalLogEntry(data []byte) (logEntry LogEntry, err error)
 }
 
