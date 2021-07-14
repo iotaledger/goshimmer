@@ -152,7 +152,9 @@ You can use `marshalutil` build in methods on the appropriate parts of the byte 
 After defining the marshalling and unmarshalling mechanism for the `objectStorage` bytes conversion, you can start using it to store and read the particular parts of the project elements. 
 
 - `Load`: Allows retrieving the corresponding object based on the provided id. For example, the method on the message `objectStorage`  is getting the cached object. 
+  
 - `Unwrap`: Converts a retrieved cached object to its own corresponding type.  In the code below it will return the message wrapped by the cached object.
+  
 - `Exists`: Checks if the object has been deleted. If so, it is released from memory with the `Release` method.
   
   ```go

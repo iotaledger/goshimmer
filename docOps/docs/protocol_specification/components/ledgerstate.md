@@ -5,7 +5,7 @@ A transaction must consume the entirety of the specified inputs. The section unl
 
 The following image depicts the flow of funds using UTXO:
 
-![Flow of funds using UTXO](../../static/img/protocol_specification/utxo_fund_flow.png "Flow of funds using UTXO")
+![Flow of funds using UTXO](../../../static/img/protocol_specification/utxo_fund_flow.png "Flow of funds using UTXO")
 ## Transaction Layout
 
 A _Transaction_ payload is made up of two parts:

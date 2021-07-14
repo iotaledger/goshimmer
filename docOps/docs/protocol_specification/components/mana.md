@@ -6,41 +6,32 @@ This document provides a high level overview of how mana is implemented in GoShi
 
 Mana is a reputation system for nodes within the IOTA network.
 
-Reputation is gained by contributing to the network, i.e. creating value transfers.
+Nodes gain reputation by contributing to the network, for example by creating value transfers.
 As time passes, part of the earned mana of a node decays to encourage keeping up the good behavior.
 
 ## Scope
 
-The scope of the first implementation of mana into GoShimmer is to verify that mana calculations work,
-study base mana calculations 1 & 2, and mana distribution in the test network, furthermore to verify that nodes have
-similar view on the network.
+The scope of the first implementation of mana into GoShimmer is to:
+
+* Verify that mana calculations work.
+* Study base mana calculations 1 & 2, and mana distribution in the test network.
+* Verify that nodes have similar view on the network.
 
 ## Mana Calculation
 
-Mana is essentially the reputation score of a node in the IOTA network. Mana is calculated locally in each node, as a
-function that takes value transactions as input and produces the Base Mana Vector as output.
+Mana is essentially the reputation score of a node in the IOTA network. Each node calculates mana locally using function that takes value transactions as input and produces the Base Mana Vector as output.
 
-Each transaction has an `accessMana` and `consensusMana` field that determine which node to pledge these two types
-of mana to. Both of these fields denote a `nodeID`, the receiver of mana. `accessMana` and `consensusMana` do not have
-to be pledged to the same node, but for simplicity, in the first implementation, they will be.
+Each transaction has an `accessMana` and a `consensusMana` field that determine which node to pledge these two types of mana to. Both of these fields denote a `nodeID`, the receiver of mana. `accessMana` and `consensusMana` do not have to be pledged to the same node, but for simplicity, they will be in the first implementation.
 
-In addition to the mana fields, a `timestamp` field is also added to the transactions that will be utilized for calculating
-decay and effective mana.
+In addition to the mana fields, each transaction has a `timestamp` field that will be utilized for calculating decay and effective mana.
 
-From the pledged mana of a transaction, a node can calculate locally the `Base Mana Vector` for both `Access Mana` and
-`Consensus Mana`.
+From the pledged mana of a transaction, a node can locally calculate the `Base Mana Vector` for both `Access Mana` and `Consensus Mana`.
 
+A `Base Mana Vector` consists of Base Mana 1 and Base Mana 2, and their respective `Effective Base Mana`. Given a value transaction, Base Mana 1 and Base Mana 2 are determined as follows:
 
-A `Base Mana Vector` consists of Base Mana 1 and Base Mana 2 and their respective `Effective Base Mana`.
-Given a value transaction, Base Mana 1 and Base Mana 2 are determined as follows:
- 1. Base Mana 1 is revoked from the node that created the output(s) used as input(s) in the transaction, and is pledged to
-    the node creating the new output(s). The amount of `Base Mana 1` revoked and pledged is equal to the balance of the
-    input.
- 2. Base Mana 2 is freshly created at the issuance time of the transaction, awarded to the node, but decays with time.
-    The amount of `Base Mana 2` pledged is determined with `Pending Mana` concept: funds sitting at an address generate
-    `pending mana` that grows over time, but bounded.
-    - `Mana_pending = (alpha*S)/gamma*(1-e^(-gamma*t))`, where `alpha` and `gamma` are chosen parameters, `S` is the amount
-      of funds an output transfers to the address, and `t` is the time since the funds are on that address.
+* Base Mana 1 is revoked from the node that created the output(s), used as input(s) in the transaction, and is pledged to the node creating the new output(s). The amount of `Base Mana 1` revoked and pledged is equal to the balance of the input. 
+* Base Mana 2 is freshly created at the issuance time of the transaction, awarded to the node, but it decays with time. The amount of `Base Mana 2` pledged is determined with the `Pending Mana` concept: funds sitting at an address generate `pending mana` that grows over time within bounds.
+    - `Mana_pending = (alpha*S)/gamma*(1-e^(-gamma*t))`, where `alpha` and `gamma` are chosen parameters, `S` is the amount of funds an output transfers to the address, and `t` is the time since the funds are on that address.
 
 An example `Base Mana Vector` for `Access Mana` could look like this:
 
@@ -51,21 +42,15 @@ An example `Base Mana Vector` for `Access Mana` could look like this:
  | Base Mana 2 			|0	| 1.2	|...|  0.01 |
  | Effective Base Mana 2	|0	| 0.6 	|...|  0.015 |
 
-`Base Mana` is pledged or revoked at discrete times, which results in `Base Mana` being discontinuous function over time.
-In order to make mana "smoother" and continuous, an exponential moving average is applied to the `Base Mana` values,
-resulting in `Effective Base Mana 1` and `Effective Base Mana 2`.
+`Base Mana` is pledged or revoked at discrete times, which results in `Base Mana` being discontinuous function over time.  In order to make mana "smoother" and continuous, an exponential moving average is applied to the `Base Mana` values, resulting in `Effective Base Mana 1` and `Effective Base Mana 2`.
 
-It is important to note, that consuming a new transaction and pledging its mana happens when the transaction is
-confirmed on the node. At the same time, entries of the nodes whose mana is being modified during pledging in the
-`Base Mana Vector(s)` are updated with respect to time. In general, updates due to time happen whenever a node's mana is
-being accessed. Except for the aforementioned case, this could be for example a mana related query from an external
-module (FPC, Autopeering, DRNG, Rate Control, tools, etc.).
+It is important to note, that consuming a new transaction and pledging its mana happens when the transaction is _confirmed_ on the node. At the same time, entries of the nodes whose mana is being modified during pledging in the `Base Mana Vector(s)` are updated with respect to time. In general, updates due to time happen whenever a node's mana is being accessed. Except for the aforementioned case, this could be for example a mana related query from an external module (FPC, Autopeering, DRNG, Rate Control, tools, etc.).
 
-Following figure summarizes how `Access Mana` and `Consensus Mana` is derived from a transaction:
+The following figure summarizes how `Access Mana` and `Consensus Mana` is derived from a transaction:
 
-![Mana](../../static/img/protocol_specification/mana.png "Mana")
+![Mana](../../../static/img/protocol_specification/mana.png "Mana")
 
-The reason for having two separate `Base Mana Vectors` is the fact, that `accessMana` and `consensusMana` can be pledged
+The reason for having two separate `Base Mana Vectors` is the fact that `accessMana` and `consensusMana` can be pledged
 to different nodes.
 
 The exact mathematical formulas, and their respective parameters will be determined later.
@@ -75,11 +60,11 @@ The exact mathematical formulas, and their respective parameters will be determi
 ### Dependency on Tangle
 
 Since mana is awarded to nodes submitting value transfers, the tangle is needed as input for mana calculation.
-Each node calculates mana locally, therefore, it is essential to determine when to consider transactions in the
-tangle "final enough" (so that they will not be orphaned).
+Each node calculates mana locally. Therefore, it is essential to determine when to consider transactions in the
+tangle "final enough" so that they will not be orphaned.
 
 When a transaction is `confirmed`, it is a sufficient indicator that it will not be orphaned. However, in current
-GoShimmer implementation, confirmation is not yet a properly defined concept. This issue will be addressed in a separate
+GoShimmer implementation, confirmation is not a properly defined concept at the time. This issue will be addressed in a separate
 module.
 
 The Mana module assumes, that the (value) tangle's `TransactionConfirmed` event is the trigger condition to update the
@@ -88,91 +73,72 @@ introduced for the tangle, the trigger conditions for access and consensus mana 
 
 ### Transaction Layout
 
-A new field should be added to `Transaction` denoting `PledgedNodeID` for `Access Mana` and `Consensus Mana`.
-This is also beneficial to implement mana donation feature, that is, to donate the mana of a certain transaction to an
-arbitrary node.
+A new field should be added to `Transaction` denoting `PledgedNodeID` for `Access Mana` and `Consensus Mana`. This is also beneficial to implement mana donation feature, that is, to donate the mana of a certain transaction to an arbitrary node.
 
 ## Limitations
 
 The first implementation of mana in GoShimmer will:
-  - not have voted timestamps on value transactions,
-  - lack proper `TransactionConfirmed` mechanism to trigger mana update,
-  - lack integration into rate control/autopeering/fpc/etc.
+
+- Not have voted timestamps on value transactions.
+- Lack proper `TransactionConfirmed` mechanism to trigger mana update.
+- Lack integration into rate control/autopeering/fpc/etc.
   
 ## Detailed Design
 
-In this section, detailed GoShimmer implementation design considerations will be outlined about the mana module.
-In short, changes can be classified into 3 categories:
- 1. Transaction related changes,
- 2. Mana module functionality,
- 3. and related tools/utilities, such as API, visualization, analytics.
+In this section you can find an outline of the detailed GoShimmer implementation design about the mana module.
+
+Changes can be classified into 3 categories:
+
+ 1. Transaction related changes.
+ 2. Mana module functionality.
+ 3. Related tools/utilities, such as API, visualization, analytics.
 
 ### Transaction
 
-As described above, 3 new fields will be added to the transaction layout:
+As described in the [Transaction Layout](#transaction-layout) subsection, 3 new fields will be added to the transaction layout:
+
  1. `Timestamp` time.time
  2. `AccessManaNodeID` []bytes
  3. `ConsensusManaNodeID` []bytes
 
-By adding these fields to the signed transaction, `valuetransfers/packages/transaction` should be modified.
- - The three new fields should be added to the transaction essence.
- - Marshalling and unmarshalling of a transaction should be modified.
- - For calculating `Base Mana 1` values, `mana module` should be able to derive from a transaction the nodes which received
-   pledged `Base Mana 1` as a consequence of the consumed inputs of the transaction. Therefore, a lookup function should
-   be exposed from the value tangle that given an `input`, returns the `pledgedNodeID` of the transaction creating the input.
+By adding these fields to the signed transaction, `valuetransfers/packages/transaction` should be modified in the following manner:
 
-`Timestamp` is part of the signed transaction, therefore, a client sending a transaction to the node should already
-define it. In this case, this `Timestamp` will not be the same as the timestamp of the message containing the
-transaction and value payload, since the message is created on the node.
-A solution to this is that upon receiving a `transaction` from a client, the node checks if the timestamp is within
-a predefined time window, for example `t_current - delta`, where `delta` could be couple seconds. If true, then the node
-constructs the message, which must have a greater timestamp, than the transaction.
+- The three new fields should be added to the transaction essence.
+- Marshalling and unmarshalling of a transaction should be modified.
+- For calculating `Base Mana 1` values, the `mana module` should be able to derive the nodes which received pledged `Base Mana 1` from a transaction as a consequence of the transaction's consumed inputs. Therefore, a lookup function should be exposed from the value tangle that given an `input`, returns the `pledgedNodeID` of the transaction creating the input.
 
-`AccessManaNodeID` and `ConsensusManaNodeID` are also part of the signed transaction, so a client should fill them out.
-Node owners are free to choose to whom they pledge mana to with the transaction, so there should be a mechanism that
-lets the client know, what `AccessManaNodeID` and `ConsensusManaNodeID` are allowed. This could be a new API endpoint
-that works like this:
+`Timestamp` is part of the signed transaction. Therefore, a client sending a transaction to the node should already define it. In this case, this `Timestamp` will not be the same as the timestamp of the message containing the transaction and value payload, since the message is created on the node.
 
- 1. Client asks node what nodeIDs can be included for pledging  a certain type (access, consensus) mana.
- 2. Node answers with either:
-  - Don't care. Any node IDs are valid.
-  - List of nodeIDs that are allowed for each type.
- 3. If a client sends back the transaction with invalid or empty mana fields, the transaction is considered invalid.
+To solve this difference, upon receiving a `transaction` from a client, the node checks if the timestamp is within a predefined time window, for example `t_current - delta`, where `delta` could be couple seconds. If true, then the node constructs the message, which must have a greater timestamp, than the transaction.
 
-This way node owners can decide who their transactions are pledging mana to. It could be only their node, or they could
-provide mana pledging as a service. They could delegate access mana to others, but hold own to consensus mana, or the
-other way around.
+`AccessManaNodeID` and `ConsensusManaNodeID` are also part of the signed transaction, so a client should fill them out. Node owners are free to choose to whom they pledge mana to with the transaction, so there should be a mechanism that lets the client know what `AccessManaNodeID` and `ConsensusManaNodeID` are allowed. This could be a new API endpoint that works like this:
+
+ 1. The client asks node which nodeIDs can be included for pledging a certain type of access or consensus mana.
+ 2. The node answers with either:
+    - Don't care. Any node IDs are valid.
+    - List of nodeIDs that are allowed for each type.
+ 3. If a client sends back the transaction with invalid or empty mana fields, the receiving node will consider the transaction invalid.
+
+This way node owners can decide who their transactions are pledging mana to. It could be only their node, or they could provide mana pledging as a service. They could delegate access mana to others, but hold own to consensus mana, or the other way around.
 
 ### Initialization
 
-Mana state machine is an extension of the ledger state, hence its calculation depends on the ledger state perception
-of the node. Snapshotting is the mechanism that saves the ledger states and prunes unnecessary transactions. Together
-with the ledger state, base mana vectors are also saved, since a certain ledger state reflects a certain mana distribution
-in the network. In future, when snapshotting is implemented in GoShimmer, nodes joining the network will be able to query
-for snapshot files that will contain initial base mana vectors as well.
+Mana state machine is an extension of the ledger state, so its calculation depends on the ledger state perception of the node. Snapshotting is the mechanism that saves the ledger states and prunes unnecessary transactions. Together with the ledger state, base mana vectors are also saved, since a certain ledger state reflects a certain mana distribution in the network. In the future, when snapshotting is implemented in GoShimmer, nodes joining the network will be able to query for snapshot files that will contain initial base mana vectors as well.
 
-Until this functionality is implemented, mana calculation solely relies on transactions getting confirmed. That is, when
-a node joins the network and starts gathering messages and transactions from peers, it builds its own ledger state through
-solidification process. Essentially, the node requests all messages down to the genesis from the current tips of its neighbors.
-Once the genesis is found, messages are solidified bottom up. For the value tangle, this means that for each solidified
-and liked transaction, `TransactionConfirmed` event is triggered, updating the base mana vectors.
+Until this functionality is implemented, mana calculation solely relies on transactions getting confirmed. That is, when a node joins the network and starts gathering messages and transactions from peers, it builds its own ledger state through the solidification process. 
 
-In case of a large database, initial synching and solidification is a computationally heavy task due to the sheer amount
-of messages in the tangle. Mana calculation only adds to this burden. It will be determined through testing if additional
-"weight lifting" mechanism is needed (for example delaying mana calculation).
+Essentially, the node requests all messages down to the genesis from the current tips of its neighbors. Once the node finds the genesis message, it will solidify messages from the bottom up. For the value tangle, this means that for each solidified and liked transaction, a `TransactionConfirmed` event will be triggered, updating the base mana vectors.
 
-In the GoShimmer test network, all funds are initially held by the faucet node, therefore all mana present at bootstrap belong
-to this node. Whenever a transaction is requested from the faucet, it pledges mana to the requesting node, helping other
-nodes to increase their mana.
+In case of a large database, initial syncing and solidification is a computationally heavy task due to the sheer amount of messages in the tangle. Mana calculation only adds to this burden. It will be determined through testing if additional "weight lifting" mechanism is needed to, for example,  delay mana calculation.
+
+In the GoShimmer test network, the faucet node initially holds all funds, therefore all mana present at bootstrap belong to this node. Whenever a transaction is requested from the faucet, it pledges mana to the requesting node, helping other nodes to increase their mana.
 
 ### Mana Package
 
-The functionality of the mana module should be implemented in a `mana` package. Then, a `mana plugin` can use the package
-structs and methods to connect the dots, for example execute `BookMana` when `TransactionConfirmed` event is triggered
-in the value tangle.
+The functionality of the mana module should be implemented in a `mana` package. Then, a `mana plugin` can use the package structures and methods to connect the dots, for example execute `BookMana` when `TransactionConfirmed` event is triggered in the value tangle.
 
-`BaseMana` is a struct that holds the different mana values for a given node.
-Note that except for `Base Mana 1` calculation, we need the time when `BaseMana` values were updated, so we store it in the struct:
+`BaseMana` is a struct that holds the different mana values for a given node. Except for the `Base Mana 1` calculation, we need the time when `BaseMana` values were updated, so we store it in the struct:
+
  ```go
 type BaseMana struct {
   BaseMana1 float
@@ -183,8 +149,8 @@ type BaseMana struct {
 }
 ```
 
-`BaseManaVector` is a data structure that maps `nodeID`s to `BaseMana`. It also has a `Type` that denotes the type
-of mana this vector deals with (Access, Consensus, etc.).
+`BaseManaVector` is a data structure that maps `nodeID`s to `BaseMana`. It also has a `Type` that denotes the type of mana this vector deals with (Access, Consensus, etc.).
+
 ```go
 type BaseManaVector struct {
 	vector     map[identity.ID]*BaseMana
@@ -193,37 +159,40 @@ type BaseManaVector struct {
 ```
 
 #### Methods
+
 `BaseManaVector` should have the following methods:
- - `BookMana(transaction)`: Book mana of a transaction. Trigger `ManaBooked` event. Note, that this method updates
-   `BaseMana` with respect to time and to new `Base Mana 1` and `Base Mana 2` values.
- - `GetWeightedMana(nodeID, weight) mana`: Return `weight` *` Effective Base Mana 1` + (1-`weight`)+`Effective Base Mana 2`.
-   `weight` is a number in [0,1] interval. Notice, that `weight` = 1  results in only returning `Effective Base Mana 1`,
-   and the other way around. Note, that this method also updates `BaseMana` of the node with respect to time.
- - `GetMana(nodeID) mana`: Return 0.5*`Effective Base Mana 1` + 0.5*`Effective Base Mana 2` of a particular node. Note, that
-   this method also updates `BaseMana` of the node with respect to time.
- - `update(nodeID, time)`: update `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of a node with respect `time`.
- - `updateAll(time)`: update `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of all nodes with respect to `time`.
+
+ - `BookMana(transaction)`: Books mana of a transaction. Triggers a `ManaBooked` event. Note, that this method updates `BaseMana` with respect to time, and to new `Base Mana 1` and `Base Mana 2` values.
+ - `GetWeightedMana(nodeID, weight) mana`: Returns `weight` * ` Effective Base Mana 1` + (1-`weight`)+`Effective Base Mana 2`.
+   
+    * `weight` is a number in [0,1] interval. 
+    * Notice, that `weight` = 1  results in only returning `Effective Base Mana 1`,  and the other way around. 
+    * Note, that this method also updates `BaseMana` of the node with respect to time.
+ - `GetMana(nodeID) mana`: Returns 0.5 * `Effective Base Mana 1` + 0.5 * `Effective Base Mana 2` of a particular node. 
+   * Note, that this method also updates `BaseMana` of the node with respect to time.
+ - `update(nodeID, time)`: Updates `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of a node with respect to `time`.
+ - `updateAll(time)`: Updates `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of all nodes with respect to `time`.
 
 `BaseMana` should have the following methods:
- - `pledgeAndUpdate(transaction)`: update `BaseMana` fields and pledge mana with respect to `transaction`.
- - `revokeBaseMana1(amount, time)`:  update `BaseMana` values with respect to `time` and revoke `amount` `BaseMana1`.
- - `update(time)`: update all `BaseMana` fields with respect to `time`.
- - `updateEBM1(time)`: update `Effective Base Mana 1` wrt to `time`.
- - `updateBM2(time)`: update `Base Mana 2` wrt to `time`.
- - `updateEBM2(time)`: update `Effective Base Mana 2` wrt to `time`.
+ - `pledgeAndUpdate(transaction)`: Updates `BaseMana` fields and pledge mana with respect to `transaction`.
+ - `revokeBaseMana1(amount, time)`: Updates `BaseMana` values with respect to `time` and revoke `amount` `BaseMana1`.
+ - `update(time)`: Updates all `BaseMana` fields with respect to `time`.
+ - `updateEBM1(time)`: Updates `Effective Base Mana 1` wrt to `time`.
+ - `updateBM2(time)`: Updates `Base Mana 2` wrt to `time`.
+ - `updateEBM2(time)`: Updates `Effective Base Mana 2` wrt to `time`.
 
 #### Base Mana Calculation
 
 There are two cases when the values within `Base Mana Vector` are updated:
- 1. A confirmed transaction pledges mana.
- 2. Any module accesses the `Base Mana Vector`, and hence its values are updated with respect to `access time`.
-
-First, let's explore the former.
+ 1. [A confirmed transaction pledges mana](#a-confirmed-transaction-pledges-mana).
+ 2. [Any module accesses the `Base Mana Vector`](#any-module-accesses-the-base-mana-vector), so its values are updated with respect to `access time`.
 
 ##### A confirmed transaction pledges mana
+
 For simplicity, we only describe mana calculation for one of the Base Mana Vectors, namely, the Base Access Mana Vector.
 
 First, a `TransactionConfirmed` event is triggered, therefore `BaseManaVector.BookMana(transaction)` is executed:
+
 ```go
 func (bmv *BaseManaVector) BookMana(tx *transaction) {
     pledgedNodeID := tx.accessMana
@@ -251,14 +220,13 @@ func (bmv *BaseManaVector) BookMana(tx *transaction) {
     Events.ManaUpdated.Trigger(&ManaUpdatedEvent{pledgedNodeID, oldMana, bmv[pledgedNodeID], AccessManaType})
 }
 ```
-`Base Mana 1` is being revoked from the nodes that pledged mana for inputs that the current transaction consumes.
-Then, the appropriate node is located in `Base Mana Vector`, and mana is pledged to its `BaseMana`.
+
+`Base Mana 1` is being revoked from the nodes that pledged mana for inputs that the current transaction consumes. Then, the appropriate node is located in `Base Mana Vector`, and mana is pledged to its `BaseMana`.
+
 `Events` are essential to study what happens within the module from the outside.
 
-Note, that `revokeBaseMana1` accesses the mana entry of the nodes within `Base Mana Vector`, therefore all values are
-updated with respect to `t`. Notice the two branches after the condition. When `Base Mana` values had been updated before
-the transaction's timestamp, a regular update is carried out. However, if `t` is older, than the transaction timestamp,
-an update in the "past" is carried out and values are updated up to `LastUpdated`.
+Note, that `revokeBaseMana1` accesses the mana entry of the nodes within `Base Mana Vector`, therefore all values are updated with respect to `t`. Notice the two branches after the condition. When `Base Mana` values had been updated before the transaction's timestamp, a regular update is carried out. However, if `t` is older, than the transaction timestamp, an update in the "past" is carried out and values are updated up to `LastUpdated`.
+
 ```go
 func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) {
 	if t.After(bm.LastUpdated) {
