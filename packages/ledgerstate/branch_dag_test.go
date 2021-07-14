@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/entitylogger"
+	"github.com/iotaledger/goshimmer/packages/entitylog"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 
@@ -16,7 +16,7 @@ import (
 )
 
 func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylogger.New(mapdb.NewMapDB()))
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylog.New(mapdb.NewMapDB()))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -62,7 +62,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 }
 
 func TestBranchDAG_normalizeBranches(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylogger.New(mapdb.NewMapDB()))
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylog.New(mapdb.NewMapDB()))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -358,7 +358,7 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchLiked(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylogger.New(mapdb.NewMapDB()))
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylog.New(mapdb.NewMapDB()))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -453,7 +453,7 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchMonotonicallyLiked(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylogger.New(mapdb.NewMapDB()))
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylog.New(mapdb.NewMapDB()))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -558,7 +558,7 @@ func TestBranchDAG_SetBranchMonotonicallyLiked(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchFinalized(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylogger.New(mapdb.NewMapDB()))
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylog.New(mapdb.NewMapDB()))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -707,7 +707,7 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 }
 
 func TestBranchDAG_SetBranchLiked2(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylogger.New(mapdb.NewMapDB()))
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylog.New(mapdb.NewMapDB()))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -869,7 +869,7 @@ func TestBranchDAG_SetBranchLiked2(t *testing.T) {
 }
 
 func TestBranchDAG_ConflictMembers(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylogger.New(mapdb.NewMapDB()))
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylog.New(mapdb.NewMapDB()))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
@@ -912,7 +912,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 }
 
 func TestBranchDAG_MergeToMaster(t *testing.T) {
-	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylogger.New(mapdb.NewMapDB()))
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), entitylog.New(mapdb.NewMapDB()))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()

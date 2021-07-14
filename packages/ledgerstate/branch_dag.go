@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/entitylogger"
+	"github.com/iotaledger/goshimmer/packages/entitylog"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -29,7 +29,7 @@ type BranchDAG struct {
 	Events *BranchDAGEvents
 
 	// EntityLogger contains a specialized logger for debug purposes that logs relevant changes per entity.
-	EntityLogger *entitylogger.EntityLogger
+	EntityLogger *entitylog.EntityLog
 
 	branchStorage         *objectstorage.ObjectStorage
 	childBranchStorage    *objectstorage.ObjectStorage
@@ -39,7 +39,7 @@ type BranchDAG struct {
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider, entityLogger *entitylogger.EntityLogger) (newBranchDAG *BranchDAG) {
+func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider, entityLogger *entitylog.EntityLog) (newBranchDAG *BranchDAG) {
 	options := buildObjectStorageOptions(cacheProvider)
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{

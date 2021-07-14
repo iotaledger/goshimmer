@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/entitylogger"
+	"github.com/iotaledger/goshimmer/packages/entitylog"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 
@@ -909,7 +909,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
 	store := mapdb.NewMapDB()
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
-	branchDAG := NewBranchDAG(store, cacheTimeProvider, entitylogger.New(store))
+	branchDAG := NewBranchDAG(store, cacheTimeProvider, entitylog.New(store))
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 

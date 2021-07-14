@@ -5,22 +5,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/entitylogger"
+	"github.com/iotaledger/goshimmer/packages/entitylog"
 
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 )
 
 func Test_EntityLogger(t *testing.T) {
-	entityLogger := entitylogger.New(mapdb.NewMapDB())
-	entityLogger.RegisterEntity("Branch", NewBranchLogger)
+	entityLog := entitylog.New(mapdb.NewMapDB())
+	entityLog.RegisterEntity(BranchEntityName, NewBranchLogger)
 
-	entityLogger.Logger("Branch", BranchID{1}).LogInfo("Hallo :D")
-	entityLogger.Logger("Branch", BranchID{1}).LogDebug("Was")
-	entityLogger.Logger("Branch", BranchID{2}).LogDebug("Was")
+	branch1Logger := entityLog.Logger(BranchEntityName, BranchID{1})
+	branch1Logger.LogInfo("Hallo :D")
+	branch1Logger.LogDebug("Was")
+
+	entityLog.Logger(BranchEntityName, BranchID{2}).LogDebug("Was")
 
 	time.Sleep(800 * time.Millisecond)
 
-	fmt.Println(entityLogger.Logger("Branch").Entries())
+	fmt.Println(entityLog.Logger(BranchEntityName).Entries())
 
-	fmt.Println(entityLogger.Logger("Branch", BranchID{1}).Entries())
+	fmt.Println(branch1Logger.Entries())
 }
