@@ -24,7 +24,7 @@ const ActionList = [
   },
   {
     title: 'Participate',
-    link: 'docs/tutorials/set-up-a-goshimmer-node/',
+    link: 'docs/tutorials/setup/',
     description: (
       <>
         Do you want to become part of the network? Learn how to setup your own goShimmer Node software with our simple guide.

@@ -33,6 +33,11 @@ module.exports = {
           label: 'Documentation',
         },
         {
+          href: '/blog',
+          position: 'left',
+          label: 'Blog',
+        },
+        {
           href: 'https://github.com/iotaledger/Goshimmer',
           label: 'GitHub',
           position: 'right',
@@ -55,7 +60,7 @@ module.exports = {
             },
             {
               label: 'Tutorials',
-              to: '/docs/tutorials/set-up-a-goshimmer-node',
+              to: '/docs/tutorials/setup',
             },
             {
               label: 'Implementation Design',
@@ -76,6 +81,15 @@ module.exports = {
             {
               label: 'Team Resources',
               to: '/docs/teamresources/release',
+            },
+          ],
+        },
+        {
+          title: 'Articles',
+          items: [
+            {
+              label: 'Blog',
+              href: '/blog',
             },
           ],
         },
