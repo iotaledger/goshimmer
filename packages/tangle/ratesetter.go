@@ -66,6 +66,8 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		tangle: tangle,
 		Events: &RateSetterEvents{
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
+			MessageRated:     events.NewEvent(MessageCaller),
+			Error:            events.NewEvent(events.ErrorCaller),
 		},
 		self:           tangle.Options.Identity.ID(),
 		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
@@ -85,8 +87,16 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
+	r.tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
+		if err := r.Issue(msg); err != nil {
+			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
+		}
+	}))
 	// update own rate setting
-	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) {
+	r.tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+		if identity.NewID(msgParsedEvent.Message.IssuerPublicKey()) != r.self {
+			return
+		}
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
 			return
@@ -162,9 +172,7 @@ loop:
 			}
 
 			msg := r.issuingQueue.PopFront().(*Message)
-			if err := r.tangle.Scheduler.SubmitAndReady(msg.ID()); err != nil {
-				r.Events.MessageDiscarded.Trigger(msg.ID())
-			}
+			r.Events.MessageRated.Trigger(msg)
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
@@ -174,7 +182,7 @@ loop:
 
 		// add a new message to the local issuer queue
 		case msg := <-r.issueChan:
-			if r.issuingQueue.Size()+msg.Size() > MaxLocalQueueSize {
+			if r.issuingQueue.Size()+len(msg.Payload().Bytes()) > MaxLocalQueueSize {
 				r.Events.MessageDiscarded.Trigger(msg.ID())
 				continue
 			}
@@ -204,7 +212,7 @@ loop:
 }
 
 func (r *RateSetter) issueInterval(msg *Message) time.Duration {
-	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / r.ownRate.Load() * float64(time.Second)))
+	wait := time.Duration(math.Ceil(float64(len(msg.Payload().Bytes())) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 
@@ -215,6 +223,8 @@ func (r *RateSetter) issueInterval(msg *Message) time.Duration {
 // RateSetterEvents represents events happening in the rate setter.
 type RateSetterEvents struct {
 	MessageDiscarded *events.Event
+	MessageRated     *events.Event
+	Error            *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

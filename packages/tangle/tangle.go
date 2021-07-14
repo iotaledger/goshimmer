@@ -37,6 +37,7 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
+	RateSetter            *RateSetter
 	Orderer               *Orderer
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
@@ -70,6 +71,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
+	tangle.RateSetter = NewRateSetter(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
@@ -110,6 +112,7 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.Scheduler.Setup()
+	t.RateSetter.Setup()
 	t.Orderer.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
@@ -134,6 +137,10 @@ func (t *Tangle) Setup() {
 
 	t.Scheduler.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
+	}))
+
+	t.RateSetter.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Events.Error.Trigger(errors.Errorf("error in RateSetter: %w", err))
 	}))
 }
 
@@ -186,6 +193,7 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
+	t.RateSetter.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()
 	t.Booker.Shutdown()
