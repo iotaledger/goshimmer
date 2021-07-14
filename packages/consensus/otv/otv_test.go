@@ -1379,8 +1379,8 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 						"A":     {"B"},
 						"C":     {"B"},
 						"D":     {"E"},
-						"F":     {},
-						"G":     {},
+						"F":     {"B"},
+						"G":     {"B"},
 						"J":     {"K"},
 						"I":     {"H"},
 						"C+E":   {"B"},
@@ -1441,7 +1441,14 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 					WeightFunc:   WeightFuncFromScenario(t, scenario),
 					wantLiked:    mustMatch(&scenario, "B"),
 					wantDisliked: mustMatch(&scenario, "A", "C", "F", "G", "H"),
-					args:         argsFunc(&scenario),
+					wantLikedInstead: mustMatchLikedInstead(&scenario, map[string][]string{
+						"A": {"B"},
+						"C": {"B"},
+						"F": {"B"},
+						"G": {"B"},
+						"H": {"B"},
+					}),
+					args: argsFunc(&scenario),
 				}
 			}(),
 			wantErr: false,
@@ -1496,7 +1503,12 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 					WeightFunc:   WeightFuncFromScenario(t, scenario),
 					wantLiked:    mustMatch(&scenario, "A", "C", "G"),
 					wantDisliked: mustMatch(&scenario, "F", "B", "H"),
-					args:         argsFunc(&scenario),
+					wantLikedInstead: mustMatchLikedInstead(&scenario, map[string][]string{
+						"B": {"A", "C"},
+						"F": {"G"},
+						"H": {"C", "G"},
+					}),
+					args: argsFunc(&scenario),
 				}
 			}(),
 			wantErr: false,
@@ -1605,7 +1617,17 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 					WeightFunc:   WeightFuncFromScenario(t, scenario),
 					wantLiked:    mustMatch(&scenario, "A", "H", "L", "N", "J", "J+N"),
 					wantDisliked: mustMatch(&scenario, "F", "B", "G", "C", "I", "K", "M", "O"),
-					args:         argsFunc(&scenario),
+					wantLikedInstead: mustMatchLikedInstead(&scenario, map[string][]string{
+						"B": {"A", "H"},
+						"C": {"H"},
+						"K": {"L"},
+						"F": {"H"},
+						"G": {"H"},
+						"M": {"N"},
+						"I": {"J"},
+						"O": {"J", "N"},
+					}),
+					args: argsFunc(&scenario),
 				}
 			}(),
 			wantErr: false,
@@ -1714,7 +1736,19 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 					WeightFunc:   WeightFuncFromScenario(t, scenario),
 					wantLiked:    mustMatch(&scenario, "A", "H", "L", "O"),
 					wantDisliked: mustMatch(&scenario, "F", "B", "G", "C", "I", "N", "K", "M", "J", "J+N"),
-					args:         argsFunc(&scenario),
+					wantLikedInstead: mustMatchLikedInstead(&scenario, map[string][]string{
+						"B":   {"A", "H"},
+						"C":   {"H"},
+						"K":   {"L"},
+						"F":   {"H"},
+						"G":   {"H"},
+						"M":   {"O"},
+						"N":   {"O"},
+						"I":   {"O"},
+						"J":   {"O"},
+						"J+N": {"O"},
+					}),
+					args: argsFunc(&scenario),
 				}
 			}(),
 			wantErr: false,
@@ -1723,7 +1757,7 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
-			defer branchDAG.Shutdown()
+			//defer branchDAG.Shutdown()
 
 			tt.test.Scenario.CreateBranches(t, branchDAG)
 			o := NewOnTangleVoting(tt.test.WeightFunc, branchDAG)
