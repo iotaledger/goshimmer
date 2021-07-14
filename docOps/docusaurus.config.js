@@ -3,10 +3,10 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
-  title: 'Goshimmer',
+  title: 'GoShimmer',
   tagline: 'Official Goshimmer Software',
   url: 'https://goshimmer.docs.iota.org/',
-  baseUrl: '/goshimmer/',
+  baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
   favicon: '/img/logo/favicon.ico',
@@ -105,7 +105,7 @@ module.exports = {
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           editUrl:
-            'https://github.com/iotaledger/Goshimmer/tree/main/docs',
+            'https://github.com/iotaledger/Goshimmer/tree/develop/docOps/',
         },
         theme: {
           customCss: require.resolve('./src/css/iota.css'),
