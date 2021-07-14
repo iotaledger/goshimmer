@@ -47,6 +47,7 @@ func New(store kvstore.KVStore) (entityLogger *EntityLog) {
 	return entityLogger
 }
 
+// RegisterEntity registers a new entity that can be used to log entity specific events.
 func (e *EntityLog) RegisterEntity(entityName string, loggerFactory LoggerFactory) {
 	e.loggerFactoriesMutex.Lock()
 	defer e.loggerFactoriesMutex.Unlock()
@@ -54,6 +55,7 @@ func (e *EntityLog) RegisterEntity(entityName string, loggerFactory LoggerFactor
 	e.loggerFactories[newEntityTypeID(entityName)] = loggerFactory
 }
 
+// StoreLogEntry stores a new LogEntry in the EntityLog.
 func (e *EntityLog) StoreLogEntry(logEntry LogEntry) {
 	cachedObject, stored := e.logEntryStorage.StoreIfAbsent(&entityLogEntry{
 		entityTypeID: newEntityTypeID(logEntry.EntityName()),
@@ -66,6 +68,7 @@ func (e *EntityLog) StoreLogEntry(logEntry LogEntry) {
 	}
 }
 
+// LogEntries returns a set of CachedLogEntries that are associated with the given entityName (and optional entityID).
 func (e *EntityLog) LogEntries(entityName string, entityID ...marshalutil.SimpleBinaryMarshaler) (cachedLogEntries CachedLogEntries) {
 	hashedLogEntityType := blake2b.Sum256([]byte(entityName))
 	var iterationPrefix []byte
@@ -85,6 +88,7 @@ func (e *EntityLog) LogEntries(entityName string, entityID ...marshalutil.Simple
 	return
 }
 
+// Logger returns a Logger for the given entityName (and optional entityID).
 func (e *EntityLog) Logger(entityName string, entityID ...marshalutil.SimpleBinaryMarshaler) Logger {
 	return e.loggerFactories[newEntityTypeID(entityName)](e, entityID...)
 }
