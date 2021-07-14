@@ -9,7 +9,7 @@ const ActionList = [
     link: 'docs/welcome/',
     description: (
       <>
-        Learn the Basics about the IOTA Identity Wallet Library and how it works behind the scenes. 
+        Learn the Basics about the Node Software for the 100% decentralized IOTA Network and how it works behind the scenes.
       </>
     ),
   },
