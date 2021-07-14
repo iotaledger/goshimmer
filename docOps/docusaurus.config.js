@@ -16,6 +16,9 @@ module.exports = {
     'https://fonts.googleapis.com/css?family=Material+Icons',
   ],
   themeConfig: {
+    colorMode: {
+          defaultMode: "dark",
+          },
     navbar: {
       title: 'Goshimmer',
       logo: {

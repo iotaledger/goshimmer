@@ -124,16 +124,16 @@ module.exports = {
   },
   {
     type: 'category',
-    label: 'Protocol specification',
+    label: 'Protocol Specification',
     items: [
       {
         type: 'doc',
-        label: 'Protocol specification',
+        label: 'Protocol Specification',
         id: 'protocol_specification',
       },
       {
         type: 'doc',
-        label: 'Protocol high level overview',
+        label: 'Protocol High Level Overview',
         id: 'protocol_specification/protocol',
       },
 
@@ -175,7 +175,7 @@ module.exports = {
 
           {
             type: 'doc',
-            label: 'Consensus mechanism',
+            label: 'Consensus Mechanism',
             id: 'protocol_specification/consensus_mechanism',
           },
 
@@ -224,7 +224,7 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Node info',
+        label: 'Node Info',
         id: 'apis/info',
       },
 
@@ -236,13 +236,13 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Manual peering',
+        label: 'Manual Peering',
         id: 'apis/manual_peering',
       },
 
       {
         type: 'doc',
-        label: 'Communication layer',
+        label: 'Communication Layer',
         id: 'apis/communication',
       },
 
@@ -296,19 +296,19 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Oerview',
+        label: 'Overview',
         id: 'tooling',
       },
 
       {
         type: 'doc',
-        label: 'Docker private network',
+        label: 'Docker Private Network',
         id: 'tooling/docker_private_network',
       },
 
       {
         type: 'doc',
-        label: 'Integration tests',
+        label: 'Integration Tests',
         id: 'tooling/integration_tests',
       },
     ],
@@ -320,7 +320,7 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'How to do a release',
+        label: 'How To Do a Release',
         id: 'teamresources/release',
       },
 
@@ -332,13 +332,13 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Local development',
+        label: 'Local Development',
         id: 'teamresources/local_development',
       },
 
       {
         type: 'doc',
-        label: 'Modify the Analysis dashboard',
+        label: 'Modify the Analysis Dashboard',
         id: 'teamresources/analysis_dashboard',
       },
     ],
