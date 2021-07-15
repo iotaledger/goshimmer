@@ -18,28 +18,28 @@ Here is the list of hosts and services that they run:
   - Analysisserver: analysis.server.bindAddress=0.0.0.0:21888; analysis.dashboard.bindAddress=0.0.0.0:28080 
     
 - bootstrap-01.pre-devnet.shimmer.iota.cafe:
-  - Bootstrap Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601 
+  - Bootstrap Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601; DASHBOARD_PORT=9001; WEBAPI_PORT=9101; FPC_PORT=10891
 
 - faucet-01.pre-devnet.shimmer.iota.cafe:
-  - Faucet Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601
+  - Faucet Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601; DASHBOARD_PORT=9001; WEBAPI_PORT=9101; FPC_PORT=10891
 
 - vanilla-01.pre-devnet.shimmer.iota.cafe:
-  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601
+  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601; DASHBOARD_PORT=9001; WEBAPI_PORT=9101; FPC_PORT=10891
   
 - drng-01.pre-devnet.shimmer.iota.cafe:
-  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601
+  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601; DASHBOARD_PORT=9001; WEBAPI_PORT=9101; FPC_PORT=10891
   
 - drng-02.pre-devnet.shimmer.iota.cafe:
-  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601
+  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601; DASHBOARD_PORT=9001; WEBAPI_PORT=9101; FPC_PORT=10891
   
 - drng-03.pre-devnet.shimmer.iota.cafe:
-  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601
+  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601; DASHBOARD_PORT=9001; WEBAPI_PORT=9101; FPC_PORT=10891
   
 - drng-04.pre-devnet.shimmer.iota.cafe:
-  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601
+  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601; DASHBOARD_PORT=9001; WEBAPI_PORT=9101; FPC_PORT=10891
   
 - drng-05.pre-devnet.shimmer.iota.cafe:
-  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601
+  - General Goshimmer Node: AUTOPEERING_PORT=33501; GOSSIP_PORT=33601; DASHBOARD_PORT=9001; WEBAPI_PORT=9101; FPC_PORT=10891
   
 - drand-01.pre-devnet.shimmer.iota.cafe:
   - Drand Node: PORT=1234 
