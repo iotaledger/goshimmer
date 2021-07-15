@@ -1,4 +1,5 @@
 eval "$GOSHIMMER_SEEDS"
+echo "$NETWORK_VERSION"
 ansible-playbook -u root -i deploy/ansible/hosts.yml --extra-vars \
   "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
 BOOTSTRAP_01_SEED=$BOOTSTRAP_01_SEED
