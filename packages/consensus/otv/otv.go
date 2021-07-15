@@ -77,7 +77,10 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
-				opinionTuple = append(opinionTuple, OpinionTuple{conflictingBranchID, resolvedConflictBranchID})
+				opinionTuple = append(opinionTuple, OpinionTuple{
+					Liked:    conflictingBranchID,
+					Disliked: resolvedConflictBranchID,
+				})
 			}
 		})
 
