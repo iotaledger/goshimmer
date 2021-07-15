@@ -138,6 +138,12 @@ func (r *RateSetter) Size() int {
 	return r.issuingQueue.Size()
 }
 
+//Estimate estimates the issuing time of new message.
+func (r *RateSetter) Estimate() time.Duration {
+	// TODO: https://github.com/iotaledger/goshimmer/issues/1483
+	return 0
+}
+
 // rateSetting updates the rate ownRate at which messages can be issued by the node.
 func (r *RateSetter) rateSetting() {
 	ownMana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)
