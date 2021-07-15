@@ -51,7 +51,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// Messages created by the node need to pass through the normal flow.
-	Tangle().RateSetter.Events.MessageRated.Attach(events.NewClosure(func(message *tangle.Message) {
+	Tangle().RateSetter.Events.MessageIssued.Attach(events.NewClosure(func(message *tangle.Message) {
 		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
 	}))
 

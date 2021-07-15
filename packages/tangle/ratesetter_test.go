@@ -36,14 +36,14 @@ func TestRateSetter_Submit(t *testing.T) {
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
 
-	messageRated := make(chan *Message, 1)
-	rateSetter.Events.MessageRated.Attach(events.NewClosure(func(msg *Message) { messageRated <- msg }))
+	messageIssued := make(chan *Message, 1)
+	rateSetter.Events.MessageIssued.Attach(events.NewClosure(func(msg *Message) { messageIssued <- msg }))
 
 	msg := newMessage(localNode.PublicKey())
 	assert.NoError(t, rateSetter.Issue(msg))
 	assert.Eventually(t, func() bool {
 		select {
-		case msg1 := <-messageRated:
+		case msg1 := <-messageIssued:
 			return assert.Equal(t, msg, msg1)
 		default:
 			return false

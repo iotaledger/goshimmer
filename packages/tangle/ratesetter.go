@@ -66,7 +66,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		tangle: tangle,
 		Events: &RateSetterEvents{
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
-			MessageRated:     events.NewEvent(MessageCaller),
+			MessageIssued:    events.NewEvent(MessageCaller),
 			Error:            events.NewEvent(events.ErrorCaller),
 		},
 		self:           tangle.Options.Identity.ID(),
@@ -172,7 +172,7 @@ loop:
 			}
 
 			msg := r.issuingQueue.PopFront().(*Message)
-			r.Events.MessageRated.Trigger(msg)
+			r.Events.MessageIssued.Trigger(msg)
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
@@ -223,7 +223,7 @@ func (r *RateSetter) issueInterval(msg *Message) time.Duration {
 // RateSetterEvents represents events happening in the rate setter.
 type RateSetterEvents struct {
 	MessageDiscarded *events.Event
-	MessageRated     *events.Event
+	MessageIssued    *events.Event
 	Error            *events.Event
 }
 
