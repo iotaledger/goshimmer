@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/mr-tron/base58"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -201,7 +202,7 @@ var (
 )
 
 func accessManaRetriever(nodeID identity.ID) float64 {
-	aMana, exist := fixedAccessMana[nodeID.String()]
+	aMana, exist := fixedAccessMana[base58.Encode(nodeID.Bytes())]
 	if !exist {
 		return 1
 	}
