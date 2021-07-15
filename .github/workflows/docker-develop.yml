@@ -73,7 +73,8 @@ jobs:
           ELK_ELASTIC_PASSWORD: '${{ secrets.ELK_ELASTIC_PASSWORD }}'
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
         run: |
-          NETWORK_VERSION=$((16#$(git rev-parse --short "{{ github.sha }}")%1000000000+1000))
           echo {{ github.sha }}
+          echo $GITHUB_SHA
+          NETWORK_VERSION=$((16#$(git rev-parse --short "{{ github.sha }}")%1000000000+1000))
           echo $NETWORK_VERSION
           ./deploy/ansible/run.sh
