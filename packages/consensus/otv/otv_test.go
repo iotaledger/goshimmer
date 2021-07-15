@@ -1753,11 +1753,89 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 			}(),
 			wantErr: false,
 		},
+		{
+			name: "20",
+			test: func() test {
+				scenario := Scenario{
+					"A": {
+						BranchID:       BranchID{2},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}),
+						ApprovalWeight: 0.2,
+					},
+					"B": {
+						BranchID:       BranchID{3},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+						ApprovalWeight: 0.3,
+					},
+					"C": {
+						BranchID:       BranchID{4},
+						ParentBranches: NewBranchIDs(MasterBranchID),
+						Conflicting:    NewConflictIDs(ConflictID{2}),
+						ApprovalWeight: 0.2,
+					},
+					"F": {
+						Order:          1,
+						BranchID:       BranchID{7},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.02,
+					},
+					"G": {
+						Order:          1,
+						BranchID:       BranchID{8},
+						ParentBranches: NewBranchIDs(BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{4}),
+						ApprovalWeight: 0.03,
+					},
+					"H": {
+						Order:          1,
+						BranchID:       BranchID{9},
+						ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
+						Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+						ApprovalWeight: 0.15,
+					},
+					"I": {
+						Order:          2,
+						BranchID:       BranchID{10},
+						ParentBranches: NewBranchIDs(BranchID{7}),
+						Conflicting:    NewConflictIDs(ConflictID{12}),
+						ApprovalWeight: 0.005,
+					},
+					"J": {
+						Order:          2,
+						BranchID:       BranchID{11},
+						ParentBranches: NewBranchIDs(BranchID{7}),
+						Conflicting:    NewConflictIDs(ConflictID{12}),
+						ApprovalWeight: 0.015,
+					},
+				}
+
+				return test{
+					Scenario:     scenario,
+					WeightFunc:   WeightFuncFromScenario(t, scenario),
+					wantLiked:    mustMatch(&scenario, "B"),
+					wantDisliked: mustMatch(&scenario, "A", "C", "F", "G", "H", "I", "J"),
+					wantLikedInstead: mustMatchLikedInstead(&scenario, map[string][]string{
+						"A": {"B"},
+						"C": {"B"},
+						"F": {"B"},
+						"G": {"B"},
+						"H": {"B"},
+						"I": {"B"},
+						"J": {"B"},
+					}),
+					args: argsFunc(&scenario),
+				}
+			}(),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
-			//defer branchDAG.Shutdown()
+			defer branchDAG.Shutdown()
 
 			tt.test.Scenario.CreateBranches(t, branchDAG)
 			o := NewOnTangleVoting(tt.test.WeightFunc, branchDAG)

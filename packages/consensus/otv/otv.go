@@ -45,16 +45,18 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 				break
 			}
 		}
+
 		if allParentsLiked {
 			liked.Add(branchID)
-		} else {
-			disliked.Add(branchID)
-			innerLikedInstead, err := o.LikedInstead(branchID)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			likedInstead[branchID] = innerLikedInstead
+			continue
 		}
+
+		disliked.Add(branchID)
+		innerLikedInstead, err := o.LikedInstead(branchID)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		likedInstead[branchID] = innerLikedInstead
 	}
 	return
 }
@@ -77,8 +79,12 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (likedInste
 			continue
 		}
 
-		// here either the branch is liked or any conflicting branch is also disliked
-		// which means that instead the liked branches have to be derived from the disliked parent
+		if o.doILike(resolvedConflictBranchID, ledgerstate.NewConflictIDs()) {
+			continue
+		}
+
+		// here any direct conflicting branch is also disliked
+		// which means that instead the liked branches have to be derived from branch's parents
 		cachedBranch := o.branchDAG.Branch(resolvedConflictBranchID)
 		for parent := range cachedBranch.Unwrap().Parents() {
 			parentsLikedInstead, err := o.LikedInstead(parent)
