@@ -1,0 +1,15 @@
+---
+## This playbook deploys new Goshimmer version.
+
+- hosts: supports
+  roles:
+    - role: goshimmer-node
+      nodeType: entrynode
+    - role: goshimmer-node
+      nodeType: analysis-server
+
+- hosts: goshimmers
+  vars:
+    nodeType: goshimmer
+  roles:
+    - goshimmer-node
