@@ -29,13 +29,12 @@ func NewOnTangleVoting(weightFunc WeightFunc, branchDAG *ledgerstate.BranchDAG) 
 
 // Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
 // it is the branch with the highest approval weight across all its conflict sets of which it is a member.
-func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, likedInstead map[ledgerstate.BranchID]ledgerstate.BranchIDs, err error) {
+func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
 	liked, disliked = ledgerstate.NewBranchIDs(), ledgerstate.NewBranchIDs()
-	likedInstead = make(map[ledgerstate.BranchID]ledgerstate.BranchIDs)
 	for branchID := range branchIDs {
 		resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 		if err != nil {
-			return nil, nil, nil, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
+			return nil, nil, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
 		}
 
 		allParentsLiked := true
@@ -51,34 +50,42 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 			continue
 		}
 
-		disliked.Add(branchID)
-		innerLikedInstead, err := o.LikedInstead(branchID)
+		parentsOpinionTuple, err := o.LikedInstead(branchID)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
-		likedInstead[branchID] = innerLikedInstead
+		for _, k := range parentsOpinionTuple {
+			liked.Add(k.Liked)
+			disliked.Add(k.Disliked)
+		}
 	}
 	return
 }
 
-func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (likedInstead ledgerstate.BranchIDs, err error) {
-	likedInstead = ledgerstate.NewBranchIDs()
+type OpinionTuple struct {
+	Liked    ledgerstate.BranchID
+	Disliked ledgerstate.BranchID
+}
+
+func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []OpinionTuple, err error) {
+	opinionTuple = make([]OpinionTuple, 0)
 	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
-		return likedInstead, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
+		return opinionTuple, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
 	}
 
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
-				likedInstead.Add(conflictingBranchID)
+				opinionTuple = append(opinionTuple, OpinionTuple{conflictingBranchID, resolvedConflictBranchID})
 			}
 		})
 
-		if len(likedInstead) > 0 {
+		if len(opinionTuple) > 0 {
 			continue
 		}
 
+		// I like myself
 		if o.doILike(resolvedConflictBranchID, ledgerstate.NewConflictIDs()) {
 			continue
 		}
@@ -87,14 +94,13 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (likedInste
 		// which means that instead the liked branches have to be derived from branch's parents
 		cachedBranch := o.branchDAG.Branch(resolvedConflictBranchID)
 		for parent := range cachedBranch.Unwrap().Parents() {
-			parentsLikedInstead, err := o.LikedInstead(parent)
+			parentsOpinionTuple, err := o.LikedInstead(parent)
 			if err != nil {
 				cachedBranch.Release()
 				return nil, errors.Wrapf(err, "unable to determine liked instead of parent %s of %s", parent, branchID)
 			}
-			for k := range parentsLikedInstead {
-				likedInstead.Add(k)
-			}
+			// If I have multiple parents I have to add all of them to my tuple
+			opinionTuple = append(opinionTuple, parentsOpinionTuple...)
 		}
 		cachedBranch.Release()
 	}
