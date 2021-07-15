@@ -191,11 +191,11 @@ func schedulerRate(durationString string) time.Duration {
 
 var (
 	fixedAccessMana = map[string]float64{
-		"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24": 500, // Bootstrap1 (Ressim)
-		"7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k": 250, // Faucet (Ressim)
-		"9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd": 150, // Bootstrap2 (Ressim)
-		"AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG": 70,  // Falk 1
-		"FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z": 30,  // Falk 2
+		"AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK": 500, // Bootstrap1 (Ressim) : (100 * 60) - 26 = 574
+		"5heLsHxMRdTewXooaaDFGpAoj5c41ah5wTmpMukjdvi7": 250, // Faucet (Ressim)  : (50 * 60) - 26 = 274
+		"D9SPFofAGhA5V9QRDngc1E8qG9bTrnATmpZMdoyRiBoW": 150, // Bootstrap2 (Ressim)  : (30 * 60) - 26 = 154
+		"CfkVFzXRjJdshjgPpQAZ4fccZs2SyVPGkTc8LmtnbsT":  70,  // Falk 1  : (14 * 60) - 26 = 58
+		"AQfLfcKpvt1nWn916ZGSBy7bRPkjEv5sN7fSZ2rFKoPh": 30,  // Falk 2  : (6 * 60) - 26 = 10
 	}
 	totalAMana = 1000.
 )
