@@ -18,7 +18,7 @@ const ActionList = [
     link: 'docs/tutorials/dApp/',
     description: (
       <>
-        Follow our tutorials to build your own simple IOTA dApp as goShimmer plugin.
+        Follow our tutorials to build your own simple IOTA dApp as GoShimmer plugin.
       </>
     ),
   },
@@ -27,7 +27,7 @@ const ActionList = [
     link: 'docs/tutorials/setup/',
     description: (
       <>
-        Do you want to become part of the network? Learn how to setup your own goShimmer Node software with our simple guide.
+        Do you want to become part of the network? Learn how to setup your own GoShimmer Node software with our simple guide.
       </>
     ),
   },
