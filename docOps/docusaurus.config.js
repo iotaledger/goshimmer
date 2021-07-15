@@ -4,7 +4,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
   title: 'GoShimmer',
-  tagline: 'Official Goshimmer Software',
+  tagline: 'Official GoShimmer Software',
   url: 'https://goshimmer.docs.iota.org/',
   baseUrl: '/',
   onBrokenLinks: 'throw',
@@ -20,7 +20,7 @@ module.exports = {
           defaultMode: "dark",
           },
     navbar: {
-      title: 'goShimmer',
+      title: 'GoShimmer',
       logo: {
         alt: 'IOTA',
         src: 'img/logo/Logo_Swirl_Dark.png',
