@@ -299,7 +299,7 @@ you can take back when you destroy the NFT. This is required so that NFTs are no
 some IOTAs backing the output. Otherwise, the ledger database could be easily spammed.
 Transferring NFTs is also feeless, just like any other transaction in IOTA.
 
-## Goshimmer Implementation
+## GoShimmer Implementation
 
 If you are interested, you can find the GoShimmer implementation of the new ouput types in
 [output.go](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go):

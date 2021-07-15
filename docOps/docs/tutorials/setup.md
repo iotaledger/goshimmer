@@ -449,7 +449,7 @@ With the following content:
 apiVersion: 1
 
 providers:
-  - name: 'Goshimmer Local Metrics'
+  - name: 'GoShimmer Local Metrics'
     orgId: 1
     folder: ''
     type: file
