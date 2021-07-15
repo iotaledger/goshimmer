@@ -27,11 +27,12 @@ function HomepageHeader() {
 
 export default function Home() {
   const {siteConfig} = useDocusaurusContext();
+  const title = siteConfig.title;
+  const tagline = siteConfig.tagline
   return (
     <Layout
-      title={`IOTA Identity Documentation`}
-      description="Providing Trust between Individuals, Organizations and Things.
-      ">
+      title={title}
+      description={tagline}>
       <LandingpageHeader />
       {/* <main>
         <HomepageFeatures />

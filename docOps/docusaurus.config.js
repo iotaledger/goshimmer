@@ -20,7 +20,7 @@ module.exports = {
           defaultMode: "dark",
           },
     navbar: {
-      title: 'goShimmer',
+      title: 'GoShimmer',
       logo: {
         alt: 'IOTA',
         src: 'img/logo/Logo_Swirl_Dark.png',
