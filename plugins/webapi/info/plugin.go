@@ -144,5 +144,9 @@ func getInfo(c echo.Context) error {
 			Rate:           messagelayer.Tangle().Scheduler.Rate().String(),
 			NodeQueueSizes: nodeQueueSizes,
 		},
+		RateSetter: jsonmodels.RateSetter{
+			Rate: messagelayer.Tangle().RateSetter.Rate(),
+			Size: messagelayer.Tangle().RateSetter.Size(),
+		},
 	})
 }

@@ -36,9 +36,19 @@ func TestRateSetter_Submit(t *testing.T) {
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
 
+	messageIssued := make(chan *Message, 1)
+	rateSetter.Events.MessageIssued.Attach(events.NewClosure(func(msg *Message) { messageIssued <- msg }))
+
 	msg := newMessage(localNode.PublicKey())
 	assert.NoError(t, rateSetter.Issue(msg))
-	time.Sleep(100 * time.Millisecond)
+	assert.Eventually(t, func() bool {
+		select {
+		case msg1 := <-messageIssued:
+			return assert.Equal(t, msg, msg1)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
 }
 
 func TestRateSetter_ErrorHandling(t *testing.T) {
