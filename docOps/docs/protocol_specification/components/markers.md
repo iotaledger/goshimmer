@@ -1,20 +1,24 @@
 # Markers
 ## Summary
-In order to know whether a message in the Tangle is orphaned or not, we introduce **grades of finality** to interpret the status of a message. The higher grade of finality is determined by the **approval weight**, which is the proportion of active consensus mana approving a given message.
+In order to know whether a message in the Tangle is orphaned or not, we introduce _grades of finality_ to interpret the status of a message. The higher grade of finality is determined by the _approval weight_, which is the proportion of active consensus mana approving a given message.
 
-To compute the approval weight of a given message we need to traverse the Tangle from the message to the tips and sum up the active consensus mana of all the messages in its future cone. The **marker** tool is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle that needs to be traversed, and which finally results in the grade of finality.
+To compute the approval weight of a given message we need to traverse the Tangle from the message to the tips, and sum up the active consensus mana of all the messages in its future cone. The _marker_ tool efficiently estimate the approval weight of a message, and that reduces the portion of the Tangle that needs to be traversed, and which finally results in the grade of finality.
 
-**Note**: *Markers* is not a core module of the Coordicide project.
+:::info
+Markers is not a core module of the Coordicide project.
+:::
 
 ## Motivation
-*Markers* is a tool to infer knowledge about the structure of the Tangle in terms of:
-+ past/future cone membership;
-+ approximate approval weight of any message;
-+ tagging sections of the Tangle (e.g., branches) without having to traverse each message individually.
+
+_Markers_ is a tool to infer knowledge about the structure of the Tangle in terms of:
+
+* Past/future cone membership.
+* Approximate approval weight of any message.
+* Tagging sections of the Tangle (e.g., branches) without having to traverse each message individually.
 
 ## Dependency
-Active Consensus Mana
 
+Active Consensus Mana
 
 ## Definitions
 

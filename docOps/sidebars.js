@@ -170,7 +170,7 @@ module.exports = {
           {
             type: 'doc',
             label: 'UTXO and Ledgerstate',
-            id: 'protocol_specification/components/ledgerstate',
+            id: 'protocol_specification/components/UTXO_and_ledgerstate',
           },
 
           {

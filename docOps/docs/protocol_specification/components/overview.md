@@ -23,7 +23,7 @@ Since nodes have finite capabilities, the number of messages that the network ca
 
 On top of the [communication layer](#communication-layer) lives the application layer. Anybody can develop applications that run on this layer, and nodes can choose which applications to run. These applications can also be dependent on each other.
 
-There are several core applications that must be run by all nodes, such as the value transfer applications which maintain the [ledger state](ledgerstate.md) (including  advanced [output types](advanced_outputs.md)), and a quantity called [Mana](mana.md), that serves as a scarce resource in the Sybil protection mechanism.
+There are several core applications that must be run by all nodes, such as the value transfer applications which maintain the [ledger state](UTXO_and_ledgerstate.md) (including  advanced [output types](advanced_outputs.md)), and a quantity called [Mana](mana.md), that serves as a scarce resource in the Sybil protection mechanism.
 
 Additionally, all nodes must run what we call the consensus applications, which regulate timestamps in the messages and resolve conflicts.
 
