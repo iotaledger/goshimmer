@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -155,6 +154,7 @@ func Tangle() *tangle.Tangle {
 
 		tangleInstance.Setup()
 	})
+
 	return tangleInstance
 }
 
@@ -189,20 +189,27 @@ func schedulerRate(durationString string) time.Duration {
 	return duration
 }
 
-func accessManaRetriever(nodeID identity.ID) float64 {
-	nodeMana, _, err := GetAccessMana(nodeID)
-	if err != nil {
-		return 0
+var (
+	fixedAccessMana = map[string]float64{
+		"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24": 500, // Bootstrap1 (Ressim)
+		"7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k": 250, // Faucet (Ressim)
+		"9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd": 150, // Bootstrap2 (Ressim)
+		"AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG": 70,  // Falk 1
+		"FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z": 30,  // Falk 2
 	}
-	return nodeMana
+	totalAMana = 1000.
+)
+
+func accessManaRetriever(nodeID identity.ID) float64 {
+	aMana, exist := fixedAccessMana[nodeID.String()]
+	if !exist {
+		return 1
+	}
+	return aMana
 }
 
 func totalAccessManaRetriever() float64 {
-	totalMana, _, err := GetTotalMana(mana.AccessMana)
-	if err != nil {
-		return 0
-	}
-	return totalMana
+	return totalAMana
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
