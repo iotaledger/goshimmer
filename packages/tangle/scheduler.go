@@ -357,17 +357,20 @@ loop:
 		// every rate time units
 		case <-s.ticker.C:
 			start := time.Now()
+			var triggerEnd time.Duration
 			// TODO: pause the ticker, if there are no ready messages
 			if msg := s.schedule(); msg != nil {
 				s.tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
 					if messageMetadata.SetScheduled(true) {
+						triggerStart := time.Now()
 						s.Events.MessageScheduled.Trigger(msg.ID())
+						triggerEnd = time.Since(triggerStart)
 					}
 				})
 			}
 			d := time.Since(start)
-			if d > 100*time.Microsecond {
-				fmt.Printf("###### duration of scheduling operations: %v\n", d)
+			if d > 1*time.Millisecond {
+				fmt.Printf("###### duration of scheduling operations: %v - Trigger: %v\n", d, d-triggerEnd)
 			}
 
 		// on close, exit the loop
