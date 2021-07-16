@@ -129,6 +129,39 @@ func (n *Network) DoManualPeering(ctx context.Context, nodes ...*Node) error {
 	return nil
 }
 
+// DoRingPeering creates a network with a ring topology between nodes using manual peering.
+// If the optional list of nodes is not provided all network peers are used.
+// DoManualPeering blocks until all connections are established or the ctx has expired.
+func (n *Network) DoRingPeering(ctx context.Context, nodes ...*Node) error {
+	if len(nodes) == 0 {
+		nodes = n.peers
+	}
+
+	log.Printf("Adding manual peers to %d nodes...", len(nodes))
+	for i := range nodes {
+		// connect to the next node
+		var peers []*manualpeering.KnownPeerToAdd
+
+		node := nodes[(i+1)%len(nodes)]
+
+		p := &manualpeering.KnownPeerToAdd{
+			PublicKey: node.PublicKey(),
+			Address:   fmt.Sprintf("%s:%d", node.Name(), gossipPort),
+		}
+		peers = append(peers, p)
+
+		if err := nodes[i].AddManualPeers(peers); err != nil {
+			return errors.Wrap(err, "failed to add manual nodes via API")
+		}
+	}
+	log.Println("Creating ring topology... done")
+
+	if err := n.waitForManualPeering(ctx, nodes); err != nil {
+		return errors.Wrap(err, "manual peering failed")
+	}
+	return nil
+}
+
 // WaitForAutopeering blocks until a fully connected network of neighbors has been found.
 func (n *Network) WaitForAutopeering(ctx context.Context) error {
 	condition := func() (bool, error) {
