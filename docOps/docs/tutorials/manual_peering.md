@@ -26,12 +26,7 @@ Add the following record to the root of your JSON config file that you are using
 ```json
 {
   "manualPeering": {
-    "knownPeers": [
-      {
-        "publicKey": "CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3",
-        "address": "127.0.0.1:14666"
-      }
-    ]
+    "knownPeers": "[{\"publicKey\": \"CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3\", \"address\": \"127.0.0.1:14666\"}]"
   }
 }
 ```
@@ -40,8 +35,8 @@ Add the following record to the root of your JSON config file that you are using
 
 |Field | Description|
 |:-----|:------|
-| `manualPeering.knownPeers.publicKey` | Public key of the peer. |
-| `manualPeering.knownPeers.address`   | IP address of the peer's node and its gossip port. |
+| `publicKey` | Public key of the peer. |
+| `address`   | IP address of the peer's node and its gossip port. |
 
 ## How to manage Known Peers via web API
 
