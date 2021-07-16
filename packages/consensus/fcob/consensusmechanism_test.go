@@ -22,6 +22,7 @@ import (
 )
 
 var schedulerParams = tangle.SchedulerParams{
+	MaxBufferSize:               100000000,
 	Rate:                        100 * time.Millisecond,
 	AccessManaRetrieveFunc:      getAccessMana,
 	TotalAccessManaRetrieveFunc: getTotalAccessMana,
