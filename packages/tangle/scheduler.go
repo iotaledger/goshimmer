@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -355,6 +356,7 @@ loop:
 		select {
 		// every rate time units
 		case <-s.ticker.C:
+			start := time.Now()
 			// TODO: pause the ticker, if there are no ready messages
 			if msg := s.schedule(); msg != nil {
 				s.tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
@@ -362,6 +364,10 @@ loop:
 						s.Events.MessageScheduled.Trigger(msg.ID())
 					}
 				})
+			}
+			d := time.Since(start)
+			if d > 100*time.Microsecond {
+				fmt.Printf("###### duration of scheduling operations: %v\n", d)
 			}
 
 		// on close, exit the loop
