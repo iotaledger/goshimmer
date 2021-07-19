@@ -138,6 +138,8 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	msg := NewMessage(
 		strongParents,
 		weakParents,
+		nil,
+		nil,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -180,7 +182,7 @@ func (f *MessageFactory) Shutdown() {
 
 func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
+	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
@@ -189,7 +191,7 @@ func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageI
 
 func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
+	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())

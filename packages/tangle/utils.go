@@ -124,7 +124,7 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 
 		bookedParents := make(MessageIDs, 0)
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			for _, parentID := range message.StrongParents() {
+			for _, parentID := range message.ParentsByType(StrongParentType) {
 				var parentBooked bool
 				u.tangle.Storage.MessageMetadata(parentID).Consume(func(parentMetadata *MessageMetadata) {
 					parentBooked = parentMetadata.IsBooked()

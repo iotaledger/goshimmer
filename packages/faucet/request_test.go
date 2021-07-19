@@ -25,8 +25,10 @@ func ExampleRequest() {
 
 	// 2. build actual message
 	tx := tangle.NewMessage(
-		[]tangle.MessageID{tangle.EmptyMessageID},
-		[]tangle.MessageID{},
+		tangle.MessageIDs{tangle.EmptyMessageID},
+		tangle.MessageIDs{},
+		tangle.MessageIDs{},
+		tangle.MessageIDs{},
 		time.Now(),
 		local.PublicKey(),
 		0,
@@ -71,8 +73,10 @@ func TestIsFaucetReq(t *testing.T) {
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
 	faucetMsg := tangle.NewMessage(
-		[]tangle.MessageID{tangle.EmptyMessageID},
-		[]tangle.MessageID{},
+		tangle.MessageIDs{tangle.EmptyMessageID},
+		tangle.MessageIDs{},
+		tangle.MessageIDs{},
+		tangle.MessageIDs{},
 		time.Now(),
 		local.PublicKey(),
 		0,
@@ -82,8 +86,10 @@ func TestIsFaucetReq(t *testing.T) {
 	)
 
 	dataMsg := tangle.NewMessage(
-		[]tangle.MessageID{tangle.EmptyMessageID},
-		[]tangle.MessageID{},
+		tangle.MessageIDs{tangle.EmptyMessageID},
+		tangle.MessageIDs{},
+		tangle.MessageIDs{},
+		tangle.MessageIDs{},
 		time.Now(),
 		local.PublicKey(),
 		0,

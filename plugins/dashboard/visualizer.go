@@ -68,8 +68,8 @@ func configureVisualizer() {
 func sendVertex(msg *tangle.Message, finalized bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:              msg.ID().Base58(),
-		StrongParentIDs: msg.StrongParents().ToStrings(),
-		WeakParentIDs:   msg.WeakParents().ToStrings(),
+		StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
+		WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
 		IsFinalized:     finalized,
 		IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 	}}, true)
@@ -137,8 +137,8 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 		for _, msg := range cpyHistory {
 			res = append(res, vertex{
 				ID:              msg.ID().Base58(),
-				StrongParentIDs: msg.StrongParents().ToStrings(),
-				WeakParentIDs:   msg.WeakParents().ToStrings(),
+				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
+				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
 				IsFinalized:     msgFinalized[msg.ID().Base58()],
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 			})

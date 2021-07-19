@@ -149,10 +149,10 @@ func (s *Storage) StoreMessage(message *Message) {
 
 	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers
-	message.ForEachStrongParent(func(parentMessageID MessageID) {
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
 	})
-	message.ForEachWeakParent(func(parentMessageID MessageID) {
+	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(WeakApprover, parentMessageID, messageID)).Release()
 	})
 
@@ -256,10 +256,10 @@ func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.Trans
 // message as an approver.
 func (s *Storage) DeleteMessage(messageID MessageID) {
 	s.Message(messageID).Consume(func(currentMsg *Message) {
-		currentMsg.ForEachStrongParent(func(parentMessageID MessageID) {
+		currentMsg.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 			s.deleteStrongApprover(parentMessageID, messageID)
 		})
-		currentMsg.ForEachWeakParent(func(parentMessageID MessageID) {
+		currentMsg.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
 			s.deleteWeakApprover(parentMessageID, messageID)
 		})
 

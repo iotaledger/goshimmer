@@ -57,6 +57,8 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	msg := NewMessage(
 		[]MessageID{EmptyMessageID},
 		[]MessageID{},
+		nil,
+		nil,
 		time.Now(),
 		localNode.PublicKey(),
 		0,

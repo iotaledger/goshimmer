@@ -127,13 +127,13 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, nil, nil, time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
 	}
 	newYoungParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, nil, nil, time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
 	}
 	newValidMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, nil, nil, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
 	}
 
 	var wg sync.WaitGroup
@@ -253,8 +253,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
-			index := rand.Intn(len(msg.StrongParents()))
-			tips.Delete(msg.StrongParents()[index])
+			index := rand.Intn(len(msg.ParentsByType(StrongParentType)))
+			tips.Delete(msg.ParentsByType(StrongParentType)[index])
 		}
 
 		// add current message as a tip
@@ -419,8 +419,8 @@ func TestTangle_Flow(t *testing.T) {
 
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
-			index := rand.Intn(len(msg.StrongParents()))
-			tips.Delete(msg.StrongParents()[index])
+			index := rand.Intn(len(msg.ParentsByType(StrongParentType)))
+			tips.Delete(msg.ParentsByType(StrongParentType)[index])
 		}
 
 		// add current message as a tip
@@ -612,6 +612,8 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	msg := NewMessage(
 		strongParents,
 		weakParents,
+		nil,
+		nil,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,

@@ -593,7 +593,7 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 }
 
 func newTestParentsPayloadMessage(payload payload.Payload, strongParents, weakParents []tangle.MessageID) *tangle.Message {
-	return tangle.NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload, 0, ed25519.Signature{})
+	return tangle.NewMessage(strongParents, weakParents, tangle.MessageIDs{}, tangle.MessageIDs{}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload, 0, ed25519.Signature{})
 }
 
 var sequenceNumber uint64
@@ -603,7 +603,7 @@ func nextSequenceNumber() uint64 {
 }
 
 func newTestDataMessage(payloadString string) *tangle.Message {
-	return tangle.NewMessage([]tangle.MessageID{tangle.EmptyMessageID}, []tangle.MessageID{}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return tangle.NewMessage(tangle.MessageIDs{tangle.EmptyMessageID}, tangle.MessageIDs{}, tangle.MessageIDs{}, tangle.MessageIDs{}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
 // addressFromInput retrieves the Address belonging to an Input by looking it up in the outputs that we have created for

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -97,13 +96,13 @@ func MessageIDFromBytes(bytes []byte) (result MessageID, consumedBytes int, err 
 }
 
 // ReferenceFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ReferenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (Reference, error) {
+func ReferenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
 	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return MessageIDFromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse message ID: %w", err)
-		return Reference{}, err
+		return MessageID{}, err
 	}
-	return id.(Reference), nil
+	return id.(MessageID), nil
 }
 
 // MarshalBinary marshals the MessageID into bytes.
@@ -188,14 +187,10 @@ const (
 	LikeParentType
 )
 
-type Reference interface {
-	Bytes() []byte
-}
-
 type ParentsBlock struct {
 	ParentsType
 	ParentsCount uint8
-	References   []Reference
+	References   MessageIDs
 }
 
 // Message represents the core message for the base layer Tangle.
@@ -222,15 +217,12 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(strongParents, weakParents, dislikeParents, likeParents []Reference, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	// remove duplicates, sort in ASC
 	sortedStrongParents := sortParents(strongParents)
 	sortedWeakParents := sortParents(weakParents)
 	sortedDislikeParents := sortParents(dislikeParents)
 	sortedLikeParents := sortParents(likeParents)
-
-	// syntactical validation
-	parentsCount := len(sortedStrongParents) + len(sortedWeakParents)
 
 	strongParentsCount := len(sortedStrongParents)
 	weakParentsCount := len(sortedWeakParents)
@@ -242,7 +234,7 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents []Refere
 	}
 
 	if strongParentsCount > MaxParentsCount {
-		panic(fmt.Sprintf("amount of strong parents (%d) not in valid range (%d-%d)", parentsCount, MinParentsCount, MaxParentsCount))
+		panic(fmt.Sprintf("amount of strong parents (%d) not in valid range (%d-%d)", strongParentsCount, MinParentsCount, MaxParentsCount))
 	}
 
 	if weakParentsCount > MaxParentsCount {
@@ -259,38 +251,38 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents []Refere
 
 	parentsBlocksCount := 0
 
-	var parentsBlock []ParentsBlock
+	var parentsBlocks []ParentsBlock
 
-	parentsBlock = append(parentsBlock, ParentsBlock{
+	parentsBlocks = append(parentsBlocks, ParentsBlock{
 		ParentsType:  StrongParentType,
 		ParentsCount: uint8(strongParentsCount),
-		References:   strongParents,
+		References:   sortedStrongParents,
 	})
-	parentsCount++
+	parentsBlocksCount++
 
 	if weakParentsCount > 0 {
-		parentsBlock = append(parentsBlock, ParentsBlock{
+		parentsBlocks = append(parentsBlocks, ParentsBlock{
 			ParentsType:  WeakParentType,
 			ParentsCount: uint8(weakParentsCount),
-			References:   weakParents,
+			References:   sortedWeakParents,
 		})
 		parentsBlocksCount++
 	}
 
 	if dislikeParentsCount > 0 {
-		parentsBlock = append(parentsBlock, ParentsBlock{
+		parentsBlocks = append(parentsBlocks, ParentsBlock{
 			ParentsType:  DislikeParentType,
 			ParentsCount: uint8(dislikeParentsCount),
-			References:   dislikeParents,
+			References:   sortedDislikeParents,
 		})
 		parentsBlocksCount++
 	}
 
 	if likeParentsCount > 0 {
-		parentsBlock = append(parentsBlock, ParentsBlock{
+		parentsBlocks = append(parentsBlocks, ParentsBlock{
 			ParentsType:  LikeParentType,
 			ParentsCount: uint8(likeParentsCount),
-			References:   likeParents,
+			References:   sortedLikeParents,
 		})
 		parentsBlocksCount++
 	}
@@ -298,7 +290,7 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents []Refere
 	return &Message{
 		version:            MessageVersion,
 		parentsBlocksCount: uint8(parentsBlocksCount),
-		parentsBlocks:      parentsBlock,
+		parentsBlocks:      parentsBlocks,
 		issuerPublicKey:    issuerPublicKey,
 		issuingTime:        issuingTime,
 		sequenceNumber:     sequenceNumber,
@@ -309,9 +301,9 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents []Refere
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
-func sortParents(parents []Reference) (sorted []Reference) {
-	seen := make(map[Reference]types.Empty)
-	sorted = make([]Reference, 0, len(parents))
+func sortParents(parents MessageIDs) (sorted MessageIDs) {
+	seen := make(map[MessageID]types.Empty)
+	sorted = make(MessageIDs, 0, len(parents))
 
 	// filter duplicates
 	for _, parent := range parents {
@@ -380,9 +372,9 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 			err = errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 			return
 		}
-		references := make([]Reference, parentsCount)
+		references := make(MessageIDs, parentsCount)
 		for j := 0; j < int(parentsCount); j++ {
-			if references[i], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 				err = errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
 				return
 			}
@@ -500,54 +492,38 @@ func (m *Message) Version() uint8 {
 	return m.version
 }
 
-// Parents returns a slice of all parents of the Message.
-func (m *Message) Parents() (parents MessageIDs) {
-	return append(append([]MessageID{}, m.strongParents...), m.weakParents...)
-}
-
-// StrongParents returns a slice of all strong parents of the message.
-func (m *Message) StrongParents() MessageIDs {
-	return m.strongParents
-}
-
-// WeakParents returns a slice of all weak parents of the message.
-func (m *Message) WeakParents() MessageIDs {
-	return m.weakParents
+// ParentsByType returns a slice of all parents of the desired type.
+func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
+	for _, parentBlock := range m.parentsBlocks {
+		if parentBlock.ParentsType == parentType {
+			return parentBlock.References
+		}
+	}
+	return MessageIDs{}
 }
 
 // ForEachParent executes a consumer func for each parent.
 func (m *Message) ForEachParent(consumer func(parent Parent)) {
-	for _, parentID := range m.strongParents {
-		consumer(Parent{
-			ID:   parentID,
-			Type: StrongParent,
-		})
-	}
-	for _, parentID := range m.weakParents {
-		consumer(Parent{
-			ID:   parentID,
-			Type: WeakParent,
-		})
+	for _, parentBlock := range m.parentsBlocks {
+		for _, parentID := range parentBlock.References {
+			consumer(Parent{
+				Type: uint8(parentBlock.ParentsType),
+				ID:   parentID,
+			})
+		}
 	}
 }
 
 // ForEachStrongParent executes a consumer func for each strong parent.
-func (m *Message) ForEachStrongParent(consumer func(parentMessageID MessageID)) {
-	for _, parentID := range m.strongParents {
-		consumer(parentID)
-	}
-}
-
-// ForEachWeakParent executes a consumer func for each weak parent.
-func (m *Message) ForEachWeakParent(consumer func(parentMessageID MessageID)) {
-	for _, parentID := range m.weakParents {
+func (m *Message) ForEachParentByType(parentType ParentsType, consumer func(parentMessageID MessageID)) {
+	for _, parentID := range m.ParentsByType(parentType) {
 		consumer(parentID)
 	}
 }
 
 // ParentsCount returns the total parents count of this message.
-func (m *Message) ParentsCount() uint8 {
-	return uint8(len(m.strongParents) + len(m.weakParents))
+func (m *Message) ParentsCountByType(parentType ParentsType) uint8 {
+	return uint8(len(m.ParentsByType(parentType)))
 }
 
 // IssuerPublicKey returns the public key of the message issuer.
@@ -596,29 +572,18 @@ func (m *Message) Bytes() []byte {
 	// marshal result
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(m.version)
-	marshalUtil.WriteByte(m.ParentsCount())
+	marshalUtil.WriteByte(m.parentsBlocksCount)
 
-	parents := make([]Parent, 0, m.ParentsCount())
-
-	for _, parent := range m.strongParents {
-		parents = append(parents, Parent{ID: parent, Type: StrongParent})
-	}
-	for _, parent := range m.weakParents {
-		parents = append(parents, Parent{ID: parent, Type: WeakParent})
-	}
-	sort.Slice(parents, func(i, j int) bool {
-		return bytes.Compare(parents[i].ID.Bytes(), parents[j].ID.Bytes()) < 0
-	})
-	var bitMask bitmask.BitMask
-	for i, parent := range parents {
-		if parent.Type == StrongParent {
-			bitMask = bitMask.SetBit(uint(i))
+	for x := 0; x < int(m.parentsBlocksCount); x++ {
+		parentBlock := m.parentsBlocks[x]
+		marshalUtil.WriteByte(byte(parentBlock.ParentsType))
+		marshalUtil.WriteByte(parentBlock.ParentsCount)
+		sortedParents := sortParents(parentBlock.References)
+		for _, parent := range sortedParents {
+			marshalUtil.Write(parent)
 		}
 	}
-	marshalUtil.WriteByte(byte(bitMask))
-	for _, parent := range parents {
-		marshalUtil.Write(parent.ID)
-	}
+
 	marshalUtil.Write(m.issuerPublicKey)
 	marshalUtil.WriteTime(m.issuingTime)
 	marshalUtil.WriteUint64(m.sequenceNumber)
@@ -656,11 +621,29 @@ func (m *Message) Update(objectstorage.StorableObject) {
 
 func (m *Message) String() string {
 	builder := stringify.StructBuilder("Message", stringify.StructField("id", m.ID()))
-	for index, parent := range m.strongParents {
-		builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
+	parents := m.ParentsByType(StrongParentType)
+	if len(parents) > 0 {
+		for index, parent := range parents {
+			builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
+		}
 	}
-	for index, parent := range m.weakParents {
-		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
+	parents = m.ParentsByType(WeakParentType)
+	if len(parents) > 0 {
+		for index, parent := range parents {
+			builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
+		}
+	}
+	parents = m.ParentsByType(DislikeParentType)
+	if len(parents) > 0 {
+		for index, parent := range parents {
+			builder.AddField(stringify.StructField(fmt.Sprintf("dislikeParent%d", index), parent.String()))
+		}
+	}
+	parents = m.ParentsByType(LikeParentType)
+	if len(parents) > 0 {
+		for index, parent := range parents {
+			builder.AddField(stringify.StructField(fmt.Sprintf("likeParent%d", index), parent.String()))
+		}
 	}
 	builder.AddField(stringify.StructField("issuer", m.IssuerPublicKey()))
 	builder.AddField(stringify.StructField("issuingTime", m.IssuingTime()))

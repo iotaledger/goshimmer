@@ -227,8 +227,8 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.IssuanceTimestamp = message.IssuingTime()
 		msgInfo.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
 		msgInfo.IssuerPublicKey = message.IssuerPublicKey().String()
-		msgInfo.StrongParents = message.StrongParents()
-		msgInfo.WeakParents = message.WeakParents()
+		msgInfo.StrongParents = message.ParentsByType(tangle.StrongParentType)
+		msgInfo.WeakParents = message.ParentsByType(tangle.WeakParentType)
 		msgInfo.PayloadType = message.Payload().Type().String()
 		if message.Payload().Type() == ledgerstate.TransactionType {
 			msgInfo.TransactionID = message.Payload().(*ledgerstate.Transaction).ID().Base58()

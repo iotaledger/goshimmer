@@ -175,7 +175,7 @@ func (b *Booker) Shutdown() {
 func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = make(ledgerstate.BranchIDs)
 
-	message.ForEachStrongParent(func(messageID MessageID) {
+	message.ForEachParentByType(StrongParentType, func(messageID MessageID) {
 		if messageID == EmptyMessageID {
 			branchIDs[ledgerstate.MasterBranchID] = types.Void
 			return
@@ -201,7 +201,7 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 		}
 	})
 
-	message.ForEachWeakParent(func(parentMessageID MessageID) {
+	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
 		if parentMessageID == EmptyMessageID {
 			return
 		}
@@ -428,7 +428,7 @@ func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias
 	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
 	if structureDetails.IsPastMarker {
 		m.SetMessageID(structureDetails.PastMarkers.Marker(), message.ID())
-		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.Marker()), message.StrongParents())
+		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
 	}
 
 	return
@@ -522,7 +522,7 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 		}
 		if inheritFurther {
 			m.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
-				for _, strongParentMessageID := range message.StrongParents() {
+				for _, strongParentMessageID := range message.ParentsByType(StrongParentType) {
 					walker.Push(strongParentMessageID)
 				}
 			})
@@ -534,7 +534,7 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 // strong parents.
 func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (structureDetails []*markers.StructureDetails) {
 	structureDetails = make([]*markers.StructureDetails, 0)
-	message.ForEachStrongParent(func(parentMessageID MessageID) {
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
 		}) {
