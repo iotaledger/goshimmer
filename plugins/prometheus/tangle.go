@@ -9,6 +9,7 @@ import (
 var (
 	messageTips              prometheus.Gauge
 	messagePerTypeCount      *prometheus.GaugeVec
+	messagePerIssuerCount    *prometheus.GaugeVec
 	messagePerComponentCount *prometheus.GaugeVec
 	messageTotalCount        prometheus.Gauge
 	messageTotalCountDB      prometheus.Gauge
@@ -32,6 +33,14 @@ func registerTangleMetrics() {
 			Help: "number of messages per payload type seen since the start of the node",
 		}, []string{
 			"message_type",
+		})
+
+	messagePerIssuerCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_messages_per_issuer_count",
+			Help: "number of messages per issuer seen since the start of the node",
+		}, []string{
+			"issuer",
 		})
 
 	messagePerComponentCount = prometheus.NewGaugeVec(
@@ -79,6 +88,7 @@ func registerTangleMetrics() {
 
 	registry.MustRegister(messageTips)
 	registry.MustRegister(messagePerTypeCount)
+	registry.MustRegister(messagePerIssuerCount)
 	registry.MustRegister(messagePerComponentCount)
 	registry.MustRegister(messageTotalCount)
 	registry.MustRegister(messageTotalCountDB)
@@ -96,6 +106,10 @@ func collectTangleMetrics() {
 	msgCountPerPayload := metrics.MessageCountSinceStartPerPayload()
 	for payloadType, count := range msgCountPerPayload {
 		messagePerTypeCount.WithLabelValues(payloadType.String()).Set(float64(count))
+	}
+	msgCountPerIssuer := metrics.MessageCountSinceStartPerIssuer()
+	for issuer, count := range msgCountPerIssuer {
+		messagePerIssuerCount.WithLabelValues(issuer).Set(float64(count))
 	}
 	msgCountPerComponent := metrics.MessageCountSinceStartPerComponentGrafana()
 	for component, count := range msgCountPerComponent {
