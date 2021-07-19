@@ -1,5 +1,11 @@
 ---
-## This playbook deploys new Goshimmer version.
+## This playbook deploys new changes to the environment.
+
+- hosts: metrics
+  vars:
+    removeData: no
+  roles:
+    - metrics
 
 - hosts: supports
   roles:
