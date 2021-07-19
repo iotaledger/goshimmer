@@ -124,6 +124,7 @@ func registerLocalMetrics() {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			increaseReceivedMPSCounter()
 			increasePerPayloadCounter(message.Payload().Type())
+			increasePerIssuerCounter(message.IssuerPublicKey())
 			// MessageStored is triggered in storeMessageWorker that saves the msg to database
 			messageTotalCountDB.Inc()
 		})

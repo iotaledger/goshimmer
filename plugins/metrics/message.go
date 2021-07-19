@@ -3,6 +3,8 @@ package metrics
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/syncutils"
 	"go.uber.org/atomic"
 
@@ -82,8 +84,12 @@ var (
 	// Number of messages per payload type since start of the node.
 	messageCountPerPayload = make(map[payload.Type]uint64)
 
+	// Number of messages per issuer since start of the node.
+	messageCountPerIssuer = make(map[string]int64)
+
 	// protect map from concurrent read/write.
 	messageCountPerPayloadMutex syncutils.RWMutex
+	messageCountPerIssuerMutex  syncutils.RWMutex
 
 	// Number of messages per component (store, scheduler, booker) type since start of the node.
 	// One for dashboard (reset every time is read), other for grafana with cumulative value.
@@ -112,6 +118,20 @@ func MessageCountSinceStartPerPayload() map[payload.Type]uint64 {
 	// copy the original map
 	clone := make(map[payload.Type]uint64)
 	for key, element := range messageCountPerPayload {
+		clone[key] = element
+	}
+
+	return clone
+}
+
+// MessageCountSinceStartPerIssuer returns a map of message issuer and their count since the start of the node.
+func MessageCountSinceStartPerIssuer() map[string]int64 {
+	messageCountPerIssuerMutex.RLock()
+	defer messageCountPerIssuerMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[string]int64)
+	for key, element := range messageCountPerIssuer {
 		clone[key] = element
 	}
 
@@ -196,6 +216,15 @@ func increasePerPayloadCounter(p payload.Type) {
 	// increase cumulative metrics
 	messageCountPerPayload[p]++
 	messageTotalCount.Inc()
+}
+
+func increasePerIssuerCounter(pubKey ed25519.PublicKey) {
+	messageCountPerIssuerMutex.Lock()
+	defer messageCountPerIssuerMutex.Unlock()
+
+	// increase cumulative metrics
+	nodeID := identity.NewID(pubKey)
+	messageCountPerIssuer[nodeID.String()]++
 }
 
 func increasePerComponentCounter(c ComponentType) {
