@@ -68,14 +68,13 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 	}
 	cmd = append(cmd, conf.CreateFlags()...)
 
-	image := conf.Image
-	if image == "" {
-		image = "iotaledger/goshimmer"
+	if conf.Image == "" {
+		return fmt.Errorf("docker image must be provided as part of the configuration")
 	}
 
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
-		Image: image,
+		Image: conf.Image,
 		ExposedPorts: nat.PortSet{
 			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):     {},
 			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):  {},

@@ -60,6 +60,8 @@ type CreateNetworkConfig struct {
 func PeerConfig() config.GoShimmer {
 	c := config.NewGoShimmer()
 
+	c.Image = "iotaledger/goshimmer"
+
 	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
 
 	c.Network.Enabled = true
