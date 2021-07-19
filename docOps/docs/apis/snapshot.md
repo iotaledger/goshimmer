@@ -1,17 +1,15 @@
 # Snapshot API Methods
 
-Snapshot API allows retrieving current snapshot.
+The snapshot API allows retrieving current snapshot.
 
 The API provides the following functions and endpoints:
 
-* [/snapshot](#snapshot)
-
-
-##  `/snapshot`
+##  /snapshot
 
 Returns a snapshot file.
 
 ### Parameters
+
 None
 
 ### Examples
@@ -24,9 +22,9 @@ curl --location 'http://localhost:8080/snapshot'
 
 #### Client lib 
 
-Method not available in the client library.
+This method is not available in the client library.
 
 
 #### Results
 
-Snapshot file is returned.
+The API will return a Snapshot file.

@@ -16,7 +16,7 @@ Client lib APIs:
 
 
 
-## POST `/manualpeering/peers`
+## POST /manualpeering/peers
 
 Add peers to the list of known peers of the node.
 
@@ -59,7 +59,7 @@ curl --location --request POST 'http://localhost:8080/manualpeering/peers' \
 
 ### Client library
 
-#### `AddManualPeers`
+#### AddManualPeers
 
 ```go
 import "github.com/iotaledger/goshimmer/packages/manualpeering"
@@ -73,7 +73,7 @@ if err != nil {
 
 
 
-## GET `/manualpeering/peers`
+## GET /manualpeering/peers
 
 Get the list of all known peers of the node.
 
@@ -127,9 +127,9 @@ curl --location --request GET 'http://localhost:8080/manualpeering/peers' \
 }'
 ```
 
-### Client library
+### Client Library
 
-#### `GetManualPeers`
+#### GetManualPeers
 
 ```go
 import "github.com/iotaledger/goshimmer/packages/manualpeering"
@@ -143,7 +143,7 @@ fmt.Println(peers)
 
 
 
-## DELETE `/manualpeering/peers`
+## DELETE /manualpeering/peers
 
 Remove peers from the list of known peers of the node.
 
@@ -181,7 +181,7 @@ curl --location --request DELETE 'http://localhost:8080/manualpeering/peers' \
 ]'
 ```
 
-### Client library
+### Client Library
 
 #### `RemoveManualPeers`
 

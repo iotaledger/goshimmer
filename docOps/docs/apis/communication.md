@@ -1,9 +1,9 @@
 # Communication Layer APIs
 
-The communication layer represents the base Tangle layer where so called `Messages` are gossiped around. A `Message` contains payloads and it is up to upper layers to interpret and derive functionality out of them.
-
+The communication layer represents the base Tangle layer where nodes gossip _Messages_ around. A _Message_ contains payloads, and it is up to upper layers to interpret and derive functionality out of them.
 
 The API provides the following functions to interact with this primitive layer:
+
 * [/messages/:messageID](#messagesmessageid)
 * [/messages/:messageID/metadata](#messagesmessageidmetadata)
 * [/messages/:messageID/consensus](#messagesmessageidconsensus)
@@ -11,14 +11,15 @@ The API provides the following functions to interact with this primitive layer:
 * [/messages/payload](#messagespayload)
 
 Client lib APIs:
+
 * [GetMessage()](#client-lib---getmessage)
 * [GetMessageMetadata()](#client-lib---getmessagemetadata)
 * [Data()](#client-lib---data)
 * [SendPayload()](#client-lib---sendpayload)
 
-##  `/messages/:messageID`
+##  /messages/:messageID
 
-Return message from the tangle.
+Return a message from the tangle by its messageID.
 
 ### Parameters
 
@@ -35,11 +36,12 @@ Return message from the tangle.
 ```shell
 curl --location --request GET 'http://localhost:8080/messages/:messageID'
 ```
-where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
-#### Client lib - `GetMessage`
+* Where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
-Messages can be retrieved via `GetMessage(base58EncodedID string) (*jsonmodels.Message, error) `
+#### Client lib - GetMessage
+
+Messages can be retrieved via the `GetMessage(base58EncodedID string) (*jsonmodels.Message, error) ` function.
 
 ```go
 message, err := goshimAPI.GetMessage(base58EncodedMessageID)
@@ -51,7 +53,7 @@ if err != nil {
 fmt.Println(string(message.Payload))
 ```
 
-Note that we're getting actual `Message` objects from this call which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that this will also return messages which contain a transactions or DRNG payloads.
+Note that you are getting actual `Message` objects from this call, which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that this will also return messages which contain a transactions or DRNG payloads.
 
 #### Response examples
 
@@ -94,7 +96,7 @@ Note that we're getting actual `Message` objects from this call which represent 
 | `signature`  | `string` | Message signature. |
 | `error`   | `string` | Error message. Omitted if success.    |
 
-##  `/messages/:messageID/metadata`
+##  /messages/:messageID/metadata
 
 Return message metadata.
 
@@ -114,11 +116,13 @@ Return message metadata.
 ```shell
 curl --location --request GET 'http://localhost:8080/messages/:messageID/metadata'
 ```
-where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
-#### Client lib - `GetMessageMetadata`
+* Where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
-Message metadata can be retrieved via `GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error)`
+#### Client lib - GetMessageMetadata
+
+You can retrieve a Message's metadata via the `GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error)` function.
+
 ```go
 message, err := goshimAPI.GetMessageMetadata(base58EncodedMessageID)
 if err != nil {
@@ -184,9 +188,9 @@ fmt.Println(string(message.Finalized))
 | `finalizedTime`   | `string` | Time when message was finalized.    |
 | `error`   | `string` | Error message. Omitted if success.    |
 
-##  `/messages/:messageID/consensus`
+##  /messages/:messageID/consensus
 
-Return message consensus info such as opinion and FCoB data.
+Return message consensus info such as opinion and FCoB data based on the messageID.
 
 ### Parameters
 
@@ -241,7 +245,7 @@ This method is not available in the client library.
 | `error`   | `string` | Error message. Omitted if success.    |
 
 
-## `/data`
+## /data
 
 Method: `POST`
 
@@ -284,7 +288,9 @@ if err != nil {
     // return error
 }
 ```
+:::info
 Note that there is no need to do any additional work, since things like tip-selection, PoW and other tasks are done by the node itself.
+:::
 
 ### Response examples
 
@@ -302,11 +308,11 @@ Note that there is no need to do any additional work, since things like tip-sele
 | `error`   | `string` | Error message. Omitted if success.    |
 
 
-## `/messages/payload`
+## /messages/payload
 
 Method: `POST`
 
-`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload and returns its `messageID`. Note that the payload must be valid, otherwise an error is returned.
+`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload, and returns its `messageID`. Note that the payload must be valid, otherwise an error will be returned.
 
 ### Parameters
 
@@ -335,9 +341,9 @@ curl --location --request POST 'http://localhost:8080/messages/payload' \
 --data-raw '{"payload": "payloadBytes"}'
 ```
 
-#### Client lib - `SendPayload`
+#### Client lib - SendPayload
 
-##### `SendPayload(payload []byte) (string, error)`
+##### SendPayload(payload []byte) (string, error)
 
 ```go
 helloPayload := payload.NewData([]byte{"Hello GoShimmer World!"})
@@ -359,4 +365,4 @@ messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 | `id`  | `string` | Message ID of the message. Omitted if error. |
 | `error`   | `string` | Error message. Omitted if success.    |
 
-Note that there is no need to do any additional work, since things like tip-selection, PoW and other tasks are done by the node itself.
+Note that there is no need to do any additional work, since things like tip-selection, the node itself will perform PoW and other tasks.

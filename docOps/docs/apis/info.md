@@ -1,22 +1,17 @@
 # Info API Methods
 
-Info API returns basic info about the node
+The info HTTP API returns basic info about the node.
 
-The API provides the following functions and endpoints:
+:::info
+The HTTP may contain endpoints with no equivalent method in the Client Lib API.  
+:::
 
-* [/info](#info)
-* [/healthz](#healthz)
-
-Client lib APIs:
-* [Info()](#client-lib---info)
-
-
-##  `/info`
+##  /info
 
 Returns basic info about the node.
 
-
 ### Parameters
+
 None.
 
 ### Examples
@@ -27,9 +22,10 @@ None.
 curl --location 'http://localhost:8080/info'
 ```
 
-#### Client lib - `Info`
+### Client lib - Info
 
-Information of a node can be retrieved via `Info() (*jsonmodels.InfoResponse, error)`
+You can retrieve a node's information via `Info() (*jsonmodels.InfoResponse, error)`
+
 ```go
 info, err := goshimAPI.Info()
 if err != nil {
@@ -71,8 +67,8 @@ fmt.Println(string(info))
     "Gossip",
     "Graceful Shutdown",
     "Logger",
-    "Mana",
-    "ManaRefresher",
+    "[Mana#mana)",
+    "[Mana#mana)Refresher",
     "Manualpeering",
     "MessageLayer",
     "Metrics",
@@ -85,7 +81,7 @@ fmt.Println(string(info))
     "RemoteLogMetrics",
     "WebAPI",
     "WebAPI DRNG Endpoint",
-    "WebAPI Mana Endpoint",
+    "WebAPI [Mana#mana) Endpoint",
     "WebAPI WeightProvider Endpoint",
     "WebAPI autopeering Endpoint",
     "WebAPI data Endpoint",
@@ -101,18 +97,18 @@ fmt.Println(string(info))
     "Analysis-Dashboard",
     "Analysis-Server",
     "Faucet",
-    "ManaEventLogger",
+    "[Mana#mana)EventLogger",
     "Spammer",
     "TXStream"
   ],
-  "mana": {
+  "[Mana#mana)": {
     "access": 1,
     "accessTimestamp": "2021-05-24T20:11:05.451224937+02:00",
     "consensus": 10439991680906,
     "consensusTimestamp": "2021-05-24T20:11:05.451228137+02:00"
   },
-  "manaDelegationAddress": "1HMQic52dz3xLY2aeDXcDhX53LgbsHghdfD8eGXR1qVHy",
-  "mana_decay": 0.00003209,
+  "[Mana#mana)DelegationAddress": "1HMQic52dz3xLY2aeDXcDhX53LgbsHghdfD8eGXR1qVHy",
+  "[Mana#mana)_decay": 0.00003209,
   "scheduler": {
     "running": true,
     "rate": "5ms",
@@ -131,7 +127,7 @@ fmt.Println(string(info))
 |:-----|:------|:------|
 | `version`  | `String` | Version of GoShimmer. |
 | `networkVersion`  | `uint32` | Network Version of the autopeering. |
-| `tangleTime`  | `TangleTime` | TangleTime sync status |
+| `tangleTime`  | [TangleTime](#tangletime) | TangleTime sync status |
 | `identityID`  | `string` | Identity ID of the node encoded in base58. |
 | `identityIDShort`  | `string` | Identity ID of the node encoded in base58 and truncated to its first 8 bytes. |
 | `publicKey`  | `string` | Public key of the node encoded in base58 |
@@ -140,54 +136,20 @@ fmt.Println(string(info))
 | `totalMessageCount`  | `int` | The number of messages in the node's database. |
 | `enabledPlugins`  | `[]string` | List of enabled plugins. |
 | `disabledPlugins`  | `[]string` | List if disabled plugins. |
-| `mana`  | `Mana` | Mana values. |
-| `manaDelegationAddress`  | `string` | Mana Delegation Address. |
-| `mana_decay`  | `float64` | The decay coefficient of `bm2`. |
-| `scheduler`  | `Scheduler` |  Scheduler is the scheduler used.|
-| `rateSetter`  | `RateSetter` | RateSetter is the rate setter used. |
+| `[Mana#mana)`  | [Mana](#mana) | [Mana#mana) values. |
+| `[Mana#mana)DelegationAddress`  | `string` | [Mana#mana) Delegation Address. |
+| `[Mana#mana)_decay`  | `float64` | The decay coefficient of `bm2`. |
+| `scheduler`  | [Scheduler](#scheduler) |  Scheduler is the scheduler used.|
+| `rateSetter`  | [RateSetter](#ratesetter) | RateSetter is the rate setter used. |
 | `error` | `string` | Error message. Omitted if success.     |
 
-* Type `TangleTime`
-
-|field | Type | Description|
-|:-----|:------|:------|
-| `messageID`  | `string` | ID of the last confirmed message.  |
-| `time`   | `int64` | Issue timestamp of the last confirmed message.    |
-| `synced`   | `bool` | Flag indicating whether node is in sync.     |
-
-
-* Type `Scheduler`
-
-|field | Type | Description|
-|:-----|:------|:------|
-| `running`  | `bool` | Flag indicating whether Scheduler has started.  |
-| `rate`   | `string` | Rate of the scheduler.    |
-| `nodeQueueSizes`   | `map[string]int` | The size for each node queue.     |
-
-* Type `RateSetter`
-
-|field | Type | Description|
-|:-----|:------|:------|
-| `rate`  | `float64` | The rate of the rate setter..  |
-| `size`   | `int` | The size of the issuing queue.    |
-
-* Type `Mana`
-
-|field | Type | Description|
-|:-----|:------|:------|
-| `access`  | `float64` | Access mana assigned to the node.  |
-| `accessTimestamp`   | `time.Time` | Time when the access mana was calculated.    |
-| `consensus`   | `float64` | Consensus mana assigned to the node.   |
-| `consensusTimestamp`   | `time.Time` | Time when the consensus mana was calculated.   |
-
-
-
-##  `/healthz`
+##  /health
 
 Returns HTTP code 200 if everything is running correctly.
 
 
 ### Parameters
+
 None.
 
 ### Examples
@@ -200,9 +162,45 @@ curl --location 'http://localhost:8080/healthz'
 
 #### Client lib
 
-This method is not available in client lib
+This method is not available in client lib.
 
 #### Results
 
-Empty response with HTTP 200 success code if everything is running correctly.
-Error message is returned if failed.
+Empty response with HTTP 200 success code if everything is running correctly. The API will return an error message if failed.
+
+## Referenced Types
+
+### TangleTime
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `messageID`  | `string` | ID of the last confirmed message.  |
+| `time`   | `int64` | Issue timestamp of the last confirmed message.    |
+| `synced`   | `bool` | Flag indicating whether node is in sync.     |
+
+
+### Scheduler
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `running`  | `bool` | Flag indicating whether Scheduler has started.  |
+| `rate`   | `string` | Rate of the scheduler.    |
+| `nodeQueueSizes`   | `map[string]int` | The size for each node queue.     |
+
+### RateSetter
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `rate`  | `float64` | The rate of the rate setter..  |
+| `size`   | `int` | The size of the issuing queue.    |
+
+### Mana
+
+|field | Type | Description|
+|:-----|:------|:------|
+| `access`  | `float64` | Access [Mana#mana) assigned to the node.  |
+| `accessTimestamp`   | `time.Time` | Time when the access [Mana#mana) was calculated.    |
+| `consensus`   | `float64` | Consensus [Mana#mana) assigned to the node.   |
+| `consensusTimestamp`   | `time.Time` | Time when the consensus [Mana#mana) was calculated.   |
+
+

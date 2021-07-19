@@ -1,21 +1,16 @@
 # Peering API Methods
 
-The peering API allows retrieving basic information about autopeering.
+The peering API allows you to retrieve basic information about autopeering.
 
 The API provides the following functions and endpoints:
 
-* [/autopeering/neighbors](#autopeeringneighbors)
+:::info
+The HTTP may contain endpoints with no equivalent method in the Client Lib API.  
+:::
 
-
-Client lib APIs:
-* [GetAutopeeringNeighbors()](#client-lib---getautopeeringneighbors)
-
-
-
-##  `/autopeering/neighbors`
+## /autopeering/neighbors
 
 Returns the chosen and accepted neighbors of the node.
-
 
 ### Parameters
 
@@ -25,18 +20,10 @@ Returns the chosen and accepted neighbors of the node.
 | **Description**          | Return all known peers, set to `1` (default: `0`)   |
 | **Type**                 | int         |
 
-
-### Examples
-
-#### cURL
-
-```shell
-curl --location 'http://localhost:8080/autopeering/neighbors?known=1'
-```
-
-#### Client lib - `GetAutopeeringNeighbors`
+### Client lib - GetAutopeeringNeighbors
 
 Messages can be retrieved via `GetAutopeeringNeighbors(knownPeers bool) (*jsonmodels.GetNeighborsResponse, error)`
+
 ```go
 neighbors, err := goshimAPI.GetAutopeeringNeighbors(false)
 if err != nil {
@@ -47,7 +34,17 @@ if err != nil {
 fmt.Println(string(neighbors))
 ```
 
+### Examples
+
+#### cURL
+
+```shell
+curl --location 'http://localhost:8080/autopeering/neighbors?known=1'
+```
+
+
 #### Response examples
+
 ```json
 {
   "chosen": [
@@ -95,24 +92,24 @@ fmt.Println(string(neighbors))
 
 #### Results
 
-* Returned type
+##### Returned type
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `known`  | `[]Neighbor` | List of known peers. Only returned when parameter is set. |
-| `chosen`  | `[]Neighbor` | List of chosen peers. |
-| `accepted`  | `[]Neighbor` | List of accepted peers. |
+| `known`  | [][Neighbor](#type-neighbor) | List of known peers. Only returned when parameter is set. |
+| `chosen`  |[][Neighbor](#type-neighbor) | List of chosen peers. |
+| `accepted`  | [][Neighbor](#type-neighbor) | List of accepted peers. |
 | `error` | `string` | Error message. Omitted if success.     |
 
-* Type `Neighbor`
+######  Type Neighbor
 
 |field | Type | Description|
 |:-----|:------|:------|
 | `id`  | `string` | Comparable node identifier.  |
 | `publicKey`   | `string` | Public key used to verify signatures.   |
-| `services`   | `[]PeerService` | List of exposed services.     |
+| `services`   | [][PeerService](#type-peerservice) | List of exposed services.     |
 
-* Type `PeerService`
+###### Type PeerService
 
 |field | Type | Description|
 |:-----|:------|:------|

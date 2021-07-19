@@ -1,6 +1,6 @@
 # Faucet API Methods
 
-Faucet endpoint allows requesting funds from the Faucet.
+The faucet endpoint allows requesting funds from the Faucet.
 
 The API provides the following functions and endpoints:
 * [/faucet](#faucet)
@@ -86,6 +86,7 @@ curl --location --request POST 'http://localhost:8080/faucet' \
 #### Client lib - SendFaucetRequest
 
 ##### `SendFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels.FaucetResponse, error)`
+
 ```go
 _, err = webConnector.client.SendFaucetRequest(addr.Address().Base58(), powTarget)
 if err != nil {
