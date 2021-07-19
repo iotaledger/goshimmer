@@ -6,9 +6,6 @@ on:
       - develop
     paths-ignore:
       - 'docs/**'
-  pull_request:
-    branches:
-      - develop
 jobs:
 
   docker:
