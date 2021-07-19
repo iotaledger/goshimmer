@@ -58,7 +58,7 @@
   community.general.docker_compose:
     project_src: /opt/metrics
     state: absent
-    remove_volumes: {{ removeData }}
+    remove_volumes: "{{ removeData }}"
 
 - name: Run services
   community.general.docker_compose:
