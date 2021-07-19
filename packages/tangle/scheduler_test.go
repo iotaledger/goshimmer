@@ -266,26 +266,29 @@ func TestSchedulerFlow(t *testing.T) {
 	// set C to have a timestamp in the future
 	msgC := newMessage(selfNode.PublicKey())
 
-	msgC.parentsBlocks = append(msgC.parentsBlocks, ParentsBlock{
-		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
-	})
+	msgC.parentsBlocks[0] = ParentsBlock{
+		ParentsCount: 2,
+		ParentsType:  StrongParentType,
+		References:   MessageIDs{messages["A"].ID(), messages["B"].ID()},
+	}
 
 	msgC.issuingTime = time.Now().Add(5 * time.Second)
 	messages["C"] = msgC
 
 	msgD := newMessage(peerNode.PublicKey())
-	msgD.parentsBlocks = append(msgD.parentsBlocks, ParentsBlock{
-		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
-	})
+	msgD.parentsBlocks[0] = ParentsBlock{
+		ParentsCount: 2,
+		ParentsType:  StrongParentType,
+		References:   MessageIDs{messages["A"].ID(), messages["B"].ID()},
+	}
 	messages["D"] = msgD
 
 	msgE := newMessage(selfNode.PublicKey())
-	msgE.parentsBlocks = append(msgE.parentsBlocks, ParentsBlock{
-		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
-	})
+	msgE.parentsBlocks[0] = ParentsBlock{
+		ParentsCount: 2,
+		ParentsType:  StrongParentType,
+		References:   MessageIDs{messages["A"].ID(), messages["B"].ID()},
+	}
 	msgE.issuingTime = time.Now().Add(3 * time.Second)
 	messages["E"] = msgE
 
