@@ -290,13 +290,13 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Docker private network',
+        label: 'Docker Private Network',
         id: 'tooling/docker_private_network',
       },
 
       {
         type: 'doc',
-        label: 'Integration tests',
+        label: 'Integration Tests',
         id: 'tooling/integration_tests',
       },
     ],
@@ -320,13 +320,13 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Local development',
+        label: 'Local Dvelopment',
         id: 'teamresources/local_development',
       },
 
       {
         type: 'doc',
-        label: 'Modify the Analysis dashboard',
+        label: 'Modify the Analysis Dashboard',
         id: 'teamresources/analysis_dashboard',
       },
     ],
