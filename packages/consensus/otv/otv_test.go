@@ -603,6 +603,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
+			defer branchDAG.Shutdown()
 			for name, m := range tt.test.Scenario {
 				createTestBranch(t, branchDAG, name, m, m.IsAggregated)
 			}
