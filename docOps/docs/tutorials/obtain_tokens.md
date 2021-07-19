@@ -14,7 +14,7 @@ There are 3 ways to send a faucet request message to obtain IOTA tokens:
 - [Via the HTTP API](../apis/webAPI.md)
 
 ### Via the Go Client Library
-Before proceeding to the example, please follow the instructions in [Use the API](../apis/api.md) to set up the API instance. 
+Before proceeding to the example, please follow the instructions in [Use the API](../apis/client_lib.md) to set up the API instance. 
 
 To request funds using the Go client library you either use the `goshimAPI.sendFaucetRequest` function, making sure to provide your: 
 

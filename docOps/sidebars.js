@@ -201,7 +201,7 @@ module.exports = {
       {
         type: 'doc',
         label: 'Client Lib',
-        id: 'apis/api',
+        id: 'apis/client_lib',
       },
 
       {
@@ -224,13 +224,13 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Manual Peering',
+        label: 'Manual peering',
         id: 'apis/manual_peering',
       },
 
       {
         type: 'doc',
-        label: 'Communication Layer',
+        label: 'Communication layer',
         id: 'apis/communication',
       },
 
@@ -285,18 +285,18 @@ module.exports = {
       {
         type: 'doc',
         label: 'Overview',
-        id: 'tooling',
+        id: 'tooling/overview',
       },
 
       {
         type: 'doc',
-        label: 'Docker Private Network',
+        label: 'Docker private network',
         id: 'tooling/docker_private_network',
       },
 
       {
         type: 'doc',
-        label: 'Integration Tests',
+        label: 'Integration tests',
         id: 'tooling/integration_tests',
       },
     ],
@@ -320,13 +320,13 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Local Development',
+        label: 'Local development',
         id: 'teamresources/local_development',
       },
 
       {
         type: 'doc',
-        label: 'Modify the Analysis Dashboard',
+        label: 'Modify the Analysis dashboard',
         id: 'teamresources/analysis_dashboard',
       },
     ],

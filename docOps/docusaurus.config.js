@@ -67,11 +67,11 @@ module.exports = {
             },
             {
               label: 'API',
-              to: '/docs/apis/api',
+              to: '/docs/apis/client_lib',
             },
             {
               label: 'Tooling',
-              to: '/docs/tooling',
+              to: '/docs/tooling/overview',
             },
             {
               label: 'Team Resources',
