@@ -6,7 +6,7 @@ module.exports = {
   title: 'GoShimmer',
   tagline: 'Official GoShimmer Software',
   url: 'https://goshimmer.docs.iota.org/',
-  baseUrl: '/',
+  baseUrl: '/goshimmer/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
   favicon: '/img/logo/favicon.ico',
