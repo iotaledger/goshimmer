@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/database"
 	. "github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -126,16 +127,16 @@ func WeightFuncFromScenario(t *testing.T, scenario Scenario) WeightFunc {
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
-	type ExpectedOpinionTuple func(branchIDs []OpinionTuple)
+	type ExpectedOpinionTuple func(branchIDs []consensus.OpinionTuple)
 
-	sortOpinionTuple := func(ot []OpinionTuple) {
+	sortOpinionTuple := func(ot []consensus.OpinionTuple) {
 		sort.Slice(ot, func(x, y int) bool {
 			return bytes.Compare(ot[x].Liked.Bytes(), ot[y].Liked.Bytes()) <= 0
 		})
 	}
 
-	mustMatch := func(expected []OpinionTuple) ExpectedOpinionTuple {
-		return func(actual []OpinionTuple) {
+	mustMatch := func(expected []consensus.OpinionTuple) ExpectedOpinionTuple {
+		return func(actual []consensus.OpinionTuple) {
 			sortOpinionTuple(expected)
 			sortOpinionTuple(actual)
 			require.EqualValues(t, expected, actual)
@@ -175,7 +176,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
 						{
 							Liked:    scenario.BranchID("A"),
 							Disliked: scenario.BranchID("B"),
@@ -213,7 +214,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:         scenario,
 					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{}),
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{}),
 					args:             scenario.BranchID("C"),
 				}
 			}(),
@@ -246,7 +247,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
 						{
 							Liked:    scenario.BranchID("A"),
 							Disliked: scenario.BranchID("C"),
@@ -284,7 +285,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
 						{
 							Liked:    scenario.BranchID("A"),
 							Disliked: scenario.BranchID("C"),
@@ -322,7 +323,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:         scenario,
 					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{}),
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{}),
 					args:             scenario.BranchID("C"),
 				}
 			}(),
@@ -355,7 +356,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
 						{
 							Liked:    scenario.BranchID("B"),
 							Disliked: scenario.BranchID("A"),
@@ -403,7 +404,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:         scenario,
 					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{}),
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{}),
 					args:             scenario.BranchID("B"),
 				}
 			}(),
@@ -442,7 +443,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
 						{
 							Liked:    scenario.BranchID("B"),
 							Disliked: scenario.BranchID("A"),
@@ -496,7 +497,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
 						{
 							Liked:    scenario.BranchID("A"),
 							Disliked: scenario.BranchID("C"),
@@ -546,7 +547,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
 						{
 							Liked:    scenario.BranchID("B"),
 							Disliked: scenario.BranchID("A"),
@@ -588,7 +589,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]OpinionTuple{
+					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
 						{
 							Liked:    scenario.BranchID("C"),
 							Disliked: scenario.BranchID("A"),
