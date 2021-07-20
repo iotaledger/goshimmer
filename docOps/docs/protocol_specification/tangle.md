@@ -46,9 +46,6 @@ Messages are created and signed by nodes. Next to several fields of metadata, th
 ### Message ID
 BLAKE2b-256 hash of the byte contents of the message. It should be used by the nodes to index the messages and by external APIs.
 
-### Transaction ID
-The BLAKE2b-256 hash of the transaction from which the UTXO comes from.
-
 ### Message structure
 <table>
     <tr>
@@ -162,7 +159,7 @@ The BLAKE2b-256 hash of the transaction from which the UTXO comes from.
                     <tr>
                         <td>Reference <code>between(1,8)</code></td>
                         <td>ByteArray[32]</td>
-                        <td>Reference to a Transaction ID.</td>
+                        <td>Reference to a Message ID.</td>
                     </tr>
                 </table>
             </details>
@@ -194,7 +191,7 @@ The BLAKE2b-256 hash of the transaction from which the UTXO comes from.
                     <tr>
                         <td>Reference <code>between(1,8)</code></td>
                         <td>ByteArray[32]</td>
-                        <td>Reference to a Transaction ID.</td>
+                        <td>Reference to a Message ID.</td>
                     </tr>
                 </table>
             </details>
@@ -285,17 +282,13 @@ A message is semantically valid if:
 
 #### Votes Validation
 
-1. If more than one like parent is set, they cannot belong to the same conflict set.
-1. The dislike parent must be in the past cone of a strong parent.
-1. If a like parent is specified, at least one dislike parent from the same conflict set must be specified.
-1. For every dislike parent, a like parent must also exist to the supported transaction within the same conflict set, provided that such transaction is not already present in the past cone of any strong parent.
+1. Only one dislike parent is allowed per conflict set.
+1. Only one like parent is allowed per conflict set.
+1. Every dislike parent must be in the past cone of a strong parent.
+1. For each like parent, only one dislike parent must exist pointing to a message containing a transaction within the same conflict set.
+1. For every dislike parent and for every conflict set it belongs to, a like parent must also exist pointing to a message within the considered conflict set, provided that such transaction is not already present in the past cone of any strong parent.
 1. For each referenced conflict set, from all parents types, for each referenced conflict set, must result in only a single transaction support.
-1. Within the same conflict set:
-   1. 1 dislike parent, no weak parents.
-   1. multiple strong parents, no weak parents.
-
-2. Only one like or weak parent can be within the same conflict set.
-3. If a dislike parent is specified, at most one like parent must exist within the same conflict set. 
+1. Only one like or weak parent can be within the same conflict set.
 
 
 
