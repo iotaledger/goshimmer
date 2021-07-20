@@ -11,45 +11,25 @@ import (
 	"github.com/labstack/echo"
 )
 
-type tipsDiagnosticType int
-
-const (
-	strongTipsOnly tipsDiagnosticType = iota
-	weakTipsOnly
-	allTips
-)
-
 // TipsDiagnosticHandler runs tips diagnostic over the Tangle.
 func TipsDiagnosticHandler(c echo.Context) error {
-	return runTipsDiagnostic(c, allTips)
-}
-
-// StrongTipsDiagnosticHandler runs strong tips diagnostic  over the Tangle.
-func StrongTipsDiagnosticHandler(c echo.Context) error {
-	return runTipsDiagnostic(c, strongTipsOnly)
-}
-
-// WeakTipsDiagnosticHandler runs weak tips diagnostic over the Tangle.
-func WeakTipsDiagnosticHandler(c echo.Context) error {
-	return runTipsDiagnostic(c, weakTipsOnly)
+	return runTipsDiagnostic(c)
 }
 
 var tipsDiagnosticTableDescription = append([]string{"tipType"}, DiagnosticMessagesTableDescription...)
 
 type tipsDiagnosticInfo struct {
-	tipType tangle.TipType
 	*DiagnosticMessagesInfo
 }
 
 func (tdi *tipsDiagnosticInfo) toCSVRow() (row []string) {
 	messageRow := tdi.DiagnosticMessagesInfo.toCSVRow()
 	row = make([]string, 0, 1+len(messageRow))
-	row = append(row, tdi.tipType.String())
 	row = append(row, messageRow...)
 	return row
 }
 
-func runTipsDiagnostic(c echo.Context, diagnosticType tipsDiagnosticType) (err error) {
+func runTipsDiagnostic(c echo.Context) (err error) {
 	response := c.Response()
 	response.Header().Set(echo.HeaderContentType, "text/csv")
 	response.WriteHeader(http.StatusOK)
@@ -58,19 +38,14 @@ func runTipsDiagnostic(c echo.Context, diagnosticType tipsDiagnosticType) (err e
 	if err := csvWriter.Write(tipsDiagnosticTableDescription); err != nil {
 		return errors.Errorf("can't write table description row: %w", err)
 	}
-	var strongTips, weakTips tangle.MessageIDs
-	if diagnosticType == strongTipsOnly || diagnosticType == allTips {
-		strongTips = messagelayer.Tangle().TipManager.AllStrongTips()
-	}
-	if diagnosticType == weakTipsOnly || diagnosticType == allTips {
-		weakTips = messagelayer.Tangle().TipManager.AllWeakTips()
-	}
-	if err := buildAndWriteTipsDiagnostic(csvWriter, strongTips, tangle.StrongTip); err != nil {
+	var tips tangle.MessageIDs
+
+	tips = messagelayer.Tangle().TipManager.AllTips()
+
+	if err := buildAndWriteTipsDiagnostic(csvWriter, tips); err != nil {
 		return errors.Errorf("%w", err)
 	}
-	if err := buildAndWriteTipsDiagnostic(csvWriter, weakTips, tangle.WeakTip); err != nil {
-		return errors.Errorf("%w", err)
-	}
+
 	csvWriter.Flush()
 	if err := csvWriter.Error(); err != nil {
 		return errors.Errorf("csv writer failed after flush: %w", err)
@@ -78,11 +53,10 @@ func runTipsDiagnostic(c echo.Context, diagnosticType tipsDiagnosticType) (err e
 	return nil
 }
 
-func buildAndWriteTipsDiagnostic(w *csv.Writer, tips tangle.MessageIDs, tipType tangle.TipType) (err error) {
+func buildAndWriteTipsDiagnostic(w *csv.Writer, tips tangle.MessageIDs) (err error) {
 	for _, tipID := range tips {
 		messageInfo := getDiagnosticMessageInfo(tipID)
 		tipInfo := tipsDiagnosticInfo{
-			tipType:                tipType,
 			DiagnosticMessagesInfo: messageInfo,
 		}
 		if err := w.Write(tipInfo.toCSVRow()); err != nil {
