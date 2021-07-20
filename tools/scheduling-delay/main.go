@@ -10,12 +10,26 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 )
 
-// only messages issued in the last timeWindow mins are taken into analysis
-var timeWindow = -10 * time.Minute
+var (
+	// only messages issued in the last timeWindow mins are taken into analysis
+	timeWindow      = -10 * time.Minute
+	nodeInfos       []*nodeInfo
+	nameNodeInfoMap map[string]*nodeInfo
+)
 
-type MPSInfo struct {
-	mps float64
+type nodeInfo struct {
+	name   string
+	apiURL string
+	nodeID string
+	client *client.GoShimmerAPI
+	mpm    int
 }
+
+type mpsInfo struct {
+	mps  float64
+	msgs float64
+}
+
 type schedulingInfo struct {
 	avgDelay      int64
 	scheduledMsgs int
@@ -23,77 +37,87 @@ type schedulingInfo struct {
 }
 
 func main() {
-	apiUrls := []string{}
-
-	clients := createGoShimmerClients(apiUrls)
+	nodeInfos = []*nodeInfo{
+		{
+			name:   "master",
+			apiURL: "http://127.0.0.1:8080",
+			mpm:    274,
+		},
+	}
+	nameNodeInfoMap = make(map[string]*nodeInfo, len(nodeInfos))
+	bindGoShimmerAPIAndNodeID()
 
 	// start spamming
-	resp, err := clients[0].ToggleSpammer(true, 574)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Bootstrap 1 spamming at 574", resp)
-
-	resp, err = clients[1].ToggleSpammer(true, 154)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Bootstrap 2 spamming at 154", resp)
-
-	resp, err = clients[2].ToggleSpammer(true, 274)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Faucet spamming at 274", resp)
-
-	resp, err = clients[3].ToggleSpammer(true, 52)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Falk 1 spamming at 52", resp)
-
-	resp, err = clients[4].ToggleSpammer(true, 4)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Falk 2 spamming at 4", resp)
+	toggleSpammer(true)
 
 	fmt.Println(time.Now())
-
 	time.Sleep(11 * time.Minute)
 
+	// start collecting metrics
 	endTime := time.Now()
-	delayMaps := make(map[string]map[string]schedulingInfo, len(apiUrls))
-	mpsMaps := make(map[string]map[string]MPSInfo, len(apiUrls))
-	for _, client := range clients {
-		nodeInfo, err := client.Info()
+	delayMaps := make(map[string]map[string]schedulingInfo, len(nodeInfos))
+	mpsMaps := make(map[string]map[string]mpsInfo, len(nodeInfos))
+	for _, info := range nodeInfos {
+		apiInfo, err := info.client.Info()
 		if err != nil {
-			fmt.Println(client.BaseURL(), "crashed")
+			fmt.Println(info.apiURL, "crashed")
 			continue
 		}
-		delayMaps[nodeInfo.IdentityIDShort] = analyzeSchedulingDelay(client, endTime)
-		mpsMaps[nodeInfo.IdentityIDShort] = analyzeMPSDistribution(client, endTime)
+		delayMaps[info.nodeID] = analyzeSchedulingDelay(info.client, endTime)
+		mpsMaps[info.nodeID] = analyzeMPSDistribution(info.client, endTime)
 		// get node queue sizes
-		for issuer, qLen := range nodeInfo.Scheduler.NodeQueueSizes {
-			t := delayMaps[nodeInfo.IdentityIDShort][issuer]
+		for issuer, qLen := range apiInfo.Scheduler.NodeQueueSizes {
+			t := delayMaps[info.nodeID][issuer]
 			t.nodeQLen = qLen
-			delayMaps[nodeInfo.IdentityIDShort][issuer] = t
+			delayMaps[info.nodeID][issuer] = t
 		}
 	}
+
+	// stop spamming
+	toggleSpammer(false)
 
 	printResults(delayMaps)
 	printMPSResults(mpsMaps)
+	printStoredMsgsPercentage(mpsMaps)
 
-	manaPercentage := fetchManaPercentage(clients[0])
+	manaPercentage := fetchManaPercentage(nodeInfos[0].client)
 	renderChart(delayMaps, manaPercentage)
 }
 
-func createGoShimmerClients(apiUrls []string) []*client.GoShimmerAPI {
-	clients := make([]*client.GoShimmerAPI, len(apiUrls))
-	for i, url := range apiUrls {
-		clients[i] = client.NewGoShimmerAPI(url, client.WithHTTPClient(http.Client{Timeout: 180 * time.Second}))
+func bindGoShimmerAPIAndNodeID() {
+	for _, info := range nodeInfos {
+		// create GoShimmer API
+		api := client.NewGoShimmerAPI(info.apiURL, client.WithHTTPClient(http.Client{Timeout: 1800 * time.Second}))
+		// get short node ID
+		nodeInfo, err := api.Info()
+		if err != nil {
+			fmt.Println(api.BaseURL(), "crashed")
+			continue
+		}
+		info.nodeID = nodeInfo.IdentityIDShort
+		info.client = api
+
+		nameNodeInfoMap[info.name] = info
 	}
-	return clients
+}
+
+func toggleSpammer(enabled bool) {
+	for _, info := range nodeInfos {
+		if enabled && info.mpm <= 0 {
+			continue
+		}
+
+		resp, err := info.client.ToggleSpammer(enabled, info.mpm)
+		if err != nil {
+			panic(err)
+		}
+		// debug logging
+		if enabled {
+			fmt.Println(info.name, "spamming at", info.mpm, resp)
+		} else {
+			fmt.Println(info.name, "stop spamming")
+		}
+	}
 }
 
 func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, endTime time.Time) map[string]schedulingInfo {
@@ -121,7 +145,7 @@ func analyzeSchedulingDelay(goshimmerAPI *client.GoShimmerAPI, endTime time.Time
 	return avgScheduleDelay
 }
 
-func analyzeMPSDistribution(goshimmerAPI *client.GoShimmerAPI, endTime time.Time) map[string]MPSInfo {
+func analyzeMPSDistribution(goshimmerAPI *client.GoShimmerAPI, endTime time.Time) map[string]mpsInfo {
 	csvRes, err := goshimmerAPI.GetDiagnosticsMessages()
 	if err != nil {
 		fmt.Println(err)
@@ -155,26 +179,32 @@ func calculateSchedulingDelay(response *csv.Reader, endTime time.Time) map[strin
 	return nodeDelayMap
 }
 
-func calculateMPS(response *csv.Reader, endTime time.Time) map[string]MPSInfo {
+func calculateMPS(response *csv.Reader, endTime time.Time) map[string]mpsInfo {
 	startTime := endTime.Add(timeWindow)
 	nodeMSGCounterMap := make(map[string]int)
-	nodeMPSMap := make(map[string]MPSInfo)
+	nodeMPSMap := make(map[string]mpsInfo)
 	messageInfos, _ := response.ReadAll()
+	totalMsgFromStart := 0
+	storedMsgFromStart := make(map[string]int)
 
 	for _, msg := range messageInfos {
+		issuer := msg[1]
+		totalMsgFromStart++
+		storedMsgFromStart[issuer]++
+
 		arrivalTime := timestampFromString(msg[4])
 		// ignore data that is issued before collectTime
 		if arrivalTime.Before(startTime) || arrivalTime.After(endTime) {
 			continue
 		}
 
-		issuer := msg[1]
 		nodeMSGCounterMap[issuer]++
 	}
 
 	for nodeID, counter := range nodeMSGCounterMap {
-		nodeMPSMap[nodeID] = MPSInfo{
-			mps: float64(counter) / endTime.Sub(startTime).Seconds(),
+		nodeMPSMap[nodeID] = mpsInfo{
+			mps:  float64(counter) / endTime.Sub(startTime).Seconds(),
+			msgs: float64(storedMsgFromStart[nodeID]) / float64(totalMsgFromStart),
 		}
 	}
 	return nodeMPSMap
@@ -203,40 +233,59 @@ func timestampFromString(timeString string) time.Time {
 func printResults(delayMaps map[string]map[string]schedulingInfo) {
 	fmt.Printf("The average scheduling delay of different issuers on different nodes:\n\n")
 
-	var nodeOrder []string
 	title := fmt.Sprintf("%-15s", "Issuer\\NodeID")
-	for nodeID := range delayMaps {
-		nodeOrder = append(nodeOrder, nodeID)
-		title = fmt.Sprintf("%s %-30s %-15s", title, nodeID, "scheduled msgs")
+	for _, info := range nodeInfos {
+		title = fmt.Sprintf("%s %-30s %-15s", title, info.name, "scheduled msgs")
 	}
 	fmt.Printf("%s\n\n", title)
 
-	for _, issuer := range nodeOrder {
-		row := fmt.Sprintf("%-15s", issuer)
-		for _, nodeID := range nodeOrder {
-			delayQLenstr := fmt.Sprintf("%v (Q size:%d)", time.Duration(delayMaps[nodeID][issuer].avgDelay)*time.Nanosecond,
-				delayMaps[nodeID][issuer].nodeQLen)
-			row = fmt.Sprintf("%s %-30s %-15d", row, delayQLenstr, delayMaps[nodeID][issuer].scheduledMsgs)
+	for _, issuer := range nodeInfos {
+		row := fmt.Sprintf("%-15s", issuer.name)
+		issuerID := issuer.nodeID
+		for _, node := range nodeInfos {
+			nodeID := node.nodeID
+			delayQLenstr := fmt.Sprintf("%v (Q size:%d)",
+				time.Duration(delayMaps[nodeID][issuerID].avgDelay)*time.Nanosecond,
+				delayMaps[nodeID][issuerID].nodeQLen)
+			row = fmt.Sprintf("%s %-30s %-15d", row, delayQLenstr, delayMaps[nodeID][issuerID].scheduledMsgs)
 		}
 		fmt.Println(row)
 	}
+	fmt.Printf("\n")
 }
 
-func printMPSResults(mpsMaps map[string]map[string]MPSInfo) {
+func printMPSResults(mpsMaps map[string]map[string]mpsInfo) {
 	fmt.Printf("The average mps of different issuers on different nodes:\n\n")
 
-	var nodeOrder []string
 	title := fmt.Sprintf("%-15s", "Issuer\\NodeID")
-	for nodeID := range mpsMaps {
-		nodeOrder = append(nodeOrder, nodeID)
-		title = fmt.Sprintf("%s %-30s", title, nodeID)
+	for _, info := range nodeInfos {
+		title = fmt.Sprintf("%s %-30s", title, info.name)
 	}
 	fmt.Printf("%s\n\n", title)
 
-	for _, issuer := range nodeOrder {
-		row := fmt.Sprintf("%-15s", issuer)
-		for _, nodeID := range nodeOrder {
-			row = fmt.Sprintf("%s %-30f", row, mpsMaps[nodeID][issuer].mps)
+	for _, issuer := range nodeInfos {
+		row := fmt.Sprintf("%-15s", issuer.name)
+		for _, node := range nodeInfos {
+			row = fmt.Sprintf("%s %-30f", row, mpsMaps[node.nodeID][issuer.nodeID].mps)
+		}
+		fmt.Println(row)
+	}
+	fmt.Printf("\n")
+}
+
+func printStoredMsgsPercentage(mpsMaps map[string]map[string]mpsInfo) {
+	fmt.Printf("The proportion of msgs from different issuers on different nodes:\n\n")
+
+	title := fmt.Sprintf("%-15s", "Issuer\\NodeID")
+	for _, info := range nodeInfos {
+		title = fmt.Sprintf("%s %-30s", title, info.name)
+	}
+	fmt.Printf("%s\n\n", title)
+
+	for _, issuer := range nodeInfos {
+		row := fmt.Sprintf("%-15s", issuer.name)
+		for _, node := range nodeInfos {
+			row = fmt.Sprintf("%s %-30f", row, mpsMaps[node.nodeID][issuer.nodeID].msgs)
 		}
 		fmt.Println(row)
 	}

@@ -15,8 +15,8 @@ var xAxis = []string{}
 
 func renderChart(delayMaps map[string]map[string]schedulingInfo, manaPercentage map[string]float64) {
 	// set xAxis
-	for nodeID := range delayMaps {
-		xAxis = append(xAxis, nodeID)
+	for _, info := range nodeInfos {
+		xAxis = append(xAxis, info.name)
 	}
 
 	page := components.NewPage()
@@ -65,7 +65,8 @@ func schedulingDelayLineChart(delayMaps map[string]map[string]schedulingInfo, ma
 					// Chinese version: ["数据视图", "关闭", "刷新"]
 					Lang: []string{"data view", "turn off", "refresh"},
 				},
-			}}),
+			},
+		}),
 	)
 	line.SetXAxis(xAxis)
 
@@ -113,7 +114,8 @@ func nodeQSizeLineChart(delayMaps map[string]map[string]schedulingInfo, manaPerc
 					// Chinese version: ["数据视图", "关闭", "刷新"]
 					Lang: []string{"data view", "turn off", "refresh"},
 				},
-			}}),
+			},
+		}),
 	)
 	line.SetXAxis(xAxis)
 
@@ -131,8 +133,10 @@ func nodeQSizeLineChart(delayMaps map[string]map[string]schedulingInfo, manaPerc
 func schedulingDelayLineItems(delayMaps map[string]map[string]schedulingInfo) map[string][]opts.LineData {
 	items := make(map[string][]opts.LineData, len(xAxis))
 	for _, issuer := range xAxis {
-		for _, nodeID := range xAxis {
-			delay := time.Duration(delayMaps[nodeID][issuer].avgDelay) * time.Nanosecond
+		issuerID := nameNodeInfoMap[issuer].nodeID
+		for _, node := range xAxis {
+			nodeID := nameNodeInfoMap[node].nodeID
+			delay := time.Duration(delayMaps[nodeID][issuerID].avgDelay) * time.Nanosecond
 			items[issuer] = append(items[issuer],
 				opts.LineData{Value: delay.Milliseconds()})
 		}
@@ -143,9 +147,11 @@ func schedulingDelayLineItems(delayMaps map[string]map[string]schedulingInfo) ma
 func nodeQueueSizeLineItems(delayMaps map[string]map[string]schedulingInfo) map[string][]opts.LineData {
 	items := make(map[string][]opts.LineData, len(xAxis))
 	for _, issuer := range xAxis {
-		for _, nodeID := range xAxis {
+		issuerID := nameNodeInfoMap[issuer].nodeID
+		for _, node := range xAxis {
+			nodeID := nameNodeInfoMap[node].nodeID
 			items[issuer] = append(items[issuer],
-				opts.LineData{Value: delayMaps[nodeID][issuer].nodeQLen})
+				opts.LineData{Value: delayMaps[nodeID][issuerID].nodeQLen})
 		}
 	}
 	return items
@@ -155,7 +161,8 @@ func manaBarChart(manaMap map[string]float64) *charts.Bar {
 	bar := charts.NewBar()
 	items := []opts.BarData{}
 	for _, issuer := range xAxis {
-		mana, ok := manaMap[issuer]
+		issuerID := nameNodeInfoMap[issuer].nodeID
+		mana, ok := manaMap[issuerID]
 		if !ok {
 			mana = 0
 		}
@@ -177,8 +184,11 @@ func manaBarChart(manaMap map[string]float64) *charts.Bar {
 func scheduledMsgBarChart(delayMaps map[string]map[string]schedulingInfo) *charts.Bar {
 	bar := charts.NewBar()
 	items := []opts.BarData{}
+
+	xID := nameNodeInfoMap[xAxis[0]].nodeID
 	for _, issuer := range xAxis {
-		items = append(items, opts.BarData{Value: delayMaps[xAxis[0]][issuer].scheduledMsgs})
+		issuerID := nameNodeInfoMap[issuer].nodeID
+		items = append(items, opts.BarData{Value: delayMaps[xID][issuerID].scheduledMsgs})
 	}
 
 	bar.SetXAxis(xAxis).
