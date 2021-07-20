@@ -53,12 +53,9 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
-						{
-							Liked:    scenario.BranchID("A"),
-							Disliked: scenario.BranchID("B"),
-						},
-					}),
+					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario,
+						aliasOpinionTuple{"A", "B"}),
+					),
 					args: scenario.BranchID("B"),
 				}
 			}(),
@@ -72,7 +69,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:         scenario,
 					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{}),
+					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario)),
 					args:             scenario.BranchID("C"),
 				}
 			}(),
@@ -86,12 +83,9 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
-						{
-							Liked:    scenario.BranchID("A"),
-							Disliked: scenario.BranchID("C"),
-						},
-					}),
+					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario,
+						aliasOpinionTuple{"A", "C"}),
+					),
 					args: scenario.BranchID("C"),
 				}
 			}(),
@@ -105,12 +99,9 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
-						{
-							Liked:    scenario.BranchID("A"),
-							Disliked: scenario.BranchID("C"),
-						},
-					}),
+					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario,
+						aliasOpinionTuple{"A", "C"}),
+					),
 					args: scenario.BranchID("C"),
 				}
 			}(),
@@ -124,7 +115,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:         scenario,
 					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{}),
+					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario)),
 					args:             scenario.BranchID("C"),
 				}
 			}(),
@@ -138,16 +129,10 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
-						{
-							Liked:    scenario.BranchID("B"),
-							Disliked: scenario.BranchID("A"),
-						},
-						{
-							Liked:    scenario.BranchID("C"),
-							Disliked: scenario.BranchID("A"),
-						},
-					}),
+					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario,
+						aliasOpinionTuple{"B", "A"},
+						aliasOpinionTuple{"C", "A"},
+					)),
 					args: scenario.BranchID("A"),
 				}
 			}(),
@@ -161,7 +146,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:         scenario,
 					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{}),
+					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario)),
 					args:             scenario.BranchID("B"),
 				}
 			}(),
@@ -175,16 +160,11 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
-						{
-							Liked:    scenario.BranchID("B"),
-							Disliked: scenario.BranchID("A"),
-						},
-						{
-							Liked:    scenario.BranchID("D"),
-							Disliked: scenario.BranchID("A"),
-						},
-					}),
+					wantOpinionTuple: mustMatch(
+						createOpinionTuples(&scenario,
+							aliasOpinionTuple{"B", "A"},
+							aliasOpinionTuple{"D", "A"},
+						)),
 					args: scenario.BranchID("A"),
 				}
 			}(),
@@ -198,12 +178,10 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
-						{
-							Liked:    scenario.BranchID("A"),
-							Disliked: scenario.BranchID("C"),
-						},
-					}),
+					wantOpinionTuple: mustMatch(
+						createOpinionTuples(&scenario,
+							aliasOpinionTuple{"A", "C"},
+						)),
 					args: scenario.BranchID("C"),
 				}
 			}(),
@@ -217,16 +195,11 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
-						{
-							Liked:    scenario.BranchID("B"),
-							Disliked: scenario.BranchID("A"),
-						},
-						{
-							Liked:    scenario.BranchID("D"),
-							Disliked: scenario.BranchID("A"),
-						},
-					}),
+					wantOpinionTuple: mustMatch(
+						createOpinionTuples(&scenario,
+							aliasOpinionTuple{"B", "A"},
+							aliasOpinionTuple{"D", "A"},
+						)),
 					args: scenario.BranchID("A"),
 				}
 			}(),
@@ -240,12 +213,10 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch([]consensus.OpinionTuple{
-						{
-							Liked:    scenario.BranchID("C"),
-							Disliked: scenario.BranchID("A"),
-						},
-					}),
+					wantOpinionTuple: mustMatch(
+						createOpinionTuples(&scenario,
+							aliasOpinionTuple{"C", "A"},
+						)),
 					args: scenario.BranchID("A"),
 				}
 			}(),
@@ -256,13 +227,17 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 			defer branchDAG.Shutdown()
-			for name, m := range tt.test.Scenario {
-				createTestBranch(t, branchDAG, name, m, m.IsAggregated)
-			}
+
+			tt.test.Scenario.CreateBranches(t, branchDAG)
 			o := NewOnTangleVoting(tt.test.WeightFunc, branchDAG)
 
 			liked, err := o.LikedInstead(tt.test.args)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
 			require.NoError(t, err)
+
 			tt.test.wantOpinionTuple(liked)
 		})
 	}
@@ -623,6 +598,25 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 }
 
 // region test helpers /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// aliasOpinionTuple allows to specify consensus.OpinionTuple with branch aliases.
+type aliasOpinionTuple struct {
+	Liked    string
+	Disliked string
+}
+
+// createOpinionTuples creates a slice of consensus.OpinionTuple from aliasOpinionTuple.
+func createOpinionTuples(scenario *Scenario, aliasTuples ...aliasOpinionTuple) []consensus.OpinionTuple {
+	ots := make([]consensus.OpinionTuple, 0)
+	for _, a := range aliasTuples {
+		ots = append(ots, consensus.OpinionTuple{
+			Liked:    scenario.BranchID(a.Liked),
+			Disliked: scenario.BranchID(a.Disliked),
+		})
+	}
+
+	return ots
+}
 
 // BranchMeta describes a branch in a branchDAG with its conflicts and approval weight.
 type BranchMeta struct {
