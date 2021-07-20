@@ -32,8 +32,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			return []MessageID{EmptyMessageID}, []MessageID{}, nil
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+			return []MessageID{EmptyMessageID}, nil
 		}),
 	)
 	tangle.MessageFactory.SetTimeout(powTimeout)
@@ -122,8 +122,8 @@ func TestMessageFactory_POW(t *testing.T) {
 
 	msgFactory := NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			return []MessageID{EmptyMessageID}, []MessageID{}, nil
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+			return []MessageID{EmptyMessageID}, nil
 		}),
 	)
 	defer msgFactory.Shutdown()

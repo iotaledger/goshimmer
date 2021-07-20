@@ -90,28 +90,28 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		return nil, err
 	}
 
-	countStrongParents := 2
+	countParents := 2
 	if len(parentsCount) > 0 {
-		countStrongParents = parentsCount[0]
+		countParents = parentsCount[0]
 	}
-	strongParents, weakParents, err := f.selector.Tips(p, countStrongParents, 2)
+	parents, err := f.selector.Tips(p, countParents)
 	if err != nil {
 		err = errors.Errorf("tips could not be selected: %w", err)
 		f.Events.Error.Trigger(err)
 		f.issuanceMutex.Unlock()
 		return nil, err
 	}
-	issuingTime := f.getIssuingTime(strongParents, weakParents)
+	issuingTime := f.getIssuingTime(parents)
 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
 	startTime := time.Now()
 
-	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(parents, nil, issuingTime, issuerPublicKey, sequenceNumber, p)
 	for err != nil && time.Since(startTime) < f.powTimeout {
 		if p.Type() != ledgerstate.TransactionType {
-			strongParents, weakParents, err = f.selector.Tips(p, countStrongParents, 2)
+			parents, err = f.selector.Tips(p, countParents)
 			if err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
@@ -120,8 +120,8 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			}
 		}
 
-		issuingTime = f.getIssuingTime(strongParents, weakParents)
-		nonce, err = f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+		issuingTime = f.getIssuingTime(parents)
+		nonce, err = f.doPOW(parents, nil, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
 	if err != nil {
@@ -133,11 +133,11 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	f.issuanceMutex.Unlock()
 
 	// create the signature
-	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature := f.sign(parents, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := NewMessage(
-		strongParents,
-		weakParents,
+		parents,
+		nil,
 		nil,
 		nil,
 		issuingTime,
@@ -151,25 +151,19 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-func (f *MessageFactory) getIssuingTime(strongParents, weakParents MessageIDs) time.Time {
+func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
 
-	for _, parent := range strongParents {
+	for _, parent := range parents {
 		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
 			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
 				issuingTime = msg.IssuingTime()
 			}
 		})
 	}
-	for _, parent := range weakParents {
-		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
-			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
-				issuingTime = msg.IssuingTime()
-			}
-		})
-	}
+
 	return issuingTime
 }
 
@@ -221,7 +215,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
+	Tips(p payload.Payload, countParents int) (parents MessageIDs, err error)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -229,11 +223,11 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
+type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDs, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-	return f(p, countStrongParents, countWeakParents)
+func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+	return f(p, countParents)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

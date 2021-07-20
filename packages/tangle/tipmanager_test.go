@@ -92,20 +92,18 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// without any tip -> genesis
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 2, 2)
+		parents, err := tipManager.Tips(nil, 2)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 1)
-		assert.Contains(t, strongParents, EmptyMessageID)
-		assert.Empty(t, weakParents)
+		assert.Len(t, parents, 1)
+		assert.Contains(t, parents, EmptyMessageID)
 	}
 
 	// without any count -> 1 tip, in this case genesis
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 0, 0)
+		parents, err := tipManager.Tips(nil, 0)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 1)
-		assert.Contains(t, strongParents, EmptyMessageID)
-		assert.Empty(t, weakParents)
+		assert.Len(t, parents, 1)
+		assert.Contains(t, parents, EmptyMessageID)
 	}
 
 	// Message 1
@@ -113,15 +111,13 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		messages["1"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
 		tipManager.AddTip(messages["1"])
 
-		assert.Equal(t, 1, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
-		assert.Contains(t, tipManager.strongTips.Keys(), messages["1"].ID())
+		assert.Equal(t, 1, tipManager.TipCount())
+		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID())
 
-		strongParents, weakParents, err := tipManager.Tips(nil, 2, 2)
+		parents, err := tipManager.Tips(nil, 3)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 1)
-		assert.Contains(t, strongParents, messages["1"].ID())
-		assert.Empty(t, weakParents)
+		assert.Len(t, parents, 1)
+		assert.Contains(t, parents, messages["1"].ID())
 	}
 
 	// Message 2
@@ -129,15 +125,13 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		messages["2"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
 		tipManager.AddTip(messages["2"])
 
-		assert.Equal(t, 2, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
-		assert.Contains(t, tipManager.strongTips.Keys(), messages["1"].ID(), messages["2"].ID())
+		assert.Equal(t, 2, tipManager.TipCount())
+		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID(), messages["2"].ID())
 
-		strongParents, weakParents, err := tipManager.Tips(nil, 2, 2)
+		parents, err := tipManager.Tips(nil, 3)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 2)
-		assert.Contains(t, strongParents, messages["1"].ID(), messages["2"].ID())
-		assert.Empty(t, weakParents)
+		assert.Len(t, parents, 2)
+		assert.Contains(t, parents, messages["1"].ID(), messages["2"].ID())
 	}
 
 	// Message 3
@@ -145,15 +139,13 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		messages["3"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 		tipManager.AddTip(messages["3"])
 
-		assert.Equal(t, 1, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
-		assert.Contains(t, tipManager.strongTips.Keys(), messages["3"].ID())
+		assert.Equal(t, 1, tipManager.TipCount())
+		assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
 
-		strongParents, weakParents, err := tipManager.Tips(nil, 2, 2)
+		parents, err := tipManager.Tips(nil, 2)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 1)
-		assert.Contains(t, strongParents, messages["3"].ID())
-		assert.Empty(t, weakParents)
+		assert.Len(t, parents, 1)
+		assert.Contains(t, parents, messages["3"].ID())
 	}
 
 	// Message 4
@@ -161,17 +153,14 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		messages["4"] = createAndStoreEligibleTestParentsDataMessageInInvalidBranch(tangle, []MessageID{messages["2"].ID()}, []MessageID{messages["3"].ID()})
 		tipManager.AddTip(messages["4"])
 
-		assert.Equal(t, 1, tipManager.StrongTipCount())
-		assert.Equal(t, 1, tipManager.WeakTipCount())
-		assert.Contains(t, tipManager.strongTips.Keys(), messages["3"].ID())
-		assert.Contains(t, tipManager.weakTips.Keys(), messages["4"].ID())
+		assert.Equal(t, 2, tipManager.TipCount())
+		assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
+		assert.Contains(t, tipManager.tips.Keys(), messages["4"].ID())
 
-		strongParents, weakParents, err := tipManager.Tips(nil, 2, 2)
+		parents, err := tipManager.Tips(nil, 3)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 1)
-		assert.Contains(t, strongParents, messages["3"].ID())
-		assert.Len(t, weakParents, 1)
-		assert.Contains(t, weakParents, messages["4"].ID())
+		assert.Len(t, parents, 2)
+		assert.Contains(t, parents, messages["3"].ID(), messages["4"].ID())
 	}
 
 	// Message 5
@@ -179,85 +168,73 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		messages["5"] = createAndStoreEligibleTestParentsDataMessageInInvalidBranch(tangle, []MessageID{messages["3"].ID(), messages["4"].ID()}, []MessageID{})
 		tipManager.AddTip(messages["5"])
 
-		assert.Equal(t, 1, tipManager.StrongTipCount())
-		assert.Equal(t, 2, tipManager.WeakTipCount())
-		assert.Contains(t, tipManager.strongTips.Keys(), messages["3"].ID())
-		assert.Contains(t, tipManager.weakTips.Keys(), messages["4"].ID(), messages["5"].ID())
+		assert.Equal(t, 3, tipManager.TipCount())
+		assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID(), messages["4"].ID(), messages["5"].ID())
 
-		strongParents, weakParents, err := tipManager.Tips(nil, 2, 2)
+		parents, err := tipManager.Tips(nil, 4)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 1)
-		assert.Contains(t, strongParents, messages["3"].ID())
-		assert.Len(t, weakParents, 2)
-		assert.Contains(t, weakParents, messages["4"].ID(), messages["5"].ID())
+		assert.Len(t, parents, 3)
+		assert.Contains(t, parents, messages["3"].ID(), messages["4"].ID(), messages["5"].ID())
 	}
 
 	// Add Message 6-12
 	{
-		strongTips := make([]MessageID, 0, 9)
-		strongTips = append(strongTips, messages["3"].ID())
+		tips := make([]MessageID, 0, 9)
+		tips = append(tips, messages["3"].ID())
 		for count, n := range []int{6, 7, 8, 9, 10, 11, 12, 13} {
 			nString := strconv.Itoa(n)
 			messages[nString] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID()}, []MessageID{})
 			tipManager.AddTip(messages[nString])
-			strongTips = append(strongTips, messages[nString].ID())
+			tips = append(tips, messages[nString].ID())
 
-			assert.Equalf(t, count+2, tipManager.StrongTipCount(), "StrongTipCount does not match after adding Message %d", n)
-			assert.Equalf(t, 2, tipManager.WeakTipCount(), "WeakTipCount does not match after adding Message %d", n)
-			assert.ElementsMatchf(t, tipManager.strongTips.Keys(), strongTips, "Elements in strongTips do not match after adding Message %d", n)
-			assert.Contains(t, tipManager.weakTips.Keys(), messages["4"].ID(), messages["5"].ID())
+			assert.Equalf(t, count+4, tipManager.TipCount(), "TipCount does not match after adding Message %d", n)
+			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips, "Elements in strongTips do not match after adding Message %d", n)
+			assert.Contains(t, tipManager.tips.Keys(), messages["4"].ID(), messages["5"].ID())
 		}
 	}
 
 	// now we have strongTips: 9, weakTips: 2
 	// Tips(2,2) -> 2,2
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 2, 2)
+		prents, err := tipManager.Tips(nil, 4)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 2)
-		assert.Len(t, weakParents, 2)
+		assert.Len(t, prents, 4)
 	}
 	// Tips(8,2) -> 8,0
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 8, 2)
+		parents, err := tipManager.Tips(nil, 10)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 8)
-		assert.Len(t, weakParents, 0)
+		assert.Len(t, parents, 8)
 	}
 	// Tips(9,2) -> 8,0
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 9, 2)
+		parents, err := tipManager.Tips(nil, 11)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 8)
-		assert.Len(t, weakParents, 0)
+		assert.Len(t, parents, 8)
 	}
 	// Tips(7,2) -> 7,1
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 7, 2)
+		parents, err := tipManager.Tips(nil, 9)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 7)
-		assert.Len(t, weakParents, 1)
+		assert.Len(t, parents, 8)
 	}
 	// Tips(6,2) -> 6,2
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 6, 2)
+		parents, err := tipManager.Tips(nil, 8)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 6)
-		assert.Len(t, weakParents, 2)
+		assert.Len(t, parents, 8)
 	}
 	// Tips(4,1) -> 4,1
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 4, 1)
+		parents, err := tipManager.Tips(nil, 5)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 4)
-		assert.Len(t, weakParents, 1)
+		assert.Len(t, parents, 5)
 	}
 	// Tips(0,2) -> 1,2
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 0, 2)
+		parents, err := tipManager.Tips(nil, 2)
 		assert.NoError(t, err)
-		assert.Len(t, strongParents, 1)
-		assert.Len(t, weakParents, 2)
+		assert.Len(t, parents, 3)
 	}
 }
 
@@ -386,8 +363,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["1"])
 
 		tipManager.AddTip(messages["1"])
-		assert.Equal(t, 0, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 0, tipManager.TipCount())
 	}
 
 	// Message 2
@@ -403,8 +379,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["2"])
 
 		tipManager.AddTip(messages["2"])
-		assert.Equal(t, 1, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 1, tipManager.TipCount())
 	}
 
 	// Message 3
@@ -421,8 +396,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["3"])
 
 		tipManager.AddTip(messages["3"])
-		assert.Equal(t, 2, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 2, tipManager.TipCount())
 	}
 
 	// Message 4
@@ -454,8 +428,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["4"])
 
 		tipManager.AddTip(messages["4"])
-		assert.Equal(t, 2, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 2, tipManager.TipCount())
 	}
 
 	// Message 5
@@ -465,8 +438,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["5"])
 
 		tipManager.AddTip(messages["5"])
-		assert.Equal(t, 3, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 3, tipManager.TipCount())
 	}
 
 	createScenarioMessageWith1Input1Output := func(messageStringID, transactionStringID, consumedTransactionStringID, inputStringID, outputStringID string, strongParents []MessageID) {
@@ -484,72 +456,63 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	{
 		createScenarioMessageWith1Input1Output("6", "5", "3", "H", "Q", []MessageID{messages["3"].ID(), messages["5"].ID()})
 		tipManager.AddTip(messages["6"])
-		assert.Equal(t, 2, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 2, tipManager.TipCount())
 	}
 
 	// Message 7
 	{
 		createScenarioMessageWith1Input1Output("7", "6", "3", "I", "R", []MessageID{messages["3"].ID(), messages["5"].ID()})
 		tipManager.AddTip(messages["7"])
-		assert.Equal(t, 3, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 3, tipManager.TipCount())
 	}
 
 	// Message 8
 	{
 		createScenarioMessageWith1Input1Output("8", "7", "3", "J", "S", []MessageID{messages["3"].ID(), messages["5"].ID()})
 		tipManager.AddTip(messages["8"])
-		assert.Equal(t, 4, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 4, tipManager.TipCount())
 	}
 
 	// Message 9
 	{
 		createScenarioMessageWith1Input1Output("9", "8", "4", "K", "T", []MessageID{messages["4"].ID()})
 		tipManager.AddTip(messages["9"])
-		assert.Equal(t, 4, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 4, tipManager.TipCount())
 	}
 
 	// Message 10
 	{
 		createScenarioMessageWith1Input1Output("10", "9", "4", "L", "U", []MessageID{messages["2"].ID(), messages["4"].ID()})
 		tipManager.AddTip(messages["10"])
-		assert.Equal(t, 5, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 5, tipManager.TipCount())
 	}
 
 	// Message 11
 	{
 		createScenarioMessageWith1Input1Output("11", "10", "4", "M", "V", []MessageID{messages["2"].ID(), messages["4"].ID()})
 		tipManager.AddTip(messages["11"])
-		assert.Equal(t, 6, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 6, tipManager.TipCount())
 	}
 
 	// Message 12
 	{
 		createScenarioMessageWith1Input1Output("12", "11", "4", "N", "X", []MessageID{messages["3"].ID(), messages["4"].ID()})
 		tipManager.AddTip(messages["12"])
-		assert.Equal(t, 7, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 7, tipManager.TipCount())
 	}
 
 	// Message 13
 	{
 		createScenarioMessageWith1Input1Output("13", "12", "4", "O", "Y", []MessageID{messages["4"].ID()})
 		tipManager.AddTip(messages["13"])
-		assert.Equal(t, 8, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 8, tipManager.TipCount())
 	}
 
 	// Message 14
 	{
 		createScenarioMessageWith1Input1Output("14", "13", "4", "P", "Z", []MessageID{messages["4"].ID()})
 		tipManager.AddTip(messages["14"])
-		assert.Equal(t, 9, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 9, tipManager.TipCount())
 	}
 
 	// Message 15
@@ -559,8 +522,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["15"])
 
 		tipManager.AddTip(messages["15"])
-		assert.Equal(t, 8, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 8, tipManager.TipCount())
 	}
 
 	// Message 16
@@ -570,8 +532,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["16"])
 
 		tipManager.AddTip(messages["16"])
-		assert.Equal(t, 8, tipManager.StrongTipCount())
-		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Equal(t, 8, tipManager.TipCount())
 	}
 	// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -619,9 +580,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			walletsByAddress,
 		)
 
-		strongParents, weakParents, err := tipManager.Tips(transactions["14"], 2, 2)
+		parents, err := tipManager.Tips(transactions["14"], 4)
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, strongParents, []MessageID{
+		assert.ElementsMatch(t, parents, []MessageID{
 			messages["6"].ID(),
 			messages["7"].ID(),
 			messages["8"].ID(),
@@ -631,7 +592,6 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			messages["12"].ID(),
 			messages["13"].ID(),
 		})
-		assert.Len(t, weakParents, 0)
 	}
 
 	// Message 18
@@ -654,13 +614,13 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			walletsByAddress,
 		)
 
-		strongParents, weakParents, err := tipManager.Tips(transactions["15"], 2, 2)
+		parents, err := tipManager.Tips(transactions["15"], 4)
 		assert.NoError(t, err)
 		// there are possible parents to be selected, however, since the directly referenced messages are tips as well
 		// there is a chance that these are doubly selected, resulting 6 to 8 parents
-		assert.GreaterOrEqual(t, len(strongParents), 6)
-		assert.LessOrEqual(t, len(strongParents), 8)
-		assert.Contains(t, strongParents,
+		assert.GreaterOrEqual(t, len(parents), 6)
+		assert.LessOrEqual(t, len(parents), 8)
+		assert.Contains(t, parents,
 			messages["6"].ID(),
 			messages["7"].ID(),
 			messages["8"].ID(),
@@ -668,7 +628,6 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			messages["10"].ID(),
 			messages["11"].ID(),
 		)
-		assert.Len(t, weakParents, 0)
 	}
 
 	// Message 19
@@ -688,20 +647,19 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			walletsByAddress,
 		)
 
-		strongParents, weakParents, err := tipManager.Tips(transactions["16"], 2, 2)
+		parents, err := tipManager.Tips(transactions["16"], 4)
 		assert.NoError(t, err)
 
 		// we reference 11, 14 directly. 1 is too old and should not be directly referenced
-		assert.GreaterOrEqual(t, len(strongParents), 4)
-		assert.LessOrEqual(t, len(strongParents), 8)
-		assert.Contains(t, strongParents,
+		assert.GreaterOrEqual(t, len(parents), 4)
+		assert.LessOrEqual(t, len(parents), 8)
+		assert.Contains(t, parents,
 			messages["11"].ID(),
 			messages["14"].ID(),
 		)
-		assert.NotContains(t, strongParents,
+		assert.NotContains(t, parents,
 			messages["1"].ID(),
 		)
-		assert.Len(t, weakParents, 0)
 	}
 
 	// Message 20
@@ -727,13 +685,13 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			walletsByAddress,
 		)
 
-		strongParents, weakParents, err := tipManager.Tips(transactions["17"], 2, 2)
+		parents, err := tipManager.Tips(transactions["17"], 4)
 		assert.NoError(t, err)
 
 		// there are 9 inputs to be directly referenced -> we need to reference them via tips (8 tips available)
 		// due to the tips' nature they contain all transactions in the past cone
-		assert.Len(t, strongParents, 8)
-		assert.Len(t, weakParents, 0)
+		assert.Len(t, parents, 8)
+		assert.Len(t, parents, 0)
 	}
 }
 
