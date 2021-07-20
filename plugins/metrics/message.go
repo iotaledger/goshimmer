@@ -224,7 +224,7 @@ func measurePerComponentCounter() {
 }
 
 func measureMessageTips() {
-	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.Tangle().TipManager.StrongTipCount()))
+	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.Tangle().TipManager.TipCount()))
 }
 
 // increases the received MPS counter

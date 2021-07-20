@@ -19,28 +19,8 @@ import (
 
 // region TipType //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const (
-	// StrongTip is the TipType that represents strong tips, i.e., eligible messages that are in a monotonically liked branch.
-	StrongTip TipType = iota
-
-	// WeakTip is the TipType that represents weak tips, i.e., eligible messages that are in a not monotonically liked branch.
-	WeakTip
-)
-
 // TipType is the type (weak/strong) of the tip.
-type TipType uint8
-
-// String returns a human readable version of the TipType.
-func (t TipType) String() string {
-	switch t {
-	case StrongTip:
-		return "TipType(StrongTip)"
-	case WeakTip:
-		return "TipType(WeakTip)"
-	default:
-		return fmt.Sprintf("TipType(%X)", uint8(t))
-	}
-}
+type TipType uint8 //TODO remove tip type from visualiser configureVisualizer()
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -131,8 +111,7 @@ const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
 	tangle      *Tangle
-	strongTips  *randommap.RandomMap
-	weakTips    *randommap.RandomMap
+	tips        *randommap.RandomMap
 	tipsCleaner *TimedTaskExecutor
 	Events      *TipManagerEvents
 }
@@ -141,8 +120,7 @@ type TipManager struct {
 func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 	tipSelector := &TipManager{
 		tangle:      tangle,
-		strongTips:  randommap.New(),
-		weakTips:    randommap.New(),
+		tips:        randommap.New(),
 		tipsCleaner: NewTimedTaskExecutor(1),
 		Events: &TipManagerEvents{
 			TipAdded:   events.NewEvent(tipEventHandler),
@@ -171,13 +149,13 @@ func (t *TipManager) Setup() {
 // Set adds the given messageIDs as tips.
 func (t *TipManager) Set(tips ...MessageID) {
 	for _, messageID := range tips {
-		t.strongTips.Set(messageID, messageID)
+		t.tips.Set(messageID, messageID)
 	}
 }
 
-// AddTip first checks whether the message is eligible and its payload liked. If yes, then the given message is added as
-// a strong or weak tip depending on its branch status. Parents of a message that are currently tip lose the tip status
-// and are removed.
+// TODO no need to check if  the message is eligible and its payload liked? Check what is the condition for the message to become a tip
+// AddTip first checks whether the message is eligible and its payload liked. If yes, then the given message is added to the tip pool.
+// Parents of a message that are currently tip lose the tip status and are removed.
 func (t *TipManager) AddTip(message *Message) {
 	messageID := message.ID()
 	cachedMessageMetadata := t.tangle.Storage.MessageMetadata(messageID)
@@ -192,117 +170,69 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	if !messageMetadata.IsEligible() {
-		return
-	}
-
-	if !t.tangle.ConsensusManager.PayloadLiked(messageID) {
-		return
-	}
-
 	// TODO: possible logical race condition if a child message gets added before its parents.
 	//  To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
 	//  before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
 
-	// if branch is monotonically liked: strong message
-	// if branch is not monotonically liked: weak message
+	if t.tips.Set(messageID, messageID) {
+		t.Events.TipAdded.Trigger(&TipEvent{
+			MessageID: messageID,
+		})
 
-	messageBranchID, err := t.tangle.Booker.MessageBranchID(messageID)
-	if err != nil {
-		// TODO: ALTERNATIVE ERROR HANDLING
-		panic(err)
+		t.tipsCleaner.ExecuteAt(messageID, func() {
+			t.tips.Delete(messageID)
+		}, message.IssuingTime().Add(tipLifeGracePeriod))
 	}
 
-	t.tangle.LedgerState.BranchDAG.Branch(messageBranchID).Consume(func(branch ledgerstate.Branch) {
-		if branch.MonotonicallyLiked() {
-			if t.strongTips.Set(messageID, messageID) {
-				t.Events.TipAdded.Trigger(&TipEvent{
-					MessageID: messageID,
-					TipType:   StrongTip,
-				})
+	// skip removing tips if TangleWidth is enabled
+	if t.TipCount() <= t.tangle.Options.TangleWidth {
+		return
+	}
 
-				t.tipsCleaner.ExecuteAt(messageID, func() {
-					t.strongTips.Delete(messageID)
-				}, message.IssuingTime().Add(tipLifeGracePeriod))
-			}
-
-			// skip removing tips if TangleWidth is enabled
-			if t.StrongTipCount()+t.WeakTipCount() <= t.tangle.Options.TangleWidth {
-				return
-			}
-
-			// a strong tip loses its tip status if it is referenced by a strong message via strong parent
-			message.ForEachParentByType(StrongParentType, func(parent MessageID) {
-				if _, deleted := t.strongTips.Delete(parent); deleted {
-					t.Events.TipRemoved.Trigger(&TipEvent{
-						MessageID: parent,
-						TipType:   StrongTip,
-					})
-				}
+	// a tip loses its tip status if it is referenced by another message
+	message.ForEachParent(func(parent Parent) {
+		parentMessageID := parent.ID
+		if _, deleted := t.tips.Delete(parentMessageID); deleted {
+			t.Events.TipRemoved.Trigger(&TipEvent{
+				MessageID: parentMessageID,
 			})
-			// a weak tip loses its tip status if it is referenced by a strong message via weak parent
-			message.ForEachParentByType(WeakParentType, func(parent MessageID) {
-				if _, deleted := t.weakTips.Delete(parent); deleted {
-					t.Events.TipRemoved.Trigger(&TipEvent{
-						MessageID: parent,
-						TipType:   WeakTip,
-					})
-				}
-			})
-		} else {
-			if t.weakTips.Set(messageID, messageID) {
-				t.Events.TipAdded.Trigger(&TipEvent{
-					MessageID: messageID,
-					TipType:   WeakTip,
-				})
-
-				t.tipsCleaner.ExecuteAt(messageID, func() {
-					t.weakTips.Delete(messageID)
-				}, message.IssuingTime().Add(tipLifeGracePeriod))
-			}
 		}
 	})
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-	if countStrongParents > MaxParentsCount {
-		countStrongParents = MaxParentsCount
+func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+	if countParents > MaxParentsCount {
+		countParents = MaxParentsCount
 	}
-	if countStrongParents < MinParentsCount {
-		countStrongParents = MinParentsCount
+	if countParents < MinParentsCount {
+		countParents = MinParentsCount
 	}
 
-	// select strong parents
-	strongParents = t.selectStrongTips(p, countStrongParents)
+	// select parents
+	parents = t.selectTips(p, countParents)
 	// if transaction, make sure that all inputs are in the past cone of the selected tips
 	if p != nil && p.Type() == ledgerstate.TransactionType {
 		transaction := p.(*ledgerstate.Transaction)
 
 		tries := 5
-		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents...) {
+		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), parents...) {
 			if tries == 0 {
 				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
-				return nil, nil, err
+				return nil, err
 			}
 			tries--
 
-			strongParents = t.selectStrongTips(p, MaxParentsCount)
+			parents = t.selectTips(p, MaxParentsCount)
 		}
 	}
-
-	// select weak tips according to min(countWeakParents, MaxParentsCount-len(strongParents))
-	if countWeakParents+len(strongParents) > MaxParentsCount {
-		countWeakParents = MaxParentsCount - len(strongParents)
-	}
-	weakParents = t.selectWeakTips(countWeakParents)
 
 	return
 }
 
 // selectStrongTips returns a list of strong parents. In case of a transaction, it references young enough attachments
 // of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
-func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents MessageIDs) {
+func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDs) {
 	parents = make([]MessageID, 0, MaxParentsCount)
 	parentsMap := make(map[MessageID]types.Empty)
 
@@ -351,7 +281,7 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 		count = MaxParentsCount - len(parents)
 	}
 
-	tips := t.strongTips.RandomUniqueEntries(count)
+	tips := t.tips.RandomUniqueEntries(count)
 	// count is invalid or there are no tips
 	if len(tips) == 0 {
 		// only add genesis if no tip was found and not previously referenced (in case of a transaction)
@@ -373,33 +303,9 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 	return
 }
 
-// selectWeakTips returns a list of randomly selected weak parents.
-func (t *TipManager) selectWeakTips(count int) (parents MessageIDs) {
-	parents = make([]MessageID, 0, count)
-
-	tips := t.weakTips.RandomUniqueEntries(count)
-	// count is not valid or there simply are no tips
-	if len(tips) == 0 {
-		return
-	}
-	// at least one tip is returned
-	for _, tip := range tips {
-		messageID := tip.(MessageID)
-
-		parents = append(parents, messageID)
-	}
-
-	return
-}
-
-// AllWeakTips returns a list of all weak tips that are stored in the TipManger.
-func (t *TipManager) AllWeakTips() MessageIDs {
-	return retrieveAllTips(t.weakTips)
-}
-
-// AllStrongTips returns a list of all strong tips that are stored in the TipManger.
-func (t *TipManager) AllStrongTips() MessageIDs {
-	return retrieveAllTips(t.strongTips)
+// AllWeakTips returns a list of all tips that are stored in the TipManger.
+func (t *TipManager) AllTips() MessageIDs {
+	return retrieveAllTips(t.tips)
 }
 
 func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDs {
@@ -412,13 +318,8 @@ func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDs {
 }
 
 // StrongTipCount the amount of strong tips.
-func (t *TipManager) StrongTipCount() int {
-	return t.strongTips.Size()
-}
-
-// WeakTipCount the amount of weak tips.
-func (t *TipManager) WeakTipCount() int {
-	return t.weakTips.Size()
+func (t *TipManager) TipCount() int {
+	return t.tips.Size()
 }
 
 // Shutdown stops the TipManager.
