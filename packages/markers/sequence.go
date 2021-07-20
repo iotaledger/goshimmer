@@ -19,7 +19,7 @@ import (
 
 // maxVerticesWithoutFutureMarker defines the amount of vertices in the DAG are allowed to have no future marker before
 // we spawn a new Sequence for the same SequenceAlias.
-const maxVerticesWithoutFutureMarker = 3000000
+const maxVerticesWithoutFutureMarker = 3000
 
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 

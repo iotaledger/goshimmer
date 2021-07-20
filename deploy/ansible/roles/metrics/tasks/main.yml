@@ -1,0 +1,68 @@
+- name: Create directory
+  file:
+    path: /opt/metrics
+    state: directory
+    mode: '0755'
+
+
+- name: Copy configs
+  copy:
+    src: .
+    dest: /opt/metrics
+    mode: '0644'
+
+- name: Template docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/metrics/docker-compose.yml
+    mode: '0644'
+
+- name: Template grafana-admin-password
+  template:
+    src: grafana-admin-password.j2
+    dest: /opt/metrics/grafana/admin-password
+    mode: '0644'
+
+- name: Template prometheus.yml
+  template:
+    src: prometheus.yml.j2
+    dest: /opt/metrics/prometheus.yml
+    mode: '0644'
+
+- name: Template logstash.yml
+  template:
+    src: logstash/logstash.yml.j2
+    dest: /opt/metrics/logstash/logstash.yml
+    mode: '0644'
+
+- name: Template pipeline logstash.conf
+  template:
+    src: logstash/pipeline/logstash.conf.j2
+    dest: /opt/metrics/logstash/pipeline/logstash.conf
+    mode: '0644'
+
+- name: Template kibana.yml
+  template:
+    src: kibana.yml.j2
+    dest: /opt/metrics/kibana.yml
+    mode: '0644'
+
+- name: Stop existing services gracefully
+  community.general.docker_compose:
+    project_src: /opt/metrics
+    timeout: 180
+    state: present
+    stopped: yes
+
+- name: Tear down existing services
+  community.general.docker_compose:
+    project_src: /opt/metrics
+    state: absent
+    remove_volumes: "{{ removeData }}"
+
+- name: Run services
+  community.general.docker_compose:
+    project_src: /opt/metrics
+    timeout: 180
+    state: present
+    pull: yes

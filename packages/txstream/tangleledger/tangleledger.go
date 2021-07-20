@@ -39,7 +39,7 @@ func New() *TangleLedger {
 			go t.txConfirmedEvent.Trigger(transaction)
 		})
 	})
-	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(t.txConfirmedClosure)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(t.txConfirmedClosure)
 
 	t.txBookedClosure = events.NewClosure(func(id tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(id).Consume(func(msg *tangle.Message) {
@@ -55,7 +55,7 @@ func New() *TangleLedger {
 
 // Detach detaches the event handlers
 func (t *TangleLedger) Detach() {
-	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(t.txConfirmedClosure)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(t.txConfirmedClosure)
 	messagelayer.Tangle().Booker.Events.MessageBooked.Detach(t.txBookedClosure)
 }
 

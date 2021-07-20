@@ -1,0 +1,4 @@
+- name: Generate key materials in leader Drand
+  community.docker.docker_container_exec:
+    container: drand{{ drandNumber }}
+    command: drand share --connect "{{ leaderDrandAddress }}" --tls-disable --nodes {{ numberOfDrands }} --threshold {{ drandsThershold }} --secret "{{ drandsSecret }}" --catchup-period 0

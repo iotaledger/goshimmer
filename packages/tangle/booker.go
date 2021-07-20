@@ -57,7 +57,7 @@ func (b *Booker) Setup() {
 		}
 	}))
 
-	b.tangle.LedgerState.UTXODAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		if err := b.BookConflictingTransaction(transactionID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate ConflictBranch of %s to tangle: %w", transactionID, err))
 		}

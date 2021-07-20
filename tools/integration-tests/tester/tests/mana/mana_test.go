@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	webapi "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
@@ -76,18 +75,17 @@ func TestManaPledgeFilter(t *testing.T) {
 	consensusPeer := peers[1]
 	consensusPeerID := fullID(consensusPeer.ID())
 
-	faucetConfig := framework.PeerConfig
+	faucetConfig := framework.PeerConfig()
 	faucetConfig.MessageLayer.StartSynced = true
 	faucetConfig.Faucet.Enabled = true
 	faucetConfig.Faucet.PreparedOutputsCount = 3 // we require exactly three outputs
 	faucetConfig.Faucet.TokensPerRequest = tokensPerRequest
-	faucetConfig.Mana = config.Mana{
-		Enabled:                       true,
-		AllowedAccessPledge:           []string{accessPeerID},
-		AllowedAccessFilterEnabled:    true,
-		AllowedConsensusPledge:        []string{consensusPeerID},
-		AllowedConsensusFilterEnabled: true,
-	}
+	faucetConfig.Mana.Enabled = true
+	faucetConfig.Mana.AllowedAccessPledge = []string{accessPeerID}
+	faucetConfig.Mana.AllowedAccessFilterEnabled = true
+	faucetConfig.Mana.AllowedConsensusPledge = []string{consensusPeerID}
+	faucetConfig.Mana.AllowedConsensusFilterEnabled = true
+
 	faucet, err := n.CreatePeer(ctx, faucetConfig)
 	require.NoError(t, err)
 
