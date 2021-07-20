@@ -5,6 +5,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
+	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -62,13 +63,8 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 	return
 }
 
-type OpinionTuple struct {
-	Liked    ledgerstate.BranchID
-	Disliked ledgerstate.BranchID
-}
-
-func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []OpinionTuple, err error) {
-	opinionTuple = make([]OpinionTuple, 0)
+func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
+	opinionTuple = make([]consensus.OpinionTuple, 0)
 	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
 		return opinionTuple, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
@@ -77,7 +73,7 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
-				opinionTuple = append(opinionTuple, OpinionTuple{
+				opinionTuple = append(opinionTuple, consensus.OpinionTuple{
 					Liked:    conflictingBranchID,
 					Disliked: resolvedConflictBranchID,
 				})
