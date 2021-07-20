@@ -42,14 +42,14 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 	}
 
 	// mark weak parents as finalized but not propagate finalized flag to its past cone
-	message.ForEachWeakParent(func(parentID tangle.MessageID) {
+	message.ForEachParentByType(tangle.WeakParentType, func(parentID tangle.MessageID) {
 		Tangle().Storage.MessageMetadata(parentID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			setMessageFinalized(messageMetadata)
 		})
 	})
 
 	// propagate finalized to strong parents
-	message.ForEachStrongParent(func(parentID tangle.MessageID) {
+	message.ForEachParentByType(tangle.StrongParentType, func(parentID tangle.MessageID) {
 		finalizedWalker.Push(parentID)
 	})
 }

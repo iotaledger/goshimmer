@@ -265,16 +265,30 @@ func TestSchedulerFlow(t *testing.T) {
 
 	// set C to have a timestamp in the future
 	msgC := newMessage(selfNode.PublicKey())
-	msgC.strongParents = []MessageID{messages["A"].ID(), messages["B"].ID()}
+
+	msgC.parentsBlocks[0] = ParentsBlock{
+		ParentsCount: 2,
+		ParentsType:  StrongParentType,
+		References:   MessageIDs{messages["A"].ID(), messages["B"].ID()},
+	}
+
 	msgC.issuingTime = time.Now().Add(5 * time.Second)
 	messages["C"] = msgC
 
 	msgD := newMessage(peerNode.PublicKey())
-	msgD.strongParents = []MessageID{messages["A"].ID(), messages["B"].ID()}
+	msgD.parentsBlocks[0] = ParentsBlock{
+		ParentsCount: 2,
+		ParentsType:  StrongParentType,
+		References:   MessageIDs{messages["A"].ID(), messages["B"].ID()},
+	}
 	messages["D"] = msgD
 
 	msgE := newMessage(selfNode.PublicKey())
-	msgE.strongParents = []MessageID{messages["A"].ID(), messages["B"].ID()}
+	msgE.parentsBlocks[0] = ParentsBlock{
+		ParentsCount: 2,
+		ParentsType:  StrongParentType,
+		References:   MessageIDs{messages["A"].ID(), messages["B"].ID()},
+	}
 	msgE.issuingTime = time.Now().Add(3 * time.Second)
 	messages["E"] = msgE
 
@@ -388,6 +402,8 @@ func BenchmarkScheduler(b *testing.B) {
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 	return NewMessage(
 		[]MessageID{EmptyMessageID},
+		[]MessageID{},
+		[]MessageID{},
 		[]MessageID{},
 		time.Now(),
 		issuerPublicKey,

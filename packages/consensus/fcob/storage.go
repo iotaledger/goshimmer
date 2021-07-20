@@ -160,7 +160,7 @@ func MessageMetadataFromBytes(bytes []byte) (messageMetadata *MessageMetadata, c
 // MessageMetadataFromMarshalUtil unmarshals a MessageMetadata object using a MarshalUtil (for easier unmarshaling).
 func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
 	messageMetadata = &MessageMetadata{}
-	if messageMetadata.id, err = tangle.MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.id, err = tangle.ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MessageID: %w", err)
 		return
 	}
@@ -459,7 +459,7 @@ func TimestampOpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resu
 
 	// read information that are required to identify the TimestampOpinion
 	result = &TimestampOpinion{}
-	if result.MessageID, err = tangle.MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if result.MessageID, err = tangle.ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}

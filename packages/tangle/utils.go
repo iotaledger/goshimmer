@@ -129,13 +129,13 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
-				return message.WeakParents()
+				return message.ParentsByType(WeakParentType)
 			}, nil)
 			if approved {
 				return
 			}
 			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
-				return message.StrongParents()
+				return message.ParentsByType(StrongParentType)
 			}, &bookedParents)
 		})
 		if approved {

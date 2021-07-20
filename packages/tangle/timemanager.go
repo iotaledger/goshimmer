@@ -203,7 +203,7 @@ func lastConfirmedMessageFromBytes(bytes []byte) (lcm LastConfirmedMessage, cons
 // lastConfirmedMessageFromMarshalUtil unmarshals a LastConfirmedMessage object using a MarshalUtil (for easier unmarshaling).
 func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lcm LastConfirmedMessage, err error) {
 	lcm = LastConfirmedMessage{}
-	if lcm.MessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if lcm.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}

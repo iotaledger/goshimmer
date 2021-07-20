@@ -232,7 +232,7 @@ func (t *TipManager) AddTip(message *Message) {
 			}
 
 			// a strong tip loses its tip status if it is referenced by a strong message via strong parent
-			message.ForEachStrongParent(func(parent MessageID) {
+			message.ForEachParentByType(StrongParentType, func(parent MessageID) {
 				if _, deleted := t.strongTips.Delete(parent); deleted {
 					t.Events.TipRemoved.Trigger(&TipEvent{
 						MessageID: parent,
@@ -241,7 +241,7 @@ func (t *TipManager) AddTip(message *Message) {
 				}
 			})
 			// a weak tip loses its tip status if it is referenced by a strong message via weak parent
-			message.ForEachWeakParent(func(parent MessageID) {
+			message.ForEachParentByType(WeakParentType, func(parent MessageID) {
 				if _, deleted := t.weakTips.Delete(parent); deleted {
 					t.Events.TipRemoved.Trigger(&TipEvent{
 						MessageID: parent,

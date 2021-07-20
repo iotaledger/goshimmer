@@ -149,10 +149,10 @@ func (s *Storage) StoreMessage(message *Message) {
 
 	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers
-	message.ForEachStrongParent(func(parentMessageID MessageID) {
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
 	})
-	message.ForEachWeakParent(func(parentMessageID MessageID) {
+	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(WeakApprover, parentMessageID, messageID)).Release()
 	})
 
@@ -256,10 +256,10 @@ func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.Trans
 // message as an approver.
 func (s *Storage) DeleteMessage(messageID MessageID) {
 	s.Message(messageID).Consume(func(currentMsg *Message) {
-		currentMsg.ForEachStrongParent(func(parentMessageID MessageID) {
+		currentMsg.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 			s.deleteStrongApprover(parentMessageID, messageID)
 		})
-		currentMsg.ForEachWeakParent(func(parentMessageID MessageID) {
+		currentMsg.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
 			s.deleteWeakApprover(parentMessageID, messageID)
 		})
 
@@ -627,7 +627,7 @@ func ApproverFromBytes(bytes []byte) (result *Approver, consumedBytes int, err e
 // ApproverFromMarshalUtil parses a new approver from the given marshal util.
 func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
 	result = &Approver{}
-	if result.referencedMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if result.referencedMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
 		return
 	}
@@ -635,7 +635,7 @@ func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Appr
 		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
 		return
 	}
-	if result.approverMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if result.approverMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
 		return
 	}
@@ -834,7 +834,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, 
 		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
-	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse message ID in attachment: %w", err)
 		return
 	}
@@ -985,7 +985,7 @@ func MissingMessageFromBytes(bytes []byte) (result *MissingMessage, consumedByte
 func MissingMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
 	result = &MissingMessage{}
 
-	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of missing message: %w", err)
 		return
 	}

@@ -42,8 +42,20 @@ RUN wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaw
 # using distroless cc image, which includes everything in the base image (glibc, libssl and openssl)
 FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5dd6313be41a8c55adb
 
+# Gossip
 EXPOSE 14666/tcp
+# Autopeering
 EXPOSE 14626/udp
+# FPC
+EXPOSE 10895/tcp
+# Pprof Profiling
+EXPOSE 6061/tcp
+# Prometheus exporter
+EXPOSE 9311/tcp
+# Webapi
+EXPOSE 8080/tcp
+# Dashboard
+EXPOSE 8081/tcp
 
 # Copy configuration
 COPY --from=build /tmp/snapshot.bin /snapshot.bin

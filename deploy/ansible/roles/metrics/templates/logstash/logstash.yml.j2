@@ -1,0 +1,8 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+## Default Logstash configuration from Logstash base image.
+## https://github.com/elastic/logstash/blob/master/docker/data/logstash/config/logstash-full.yml
+#
+http.host: "0.0.0.0"
+xpack.monitoring.elasticsearch.hosts: ["http://elasticsearch:9200"]
+xpack.monitoring.elasticsearch.username: "{{ elkElasticUser }}"
+xpack.monitoring.elasticsearch.password: "{{ elkElasticPassword }}"

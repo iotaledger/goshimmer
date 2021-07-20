@@ -55,8 +55,8 @@ func GetMessage(c echo.Context) (err error) {
 	if messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		err = c.JSON(http.StatusOK, jsonmodels.Message{
 			ID:              message.ID().Base58(),
-			StrongParents:   message.StrongParents().ToStrings(),
-			WeakParents:     message.WeakParents().ToStrings(),
+			StrongParents:   message.ParentsByType(tangle.StrongParentType).ToStrings(),
+			WeakParents:     message.ParentsByType(tangle.WeakParentType).ToStrings(),
 			StrongApprovers: messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
 			WeakApprovers:   messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
 			IssuerPublicKey: message.IssuerPublicKey().String(),
