@@ -81,7 +81,7 @@ func TestScenario_1(t *testing.T) {
 
 	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
 	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["GENESIS"])
-	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
+	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID})
 	tangle.Storage.StoreMessage(messages["1"])
 
 	err := tangle.Booker.BookMessage(messages["1"].ID())
@@ -103,7 +103,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["C"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["C"])[0]
 	outputs["E"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["E"].address)
 	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["B"], inputs["C"]), ledgerstate.NewOutputs(outputs["E"]), outputsByID, walletsByAddress)
-	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()})
 	tangle.Storage.StoreMessage(messages["2"])
 
 	err = tangle.Booker.BookMessage(messages["2"].ID())
@@ -118,7 +118,7 @@ func TestScenario_1(t *testing.T) {
 	assert.Equal(t, branches["green"], txBranchID)
 
 	// Message 3 (Reattachemnt of transaction 2)
-	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()})
 	tangle.Storage.StoreMessage(messages["3"])
 
 	err = tangle.Booker.BookMessage(messages["3"].ID())
@@ -137,7 +137,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
 	outputs["D"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["D"].address)
 	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["D"]), outputsByID, walletsByAddress)
-	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()})
 	tangle.Storage.StoreMessage(messages["4"])
 
 	err = tangle.Booker.BookMessage(messages["4"].ID())
@@ -159,7 +159,7 @@ func TestScenario_1(t *testing.T) {
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{EmptyMessageID, messages["1"].ID()})
 	tangle.Storage.StoreMessage(messages["5"])
 
 	err = tangle.Booker.BookMessage(messages["5"].ID())
@@ -204,7 +204,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["F"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["F"])[0]
 	outputs["H"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["H"].address)
 	transactions["5"] = makeTransaction(ledgerstate.NewInputs(inputs["E"], inputs["F"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
-	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()})
 	tangle.Storage.StoreMessage(messages["6"])
 
 	err = tangle.Booker.BookMessage(messages["6"].ID())
@@ -219,7 +219,7 @@ func TestScenario_1(t *testing.T) {
 	assert.Equal(t, branches["yellow"], txBranchID)
 
 	// Message 7
-	messages["7"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["7"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["4"].ID(), messages["5"].ID()})
 	tangle.Storage.StoreMessage(messages["7"])
 
 	err = tangle.Booker.BookMessage(messages["7"].ID())
@@ -238,7 +238,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
 	outputs["I"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["I"].address)
 	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["F"], inputs["D"]), ledgerstate.NewOutputs(outputs["I"]), outputsByID, walletsByAddress)
-	messages["8"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["8"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["4"].ID(), messages["5"].ID()})
 	tangle.Storage.StoreMessage(messages["8"])
 
 	err = tangle.Booker.BookMessage(messages["8"].ID())
@@ -257,7 +257,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["H"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["H"])[0]
 	outputs["J"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["J"].address)
 	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["H"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
-	messages["9"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["6"].ID()}, []MessageID{})
+	messages["9"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["6"].ID()})
 	tangle.Storage.StoreMessage(messages["9"])
 
 	err = tangle.Booker.BookMessage(messages["9"].ID())
@@ -340,7 +340,7 @@ func TestScenario_2(t *testing.T) {
 
 	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
 	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["GENESIS"])
-	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
+	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID})
 	tangle.Storage.StoreMessage(messages["1"])
 
 	err := tangle.Booker.BookMessage(messages["1"].ID())
@@ -362,7 +362,7 @@ func TestScenario_2(t *testing.T) {
 	outputsByID[inputs["C"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["C"])[0]
 	outputs["E"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["E"].address)
 	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["B"], inputs["C"]), ledgerstate.NewOutputs(outputs["E"]), outputsByID, walletsByAddress)
-	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()})
 	tangle.Storage.StoreMessage(messages["2"])
 
 	err = tangle.Booker.BookMessage(messages["2"].ID())
@@ -377,7 +377,7 @@ func TestScenario_2(t *testing.T) {
 	assert.Equal(t, branches["green"], txBranchID)
 
 	// Message 3 (Reattachemnt of transaction 2)
-	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()})
 	tangle.Storage.StoreMessage(messages["3"])
 
 	err = tangle.Booker.BookMessage(messages["3"].ID())
@@ -396,7 +396,7 @@ func TestScenario_2(t *testing.T) {
 	outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
 	outputs["D"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["D"].address)
 	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["D"]), outputsByID, walletsByAddress)
-	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()})
 	tangle.Storage.StoreMessage(messages["4"])
 
 	err = tangle.Booker.BookMessage(messages["4"].ID())
@@ -413,7 +413,7 @@ func TestScenario_2(t *testing.T) {
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID(), messages["2"].ID()})
 	tangle.Storage.StoreMessage(messages["5"])
 
 	err = tangle.Booker.BookMessage(messages["5"].ID())
@@ -446,7 +446,7 @@ func TestScenario_2(t *testing.T) {
 	outputsByID[inputs["F"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["F"])[0]
 	outputs["L"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["L"].address)
 	transactions["5"] = makeTransaction(ledgerstate.NewInputs(inputs["E"], inputs["F"]), ledgerstate.NewOutputs(outputs["L"]), outputsByID, walletsByAddress)
-	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()})
 	tangle.Storage.StoreMessage(messages["6"])
 
 	err = tangle.Booker.BookMessage(messages["6"].ID())
@@ -463,7 +463,7 @@ func TestScenario_2(t *testing.T) {
 	// Message 7
 	outputs["H"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["H"].address)
 	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["C"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
-	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()}, []MessageID{})
+	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()})
 	tangle.Storage.StoreMessage(messages["7"])
 
 	err = tangle.Booker.BookMessage(messages["7"].ID())
@@ -517,7 +517,7 @@ func TestScenario_2(t *testing.T) {
 	outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
 	outputs["I"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["I"].address)
 	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["D"], inputs["H"]), ledgerstate.NewOutputs(outputs["I"]), outputsByID, walletsByAddress)
-	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
+	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()})
 	tangle.Storage.StoreMessage(messages["8"])
 
 	err = tangle.Booker.BookMessage(messages["8"].ID())
@@ -534,7 +534,7 @@ func TestScenario_2(t *testing.T) {
 	// Message 9
 	outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
 	transactions["8"] = makeTransaction(ledgerstate.NewInputs(inputs["B"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
-	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
+	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()})
 	tangle.Storage.StoreMessage(messages["9"])
 
 	err = tangle.Booker.BookMessage(messages["9"].ID())
@@ -704,7 +704,7 @@ func TestScenario_3(t *testing.T) {
 
 	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
 	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["GENESIS"])
-	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
+	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID})
 	tangle.Storage.StoreMessage(messages["1"])
 
 	err := tangle.Booker.BookMessage(messages["1"].ID())
@@ -726,7 +726,7 @@ func TestScenario_3(t *testing.T) {
 	outputsByID[inputs["C"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["C"])[0]
 	outputs["E"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["E"].address)
 	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["B"], inputs["C"]), ledgerstate.NewOutputs(outputs["E"]), outputsByID, walletsByAddress)
-	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()})
 	tangle.Storage.StoreMessage(messages["2"])
 
 	err = tangle.Booker.BookMessage(messages["2"].ID())
@@ -741,7 +741,7 @@ func TestScenario_3(t *testing.T) {
 	assert.Equal(t, branches["green"], txBranchID)
 
 	// Message 3 (Reattachment of transaction 2)
-	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()})
 	tangle.Storage.StoreMessage(messages["3"])
 
 	err = tangle.Booker.BookMessage(messages["3"].ID())
@@ -760,7 +760,7 @@ func TestScenario_3(t *testing.T) {
 	outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
 	outputs["D"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["D"].address)
 	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["D"]), outputsByID, walletsByAddress)
-	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()})
 	tangle.Storage.StoreMessage(messages["4"])
 
 	err = tangle.Booker.BookMessage(messages["4"].ID())
@@ -777,7 +777,7 @@ func TestScenario_3(t *testing.T) {
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID()}, []MessageID{messages["2"].ID()})
+	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID(), messages["2"].ID()})
 	tangle.Storage.StoreMessage(messages["5"])
 
 	err = tangle.Booker.BookMessage(messages["5"].ID())
@@ -810,7 +810,7 @@ func TestScenario_3(t *testing.T) {
 	outputsByID[inputs["F"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["F"])[0]
 	outputs["L"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["L"].address)
 	transactions["5"] = makeTransaction(ledgerstate.NewInputs(inputs["E"], inputs["F"]), ledgerstate.NewOutputs(outputs["L"]), outputsByID, walletsByAddress)
-	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()})
 	tangle.Storage.StoreMessage(messages["6"])
 
 	err = tangle.Booker.BookMessage(messages["6"].ID())
@@ -827,7 +827,7 @@ func TestScenario_3(t *testing.T) {
 	// Message 7
 	outputs["H"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["H"].address)
 	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["C"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
-	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()}, []MessageID{})
+	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()})
 	tangle.Storage.StoreMessage(messages["7"])
 
 	err = tangle.Booker.BookMessage(messages["7"].ID())
@@ -881,7 +881,7 @@ func TestScenario_3(t *testing.T) {
 	outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
 	outputs["I"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["I"].address)
 	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["D"], inputs["H"]), ledgerstate.NewOutputs(outputs["I"]), outputsByID, walletsByAddress)
-	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
+	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()})
 	tangle.Storage.StoreMessage(messages["8"])
 
 	err = tangle.Booker.BookMessage(messages["8"].ID())
@@ -898,7 +898,7 @@ func TestScenario_3(t *testing.T) {
 	// Message 9
 	outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
 	transactions["8"] = makeTransaction(ledgerstate.NewInputs(inputs["B"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
-	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
+	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()})
 	tangle.Storage.StoreMessage(messages["9"])
 
 	err = tangle.Booker.BookMessage(messages["9"].ID())
@@ -932,8 +932,8 @@ func TestScenario_3(t *testing.T) {
 
 // 	tangle.Setup()
 
-// 	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"))
-// 	testFramework.CreateMessage("Message2", WithStrongParents("Message1"))
+// 	testFramework.CreateMessage("Message1", WithParents("Genesis"))
+// 	testFramework.CreateMessage("Message2", WithParents("Message1"))
 // 	testFramework.IssueMessages("Message1", "Message2").WaitMessagesBooked()
 
 // 	messageAliases := []string{"Message1"}
@@ -941,7 +941,7 @@ func TestScenario_3(t *testing.T) {
 // 		parentMessageAlias := messageAliases[i]
 // 		currentMessageAlias := "Message" + strconv.Itoa(i+3)
 // 		messageAliases = append(messageAliases, currentMessageAlias)
-// 		testFramework.CreateMessage(currentMessageAlias, WithStrongParents(parentMessageAlias))
+// 		testFramework.CreateMessage(currentMessageAlias, WithParents(parentMessageAlias))
 // 		testFramework.IssueMessages(currentMessageAlias)
 // 		testFramework.WaitMessagesBooked()
 // 	}
@@ -975,7 +975,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message1
 	{
-		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("G", 500))
+		testFramework.CreateMessage("Message1", WithParents("Genesis"), WithInputs("A"), WithOutput("G", 500))
 		testFramework.IssueMessages("Message1").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -991,7 +991,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message2
 	{
-		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithInputs("A", "B"), WithOutput("E", 1000))
+		testFramework.CreateMessage("Message2", WithParents("Genesis"), WithInputs("A", "B"), WithOutput("E", 1000))
 		testFramework.IssueMessages("Message2").WaitMessagesBooked()
 
 		branchIDs["A"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message1"))
@@ -1013,7 +1013,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message3
 	{
-		testFramework.CreateMessage("Message3", WithStrongParents("Genesis"), WithInputs("B"), WithOutput("F", 500))
+		testFramework.CreateMessage("Message3", WithParents("Genesis"), WithInputs("B"), WithOutput("F", 500))
 		testFramework.IssueMessages("Message3").WaitMessagesBooked()
 
 		branchIDs["C"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message3"))
@@ -1037,7 +1037,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message4
 	{
-		testFramework.CreateMessage("Message4", WithStrongParents("Genesis"))
+		testFramework.CreateMessage("Message4", WithParents("Genesis"))
 		testFramework.IssueMessages("Message4").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1062,7 +1062,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message5
 	{
-		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithInputs("C"), WithOutput("D", 500))
+		testFramework.CreateMessage("Message5", WithParents("Message4"), WithInputs("C"), WithOutput("D", 500))
 		testFramework.IssueMessages("Message5").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1090,7 +1090,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message6
 	{
-		testFramework.CreateMessage("Message6", WithStrongParents("Message1"), WithInputs("G"), WithOutput("I", 500))
+		testFramework.CreateMessage("Message6", WithParents("Message1"), WithInputs("G"), WithOutput("I", 500))
 		testFramework.IssueMessages("Message6").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1121,7 +1121,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message7
 	{
-		testFramework.CreateMessage("Message7", WithStrongParents("Message3"))
+		testFramework.CreateMessage("Message7", WithParents("Message3"))
 		testFramework.IssueMessages("Message7").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1155,7 +1155,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message8
 	{
-		testFramework.CreateMessage("Message8", WithStrongParents("Message1", "Message6"))
+		testFramework.CreateMessage("Message8", WithParents("Message1", "Message6"))
 		testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1192,7 +1192,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message9
 	{
-		testFramework.CreateMessage("Message9", WithStrongParents("Message7"))
+		testFramework.CreateMessage("Message9", WithParents("Message7"))
 		testFramework.IssueMessages("Message9").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1232,7 +1232,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message10
 	{
-		testFramework.CreateMessage("Message10", WithStrongParents("Message2"), WithInputs("C"), WithOutput("H", 500))
+		testFramework.CreateMessage("Message10", WithParents("Message2"), WithInputs("C"), WithOutput("H", 500))
 		testFramework.IssueMessages("Message10").WaitMessagesBooked()
 
 		branchIDs["D"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message5"))
@@ -1279,7 +1279,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message11
 	{
-		testFramework.CreateMessage("Message11", WithStrongParents("Message8", "Message9"))
+		testFramework.CreateMessage("Message11", WithParents("Message8", "Message9"))
 		testFramework.IssueMessages("Message11").WaitMessagesBooked()
 
 		branchIDs["A+C"] = aggregatedBranchID(branchIDs["A"], branchIDs["C"])
@@ -1327,7 +1327,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message12
 	{
-		testFramework.CreateMessage("Message12", WithStrongParents("Message8", "Message9"))
+		testFramework.CreateMessage("Message12", WithParents("Message8", "Message9"))
 		testFramework.IssueMessages("Message12").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1379,7 +1379,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message13
 	{
-		testFramework.CreateMessage("Message13", WithStrongParents("Message6", "Message7"), WithWeakParents("Message10"))
+		testFramework.CreateMessage("Message13", WithParents("Message6", "Message7", "Message10"))
 		testFramework.IssueMessages("Message13").WaitMessagesBooked()
 
 		branchIDs["A+C+E"] = aggregatedBranchID(branchIDs["A"], branchIDs["C"], branchIDs["E"])
@@ -1436,7 +1436,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message14
 	{
-		testFramework.CreateMessage("Message14", WithStrongParents("Message12"), WithInputs("I"), WithOutput("J", 500))
+		testFramework.CreateMessage("Message14", WithParents("Message12"), WithInputs("I"), WithOutput("J", 500))
 		testFramework.IssueMessages("Message14").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1494,7 +1494,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message15
 	{
-		testFramework.CreateMessage("Message15", WithStrongParents("Message11", "Message14"))
+		testFramework.CreateMessage("Message15", WithParents("Message11", "Message14"))
 		testFramework.PreventNewMarkers(true).IssueMessages("Message15").WaitMessagesBooked().PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1555,7 +1555,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message16
 	{
-		testFramework.CreateMessage("Message16", WithStrongParents("Message15"))
+		testFramework.CreateMessage("Message16", WithParents("Message15"))
 		testFramework.IssueMessages("Message16").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1619,7 +1619,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message17
 	{
-		testFramework.CreateMessage("Message17", WithStrongParents("Message1"), WithInputs("G"), WithOutput("K", 500))
+		testFramework.CreateMessage("Message17", WithParents("Message1"), WithInputs("G"), WithOutput("K", 500))
 
 		branchIDs["F"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message6"))
 		branchIDs["G"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message17"))
@@ -1696,7 +1696,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message18
 	{
-		testFramework.CreateMessage("Message18", WithStrongParents("Message12"), WithInputs("I"), WithOutput("L", 500))
+		testFramework.CreateMessage("Message18", WithParents("Message12"), WithInputs("I"), WithOutput("L", 500))
 
 		branchIDs["H"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message14"))
 		branchIDs["H+C"] = aggregatedBranchID(branchIDs["H"], branchIDs["C"])
@@ -1777,7 +1777,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message19
 	{
-		testFramework.CreateMessage("Message19", WithStrongParents("Message8"))
+		testFramework.CreateMessage("Message19", WithParents("Message8"))
 		testFramework.IssueMessages("Message19").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1851,7 +1851,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message20
 	{
-		testFramework.CreateMessage("Message20", WithStrongParents("Message16", "Message19"))
+		testFramework.CreateMessage("Message20", WithParents("Message16", "Message19"))
 		testFramework.PreventNewMarkers(true).IssueMessages("Message20").WaitMessagesBooked().PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1928,7 +1928,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message21
 	{
-		testFramework.CreateMessage("Message21", WithStrongParents("Message4"))
+		testFramework.CreateMessage("Message21", WithParents("Message4"))
 		testFramework.IssueMessages("Message21").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2008,7 +2008,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message22
 	{
-		testFramework.CreateMessage("Message22", WithStrongParents("Message4"))
+		testFramework.CreateMessage("Message22", WithParents("Message4"))
 		testFramework.IssueMessages("Message22").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2091,7 +2091,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message23
 	{
-		testFramework.CreateMessage("Message23", WithStrongParents("Message21", "Message22"))
+		testFramework.CreateMessage("Message23", WithParents("Message21", "Message22"))
 		testFramework.IssueMessages("Message23").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2177,7 +2177,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message24
 	{
-		testFramework.CreateMessage("Message24", WithStrongParents("Message23", "Message5"))
+		testFramework.CreateMessage("Message24", WithParents("Message23", "Message5"))
 		testFramework.IssueMessages("Message24").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{

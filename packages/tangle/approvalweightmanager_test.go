@@ -370,7 +370,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message1
 	{
-		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.CreateMessage("Message1", WithParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
 		issueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.30,
@@ -379,7 +379,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message2
 	{
-		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
+		testFramework.CreateMessage("Message2", WithParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
 
 		issueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.45,
@@ -389,7 +389,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message3
 	{
-		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()))
+		testFramework.CreateMessage("Message3", WithParents("Message2"), WithIssuer(nodes["C"].PublicKey()))
 
 		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 1), 1, events.ThresholdLevelIncreased)
 
@@ -402,7 +402,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message4
 	{
-		testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
+		testFramework.CreateMessage("Message4", WithParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
 
 		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 2), 1, events.ThresholdLevelIncreased)
 
@@ -416,7 +416,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message5
 	{
-		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
+		testFramework.CreateMessage("Message5", WithParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch1")
 
 		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 3), 1, events.ThresholdLevelIncreased)
@@ -433,7 +433,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message6
 	{
-		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500))
+		testFramework.CreateMessage("Message6", WithParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch2")
 
 		issueAndValidateMessageApproval(t, "Message6", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
@@ -451,7 +451,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message7
 	{
-		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
+		testFramework.CreateMessage("Message7", WithParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
 
 		testFramework.PreventNewMarkers(true)
 		issueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
@@ -470,7 +470,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message7.1
 	{
-		testFramework.CreateMessage("Message7.1", WithStrongParents("Message7"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.CreateMessage("Message7.1", WithParents("Message7"), WithIssuer(nodes["A"].PublicKey()))
 
 		testFramework.PreventNewMarkers(true)
 		issueAndValidateMessageApproval(t, "Message7.1", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
@@ -489,7 +489,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message8
 	{
-		testFramework.CreateMessage("Message8", WithStrongParents("Message6"), WithIssuer(nodes["D"].PublicKey()))
+		testFramework.CreateMessage("Message8", WithParents("Message6"), WithIssuer(nodes["D"].PublicKey()))
 
 		issueAndValidateMessageApproval(t, "Message8", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.55,
@@ -507,7 +507,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message9
 	{
-		testFramework.CreateMessage("Message9", WithStrongParents("Message8"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.CreateMessage("Message9", WithParents("Message8"), WithIssuer(nodes["A"].PublicKey()))
 
 		issueAndValidateMessageApproval(t, "Message9", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.25,
@@ -526,7 +526,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message10
 	{
-		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
+		testFramework.CreateMessage("Message10", WithParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 1, events.ThresholdLevelIncreased)
 		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 5), 1, events.ThresholdLevelIncreased)
@@ -550,7 +550,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message11
 	{
-		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
+		testFramework.CreateMessage("Message11", WithParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch3")
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message11")), "Branch4")
 
@@ -579,7 +579,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message12
 	{
-		testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
+		testFramework.CreateMessage("Message12", WithParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message5"), 1, events.ThresholdLevelIncreased)
 		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 5), 1, events.ThresholdLevelIncreased)
@@ -606,7 +606,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message13
 	{
-		testFramework.CreateMessage("Message13", WithStrongParents("Message12"), WithIssuer(nodes["E"].PublicKey()))
+		testFramework.CreateMessage("Message13", WithParents("Message12"), WithIssuer(nodes["E"].PublicKey()))
 
 		issueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  0.85,
@@ -631,7 +631,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message14
 	{
-		testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
+		testFramework.CreateMessage("Message14", WithParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message11"), 1, events.ThresholdLevelIncreased)
 		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(3, 6), 1, events.ThresholdLevelIncreased)
@@ -660,7 +660,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message15
 	{
-		testFramework.CreateMessage("Message15", WithStrongParents("Message11", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
+		testFramework.CreateMessage("Message15", WithParents("Message11", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
 
 		issueAndValidateMessageApproval(t, "Message15", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  1,
@@ -686,7 +686,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message16
 	{
-		testFramework.CreateMessage("Message16", WithStrongParents("Message12", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
+		testFramework.CreateMessage("Message16", WithParents("Message12", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message15")), "Branch4")
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message16")), "Branch5")
 
@@ -742,7 +742,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 
 	// ISSUE Message1
 	{
-		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
+		testFramework.CreateMessage("Message1", WithParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
 		testFramework.IssueMessages("Message1").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message1")), "Branch1")
 		fmt.Println(testFramework.MessageMetadata("Message1"))
@@ -750,7 +750,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 
 	// ISSUE Message2
 	{
-		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
+		testFramework.CreateMessage("Message2", WithParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
 		testFramework.IssueMessages("Message2").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message2")), "Branch2")
 
@@ -759,7 +759,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 
 	// ISSUE Message3
 	{
-		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
+		testFramework.CreateMessage("Message3", WithParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
 		testFramework.IssueMessages("Message3").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message3")), "Branch3")
 
@@ -768,7 +768,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 
 	// ISSUE Message4
 	{
-		testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
+		testFramework.CreateMessage("Message4", WithParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		testFramework.IssueMessages("Message4").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message4")), "Branch4")
 
@@ -777,7 +777,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 
 	// ISSUE Message5
 	{
-		testFramework.CreateMessage("Message5", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
+		testFramework.CreateMessage("Message5", WithParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
 		testFramework.IssueMessages("Message5").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch5")
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
@@ -793,7 +793,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 
 	// ISSUE Message6
 	{
-		testFramework.CreateMessage("Message6", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("F", 500))
+		testFramework.CreateMessage("Message6", WithParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("F", 500))
 		testFramework.IssueMessages("Message6").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch6")
 
@@ -807,7 +807,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 
 	// ISSUE Message7
 	{
-		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
+		testFramework.CreateMessage("Message7", WithParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
 		testFramework.IssueMessages("Message7").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch7")
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
@@ -824,7 +824,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 
 	// ISSUE Message8
 	{
-		testFramework.CreateMessage("Message8", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
+		testFramework.CreateMessage("Message8", WithParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
 		testFramework.IssueMessages("Message8").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message8")), "Branch8")
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(

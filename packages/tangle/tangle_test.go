@@ -323,9 +323,9 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{})
-	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
-	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
+	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID})
+	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID(), EmptyMessageID})
+	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID(), EmptyMessageID})
 
 	var wg sync.WaitGroup
 
