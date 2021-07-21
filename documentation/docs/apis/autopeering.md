@@ -14,13 +14,13 @@ Returns the chosen and accepted neighbors of the node.
 
 ### Parameters
 
-| **Parameter**            | `known`      |
+| Parameter            | known      |
 |--------------------------|----------------|
-| **Required or Optional** | optional       |
-| **Description**          | Return all known peers, set to `1` (default: `0`)   |
-| **Type**                 | int         |
+| Required or Optional | optional       |
+| Description          | Return all known peers, set to 1 (default: 0)   |
+| Type                 | int         |
 
-### Client lib - GetAutopeeringNeighbors
+### Client lib - GetAutopeeringNeighbors()
 
 Messages can be retrieved via `GetAutopeeringNeighbors(knownPeers bool) (*jsonmodels.GetNeighborsResponse, error)`
 
@@ -96,22 +96,25 @@ curl --location 'http://localhost:8080/autopeering/neighbors?known=1'
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `known`  | [][Neighbor](#type-neighbor) | List of known peers. Only returned when parameter is set. |
-| `chosen`  |[][Neighbor](#type-neighbor) | List of chosen peers. |
-| `accepted`  | [][Neighbor](#type-neighbor) | List of accepted peers. |
-| `error` | `string` | Error message. Omitted if success.     |
+| known  |\[\] [Neighbor](#type-neighbor) | List of known peers. Only returned when parameter is set. |
+| chosen  |\[\] [Neighbor](#type-neighbor) | List of chosen peers. |
+| accepted  |\[\] [Neighbor](#type-neighbor) | List of accepted peers. |
+| error | string | Error message. Omitted if success.     |
 
-######  Type Neighbor
+## Referenced Types
 
-|field | Type | Description|
-|:-----|:------|:------|
-| `id`  | `string` | Comparable node identifier.  |
-| `publicKey`   | `string` | Public key used to verify signatures.   |
-| `services`   | [][PeerService](#type-peerservice) | List of exposed services.     |
-
-###### Type PeerService
+### Neighbor
 
 |field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Type of service.  |
-| `address`   | `string` |  Network address of the service.   |
+| id  | string | Comparable node identifier.  |
+| publicKey   | string | Public key used to verify signatures.   |
+| services   | \[\] [PeerService](#type-peerservice) | List of exposed services.     |
+| services   | \[\] [PeerService](#type-peerservice) | List of exposed services.     |
+
+### PeerService
+
+|field | Type | Description|
+|:-----|:------|:------|
+| id  | string | Type of service.  |
+| address   | string |  Network address of the service.   |

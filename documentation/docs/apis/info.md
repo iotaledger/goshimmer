@@ -14,19 +14,11 @@ Returns basic info about the node.
 
 None.
 
-### Examples
+### Client lib - Info ()
 
-#### cURL
+You can retrieve a node's information via Info() (jsonmodels.InfoResponse, error)
 
-```shell
-curl --location 'http://localhost:8080/info'
-```
-
-### Client lib - Info
-
-You can retrieve a node's information via `Info() (*jsonmodels.InfoResponse, error)`
-
-```go
+go
 info, err := goshimAPI.Info()
 if err != nil {
     // return error
@@ -34,11 +26,19 @@ if err != nil {
 
 // will print the response
 fmt.Println(string(info))
-```
+
+
+### Examples
+
+#### cURL
+
+shell
+curl --location 'http://localhost:8080/info'
+
 
 #### Response example
 
-```json
+json
 {
   "version": "v0.6.2",
   "networkVersion": 30,
@@ -119,34 +119,33 @@ fmt.Println(string(info))
     "size": 0
   }
 }
-```
+
 
 #### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `version`  | `String` | Version of GoShimmer. |
-| `networkVersion`  | `uint32` | Network Version of the autopeering. |
-| `tangleTime`  | [TangleTime](#tangletime) | TangleTime sync status |
-| `identityID`  | `string` | Identity ID of the node encoded in base58. |
-| `identityIDShort`  | `string` | Identity ID of the node encoded in base58 and truncated to its first 8 bytes. |
-| `publicKey`  | `string` | Public key of the node encoded in base58 |
-| `messageRequestQueueSize`  | `int` | The number of messages a node is trying to request from neighbors. |
-| `solidMessageCount`  | `int` | The number of solid messages in the node's database. |
-| `totalMessageCount`  | `int` | The number of messages in the node's database. |
-| `enabledPlugins`  | `[]string` | List of enabled plugins. |
-| `disabledPlugins`  | `[]string` | List if disabled plugins. |
-| `[Mana#mana)`  | [Mana](#mana) | [Mana#mana) values. |
-| `[Mana#mana)DelegationAddress`  | `string` | [Mana#mana) Delegation Address. |
-| `[Mana#mana)_decay`  | `float64` | The decay coefficient of `bm2`. |
-| `scheduler`  | [Scheduler](#scheduler) |  Scheduler is the scheduler used.|
-| `rateSetter`  | [RateSetter](#ratesetter) | RateSetter is the rate setter used. |
-| `error` | `string` | Error message. Omitted if success.     |
+| version  | String | Version of GoShimmer. |
+| networkVersion  | uint32 | Network Version of the autopeering. |
+| tangleTime  | [TangleTime](#tangletime) | TangleTime sync status |
+| identityID  | string | Identity ID of the node encoded in base58. |
+| identityIDShort  | string | Identity ID of the node encoded in base58 and truncated to its first 8 bytes. |
+| publicKey  | string | Public key of the node encoded in base58 |
+| messageRequestQueueSize  | int | The number of messages a node is trying to request from neighbors. |
+| solidMessageCount  | int | The number of solid messages in the node's database. |
+| totalMessageCount  | int | The number of messages in the node's database. |
+| enabledPlugins  | []string | List of enabled plugins. |
+| disabledPlugins  | []string | List if disabled plugins. |
+| [Mana#mana)  | [Mana](#mana) | [Mana#mana) values. |
+| [Mana#mana)DelegationAddress  | string | [Mana#mana) Delegation Address. |
+| [Mana#mana)_decay  | float64 | The decay coefficient of bm2. |
+| scheduler  | [Scheduler](#scheduler) |  Scheduler is the scheduler used.|
+| rateSetter  | [RateSetter](#ratesetter) | RateSetter is the rate setter used. |
+| error | string | Error message. Omitted if success.     |
 
 ##  /health
 
 Returns HTTP code 200 if everything is running correctly.
-
 
 ### Parameters
 
@@ -156,9 +155,9 @@ None.
 
 #### cURL
 
-```shell
+shell
 curl --location 'http://localhost:8080/healthz'
-```
+
 
 #### Client lib
 
@@ -174,33 +173,33 @@ Empty response with HTTP 200 success code if everything is running correctly. Th
 
 |field | Type | Description|
 |:-----|:------|:------|
-| `messageID`  | `string` | ID of the last confirmed message.  |
-| `time`   | `int64` | Issue timestamp of the last confirmed message.    |
-| `synced`   | `bool` | Flag indicating whether node is in sync.     |
+| messageID  | string | ID of the last confirmed message.  |
+| time   | int64 | Issue timestamp of the last confirmed message.    |
+| synced   | bool | Flag indicating whether node is in sync.     |
 
 
 ### Scheduler
 
 |field | Type | Description|
 |:-----|:------|:------|
-| `running`  | `bool` | Flag indicating whether Scheduler has started.  |
-| `rate`   | `string` | Rate of the scheduler.    |
-| `nodeQueueSizes`   | `map[string]int` | The size for each node queue.     |
+| running  | bool | Flag indicating whether Scheduler has started.  |
+| rate   | string | Rate of the scheduler.    |
+| nodeQueueSizes   | map[string]int | The size for each node queue.     |
 
 ### RateSetter
 
 |field | Type | Description|
 |:-----|:------|:------|
-| `rate`  | `float64` | The rate of the rate setter..  |
-| `size`   | `int` | The size of the issuing queue.    |
+| rate  | float64 | The rate of the rate setter..  |
+| size   | int | The size of the issuing queue.    |
 
 ### Mana
 
 |field | Type | Description|
 |:-----|:------|:------|
-| `access`  | `float64` | Access [Mana#mana) assigned to the node.  |
-| `accessTimestamp`   | `time.Time` | Time when the access [Mana#mana) was calculated.    |
-| `consensus`   | `float64` | Consensus [Mana#mana) assigned to the node.   |
-| `consensusTimestamp`   | `time.Time` | Time when the consensus [Mana#mana) was calculated.   |
+| access  | float64 | Access [Mana#mana) assigned to the node.  |
+| accessTimestamp   | time.Time | Time when the access [Mana#mana) was calculated.    |
+| consensus   | float64 | Consensus [Mana#mana) assigned to the node.   |
+| consensusTimestamp   | time.Time | Time when the consensus [Mana#mana) was calculated.   |
 
 

@@ -3,15 +3,10 @@
 The manual peering APIs allow managing the list of known peers of the node.
 
 HTTP APIs:
-
-* POST [/manualpeering/peers](#post-manualpeeringpeers)
-* GET [/manualpeering/peers](#get-manualpeeringpeers)
 * DELETE [/manualpeering/peers](#delete-manualpeeringpeers)
 
 Client lib APIs:
 
-* [AddManualPeers()](#addmanualpeers)
-* [GetManualPeers()](#getmanualpeers)
 * [RemoveManualPeers()](#removemanualpeers)
 
 
@@ -42,6 +37,18 @@ Add peers to the list of known peers of the node.
 
 HTTP status code: 204 No Content
 
+### Client lib - AddManualPeers()
+
+```go
+import "github.com/iotaledger/goshimmer/packages/manualpeering"
+
+peersToAdd := []*manualpeering.KnownPeerToAdd{{PublicKey: publicKey, Address: address}}
+err := goshimAPI.AddManualPeers(peersToAdd)
+if err != nil {
+// return error
+}
+```
+
 ### Examples
 
 #### cURL
@@ -56,21 +63,6 @@ curl --location --request POST 'http://localhost:8080/manualpeering/peers' \
     }
 ]'
 ```
-
-### Client library
-
-#### AddManualPeers
-
-```go
-import "github.com/iotaledger/goshimmer/packages/manualpeering"
-
-peersToAdd := []*manualpeering.KnownPeerToAdd{{PublicKey: publicKey, Address: address}}
-err := goshimAPI.AddManualPeers(peersToAdd)
-if err != nil {
-// return error
-}
-```
-
 
 
 ## GET /manualpeering/peers
@@ -115,21 +107,8 @@ HTTP status code: 200 OK
 | `connectionDirection` | Enum, possible values: "inbound", "outbound". Inbound means that the local node accepts the connection. On the other side, the other peer node dials, and it will have "outbound" connectionDirection.  |
 | `connectionStatus` | Enum, possible values: "disconnected", "connected". Whether the actual TCP connection has been established between peers. |
 
-### Examples
 
-#### cURL
-
-```shell
-curl --location --request GET 'http://localhost:8080/manualpeering/peers' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "onlyConnected": true
-}'
-```
-
-### Client Library
-
-#### GetManualPeers
+### Client lib - GetManualPeers()
 
 ```go
 import "github.com/iotaledger/goshimmer/packages/manualpeering"
@@ -141,7 +120,17 @@ if err != nil {
 fmt.Println(peers)
 ```
 
+### Examples
 
+#### cURL
+
+```shell
+curl --location --request GET 'http://localhost:8080/manualpeering/peers' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "onlyConnected": true
+}'
+```
 
 ## DELETE /manualpeering/peers
 
@@ -167,6 +156,20 @@ Remove peers from the list of known peers of the node.
 
 HTTP status code: 204 No Content
 
+
+### ClientLib - RemoveManualPeers()
+
+```go
+import "github.com/iotaledger/hive.go/crypto/ed25519"
+import "github.com/iotaledger/goshimmer/packages/manualpeering"
+
+publicKeysToRemove := []ed25519.PublicKey{publicKey1, publicKey2}
+err := goshimAPI.RemoveManualPeers(publicKeysToRemove)
+if err != nil {
+// return error
+}
+```
+
 ### Examples
 
 #### cURL
@@ -179,19 +182,4 @@ curl --location --request DELETE 'http://localhost:8080/manualpeering/peers' \
         "publicKey": "8qN1yD95fhbfDZtKX49RYFEXqej5fvsXJ2NPmF1LCqbd"
     }
 ]'
-```
-
-### Client Library
-
-#### `RemoveManualPeers`
-
-```go
-import "github.com/iotaledger/hive.go/crypto/ed25519"
-import "github.com/iotaledger/goshimmer/packages/manualpeering"
-
-publicKeysToRemove := []ed25519.PublicKey{publicKey1, publicKey2}
-err := goshimAPI.RemoveManualPeers(publicKeysToRemove)
-if err != nil {
-// return error
-}
 ```
