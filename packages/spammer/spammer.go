@@ -62,12 +62,11 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 			return
 		}
 
-		load := payload.NewGenericDataPayload([]byte("SPAM"))
-		estimatedDuration := messagelayer.Tangle().RateSetter.Estimate(load)
+		estimatedDuration := messagelayer.Tangle().RateSetter.Estimate()
 		time.Sleep(estimatedDuration)
 
 		// we don't care about errors or the actual issued message
-		_, err := s.issuePayloadFunc(load)
+		_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
 		if errors.Is(err, tangle.ErrNotSynced) {
 			s.log.Info("Stopped spamming messages because node lost sync")
 			s.running.SetTo(false)
