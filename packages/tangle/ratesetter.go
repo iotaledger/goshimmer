@@ -5,12 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 )
 
 const (
@@ -139,9 +140,11 @@ func (r *RateSetter) Size() int {
 }
 
 //Estimate estimates the issuing time of new message.
-func (r *RateSetter) Estimate() time.Duration {
+func (r *RateSetter) Estimate(load payload.Payload) time.Duration {
 	// TODO: https://github.com/iotaledger/goshimmer/issues/1483
-	return 0
+
+	// dummy estimate
+	return time.Duration(math.Ceil(float64(r.Size()+len(load.Bytes())) / r.ownRate.Load() * float64(time.Second)))
 }
 
 // rateSetting updates the rate ownRate at which messages can be issued by the node.
