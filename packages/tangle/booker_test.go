@@ -777,7 +777,7 @@ func TestScenario_3(t *testing.T) {
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID(), messages["2"].ID()})
+	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID()}) // TODO update diagram Scenario 3.png
 	tangle.Storage.StoreMessage(messages["5"])
 
 	err = tangle.Booker.BookMessage(messages["5"].ID())
