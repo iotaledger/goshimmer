@@ -66,6 +66,7 @@ type Scheduler struct {
 
 // RateSetter is the rate setter details.
 type RateSetter struct {
-	Rate float64 `json:"rate"`
-	Size int     `json:"size"`
+	Rate     float64 `json:"rate"`
+	Size     int     `json:"size"`
+	Estimate string  `json:"estimate"`
 }
