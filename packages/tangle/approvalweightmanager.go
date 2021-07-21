@@ -241,10 +241,10 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 		return
 	}
 
-	a.propagateSupportToBranches(statement.BranchID(), message)
+	a.PropagateSupportToBranches(statement.BranchID(), message)
 }
 
-func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.BranchID, message *Message) {
+func (a *ApprovalWeightManager) PropagateSupportToBranches(branchID ledgerstate.BranchID, message *Message) {
 	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
 		panic(err)
@@ -502,7 +502,7 @@ func (a *ApprovalWeightManager) weightOfHeaviestConflictingBranch(branchID ledge
 
 func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		a.propagateSupportToBranches(newBranchID, message)
+		a.PropagateSupportToBranches(newBranchID, message)
 	})
 }
 

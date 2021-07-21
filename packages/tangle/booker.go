@@ -75,12 +75,92 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
+			// TODO: factor this out in a func
+
+			// We check if any of the liked parents does not contain a TX
+			isTransaction := true
+			message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
+				if !isTransaction {
+					return
+				}
+				b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
+					if message.Payload().Type() != ledgerstate.TransactionType {
+						isTransaction = false
+					}
+				})
+			})
+			if !isTransaction {
+				err = errors.Errorf("message like reference does not contain a transaction %s", messageID)
+				return
+			}
+
+			strongBranchIDs := b.strongParentsBranchIDs(message)
+			likedBranchIDs := b.likedParentsBranchIDs(message)
+
+			collectedStrongParents := ledgerstate.NewBranchIDs()
+			for strongBranchID := range strongBranchIDs {
+				for collectedParent := range b.collectBranchesUpwards(strongBranchID) {
+					collectedStrongParents.Add(collectedParent)
+				}
+			}
+
+			prunedCollectedStrongParents := collectedStrongParents.Clone()
+
+			// We now need to subtract liked branches from strong branches (including descendants)
+			for likedBranchID := range likedBranchIDs {
+				b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
+					// We like something in the same conflict set of a collected strong parent
+					if prunedCollectedStrongParents.Contains(conflictingBranchID) {
+						// We then remove the collected strong parent from its mapping, including all its children
+						collectedChildren := b.collectBranchesDownwards(conflictingBranchID)
+						innerPrunedCollectedStrongParents := ledgerstate.NewBranchIDs()
+						for prunedCollectedStrongParent := range prunedCollectedStrongParents {
+							if !collectedChildren.Contains(prunedCollectedStrongParent) {
+								innerPrunedCollectedStrongParents.Add(prunedCollectedStrongParent)
+							}
+						}
+						prunedCollectedStrongParents = innerPrunedCollectedStrongParents
+					}
+
+				})
+			}
+
+			// We filter our strong parents and add the liked parents to the resulting set
+			resultLiked := ledgerstate.NewBranchIDs()
+			for strongBranchID := range strongBranchIDs {
+				if prunedCollectedStrongParents.Contains(strongBranchID) {
+					resultLiked.Add(strongBranchID)
+				}
+			}
+			for likedBranchID := range likedBranchIDs {
+				resultLiked.Add(likedBranchID)
+			}
+
+			// Now we check if anything of what we like has overlapping conflict set, in this case the Message is invalid
+			for likedBranchID := range resultLiked {
+				isInvalid := false
+				b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
+					if isInvalid {
+						return
+					}
+					if resultLiked.Contains(conflictingBranchID) {
+						isInvalid = true
+					}
+				})
+				if isInvalid {
+					err = errors.Errorf("message parents are inconsistent %s", messageID)
+					return
+				}
+			}
+
+			// TODO: factor Transaction checks out because their are cheaper
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
 				return
 			}
 
+			// We add the BranchID of the payload to the computed Branch sets
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(b.parentsBranchIDs(message).Add(branchIDOfPayload))
 			if inheritErr != nil {
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
@@ -97,6 +177,11 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				} else {
 					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
 				}
+			}
+
+			// We propagate our support for all the branches we finally computed
+			for likedBranchID := range resultLiked {
+				b.tangle.ApprovalWeightManager.PropagateSupportToBranches(likedBranchID, message)
 			}
 
 			messageMetadata.SetBooked(true)
@@ -212,6 +297,109 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 
 				if !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 					branchIDs[transactionMetadata.BranchID()] = types.Void
+				}) {
+					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
+				}
+			}
+		}) {
+			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
+		}
+	})
+
+	return branchIDs
+}
+
+// strongParentsBranchIDs the branches of the Message's strong parents
+func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
+	branchIDs = make(ledgerstate.BranchIDs)
+
+	message.ForEachParentByType(StrongParentType, func(messageID MessageID) {
+		if messageID == EmptyMessageID {
+			branchIDs.Add(ledgerstate.MasterBranchID)
+			return
+		}
+
+		if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			if branchID := messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
+				branchIDs.Add(branchID)
+				return
+			}
+
+			structureDetailsOfMessage := messageMetadata.StructureDetails()
+			if structureDetailsOfMessage == nil {
+				panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
+			}
+			if structureDetailsOfMessage.PastMarkers.Size() > 1 {
+				panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
+			}
+
+			branchIDs.Add(b.MarkersManager.BranchID(structureDetailsOfMessage.PastMarkers.Marker()))
+		}) {
+			panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
+		}
+	})
+
+	return branchIDs
+}
+
+// collectParents recursively obtains branch's parents until MasterBranch, including the starting branch
+func (b *Booker) collectBranchesUpwards(branchID ledgerstate.BranchID) (parents ledgerstate.BranchIDs) {
+	parents = ledgerstate.NewBranchIDs()
+
+	if branchID == ledgerstate.MasterBranchID {
+		return
+	}
+
+	conflictBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+	if err != nil {
+		panic(err)
+	}
+
+	for conflictBranchID := range conflictBranchIDs {
+		parents.Add(conflictBranchID)
+		b.tangle.LedgerState.BranchDAG.Branch(conflictBranchID).Consume(func(branch ledgerstate.Branch) {
+			for parentBranchID := range branch.Parents() {
+				for innerParent := range b.collectBranchesUpwards(parentBranchID) {
+					parents.Add(innerParent)
+				}
+			}
+		})
+	}
+
+	return
+}
+
+// collectBranchesDownwards recursively obtains branch's children until the leaves, including the starting branch
+func (b *Booker) collectBranchesDownwards(branchID ledgerstate.BranchID) (children ledgerstate.BranchIDs) {
+	children = ledgerstate.NewBranchIDs(branchID)
+
+	b.tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
+		if childBranch.ChildBranchType() == ledgerstate.ConflictBranchType {
+			for innerChild := range b.collectBranchesDownwards(childBranch.ChildBranchID()) {
+				children.Add(innerChild)
+			}
+		}
+
+	})
+
+	return
+}
+
+// likedParentsBranchIDs gets all the branches of the Message's liked parents
+func (b *Booker) likedParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
+	branchIDs = make(ledgerstate.BranchIDs)
+
+	message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
+		if parentMessageID == EmptyMessageID {
+			return
+		}
+
+		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
+			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
+				transactionID := payload.(*ledgerstate.Transaction).ID()
+
+				if !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+					branchIDs.Add(transactionMetadata.BranchID())
 				}) {
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
 				}
