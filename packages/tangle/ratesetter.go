@@ -62,6 +62,10 @@ type RateSetter struct {
 
 // NewRateSetter returns a new RateSetter.
 func NewRateSetter(tangle *Tangle) *RateSetter {
+	if tangle.Options.RateSetterParams.Initial != nil {
+		Initial = *tangle.Options.RateSetterParams.Initial
+	}
+
 	rateSetter := &RateSetter{
 		tangle: tangle,
 		Events: &RateSetterEvents{
@@ -76,9 +80,6 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		pauseUpdates:   0,
 		shutdownSignal: make(chan struct{}),
 		shutdownOnce:   sync.Once{},
-	}
-	if tangle.Options.RateSetterParams.Initial != nil {
-		Initial = *tangle.Options.RateSetterParams.Initial
 	}
 
 	go rateSetter.issuerLoop()
