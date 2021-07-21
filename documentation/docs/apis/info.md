@@ -38,7 +38,7 @@ curl --location 'http://localhost:8080/info'
 
 #### Response example
 
-json
+```json
 {
   "version": "v0.6.2",
   "networkVersion": 30,
@@ -119,7 +119,7 @@ json
     "size": 0
   }
 }
-
+```
 
 #### Results
 
@@ -151,6 +151,11 @@ Returns HTTP code 200 if everything is running correctly.
 
 None.
 
+### Client lib
+
+This method is not available in client lib.
+
+
 ### Examples
 
 #### cURL
@@ -158,10 +163,6 @@ None.
 shell
 curl --location 'http://localhost:8080/healthz'
 
-
-#### Client lib
-
-This method is not available in client lib.
 
 #### Results
 

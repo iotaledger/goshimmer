@@ -41,7 +41,7 @@ curl http://localhost:8080/ledgerstate/addresses/:address \
 
 * Where `:address` is the base58 encoded address, e.g., `6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -68,7 +68,7 @@ curl http://localhost:8080/ledgerstate/addresses/:address \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -117,7 +117,7 @@ curl http://localhost:8080/ledgerstate/addresses/:address/unspentOutputs \
 
 * Where `:address` is the base58 encoded address, e.g., `6PQqFcwarCVbEMxWFeAqj7YswK842dMtf84qGyKqVH7s1kK`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -144,7 +144,7 @@ curl http://localhost:8080/ledgerstate/addresses/:address/unspentOutputs \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -190,7 +190,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID \
 
 * Where `:branchID` is the ID of the branch, e.g., `2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -209,7 +209,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -260,7 +260,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/children \
 
 * Where `:branchID` is the ID of the branch, e.g., `2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -274,7 +274,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/children \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -321,7 +321,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/conflicts \
 
 * Where `:branchID` is the ID of the branch, e.g.,  `2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -342,7 +342,7 @@ curl http://localhost:8080/ledgerstate/branches/:branchID/conflicts \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -388,7 +388,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID \
 
 ```
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -407,7 +407,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -454,7 +454,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID/consumers \
 
 * Where `:outputID` is the ID of the output, e.g., `41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -476,7 +476,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID/consumers \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -508,7 +508,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID/metadata \
 
 * Where `:outputID` is the ID of the output, e.g., `41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -526,7 +526,7 @@ curl http://localhost:8080/ledgerstate/outputs/:outputID/metadata \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -562,7 +562,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID \
 
 * Where `:transactionID` is the ID of the branch, e.g., `HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -607,7 +607,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -657,7 +657,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/metadata \
 
 * Where `:transactionID` is the ID of the branch, e.g., `HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -670,7 +670,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/metadata \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -715,7 +715,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/inclusionStat
 
 * Where `:transactionID` is the ID of the branch, e.g., `HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -727,7 +727,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/inclusionStat
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -776,7 +776,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/consensus \
 
 * Where `:transactionID` is the ID of the branch, e.g., `HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -789,7 +789,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/consensus \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -836,7 +836,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/attachments \
 ```
 * Where `:transactionID` is the ID of the branch, e.g., `HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV`.
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -847,7 +847,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/attachments \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -874,7 +874,7 @@ fmt.Println("Transaction sent, txID: ", resp.TransactionID)
 
 ### Examples
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -924,7 +924,7 @@ curl http://localhost:8080/ledgerstate/addresses/unspentOutputs \
 --data-raw '{"addresses": ["18LhfKUkWt4M9YR6Q3au4LT8wWCERwzHaqn153K78Eixp"]}'
 ```
 
-### Response Example
+#### Response Example
 
 ```json
 {
@@ -965,7 +965,7 @@ curl http://localhost:8080/ledgerstate/addresses/unspentOutputs \
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|

@@ -16,27 +16,27 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 
 #### Parameters
 
-| Parameter            | `cmd`      |
+| Parameter            | cmd      |
 |--------------------------|----------------|
 | Required or Optional | required       |
 | Description          | Action to perform. One of two possible values: `start` and `stop`.   |
-| Type                 | `string`         |
+| Type                 | string         |
 
 
 
-| Parameter            | `mpm`      |
+| Parameter            | mpm      |
 |--------------------------|----------------|
 | Required or Optional | optional       |
 | Description          | Messages per minute. Only applicable when `cmd=start`. (default: 1)  |
-| Type                 | `int`         |
+| Type                 | int         |
 
 
 
-| Parameter            | `imif` (Inter Message Issuing Function)     |
+| Parameter            | imif (Inter Message Issuing Function)     |
 |--------------------------|----------------|
 | Required or Optional | optional       |
 | Description          | Parameter indicating time interval between issued messages. Possible values: `poisson`, `uniform`. Field only available in HTTP API. |
-| Type                 | `string`         |
+| Type                 | string         |
 
 
 Description of `imif` values:
@@ -44,21 +44,7 @@ Description of `imif` values:
 * `poisson` - emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
 * `uniform` - issues messages at constant rate 
 
-#### Examples
-
-##### cURL
-
-```shell
-curl --location 'http://localhost:8080/spammer?cmd=start&mpm=1000'
-curl --location 'http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform'
-curl --location 'http://localhost:8080/spammer?cmd=shutdown'
-```
-
-## Client lib API
-
-The client lib API provides the following functions:
-
-### ToggleSpammer()
+### Client lib - ToggleSpammer()
 
 The spammer can be enabled and disabled via `ToggleSpammer(enable bool, mpm int) (*jsonmodels.SpammerResponse, error)`
 
@@ -72,6 +58,16 @@ if err != nil {
 fmt.Println(res.Message)
 ```
 
+### Examples
+
+#### cURL
+
+```shell
+curl --location 'http://localhost:8080/spammer?cmd=start&mpm=1000'
+curl --location 'http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform'
+curl --location 'http://localhost:8080/spammer?cmd=shutdown'
+```
+
 #### Response examples
 
 ```json
@@ -82,5 +78,5 @@ fmt.Println(res.Message)
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `message`  | `string` | Message with resulting message. |
-| `error` | `string` | Error message. Omitted if success.     |
+| message  | string | Message with resulting message. |
+| error | string | Error message. Omitted if success.     |

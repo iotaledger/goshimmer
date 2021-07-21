@@ -2,20 +2,7 @@
 
 The dRNG APIs provide methods to retrieve basic info about dRNG committees and randomness as well as to broadcast collective randomness beacon.
 
-HTTP APIs:
-
-* [/drng/collectiveBeacon](#drngcollectivebeacon)
-* [/drng/info/committee](#drnginfocommittee)
-* [/drng/info/randomness](#drnginforandomness)
-
-Client lib APIs:
-
-* [BroadcastCollectiveBeacon()](#client-lib---broadcastcollectivebeacon)
-* [GetRandomness()](#client-lib---getrandomness)
-* [GetCommittee()](#client-lib---getcommittee)
-
-
-## `/drng/collectiveBeacon`
+## /drng/collectiveBeacon
 
 Method: `POST`
 
@@ -23,11 +10,11 @@ Sends the given collective beacon (payload) by creating a message in the backend
 
 ### Parameters
 
-| **Parameter**            | `payload`      |
+| Parameter            | payload      |
 |--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | collective beacon payload   |
-| **Type**                 | base64 serialized bytes         |
+| Required or Optional | required       |
+| Description          | collective beacon payload   |
+| Type                 | base64 serialized bytes         |
 
 
 #### Body
@@ -35,6 +22,17 @@ Sends the given collective beacon (payload) by creating a message in the backend
 ```json
 {
   "payload": "collectiveBeaconBytes"
+}
+```
+
+### Client lib - BroadcastCollectiveBeacon()
+
+Collective beacon can be broadcast using `BroadcastCollectiveBeacon(payload []byte) (string, error)`.
+
+```go
+msgId, err := goshimAPI.BroadcastCollectiveBeacon(payload)
+if err != nil {
+    // return error
 }
 ```
 
@@ -48,18 +46,8 @@ curl --location --request POST 'http://localhost:8080/drng/collectiveBeacon' \
 --data-raw '{"payload": "collectiveBeaconBytes"}'
 ```
 
-#### Client lib - `BroadcastCollectiveBeacon`
 
-Collective beacon can be broadcast using `BroadcastCollectiveBeacon(payload []byte) (string, error)`.
-
-```go
-msgId, err := goshimAPI.BroadcastCollectiveBeacon(payload)
-if err != nil {
-    // return error
-}
-```
-
-### Response example
+#### Response example
 
 ```shell
 {
@@ -71,26 +59,19 @@ if err != nil {
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID of beacon message. Omitted if error. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| id  | string | Message ID of beacon message. Omitted if error. |
+| error   | string | Error message. Omitted if success.    |
 
 
-## `/drng/info/committee`
+## /drng/info/committee
 
 Returns the current dRNG committee used.
 
 ### Parameters
+
 None.
 
-### Examples
-
-#### cURL
-
-```shell
-curl http://localhost:8080/drng/info/committee
-```
-
-#### Client lib - `GetCommittee`
+### Client lib - GetCommittee()
 
 Available committees can be retrieved using `GetCommittee() (*jsonmodels.CommitteeResponse, error)`.
 
@@ -106,7 +87,15 @@ for _, m := range committees.Committees {
 }
 ```
 
-### Response example
+### Examples
+
+#### cURL
+
+```shell
+curl http://localhost:8080/drng/info/committee
+```
+
+#### Response Example
 
 ```json
 {
@@ -127,39 +116,33 @@ for _, m := range committees.Committees {
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `committees`  | `[]Committee` | A list of DRNG committees.   |
-| `error` | `string` | Error message. Omitted if success.     |
+| committees  | []Committee | A list of DRNG committees.   |
+| error | string | Error message. Omitted if success.     |
 
-* Type `Committee`
+ Type Committee
 
 |field | Type | Description|
 |:-----|:------|:------|
-| `instanceID`  | `string` | The identifier of the dRAND instance.  |
-| `threshold`   | `string` | The threshold of the secret sharing protocol.    |
-| `identities`   | `float64` | The nodes' identities of the committee members.     |
-| `distributedPK`   | `string` | Distributed Public Key of the committee     |
+| instanceID  | string | The identifier of the dRAND instance.  |
+| threshold   | string | The threshold of the secret sharing protocol.    |
+| identities   | float64 | The nodes' identities of the committee members.     |
+| distributedPK   | string | Distributed Public Key of the committee     |
 
 
-## `/drng/info/randomness`
+## /drng/info/randomness
 
 Returns the current DRNG randomness used.
 
 ### Parameters
+
 None.
 
-### Examples
 
-#### cURL
-
-```shell
-curl http://localhost:8080/drng/info/randomness
-```
-
-#### client lib - `GetRandomness`
+### Client lib - GetRandomness()
 
 Current randomness from known committees can be retrieved using `GetRandomness() (*jsonmodels.RandomnessResponse, 
 error)`.
@@ -176,7 +159,15 @@ for _, m := range randomness.Randomness {
 }
 ```
 
-### Response example
+### Examples
+
+#### cURL
+
+```shell
+curl http://localhost:8080/drng/info/randomness
+```
+
+#### Response Example
 
 ```json
 {
@@ -191,14 +182,16 @@ for _, m := range randomness.Randomness {
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `randomness`  | `[]Randomness` | List of randomness  |
-| `error`   | `string` | Error message. Omitted if success.     |
+| randomness  | \[\][Randomness](#randomness) | List of randomness  |
+| error   | string | Error message. Omitted if success.     |
 
-* Type `Randomness`
+## Referenced Types 
+
+### Randomness
 
 |field | Type | Description|
 |:-----|:------|:------|

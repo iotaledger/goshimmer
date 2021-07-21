@@ -12,6 +12,11 @@ Returns a snapshot file.
 
 None
 
+### Client lib 
+
+This method is not available in the client library.
+
+
 ### Examples
 
 #### cURL
@@ -19,11 +24,6 @@ None
 ```shell
 curl --location 'http://localhost:8080/snapshot'
 ```
-
-#### Client lib 
-
-This method is not available in the client library.
-
 
 #### Results
 

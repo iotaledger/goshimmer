@@ -10,7 +10,6 @@
  */
 
 module.exports = {
-  // But you can create a sidebar manually
   docs: [{
     type: 'doc',
     label: 'Welcome',
@@ -320,7 +319,7 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Local Dvelopment',
+        label: 'Local Development',
         id: 'teamresources/local_development',
       },
 
