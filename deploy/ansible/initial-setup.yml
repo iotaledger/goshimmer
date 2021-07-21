@@ -1,0 +1,39 @@
+---
+## This playbook sets up the whole environment stack from scratch.
+
+- hosts: metrics
+  vars:
+    removeData: yes
+  roles:
+    - metrics
+
+- hosts: supports
+  roles:
+    - role: goshimmer-node
+      nodeType: entrynode
+    - role: goshimmer-node
+      nodeType: analysis-server
+
+- hosts: goshimmers
+  vars:
+    nodeType: goshimmer
+  roles:
+    - goshimmer-node
+
+- hosts: drands
+  vars:
+    numberOfDrands: 5
+    drandsThershold: 3
+    leaderDrandAddress: "drand-01.pre-devnet.shimmer.iota.cafe:1234"
+  roles:
+    - role: drand
+      drandNumber: 1
+      isLeaderDrand: true
+    - role: drand
+      drandNumber: 2
+    - role: drand
+      drandNumber: 3
+    - role: drand
+      drandNumber: 4
+    - role: drand
+      drandNumber: 5

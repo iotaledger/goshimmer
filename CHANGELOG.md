@@ -1,3 +1,13 @@
+# v0.7.4 - 2021-07-08
+* Add ParametersDefinition structs in integration test framework
+* Add UTXO-DAG interface
+* Fix setting correct properties to newly forked branches
+* Fix using weak parents for direct approvers when looking for transactions that are approved by a message
+* Update entry node from community
+* Update docs
+* Update snapshot file with DevNet UTXO at 2021-07-08 07:09 UTC
+* **Breaking**: bumps network and database versions
+
 # v0.7.3 - 2021-07-01
 * Add latest snapshot download from S3
 * Add weak tips on local dashboard

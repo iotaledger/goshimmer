@@ -14,7 +14,6 @@ import (
 	"github.com/mr-tron/base58"
 
 	databasePkg "github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
@@ -27,47 +26,46 @@ func configureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 
 	var peeringIP net.IP
-	if str := config.Node().String(CfgExternal); strings.ToLower(str) == "auto" {
+	if strings.ToLower(ParametersNetwork.ExternalAddress) == "auto" {
 		// let the autopeering discover the IP
 		peeringIP = net.IPv4zero
 	} else {
-		peeringIP = net.ParseIP(str)
+		peeringIP = net.ParseIP(ParametersNetwork.ExternalAddress)
 		if peeringIP == nil {
-			log.Fatalf("Invalid IP address (%s): %s", CfgExternal, str)
+			log.Fatalf("Invalid IP address: %s", ParametersNetwork.ExternalAddress)
 		}
 		if !peeringIP.IsGlobalUnicast() {
 			log.Warnf("IP is not a global unicast address: %s", peeringIP.String())
 		}
 	}
 
-	peeringPort := config.Node().Int(CfgPort)
-	if peeringPort < 0 || peeringPort > 65535 {
-		log.Fatalf("Invalid port number (%s): %d", CfgPort, peeringPort)
+	if ParametersLocal.Port < 0 || ParametersLocal.Port > 65535 {
+		log.Fatalf("Invalid port number: %d", ParametersLocal.Port)
 	}
 
 	// announce the peering service
 	services := service.New()
-	services.Update(service.PeeringKey, "udp", peeringPort)
+	services.Update(service.PeeringKey, "udp", ParametersLocal.Port)
 
 	// set the private key from the seed provided in the config
 	var seed [][]byte
-	if str := config.Node().String(CfgSeed); str != "" {
+	if ParametersLocal.Seed != "" {
 		var bytes []byte
 		var err error
 
-		if strings.HasPrefix(str, "base58:") {
-			bytes, err = base58.Decode(str[7:])
-		} else if strings.HasPrefix(str, "base64:") {
-			bytes, err = base64.StdEncoding.DecodeString(str[7:])
+		if strings.HasPrefix(ParametersLocal.Seed, "base58:") {
+			bytes, err = base58.Decode(ParametersLocal.Seed[7:])
+		} else if strings.HasPrefix(ParametersLocal.Seed, "base64:") {
+			bytes, err = base64.StdEncoding.DecodeString(ParametersLocal.Seed[7:])
 		} else {
 			err = fmt.Errorf("neither base58 nor base64 prefix provided")
 		}
 
 		if err != nil {
-			log.Fatalf("Invalid %s: %s", CfgSeed, err)
+			log.Fatalf("Invalid seed: %s", err)
 		}
 		if l := len(bytes); l != ed25519.SeedSize {
-			log.Fatalf("Invalid %s length: %d, need %d", CfgSeed, l, ed25519.SeedSize)
+			log.Fatalf("Invalid seed length: %d, need %d", l, ed25519.SeedSize)
 		}
 		seed = append(seed, bytes)
 	}

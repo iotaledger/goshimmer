@@ -1,0 +1,21 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: '3'
+
+services:
+  drand:
+    image: angelocapossele/drand:v1.1.4
+    container_name: drand{{ drandNumber }}
+    volumes:
+      - drand{{ drandNumber }}-data:/root/.drand
+    ports:
+      - "0.0.0.0:{{ drandNumber }}234:8000"
+      - "0.0.0.0:{{ drandNumber }}235:8081"
+      - "0.0.0.0:{{ drandNumber }}236:1236"
+    environment:
+      - DRAND_PUBLIC_ADDRESS=drand-01.pre-devnet.shimmer.iota.cafe:{{ drandNumber }}234
+    entrypoint: /usr/local/bin/entrypoint.sh
+    command: start --verbose --private-listen 0.0.0.0:8000 --public-listen 0.0.0.0:8081 --tls-disable --goshimmerAPIurl "http://drng-0{{ drandNumber }}.pre-devnet.shimmer.iota.cafe:9101" --instanceID 1 --metrics "0.0.0.0:1236"
+    restart: unless-stopped
+
+volumes:
+  drand{{ drandNumber }}-data:

@@ -1,0 +1,133 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: "3"
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27117:27117"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "{{ mongoDBUser }}"
+      MONGO_INITDB_ROOT_PASSWORD: "{{ mongoDBPassword }}"
+    volumes:
+      - mongodb_data:/data/db
+    command: >
+      --port=27117
+    networks:
+      - back-tier
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    expose:
+      - "9090"
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --web.listen-address=:9090
+    volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - back-tier
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/admin_password
+    ports:
+      - "3000:3000"
+    volumes:
+    - grafana_data:/var/lib/grafana
+    - ./grafana/provisioning/:/etc/grafana/provisioning/
+    - ./grafana/admin-password:/run/secrets/admin_password
+    depends_on:
+      - prometheus
+    networks:
+      - back-tier
+      - front-tier
+
+  elasticsearch:
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.13.2
+    restart: unless-stopped
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - type: bind
+        source: ./elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+        read_only: true
+      - type: volume
+        source: elasticsearch_data
+        target: /usr/share/elasticsearch/data
+    expose:
+      - "9200"
+    environment:
+      ES_JAVA_OPTS: "-Xmx2g -Xms2g"
+      # Use single node discovery in order to disable production mode and avoid bootstrap checks
+      # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      http.cors.enabled: "true"
+      http.cors.allow-origin: "*"
+      ELASTIC_USERNAME: "{{ elkElasticUser }}"
+      ELASTIC_PASSWORD: "{{ elkElasticPassword }}"
+    networks:
+      - back-tier
+
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:7.13.2
+    restart: unless-stopped
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - type: bind
+        source: ./logstash/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+        read_only: true
+      - type: bind
+        source: ./logstash/pipeline
+        target: /usr/share/logstash/pipeline
+        read_only: true
+    ports:
+      - "5213:5213/udp"
+    environment:
+      LS_JAVA_OPTS: "-Xmx1g -Xms1g"
+    depends_on:
+      - elasticsearch
+    networks:
+      - back-tier
+      - front-tier
+
+  kibana:
+    container_name: kibana
+    image: docker.elastic.co/kibana/kibana:7.13.2
+    restart: unless-stopped
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - type: bind
+        source: ./kibana.yml
+        target: /usr/share/kibana/config/kibana.yml
+        read_only: true
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - back-tier
+      - front-tier
+
+networks:
+  back-tier:
+    driver: bridge
+  front-tier:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  grafana_data:
+  elasticsearch_data:

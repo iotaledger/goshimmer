@@ -6,7 +6,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
@@ -26,7 +25,7 @@ func registerDBMetrics() {
 }
 
 func collectDBSize() {
-	size, err := directorySize(config.Node().String(database.CfgDatabaseDir))
+	size, err := directorySize(database.Parameters.Directory)
 	if err == nil {
 		dbSize.Set(float64(size))
 	}
