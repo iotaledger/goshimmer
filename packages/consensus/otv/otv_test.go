@@ -16,8 +16,7 @@ import (
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
-
-	type ExpectedOpinionTuple func(branchIDs []consensus.OpinionTuple)
+	type ExpectedOpinionTuple func(executionBranchAlias string, branchIDs []consensus.OpinionTuple)
 
 	sortOpinionTuple := func(ot []consensus.OpinionTuple) {
 		sort.Slice(ot, func(x, y int) bool {
@@ -25,202 +24,399 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 		})
 	}
 
-	mustMatch := func(expected []consensus.OpinionTuple) ExpectedOpinionTuple {
-		return func(actual []consensus.OpinionTuple) {
+	mustMatch := func(s *Scenario, aliasTuples ...aliasOpinionTuple) ExpectedOpinionTuple {
+		return func(executionBranchAlias string, actual []consensus.OpinionTuple) {
+			expected := createOpinionTuples(s, aliasTuples...)
 			sortOpinionTuple(expected)
 			sortOpinionTuple(actual)
-			require.EqualValues(t, expected, actual)
+			if assert.EqualValues(t, expected, actual) {
+				return
+			}
+			fmt.Printf("failed execution with Branch '%s'\n", executionBranchAlias)
+			fmt.Println("expected", expected)
+			fmt.Println("actual", actual)
+			t.FailNow()
 		}
 	}
-	type test struct {
-		Scenario         Scenario
-		WeightFunc       WeightFunc
-		args             BranchID
+
+	type execution struct {
+		branchAlias      string
 		wantOpinionTuple ExpectedOpinionTuple
+		wantErr          bool
+	}
+	type test struct {
+		Scenario   Scenario
+		WeightFunc WeightFunc
+		executions []execution
 	}
 
 	tests := []struct {
-		name     string
-		test     test
-		scenario Scenario
-		wantErr  bool
+		name string
+		test test
 	}{
 		{
 			name: "1",
 			test: func() test {
 				scenario := s1
 
+				executions := []execution{
+					{
+						branchAlias:      "A",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias: "B",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"A", "B"},
+						),
+					},
+				}
+
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario,
-						aliasOpinionTuple{"A", "B"}),
-					),
-					args: scenario.BranchID("B"),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "2",
 			test: func() test {
 				scenario := s2
 
+				executions := []execution{
+					{
+						branchAlias: "A",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "A"},
+							aliasOpinionTuple{"C", "A"},
+						),
+					},
+					{
+						branchAlias:      "B",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias:      "C",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+				}
+
 				return test{
-					Scenario:         scenario,
-					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario)),
-					args:             scenario.BranchID("C"),
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "3",
 			test: func() test {
 				scenario := s3
 
+				executions := []execution{
+					{
+						branchAlias:      "A",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias: "B",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"A", "B"},
+						),
+					},
+					{
+						branchAlias: "C",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"A", "C"},
+						),
+					},
+				}
+
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario,
-						aliasOpinionTuple{"A", "C"}),
-					),
-					args: scenario.BranchID("C"),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "4",
 			test: func() test {
 				scenario := s4
 
+				executions := []execution{
+					{
+						branchAlias:      "A",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias: "B",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"A", "B"},
+						),
+					},
+					{
+						branchAlias: "C",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"A", "C"},
+						),
+					},
+				}
+
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario,
-						aliasOpinionTuple{"A", "C"}),
-					),
-					args: scenario.BranchID("C"),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "4.5",
 			test: func() test {
 				scenario := s45
 
+				executions := []execution{
+					{
+						branchAlias: "A",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "A"},
+							aliasOpinionTuple{"C", "A"},
+						),
+					},
+					{
+						branchAlias:      "B",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias:      "C",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+				}
+
 				return test{
-					Scenario:         scenario,
-					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario)),
-					args:             scenario.BranchID("C"),
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "5",
 			test: func() test {
 				scenario := s5
 
+				executions := []execution{
+					{
+						branchAlias: "A",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "A"},
+							aliasOpinionTuple{"C", "A"},
+						),
+					},
+					{
+						branchAlias:      "B",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias:      "C",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+				}
+
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario,
-						aliasOpinionTuple{"B", "A"},
-						aliasOpinionTuple{"C", "A"},
-					)),
-					args: scenario.BranchID("A"),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "6",
 			test: func() test {
 				scenario := s6
 
+				executions := []execution{
+					{
+						branchAlias: "A",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "A"},
+							aliasOpinionTuple{"C", "A"},
+						),
+					},
+					{
+						branchAlias:      "B",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias:      "C",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias: "D",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "D"},
+						),
+					},
+				}
+
 				return test{
-					Scenario:         scenario,
-					WeightFunc:       WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(createOpinionTuples(&scenario)),
-					args:             scenario.BranchID("B"),
+					Scenario:   scenario,
+					WeightFunc: WeightFuncFromScenario(t, scenario),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "7",
 			test: func() test {
 				scenario := s7
 
+				executions := []execution{
+					{
+						branchAlias: "A",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "A"},
+							aliasOpinionTuple{"D", "A"},
+						),
+					},
+					{
+						branchAlias:      "B",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias: "C",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"D", "C"},
+						),
+					},
+					{
+						branchAlias:      "D",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+				}
+
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(
-						createOpinionTuples(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"D", "A"},
-						)),
-					args: scenario.BranchID("A"),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "8",
 			test: func() test {
 				scenario := s8
 
+				executions := []execution{
+					{
+						branchAlias:      "A",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias: "B",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"A", "B"},
+							aliasOpinionTuple{"E", "B"},
+						),
+					},
+					{
+						branchAlias: "C",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"A", "C"},
+						),
+					},
+					{
+						branchAlias: "D",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"A", "D"},
+						),
+					},
+					{
+						branchAlias:      "E",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+				}
+
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(
-						createOpinionTuples(&scenario,
-							aliasOpinionTuple{"A", "C"},
-						)),
-					args: scenario.BranchID("C"),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "9",
 			test: func() test {
 				scenario := s9
 
+				executions := []execution{
+					{
+						branchAlias: "A",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "A"},
+							aliasOpinionTuple{"D", "A"},
+						),
+					},
+					{
+						branchAlias:      "B",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias: "C",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"D", "C"},
+						),
+					},
+					{
+						branchAlias:      "D",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+					{
+						branchAlias: "E",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "E"},
+						),
+					},
+				}
+
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(
-						createOpinionTuples(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"D", "A"},
-						)),
-					args: scenario.BranchID("A"),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 		{
 			name: "10",
 			test: func() test {
 				scenario := s10
 
+				executions := []execution{
+					{
+						branchAlias: "A",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"C", "A"},
+						),
+					},
+					{
+						branchAlias: "B",
+						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"C", "B"},
+						),
+					},
+					{
+						branchAlias:      "C",
+						wantOpinionTuple: mustMatch(&scenario),
+					},
+				}
+
 				return test{
 					Scenario:   scenario,
 					WeightFunc: WeightFuncFromScenario(t, scenario),
-					wantOpinionTuple: mustMatch(
-						createOpinionTuples(&scenario,
-							aliasOpinionTuple{"C", "A"},
-						)),
-					args: scenario.BranchID("A"),
+					executions: executions,
 				}
 			}(),
-			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -231,14 +427,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 			tt.test.Scenario.CreateBranches(t, branchDAG)
 			o := NewOnTangleVoting(tt.test.WeightFunc, branchDAG)
 
-			liked, err := o.LikedInstead(tt.test.args)
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
+			for _, e := range tt.test.executions {
+				liked, err := o.LikedInstead(tt.test.Scenario.BranchID(e.branchAlias))
+				if e.wantErr {
+					require.Error(t, err)
+					return
+				}
+				require.NoError(t, err)
 
-			tt.test.wantOpinionTuple(liked)
+				e.wantOpinionTuple(e.branchAlias, liked)
+			}
 		})
 	}
 }

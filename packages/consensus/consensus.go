@@ -1,12 +1,19 @@
 package consensus
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 type OpinionTuple struct {
 	Liked    ledgerstate.BranchID
 	Disliked ledgerstate.BranchID
+}
+
+// String returns a human readable version of the OpinionTuple.
+func (ot OpinionTuple) String() string {
+	return fmt.Sprintf("OpinionTuple(Liked:%s, Disliked:%s)", ot.Liked, ot.Disliked)
 }
 
 // Mechanism is a generic interface allowing to use different methods to reach consensus.
