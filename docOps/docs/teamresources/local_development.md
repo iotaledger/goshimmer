@@ -37,16 +37,7 @@ To enable buildkit engine in your local docker add the following to the docker c
 Check this [article](https://docs.docker.com/develop/develop-images/build_enhancements/#to-enable-buildkit-builds) for details on how to do that.
 
 ### Troubleshooting
-If you are getting an error like that during the docker build:
-```dockerfile
-Step 10/17 : RUN --mount=target=.     --mount=type=cache,target=/root/.cache/go-build     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build     -ldflags='-w -s -extldflags "-static"'     -o /go/bin/goshimmer;     ./check_static.sh
- ---> Running in ecdae1c9339d
-no Go files in /goshimmer
-/bin/sh: 1: ./check_static.sh: not found
-The command '/bin/sh -c CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build     -ldflags='-w -s -extldflags "-static"'     -o /go/bin/goshimmer;     ./check_static.sh' returned a non-zero code: 127
-```
-It means that buildkit feature doesn't work in your docker. 
-If you already enabled it in the configuration json file as described above and docker version is `18.09` or higher, 
+If you already enabled the buildkit engine in the configuration json file as described above and docker version is `18.09` or higher,
 try to set the following env variables when building the docker image:
 ```
 DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker build -t iotaledger/goshimmer .
