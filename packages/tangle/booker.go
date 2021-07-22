@@ -136,6 +136,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				resultLiked.Add(likedBranchID)
 			}
 
+			// TODO: this should be taken care of by InheritBranch
 			// Now we check if anything of what we like has overlapping conflict set, in this case the Message is invalid
 			for likedBranchID := range resultLiked {
 				isInvalid := false
@@ -161,7 +162,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			}
 
 			// We add the BranchID of the payload to the computed Branch sets
-			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(b.parentsBranchIDs(message).Add(branchIDOfPayload))
+			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(resultLiked.Add(branchIDOfPayload))
 			if inheritErr != nil {
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 				return
@@ -177,11 +178,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				} else {
 					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
 				}
-			}
-
-			// We propagate our support for all the branches we finally computed
-			for likedBranchID := range resultLiked {
-				b.tangle.ApprovalWeightManager.PropagateSupportToBranches(likedBranchID, message)
 			}
 
 			messageMetadata.SetBooked(true)
