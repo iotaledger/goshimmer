@@ -21,13 +21,13 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 
 	mtf := NewMessageTestFramework(tangle, WithGenesisOutput("Genesis1", 5), WithGenesisOutput("Genesis2", 8))
 
-	mtf.CreateMessage("Message1", WithParents("Genesis"))
-	mtf.CreateMessage("Message2", WithInputs("Genesis1"), WithOutput("A", 5), WithParents("Message1"))
-	mtf.CreateMessage("Message3", WithParents("Message2"))
-	mtf.CreateMessage("Message4", WithParents("Genesis"))
-	mtf.CreateMessage("Message5", WithInputs("Genesis2"), WithOutput("B", 4), WithOutput("C", 4), WithParents("Message4"))
-	mtf.CreateMessage("Message6", WithParents("Message5"))
-	mtf.CreateMessage("Message7", WithInputs("A", "B", "C"), WithOutput("D", 13), WithParents("Message3", "Message6"))
+	mtf.CreateMessage("Message1", WithStrongParents("Genesis"))
+	mtf.CreateMessage("Message2", WithInputs("Genesis1"), WithOutput("A", 5), WithStrongParents("Message1"))
+	mtf.CreateMessage("Message3", WithStrongParents("Message2"))
+	mtf.CreateMessage("Message4", WithStrongParents("Genesis"))
+	mtf.CreateMessage("Message5", WithInputs("Genesis2"), WithOutput("B", 4), WithOutput("C", 4), WithStrongParents("Message4"))
+	mtf.CreateMessage("Message6", WithStrongParents("Message5"))
+	mtf.CreateMessage("Message7", WithInputs("A", "B", "C"), WithOutput("D", 13), WithStrongParents("Message3", "Message6"))
 
 	mtf.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7").WaitMessagesBooked()
 

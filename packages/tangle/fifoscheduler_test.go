@@ -25,9 +25,9 @@ func TestFifoScheduler(t *testing.T) {
 	messages := make(map[string]*Message)
 	messages["A"] = newTestDataMessage("A")
 	messages["B"] = newTestDataMessage("B")
-	messages["C"] = newTestParentsDataWithTimestamp("C", []MessageID{messages["A"].ID(), messages["B"].ID()}, time.Now())
-	messages["D"] = newTestParentsDataWithTimestamp("D", []MessageID{messages["A"].ID(), messages["B"].ID()}, time.Now().Add(100*time.Millisecond))
-	messages["E"] = newTestParentsDataWithTimestamp("E", []MessageID{messages["C"].ID(), messages["D"].ID()}, time.Now().Add(3*time.Second))
+	messages["C"] = newTestParentsDataWithTimestamp("C", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now())
+	messages["D"] = newTestParentsDataWithTimestamp("D", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(100*time.Millisecond))
+	messages["E"] = newTestParentsDataWithTimestamp("E", []MessageID{messages["C"].ID(), messages["D"].ID()}, []MessageID{}, time.Now().Add(3*time.Second))
 
 	// Bypass the Booker
 	tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {

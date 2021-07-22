@@ -34,7 +34,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 		return []MessageID{EmptyMessageID}, nil
 	}))
 
@@ -66,7 +66,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
 		return []MessageID{EmptyMessageID}, nil
 	}))
 
@@ -323,9 +323,9 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID})
-	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID(), EmptyMessageID})
-	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID(), EmptyMessageID})
+	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{})
+	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
+	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
 
 	var wg sync.WaitGroup
 
@@ -599,7 +599,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := f.doPOW(parents, nil, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -607,7 +607,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	}
 
 	// create the signature
-	signature := f.sign(parents, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature := f.sign(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := NewMessage(
 		parents,
