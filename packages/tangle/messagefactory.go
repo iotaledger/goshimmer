@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
@@ -190,7 +189,7 @@ func (f *MessageFactory) prepareLikeReferences(parents MessageIDs) (MessageIDs, 
 	}
 
 	// FIXME: replace with actual implementation
-	_, dislikedBranches, err := consensus.Mechanism.Opinion(branchIDs)
+	_, dislikedBranches, err := f.tangle.Options.ConsensusOTV.Opinion(branchIDs)
 	if err != nil {
 		err = errors.Errorf("opinions could not be retrieved: %w", err)
 		f.Events.Error.Trigger(err)
@@ -200,8 +199,8 @@ func (f *MessageFactory) prepareLikeReferences(parents MessageIDs) (MessageIDs, 
 	likeReferencesMap := make(map[MessageID]types.Empty)
 	likeReferences := MessageIDs{}
 	// TODO: ask jonas why multiple tuples are returned
-	for _, dislikedBranch := range dislikedBranches {
-		likedInstead, err := consensus.Mechanism.LikedInstead(dislikedBranch)
+	for dislikedBranch := range dislikedBranches {
+		likedInstead, err := f.tangle.Options.ConsensusOTV.LikedInstead(dislikedBranch)
 		if err != nil {
 			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
 			f.Events.Error.Trigger(err)

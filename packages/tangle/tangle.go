@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/packages/consensus"
 	"strings"
 	"sync"
 	"time"
@@ -108,6 +109,10 @@ func (t *Tangle) Configure(options ...Option) {
 
 	if t.Options.ConsensusMechanism != nil {
 		t.Options.ConsensusMechanism.Init(t)
+	}
+
+	if t.Options.ConsensusOTV != nil {
+		t.Options.ConsensusOTV.Init(t.LedgerState.BranchDAG, t.ApprovalWeightManager.WeightOfBranch)
 	}
 }
 
@@ -292,6 +297,7 @@ type Options struct {
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
 	ConsensusMechanism           ConsensusMechanism
+	ConsensusOTV                 consensus.Mechanism
 	GenesisNode                  *ed25519.PublicKey
 	SchedulerParams              SchedulerParams
 	RateSetterParams             RateSetterParams
@@ -319,6 +325,13 @@ func Identity(identity *identity.LocalIdentity) Option {
 func Consensus(consensusMechanism ConsensusMechanism) Option {
 	return func(options *Options) {
 		options.ConsensusMechanism = consensusMechanism
+	}
+}
+
+// ConsensusOTV is a temporary setup for the OTV consensus mechanism that is used by the Tangle.
+func ConsensusOTV(otv consensus.Mechanism) Option {
+	return func(options *Options) {
+		options.ConsensusOTV = otv
 	}
 }
 

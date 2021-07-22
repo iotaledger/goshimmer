@@ -2,7 +2,6 @@ package otv
 
 import (
 	"bytes"
-
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
@@ -21,11 +20,13 @@ type OnTangleVoting struct {
 }
 
 // NewOnTangleVoting is the constructor for OnTangleVoting.
-func NewOnTangleVoting(weightFunc WeightFunc, branchDAG *ledgerstate.BranchDAG) *OnTangleVoting {
-	return &OnTangleVoting{
-		weightFunc: weightFunc,
-		branchDAG:  branchDAG,
-	}
+func NewOnTangleVoting() *OnTangleVoting {
+	return &OnTangleVoting{}
+}
+
+func (f *OnTangleVoting) Init(branchDAG *ledgerstate.BranchDAG, weightFunc WeightFunc) {
+	f.branchDAG = branchDAG
+	f.weightFunc = weightFunc
 }
 
 // Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
