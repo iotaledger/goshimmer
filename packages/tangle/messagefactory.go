@@ -2,6 +2,8 @@ package tangle
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/consensus"
+	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
 
@@ -94,13 +96,25 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	if len(parentsCount) > 0 {
 		countParents = parentsCount[0]
 	}
+
 	parents, err := f.selector.Tips(p, countParents)
+
 	if err != nil {
 		err = errors.Errorf("tips could not be selected: %w", err)
 		f.Events.Error.Trigger(err)
 		f.issuanceMutex.Unlock()
 		return nil, err
 	}
+
+	likeReferences, err := f.prepareLikeReferences(parents)
+
+	if err != nil {
+		err = errors.Errorf("like references could not be prepared: %w", err)
+		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
+		return nil, err
+	}
+
 	issuingTime := f.getIssuingTime(parents)
 
 	issuerPublicKey := f.localIdentity.PublicKey()
@@ -108,7 +122,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	// do the PoW
 	startTime := time.Now()
 
-	nonce, err := f.doPOW(parents, nil, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
 	for err != nil && time.Since(startTime) < f.powTimeout {
 		if p.Type() != ledgerstate.TransactionType {
 			parents, err = f.selector.Tips(p, countParents)
@@ -120,8 +134,17 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			}
 		}
 
+		likeReferences, err := f.prepareLikeReferences(parents)
+
+		if err != nil {
+			err = errors.Errorf("like references could not be prepared: %w", err)
+			f.Events.Error.Trigger(err)
+			f.issuanceMutex.Unlock()
+			return nil, err
+		}
+
 		issuingTime = f.getIssuingTime(parents)
-		nonce, err = f.doPOW(parents, nil, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, err = f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
 	if err != nil {
@@ -133,7 +156,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	f.issuanceMutex.Unlock()
 
 	// create the signature
-	signature := f.sign(parents, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature := f.sign(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := NewMessage(
 		parents,
@@ -149,6 +172,67 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	)
 	f.Events.MessageConstructed.Trigger(msg)
 	return msg, nil
+}
+
+func (f *MessageFactory) prepareLikeReferences(parents MessageIDs) (MessageIDs, error) {
+	branchIDs := make(ledgerstate.BranchIDs)
+
+	for _, parent := range parents {
+		branchID, err := f.tangle.Booker.MessageBranchID(parent)
+		if err != nil {
+			err = errors.Errorf("branchID can't be retrieved: %w", err)
+			f.Events.Error.Trigger(err)
+			f.issuanceMutex.Unlock()
+			return nil, err
+		}
+
+		branchIDs.Add(branchID)
+	}
+
+	// FIXME: replace with actual implementation
+	_, dislikedBranches, err := consensus.Mechanism.Opinion(branchIDs)
+	if err != nil {
+		err = errors.Errorf("opinions could not be retrieved: %w", err)
+		f.Events.Error.Trigger(err)
+		f.issuanceMutex.Unlock()
+		return nil, err
+	}
+	likeReferencesMap := make(map[MessageID]types.Empty)
+	likeReferences := MessageIDs{}
+	// TODO: ask jonas why multiple tuples are returned
+	for _, dislikedBranch := range dislikedBranches {
+		likedInstead, err := consensus.Mechanism.LikedInstead(dislikedBranch)
+		if err != nil {
+			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
+			f.Events.Error.Trigger(err)
+			f.issuanceMutex.Unlock()
+			return nil, err
+		}
+
+		for _, likeRef := range likedInstead {
+
+			transactionID := likeRef.Liked.TransactionID()
+			// TODO: replace with oldest instead of newest
+			latestAttachmentTime := time.Unix(0, 0)
+			latestAttachmentMessageID := MessageID{}
+			// TODO: which message should we select? is selecting latest message correct?
+			f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+				f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+					if message.IssuingTime().After(latestAttachmentTime) {
+						latestAttachmentTime = message.IssuingTime()
+						latestAttachmentMessageID = message.ID()
+					}
+				})
+			})
+			// TODO: should we check max parent age in like reference parent? what if original message is older than maxparent age even though the branch still exists (parasite chain attack?)
+			// add like reference to a message only once if it appears in multiple conflict sets
+			if _, ok := likeReferencesMap[latestAttachmentMessageID]; !ok {
+				likeReferencesMap[latestAttachmentMessageID] = types.Void
+				likeReferences = append(likeReferences, latestAttachmentMessageID)
+			}
+		}
+	}
+	return likeReferences, nil
 }
 
 func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
@@ -174,16 +258,16 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
+	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
