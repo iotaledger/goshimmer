@@ -595,7 +595,6 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 			}(),
 		},
 		{
-			// TODO: revisit this test, seems to fail ~50% of the time
 			name: "15",
 			test: func() test {
 				scenario := s15
@@ -718,6 +717,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "H",
 						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "A"},
 							aliasOpinionTuple{"B", "H"},
 						),
 					},
@@ -996,6 +996,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "H",
 						wantOpinionTuple: mustMatch(&scenario,
+							aliasOpinionTuple{"B", "A"},
 							aliasOpinionTuple{"B", "H"},
 						),
 					},
