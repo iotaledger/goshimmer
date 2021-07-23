@@ -54,7 +54,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// not eligible messages -> nothing is added
 	{
-		message := newTestParentsDataMessage("testmessage", []MessageID{EmptyMessageID}, []MessageID{})
+		message := newTestParentsDataMessage("testmessage", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
 		tangle.Storage.StoreMessage(message)
 		tangle.Booker.BookMessage(message.ID())
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
@@ -93,7 +93,7 @@ func TestTipManager_AddTip(t *testing.T) {
 			},
 		)
 
-		message := newTestParentsPayloadMessage(transaction, []MessageID{EmptyMessageID}, []MessageID{})
+		message := newTestParentsPayloadMessage(transaction, []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
 		tangle.Storage.StoreMessage(message)
 		tangle.Booker.BookMessage(message.ID())
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
@@ -481,7 +481,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["G1"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["G1"])
 		// make sure that message is too old and cannot be directly referenced
 		issueTime := time.Now().Add(-maxParentsTimeDifference - 5*time.Minute)
-		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{}, issueTime)
+		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil, issueTime)
 
 		storeBookLikeMessage(t, tangle, messages["1"])
 
@@ -498,7 +498,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 
 		transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["G2"]), ledgerstate.NewOutputs(outputs["D"], outputs["E"], outputs["F"]), outputsByID, walletsByAddress, wallets["G2"])
-		messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
 
 		storeBookLikeMessage(t, tangle, messages["2"])
 
@@ -516,7 +516,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
 
 		transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["H"], outputs["I"], outputs["J"]), outputsByID, walletsByAddress)
-		messages["3"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{})
+		messages["3"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
 
 		storeBookLikeMessage(t, tangle, messages["3"])
 
@@ -549,7 +549,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			outputsByID,
 			walletsByAddress,
 		)
-		messages["4"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["2"].ID(), EmptyMessageID}, []MessageID{})
+		messages["4"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["2"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
 
 		storeBookLikeMessage(t, tangle, messages["4"])
 
@@ -560,7 +560,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 5
 	{
-		messages["5"] = newTestParentsDataMessage("data", []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{})
+		messages["5"] = newTestParentsDataMessage("data", []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
 
 		storeBookLikeMessage(t, tangle, messages["5"])
 
@@ -575,7 +575,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs[outputStringID] = ledgerstate.NewSigLockedSingleOutput(1, wallets[outputStringID].address)
 
 		transactions[transactionStringID] = makeTransaction(ledgerstate.NewInputs(inputs[inputStringID]), ledgerstate.NewOutputs(outputs[outputStringID]), outputsByID, walletsByAddress)
-		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], strongParents, []MessageID{})
+		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], strongParents, []MessageID{}, nil, nil)
 
 		storeBookLikeMessage(t, tangle, messages[messageStringID])
 	}
@@ -654,7 +654,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 15
 	{
-		messages["15"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID()}, []MessageID{})
+		messages["15"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID()}, []MessageID{}, nil, nil)
 
 		storeBookLikeMessage(t, tangle, messages["15"])
 
@@ -665,7 +665,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 16
 	{
-		messages["16"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}, []MessageID{})
+		messages["16"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}, []MessageID{}, nil, nil)
 
 		storeBookLikeMessage(t, tangle, messages["16"])
 
@@ -860,7 +860,7 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 }
 
 func createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
-	message = newTestParentsDataMessage("testmessage", strongParents, weakParents)
+	message = newTestParentsDataMessage("testmessage", strongParents, weakParents, nil, nil)
 	tangle.Storage.StoreMessage(message)
 	message.setMessageMetadata(tangle, true, ledgerstate.MasterBranchID)
 
@@ -868,7 +868,7 @@ func createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle *Tangle, 
 }
 
 func createAndStoreEligibleTestParentsDataMessageInInvalidBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
-	message = newTestParentsDataMessage("testmessage", strongParents, weakParents)
+	message = newTestParentsDataMessage("testmessage", strongParents, weakParents, nil, nil)
 	tangle.Storage.StoreMessage(message)
 	message.setMessageMetadata(tangle, true, ledgerstate.InvalidBranchID)
 

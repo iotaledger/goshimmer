@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
@@ -81,7 +82,7 @@ func TestScenario_1(t *testing.T) {
 
 	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
 	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["GENESIS"])
-	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
+	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["1"])
 
 	err := tangle.Booker.BookMessage(messages["1"].ID())
@@ -103,7 +104,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["C"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["C"])[0]
 	outputs["E"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["E"].address)
 	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["B"], inputs["C"]), ledgerstate.NewOutputs(outputs["E"]), outputsByID, walletsByAddress)
-	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["2"])
 
 	err = tangle.Booker.BookMessage(messages["2"].ID())
@@ -118,7 +119,7 @@ func TestScenario_1(t *testing.T) {
 	assert.Equal(t, branches["green"], txBranchID)
 
 	// Message 3 (Reattachemnt of transaction 2)
-	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["3"])
 
 	err = tangle.Booker.BookMessage(messages["3"].ID())
@@ -137,7 +138,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
 	outputs["D"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["D"].address)
 	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["D"]), outputsByID, walletsByAddress)
-	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["4"])
 
 	err = tangle.Booker.BookMessage(messages["4"].ID())
@@ -159,7 +160,7 @@ func TestScenario_1(t *testing.T) {
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["5"])
 
 	err = tangle.Booker.BookMessage(messages["5"].ID())
@@ -204,7 +205,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["F"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["F"])[0]
 	outputs["H"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["H"].address)
 	transactions["5"] = makeTransaction(ledgerstate.NewInputs(inputs["E"], inputs["F"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
-	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["6"])
 
 	err = tangle.Booker.BookMessage(messages["6"].ID())
@@ -219,7 +220,7 @@ func TestScenario_1(t *testing.T) {
 	assert.Equal(t, branches["yellow"], txBranchID)
 
 	// Message 7
-	messages["7"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["7"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["7"])
 
 	err = tangle.Booker.BookMessage(messages["7"].ID())
@@ -238,7 +239,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
 	outputs["I"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["I"].address)
 	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["F"], inputs["D"]), ledgerstate.NewOutputs(outputs["I"]), outputsByID, walletsByAddress)
-	messages["8"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["8"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["8"])
 
 	err = tangle.Booker.BookMessage(messages["8"].ID())
@@ -257,7 +258,7 @@ func TestScenario_1(t *testing.T) {
 	outputsByID[inputs["H"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["H"])[0]
 	outputs["J"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["J"].address)
 	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["H"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
-	messages["9"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["6"].ID()}, []MessageID{})
+	messages["9"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["6"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["9"])
 
 	err = tangle.Booker.BookMessage(messages["9"].ID())
@@ -340,7 +341,7 @@ func TestScenario_2(t *testing.T) {
 
 	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
 	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["GENESIS"])
-	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
+	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["1"])
 
 	err := tangle.Booker.BookMessage(messages["1"].ID())
@@ -362,7 +363,7 @@ func TestScenario_2(t *testing.T) {
 	outputsByID[inputs["C"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["C"])[0]
 	outputs["E"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["E"].address)
 	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["B"], inputs["C"]), ledgerstate.NewOutputs(outputs["E"]), outputsByID, walletsByAddress)
-	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["2"])
 
 	err = tangle.Booker.BookMessage(messages["2"].ID())
@@ -377,7 +378,7 @@ func TestScenario_2(t *testing.T) {
 	assert.Equal(t, branches["green"], txBranchID)
 
 	// Message 3 (Reattachemnt of transaction 2)
-	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["3"])
 
 	err = tangle.Booker.BookMessage(messages["3"].ID())
@@ -396,7 +397,7 @@ func TestScenario_2(t *testing.T) {
 	outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
 	outputs["D"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["D"].address)
 	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["D"]), outputsByID, walletsByAddress)
-	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["4"])
 
 	err = tangle.Booker.BookMessage(messages["4"].ID())
@@ -413,7 +414,7 @@ func TestScenario_2(t *testing.T) {
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["5"])
 
 	err = tangle.Booker.BookMessage(messages["5"].ID())
@@ -446,7 +447,7 @@ func TestScenario_2(t *testing.T) {
 	outputsByID[inputs["F"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["F"])[0]
 	outputs["L"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["L"].address)
 	transactions["5"] = makeTransaction(ledgerstate.NewInputs(inputs["E"], inputs["F"]), ledgerstate.NewOutputs(outputs["L"]), outputsByID, walletsByAddress)
-	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["6"])
 
 	err = tangle.Booker.BookMessage(messages["6"].ID())
@@ -463,7 +464,7 @@ func TestScenario_2(t *testing.T) {
 	// Message 7
 	outputs["H"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["H"].address)
 	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["C"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
-	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()}, []MessageID{})
+	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["7"])
 
 	err = tangle.Booker.BookMessage(messages["7"].ID())
@@ -517,7 +518,7 @@ func TestScenario_2(t *testing.T) {
 	outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
 	outputs["I"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["I"].address)
 	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["D"], inputs["H"]), ledgerstate.NewOutputs(outputs["I"]), outputsByID, walletsByAddress)
-	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
+	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["8"])
 
 	err = tangle.Booker.BookMessage(messages["8"].ID())
@@ -534,7 +535,7 @@ func TestScenario_2(t *testing.T) {
 	// Message 9
 	outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
 	transactions["8"] = makeTransaction(ledgerstate.NewInputs(inputs["B"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
-	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
+	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["9"])
 
 	err = tangle.Booker.BookMessage(messages["9"].ID())
@@ -704,7 +705,7 @@ func TestScenario_3(t *testing.T) {
 
 	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
 	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["GENESIS"])
-	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
+	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["1"])
 
 	err := tangle.Booker.BookMessage(messages["1"].ID())
@@ -726,7 +727,7 @@ func TestScenario_3(t *testing.T) {
 	outputsByID[inputs["C"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["C"])[0]
 	outputs["E"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["E"].address)
 	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["B"], inputs["C"]), ledgerstate.NewOutputs(outputs["E"]), outputsByID, walletsByAddress)
-	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["2"])
 
 	err = tangle.Booker.BookMessage(messages["2"].ID())
@@ -741,7 +742,7 @@ func TestScenario_3(t *testing.T) {
 	assert.Equal(t, branches["green"], txBranchID)
 
 	// Message 3 (Reattachment of transaction 2)
-	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["3"])
 
 	err = tangle.Booker.BookMessage(messages["3"].ID())
@@ -760,7 +761,7 @@ func TestScenario_3(t *testing.T) {
 	outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
 	outputs["D"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["D"].address)
 	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["D"]), outputsByID, walletsByAddress)
-	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
+	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["4"])
 
 	err = tangle.Booker.BookMessage(messages["4"].ID())
@@ -777,7 +778,7 @@ func TestScenario_3(t *testing.T) {
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID()}, []MessageID{messages["2"].ID()})
+	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID()}, []MessageID{messages["2"].ID()}, nil, nil)
 	tangle.Storage.StoreMessage(messages["5"])
 
 	err = tangle.Booker.BookMessage(messages["5"].ID())
@@ -810,7 +811,7 @@ func TestScenario_3(t *testing.T) {
 	outputsByID[inputs["F"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["F"])[0]
 	outputs["L"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["L"].address)
 	transactions["5"] = makeTransaction(ledgerstate.NewInputs(inputs["E"], inputs["F"]), ledgerstate.NewOutputs(outputs["L"]), outputsByID, walletsByAddress)
-	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
+	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["6"])
 
 	err = tangle.Booker.BookMessage(messages["6"].ID())
@@ -827,7 +828,7 @@ func TestScenario_3(t *testing.T) {
 	// Message 7
 	outputs["H"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["H"].address)
 	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["C"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
-	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()}, []MessageID{})
+	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["7"])
 
 	err = tangle.Booker.BookMessage(messages["7"].ID())
@@ -881,7 +882,7 @@ func TestScenario_3(t *testing.T) {
 	outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
 	outputs["I"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["I"].address)
 	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["D"], inputs["H"]), ledgerstate.NewOutputs(outputs["I"]), outputsByID, walletsByAddress)
-	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
+	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["8"])
 
 	err = tangle.Booker.BookMessage(messages["8"].ID())
@@ -898,7 +899,7 @@ func TestScenario_3(t *testing.T) {
 	// Message 9
 	outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
 	transactions["8"] = makeTransaction(ledgerstate.NewInputs(inputs["B"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
-	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
+	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{}, nil, nil)
 	tangle.Storage.StoreMessage(messages["9"])
 
 	err = tangle.Booker.BookMessage(messages["9"].ID())
@@ -957,6 +958,7 @@ func TestScenario_3(t *testing.T) {
 // 		}, messageMetadata.StructureDetails())
 // 	}))
 // }
+// branchIDAliases contains a list of aliases registered for a set of MessageIDs.
 
 func TestBookerMarkerMappings(t *testing.T) {
 	tangle := NewTestTangle()
@@ -971,7 +973,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	tangle.Setup()
 
-	branchIDs := make(map[string]ledgerstate.BranchID)
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Logf("Error fired: %v", err)
+	}))
 
 	// ISSUE Message1
 	{
@@ -994,8 +998,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithInputs("A", "B"), WithOutput("E", 1000))
 		testFramework.IssueMessages("Message2").WaitMessagesBooked()
 
-		branchIDs["A"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message1"))
-		branchIDs["B"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message2"))
+		testFramework.RegisterBranchID("A", "Message1")
+		testFramework.RegisterBranchID("B", "Message2")
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1006,8 +1010,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message2": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1": branchIDs["A"],
-			"Message2": branchIDs["B"],
+			"Message1": testFramework.BranchID("A"),
+			"Message2": testFramework.BranchID("B"),
 		})
 	}
 
@@ -1016,7 +1020,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.CreateMessage("Message3", WithStrongParents("Genesis"), WithInputs("B"), WithOutput("F", 500))
 		testFramework.IssueMessages("Message3").WaitMessagesBooked()
 
-		branchIDs["C"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message3"))
+		testFramework.RegisterBranchID("C", "Message3")
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1029,9 +1033,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message3": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1": branchIDs["A"],
-			"Message2": branchIDs["B"],
-			"Message3": branchIDs["C"],
+			"Message1": testFramework.BranchID("A"),
+			"Message2": testFramework.BranchID("B"),
+			"Message3": testFramework.BranchID("C"),
 		})
 	}
 
@@ -1053,9 +1057,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message4": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1": branchIDs["A"],
-			"Message2": branchIDs["B"],
-			"Message3": branchIDs["C"],
+			"Message1": testFramework.BranchID("A"),
+			"Message2": testFramework.BranchID("B"),
+			"Message3": testFramework.BranchID("C"),
 			"Message4": ledgerstate.MasterBranchID,
 		})
 	}
@@ -1080,9 +1084,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message5": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1": branchIDs["A"],
-			"Message2": branchIDs["B"],
-			"Message3": branchIDs["C"],
+			"Message1": testFramework.BranchID("A"),
+			"Message2": testFramework.BranchID("B"),
+			"Message3": testFramework.BranchID("C"),
 			"Message4": ledgerstate.MasterBranchID,
 			"Message5": ledgerstate.MasterBranchID,
 		})
@@ -1090,7 +1094,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message6
 	{
-		testFramework.CreateMessage("Message6", WithStrongParents("Message1"), WithInputs("G"), WithOutput("I", 500))
+		testFramework.CreateMessage("Message6", WithStrongParents("Message1", "Message2"), WithLikeParents("Message2"))
 		testFramework.IssueMessages("Message6").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1099,7 +1103,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(3, 1)),
 			"Message4": markers.NewMarkers(markers.NewMarker(4, 1)),
 			"Message5": markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6": markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Message6": markers.NewMarkers(markers.NewMarker(2, 2)),
 		})
 		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1": ledgerstate.UndefinedBranchID,
@@ -1110,18 +1114,18 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message6": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1": branchIDs["A"],
-			"Message2": branchIDs["B"],
-			"Message3": branchIDs["C"],
+			"Message1": testFramework.BranchID("A"),
+			"Message2": testFramework.BranchID("B"),
+			"Message3": testFramework.BranchID("C"),
 			"Message4": ledgerstate.MasterBranchID,
 			"Message5": ledgerstate.MasterBranchID,
-			"Message6": branchIDs["A"],
+			"Message6": testFramework.BranchID("B"),
 		})
 	}
 
 	// ISSUE Message7
 	{
-		testFramework.CreateMessage("Message7", WithStrongParents("Message3"))
+		testFramework.CreateMessage("Message7", WithStrongParents("Message6", "Message5"))
 		testFramework.IssueMessages("Message7").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1130,8 +1134,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(3, 1)),
 			"Message4": markers.NewMarkers(markers.NewMarker(4, 1)),
 			"Message5": markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6": markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7": markers.NewMarkers(markers.NewMarker(3, 2)),
+			"Message6": markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Message7": markers.NewMarkers(markers.NewMarker(2, 3)),
 		})
 		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1": ledgerstate.UndefinedBranchID,
@@ -1143,20 +1147,22 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message7": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1": branchIDs["A"],
-			"Message2": branchIDs["B"],
-			"Message3": branchIDs["C"],
+			"Message1": testFramework.BranchID("A"),
+			"Message2": testFramework.BranchID("B"),
+			"Message3": testFramework.BranchID("C"),
 			"Message4": ledgerstate.MasterBranchID,
 			"Message5": ledgerstate.MasterBranchID,
-			"Message6": branchIDs["A"],
-			"Message7": branchIDs["C"],
+			"Message6": testFramework.BranchID("B"),
+			"Message7": testFramework.BranchID("B"),
 		})
 	}
 
 	// ISSUE Message8
 	{
-		testFramework.CreateMessage("Message8", WithStrongParents("Message1", "Message6"))
+		testFramework.CreateMessage("Message8", WithStrongParents("Message5", "Message7", "Message3"), WithLikeParents("Message1", "Message3"))
 		testFramework.IssueMessages("Message8").WaitMessagesBooked()
+
+		testFramework.RegisterBranchID("A+C", "Message1", "Message3")
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1164,9 +1170,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(3, 1)),
 			"Message4": markers.NewMarkers(markers.NewMarker(4, 1)),
 			"Message5": markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6": markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7": markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8": markers.NewMarkers(markers.NewMarker(1, 3)),
+			"Message6": markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Message7": markers.NewMarkers(markers.NewMarker(2, 3)),
+			"Message8": markers.NewMarkers(markers.NewMarker(5, 4)),
 		})
 		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1": ledgerstate.UndefinedBranchID,
@@ -1176,23 +1182,22 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message5": ledgerstate.UndefinedBranchID,
 			"Message6": ledgerstate.UndefinedBranchID,
 			"Message7": ledgerstate.UndefinedBranchID,
-			"Message8": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1": branchIDs["A"],
-			"Message2": branchIDs["B"],
-			"Message3": branchIDs["C"],
+			"Message1": testFramework.BranchID("A"),
+			"Message2": testFramework.BranchID("B"),
+			"Message3": testFramework.BranchID("C"),
 			"Message4": ledgerstate.MasterBranchID,
 			"Message5": ledgerstate.MasterBranchID,
-			"Message6": branchIDs["A"],
-			"Message7": branchIDs["C"],
-			"Message8": branchIDs["A"],
+			"Message6": testFramework.BranchID("B"),
+			"Message7": testFramework.BranchID("B"),
+			"Message8": testFramework.BranchID("A+C"),
 		})
 	}
 
 	// ISSUE Message9
 	{
-		testFramework.CreateMessage("Message9", WithStrongParents("Message7"))
+		testFramework.CreateMessage("Message9", WithStrongParents("Message1", "Message7", "Message3"), WithLikeParents("Message1", "Message3"))
 		testFramework.IssueMessages("Message9").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1201,10 +1206,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(3, 1)),
 			"Message4": markers.NewMarkers(markers.NewMarker(4, 1)),
 			"Message5": markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6": markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7": markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8": markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9": markers.NewMarkers(markers.NewMarker(3, 3)),
+			"Message6": markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Message7": markers.NewMarkers(markers.NewMarker(2, 3)),
+			"Message8": markers.NewMarkers(markers.NewMarker(5, 4)),
+			"Message9": markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(3, 1)),
 		})
 		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1": ledgerstate.UndefinedBranchID,
@@ -1215,1054 +1220,1133 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message6": ledgerstate.UndefinedBranchID,
 			"Message7": ledgerstate.UndefinedBranchID,
 			"Message8": ledgerstate.UndefinedBranchID,
-			"Message9": ledgerstate.UndefinedBranchID,
+			"Message9": testFramework.BranchID("A+C"),
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1": branchIDs["A"],
-			"Message2": branchIDs["B"],
-			"Message3": branchIDs["C"],
+			"Message1": testFramework.BranchID("A"),
+			"Message2": testFramework.BranchID("B"),
+			"Message3": testFramework.BranchID("C"),
 			"Message4": ledgerstate.MasterBranchID,
 			"Message5": ledgerstate.MasterBranchID,
-			"Message6": branchIDs["A"],
-			"Message7": branchIDs["C"],
-			"Message8": branchIDs["A"],
-			"Message9": branchIDs["C"],
+			"Message6": testFramework.BranchID("B"),
+			"Message7": testFramework.BranchID("B"),
+			"Message8": testFramework.BranchID("A+C"),
+			"Message9": testFramework.BranchID("A+C"),
 		})
 	}
+	/*
 
-	// ISSUE Message10
-	{
-		testFramework.CreateMessage("Message10", WithStrongParents("Message2"), WithInputs("C"), WithOutput("H", 500))
-		testFramework.IssueMessages("Message10").WaitMessagesBooked()
+		// ISSUE Message8
+		{
+			testFramework.CreateMessage("Message8", WithStrongParents("Message1", "Message6"))
+			testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
-		branchIDs["D"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message5"))
-		branchIDs["E"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message10"))
-		branchIDs["B+E"] = aggregatedBranchID(branchIDs["B"], branchIDs["E"])
-
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["A"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["A"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-		})
-	}
-
-	// ISSUE Message11
-	{
-		testFramework.CreateMessage("Message11", WithStrongParents("Message8", "Message9"))
-		testFramework.IssueMessages("Message11").WaitMessagesBooked()
-
-		branchIDs["A+C"] = aggregatedBranchID(branchIDs["A"], branchIDs["C"])
-
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["A"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["A"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["A+C"],
-		})
-	}
-
-	// ISSUE Message12
-	{
-		testFramework.CreateMessage("Message12", WithStrongParents("Message8", "Message9"))
-		testFramework.IssueMessages("Message12").WaitMessagesBooked()
-
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["A+C"],
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["A"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["A"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["A+C"],
-			"Message12": branchIDs["A+C"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["A+C"]: {"Message12"},
-		})
-	}
-
-	// ISSUE Message13
-	{
-		testFramework.CreateMessage("Message13", WithStrongParents("Message6", "Message7"), WithWeakParents("Message10"))
-		testFramework.IssueMessages("Message13").WaitMessagesBooked()
-
-		branchIDs["A+C+E"] = aggregatedBranchID(branchIDs["A"], branchIDs["C"], branchIDs["E"])
-
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["A+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["A"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["A"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["A+C"],
-			"Message12": branchIDs["A+C"],
-			"Message13": branchIDs["A+C+E"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["A+C"]: {"Message12"},
-		})
-	}
-
-	// ISSUE Message14
-	{
-		testFramework.CreateMessage("Message14", WithStrongParents("Message12"), WithInputs("I"), WithOutput("J", 500))
-		testFramework.IssueMessages("Message14").WaitMessagesBooked()
-
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["A+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["A+C"],
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["A"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["A"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["A+C"],
-			"Message12": branchIDs["A+C"],
-			"Message13": branchIDs["A+C+E"],
-			"Message14": branchIDs["A+C"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["A+C"]: {"Message12", "Message14"},
-		})
-	}
-
-	// ISSUE Message15
-	{
-		testFramework.CreateMessage("Message15", WithStrongParents("Message11", "Message14"))
-		testFramework.PreventNewMarkers(true).IssueMessages("Message15").WaitMessagesBooked().PreventNewMarkers(false)
-
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["A+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["A+C"],
-			"Message15": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["A"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["A"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["A+C"],
-			"Message12": branchIDs["A+C"],
-			"Message13": branchIDs["A+C+E"],
-			"Message14": branchIDs["A+C"],
-			"Message15": branchIDs["A+C"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["A+C"]: {"Message12", "Message14"},
-		})
-	}
-
-	// ISSUE Message16
-	{
-		testFramework.CreateMessage("Message16", WithStrongParents("Message15"))
-		testFramework.IssueMessages("Message16").WaitMessagesBooked()
-
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["A+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["A+C"],
-			"Message15": ledgerstate.UndefinedBranchID,
-			"Message16": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["A"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["A"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["A+C"],
-			"Message12": branchIDs["A+C"],
-			"Message13": branchIDs["A+C+E"],
-			"Message14": branchIDs["A+C"],
-			"Message15": branchIDs["A+C"],
-			"Message16": branchIDs["A+C"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["A+C"]: {"Message12", "Message14"},
-		})
-	}
-
-	// ISSUE Message17
-	{
-		testFramework.CreateMessage("Message17", WithStrongParents("Message1"), WithInputs("G"), WithOutput("K", 500))
-
-		branchIDs["F"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message6"))
-		branchIDs["G"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message17"))
-		branchIDs["F+C"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"])
-		branchIDs["F+C+E"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"], branchIDs["E"])
-
-		for alias, branchID := range branchIDs {
-			ledgerstate.RegisterBranchIDAlias(branchID, alias)
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2": markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3": markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4": markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5": markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6": markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7": markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8": markers.NewMarkers(markers.NewMarker(1, 3)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1": ledgerstate.UndefinedBranchID,
+				"Message2": ledgerstate.UndefinedBranchID,
+				"Message3": ledgerstate.UndefinedBranchID,
+				"Message4": ledgerstate.UndefinedBranchID,
+				"Message5": ledgerstate.UndefinedBranchID,
+				"Message6": ledgerstate.UndefinedBranchID,
+				"Message7": ledgerstate.UndefinedBranchID,
+				"Message8": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1": branchIDs["A"],
+				"Message2": branchIDs["B"],
+				"Message3": branchIDs["C"],
+				"Message4": ledgerstate.MasterBranchID,
+				"Message5": ledgerstate.MasterBranchID,
+				"Message6": branchIDs["A"],
+				"Message7": branchIDs["C"],
+				"Message8": branchIDs["A"],
+			})
 		}
 
-		testFramework.IssueMessages("Message17").WaitMessagesBooked()
+		// ISSUE Message9
+		{
+			testFramework.CreateMessage("Message9", WithStrongParents("Message7"))
+			testFramework.IssueMessages("Message9").WaitMessagesBooked()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["F+C"],
-			"Message15": ledgerstate.UndefinedBranchID,
-			"Message16": ledgerstate.UndefinedBranchID,
-			"Message17": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["F"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["F"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["F+C"],
-			"Message12": branchIDs["F+C"],
-			"Message13": branchIDs["F+C+E"],
-			"Message14": branchIDs["F+C"],
-			"Message15": branchIDs["F+C"],
-			"Message16": branchIDs["F+C"],
-			"Message17": branchIDs["G"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]: {"Message12", "Message14"},
-		})
-	}
-
-	// ISSUE Message18
-	{
-		testFramework.CreateMessage("Message18", WithStrongParents("Message12"), WithInputs("I"), WithOutput("L", 500))
-
-		branchIDs["H"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message14"))
-		branchIDs["H+C"] = aggregatedBranchID(branchIDs["H"], branchIDs["C"])
-		branchIDs["I"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message18"))
-		branchIDs["I+C"] = aggregatedBranchID(branchIDs["I"], branchIDs["C"])
-
-		for alias, branchID := range branchIDs {
-			ledgerstate.RegisterBranchIDAlias(branchID, alias)
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2": markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3": markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4": markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5": markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6": markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7": markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8": markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9": markers.NewMarkers(markers.NewMarker(3, 3)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1": ledgerstate.UndefinedBranchID,
+				"Message2": ledgerstate.UndefinedBranchID,
+				"Message3": ledgerstate.UndefinedBranchID,
+				"Message4": ledgerstate.UndefinedBranchID,
+				"Message5": ledgerstate.UndefinedBranchID,
+				"Message6": ledgerstate.UndefinedBranchID,
+				"Message7": ledgerstate.UndefinedBranchID,
+				"Message8": ledgerstate.UndefinedBranchID,
+				"Message9": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1": branchIDs["A"],
+				"Message2": branchIDs["B"],
+				"Message3": branchIDs["C"],
+				"Message4": ledgerstate.MasterBranchID,
+				"Message5": ledgerstate.MasterBranchID,
+				"Message6": branchIDs["A"],
+				"Message7": branchIDs["C"],
+				"Message8": branchIDs["A"],
+				"Message9": branchIDs["C"],
+			})
 		}
 
-		testFramework.IssueMessages("Message18").WaitMessagesBooked()
+		// ISSUE Message10
+		{
+			testFramework.CreateMessage("Message10", WithStrongParents("Message2"), WithInputs("C"), WithOutput("H", 500))
+			testFramework.IssueMessages("Message10").WaitMessagesBooked()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
-			"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": ledgerstate.UndefinedBranchID,
-			"Message17": ledgerstate.UndefinedBranchID,
-			"Message18": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["F"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["F"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["F+C"],
-			"Message12": branchIDs["F+C"],
-			"Message13": branchIDs["F+C+E"],
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": branchIDs["H+C"],
-			"Message17": branchIDs["G"],
-			"Message18": branchIDs["I+C"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15"},
-		})
-	}
+			branchIDs["D"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message5"))
+			branchIDs["E"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message10"))
+			branchIDs["B+E"] = aggregatedBranchID(branchIDs["B"], branchIDs["E"])
 
-	// ISSUE Message19
-	{
-		testFramework.CreateMessage("Message19", WithStrongParents("Message8"))
-		testFramework.IssueMessages("Message19").WaitMessagesBooked()
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["A"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["A"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+			})
+		}
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
-			"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
-			"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": ledgerstate.UndefinedBranchID,
-			"Message17": ledgerstate.UndefinedBranchID,
-			"Message18": ledgerstate.UndefinedBranchID,
-			"Message19": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["F"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["F"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["F+C"],
-			"Message12": branchIDs["F+C"],
-			"Message13": branchIDs["F+C+E"],
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": branchIDs["H+C"],
-			"Message17": branchIDs["G"],
-			"Message18": branchIDs["I+C"],
-			"Message19": branchIDs["F"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15"},
-		})
-	}
+		// ISSUE Message11
+		{
+			testFramework.CreateMessage("Message11", WithStrongParents("Message8", "Message9"))
+			testFramework.IssueMessages("Message11").WaitMessagesBooked()
 
-	// ISSUE Message20
-	{
-		testFramework.CreateMessage("Message20", WithStrongParents("Message16", "Message19"))
-		testFramework.PreventNewMarkers(true).IssueMessages("Message20").WaitMessagesBooked().PreventNewMarkers(false)
+			branchIDs["A+C"] = aggregatedBranchID(branchIDs["A"], branchIDs["C"])
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
-			"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
-			"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
-			"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": ledgerstate.UndefinedBranchID,
-			"Message17": ledgerstate.UndefinedBranchID,
-			"Message18": ledgerstate.UndefinedBranchID,
-			"Message19": ledgerstate.UndefinedBranchID,
-			"Message20": branchIDs["H+C"],
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["F"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["F"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["F+C"],
-			"Message12": branchIDs["F+C"],
-			"Message13": branchIDs["F+C+E"],
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": branchIDs["H+C"],
-			"Message17": branchIDs["G"],
-			"Message18": branchIDs["I+C"],
-			"Message19": branchIDs["F"],
-			"Message20": branchIDs["H+C"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
-		})
-	}
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["A"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["A"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["A+C"],
+			})
+		}
 
-	// ISSUE Message21
-	{
-		testFramework.CreateMessage("Message21", WithStrongParents("Message4"))
-		testFramework.IssueMessages("Message21").WaitMessagesBooked()
+		// ISSUE Message12
+		{
+			testFramework.CreateMessage("Message12", WithStrongParents("Message8", "Message9"))
+			testFramework.IssueMessages("Message12").WaitMessagesBooked()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
-			"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
-			"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
-			"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
-			"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": ledgerstate.UndefinedBranchID,
-			"Message17": ledgerstate.UndefinedBranchID,
-			"Message18": ledgerstate.UndefinedBranchID,
-			"Message19": ledgerstate.UndefinedBranchID,
-			"Message20": branchIDs["H+C"],
-			"Message21": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["F"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["F"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["F+C"],
-			"Message12": branchIDs["F+C"],
-			"Message13": branchIDs["F+C+E"],
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": branchIDs["H+C"],
-			"Message17": branchIDs["G"],
-			"Message18": branchIDs["I+C"],
-			"Message19": branchIDs["F"],
-			"Message20": branchIDs["H+C"],
-			"Message21": ledgerstate.MasterBranchID,
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
-		})
-	}
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["A+C"],
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["A"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["A"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["A+C"],
+				"Message12": branchIDs["A+C"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["A+C"]: {"Message12"},
+			})
+		}
 
-	// ISSUE Message22
-	{
-		testFramework.CreateMessage("Message22", WithStrongParents("Message4"))
-		testFramework.IssueMessages("Message22").WaitMessagesBooked()
+		// ISSUE Message13
+		{
+			testFramework.CreateMessage("Message13", WithStrongParents("Message6", "Message7"), WithWeakParents("Message10"))
+			testFramework.IssueMessages("Message13").WaitMessagesBooked()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
-			"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
-			"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
-			"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
-			"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
-			"Message22": markers.NewMarkers(markers.NewMarker(4, 1)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": ledgerstate.UndefinedBranchID,
-			"Message17": ledgerstate.UndefinedBranchID,
-			"Message18": ledgerstate.UndefinedBranchID,
-			"Message19": ledgerstate.UndefinedBranchID,
-			"Message20": branchIDs["H+C"],
-			"Message21": ledgerstate.UndefinedBranchID,
-			"Message22": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["F"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["F"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["F+C"],
-			"Message12": branchIDs["F+C"],
-			"Message13": branchIDs["F+C+E"],
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": branchIDs["H+C"],
-			"Message17": branchIDs["G"],
-			"Message18": branchIDs["I+C"],
-			"Message19": branchIDs["F"],
-			"Message20": branchIDs["H+C"],
-			"Message21": ledgerstate.MasterBranchID,
-			"Message22": ledgerstate.MasterBranchID,
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
-		})
-	}
+			branchIDs["A+C+E"] = aggregatedBranchID(branchIDs["A"], branchIDs["C"], branchIDs["E"])
 
-	// ISSUE Message23
-	{
-		testFramework.CreateMessage("Message23", WithStrongParents("Message21", "Message22"))
-		testFramework.IssueMessages("Message23").WaitMessagesBooked()
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["A+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["A"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["A"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["A+C"],
+				"Message12": branchIDs["A+C"],
+				"Message13": branchIDs["A+C+E"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["A+C"]: {"Message12"},
+			})
+		}
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
-			"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
-			"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
-			"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
-			"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
-			"Message22": markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message23": markers.NewMarkers(markers.NewMarker(10, 3)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": ledgerstate.UndefinedBranchID,
-			"Message17": ledgerstate.UndefinedBranchID,
-			"Message18": ledgerstate.UndefinedBranchID,
-			"Message19": ledgerstate.UndefinedBranchID,
-			"Message20": branchIDs["H+C"],
-			"Message21": ledgerstate.UndefinedBranchID,
-			"Message22": ledgerstate.UndefinedBranchID,
-			"Message23": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["F"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["F"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["F+C"],
-			"Message12": branchIDs["F+C"],
-			"Message13": branchIDs["F+C+E"],
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": branchIDs["H+C"],
-			"Message17": branchIDs["G"],
-			"Message18": branchIDs["I+C"],
-			"Message19": branchIDs["F"],
-			"Message20": branchIDs["H+C"],
-			"Message21": ledgerstate.MasterBranchID,
-			"Message22": ledgerstate.MasterBranchID,
-			"Message23": ledgerstate.MasterBranchID,
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
-		})
-	}
+		// ISSUE Message14
+		{
+			testFramework.CreateMessage("Message14", WithStrongParents("Message12"), WithInputs("I"), WithOutput("J", 500))
+			testFramework.IssueMessages("Message14").WaitMessagesBooked()
 
-	// ISSUE Message24
-	{
-		testFramework.CreateMessage("Message24", WithStrongParents("Message23", "Message5"))
-		testFramework.IssueMessages("Message24").WaitMessagesBooked()
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["A+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["A+C"],
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["A"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["A"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["A+C"],
+				"Message12": branchIDs["A+C"],
+				"Message13": branchIDs["A+C+E"],
+				"Message14": branchIDs["A+C"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["A+C"]: {"Message12", "Message14"},
+			})
+		}
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
-			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
-			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
-			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
-			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
-			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
-			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
-			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
-			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
-			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
-			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
-			"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
-			"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
-			"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
-			"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
-			"Message22": markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message23": markers.NewMarkers(markers.NewMarker(10, 3)),
-			"Message24": markers.NewMarkers(markers.NewMarker(4, 4)),
-		})
-		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  ledgerstate.UndefinedBranchID,
-			"Message2":  ledgerstate.UndefinedBranchID,
-			"Message3":  ledgerstate.UndefinedBranchID,
-			"Message4":  ledgerstate.UndefinedBranchID,
-			"Message5":  ledgerstate.UndefinedBranchID,
-			"Message6":  ledgerstate.UndefinedBranchID,
-			"Message7":  ledgerstate.UndefinedBranchID,
-			"Message8":  ledgerstate.UndefinedBranchID,
-			"Message9":  ledgerstate.UndefinedBranchID,
-			"Message10": ledgerstate.UndefinedBranchID,
-			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
-			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": ledgerstate.UndefinedBranchID,
-			"Message17": ledgerstate.UndefinedBranchID,
-			"Message18": ledgerstate.UndefinedBranchID,
-			"Message19": ledgerstate.UndefinedBranchID,
-			"Message20": branchIDs["H+C"],
-			"Message21": ledgerstate.UndefinedBranchID,
-			"Message22": ledgerstate.UndefinedBranchID,
-			"Message23": ledgerstate.UndefinedBranchID,
-			"Message24": ledgerstate.UndefinedBranchID,
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
-			"Message1":  branchIDs["A"],
-			"Message2":  branchIDs["B"],
-			"Message3":  branchIDs["C"],
-			"Message4":  ledgerstate.MasterBranchID,
-			"Message5":  branchIDs["D"],
-			"Message6":  branchIDs["F"],
-			"Message7":  branchIDs["C"],
-			"Message8":  branchIDs["F"],
-			"Message9":  branchIDs["C"],
-			"Message10": branchIDs["B+E"],
-			"Message11": branchIDs["F+C"],
-			"Message12": branchIDs["F+C"],
-			"Message13": branchIDs["F+C+E"],
-			"Message14": branchIDs["H+C"],
-			"Message15": branchIDs["H+C"],
-			"Message16": branchIDs["H+C"],
-			"Message17": branchIDs["G"],
-			"Message18": branchIDs["I+C"],
-			"Message19": branchIDs["F"],
-			"Message20": branchIDs["H+C"],
-			"Message21": ledgerstate.MasterBranchID,
-			"Message22": ledgerstate.MasterBranchID,
-			"Message23": ledgerstate.MasterBranchID,
-			"Message24": branchIDs["D"],
-		})
-		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
-		})
-	}
+		// ISSUE Message15
+		{
+			testFramework.CreateMessage("Message15", WithStrongParents("Message11", "Message14"))
+			testFramework.PreventNewMarkers(true).IssueMessages("Message15").WaitMessagesBooked().PreventNewMarkers(false)
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["A+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["A+C"],
+				"Message15": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["A"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["A"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["A+C"],
+				"Message12": branchIDs["A+C"],
+				"Message13": branchIDs["A+C+E"],
+				"Message14": branchIDs["A+C"],
+				"Message15": branchIDs["A+C"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["A+C"]: {"Message12", "Message14"},
+			})
+		}
+
+		// ISSUE Message16
+		{
+			testFramework.CreateMessage("Message16", WithStrongParents("Message15"))
+			testFramework.IssueMessages("Message16").WaitMessagesBooked()
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["A+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["A+C"],
+				"Message15": ledgerstate.UndefinedBranchID,
+				"Message16": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["A"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["A"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["A+C"],
+				"Message12": branchIDs["A+C"],
+				"Message13": branchIDs["A+C+E"],
+				"Message14": branchIDs["A+C"],
+				"Message15": branchIDs["A+C"],
+				"Message16": branchIDs["A+C"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["A+C"]: {"Message12", "Message14"},
+			})
+		}
+
+		// ISSUE Message17
+		{
+			testFramework.CreateMessage("Message17", WithStrongParents("Message1"), WithInputs("G"), WithOutput("K", 500))
+
+			branchIDs["F"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message6"))
+			branchIDs["G"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message17"))
+			branchIDs["F+C"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"])
+			branchIDs["F+C+E"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"], branchIDs["E"])
+
+			for alias, branchID := range branchIDs {
+				ledgerstate.RegisterBranchIDAlias(branchID, alias)
+			}
+
+			testFramework.IssueMessages("Message17").WaitMessagesBooked()
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+				"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["F+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["F+C"],
+				"Message15": ledgerstate.UndefinedBranchID,
+				"Message16": ledgerstate.UndefinedBranchID,
+				"Message17": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["F"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["F"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["F+C"],
+				"Message12": branchIDs["F+C"],
+				"Message13": branchIDs["F+C+E"],
+				"Message14": branchIDs["F+C"],
+				"Message15": branchIDs["F+C"],
+				"Message16": branchIDs["F+C"],
+				"Message17": branchIDs["G"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["F+C"]: {"Message12", "Message14"},
+			})
+		}
+
+		// ISSUE Message18
+		{
+			testFramework.CreateMessage("Message18", WithStrongParents("Message12"), WithInputs("I"), WithOutput("L", 500))
+
+			branchIDs["H"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message14"))
+			branchIDs["H+C"] = aggregatedBranchID(branchIDs["H"], branchIDs["C"])
+			branchIDs["I"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message18"))
+			branchIDs["I+C"] = aggregatedBranchID(branchIDs["I"], branchIDs["C"])
+
+			for alias, branchID := range branchIDs {
+				ledgerstate.RegisterBranchIDAlias(branchID, alias)
+			}
+
+			testFramework.IssueMessages("Message18").WaitMessagesBooked()
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+				"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+				"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["F+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": ledgerstate.UndefinedBranchID,
+				"Message17": ledgerstate.UndefinedBranchID,
+				"Message18": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["F"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["F"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["F+C"],
+				"Message12": branchIDs["F+C"],
+				"Message13": branchIDs["F+C+E"],
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": branchIDs["H+C"],
+				"Message17": branchIDs["G"],
+				"Message18": branchIDs["I+C"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["F+C"]: {"Message12"},
+				branchIDs["H+C"]: {"Message14", "Message15"},
+			})
+		}
+
+		// ISSUE Message19
+		{
+			testFramework.CreateMessage("Message19", WithStrongParents("Message8"))
+			testFramework.IssueMessages("Message19").WaitMessagesBooked()
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+				"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+				"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
+				"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["F+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": ledgerstate.UndefinedBranchID,
+				"Message17": ledgerstate.UndefinedBranchID,
+				"Message18": ledgerstate.UndefinedBranchID,
+				"Message19": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["F"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["F"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["F+C"],
+				"Message12": branchIDs["F+C"],
+				"Message13": branchIDs["F+C+E"],
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": branchIDs["H+C"],
+				"Message17": branchIDs["G"],
+				"Message18": branchIDs["I+C"],
+				"Message19": branchIDs["F"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["F+C"]: {"Message12"},
+				branchIDs["H+C"]: {"Message14", "Message15"},
+			})
+		}
+
+		// ISSUE Message20
+		{
+			testFramework.CreateMessage("Message20", WithStrongParents("Message16", "Message19"))
+			testFramework.PreventNewMarkers(true).IssueMessages("Message20").WaitMessagesBooked().PreventNewMarkers(false)
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+				"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+				"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
+				"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
+				"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["F+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": ledgerstate.UndefinedBranchID,
+				"Message17": ledgerstate.UndefinedBranchID,
+				"Message18": ledgerstate.UndefinedBranchID,
+				"Message19": ledgerstate.UndefinedBranchID,
+				"Message20": branchIDs["H+C"],
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["F"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["F"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["F+C"],
+				"Message12": branchIDs["F+C"],
+				"Message13": branchIDs["F+C+E"],
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": branchIDs["H+C"],
+				"Message17": branchIDs["G"],
+				"Message18": branchIDs["I+C"],
+				"Message19": branchIDs["F"],
+				"Message20": branchIDs["H+C"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["F+C"]: {"Message12"},
+				branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
+			})
+		}
+
+		// ISSUE Message21
+		{
+			testFramework.CreateMessage("Message21", WithStrongParents("Message4"))
+			testFramework.IssueMessages("Message21").WaitMessagesBooked()
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+				"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+				"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
+				"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
+				"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
+				"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["F+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": ledgerstate.UndefinedBranchID,
+				"Message17": ledgerstate.UndefinedBranchID,
+				"Message18": ledgerstate.UndefinedBranchID,
+				"Message19": ledgerstate.UndefinedBranchID,
+				"Message20": branchIDs["H+C"],
+				"Message21": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["F"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["F"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["F+C"],
+				"Message12": branchIDs["F+C"],
+				"Message13": branchIDs["F+C+E"],
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": branchIDs["H+C"],
+				"Message17": branchIDs["G"],
+				"Message18": branchIDs["I+C"],
+				"Message19": branchIDs["F"],
+				"Message20": branchIDs["H+C"],
+				"Message21": ledgerstate.MasterBranchID,
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["F+C"]: {"Message12"},
+				branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
+			})
+		}
+
+		// ISSUE Message22
+		{
+			testFramework.CreateMessage("Message22", WithStrongParents("Message4"))
+			testFramework.IssueMessages("Message22").WaitMessagesBooked()
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+				"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+				"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
+				"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
+				"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
+				"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
+				"Message22": markers.NewMarkers(markers.NewMarker(4, 1)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["F+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": ledgerstate.UndefinedBranchID,
+				"Message17": ledgerstate.UndefinedBranchID,
+				"Message18": ledgerstate.UndefinedBranchID,
+				"Message19": ledgerstate.UndefinedBranchID,
+				"Message20": branchIDs["H+C"],
+				"Message21": ledgerstate.UndefinedBranchID,
+				"Message22": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["F"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["F"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["F+C"],
+				"Message12": branchIDs["F+C"],
+				"Message13": branchIDs["F+C+E"],
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": branchIDs["H+C"],
+				"Message17": branchIDs["G"],
+				"Message18": branchIDs["I+C"],
+				"Message19": branchIDs["F"],
+				"Message20": branchIDs["H+C"],
+				"Message21": ledgerstate.MasterBranchID,
+				"Message22": ledgerstate.MasterBranchID,
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["F+C"]: {"Message12"},
+				branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
+			})
+		}
+
+		// ISSUE Message23
+		{
+			testFramework.CreateMessage("Message23", WithStrongParents("Message21", "Message22"))
+			testFramework.IssueMessages("Message23").WaitMessagesBooked()
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+				"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+				"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
+				"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
+				"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
+				"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
+				"Message22": markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message23": markers.NewMarkers(markers.NewMarker(10, 3)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["F+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": ledgerstate.UndefinedBranchID,
+				"Message17": ledgerstate.UndefinedBranchID,
+				"Message18": ledgerstate.UndefinedBranchID,
+				"Message19": ledgerstate.UndefinedBranchID,
+				"Message20": branchIDs["H+C"],
+				"Message21": ledgerstate.UndefinedBranchID,
+				"Message22": ledgerstate.UndefinedBranchID,
+				"Message23": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["F"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["F"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["F+C"],
+				"Message12": branchIDs["F+C"],
+				"Message13": branchIDs["F+C+E"],
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": branchIDs["H+C"],
+				"Message17": branchIDs["G"],
+				"Message18": branchIDs["I+C"],
+				"Message19": branchIDs["F"],
+				"Message20": branchIDs["H+C"],
+				"Message21": ledgerstate.MasterBranchID,
+				"Message22": ledgerstate.MasterBranchID,
+				"Message23": ledgerstate.MasterBranchID,
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["F+C"]: {"Message12"},
+				branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
+			})
+		}
+
+		// ISSUE Message24
+		{
+			testFramework.CreateMessage("Message24", WithStrongParents("Message23", "Message5"))
+			testFramework.IssueMessages("Message24").WaitMessagesBooked()
+
+			checkMarkers(t, testFramework, map[string]*markers.Markers{
+				"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+				"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+				"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+				"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+				"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+				"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+				"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+				"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+				"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+				"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+				"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+				"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+				"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+				"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+				"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
+				"Message19": markers.NewMarkers(markers.NewMarker(1, 4)),
+				"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
+				"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
+				"Message22": markers.NewMarkers(markers.NewMarker(4, 1)),
+				"Message23": markers.NewMarkers(markers.NewMarker(10, 3)),
+				"Message24": markers.NewMarkers(markers.NewMarker(4, 4)),
+			})
+			checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  ledgerstate.UndefinedBranchID,
+				"Message2":  ledgerstate.UndefinedBranchID,
+				"Message3":  ledgerstate.UndefinedBranchID,
+				"Message4":  ledgerstate.UndefinedBranchID,
+				"Message5":  ledgerstate.UndefinedBranchID,
+				"Message6":  ledgerstate.UndefinedBranchID,
+				"Message7":  ledgerstate.UndefinedBranchID,
+				"Message8":  ledgerstate.UndefinedBranchID,
+				"Message9":  ledgerstate.UndefinedBranchID,
+				"Message10": ledgerstate.UndefinedBranchID,
+				"Message11": ledgerstate.UndefinedBranchID,
+				"Message12": branchIDs["F+C"],
+				"Message13": ledgerstate.UndefinedBranchID,
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": ledgerstate.UndefinedBranchID,
+				"Message17": ledgerstate.UndefinedBranchID,
+				"Message18": ledgerstate.UndefinedBranchID,
+				"Message19": ledgerstate.UndefinedBranchID,
+				"Message20": branchIDs["H+C"],
+				"Message21": ledgerstate.UndefinedBranchID,
+				"Message22": ledgerstate.UndefinedBranchID,
+				"Message23": ledgerstate.UndefinedBranchID,
+				"Message24": ledgerstate.UndefinedBranchID,
+			})
+			checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+				"Message1":  branchIDs["A"],
+				"Message2":  branchIDs["B"],
+				"Message3":  branchIDs["C"],
+				"Message4":  ledgerstate.MasterBranchID,
+				"Message5":  branchIDs["D"],
+				"Message6":  branchIDs["F"],
+				"Message7":  branchIDs["C"],
+				"Message8":  branchIDs["F"],
+				"Message9":  branchIDs["C"],
+				"Message10": branchIDs["B+E"],
+				"Message11": branchIDs["F+C"],
+				"Message12": branchIDs["F+C"],
+				"Message13": branchIDs["F+C+E"],
+				"Message14": branchIDs["H+C"],
+				"Message15": branchIDs["H+C"],
+				"Message16": branchIDs["H+C"],
+				"Message17": branchIDs["G"],
+				"Message18": branchIDs["I+C"],
+				"Message19": branchIDs["F"],
+				"Message20": branchIDs["H+C"],
+				"Message21": ledgerstate.MasterBranchID,
+				"Message22": ledgerstate.MasterBranchID,
+				"Message23": ledgerstate.MasterBranchID,
+				"Message24": branchIDs["D"],
+			})
+			checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+				branchIDs["F+C"]: {"Message12"},
+				branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
+			})
+		}
+	*/
 }
 
 func aggregatedBranchID(branchIDs ...ledgerstate.BranchID) ledgerstate.BranchID {

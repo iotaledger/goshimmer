@@ -78,18 +78,18 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// TODO: factor this out in a func
 
 			// We check if any of the liked parents does not contain a TX
-			isTransaction := true
+			areLikedAllTransactions := true
 			message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
-				if !isTransaction {
+				if !areLikedAllTransactions {
 					return
 				}
 				b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
 					if message.Payload().Type() != ledgerstate.TransactionType {
-						isTransaction = false
+						areLikedAllTransactions = false
 					}
 				})
 			})
-			if !isTransaction {
+			if !areLikedAllTransactions {
 				err = errors.Errorf("message like reference does not contain a transaction %s", messageID)
 				return
 			}
@@ -104,7 +104,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				}
 			}
 
-			prunedCollectedStrongParents := collectedStrongParents.Clone()
+			prunedCollectedStrongParents := collectedStrongParents
 
 			// We now need to subtract liked branches from strong branches (including descendants)
 			for likedBranchID := range likedBranchIDs {
