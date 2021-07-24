@@ -66,6 +66,11 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 	}
 
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
+		// I like myself
+		if o.doILike(resolvedConflictBranchID, ledgerstate.NewConflictIDs()) {
+			continue
+		}
+
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
 				opinionTuple = append(opinionTuple, consensus.OpinionTuple{
@@ -74,15 +79,6 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 				})
 			}
 		})
-
-		if len(opinionTuple) > 0 {
-			continue
-		}
-
-		// I like myself
-		if o.doILike(resolvedConflictBranchID, ledgerstate.NewConflictIDs()) {
-			continue
-		}
 
 		// here any direct conflicting branch is also disliked
 		// which means that instead the liked branches have to be derived from branch's parents
