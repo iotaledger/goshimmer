@@ -211,8 +211,10 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
+	mockOTV := &SimpleMockOnTangleVoting{}
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	testMessage, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)

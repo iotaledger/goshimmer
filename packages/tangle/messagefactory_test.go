@@ -29,6 +29,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 	selfLocalIdentity := identity.GenerateLocalIdentity()
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
+	mockOTV := &SimpleMockOnTangleVoting{}
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
@@ -117,8 +119,11 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
+	mockOTV := &SimpleMockOnTangleVoting{}
+
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	msgFactory := NewMessageFactory(
 		tangle,

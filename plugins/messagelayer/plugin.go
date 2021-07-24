@@ -1,7 +1,6 @@
 package messagelayer
 
 import (
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"os"
 	"sync"
@@ -145,7 +144,6 @@ func Tangle() *tangle.Tangle {
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
-			tangle.ConsensusOTV(ConsensusOTV()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			tangle.SchedulerConfig(tangle.SchedulerParams{
 				MaxBufferSize:               SchedulerParameters.MaxBufferSize,
@@ -163,6 +161,7 @@ func Tangle() *tangle.Tangle {
 
 		tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
+		tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 		tangleInstance.Setup()
 	})
@@ -176,9 +175,6 @@ func Tangle() *tangle.Tangle {
 var (
 	consensusMechanism     *fcob.ConsensusMechanism
 	consensusMechanismOnce sync.Once
-
-	consensusOTV     consensus.Mechanism
-	consensusOTVOnce sync.Once
 )
 
 // ConsensusMechanism return the FcoB ConsensusMechanism used by the Tangle.
@@ -188,15 +184,6 @@ func ConsensusMechanism() *fcob.ConsensusMechanism {
 	})
 
 	return consensusMechanism
-}
-
-// ConsensusOTV return the FcoB ConsensusMechanism used by the Tangle.
-func ConsensusOTV() consensus.Mechanism {
-	consensusMechanismOnce.Do(func() {
-		consensusOTV = otv.NewOnTangleVoting()
-	})
-
-	return consensusOTV
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

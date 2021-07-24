@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/consensus"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -641,4 +642,15 @@ func NewTestTangle(options ...Option) *Tangle {
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
 	return New(options...)
+}
+
+type SimpleMockOnTangleVoting struct {
+}
+
+func (o *SimpleMockOnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
+	return
+}
+
+func (o *SimpleMockOnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
+	return
 }

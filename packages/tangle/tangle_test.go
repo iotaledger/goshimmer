@@ -3,6 +3,7 @@ package tangle
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"math/rand"
 	"net"
 	"runtime"
@@ -222,6 +223,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// create the tangle
 	tangle := NewTestTangle(Store(rocksdb))
+	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.LedgerState.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
+
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 

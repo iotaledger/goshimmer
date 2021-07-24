@@ -181,30 +181,26 @@ func (f *MessageFactory) prepareLikeReferences(parents MessageIDs) (MessageIDs, 
 		if err != nil {
 			err = errors.Errorf("branchID can't be retrieved: %w", err)
 			f.Events.Error.Trigger(err)
-			f.issuanceMutex.Unlock()
 			return nil, err
 		}
 
 		branchIDs.Add(branchID)
 	}
-
 	// FIXME: replace with actual implementation
-	_, dislikedBranches, err := f.tangle.Options.ConsensusOTV.Opinion(branchIDs)
+	_, dislikedBranches, err := f.tangle.OTVConsensusManager.Opinion(branchIDs)
 	if err != nil {
 		err = errors.Errorf("opinions could not be retrieved: %w", err)
 		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 	likeReferencesMap := make(map[MessageID]types.Empty)
 	likeReferences := MessageIDs{}
 	// TODO: ask jonas why multiple tuples are returned
 	for dislikedBranch := range dislikedBranches {
-		likedInstead, err := f.tangle.Options.ConsensusOTV.LikedInstead(dislikedBranch)
+		likedInstead, err := f.tangle.OTVConsensusManager.LikedInstead(dislikedBranch)
 		if err != nil {
 			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
 			f.Events.Error.Trigger(err)
-			f.issuanceMutex.Unlock()
 			return nil, err
 		}
 

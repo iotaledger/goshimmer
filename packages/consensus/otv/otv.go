@@ -3,30 +3,24 @@ package otv
 import (
 	"bytes"
 	"github.com/cockroachdb/errors"
-
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
-
-// WeightFunc returns the approval weight for the given branch.
-type WeightFunc func(branchID ledgerstate.BranchID) (weight float64)
 
 // OnTangleVoting is a pluggable implementation of tangle.ConsensusMechanism2. On tangle voting is a generalized form of
 // Nakamoto consensus for the parallel-reality-based ledger state where the heaviest branch according to approval weight
 // is liked by any given node.
 type OnTangleVoting struct {
 	branchDAG  *ledgerstate.BranchDAG
-	weightFunc WeightFunc
+	weightFunc consensus.WeightFunc
 }
 
 // NewOnTangleVoting is the constructor for OnTangleVoting.
-func NewOnTangleVoting() *OnTangleVoting {
-	return &OnTangleVoting{}
-}
-
-func (f *OnTangleVoting) Init(branchDAG *ledgerstate.BranchDAG, weightFunc WeightFunc) {
-	f.branchDAG = branchDAG
-	f.weightFunc = weightFunc
+func NewOnTangleVoting(branchDAG *ledgerstate.BranchDAG, weightFunc consensus.WeightFunc) *OnTangleVoting {
+	return &OnTangleVoting{
+		branchDAG:  branchDAG,
+		weightFunc: weightFunc,
+	}
 }
 
 // Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
