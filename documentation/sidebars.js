@@ -26,17 +26,22 @@ module.exports = {
     label: 'Tutorials',
     items: [{
       type: 'doc',
-      label: 'Set up a node',
+      label: 'Set Up a Node',
       id: 'tutorials/setup',
     },
     {
       type: 'doc',
-      label: 'Obtain tokens',
+      label: 'Obtain Tokens',
+      id: 'tutorials/obtain_tokens',
+    },
+    {
+      type: 'doc',
+      label: 'Send a Transaction',
       id: 'tutorials/send_transaction',
     },
     {
       type: 'doc',
-      label: 'Wallet library',
+      label: 'Wallet Library',
       id: 'tutorials/wallet',
     },
 
@@ -48,19 +53,19 @@ module.exports = {
 
     {
       type: 'doc',
-      label: 'Manual peering',
+      label: 'Manual Peering',
       id: 'tutorials/manual_peering',
     },
 
     {
       type: 'doc',
-      label: 'Create a static identity',
+      label: 'Create a Static Identity',
       id: 'tutorials/static_identity',
     },
 
     {
       type: 'doc',
-      label: 'Set up a custom dRNG committee',
+      label: 'Set Up a Custom dRNG Committee',
       id: 'tutorials/custom_dRNG',
     },
 
@@ -72,7 +77,7 @@ module.exports = {
 
     {
       type: 'doc',
-      label: 'How to create and send transactions',
+      label: 'How To Create and Send Transactions',
       id: 'tutorials/send_transaction',
     },
     ],
@@ -85,12 +90,12 @@ module.exports = {
     items: [
       {
         type: 'doc',
-        label: 'Event driven model',
+        label: 'Event Driven Model',
         id: 'implementation_design/event_driven_model',
       },
       {
         type: 'doc',
-        label: 'Packages and plugins',
+        label: 'Packages and Plugins',
         id: 'implementation_design/packages_plugins',
       },
 
@@ -102,23 +107,14 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Configuration parameters',
+        label: 'Configuration Parameters',
         id: 'implementation_design/configuration_parameters',
       },
 
       {
         type: 'doc',
-        label: 'Object storage',
+        label: 'Object Storage',
         id: 'implementation_design/object_storage',
-      },
-
-
-      {
-        type: 'category',
-        label: 'Components',
-        items: [
-
-        ],
       },
     ],
   },
@@ -141,7 +137,6 @@ module.exports = {
         type: 'category',
         label: 'Components',
         items: [
-
 
           {
             type: 'doc',
