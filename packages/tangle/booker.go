@@ -97,6 +97,13 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			strongBranchIDs := b.strongParentsBranchIDs(message)
 			likedBranchIDs := b.likedParentsBranchIDs(message)
 
+			testMessage := "Message10"
+			if id := messageIDAliases[messageID]; id == testMessage {
+				fmt.Println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+				fmt.Println("strong", strongBranchIDs)
+				fmt.Println("liked", likedBranchIDs)
+			}
+
 			collectedStrongParents := ledgerstate.NewBranchIDs()
 			for strongBranchID := range strongBranchIDs {
 				for collectedParent := range b.collectBranchesUpwards(strongBranchID) {
@@ -106,9 +113,15 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 
 			prunedCollectedStrongParents := collectedStrongParents
 
+			if id := messageIDAliases[messageID]; id == testMessage {
+				fmt.Println("collectedStrongParents", collectedStrongParents)
+			}
 			// We now need to subtract liked branches from strong branches (including descendants)
 			for likedBranchID := range likedBranchIDs {
 				b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
+					if id := messageIDAliases[messageID]; id == testMessage {
+						fmt.Println("ForEachConflictingBranchID", likedBranchID, conflictingBranchID)
+					}
 					// We like something in the same conflict set of a collected strong parent
 					if prunedCollectedStrongParents.Contains(conflictingBranchID) {
 						// We then remove the collected strong parent from its mapping, including all its children
@@ -121,8 +134,11 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 						}
 						prunedCollectedStrongParents = innerPrunedCollectedStrongParents
 					}
-
 				})
+			}
+
+			if id := messageIDAliases[messageID]; id == testMessage {
+				fmt.Println("pruned", prunedCollectedStrongParents)
 			}
 
 			// We filter our strong parents and add the liked parents to the resulting set
@@ -132,8 +148,14 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 					resultLiked.Add(strongBranchID)
 				}
 			}
+			if id := messageIDAliases[messageID]; id == testMessage {
+				fmt.Println("resultLiked1", resultLiked)
+			}
 			for likedBranchID := range likedBranchIDs {
 				resultLiked.Add(likedBranchID)
+			}
+			if id := messageIDAliases[messageID]; id == testMessage {
+				fmt.Println("resultLiked2", resultLiked)
 			}
 
 			// TODO: this should be taken care of by InheritBranch
@@ -335,7 +357,12 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 		}
 	})
 
-	return branchIDs
+	resolvedStrongBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(branchIDs)
+	if err != nil {
+		panic(errors.Wrap(err, "could not resolve parent branch IDs"))
+	}
+
+	return resolvedStrongBranchIDs
 }
 
 // collectParents recursively obtains branch's parents until MasterBranch, including the starting branch
