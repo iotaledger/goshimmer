@@ -25,11 +25,13 @@ const storeSequenceInterval = 100
 type MessageFactory struct {
 	Events *MessageFactoryEvents
 
-	tangle        *Tangle
-	sequence      *kvstore.Sequence
-	localIdentity *identity.LocalIdentity
-	selector      TipSelector
-	powTimeout    time.Duration
+	tangle             *Tangle
+	sequence           *kvstore.Sequence
+	localIdentity      *identity.LocalIdentity
+	selector           TipSelector
+	likeReferencesFunc LikeReferencesFunc
+
+	powTimeout time.Duration
 
 	worker        Worker
 	workerMutex   sync.RWMutex
@@ -37,7 +39,7 @@ type MessageFactory struct {
 }
 
 // NewMessageFactory creates a new message factory.
-func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
+func NewMessageFactory(tangle *Tangle, selector TipSelector, likeReferences LikeReferencesFunc) *MessageFactory {
 	sequence, err := kvstore.NewSequence(tangle.Options.Store, []byte(DBSequenceNumber), storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
@@ -49,12 +51,13 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
 			Error:              events.NewEvent(events.ErrorCaller),
 		},
 
-		tangle:        tangle,
-		sequence:      sequence,
-		localIdentity: tangle.Options.Identity,
-		selector:      selector,
-		worker:        ZeroWorker,
-		powTimeout:    0 * time.Second,
+		tangle:             tangle,
+		sequence:           sequence,
+		localIdentity:      tangle.Options.Identity,
+		selector:           selector,
+		likeReferencesFunc: likeReferences,
+		worker:             ZeroWorker,
+		powTimeout:         0 * time.Second,
 	}
 }
 
@@ -105,7 +108,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		return nil, err
 	}
 
-	likeReferences, err := f.prepareLikeReferences(parents)
+	likeReferences, err := f.likeReferencesFunc(parents, f.tangle)
 
 	if err != nil {
 		err = errors.Errorf("like references could not be prepared: %w", err)
@@ -133,7 +136,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			}
 		}
 
-		likeReferences, err := f.prepareLikeReferences(parents)
+		likeReferences, err := f.likeReferencesFunc(parents, f.tangle)
 
 		if err != nil {
 			err = errors.Errorf("like references could not be prepared: %w", err)
@@ -171,63 +174,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	)
 	f.Events.MessageConstructed.Trigger(msg)
 	return msg, nil
-}
-
-func (f *MessageFactory) prepareLikeReferences(parents MessageIDs) (MessageIDs, error) {
-	branchIDs := make(ledgerstate.BranchIDs)
-
-	for _, parent := range parents {
-		branchID, err := f.tangle.Booker.MessageBranchID(parent)
-		if err != nil {
-			err = errors.Errorf("branchID can't be retrieved: %w", err)
-			f.Events.Error.Trigger(err)
-			return nil, err
-		}
-
-		branchIDs.Add(branchID)
-	}
-	// FIXME: replace with actual implementation
-	_, dislikedBranches, err := f.tangle.OTVConsensusManager.Opinion(branchIDs)
-	if err != nil {
-		err = errors.Errorf("opinions could not be retrieved: %w", err)
-		f.Events.Error.Trigger(err)
-		return nil, err
-	}
-	likeReferencesMap := make(map[MessageID]types.Empty)
-	likeReferences := MessageIDs{}
-	// TODO: ask jonas why multiple tuples are returned
-	for dislikedBranch := range dislikedBranches {
-		likedInstead, err := f.tangle.OTVConsensusManager.LikedInstead(dislikedBranch)
-		if err != nil {
-			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
-			f.Events.Error.Trigger(err)
-			return nil, err
-		}
-
-		for _, likeRef := range likedInstead {
-
-			transactionID := likeRef.Liked.TransactionID()
-			// TODO: replace with oldest instead of newest
-			latestAttachmentTime := time.Unix(0, 0)
-			latestAttachmentMessageID := MessageID{}
-			// TODO: which message should we select? is selecting latest message correct?
-			f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
-				f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
-					if message.IssuingTime().After(latestAttachmentTime) {
-						latestAttachmentTime = message.IssuingTime()
-						latestAttachmentMessageID = message.ID()
-					}
-				})
-			})
-			// TODO: should we check max parent age in like reference parent? what if original message is older than maxparent age even though the branch still exists (parasite chain attack?)
-			// add like reference to a message only once if it appears in multiple conflict sets
-			if _, ok := likeReferencesMap[latestAttachmentMessageID]; !ok {
-				likeReferencesMap[latestAttachmentMessageID] = types.Void
-				likeReferences = append(likeReferences, latestAttachmentMessageID)
-			}
-		}
-	}
-	return likeReferences, nil
 }
 
 func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
@@ -336,5 +282,65 @@ func (f WorkerFunc) DoPOW(msg []byte) (uint64, error) {
 
 // ZeroWorker is a PoW worker that always returns 0 as the nonce.
 var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+type LikeReferencesFunc func(parents MessageIDs, tangle *Tangle) (MessageIDs, error)
+
+func PrepareLikeReferences(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+	branchIDs := make(ledgerstate.BranchIDs)
+
+	for _, parent := range parents {
+		branchID, err := tangle.Booker.MessageBranchID(parent)
+		if err != nil {
+			err = errors.Errorf("branchID can't be retrieved: %w", err)
+			return nil, err
+		}
+
+		branchIDs.Add(branchID)
+	}
+	// FIXME: replace with actual implementation
+	_, dislikedBranches, err := tangle.OTVConsensusManager.Opinion(branchIDs)
+	if err != nil {
+		err = errors.Errorf("opinions could not be retrieved: %w", err)
+		return nil, err
+	}
+	likeReferencesMap := make(map[MessageID]types.Empty)
+	likeReferences := MessageIDs{}
+	// TODO: ask jonas why multiple tuples are returned
+	for dislikedBranch := range dislikedBranches {
+		likedInstead, err := tangle.OTVConsensusManager.LikedInstead(dislikedBranch)
+		if err != nil {
+			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
+			return nil, err
+		}
+
+		for _, likeRef := range likedInstead {
+
+			transactionID := likeRef.Liked.TransactionID()
+			// TODO: replace with oldest instead of newest
+			latestAttachmentTime := time.Unix(0, 0)
+			latestAttachmentMessageID := MessageID{}
+			// TODO: which message should we select? is selecting latest message correct?
+			tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+				tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+					if message.IssuingTime().After(latestAttachmentTime) {
+						latestAttachmentTime = message.IssuingTime()
+						latestAttachmentMessageID = message.ID()
+					}
+				})
+			})
+			// TODO: should we check max parent age in like reference parent? what if original message is older than maxparent age even though the branch still exists (parasite chain attack?)
+			// add like reference to a message only once if it appears in multiple conflict sets
+			if _, ok := likeReferencesMap[latestAttachmentMessageID]; !ok {
+				likeReferencesMap[latestAttachmentMessageID] = types.Void
+				likeReferences = append(likeReferences, latestAttachmentMessageID)
+			}
+		}
+	}
+	return likeReferences, nil
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

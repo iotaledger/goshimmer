@@ -303,7 +303,7 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 	return
 }
 
-// AllWeakTips returns a list of all tips that are stored in the TipManger.
+// AllTips returns a list of all tips that are stored in the TipManger.
 func (t *TipManager) AllTips() MessageIDs {
 	return retrieveAllTips(t.tips)
 }
@@ -317,7 +317,7 @@ func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDs {
 	return tips
 }
 
-// StrongTipCount the amount of strong tips.
+// TipCount the amount of strong tips.
 func (t *TipManager) TipCount() int {
 	return t.tips.Size()
 }

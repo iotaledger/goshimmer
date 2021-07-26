@@ -2,7 +2,9 @@ package otv
 
 import (
 	"bytes"
+
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )

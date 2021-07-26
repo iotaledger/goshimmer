@@ -61,7 +61,6 @@ type Tangle struct {
 
 // New is the constructor for the Tangle.
 func New(options ...Option) (tangle *Tangle) {
-
 	tangle = &Tangle{
 		Events: &Events{
 			MessageEligible: events.NewEvent(MessageIDCaller),
@@ -72,6 +71,7 @@ func New(options ...Option) (tangle *Tangle) {
 	}
 
 	tangle.Configure(options...)
+
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
@@ -82,10 +82,9 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.ConsensusManager = NewConsensusManager(tangle)
-
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Orderer = NewOrderer(tangle)
 

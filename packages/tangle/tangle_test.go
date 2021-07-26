@@ -37,7 +37,9 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 
 	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 		return []MessageID{EmptyMessageID}, nil
-	}))
+	}), func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+		return []MessageID{}, nil
+	})
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
@@ -69,7 +71,9 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
 		return []MessageID{EmptyMessageID}, nil
-	}))
+	}), func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+		return []MessageID{}, nil
+	})
 
 	messages := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {
@@ -246,6 +250,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 			}
 			return parents, nil
 		}),
+		func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+			return []MessageID{}, nil
+		},
 	)
 
 	// create a helper function that creates the messages
@@ -399,6 +406,9 @@ func TestTangle_Flow(t *testing.T) {
 			}
 			return parents, nil
 		}),
+		func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+			return []MessageID{}, nil
+		},
 	)
 
 	// PoW workers
