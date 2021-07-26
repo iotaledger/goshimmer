@@ -47,15 +47,15 @@ GoShimmer's modularity is based on a combination of [event-driven](https://goshi
 
 You can use the Go client-library to interact with GoShimmer (located under `github.com/iotaledger/goshimmer/client`).
 
-You can find more info about this on our [client-lib](https://goshimmer.docs.iota.org/docs/apis/api) and [Web API](https://goshimmer.docs.iota.org/docs/apis/api) documentation.
+You can find more info about this on our [client-lib](https://goshimmer.docs.iota.org/docs/apis/api) and [Web API](https://goshimmer.docs.iota.org/docs/apis/webAPI) documentation.
 
 ## Getting started
 
-You can find tutorials on how to [setup a GoShimmer node](https://goshimmer.docs.iota.org/docs/tutorials/setup), [writing a dApp](https://goshimmer.docs.iota.org/docs/tutorials/dApp), [obtaining tokens from the faucet](docs/tutorials/obtain_tokens) and more in the [GoShimmer documentation](https://goshimmer.docs.iota.org/).
+You can find tutorials on how to [setup a GoShimmer node](https://goshimmer.docs.iota.org/docs/tutorials/setup), [writing a dApp](https://goshimmer.docs.iota.org/docs/tutorials/dApp), [obtaining tokens from the faucet](https://goshimmer.docs.iota.org/docs/tutorials/obtain_tokens) and more in the [GoShimmer documentation](https://goshimmer.docs.iota.org/).
 
 ### Compiling from source
 
-We always recommend running your node via [Docker](http://localhost:3000/docs/tutorials/setup). However, you can also compile the source and run the node from the compiled binary. GoShimmer uses [RocksDB](https://github.com/linxGnu/grocksdb) as its underlying db engine. That requires a few dependencies before building the project: 
+We always recommend running your node via [Docker](https://goshimmer.docs.iota.org/docs/tutorials/setup). However, you can also compile the source and run the node from the compiled binary. GoShimmer uses [RocksDB](https://github.com/linxGnu/grocksdb) as its underlying db engine. That requires a few dependencies before building the project: 
 - librocksdb
 - libsnappy
 - libz
