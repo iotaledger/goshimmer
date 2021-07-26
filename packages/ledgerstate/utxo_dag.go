@@ -136,6 +136,9 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	if !UnlockBlocksValid(consumedOutputs, transaction) {
 		return errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 	}
+	if !AliasInitialStateValid(consumedOutputs, transaction) {
+		return errors.Errorf("initial state of created alias output is invalid: %w", ErrTransactionInvalid)
+	}
 
 	return nil
 }
