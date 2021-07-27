@@ -40,11 +40,11 @@ const (
 	// MaxParentsCount defines the maximum number of parents each parents block must have.
 	MaxParentsCount = 8
 
-	// defines the minimum number of parents each parents block must have.
+	// MinParentsBlocksCount defines the minimum number of parents each parents block must have.
 	MinParentsBlocksCount = 1
 
-	// defines the maximum number of parents each parents block must have.
-	MaxParentsBlocksCount = 4
+	// MaxParentsBlocksCount defines the maximum number of parents each parents block must have.
+	MaxParentsBlocksCount = 8
 
 	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
 	MinStrongParentsCount = 1
@@ -129,6 +129,13 @@ func (id MessageID) Bytes() []byte {
 // Base58 returns a base58 encoded version of the MessageID.
 func (id MessageID) Base58() string {
 	return base58.Encode(id[:])
+}
+
+// CompareTo does a lexicographical comparison to another messageID.
+// Returns 0 if equal, -1 if smaller, or 1 if larger than other.
+// Passing nil to other will result in an exception
+func (id MessageID) CompareTo(other MessageID) int {
+	return bytes.Compare(id.Bytes(), other.Bytes())
 }
 
 // String returns a human readable representation of the MessageID.

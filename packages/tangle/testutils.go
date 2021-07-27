@@ -515,6 +515,13 @@ func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakPa
 	return NewMessage(strongParents, weakParents, nil, nil, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
 
+func newDataMessageNoValidation(parentsBlockCount uint8, parentsBlocks []ParentsBlock) *Message {
+	return &Message{
+		parentsBlocksCount: parentsBlockCount,
+		parentsBlocks:      parentsBlocks,
+	}
+}
+
 type wallet struct {
 	keyPair ed25519.KeyPair
 	address *ledgerstate.ED25519Address

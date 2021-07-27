@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/types"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
@@ -49,6 +51,7 @@ func NewParser() (result *Parser) {
 
 	// add builtin filters
 	result.AddBytesFilter(NewRecentlySeenBytesFilter())
+	result.AddMessageFilter(NewMessageSyntacticalValidator())
 	result.AddMessageFilter(NewMessageSignatureFilter())
 	result.AddMessageFilter(NewTransactionFilter())
 	return
@@ -246,6 +249,157 @@ type MessageFilter interface {
 	OnAccept(callback func(msg *Message, peer *peer.Peer))
 	// OnAccept registers the given callback as the rejection function of the filter.
 	OnReject(callback func(msg *Message, err error, peer *peer.Peer))
+}
+
+/**
+Syntactical checks for a message
+*/
+type MessageSyntacticalValidator struct {
+	onAcceptCallback func(msg *Message, peer *peer.Peer)
+	onRejectCallback func(msg *Message, err error, peer *peer.Peer)
+
+	onAcceptCallbackMutex sync.RWMutex
+	onRejectCallbackMutex sync.RWMutex
+}
+
+func NewMessageSyntacticalValidator() *MessageSyntacticalValidator {
+	return &MessageSyntacticalValidator{}
+}
+
+/**
+Performs ths following syntactical checks:
+1. A Strong Parents Block must exist.
+2. Parents Block types cannot repeat.
+3. Parent count per block 0 <= x <= 8.
+4. Parents unique within block.
+5. Parents lexicographically sorted within block.
+6. ParentsBlockCount must match blocks actually parsed.
+7. ParentsCount within each block must match the parents actually parsed within the block.
+8. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents
+8. Blocks should be ordered by type in ascending order
+**/
+func (f *MessageSyntacticalValidator) Filter(msg *Message, peer *peer.Peer) {
+	// A strong Block must exist
+	if len(msg.ParentsByType(StrongParentType)) == 0 {
+		f.onRejectCallback(msg, ErrNoStrongParents, peer)
+		return
+	}
+
+	// validate block count
+	if int(msg.parentsBlocksCount) != len(msg.parentsBlocks) {
+		f.onRejectCallback(msg, ErrBlockCountMismatch, peer)
+		return
+	}
+
+	if !f.validateUniqueness(msg, peer) {
+		return
+	}
+
+	// Parent count per block 0 <= x <= 8
+	for _, block := range msg.parentsBlocks {
+		if block.ParentsCount < MinParentsCount || block.ParentsCount > MaxParentsCount {
+			f.onRejectCallback(msg, ErrParentsOutOfRange, peer)
+			return
+		}
+		if len(block.References) != int(block.ParentsCount) {
+			f.onRejectCallback(msg, ErrParentsCountMismatch, peer)
+			return
+		}
+	}
+
+	// Block types must be ordered in ASC order
+	for i := 0; i < len(msg.parentsBlocks)-1; i++ {
+		if msg.parentsBlocks[i].ParentsType > msg.parentsBlocks[i+1].ParentsType {
+			f.onRejectCallback(msg, ErrBlocksNotOrderedByType, peer)
+			return
+		}
+	}
+
+	// Parents lexicographically ordered within blocks
+	for _, block := range msg.parentsBlocks {
+		for i := 0; i < len(block.References)-1; i++ {
+			if block.References[i].CompareTo(block.References[i+1]) != -1 {
+				f.onRejectCallback(msg, ErrParentsNotLexicographicallyOrdered, peer)
+				return
+			}
+		}
+	}
+
+	f.onAcceptCallback(msg, peer)
+}
+
+/**
+Validates:
+1. Block Types don't repeat themselves
+2. MessageIDs don't repeat themselves in a block
+3. MessageIDS don't repeat across blocks, except for Strong and Liked parents
+*/
+func (f *MessageSyntacticalValidator) validateUniqueness(msg *Message, peer *peer.Peer) bool {
+	// maps block type to the messageIDs it contains
+	blockMap := make(map[ParentsType]map[MessageID]types.Empty, 4)
+	for _, block := range msg.parentsBlocks {
+		_, exists := blockMap[block.ParentsType]
+		if !exists {
+			blockMap[block.ParentsType] = make(map[MessageID]types.Empty, 8)
+		} else { // Block types must not repeat
+			f.onRejectCallback(msg, ErrRepeatingBlockTypes, peer)
+			return false
+		}
+		// Each block's parents must be unique
+		parentMap := blockMap[block.ParentsType]
+		for _, parent := range block.References {
+			_, exists := parentMap[parent]
+			if !exists {
+				parentMap[parent] = types.Void
+			} else {
+				f.onRejectCallback(msg, ErrRepeatingReferencesInBlock, peer)
+				return false
+			}
+		}
+	}
+
+	return f.validateUniquenessAcrossBlocks(msg, peer, blockMap)
+}
+
+// validate messagesIDs are unique across blocks
+func (f *MessageSyntacticalValidator) validateUniquenessAcrossBlocks(msg *Message, peer *peer.Peer,
+	blockMap map[ParentsType]map[MessageID]types.Empty) bool {
+	combinedMessageMap := make(map[MessageID]types.Empty, 4*8)
+	// combine strong parent and like parents
+	for parent := range blockMap[StrongParentType] {
+		combinedMessageMap[parent] = types.Void
+	}
+	for parent := range blockMap[LikeParentType] {
+		combinedMessageMap[parent] = types.Void
+	}
+	// Strong and like parents may have repetitions
+	expectedNumOfReferences := len(combinedMessageMap) + len(blockMap[WeakParentType]) + len(blockMap[DislikeParentType])
+	for parent := range blockMap[WeakParentType] {
+		combinedMessageMap[parent] = types.Void
+	}
+	for parent := range blockMap[DislikeParentType] {
+		combinedMessageMap[parent] = types.Void
+	}
+	if len(combinedMessageMap) != expectedNumOfReferences {
+		f.onRejectCallback(msg, ErrRepeatingMessagesAcrossBlocks, peer)
+		return false
+	}
+
+	return true
+}
+
+// OnAccept registers the given callback as the acceptance function of the filter.
+func (f *MessageSyntacticalValidator) OnAccept(callback func(msg *Message, peer *peer.Peer)) {
+	f.onAcceptCallbackMutex.Lock()
+	f.onAcceptCallback = callback
+	f.onAcceptCallbackMutex.Unlock()
+}
+
+// OnReject registers the given callback as the rejection function of the filter.
+func (f *MessageSyntacticalValidator) OnReject(callback func(msg *Message, err error, peer *peer.Peer)) {
+	f.onRejectCallbackMutex.Lock()
+	f.onRejectCallback = callback
+	f.onRejectCallbackMutex.Unlock()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -533,6 +687,34 @@ var (
 
 	// ErrInvalidMessageAndTransactionTimestamp is returned when the message its transaction timestamps are invalid.
 	ErrInvalidMessageAndTransactionTimestamp = fmt.Errorf("invalid message and transaction timestamp")
+
+	// ErrNoStrongParents is returned when strong blocks are missing in messages
+	ErrNoStrongParents = errors.New("Missing strong messages in block")
+
+	// ErrBlockCountMismatch is returned when the number of blocks in the message doesn't match the block count
+	ErrBlockCountMismatch = errors.New("Number of blocks in a message doesn't match block count")
+
+	// ErrBlocksNotOrderedByType is returned when the blocks in the message aren't ordered by type
+	ErrBlocksNotOrderedByType = errors.New("Blocks should be ordered in ascending order according to their type")
+
+	// ErrParentsCountMismatch is returned when the number of parents in a block doesn't match the block count
+	ErrParentsCountMismatch = errors.New("Number of parents in a message doesn't match parent count")
+
+	// ErrParentsOutOfRange is returned when the number of parents in a block is too high or low
+	ErrParentsOutOfRange = errors.New(fmt.Sprintf("There must be at least %d parents and max %d parents within a block",
+		MinParentsCount, MaxParentsCount))
+
+	// ErrParentsNotLexicographicallyOrdered is returned when the messages within a block are not lexicographically sorted
+	ErrParentsNotLexicographicallyOrdered = errors.New("Messages within blocks must be lexicographically ordered")
+
+	// ErrRepeatingBlockTypes is returned when the same block type appears more than once in a message
+	ErrRepeatingBlockTypes = errors.New("Block types within a message must not repeat")
+
+	// ErrRepeatingReferencesInBlock is returned when a parent appears more than once in a block
+	ErrRepeatingReferencesInBlock = errors.New("Duplicate parents in a message block")
+
+	// ErrRepeatingMessagesAcrossBlocks is returned when a parent appears more than once across blocks
+	ErrRepeatingMessagesAcrossBlocks = errors.New("Different blocks have repeating messages")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
