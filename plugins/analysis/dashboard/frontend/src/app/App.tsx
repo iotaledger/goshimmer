@@ -6,8 +6,6 @@ import { Link, Redirect, Route, Switch } from "react-router-dom";
 import "./App.scss";
 import { AppProps } from "./AppProps";
 import Autopeering from "./components/Autopeering/Autopeering";
-import Conflict from "./components/FPC/Conflict";
-import FPC from "./components/FPC/FPC";
 import Mana from "./components/Mana/Mana";
 
 @inject("autopeeringStore")
@@ -34,9 +32,6 @@ class App extends React.Component<AppProps, unknown> {
                         <Link to="/autopeering">
                             Autopeering
                         </Link>
-                        <Link to="/consensus">
-                            Consensus
-                        </Link>
                         <Link to="/mana">
                             Mana
                         </Link>
@@ -44,8 +39,6 @@ class App extends React.Component<AppProps, unknown> {
                 </header>
                 <Switch>
                     <Route path="/autopeering" component={Autopeering} />
-                    <Route exact path="/consensus" component={FPC} />
-                    <Route path="/consensus/conflict/:id" component={Conflict} />
                     <Route path="/mana" component={Mana} />
                     <Redirect to="/autopeering" />
                 </Switch>
