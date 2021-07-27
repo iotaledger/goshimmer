@@ -250,16 +250,16 @@ When you install Grafana from
 * [YUM repository](https://grafana.com/docs/grafana/latest/installation/rpm/#install-from-yum-repository) or `.rpm` [package](https://grafana.com/docs/grafana/latest/installation/rpm/#install-with-rpm) (CentOS, Fedora, OpenSuse, RedHat),
 
 then Grafana is configured to run as a system service without any modification. All you need to do is copy config files from the GoShimmer repository:
-1. Copy [datasource yaml config](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/provisioning/datasources/datasources.yaml) to `/etc/grafana`:
+1. Copy [datasource yaml config](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/provisioning/datasources/datasources.yaml) to `/etc/grafana`:
    (assuming you are at the root of the cloned GoShimmer repository)
    ```
    $ sudo cp tools/monitoring/grafana/provisioning/datasources/datasources.yaml /etc/grafana/provisioning/datasources
    ```
-2. Copy [dashboard yaml config](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml) to `/etc/grafana`:
+2. Copy [dashboard yaml config](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/provisioning/dashboards/dashboards.yaml) to `/etc/grafana`:
    ```
    $ sudo cp tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards
    ```
-3. Copy [GoShimmer Local Metrics](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) dashboard to `/var/lib/grafana/`:
+3. Copy [GoShimmer Local Metrics](https://github.com/iotaledger/goshimmer/blob/develop/deploy/ansible/roles/metrics/files/grafana/provisioning/dashboards/local_dashboard.json) dashboard to `/var/lib/grafana/`:
    ```
    $ sudo cp -R tools/monitoring/grafana/dashboards /var/lib/grafana/
    ```
@@ -287,5 +287,5 @@ If you successfully installed Grafana and would like to set it up using its grap
    - `Scrape interval`: 5s
 5. Click on **Save & Test**. If you have a running Prometheus server, everything should turn green. If the URL can't be reached, try changing the **Access** field to `Browser`.
 6. On the left side panel, click on **Dashboards -> Manage**.
-7. Click on **Import**. Paste the content of [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) in the **Import via panel json**, or download the life and use the **Upload .json file** option.
+7. Click on **Import**. Paste the content of [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/develop/deploy/ansible/roles/metrics/files/grafana/provisioning/dashboards/local_dashboard.json) in the **Import via panel json**, or download the life and use the **Upload .json file** option.
 8. Now you can open **GoShimmer Local Metrics** dashboard under **Dashboards**. Don't forget to start your node and run Prometheus!

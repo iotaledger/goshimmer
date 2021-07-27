@@ -20,7 +20,7 @@ We have released GoShimmer v0.7.4:
 - Update snapshot file with DevNet UTXO at 2021-07-08 07:09 UTC
 
 :::warning
-Breaking changes: You must update your GoShimmer installation if you want to keep participating in the network. Follow the steps in the [official documentation](http://goshimmer.docs.iota.org/tutorials/setup.html#managing-the-goshimmer-node-lifecycle) to upgrade your node. 
+Breaking changes: You must update your GoShimmer installation if you want to keep participating in the network. Follow the steps in the [official documentation](https://goshimmer.docs.iota.org/docs/tutorials/setup#managing-the-goshimmer-node-lifecycle) to upgrade your node. 
 :::
 
 For those compiling from source, make sure to download the latest snapshot that we have updated. You can find more info on how to do that in the README.
