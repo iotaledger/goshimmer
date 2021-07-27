@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
@@ -170,36 +169,6 @@ func registerLocalMetrics() {
 		increasePerComponentCounter(Booker)
 	}))
 
-	// // Value payload attached
-	// valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
-	// 	cachedPayloadEvent.Payload.Release()
-	// 	cachedPayloadEvent.PayloadMetadata.Release()
-	// 	valueTransactionCounter.Inc()
-	// }))
-
-	// FPC round executed
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		processRoundStats(roundStats)
-	}))
-
-	// a conflict has been finalized
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		processFinalized(ev.Ctx)
-	}))
-
-	// consensus failure in conflict resolution
-	messagelayer.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		processFailed(ev.Ctx)
-	}))
-
-	//// Events coming from metrics package ////
-
-	metrics.Events().FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		_FPCInboundBytes.Add(amountBytes)
-	}))
-	metrics.Events().FPCOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		_FPCOutboundBytes.Add(amountBytes)
-	}))
 	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
 		analysisOutboundBytes.Add(amountBytes)
 	}))

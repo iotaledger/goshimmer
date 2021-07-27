@@ -83,7 +83,6 @@ func PeerConfig() config.GoShimmer {
 	c.Autopeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
-	c.MessageLayer.FCOB.QuarantineTime = 2
 	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed))
 	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
 
@@ -95,11 +94,6 @@ func PeerConfig() config.GoShimmer {
 	c.Mana.Enabled = true
 
 	c.Consensus.Enabled = false
-
-	c.FPC.Enabled = true
-	c.FPC.BindAddress = fmt.Sprintf(":%d", fpcPort)
-	c.FPC.RoundInterval = 5
-	c.FPC.TotalRoundsFinalization = 10
 
 	c.Activity.Enabled = false
 	c.BroadcastIntervalSec = 1 // increase frequency to speedup tests
@@ -120,7 +114,6 @@ func EntryNodeConfig() config.GoShimmer {
 	c.Faucet.Enabled = false
 	c.Mana.Enabled = false
 	c.Consensus.Enabled = false
-	c.FPC.Enabled = false
 	c.Activity.Enabled = false
 	c.DRNG.Enabled = false
 

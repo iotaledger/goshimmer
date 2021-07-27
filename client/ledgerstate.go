@@ -158,17 +158,6 @@ func (api *GoShimmerAPI) GetTransactionInclusionState(base58EncodedTransactionID
 	return res, nil
 }
 
-// GetTransactionConsensusMetadata gets the consensus metadata of the transaction corresponding to TransactionID.
-func (api *GoShimmerAPI) GetTransactionConsensusMetadata(base58EncodedTransactionID string) (*jsonmodels.TransactionConsensusMetadata, error) {
-	res := &jsonmodels.TransactionConsensusMetadata{}
-	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathConsensus}, "")
-	}(), nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 // GetTransactionAttachments gets the attachments (messageIDs) of the transaction corresponding to TransactionID.
 func (api *GoShimmerAPI) GetTransactionAttachments(base58EncodedTransactionID string) (*jsonmodels.GetTransactionAttachmentsResponse, error) {
 	res := &jsonmodels.GetTransactionAttachmentsResponse{}

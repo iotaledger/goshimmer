@@ -1,9 +1,5 @@
 package jsonmodels
 
-import (
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
-)
-
 // region Message ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Message represents the JSON model of a tangle.Message.
@@ -42,36 +38,6 @@ type MessageMetadata struct {
 	Invalid            bool              `json:"invalid"`
 	Finalized          bool              `json:"finalized"`
 	FinalizedTime      int64             `json:"finalizedTime"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MessageConsensusMetadata /////////////////////////////////////////////////////////////////////////////////////
-
-// MessageConsensusMetadata represents the JSON model of a tangle.Message's consensus metadata.
-type MessageConsensusMetadata struct {
-	ID                      string `json:"id"`
-	OpinionFormedTime       int64  `json:"opinionFormedTime"`
-	PayloadOpinionFormed    bool   `json:"payloadOpinionFormed"`
-	TimestampOpinionFormed  bool   `json:"timestampOpinionFormed"`
-	MessageOpinionFormed    bool   `json:"messageOpinionFormed"`
-	MessageOpinionTriggered bool   `json:"messageOpinionTriggered"`
-	TimestampOpinion        string `json:"timestampOpinion"`
-	TimestampLoK            string `json:"timestampLoK"`
-}
-
-// NewMessageConsensusMetadata returns MessageConsensusMetadata from the given tangle.MessageMetadata.
-func NewMessageConsensusMetadata(metadata *fcob.MessageMetadata, timestampOpinion *fcob.TimestampOpinion) MessageConsensusMetadata {
-	return MessageConsensusMetadata{
-		ID:                      metadata.ID().String(),
-		OpinionFormedTime:       metadata.OpinionFormedTime().Unix(),
-		PayloadOpinionFormed:    metadata.PayloadOpinionFormed(),
-		TimestampOpinionFormed:  metadata.TimestampOpinionFormed(),
-		MessageOpinionFormed:    metadata.MessageOpinionFormed(),
-		MessageOpinionTriggered: metadata.MessageOpinionTriggered(),
-		TimestampOpinion:        timestampOpinion.Value.String(),
-		TimestampLoK:            timestampOpinion.LoK.String(),
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

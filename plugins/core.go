@@ -45,7 +45,6 @@ var Core = node.Plugins(
 	manualpeering.Plugin(),
 	drng.Plugin(),
 	faucet.Plugin(),
-	messagelayer.ConsensusPlugin(),
 	metrics.Plugin(),
 	spammer.Plugin(),
 	manaeventlogger.Plugin(),
