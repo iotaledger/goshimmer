@@ -42,7 +42,7 @@ func (n *DRNGNetwork) CreateMember(ctx context.Context, leader bool) (*Drand, er
 	if err != nil {
 		return nil, err
 	}
-	err = container.ConnectToNetwork(ctx, n.Network.id)
+	err = container.ConnectToNetwork(ctx, n.Network.Id)
 	if err != nil {
 		return nil, err
 	}
