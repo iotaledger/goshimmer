@@ -79,7 +79,6 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):     {},
 			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):  {},
 			nat.Port(fmt.Sprintf("%d/udp", peeringPort)): {},
-			nat.Port(fmt.Sprintf("%d/tcp", fpcPort)):     {},
 		},
 		Cmd: cmd,
 	}

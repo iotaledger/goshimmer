@@ -3,19 +3,11 @@ package prometheus
 import (
 	"strconv"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/prometheus/client_golang/prometheus"
 
-	metricspkg "github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-)
-
-const (
-	like    = "LIKE"
-	dislike = "DISLIKE"
 )
 
 // These metrics store information collected via the analysis server.
@@ -27,38 +19,7 @@ var (
 	// Autopeering related metrics.
 	nodesNeighborCount *prometheus.GaugeVec
 	networkDiameter    prometheus.Gauge
-
-	// FPC related metrics.
-	conflictCount              *prometheus.GaugeVec
-	conflictFinalizationRounds *prometheus.GaugeVec
-	conflictOutcome            *prometheus.GaugeVec
-	conflictInitialOpinion     *prometheus.GaugeVec
 )
-
-var onFPCFinalized = events.NewClosure(func(ev *metricspkg.AnalysisFPCFinalizedEvent) {
-	conflictCount.WithLabelValues(
-		ev.NodeID,
-	).Add(1)
-
-	conflictFinalizationRounds.WithLabelValues(
-		ev.ConflictID,
-		ev.NodeID,
-	).Set(float64(ev.Rounds + 1))
-
-	conflictOutcome.WithLabelValues(
-		ev.ConflictID,
-		ev.NodeID,
-		opinionToString(ev.Outcome),
-	).Set(1)
-
-	if len(ev.Opinions) > 0 {
-		conflictInitialOpinion.WithLabelValues(
-			ev.ConflictID,
-			ev.NodeID,
-			opinionToString(ev.Opinions[0]),
-		).Set(1)
-	}
-})
 
 func registerClientsMetrics() {
 	nodesInfoCPU = prometheus.NewGaugeVec(
@@ -103,62 +64,10 @@ func registerClientsMetrics() {
 		Help: "Autopeering network diameter",
 	})
 
-	conflictCount = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "global_conflict_count",
-			Help: "Conflicts count labeled with nodeID",
-		},
-		[]string{
-			"nodeID",
-		},
-	)
-
-	conflictFinalizationRounds = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "global_conflict_finalization_rounds",
-			Help: "Number of rounds to finalize a given conflict labeled with conflictID and nodeID",
-		},
-		[]string{
-			"conflictID",
-			"nodeID",
-		},
-	)
-
-	conflictInitialOpinion = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "global_conflict_initial_opinion",
-			Help: "Initial opinion of a given conflict labeled with conflictID, nodeID and opinion",
-		},
-		[]string{
-			"conflictID",
-			"nodeID",
-			"opinion",
-		},
-	)
-
-	conflictOutcome = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "global_conflict_outcome",
-			Help: "Outcome of a given conflict labeled with conflictID, nodeID and opinion",
-		},
-		[]string{
-			"conflictID",
-			"nodeID",
-			"opinion",
-		},
-	)
-
 	registry.MustRegister(nodesInfoCPU)
 	registry.MustRegister(nodesInfoMemory)
 	registry.MustRegister(nodesNeighborCount)
 	registry.MustRegister(networkDiameter)
-
-	registry.MustRegister(conflictCount)
-	registry.MustRegister(conflictFinalizationRounds)
-	registry.MustRegister(conflictInitialOpinion)
-	registry.MustRegister(conflictOutcome)
-
-	metricspkg.Events().AnalysisFPCFinalized.Attach(onFPCFinalized)
 
 	addCollect(collectNodesInfo)
 }
@@ -191,11 +100,4 @@ func collectNodesInfo() {
 	}
 
 	networkDiameter.Set(float64(metrics.NetworkDiameter()))
-}
-
-func opinionToString(o opinion.Opinion) string {
-	if o == opinion.Like {
-		return like
-	}
-	return dislike
 }

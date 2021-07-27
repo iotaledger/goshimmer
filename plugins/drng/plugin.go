@@ -75,7 +75,7 @@ func run(*node.Plugin) {
 		}
 
 		plugin.LogInfof("Stopping %s ... done", "dRNG-plugin")
-	}, shutdown.PriorityFPC); err != nil {
+	}, shutdown.PriorityDRNG); err != nil {
 		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }

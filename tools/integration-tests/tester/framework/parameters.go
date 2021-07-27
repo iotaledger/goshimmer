@@ -13,7 +13,6 @@ const (
 	apiPort     = 8080
 	gossipPort  = 14666
 	peeringPort = 14626
-	fpcPort     = 10895
 
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
@@ -52,8 +51,6 @@ type CreateNetworkConfig struct {
 	Faucet bool
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
 	Activity bool
-	// FPC specified whether FPC is enabled.
-	FPC bool
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.

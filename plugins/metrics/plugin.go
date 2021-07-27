@@ -192,13 +192,6 @@ func registerLocalMetrics() {
 		messageTips.Store(tipsCount)
 	}))
 
-	metrics.Events().QueryReceived.Attach(events.NewClosure(func(ev *metrics.QueryReceivedEvent) {
-		processQueryReceived(ev)
-	}))
-	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
-		processQueryReplyError(ev)
-	}))
-
 	// mana pledge events
 	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)

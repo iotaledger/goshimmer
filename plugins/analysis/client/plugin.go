@@ -20,8 +20,6 @@ const (
 	CfgServerAddress = "analysis.client.serverAddress"
 	// defines the report interval of the reporting in seconds.
 	reportIntervalSec = 5
-	// voteContextChunkThreshold defines the maximum number of vote context to fit into an FPC update.
-	voteContextChunkThreshold = 50
 )
 
 func init() {

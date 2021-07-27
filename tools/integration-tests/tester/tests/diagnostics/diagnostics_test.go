@@ -26,18 +26,18 @@ var (
 
 	branchesHeader = []string{
 		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "OpinionFormedTime", "Liked",
-		"MonotonicallyLiked", "InclusionState", "Finalized", "LazyBooked", "TransactionLiked",
+		"MonotonicallyLiked", "InclusionState", "Finalized", "LazyBooked",
 	}
 
 	utxoDagHeader = []string{
-		"ID", "IssuanceTime", "SolidTime", "OpinionFormedTime", "AccessManaPledgeID",
+		"ID", "IssuanceTime", "SolidTime", "AccessManaPledgeID",
 		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "BranchLiked", "BranchMonotonicallyLiked",
-		"Conflicting", "InclusionState", "Finalized", "LazyBooked", "Liked", "LoK", "FCOB1Time", "FCOB2Time",
+		"Conflicting", "InclusionState", "Finalized", "LazyBooked",
 	}
 
 	drngHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
-		"ScheduledTime", "BookedTime", "OpinionFormedTime", "dRNGPayloadType", "InstanceID", "Round",
+		"ScheduledTime", "BookedTime", "dRNGPayloadType", "InstanceID", "Round",
 		"PreviousSignature", "Signature", "DistributedPK",
 	}
 )

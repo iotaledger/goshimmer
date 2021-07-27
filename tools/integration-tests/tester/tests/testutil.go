@@ -406,15 +406,12 @@ func inclusionStateEqual(t *testing.T, node *framework.Node, txID string, expInc
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionInclusionState' failed")
 	metadata, err := node.GetTransactionMetadata(txID)
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
-	consensusData, err := node.GetTransactionConsensusMetadata(txID)
-	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionConsensusMetadata' failed")
 
 	if (expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed) ||
 		(expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized) ||
 		(expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting) ||
 		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) ||
-		(expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected) ||
-		(expInclState.Liked != nil && *expInclState.Liked != consensusData.Liked) {
+		(expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected) {
 		return false
 	}
 	return true
