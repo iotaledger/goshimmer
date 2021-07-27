@@ -15,7 +15,6 @@ const (
 	peeringPort = 14626
 	fpcPort     = 10895
 
-	containerNameTester      = "/tester"
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
 	containerNameDrand       = "drand_"
@@ -60,6 +59,8 @@ type CreateNetworkConfig struct {
 // PeerConfig specifies the default config of a standard GoShimmer peer.
 func PeerConfig() config.GoShimmer {
 	c := config.NewGoShimmer()
+
+	c.Image = "iotaledger/goshimmer"
 
 	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
 
