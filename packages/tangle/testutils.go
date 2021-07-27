@@ -645,12 +645,24 @@ func NewTestTangle(options ...Option) *Tangle {
 }
 
 type SimpleMockOnTangleVoting struct {
+	disliked     ledgerstate.BranchIDs
+	likedInstead map[ledgerstate.BranchID][]consensus.OpinionTuple
 }
 
 func (o *SimpleMockOnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
+	liked = ledgerstate.BranchIDs{}
+	disliked = ledgerstate.BranchIDs{}
+	for branchID, _ := range branchIDs {
+		if o.disliked.Contains(branchID) {
+			disliked.Add(branchID)
+		} else {
+			liked.Add(branchID)
+		}
+	}
 	return
 }
 
 func (o *SimpleMockOnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
+	opinionTuple = o.likedInstead[branchID]
 	return
 }

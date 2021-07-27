@@ -301,17 +301,19 @@ func PrepareLikeReferences(parents MessageIDs, tangle *Tangle) (MessageIDs, erro
 
 		branchIDs.Add(branchID)
 	}
-	// FIXME: replace with actual implementation
 	_, dislikedBranches, err := tangle.OTVConsensusManager.Opinion(branchIDs)
 	if err != nil {
 		err = errors.Errorf("opinions could not be retrieved: %w", err)
 		return nil, err
 	}
+
+	fmt.Println(dislikedBranches)
 	likeReferencesMap := make(map[MessageID]types.Empty)
 	likeReferences := MessageIDs{}
-	// TODO: ask jonas why multiple tuples are returned
+
 	for dislikedBranch := range dislikedBranches {
 		likedInstead, err := tangle.OTVConsensusManager.LikedInstead(dislikedBranch)
+		fmt.Println(likedInstead)
 		if err != nil {
 			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
 			return nil, err
@@ -320,18 +322,22 @@ func PrepareLikeReferences(parents MessageIDs, tangle *Tangle) (MessageIDs, erro
 		for _, likeRef := range likedInstead {
 
 			transactionID := likeRef.Liked.TransactionID()
+			fmt.Println(transactionID)
 			// TODO: replace with oldest instead of newest
 			latestAttachmentTime := time.Unix(0, 0)
 			latestAttachmentMessageID := MessageID{}
-			// TODO: which message should we select? is selecting latest message correct?
 			tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+				fmt.Println("ATTACHEMENT")
 				tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+					fmt.Println(message.ID())
 					if message.IssuingTime().After(latestAttachmentTime) {
 						latestAttachmentTime = message.IssuingTime()
 						latestAttachmentMessageID = message.ID()
+						fmt.Println(message.ID())
 					}
 				})
 			})
+			fmt.Println("SET")
 			// TODO: should we check max parent age in like reference parent? what if original message is older than maxparent age even though the branch still exists (parasite chain attack?)
 			// add like reference to a message only once if it appears in multiple conflict sets
 			if _, ok := likeReferencesMap[latestAttachmentMessageID]; !ok {

@@ -3,6 +3,9 @@ package tangle
 import (
 	"context"
 	"crypto/ed25519"
+	"fmt"
+	"github.com/iotaledger/goshimmer/packages/consensus"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -157,38 +160,136 @@ func TestMessageFactory_POW(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestWorkerFunc_PayloadSize(t *testing.T) {
-	// TODO
-	/*
-		testTangle := newTestTangle()
-		defer testTangle.Shutdown()
+func TestMessageFactory_PrepareLikedReferences(t *testing.T) {
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
+	tangle.Booker.Setup()
 
-		msgFactory := NewMessageFactory(
-			testTangle,
-			TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-				result := make(MessageIDs, 0, MaxParentsCount)
-				for i := 0; i < MaxParentsCount; i++ {
-					b := make([]byte, MessageIDLength)
-					_, _ = rand.Read(b)
-					randID, _, _ := MessageIDFromBytes(b)
-					result = append(result, randID)
-				}
-				return result, MessageIDs{}, nil
-			}),
-		)
-		defer msgFactory.Shutdown()
+	// TODO add (mocked?) otv mechanism
 
-		// issue message with max allowed payload size
-		// dataPayload headers: type|32bit + size|32bit
-		data := make([]byte, payload.MaxSize-4-4)
-		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload(data))
-		require.NoError(t, err)
-		assert.Truef(t, MaxMessageSize == len(msg.Bytes()), "message size should be exactly %d bytes but is %d", MaxMessageSize, len(msg.Bytes()))
+	wallets := make(map[string]wallet)
+	walletsByAddress := make(map[ledgerstate.Address]wallet)
+	w := createWallets(6)
+	wallets["GENESIS"] = w[0]
+	wallets["O1"] = w[1]
+	wallets["O2"] = w[2]
+	wallets["O3"] = w[3]
+	wallets["O4"] = w[4]
+	wallets["O5"] = w[5]
 
-		// issue message bigger than max allowed payload size
-		data = make([]byte, payload.MaxSize)
-		msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload(data))
-		require.Error(t, err)
-		assert.Nil(t, msg)
-	*/
+	for _, wallet := range wallets {
+		walletsByAddress[wallet.address] = wallet
+	}
+
+	genesisBalance := ledgerstate.NewColoredBalances(
+		map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 5,
+		})
+
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+	fmt.Println(genesisTransaction.ID())
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
+		},
+	}
+
+	tangle.LedgerState.LoadSnapshot(snapshot)
+
+	messages := make(map[string]*Message)
+	transactions := make(map[string]*ledgerstate.Transaction)
+	branches := make(map[string]ledgerstate.BranchID)
+	inputs := make(map[string]*ledgerstate.UTXOInput)
+	outputs := make(map[string]*ledgerstate.SigLockedSingleOutput)
+	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
+
+	// Message 1
+	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
+	outputs["O1"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["O1"].address)
+	outputs["O2"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["O2"].address)
+
+	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["O1"], outputs["O2"]), outputsByID, walletsByAddress, wallets["GENESIS"])
+	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
+	tangle.Storage.StoreMessage(messages["1"])
+
+	err := tangle.Booker.BookMessage(messages["1"].ID())
+	require.NoError(t, err)
+
+	// Message 2
+	inputs["O1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["O1"])))
+	outputsByID[inputs["O1"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["O1"])[0]
+	outputs["O3"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["O3"].address)
+	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["O1"]), ledgerstate.NewOutputs(outputs["O3"]), outputsByID, walletsByAddress)
+	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID()}, []MessageID{})
+	tangle.Storage.StoreMessage(messages["2"])
+
+	err = tangle.Booker.BookMessage(messages["2"].ID())
+	require.NoError(t, err)
+
+	// Message 3
+	inputs["O2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["O2"])))
+	outputsByID[inputs["O2"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["O2"])[0]
+	outputs["O5"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["O5"].address)
+	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["O2"]), ledgerstate.NewOutputs(outputs["O5"]), outputsByID, walletsByAddress)
+	messages["3"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{messages["2"].ID()}, []MessageID{})
+	tangle.Storage.StoreMessage(messages["3"])
+
+	err = tangle.Booker.BookMessage(messages["3"].ID())
+	require.NoError(t, err)
+
+	// Message 4
+	outputs["O4"] = ledgerstate.NewSigLockedSingleOutput(5, wallets["O4"].address)
+	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["O2"], inputs["O1"]), ledgerstate.NewOutputs(outputs["O4"]), outputsByID, walletsByAddress)
+	messages["4"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID()}, []MessageID{})
+	tangle.Storage.StoreMessage(messages["4"])
+
+	fmt.Println("Transaction IDs:")
+	fmt.Println(genesisTransaction.ID())
+	fmt.Println(transactions["1"].ID())
+	fmt.Println(transactions["2"].ID())
+	fmt.Println(transactions["3"].ID())
+	fmt.Println(transactions["4"].ID())
+
+	err = tangle.Booker.BookMessage(messages["4"].ID())
+	require.NoError(t, err)
+
+	branches["1"], _ = transactionBranchID(tangle, transactions["1"].ID())
+	branches["2"], _ = transactionBranchID(tangle, transactions["2"].ID())
+	branches["3"], _ = transactionBranchID(tangle, transactions["3"].ID())
+	branches["4"], _ = transactionBranchID(tangle, transactions["4"].ID())
+	fmt.Println(branches)
+
+	branches["1"], _ = tangle.Booker.MessageBranchID(messages["1"].ID())
+	branches["2"], _ = tangle.Booker.MessageBranchID(messages["2"].ID())
+	branches["3"], _ = tangle.Booker.MessageBranchID(messages["3"].ID())
+	branches["4"], _ = tangle.Booker.MessageBranchID(messages["4"].ID())
+	fmt.Println(branches)
+
+	mockOTV := &SimpleMockOnTangleVoting{
+		disliked: ledgerstate.NewBranchIDs(branches["4"]),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["4"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["4"]},
+			consensus.OpinionTuple{Liked: branches["3"], Disliked: branches["4"]}}},
+	}
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
+
+	references, err := PrepareLikeReferences(MessageIDs{messages["4"].ID(), messages["3"].ID()}, tangle)
+
+	require.NoError(t, err)
+
+	assert.Contains(t, references, messages["2"].ID())
+	assert.Contains(t, references, messages["3"].ID())
+	fmt.Println(references)
 }
