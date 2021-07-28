@@ -864,7 +864,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/attachments \
 
 ## /ledgerstate/transactions
 
-Sends transaction provided in form of a binary data, validates transaction before issuing the message payload. For more detail on how to prepare transaction bytes see the [tutorial](../tutorials/send_transaction.md).
+Sends transaction provided in form of a binary data, validates transaction before issuing the message payload. For more detail on how to prepare transaction bytes see the [tutorial](../tutorials/send_transaction).
 
 ### Client lib - PostTransaction()
 
