@@ -183,8 +183,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// TODO: factor Transaction checks out because their are cheaper
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
-				messageMetadata.SetInvalid(true)
-				b.tangle.Events.MessageInvalid.Trigger(messageID)
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
 				return
 			}
