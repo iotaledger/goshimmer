@@ -2,9 +2,10 @@ package tangle
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -100,7 +101,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	}
 
 	parents, err := f.selector.Tips(p, countParents)
-
 	if err != nil {
 		err = errors.Errorf("tips could not be selected: %w", err)
 		f.Events.Error.Trigger(err)
@@ -111,7 +111,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	issuingTime := f.getIssuingTime(parents)
 
 	likeReferences, err := f.likeReferencesFunc(parents, issuingTime, f.tangle)
-
 	if err != nil {
 		err = errors.Errorf("like references could not be prepared: %w", err)
 		f.Events.Error.Trigger(err)
@@ -136,8 +135,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			}
 		}
 
-		likeReferences, err := f.likeReferencesFunc(parents, issuingTime, f.tangle)
-
+		likeReferences, err = f.likeReferencesFunc(parents, issuingTime, f.tangle)
 		if err != nil {
 			err = errors.Errorf("like references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
@@ -164,7 +162,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		parents,
 		nil,
 		nil,
-		nil,
+		likeReferences,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -199,18 +197,18 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
+	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature).Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
+	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
@@ -287,10 +285,12 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// LikeReferencesFunc is a function type that returns like references a given set of parents of a Message.
 type LikeReferencesFunc func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error)
 
+// PrepareLikeReferences is an implementation of LikeReferencesFunc.
 func PrepareLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
-	branchIDs := make(ledgerstate.BranchIDs)
+	branchIDs := ledgerstate.NewBranchIDs()
 
 	for _, parent := range parents {
 		branchID, err := tangle.Booker.MessageBranchID(parent)
@@ -316,10 +316,9 @@ func PrepareLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Ta
 		}
 
 		for _, likeRef := range likedInstead {
-
 			transactionID := likeRef.Liked.TransactionID()
 			oldestAttachmentTime := time.Unix(0, 0)
-			oldestAttachmentMessageID := MessageID{}
+			oldestAttachmentMessageID := EmptyMessageID
 			if !tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
 				tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
 					if oldestAttachmentTime.Unix() == 0 || message.IssuingTime().Before(oldestAttachmentTime) {

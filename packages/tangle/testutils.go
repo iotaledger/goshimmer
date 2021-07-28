@@ -2,10 +2,11 @@ package tangle
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/consensus"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 
@@ -545,9 +546,11 @@ func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents 
 func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
 	return NewMessage(strongParents, weakParents, nil, nil, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
+
 func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, strongParents, weakParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
 	return NewMessage(strongParents, weakParents, nil, nil, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
+
 func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
 	return NewMessage(strongParents, weakParents, nil, nil, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
@@ -680,14 +683,16 @@ func NewTestTangle(options ...Option) *Tangle {
 	return New(options...)
 }
 
+// SimpleMockOnTangleVoting is mock of OTV mechanism.
 type SimpleMockOnTangleVoting struct {
 	disliked     ledgerstate.BranchIDs
 	likedInstead map[ledgerstate.BranchID][]consensus.OpinionTuple
 }
 
+// Opinion returns liked and disliked branches as predefined.
 func (o *SimpleMockOnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
-	liked = ledgerstate.BranchIDs{}
-	disliked = ledgerstate.BranchIDs{}
+	liked = ledgerstate.NewBranchIDs()
+	disliked = ledgerstate.NewBranchIDs()
 	for branchID := range branchIDs {
 		if o.disliked.Contains(branchID) {
 			disliked.Add(branchID)
@@ -698,7 +703,12 @@ func (o *SimpleMockOnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (lik
 	return
 }
 
+// LikedInstead returns branches that are liked instead of a disliked branch as predefined.
 func (o *SimpleMockOnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
 	opinionTuple = o.likedInstead[branchID]
 	return
+}
+
+func emptyLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
+	return []MessageID{}, nil
 }

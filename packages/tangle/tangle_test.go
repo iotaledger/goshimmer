@@ -3,7 +3,6 @@ package tangle
 import (
 	"context"
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"math/rand"
 	"net"
 	"runtime"
@@ -11,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -37,9 +38,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 
 	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 		return []MessageID{EmptyMessageID}, nil
-	}), func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
-		return []MessageID{}, nil
-	})
+	}), emptyLikeReferences)
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
@@ -71,9 +70,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
 		return []MessageID{EmptyMessageID}, nil
-	}), func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
-		return []MessageID{}, nil
-	})
+	}), emptyLikeReferences)
 
 	messages := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {
@@ -250,9 +247,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 			}
 			return parents, nil
 		}),
-		func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
-			return []MessageID{}, nil
-		},
+		emptyLikeReferences,
 	)
 
 	// create a helper function that creates the messages
@@ -406,9 +401,7 @@ func TestTangle_Flow(t *testing.T) {
 			}
 			return parents, nil
 		}),
-		func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
-			return []MessageID{}, nil
-		},
+		emptyLikeReferences,
 	)
 
 	// PoW workers

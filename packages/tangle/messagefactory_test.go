@@ -3,12 +3,13 @@ package tangle
 import (
 	"context"
 	"crypto/ed25519"
-	"github.com/iotaledger/goshimmer/packages/consensus"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/consensus"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -195,8 +196,10 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		disliked: ledgerstate.NewBranchIDs(branches["3"]),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]},
-			consensus.OpinionTuple{Liked: branches["1"], Disliked: branches["3"]}}},
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {
+			consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]},
+			consensus.OpinionTuple{Liked: branches["1"], Disliked: branches["3"]},
+		}},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
@@ -250,8 +253,10 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		disliked: ledgerstate.NewBranchIDs(branches["3"], branches["4"]),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]}},
-			branches["4"]: {consensus.OpinionTuple{Liked: branches["1"], Disliked: branches["4"]}}},
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{
+			branches["3"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]}},
+			branches["4"]: {consensus.OpinionTuple{Liked: branches["1"], Disliked: branches["4"]}},
+		},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
@@ -344,12 +349,13 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	nonExistingBranchID := aggregatedBranchID(branches["2"], branches["3"])
 	mockOTV := &SimpleMockOnTangleVoting{
 		disliked: ledgerstate.NewBranchIDs(branches["3"]),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]},
-			consensus.OpinionTuple{Liked: nonExistingBranchID, Disliked: branches["3"]}}},
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {
+			consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]},
+			consensus.OpinionTuple{Liked: nonExistingBranchID, Disliked: branches["3"]},
+		}},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	_, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
 	require.Error(t, err)
-
 }

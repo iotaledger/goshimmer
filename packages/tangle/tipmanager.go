@@ -20,7 +20,7 @@ import (
 // region TipType //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TipType is the type (weak/strong) of the tip.
-type TipType uint8 //TODO remove tip type from visualiser configureVisualizer()
+type TipType uint8 // TODO remove tip type from visualiser configureVisualizer()
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -153,7 +153,6 @@ func (t *TipManager) Set(tips ...MessageID) {
 	}
 }
 
-// TODO no need to check if  the message is eligible and its payload liked? Check what is the condition for the message to become a tip
 // AddTip first checks whether the message is eligible and its payload liked. If yes, then the given message is added to the tip pool.
 // Parents of a message that are currently tip lose the tip status and are removed.
 func (t *TipManager) AddTip(message *Message) {
@@ -190,8 +189,7 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	// a tip loses its tip status if it is referenced by another message
-	message.ForEachParent(func(parent Parent) {
-		parentMessageID := parent.ID
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		if _, deleted := t.tips.Delete(parentMessageID); deleted {
 			t.Events.TipRemoved.Trigger(&TipEvent{
 				MessageID: parentMessageID,
@@ -230,7 +228,7 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 	return
 }
 
-// selectStrongTips returns a list of strong parents. In case of a transaction, it references young enough attachments
+// selectTips returns a list of parents. In case of a transaction, it references young enough attachments
 // of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
 func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDs) {
 	parents = make([]MessageID, 0, MaxParentsCount)

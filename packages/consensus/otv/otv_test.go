@@ -3,9 +3,10 @@ package otv
 import (
 	"bytes"
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"sort"
 	"testing"
+
+	"github.com/iotaledger/goshimmer/packages/consensus"
 
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"

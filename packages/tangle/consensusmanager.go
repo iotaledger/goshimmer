@@ -139,7 +139,6 @@ func NewOTVConsensusManager(otvConsensusMechanism consensus.Mechanism) *OTVConse
 	return &OTVConsensusManager{
 		Mechanism: otvConsensusMechanism,
 	}
-
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

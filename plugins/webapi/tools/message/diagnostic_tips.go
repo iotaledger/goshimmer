@@ -38,9 +38,8 @@ func runTipsDiagnostic(c echo.Context) (err error) {
 	if err := csvWriter.Write(tipsDiagnosticTableDescription); err != nil {
 		return errors.Errorf("can't write table description row: %w", err)
 	}
-	var tips tangle.MessageIDs
 
-	tips = messagelayer.Tangle().TipManager.AllTips()
+	tips := messagelayer.Tangle().TipManager.AllTips()
 
 	if err := buildAndWriteTipsDiagnostic(csvWriter, tips); err != nil {
 		return errors.Errorf("%w", err)

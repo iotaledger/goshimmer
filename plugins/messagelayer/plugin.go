@@ -1,10 +1,11 @@
 package messagelayer
 
 import (
-	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
