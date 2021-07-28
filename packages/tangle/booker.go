@@ -498,6 +498,8 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 		currentMarker := walk.Next().(*markers.Marker)
 
 		if err = b.updateMarker(currentMarker, newConflictBranchID, walk); err != nil {
+			branches, _ := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(newConflictBranchID))
+			fmt.Println(branches)
 			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", newConflictBranchID, currentMarker, err)
 			return
 		}
