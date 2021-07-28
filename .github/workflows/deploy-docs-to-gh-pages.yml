@@ -2,9 +2,9 @@ name: deploy
 
 on:
   pull_request:
-    branches: [docs/editContentWithStyleGuide, develop, dev, master,  main]
+    branches: [develop, dev, master,  main]
   push:
-    branches: [docs/editContentWithStyleGuide, develop, dev, master, main]
+    branches: [develop, dev, master, main]
 
 jobs:
   checks:
@@ -50,4 +50,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./documentation/build
-#          cname: goshimmer.docs.iota.org
+          cname: goshimmer.docs.iota.org
