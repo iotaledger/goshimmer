@@ -1,8 +1,9 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/hive.go/events"
+
+	"github.com/iotaledger/goshimmer/packages/consensus"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
