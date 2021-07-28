@@ -68,6 +68,13 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 }
 
 func (m *MessageTestFramework) RegisterBranchID(alias string, messagealiases ...string) {
+	if len(messagealiases) == 1 {
+		branchID := m.BranchIDFromMessage(messagealiases[0])
+		m.branchIDs[alias] = branchID
+		ledgerstate.RegisterBranchIDAlias(branchID, alias)
+		return
+	}
+
 	aggregation := ledgerstate.NewBranchIDs()
 	for _, messagealias := range messagealiases {
 		branch := m.BranchIDFromMessage(messagealias)

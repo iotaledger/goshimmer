@@ -97,7 +97,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			strongBranchIDs := b.strongParentsBranchIDs(message)
 			likedBranchIDs := b.likedParentsBranchIDs(message)
 
-			testMessage := "Message10"
+			testMessage := "Message120"
 			if id := messageIDAliases[messageID]; id == testMessage {
 				fmt.Println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 				fmt.Println("strong", strongBranchIDs)
@@ -479,6 +479,11 @@ func (b *Booker) updatedBranchID(branchID, conflictBranchID ledgerstate.BranchID
 	}
 
 	if newBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchID, conflictBranchID)); err != nil {
+		// If the combined branches are conflicting when propagating them, it means that there was a like switch set in the future cone.
+		// We can safely ignore the branch propagation in that part of the tangle.
+		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
+			return ledgerstate.UndefinedBranchID, false, nil
+		}
 		return ledgerstate.UndefinedBranchID, false, errors.Errorf("failed to combine %s and %s into a new BranchID: %w", branchID, conflictBranchID, cerrors.ErrFatal)
 	}
 
@@ -498,8 +503,6 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 		currentMarker := walk.Next().(*markers.Marker)
 
 		if err = b.updateMarker(currentMarker, newConflictBranchID, walk); err != nil {
-			branches, _ := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(newConflictBranchID))
-			fmt.Println(branches)
 			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", newConflictBranchID, currentMarker, err)
 			return
 		}
