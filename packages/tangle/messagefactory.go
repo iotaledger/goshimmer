@@ -111,14 +111,15 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	var likeReferences MessageIDs
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
-		parents, err = f.selector.Tips(p, countParents)
-		if err != nil {
-			err = errors.Errorf("tips could not be selected: %w", err)
-			f.Events.Error.Trigger(err)
-			f.issuanceMutex.Unlock()
-			return nil, err
+		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
+			parents, err = f.selector.Tips(p, countParents)
+			if err != nil {
+				err = errors.Errorf("tips could not be selected: %w", err)
+				f.Events.Error.Trigger(err)
+				f.issuanceMutex.Unlock()
+				return nil, err
+			}
 		}
-
 		issuingTime = f.getIssuingTime(parents)
 
 		likeReferences, err = f.likeReferencesFunc(parents, issuingTime, f.tangle)
@@ -128,7 +129,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			f.issuanceMutex.Unlock()
 			return nil, err
 		}
-
 		nonce, errPoW = f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
