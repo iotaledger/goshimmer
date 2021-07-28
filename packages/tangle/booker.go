@@ -90,6 +90,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				})
 			})
 			if !areLikedAllTransactions {
+				messageMetadata.SetInvalid(true)
+				b.tangle.Events.MessageInvalid.Trigger(messageID)
 				err = errors.Errorf("message like reference does not contain a transaction %s", messageID)
 				return
 			}
@@ -171,6 +173,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 					}
 				})
 				if isInvalid {
+					messageMetadata.SetInvalid(true)
+					b.tangle.Events.MessageInvalid.Trigger(messageID)
 					err = errors.Errorf("message parents are inconsistent %s", messageID)
 					return
 				}
@@ -179,6 +183,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// TODO: factor Transaction checks out because their are cheaper
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
+				messageMetadata.SetInvalid(true)
+				b.tangle.Events.MessageInvalid.Trigger(messageID)
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
 				return
 			}
@@ -186,6 +192,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// We add the BranchID of the payload to the computed Branch sets
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(resultLiked.Add(branchIDOfPayload))
 			if inheritErr != nil {
+				messageMetadata.SetInvalid(true)
+				b.tangle.Events.MessageInvalid.Trigger(messageID)
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 				return
 			}
