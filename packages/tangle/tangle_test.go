@@ -37,7 +37,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 
 	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 		return []MessageID{EmptyMessageID}, nil
-	}), func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+	}), func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
 		return []MessageID{}, nil
 	})
 
@@ -71,7 +71,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
 		return []MessageID{EmptyMessageID}, nil
-	}), func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+	}), func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
 		return []MessageID{}, nil
 	})
 
@@ -250,7 +250,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 			}
 			return parents, nil
 		}),
-		func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+		func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
 			return []MessageID{}, nil
 		},
 	)
@@ -406,7 +406,7 @@ func TestTangle_Flow(t *testing.T) {
 			}
 			return parents, nil
 		}),
-		func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+		func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
 			return []MessageID{}, nil
 		},
 	)

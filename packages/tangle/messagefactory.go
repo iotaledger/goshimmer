@@ -108,7 +108,9 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		return nil, err
 	}
 
-	likeReferences, err := f.likeReferencesFunc(parents, f.tangle)
+	issuingTime := f.getIssuingTime(parents)
+
+	likeReferences, err := f.likeReferencesFunc(parents, issuingTime, f.tangle)
 
 	if err != nil {
 		err = errors.Errorf("like references could not be prepared: %w", err)
@@ -116,8 +118,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		f.issuanceMutex.Unlock()
 		return nil, err
 	}
-
-	issuingTime := f.getIssuingTime(parents)
 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
@@ -136,7 +136,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			}
 		}
 
-		likeReferences, err := f.likeReferencesFunc(parents, f.tangle)
+		likeReferences, err := f.likeReferencesFunc(parents, issuingTime, f.tangle)
 
 		if err != nil {
 			err = errors.Errorf("like references could not be prepared: %w", err)
@@ -287,9 +287,9 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-type LikeReferencesFunc func(parents MessageIDs, tangle *Tangle) (MessageIDs, error)
+type LikeReferencesFunc func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error)
 
-func PrepareLikeReferences(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+func PrepareLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
 	branchIDs := make(ledgerstate.BranchIDs)
 
 	for _, parent := range parents {
@@ -298,7 +298,6 @@ func PrepareLikeReferences(parents MessageIDs, tangle *Tangle) (MessageIDs, erro
 			err = errors.Errorf("branchID can't be retrieved: %w", err)
 			return nil, err
 		}
-
 		branchIDs.Add(branchID)
 	}
 	_, dislikedBranches, err := tangle.OTVConsensusManager.Opinion(branchIDs)
@@ -306,14 +305,11 @@ func PrepareLikeReferences(parents MessageIDs, tangle *Tangle) (MessageIDs, erro
 		err = errors.Errorf("opinions could not be retrieved: %w", err)
 		return nil, err
 	}
-
-	fmt.Println(dislikedBranches)
 	likeReferencesMap := make(map[MessageID]types.Empty)
 	likeReferences := MessageIDs{}
 
 	for dislikedBranch := range dislikedBranches {
 		likedInstead, err := tangle.OTVConsensusManager.LikedInstead(dislikedBranch)
-		fmt.Println(likedInstead)
 		if err != nil {
 			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
 			return nil, err
@@ -322,27 +318,27 @@ func PrepareLikeReferences(parents MessageIDs, tangle *Tangle) (MessageIDs, erro
 		for _, likeRef := range likedInstead {
 
 			transactionID := likeRef.Liked.TransactionID()
-			fmt.Println(transactionID)
-			// TODO: replace with oldest instead of newest
-			latestAttachmentTime := time.Unix(0, 0)
-			latestAttachmentMessageID := MessageID{}
-			tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
-				fmt.Println("ATTACHEMENT")
+			oldestAttachmentTime := time.Unix(0, 0)
+			oldestAttachmentMessageID := MessageID{}
+			if !tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
 				tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
-					fmt.Println(message.ID())
-					if message.IssuingTime().After(latestAttachmentTime) {
-						latestAttachmentTime = message.IssuingTime()
-						latestAttachmentMessageID = message.ID()
-						fmt.Println(message.ID())
+					if oldestAttachmentTime.Unix() == 0 || message.IssuingTime().Before(oldestAttachmentTime) {
+						oldestAttachmentTime = message.IssuingTime()
+						oldestAttachmentMessageID = message.ID()
 					}
 				})
-			})
-			fmt.Println("SET")
-			// TODO: should we check max parent age in like reference parent? what if original message is older than maxparent age even though the branch still exists (parasite chain attack?)
+			}) {
+				err = errors.Errorf("could not find any attachments of transaction: %s", transactionID.String())
+				return nil, err
+			}
 			// add like reference to a message only once if it appears in multiple conflict sets
-			if _, ok := likeReferencesMap[latestAttachmentMessageID]; !ok {
-				likeReferencesMap[latestAttachmentMessageID] = types.Void
-				likeReferences = append(likeReferences, latestAttachmentMessageID)
+			if _, ok := likeReferencesMap[oldestAttachmentMessageID]; !ok {
+				likeReferencesMap[oldestAttachmentMessageID] = types.Void
+				// check difference between issuing time and message that would be set as like reference, to avoid setting too old message.
+				// what if original message is older than maxParentsTimeDifference even though the branch still exists?
+				if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
+					likeReferences = append(likeReferences, oldestAttachmentMessageID)
+				}
 			}
 		}
 	}

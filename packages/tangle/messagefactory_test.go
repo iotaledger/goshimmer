@@ -3,7 +3,6 @@ package tangle
 import (
 	"context"
 	"crypto/ed25519"
-	"fmt"
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
@@ -40,7 +39,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 			return []MessageID{EmptyMessageID}, nil
 		}),
-		func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+		func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
 			return []MessageID{}, nil
 		},
 	)
@@ -136,7 +135,7 @@ func TestMessageFactory_POW(t *testing.T) {
 		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
 			return []MessageID{EmptyMessageID}, nil
 		}),
-		func(parents MessageIDs, tangle *Tangle) (MessageIDs, error) {
+		func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
 			return []MessageID{}, nil
 		},
 	)
@@ -160,136 +159,197 @@ func TestMessageFactory_POW(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMessageFactory_PrepareLikedReferences(t *testing.T) {
+func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
-	tangle.Booker.Setup()
 
-	// TODO add (mocked?) otv mechanism
-
-	wallets := make(map[string]wallet)
-	walletsByAddress := make(map[ledgerstate.Address]wallet)
-	w := createWallets(6)
-	wallets["GENESIS"] = w[0]
-	wallets["O1"] = w[1]
-	wallets["O2"] = w[2]
-	wallets["O3"] = w[3]
-	wallets["O4"] = w[4]
-	wallets["O5"] = w[5]
-
-	for _, wallet := range wallets {
-		walletsByAddress[wallet.address] = wallet
-	}
-
-	genesisBalance := ledgerstate.NewColoredBalances(
-		map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: 5,
-		})
-
-	genesisEssence := ledgerstate.NewTransactionEssence(
-		0,
-		time.Unix(DefaultGenesisTime, 0),
-		identity.ID{},
-		identity.ID{},
-		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("O1", 500),
+		WithGenesisOutput("O2", 500),
 	)
 
-	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
-	fmt.Println(genesisTransaction.ID())
-	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
-			genesisTransaction.ID(): {
-				Essence:        genesisEssence,
-				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
-				UnspentOutputs: []bool{true},
-			},
-		},
-	}
+	tangle.Setup()
 
-	tangle.LedgerState.LoadSnapshot(snapshot)
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Logf("Error fired: %v", err)
+	}))
 
-	messages := make(map[string]*Message)
-	transactions := make(map[string]*ledgerstate.Transaction)
 	branches := make(map[string]ledgerstate.BranchID)
-	inputs := make(map[string]*ledgerstate.UTXOInput)
-	outputs := make(map[string]*ledgerstate.SigLockedSingleOutput)
-	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
 
 	// Message 1
-	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
-	outputs["O1"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["O1"].address)
-	outputs["O2"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["O2"].address)
-
-	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["O1"], outputs["O2"]), outputsByID, walletsByAddress, wallets["GENESIS"])
-	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
-	tangle.Storage.StoreMessage(messages["1"])
-
-	err := tangle.Booker.BookMessage(messages["1"].ID())
-	require.NoError(t, err)
+	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
+	testFramework.IssueMessages("1").WaitMessagesBooked()
 
 	// Message 2
-	inputs["O1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["O1"])))
-	outputsByID[inputs["O1"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["O1"])[0]
-	outputs["O3"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["O3"].address)
-	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["O1"]), ledgerstate.NewOutputs(outputs["O3"]), outputsByID, walletsByAddress)
-	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID()}, []MessageID{})
-	tangle.Storage.StoreMessage(messages["2"])
-
-	err = tangle.Booker.BookMessage(messages["2"].ID())
-	require.NoError(t, err)
+	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
+	testFramework.IssueMessages("2").WaitMessagesBooked()
 
 	// Message 3
-	inputs["O2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["O2"])))
-	outputsByID[inputs["O2"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["O2"])[0]
-	outputs["O5"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["O5"].address)
-	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["O2"]), ledgerstate.NewOutputs(outputs["O5"]), outputsByID, walletsByAddress)
-	messages["3"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{messages["2"].ID()}, []MessageID{})
-	tangle.Storage.StoreMessage(messages["3"])
+	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
+	testFramework.IssueMessages("3").WaitMessagesBooked()
 
-	err = tangle.Booker.BookMessage(messages["3"].ID())
-	require.NoError(t, err)
-
-	// Message 4
-	outputs["O4"] = ledgerstate.NewSigLockedSingleOutput(5, wallets["O4"].address)
-	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["O2"], inputs["O1"]), ledgerstate.NewOutputs(outputs["O4"]), outputsByID, walletsByAddress)
-	messages["4"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID()}, []MessageID{})
-	tangle.Storage.StoreMessage(messages["4"])
-
-	fmt.Println("Transaction IDs:")
-	fmt.Println(genesisTransaction.ID())
-	fmt.Println(transactions["1"].ID())
-	fmt.Println(transactions["2"].ID())
-	fmt.Println(transactions["3"].ID())
-	fmt.Println(transactions["4"].ID())
-
-	err = tangle.Booker.BookMessage(messages["4"].ID())
-	require.NoError(t, err)
-
-	branches["1"], _ = transactionBranchID(tangle, transactions["1"].ID())
-	branches["2"], _ = transactionBranchID(tangle, transactions["2"].ID())
-	branches["3"], _ = transactionBranchID(tangle, transactions["3"].ID())
-	branches["4"], _ = transactionBranchID(tangle, transactions["4"].ID())
-	fmt.Println(branches)
-
-	branches["1"], _ = tangle.Booker.MessageBranchID(messages["1"].ID())
-	branches["2"], _ = tangle.Booker.MessageBranchID(messages["2"].ID())
-	branches["3"], _ = tangle.Booker.MessageBranchID(messages["3"].ID())
-	branches["4"], _ = tangle.Booker.MessageBranchID(messages["4"].ID())
-	fmt.Println(branches)
+	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
+	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
+	branches["3"], _ = transactionBranchID(tangle, testFramework.TransactionID("3"))
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		disliked: ledgerstate.NewBranchIDs(branches["4"]),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["4"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["4"]},
-			consensus.OpinionTuple{Liked: branches["3"], Disliked: branches["4"]}}},
+		disliked: ledgerstate.NewBranchIDs(branches["3"]),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]},
+			consensus.OpinionTuple{Liked: branches["1"], Disliked: branches["3"]}}},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
-	references, err := PrepareLikeReferences(MessageIDs{messages["4"].ID(), messages["3"].ID()}, tangle)
+	references, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
 
 	require.NoError(t, err)
 
-	assert.Contains(t, references, messages["2"].ID())
-	assert.Contains(t, references, messages["3"].ID())
-	fmt.Println(references)
+	assert.Contains(t, references, testFramework.Message("1").ID())
+	assert.Contains(t, references, testFramework.Message("2").ID())
+	assert.Len(t, references, 2)
+}
+
+func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("O1", 500),
+		WithGenesisOutput("O2", 500),
+	)
+
+	tangle.Setup()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Logf("Error fired: %v", err)
+	}))
+
+	branches := make(map[string]ledgerstate.BranchID)
+
+	// Message 1
+	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500), WithIssuingTime(time.Now().Add(5*time.Minute)))
+	testFramework.IssueMessages("1").WaitMessagesBooked()
+
+	// Message 2
+	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500), WithIssuingTime(time.Now().Add(5*time.Minute)))
+	testFramework.IssueMessages("2").WaitMessagesBooked()
+
+	// Message 3
+	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O4", 500))
+	testFramework.IssueMessages("3").WaitMessagesBooked()
+
+	// Message 3
+	testFramework.CreateMessage("4", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O6", 500))
+	testFramework.IssueMessages("4").WaitMessagesBooked()
+
+	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
+	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
+	branches["3"], _ = transactionBranchID(tangle, testFramework.TransactionID("3"))
+	branches["4"], _ = transactionBranchID(tangle, testFramework.TransactionID("4"))
+
+	mockOTV := &SimpleMockOnTangleVoting{
+		disliked: ledgerstate.NewBranchIDs(branches["3"], branches["4"]),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]}},
+			branches["4"]: {consensus.OpinionTuple{Liked: branches["1"], Disliked: branches["4"]}}},
+	}
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
+
+	// Test first set of parents
+	references1, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
+	require.NoError(t, err)
+	assert.Contains(t, references1, testFramework.Message("2").ID())
+	assert.Len(t, references1, 1)
+
+	// Test second set of parents
+	references2, err := PrepareLikeReferences(MessageIDs{testFramework.Message("2").ID(), testFramework.Message("1").ID()}, time.Now(), tangle)
+	require.NoError(t, err)
+	assert.Empty(t, references2)
+
+	// Test third set of parents
+	references3, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, time.Now(), tangle)
+	require.NoError(t, err)
+	assert.Contains(t, references3, testFramework.Message("1").ID())
+	assert.Contains(t, references3, testFramework.Message("2").ID())
+	assert.Len(t, references3, 2)
+
+	// Test fourth set of parents
+	references4, err := PrepareLikeReferences(MessageIDs{testFramework.Message("1").ID(), testFramework.Message("2").ID(), testFramework.Message("3").ID(), testFramework.Message("4").ID()}, time.Now(), tangle)
+	require.NoError(t, err)
+	assert.Contains(t, references4, testFramework.Message("1").ID())
+	assert.Contains(t, references4, testFramework.Message("2").ID())
+	assert.Len(t, references4, 2)
+
+	// Test third set of parents
+	references5, err := PrepareLikeReferences(MessageIDs{}, time.Now(), tangle)
+	require.NoError(t, err)
+	assert.Empty(t, references5)
+
+	// Add reattachment that is older than the original message
+	// Message 5 (reattachment)
+	testFramework.CreateMessage("5", WithStrongParents("Genesis"), ReattachmentOf("1"))
+	testFramework.IssueMessages("5").WaitMessagesBooked()
+	require.NoError(t, err)
+
+	// Select oldest attachment of the message.
+	references6, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, time.Now(), tangle)
+	require.NoError(t, err)
+	assert.Contains(t, references6, testFramework.Message("5").ID())
+	assert.Contains(t, references6, testFramework.Message("2").ID())
+	assert.Len(t, references6, 2)
+
+	// Do not return too old like reference
+	references7, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, time.Now().Add(maxParentsTimeDifference), tangle)
+	require.NoError(t, err)
+	// Select oldest attachment of the message.
+	assert.NotContains(t, references7, testFramework.Message("5").ID())
+	assert.Contains(t, references7, testFramework.Message("2").ID())
+	assert.Len(t, references7, 1)
+}
+
+func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("O1", 500),
+		WithGenesisOutput("O2", 500),
+	)
+
+	tangle.Setup()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Logf("Error fired: %v", err)
+	}))
+
+	branches := make(map[string]ledgerstate.BranchID)
+
+	// Message 1
+	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
+	testFramework.IssueMessages("1").WaitMessagesBooked()
+
+	// Message 2
+	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
+	testFramework.IssueMessages("2").WaitMessagesBooked()
+
+	// Message 3
+	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
+	testFramework.IssueMessages("3").WaitMessagesBooked()
+
+	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
+	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
+	branches["3"], _ = transactionBranchID(tangle, testFramework.TransactionID("3"))
+
+	nonExistingBranchID := aggregatedBranchID(branches["2"], branches["3"])
+	mockOTV := &SimpleMockOnTangleVoting{
+		disliked: ledgerstate.NewBranchIDs(branches["3"]),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]},
+			consensus.OpinionTuple{Liked: nonExistingBranchID, Disliked: branches["3"]}}},
+	}
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
+
+	_, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
+	require.Error(t, err)
+
 }
