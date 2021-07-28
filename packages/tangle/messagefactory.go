@@ -193,7 +193,7 @@ func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []Message
 
 func (f *MessageFactory) sign(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
+	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
