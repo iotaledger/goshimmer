@@ -1,34 +1,44 @@
-# How to send transaction
-The simplest and easiest way for creating transaction is to use ready solution, such us GUI wallets: [pollen-wallet](https://github.com/iotaledger/pollen-wallet/tree/master) and [Dr-Electron ElectricShimmer](https://github.com/Dr-Electron/ElectricShimmer)
-or command line wallet [Command Line Wallet](wallet.md). However, there is also an option to create a transaction directly with Go client library, which will be main focus of this tutorial.
+# How To Send Transaction
 
-For code examples you can go directly to [Code examples](send_transaction.md#code-examples).
+The simplest way you can send and receive transactions is to use ready solution, such us GUI wallets: [pollen-wallet](https://github.com/iotaledger/pollen-wallet/tree/master) and [Dr-Electron ElectricShimmer](https://github.com/Dr-Electron/ElectricShimmer), 
+or a command line wallet [Command Line Wallet](wallet_library.md). However, you can also create a transaction directly with Go client library, which will be main focus of this tutorial.
 
 ## Funds
-To create a transaction, firstly we need to be in possession of tokens. We can receive them from other network users or request them from the faucet. For more details on how to request funds, see [this](obtain_tokens.md) tutorial.
 
-## Preparing transaction
-A transaction is built from two parts: a transaction essence, and the unlock blocks. The transaction essence contains, among other information, the amount, the origin and where the funds should be sent. The unlock block makes sure that only the owner of the funds being transferred is allowed to successfully perform this transaction.
+To create a transaction, you will need to have some tokens. You can receive them from other network users, or request them from the faucet. You can find more details on requesting funds in the [obtain tokens  tutorial](obtain_tokens.md).
+
+## Preparing a Transaction
+
+A transaction consists of two parts: 
+- Transaction essence which contains, among other information, the amount, origin and destination where the funds should be sent 
+- Unlock blocks which make sure that only the owner of the transferred funds can successfully perform this transaction.
 
 ### Seed
-In order to send funds we need to have a private key that can be used to prove that we own the funds and consequently unlock them. If you want to use an existing seed from one of your wallets, just use the backup seed showed during a wallet creation. With this, we can decode the string with the `base58` library and create the `seed.Seed` instance. That will allow us to retrieve the wallet addresses (`mySeed.Address()`) and the corresponding private and public keys (`mySeed.KeyPair()`).
-```Go
+
+In order to send funds you need to have a private key that can be used to prove that you own the funds, and can unlock them. If you want to use an existing seed from one of your wallets, you can use the backup seed showed during wallet creation. With this, you can decode the string with the `base58` library and create the `seed.Seed` instance. That will allow you to retrieve the wallet addresses (`mySeed.Address()`), and the corresponding private and public keys (`mySeed.KeyPair()`) as shown in the following example.
+
+```go
 seedBytes, _ := base58.Decode("BoDjAh57RApeqCnoGnHXBHj6wPwmnn5hwxToKX5PfFg7") // ignoring error
 mySeed := walletseed.NewSeed(seedBytes)
 ```
-Another option is to generate a completely new seed and addresses.
-```Go 
+
+Another option is to generate a completely new seed and addresses as shown in the following snippet.
+
+```go 
 mySeed := walletseed.NewSeed()
 fmt.Println("My secret seed:", myWallet.Seed.String())
 ```
-We can obtain the addresses from the seed by providing their index, in our example it is `0`. Later we will use the same index to retrieve the corresponding keys.
-```Go
+
+You can obtain the addresses from the seed by providing their index, in the last example it is `0`. Later you will use the same index to retrieve the corresponding keys.
+
+```go
 myAddr := mySeed.Address(0)
 ```
 
-Additionally, we should make sure that unspent outputs we want to use are already confirmed.
-If we use a wallet, this information will be available along with the wallet balance. We can also use the dashboard and look up for our address in the explorer. To check the confirmation status with Go use `PostAddressUnspentOutputs()` API method to get the outputs and check their inclusion state.
-```Go
+Additionally, you should make sure that the unspent outputs you want to use are confirmed.
+If we use a wallet, this information will be available along with the wallet balance. You can also use the dashboard and look up your address in the explorer. You can also check the confirmation status with Go using the `PostAddressUnspentOutputs()` API method to get the outputs and check their inclusion state.
+
+```go
 resp, _ := goshimAPI.PostAddressUnspentOutputs([]string{myAddr.Base58()}) // ignoring error
 for _, output := range resp.UnspentOutputs[0].Outputs {
 		fmt.Println("outputID:", output.Output.OutputID.Base58, "confirmed:", output.InclusionState.Confirmed)
@@ -36,11 +46,13 @@ for _, output := range resp.UnspentOutputs[0].Outputs {
 ```
 
 
-### Transaction essence
-The transaction essence can be created with:
-`NewTransactionEssence(version, timestamp, accessPledgeID, consensusPledgeID, inputs, outputs)`
-We need to provide the following arguments:
-```Go
+### Transaction Essence
+
+You can create the transaction essence can be created with by running the 
+`NewTransactionEssence(version, timestamp, accessPledgeID, consensusPledgeID, inputs, outputs)` function.
+You will need to provide the following arguments:
+
+```go
 var version TransactionEssenceVersion
 var timestamp time.Time
 var accessPledgeID identity.ID
@@ -50,30 +62,40 @@ var outputs ledgerstate.Outputs
 ```
 
 #### Version and timestamp
-We use `0` for a version and provide the current time as a timestamp of the transaction.
-```Go
+
+You can use `0` for a version, and provide the current time as a timestamp of the transaction.
+
+```go
 version = 0
 timestamp = time.Now()
 ```
 
 #### Mana pledge IDs
-We also need to specify the nodeID to which we want to pledge the access and consensus mana. We can use two different nodes for each type of mana.
-We can retrieve an identity instance by converting base58 encoded node ID as in the following example:
-```Go
+
+You will also need to specify the nodeID to which you want to pledge the access and consensus mana. You can use two different nodes for each type of mana.
+
+You can retrieve an identity instance by converting base58 encoded node ID as in the following example:
+
+```go
 pledgeID, err := mana.IDFromStr(base58encodedNodeID)
 accessPledgeID = pledgeID
 consensusPledgeID = pledgeID
 ```
-or discard mana by pledging it to the empty nodeID:
-```Go
+
+Alternatively, you can discard the mana by pledging it to the empty nodeID:
+
+```go
 accessPledgeID = identity.ID{}
 consensusPledgeID = identity.ID{}
 ```
 
 #### Inputs
-As inputs for the transaction we need to provide unspent outputs.
-To get unspent outputs of the address we can use the following example.
-```Go
+
+You need to provide unspent outputs as inputs for the transaction .
+
+You can use the following example to get unspent outputs of the address. 
+
+```go
 resp, _ := goshimAPI.GetAddressUnspentOutputs(myAddr.Base58())  // ignoring error
 // iterate over unspent outputs of an address
 for _, output := range resp2.Outputs {
@@ -82,14 +104,16 @@ for _, output := range resp2.Outputs {
 }
 ```
 
-To check the available output's balance use `Balances()` method and provide the token color. We use the default, IOTA color.
+You can check the available output's balance  and provide the token color using the `Balances()` method. You can use the default IOTA color as shown in the following snippet.
 
-```Go
+```go
 balance, colorExist := out.Balances().Get(ledgerstate.ColorIOTA)
 fmt.Println(balance, exist)
 ```
-or iterate over all colors and balances:
-```Go
+
+Alternatively, you can iterate over all colors and balances as shown in the following snippet.
+
+```go
 out.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			fmt.Println("Color:", color.Base58())
 			fmt.Println("Balance:", balance)
@@ -97,49 +121,65 @@ out.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 		})
 ```
 
-At the end we need to wrap the selected output to match the interface of the inputs:
-```Go
+At the end of the process, you will need wrap the selected output to match the inputs' interface as shown in the following snippet.
+
+```go
 inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(out))
 ```
 
 #### Outputs
-To create the most basic type of output use
-`ledgerstate.NewSigLockedColoredOutput()` and provide it with a balance and destination address. Important is to provide the correct balance value. The total balance with the same color has to be equal for input and output.
-```Go
+
+You can create the most basic type of output using the `ledgerstate.NewSigLockedColoredOutput()` method. You should send a balance and destination address as arguments. It is important to provide the correct balance value. The total balance with the same color has to be equal for input and output.
+
+```go
 balance := ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 							ledgerstate.ColorIOTA: uint64(100),
 						})
 outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(balance, destAddr.Address()))
 ```
-The same as in case of inputs we need to adapt it with `ledgerstate.NewOutputs()` before passing to the `NewTransactionEssence` function.
 
-### Signing transaction
-After preparing the transaction essence, we should sign it and put the signature to the unlock block part of the transaction.
-We can retrieve private and public key pairs from the seed by providing it with indexes corresponding to the addresses that holds the unspent output that we want to use in our transaction.
-```Go
+As in case of inputs,  you will need to adapt it with `ledgerstate.NewOutputs()` before passing to the `NewTransactionEssence` function.
+
+### Signing a Transaction
+
+After preparing the transaction essence, you should sign it and use the signature to create the transaction's unlock block.
+
+You can retrieve private and public key pairs from the seed by providing it with indexes corresponding to the addresses that hold the unspent output that you want to use in your transaction. 
+
+```go
 kp := *mySeed.KeyPair(0)
 txEssence := NewTransactionEssence(version, timestamp, accessPledgeID, consensusPledgeID, inputs, outputs)
 ```
-We can sign the transaction in two ways: with ED25519 or BLS signature. The wallet seed library uses `ed25519` package and keys, so we will use `Sign()` method along with `ledgerstate.ED25519Signature` constructor to sign the transaction essence bytes.
-Next step is to create the unlock block from our signature.
 
-```Go
+You can sign the transaction with `ED25519` or `BLS` signature. The wallet seed library uses the `ed25519` package and keys, so you can use `Sign()` method along with the `ledgerstate.ED25519Signature` constructor to sign the transaction essence bytes.
+
+The next step is to create the unlock block from our signature.
+
+```go
 signature := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes())
 unlockBlock := ledgerstate.NewSignatureUnlockBlock(signature)
 ```
-Putting it all together, now we are able to create transaction with previously created transaction essence and adapted unlock block.
 
-```Go
+We are now able to create transaction with previously created transaction essence, and the adapted unlock block.
+
+```go
 tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 ```
 
-## Sending transaction
-There are two web API methods that allows us to send the transaction:
-`PostTransaction()` and `IssuePayload()`. The second one is a more general method that sends the attached payload. We are going to use the first one that will additionally check the transaction validity before issuing and wait with sending the response until the message is booked.
-The method accepts a byte array, so we need to call `Bytes()`.
-If the transaction will be booked without any problems, we should be able to get the transaction ID from the API response.
+## Sending a Transaction
 
-```Go
+There are two web API methods you can use to send the transaction:
+
+- `IssuePayload()`
+- `PostTransaction()`
+
+`IssuePayload()` is a more general method that sends the attached payload. 
+
+`IssuePayload()` will additionally check the transaction validity before issuing it, and will wait to send the response until the message is booked. The method accepts a byte array, so you will need to call `Bytes()`.
+
+If the transaction is booked without any problems, you should be able to get the transaction ID from the API response.
+
+```go
 resp, err := goshimAPI.PostTransaction(tx.Bytes())
 if err != nil {
 	return
@@ -147,9 +187,10 @@ if err != nil {
 fmt.Println("Transaction issued, txID:", resp.TransactionID)
 ```
 
-## Code examples
+## Code Examples
 
-### Creating the transaction
+### Creating the Transaction
+
 Constructing a new `ledgerstate.Transaction`. 
 
 ```go
@@ -221,14 +262,17 @@ func buildTransaction() (tx *ledgerstate.Transaction, err error) {
 }
 ```
 
-### Post the transaction
+### Post the Transaction
 
 There are 2 available options to post the created transaction.
 
- - GoShimmer client lib
- - Web API
+ - [GoShimmer client lib](#post-via-client-lib)
+ - [Web API](#post-via-web-api)
  
 #### Post via client lib
+
+You can use the following example to post a transaction using the client library.
+
 ```go
 func postTransactionViaClientLib() (res string , err error) {
 	// connect to goshimmer node
@@ -250,25 +294,29 @@ func postTransactionViaClientLib() (res string , err error) {
 ```
 
 #### Post via web API
-First, get the transaction bytes.
-```go
-// build tx from previous step
-tx, err := buildTransaction()
-if err != nil {
-    return
-}
-bytes := tx.Bytes()
 
-// print bytes
-fmt.Println(string(bytes))
-```
+You can use the following example to post a transaction using the web library.
 
-Then, post the bytes.
+1. Get the transaction bytes.
 
-```shell script
-curl --location --request POST 'http://localhost:8080/ledgerstate/transactions' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "tx_bytes": "bytes..."
-}'
-```
+    ```go
+    // build tx from previous step
+    tx, err := buildTransaction()
+    if err != nil {
+        return
+    }
+    bytes := tx.Bytes()
+    
+    // print bytes
+    fmt.Println(string(bytes))
+    ```
+
+2. Post the bytes.
+
+    ```shell script
+    curl --location --request POST 'http://localhost:8080/ledgerstate/transactions' \
+    --header 'Content-Type: application/json' \
+    --data-raw '{
+        "tx_bytes": "bytes..."
+    }'
+    ```

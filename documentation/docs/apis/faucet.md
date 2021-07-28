@@ -1,6 +1,6 @@
 # Faucet API Methods
 
-Faucet endpoint allows requesting funds from the Faucet.
+The faucet endpoint allows requesting funds from the Faucet.
 
 The API provides the following functions and endpoints:
 * [/faucet](#faucet)
@@ -10,7 +10,7 @@ Client lib APIs:
 * [SendFaucetRequest()](#client-lib---sendfaucetrequest)
 
 
-## `/faucet`
+## /faucet
 
 Method: `POST`
 
@@ -18,43 +18,43 @@ POST request asking for funds from the faucet to be transferred to address in th
 
 ### Parameters
 
-| **Parameter**            | `address`      |
+| Parameter            | address      |
 |--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | address to pledge funds to  |
-| **Type**                 | string      |
+| Required or Optional | required       |
+| Description          | address to pledge funds to  |
+| Type                 | string      |
 
 
 
-| **Parameter**            | `accessManaPledgeID`      |
+| Parameter            | accessManaPledgeID      |
 |--------------------------|----------------|
-| **Required or Optional** | optional       |
-| **Description**          | node ID to pledge access mana to  |
-| **Type**                 | string      |
+| Required or Optional | optional       |
+| Description          | node ID to pledge access mana to  |
+| Type                 | string      |
 
 
 
-| **Parameter**            | `consensusManaPledgeID`      |
+| Parameter            | consensusManaPledgeID      |
 |--------------------------|----------------|
-| **Required or Optional** | optional       |
-| **Description**          | node ID to pledge consensus mana to  |
-| **Type**                 | string      |
+| Required or Optional | optional       |
+| Description          | node ID to pledge consensus mana to  |
+| Type                 | string      |
 
 
 
-| **Parameter**            | `powTarget`      |
+| Parameter            | powTarget      |
 |--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | proof of the PoW being done, **only used in HTTP api** |
-| **Type**                 | uint64      |
+| Required or Optional | required       |
+| Description          | proof of the PoW being done, only used in HTTP api |
+| Type                 | uint64      |
 
 
 
-| **Parameter**            | `nonce`      |
+| Parameter            | nonce      |
 |--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | target Proof of Work difficulty,**only used in client lib** |
-| **Type**                 | uint64      |
+| Required or Optional | required       |
+| Description          | target Proof of Work difficulty,only used in client lib |
+| Type                 | uint64      |
 
 #### Body
 
@@ -66,6 +66,17 @@ POST request asking for funds from the faucet to be transferred to address in th
   "nonce": 50
 }
 
+```
+
+### Client lib - SendFaucetRequest()
+
+##### `SendFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels.FaucetResponse, error)`
+
+```go
+_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58(), powTarget)
+if err != nil {
+    // return error
+}
 ```
 
 ### Examples
@@ -83,17 +94,7 @@ curl --location --request POST 'http://localhost:8080/faucet' \
 }'
 ```
 
-#### Client lib - SendFaucetRequest
-
-##### `SendFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels.FaucetResponse, error)`
-```go
-_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58(), powTarget)
-if err != nil {
-    // return error
-}
-```
-
-### Response examples
+#### Response Example
 
 ```json
 {
@@ -101,7 +102,7 @@ if err != nil {
 }
 ```
 
-### Results
+#### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|

@@ -1,45 +1,33 @@
 # Communication Layer APIs
 
-The communication layer represents the base Tangle layer where so called `Messages` are gossiped around. A `Message` contains payloads and it is up to upper layers to interpret and derive functionality out of them.
-
+The communication layer represents the base Tangle layer where nodes gossip _Messages_ around. A _Message_ contains payloads, and it is up to upper layers to interpret and derive functionality out of them.
 
 The API provides the following functions to interact with this primitive layer:
-* [/messages/:messageID](#messagesmessageid)
-* [/messages/:messageID/metadata](#messagesmessageidmetadata)
+
 * [/messages/:messageID/consensus](#messagesmessageidconsensus)
 * [/data](#data)
 * [/messages/payload](#messagespayload)
 
 Client lib APIs:
-* [GetMessage()](#client-lib---getmessage)
-* [GetMessageMetadata()](#client-lib---getmessagemetadata)
+
 * [Data()](#client-lib---data)
 * [SendPayload()](#client-lib---sendpayload)
 
-##  `/messages/:messageID`
+##  /messages/:messageID
 
-Return message from the tangle.
+Return a message from the tangle by its messageID.
 
 ### Parameters
 
-| **Parameter**            | `messageID`      |
+| Parameter            | messageID      |
 |--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | ID of a message to retrieve   |
-| **Type**                 | string         |
+| Required or Optional | required       |
+| Description          | ID of a message to retrieve   |
+| Type                 | string         |
 
-### Examples
+### Client lib - GetMessage()
 
-#### cURL
-
-```shell
-curl --location --request GET 'http://localhost:8080/messages/:messageID'
-```
-where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
-
-#### Client lib - `GetMessage`
-
-Messages can be retrieved via `GetMessage(base58EncodedID string) (*jsonmodels.Message, error) `
+Messages can be retrieved via the `GetMessage(base58EncodedID string) (*jsonmodels.Message, error) ` function.
 
 ```go
 message, err := goshimAPI.GetMessage(base58EncodedMessageID)
@@ -51,7 +39,17 @@ if err != nil {
 fmt.Println(string(message.Payload))
 ```
 
-Note that we're getting actual `Message` objects from this call which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that this will also return messages which contain a transactions or DRNG payloads.
+Note that you are getting actual `Message` objects from this call, which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that this will also return messages which contain a transactions or DRNG payloads.
+
+### Examples
+
+#### cURL
+
+```shell
+curl --location --request GET 'http://localhost:8080/messages/:messageID'
+```
+
+* Where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
 #### Response examples
 
@@ -81,20 +79,20 @@ Note that we're getting actual `Message` objects from this call which represent 
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID. |
-| `strongParents`  | `[]string` | List of strong parents' message IDs. |
-| `weakParents`  | `[]string` | List of weak parents' message IDs. |
-| `strongApprovers`  | `[]string` | List of strong approvers' message IDs. |
-| `weakApprovers`  | `[]string` | List of weak approvers' message IDs. |
-| `issuerPublicKey`  | `[]string` | Public key of issuing node. |
-| `issuingTime`  | `int64` | Time this message was issued |
-| `sequenceNumber`  | `uint64` | Message sequence number. |
-| `payloadType`  | `string` | Payload type. |
-| `payload`  | `[]byte` | The contents of the message. |
-| `signature`  | `string` | Message signature. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| id  | string | Message ID. |
+| strongParents  | []string | List of strong parents' message IDs. |
+| weakParents  | []string | List of weak parents' message IDs. |
+| strongApprovers  | []string | List of strong approvers' message IDs. |
+| weakApprovers  | []string | List of weak approvers' message IDs. |
+| issuerPublicKey  | []string | Public key of issuing node. |
+| issuingTime  | int64 | Time this message was issued |
+| sequenceNumber  | uint64 | Message sequence number. |
+| payloadType  | string | Payload type. |
+| payload  | []byte | The contents of the message. |
+| signature  | string | Message signature. |
+| error   | string | Error message. Omitted if success.    |
 
-##  `/messages/:messageID/metadata`
+##  /messages/:messageID/metadata
 
 Return message metadata.
 
@@ -106,19 +104,10 @@ Return message metadata.
 | **Description**          | ID of a message to retrieve   |
 | **Type**                 | string         |
 
+### Client lib - GetMessageMetadata()
 
-### Examples
+You can retrieve a Message's metadata via the `GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error)` function.
 
-#### cURL
-
-```shell
-curl --location --request GET 'http://localhost:8080/messages/:messageID/metadata'
-```
-where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
-
-#### Client lib - `GetMessageMetadata`
-
-Message metadata can be retrieved via `GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error)`
 ```go
 message, err := goshimAPI.GetMessageMetadata(base58EncodedMessageID)
 if err != nil {
@@ -128,6 +117,16 @@ if err != nil {
 // will print whether message is finalized
 fmt.Println(string(message.Finalized))
 ```
+
+### Examples
+
+#### cURL
+
+```shell
+curl --location --request GET 'http://localhost:8080/messages/:messageID/metadata'
+```
+
+* Where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
 #### Response examples
 
@@ -170,33 +169,35 @@ fmt.Println(string(message.Finalized))
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID. |
-| `receivedTime`  | `int64` | Time when message was received by the node. |
-| `solid`  | `bool` | Flag indicating whether the message is solid. |
-| `solidificationTime`  | `int64` | Time when message was solidified by the node. |
-| `structureDetails`  | `StructureDetails` | List of weak approvers' message IDs. |
-| `branchID`  | `string` | Name of branch that the message is part of. |
-| `scheduled`  | `bool` | Flag indicating whether the message is scheduled. |
-| `booked`  | `bool` | Flag indicating whether the message is booked. |
-| `eligible`  | `bool` | Flag indicating whether the message is eligible. |
-| `invalid`  | `bool` | Flag indicating whether the message is invalid. |
-| `finalized`  | `bool` | Flag indicating whether the message is finalized. |
-| `finalizedTime`   | `string` | Time when message was finalized.    |
-| `error`   | `string` | Error message. Omitted if success.    |
+| id  | string | Message ID. |
+| receivedTime  | int64 | Time when message was received by the node. |
+| solid  | bool | Flag indicating whether the message is solid. |
+| solidificationTime  | int64 | Time when message was solidified by the node. |
+| structureDetails  | StructureDetails | List of weak approvers' message IDs. |
+| branchID  | string | Name of branch that the message is part of. |
+| scheduled  | bool | Flag indicating whether the message is scheduled. |
+| booked  | bool | Flag indicating whether the message is booked. |
+| eligible  | bool | Flag indicating whether the message is eligible. |
+| invalid  | bool | Flag indicating whether the message is invalid. |
+| finalized  | bool | Flag indicating whether the message is finalized. |
+| finalizedTime   | string | Time when message was finalized.    |
+| error   | string | Error message. Omitted if success.    |
 
-##  `/messages/:messageID/consensus`
+##  /messages/:messageID/consensus
 
-Return message consensus info such as opinion and FCoB data.
+Return message consensus info such as opinion and FCoB data based on the messageID.
 
 ### Parameters
 
-| **Parameter**            | `messageID`      |
+| Parameter            | messageID      |
 |--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | ID of a message to retrieve   |
-| **Type**                 | string         |
+| Required or Optional | required       |
+| Description          | ID of a message to retrieve   |
+| Type                 | string         |
 
+### Client lib
 
+This endpoint has no equivalent in the Client lib.
 
 ### Examples
 
@@ -230,18 +231,18 @@ This method is not available in the client library.
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID. |
-| `opinionFormedTime`  | `int64` | Time when the node formed full opinion. |
-| `payloadOpinionFormed`  | `bool` | Flag indicating whether the node formed opinion about the payload. |
-| `timestampOpinionFormed`  | `bool` | Flag indicating whether the node formed opinion about the timestamp. |
-| `messageOpinionFormed`  | `bool` | Flag indicating whether the node formed opinion about the message. |
-| `messageOpinionTriggered`  | `bool` | Flag indicating whether the node triggered an opinion formed event for the message. |
-| `timestampOpinion`  | `string` | Opinion about the message's timestamp. |
-| `timestampLoK`  | `bool` | Level of knowledge about message's timestamp. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| id  | string | Message ID. |
+| opinionFormedTime  | int64 | Time when the node formed full opinion. |
+| payloadOpinionFormed  | bool | Flag indicating whether the node formed opinion about the payload. |
+| timestampOpinionFormed  | bool | Flag indicating whether the node formed opinion about the timestamp. |
+| messageOpinionFormed  | bool | Flag indicating whether the node formed opinion about the message. |
+| messageOpinionTriggered  | bool | Flag indicating whether the node triggered an opinion formed event for the message. |
+| timestampOpinion  | string | Opinion about the message's timestamp. |
+| timestampLoK  | bool | Level of knowledge about message's timestamp. |
+| error   | string | Error message. Omitted if success.    |
 
 
-## `/data`
+## /data
 
 Method: `POST`
 
@@ -249,11 +250,11 @@ A data message is simply a `Message` containing some raw data (literally bytes).
 
 ### Parameters
 
-| **Parameter**            | `data`      |
+| Parameter**            | data      |
 |--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | data bytes   |
-| **Type**                 | base64 serialized bytes         |
+| Required or Optional | required       |
+| Description          | data bytes   |
+| Type                 | base64 serialized bytes         |
 
 
 #### Body
@@ -263,6 +264,22 @@ A data message is simply a `Message` containing some raw data (literally bytes).
   "data": "dataBytes"
 }
 ```
+
+### Client lib - Data()
+
+##### `Data(data []byte) (string, error)`
+
+```go
+messageID, err := goshimAPI.Data([]byte("Hello GoShimmer World"))
+if err != nil {
+    // return error
+}
+```
+
+:::info
+Note that there is no need to do any additional work, since the node takes care of tasks like tip-selection, PoW, etc.
+:::
+
 
 ### Examples
 
@@ -274,18 +291,6 @@ curl --location --request POST 'http://localhost:8080/data' \
 --data-raw '{"data": "dataBytes"}'
 ```
 
-#### Client lib - `Data`
-
-##### `Data(data []byte) (string, error)`
-
-```go
-messageID, err := goshimAPI.Data([]byte("Hello GoShimmer World"))
-if err != nil {
-    // return error
-}
-```
-Note that there is no need to do any additional work, since things like tip-selection, PoW and other tasks are done by the node itself.
-
 ### Response examples
 
 ```json
@@ -298,23 +303,23 @@ Note that there is no need to do any additional work, since things like tip-sele
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID of the message. Omitted if error. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| id  | string | Message ID of the message. Omitted if error. |
+| error   | string | Error message. Omitted if success.    |
 
 
-## `/messages/payload`
+## /messages/payload
 
 Method: `POST`
 
-`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload and returns its `messageID`. Note that the payload must be valid, otherwise an error is returned.
+`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload, and returns its `messageID`. Note that the payload must be valid, otherwise an error will be returned.
 
 ### Parameters
 
-| **Parameter**            | `payload`      |
-|--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | payload bytes  |
-| **Type**                 | base64 serialized bytes         |
+| Parameter            | payload      |
+|------------------------|----------------|
+| Required or Optional | required       |
+| Description         | payload bytes  |
+| Type                 | base64 serialized bytes         |
 
 
 #### Body
@@ -324,6 +329,14 @@ Method: `POST`
   "payload": "payloadBytes"
 }
 ```
+### Client lib - SendPayload()
+You can retrieve a Message's payload via the `SendPayload(payload []byte) (string, error)` function.
+
+```go
+helloPayload := payload.NewData([]byte{"Hello GoShimmer World!"})
+messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
+```
+
 
 ### Examples
 
@@ -335,14 +348,6 @@ curl --location --request POST 'http://localhost:8080/messages/payload' \
 --data-raw '{"payload": "payloadBytes"}'
 ```
 
-#### Client lib - `SendPayload`
-
-##### `SendPayload(payload []byte) (string, error)`
-
-```go
-helloPayload := payload.NewData([]byte{"Hello GoShimmer World!"})
-messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
-```
 
 ### Response examples
 
@@ -356,7 +361,7 @@ messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID of the message. Omitted if error. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| id  | string | Message ID of the message. Omitted if error. |
+| error   | string | Error message. Omitted if success.    |
 
-Note that there is no need to do any additional work, since things like tip-selection, PoW and other tasks are done by the node itself.
+Note that there is no need to do any additional work, since things like tip-selection, the node itself will perform PoW and other tasks.

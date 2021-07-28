@@ -10,7 +10,6 @@
  */
 
 module.exports = {
-  // But you can create a sidebar manually
   docs: [{
     type: 'doc',
     label: 'Welcome',
@@ -42,7 +41,7 @@ module.exports = {
     {
       type: 'doc',
       label: 'Wallet Library',
-      id: 'tutorials/wallet',
+      id: 'tutorials/wallet_library',
     },
 
     {
@@ -71,7 +70,7 @@ module.exports = {
 
     {
       type: 'doc',
-      label: 'Set up the Monitoring Dashboard',
+      label: 'Set Up the Monitoring Dashboard',
       id: 'tutorials/monitoring',
     },
 
@@ -101,7 +100,7 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'Plugin',
+        label: 'Plugin System',
         id: 'implementation_design/plugin',
       },
 
@@ -129,8 +128,8 @@ module.exports = {
       },
       {
         type: 'doc',
-        label: 'Protocol High Level Overview',
-        id: 'protocol_specification/protocol',
+        label: 'High Level Overview',
+        id: 'protocol_specification/protocol_high_level_overview',
       },
 
       {
@@ -141,55 +140,55 @@ module.exports = {
           {
             type: 'doc',
             label: 'Overview',
-            id: 'protocol_specification/components',
+            id: 'protocol_specification/components/overview',
           },
 
           {
             type: 'doc',
             label: 'Tangle',
-            id: 'protocol_specification/tangle',
+            id: 'protocol_specification/components/tangle',
           },
 
           {
             type: 'doc',
             label: 'Autopeering',
-            id: 'protocol_specification/autopeering',
+            id: 'protocol_specification/components/autopeering',
           },
 
           {
             type: 'doc',
             label: 'Mana',
-            id: 'protocol_specification/mana',
+            id: 'protocol_specification/components/mana',
           },
 
           {
             type: 'doc',
             label: 'Congestion Control',
-            id: 'protocol_specification/congestion_control',
+            id: 'protocol_specification/components/congestion_control',
           },
 
           {
             type: 'doc',
             label: 'Consensus Mechanism',
-            id: 'protocol_specification/consensus_mechanism',
+            id: 'protocol_specification/components/consensus_mechanism',
           },
 
           {
             type: 'doc',
             label: 'UTXO and Ledgerstate',
-            id: 'protocol_specification/ledgerstate',
+            id: 'protocol_specification/components/UTXO_and_ledgerstate',
           },
 
           {
             type: 'doc',
             label: 'Advanced Outputs (Experimental)',
-            id: 'protocol_specification/advanced_outputs',
+            id: 'protocol_specification/components/advanced_outputs',
           },
 
           {
             type: 'doc',
             label: 'Markers',
-            id: 'protocol_specification/markers',
+            id: 'protocol_specification/components/markers',
           },
         ]
       },
@@ -208,7 +207,7 @@ module.exports = {
       {
         type: 'doc',
         label: 'Client Lib',
-        id: 'apis/api',
+        id: 'apis/client_lib',
       },
 
       {
@@ -292,7 +291,7 @@ module.exports = {
       {
         type: 'doc',
         label: 'Overview',
-        id: 'tooling',
+        id: 'tooling/overview',
       },
 
       {
