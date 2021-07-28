@@ -6,7 +6,7 @@ module.exports = {
   title: 'GoShimmer',
   tagline: 'Official GoShimmer Software',
   url: 'https://goshimmer.docs.iota.org/',
-  baseUrl: '/',
+  baseUrl: '/goshimmer/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
   favicon: '/img/logo/favicon.ico',
@@ -60,7 +60,7 @@ module.exports = {
             },
             {
               label: 'Tutorials',
-              to: '/docs/tutorials/setup',
+              to: '/docs/tutorials/set-up-a-goshimmer-node',
             },
             {
               label: 'Implementation Design',
@@ -72,11 +72,11 @@ module.exports = {
             },
             {
               label: 'API',
-              to: '/docs/apis/api',
+              to: '/docs/apis/client_lib',
             },
             {
               label: 'Tooling',
-              to: '/docs/tooling',
+              to: '/docs/tooling/overview',
             },
             {
               label: 'Team Resources',
