@@ -197,7 +197,7 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature).Bytes()
 
@@ -206,7 +206,7 @@ func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageI
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
