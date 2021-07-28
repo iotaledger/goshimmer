@@ -100,40 +100,26 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		countParents = parentsCount[0]
 	}
 
-	parents, err := f.selector.Tips(p, countParents)
-	if err != nil {
-		err = errors.Errorf("tips could not be selected: %w", err)
-		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
-		return nil, err
-	}
-
-	issuingTime := f.getIssuingTime(parents)
-
-	likeReferences, err := f.likeReferencesFunc(parents, issuingTime, f.tangle)
-	if err != nil {
-		err = errors.Errorf("like references could not be prepared: %w", err)
-		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
-		return nil, err
-	}
-
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
 	startTime := time.Now()
+	var errPoW error
+	var nonce uint64
+	var parents MessageIDs
+	var issuingTime time.Time
+	var likeReferences MessageIDs
 
-	nonce, err := f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
-	for err != nil && time.Since(startTime) < f.powTimeout {
-		if p.Type() != ledgerstate.TransactionType {
-			parents, err = f.selector.Tips(p, countParents)
-			if err != nil {
-				err = errors.Errorf("tips could not be selected: %w", err)
-				f.Events.Error.Trigger(err)
-				f.issuanceMutex.Unlock()
-				return nil, err
-			}
+	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
+		parents, err = f.selector.Tips(p, countParents)
+		if err != nil {
+			err = errors.Errorf("tips could not be selected: %w", err)
+			f.Events.Error.Trigger(err)
+			f.issuanceMutex.Unlock()
+			return nil, err
 		}
+
+		issuingTime = f.getIssuingTime(parents)
 
 		likeReferences, err = f.likeReferencesFunc(parents, issuingTime, f.tangle)
 		if err != nil {
@@ -143,11 +129,10 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			return nil, err
 		}
 
-		issuingTime = f.getIssuingTime(parents)
-		nonce, err = f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, errPoW = f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
-	if err != nil {
+	if errPoW != nil {
 		err = errors.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
 		f.issuanceMutex.Unlock()
