@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feat/use-github-environments
     paths-ignore:
       - 'docs/**'
 jobs:
