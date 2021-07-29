@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -156,6 +157,7 @@ func Tangle() *tangle.Tangle {
 
 		tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
+		tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 		tangleInstance.Setup()
 	})

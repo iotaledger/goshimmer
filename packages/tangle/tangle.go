@@ -45,6 +45,7 @@ type Tangle struct {
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
 	ConsensusManager      *ConsensusManager
+	OTVConsensusManager   *OTVConsensusManager
 	TipManager            *TipManager
 	Requester             *Requester
 	MessageFactory        *MessageFactory
@@ -83,7 +84,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.ConsensusManager = NewConsensusManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Orderer = NewOrderer(tangle)
 

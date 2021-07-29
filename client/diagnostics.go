@@ -115,28 +115,6 @@ func (api *GoShimmerAPI) GetDiagnosticsTips() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsTips)
 }
 
-// GetDiagnosticsStrongTips runs diagnostics over strong tips
-// Returns csv with the following fields:
-//
-//	tipType,ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,BookedTime,OpinionFormedTime,
-//	FinalizedTime,StrongParents,WeakParents,StrongApprovers,WeakApprovers,BranchID,InclusionState,Scheduled,Booked,
-//	Eligible,Invalid,Finalized,Rank,IsPastMarker,PastMarkers,PMHI,PMLI,FutureMarkers,FMHI,FMLI,PayloadType,TransactionID,
-//	PayloadOpinionFormed,TimestampOpinionFormed,MessageOpinionFormed,MessageOpinionTriggered,TimestampOpinion,TimestampLoK
-func (api *GoShimmerAPI) GetDiagnosticsStrongTips() (*csv.Reader, error) {
-	return api.diagnose(RouteDiagnosticsStrongTips)
-}
-
-// GetDiagnosticsWeakTips runs diagnostics over weak tips
-// Returns csv with the following fields:
-//
-//	tipType,ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,BookedTime,OpinionFormedTime,
-//	FinalizedTime,StrongParents,WeakParents,StrongApprovers,WeakApprovers,BranchID,InclusionState,Scheduled,Booked,
-//	Eligible,Invalid,Finalized,Rank,IsPastMarker,PastMarkers,PMHI,PMLI,FutureMarkers,FMHI,FMLI,PayloadType,TransactionID,
-//	PayloadOpinionFormed,TimestampOpinionFormed,MessageOpinionFormed,MessageOpinionTriggered,TimestampOpinion,TimestampLoK
-func (api *GoShimmerAPI) GetDiagnosticsWeakTips() (*csv.Reader, error) {
-	return api.diagnose(RouteDiagnosticsWeakTips)
-}
-
 // GetDiagnosticsDRNG runs diagnostics for DRNG
 // Returns csv with the following fields:
 //

@@ -77,20 +77,6 @@ func TestDiagnosticApis(t *testing.T) {
 	require.NoError(t, err, "error while reading tools/diagnostic/tips api csv")
 	require.Equal(t, records[0], tipsHeader, "unexpected tips header")
 
-	fmt.Println("run tools/diagnostic/tips/strong")
-	strongTips, err := peers[0].GoShimmerAPI.GetDiagnosticsStrongTips()
-	require.NoError(t, err, "error while running tools/diagnostic/tips/strong api call")
-	records, err = strongTips.ReadAll()
-	require.NoError(t, err, "error while reading tools/diagnostic/tips/strong api csv")
-	require.Equal(t, records[0], tipsHeader, "unexpected tips header")
-
-	fmt.Println("run tools/diagnostic/tips/weak")
-	weakTips, err := peers[0].GoShimmerAPI.GetDiagnosticsWeakTips()
-	require.NoError(t, err, "error while running tools/diagnostic/tips/weak api call")
-	records, err = weakTips.ReadAll()
-	require.NoError(t, err, "error while reading tools/diagnostic/tips/weak api csv")
-	require.Equal(t, records[0], tipsHeader, "unexpected tips header")
-
 	fmt.Println("run tools/diagnostic/branches")
 	branches, err := peers[0].GoShimmerAPI.GetDiagnosticsBranches()
 	require.NoError(t, err, "error while running tools/diagnostic/branches")

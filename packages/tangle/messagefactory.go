@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/types"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
@@ -24,11 +26,13 @@ const storeSequenceInterval = 100
 type MessageFactory struct {
 	Events *MessageFactoryEvents
 
-	tangle        *Tangle
-	sequence      *kvstore.Sequence
-	localIdentity *identity.LocalIdentity
-	selector      TipSelector
-	powTimeout    time.Duration
+	tangle             *Tangle
+	sequence           *kvstore.Sequence
+	localIdentity      *identity.LocalIdentity
+	selector           TipSelector
+	likeReferencesFunc LikeReferencesFunc
+
+	powTimeout time.Duration
 
 	worker        Worker
 	workerMutex   sync.RWMutex
@@ -36,7 +40,7 @@ type MessageFactory struct {
 }
 
 // NewMessageFactory creates a new message factory.
-func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
+func NewMessageFactory(tangle *Tangle, selector TipSelector, likeReferences LikeReferencesFunc) *MessageFactory {
 	sequence, err := kvstore.NewSequence(tangle.Options.Store, []byte(DBSequenceNumber), storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
@@ -48,12 +52,13 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
 			Error:              events.NewEvent(events.ErrorCaller),
 		},
 
-		tangle:        tangle,
-		sequence:      sequence,
-		localIdentity: tangle.Options.Identity,
-		selector:      selector,
-		worker:        ZeroWorker,
-		powTimeout:    0 * time.Second,
+		tangle:             tangle,
+		sequence:           sequence,
+		localIdentity:      tangle.Options.Identity,
+		selector:           selector,
+		likeReferencesFunc: likeReferences,
+		worker:             ZeroWorker,
+		powTimeout:         0 * time.Second,
 	}
 }
 
@@ -90,28 +95,24 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		return nil, err
 	}
 
-	countStrongParents := 2
+	countParents := 2
 	if len(parentsCount) > 0 {
-		countStrongParents = parentsCount[0]
+		countParents = parentsCount[0]
 	}
-	strongParents, weakParents, err := f.selector.Tips(p, countStrongParents, 2)
-	if err != nil {
-		err = errors.Errorf("tips could not be selected: %w", err)
-		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
-		return nil, err
-	}
-	issuingTime := f.getIssuingTime(strongParents, weakParents)
 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
 	startTime := time.Now()
+	var errPoW error
+	var nonce uint64
+	var parents MessageIDs
+	var issuingTime time.Time
+	var likeReferences MessageIDs
 
-	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
-	for err != nil && time.Since(startTime) < f.powTimeout {
-		if p.Type() != ledgerstate.TransactionType {
-			strongParents, weakParents, err = f.selector.Tips(p, countStrongParents, 2)
+	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
+		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
+			parents, err = f.selector.Tips(p, countParents)
 			if err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
@@ -119,12 +120,19 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 				return nil, err
 			}
 		}
+		issuingTime = f.getIssuingTime(parents)
 
-		issuingTime = f.getIssuingTime(strongParents, weakParents)
-		nonce, err = f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+		likeReferences, err = f.likeReferencesFunc(parents, issuingTime, f.tangle)
+		if err != nil {
+			err = errors.Errorf("like references could not be prepared: %w", err)
+			f.Events.Error.Trigger(err)
+			f.issuanceMutex.Unlock()
+			return nil, err
+		}
+		nonce, errPoW = f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
-	if err != nil {
+	if errPoW != nil {
 		err = errors.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
 		f.issuanceMutex.Unlock()
@@ -133,13 +141,13 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	f.issuanceMutex.Unlock()
 
 	// create the signature
-	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature := f.sign(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := NewMessage(
-		strongParents,
-		weakParents,
+		parents,
 		nil,
 		nil,
+		likeReferences,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -151,25 +159,19 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-func (f *MessageFactory) getIssuingTime(strongParents, weakParents MessageIDs) time.Time {
+func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
 
-	for _, parent := range strongParents {
+	for _, parent := range parents {
 		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
 			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
 				issuingTime = msg.IssuingTime()
 			}
 		})
 	}
-	for _, parent := range weakParents {
-		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
-			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
-				issuingTime = msg.IssuingTime()
-			}
-		})
-	}
+
 	return issuingTime
 }
 
@@ -180,18 +182,18 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
+	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature).Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, nil, nil, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
+	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
@@ -221,7 +223,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
+	Tips(p payload.Payload, countParents int) (parents MessageIDs, err error)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -229,11 +231,11 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
+type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDs, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-	return f(p, countStrongParents, countWeakParents)
+func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+	return f(p, countParents)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -263,5 +265,68 @@ func (f WorkerFunc) DoPOW(msg []byte) (uint64, error) {
 
 // ZeroWorker is a PoW worker that always returns 0 as the nonce.
 var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// LikeReferencesFunc is a function type that returns like references a given set of parents of a Message.
+type LikeReferencesFunc func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error)
+
+// PrepareLikeReferences is an implementation of LikeReferencesFunc.
+func PrepareLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
+	branchIDs := ledgerstate.NewBranchIDs()
+
+	for _, parent := range parents {
+		branchID, err := tangle.Booker.MessageBranchID(parent)
+		if err != nil {
+			err = errors.Errorf("branchID can't be retrieved: %w", err)
+			return nil, err
+		}
+		branchIDs.Add(branchID)
+	}
+	_, dislikedBranches, err := tangle.OTVConsensusManager.Opinion(branchIDs)
+	if err != nil {
+		err = errors.Errorf("opinions could not be retrieved: %w", err)
+		return nil, err
+	}
+	likeReferencesMap := make(map[MessageID]types.Empty)
+	likeReferences := MessageIDs{}
+
+	for dislikedBranch := range dislikedBranches {
+		likedInstead, err := tangle.OTVConsensusManager.LikedInstead(dislikedBranch)
+		if err != nil {
+			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
+			return nil, err
+		}
+
+		for _, likeRef := range likedInstead {
+			transactionID := likeRef.Liked.TransactionID()
+			oldestAttachmentTime := time.Unix(0, 0)
+			oldestAttachmentMessageID := EmptyMessageID
+			if !tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+				tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+					if oldestAttachmentTime.Unix() == 0 || message.IssuingTime().Before(oldestAttachmentTime) {
+						oldestAttachmentTime = message.IssuingTime()
+						oldestAttachmentMessageID = message.ID()
+					}
+				})
+			}) {
+				err = errors.Errorf("could not find any attachments of transaction: %s", transactionID.String())
+				return nil, err
+			}
+			// add like reference to a message only once if it appears in multiple conflict sets
+			if _, ok := likeReferencesMap[oldestAttachmentMessageID]; !ok {
+				likeReferencesMap[oldestAttachmentMessageID] = types.Void
+				// check difference between issuing time and message that would be set as like reference, to avoid setting too old message.
+				// what if original message is older than maxParentsTimeDifference even though the branch still exists?
+				if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
+					likeReferences = append(likeReferences, oldestAttachmentMessageID)
+				}
+			}
+		}
+	}
+	return likeReferences, nil
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
