@@ -514,14 +514,14 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 	}
 }
 
-// ForEachStrongParent executes a consumer func for each strong parent.
+// ForEachParentByType executes a consumer func for each strong parent.
 func (m *Message) ForEachParentByType(parentType ParentsType, consumer func(parentMessageID MessageID)) {
 	for _, parentID := range m.ParentsByType(parentType) {
 		consumer(parentID)
 	}
 }
 
-// ParentsCount returns the total parents count of this message.
+// ParentsCountByType returns the total parents count of this message.
 func (m *Message) ParentsCountByType(parentType ParentsType) uint8 {
 	return uint8(len(m.ParentsByType(parentType)))
 }

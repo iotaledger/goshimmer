@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/otv"
+
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -34,9 +36,9 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-		return []MessageID{EmptyMessageID}, []MessageID{}, nil
-	}))
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+		return []MessageID{EmptyMessageID}, nil
+	}), emptyLikeReferences)
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
@@ -66,9 +68,9 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-		return []MessageID{EmptyMessageID}, []MessageID{}, nil
-	}))
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
+		return []MessageID{EmptyMessageID}, nil
+	}), emptyLikeReferences)
 
 	messages := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {
@@ -222,6 +224,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// create the tangle
 	tangle := NewTestTangle(Store(rocksdb))
+	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.LedgerState.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
+
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -232,17 +236,18 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			r := tips.RandomUniqueEntries(countStrongParents)
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}, []MessageID{}, nil
+				return []MessageID{EmptyMessageID}, nil
 			}
 			parents := make([]MessageID, len(r))
 			for i := range r {
 				parents[i] = r[i].(MessageID)
 			}
-			return parents, []MessageID{}, nil
+			return parents, nil
 		}),
+		emptyLikeReferences,
 	)
 
 	// create a helper function that creates the messages
@@ -385,17 +390,18 @@ func TestTangle_Flow(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			r := tips.RandomUniqueEntries(countStrongParents)
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}, []MessageID{}, nil
+				return []MessageID{EmptyMessageID}, nil
 			}
 			parents := make([]MessageID, len(r))
 			for i := range r {
 				parents[i] = r[i].(MessageID)
 			}
-			return parents, []MessageID{}, nil
+			return parents, nil
 		}),
+		emptyLikeReferences,
 	)
 
 	// PoW workers
@@ -588,7 +594,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		return nil, err
 	}
 
-	strongParents, weakParents, err := f.selector.Tips(p, 2, 0)
+	parents, err := f.selector.Tips(p, 2)
 	if err != nil {
 		err = fmt.Errorf("could not select tips: %w", err)
 		f.Events.Error.Trigger(err)
@@ -599,7 +605,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -607,11 +613,11 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	}
 
 	// create the signature
-	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature := f.sign(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := NewMessage(
-		strongParents,
-		weakParents,
+		parents,
+		nil,
 		nil,
 		nil,
 		issuingTime,

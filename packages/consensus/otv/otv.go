@@ -9,22 +9,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// WeightFunc returns the approval weight for the given branch.
-type WeightFunc func(branchID ledgerstate.BranchID) (weight float64)
-
 // OnTangleVoting is a pluggable implementation of tangle.ConsensusMechanism2. On tangle voting is a generalized form of
 // Nakamoto consensus for the parallel-reality-based ledger state where the heaviest branch according to approval weight
 // is liked by any given node.
 type OnTangleVoting struct {
 	branchDAG  *ledgerstate.BranchDAG
-	weightFunc WeightFunc
+	weightFunc consensus.WeightFunc
 }
 
 // NewOnTangleVoting is the constructor for OnTangleVoting.
-func NewOnTangleVoting(weightFunc WeightFunc, branchDAG *ledgerstate.BranchDAG) *OnTangleVoting {
+func NewOnTangleVoting(branchDAG *ledgerstate.BranchDAG, weightFunc consensus.WeightFunc) *OnTangleVoting {
 	return &OnTangleVoting{
-		weightFunc: weightFunc,
 		branchDAG:  branchDAG,
+		weightFunc: weightFunc,
 	}
 }
 
@@ -71,6 +68,11 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 	}
 
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
+		// I like myself
+		if o.doILike(resolvedConflictBranchID, ledgerstate.NewConflictIDs()) {
+			continue
+		}
+
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
 				opinionTuple = append(opinionTuple, consensus.OpinionTuple{
@@ -79,15 +81,6 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 				})
 			}
 		})
-
-		if len(opinionTuple) > 0 {
-			continue
-		}
-
-		// I like myself
-		if o.doILike(resolvedConflictBranchID, ledgerstate.NewConflictIDs()) {
-			continue
-		}
 
 		// here any direct conflicting branch is also disliked
 		// which means that instead the liked branches have to be derived from branch's parents

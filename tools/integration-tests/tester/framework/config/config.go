@@ -16,6 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/pow"
+	"github.com/iotaledger/goshimmer/plugins/profiling"
+	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
@@ -23,6 +25,8 @@ import (
 type GoShimmer struct {
 	// Name specifies the GoShimmer instance.
 	Name string
+	// Image specifies the docker image for the instance
+	Image string
 	// DisabledPlugins specifies the plugins that are disabled with a config.
 	DisabledPlugins []string
 	// Seed specifies identity.
@@ -41,9 +45,10 @@ type GoShimmer struct {
 	Faucet
 	Mana
 	Consensus
-	FPC
 	Activity
 	DRNG
+	Prometheus
+	Profiling
 }
 
 // NewGoShimmer creates a GoShimmer config initialized with default values.
@@ -122,13 +127,6 @@ type Consensus struct {
 	Enabled bool
 }
 
-// FPC defines the parameters used by the FPC consensus.
-type FPC struct {
-	Enabled bool
-
-	messagelayer.FPCParametersDefinition
-}
-
 // Activity defines the parameters of the activity plugin.
 type Activity struct {
 	Enabled bool
@@ -141,6 +139,20 @@ type DRNG struct {
 	Enabled bool
 
 	drng.ParametersDefinition
+}
+
+// Prometheus defines the parameters of the Prometheus plugin.
+type Prometheus struct {
+	Enabled bool
+
+	prometheus.ParametersDefinition
+}
+
+// Profiling defines the parameters of the Profiling plugin.
+type Profiling struct {
+	Enabled bool
+
+	profiling.ParametersDefinition
 }
 
 // CreateIdentity returns an identity based on the config.

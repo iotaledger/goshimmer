@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href="https://goshimmer.docs.iota.org/goshimmer.html"><img src="images/GoShimmer.png"></a>
+  <a href="https://goshimmer.docs.iota.org/"><img src="images/GoShimmer.png"></a>
 </h1>
 
 <h2 align="center">Prototype node software for an IOTA network without the Coordinator</h2>

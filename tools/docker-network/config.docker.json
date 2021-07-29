@@ -37,9 +37,6 @@
       "committeeMembers": ["EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"]
     }
   },
-  "fpc": {
-    "drngInstanceID": 111
-  },
   "gossip": {
     "port": 14666
   },

@@ -53,6 +53,7 @@ func configureVisualizer() {
 		switch x := task.Param(0).(type) {
 		case *tangle.Message:
 			sendVertex(x, task.Param(1).(bool))
+		// TODO to remove
 		case tangle.TipType:
 			sendTipInfo(task.Param(1).(tangle.MessageID), task.Param(2).(bool))
 		}
@@ -94,17 +95,11 @@ func runVisualizer() {
 	})
 
 	notifyNewTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
-		// TODO: handle weak tips
-		if tipEvent.TipType == tangle.StrongTip {
-			visualizerWorkerPool.TrySubmit(tipEvent.TipType, tipEvent.MessageID, true)
-		}
+		visualizerWorkerPool.TrySubmit(tipEvent.TipType, tipEvent.MessageID, true)
 	})
 
 	notifyDeletedTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
-		// TODO: handle weak tips
-		if tipEvent.TipType == tangle.StrongTip {
-			visualizerWorkerPool.TrySubmit(tipEvent.TipType, tipEvent.MessageID, false)
-		}
+		visualizerWorkerPool.TrySubmit(tipEvent.TipType, tipEvent.MessageID, false)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {

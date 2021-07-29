@@ -13,9 +13,7 @@ const (
 	apiPort     = 8080
 	gossipPort  = 14666
 	peeringPort = 14626
-	fpcPort     = 10895
 
-	containerNameTester      = "/tester"
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
 	containerNameDrand       = "drand_"
@@ -53,13 +51,13 @@ type CreateNetworkConfig struct {
 	Faucet bool
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
 	Activity bool
-	// FPC specified whether FPC is enabled.
-	FPC bool
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.
 func PeerConfig() config.GoShimmer {
 	c := config.NewGoShimmer()
+
+	c.Image = "iotaledger/goshimmer"
 
 	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
 
@@ -82,7 +80,6 @@ func PeerConfig() config.GoShimmer {
 	c.Autopeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
-	c.MessageLayer.FCOB.QuarantineTime = 2
 	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed))
 	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
 
@@ -94,11 +91,6 @@ func PeerConfig() config.GoShimmer {
 	c.Mana.Enabled = true
 
 	c.Consensus.Enabled = false
-
-	c.FPC.Enabled = true
-	c.FPC.BindAddress = fmt.Sprintf(":%d", fpcPort)
-	c.FPC.RoundInterval = 5
-	c.FPC.TotalRoundsFinalization = 10
 
 	c.Activity.Enabled = false
 	c.BroadcastIntervalSec = 1 // increase frequency to speedup tests
@@ -119,7 +111,6 @@ func EntryNodeConfig() config.GoShimmer {
 	c.Faucet.Enabled = false
 	c.Mana.Enabled = false
 	c.Consensus.Enabled = false
-	c.FPC.Enabled = false
 	c.Activity.Enabled = false
 	c.DRNG.Enabled = false
 

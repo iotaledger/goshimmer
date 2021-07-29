@@ -7,8 +7,8 @@ const (
 	PriorityMana
 	// PriorityTangle defines the shutdown priority for the tangle.
 	PriorityTangle
-	// PriorityFPC defines the shutdown priority for the FPC.
-	PriorityFPC
+	// PriorityDRNG defines the shutdown priority for dRNG.
+	PriorityDRNG
 	// PriorityFaucet defines the shutdown priority for the faucet.
 	PriorityFaucet
 	// PriorityRemoteLog defines the shutdown priority for remote log.
