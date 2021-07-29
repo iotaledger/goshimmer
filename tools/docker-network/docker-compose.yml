@@ -22,7 +22,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9312
       --prometheus.processMetrics=false
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,messagelayer,mana,pow,valuetransfers,consensus,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,messagelayer,mana,pow,webapi
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -48,8 +48,6 @@ services:
       --metrics.manaResearch=false
       --mana.enableResearchVectors=false
       --mana.snapshotResetTime=true
-      --statement.writeStatement=true
-      --statement.writeManaThreshold=1.0
       --webapi.exportPath=/tmp/
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
@@ -77,8 +75,6 @@ services:
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
-      --statement.writeStatement=true
-      --statement.writeManaThreshold=1.0
       --webapi.exportPath=/tmp/
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
@@ -102,8 +98,6 @@ services:
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
-      --statement.writeStatement=true
-      --statement.writeManaThreshold=1.0
       --webapi.exportPath=/tmp/
     volumes:
       - ./config.docker.json:/tmp/config.json:ro

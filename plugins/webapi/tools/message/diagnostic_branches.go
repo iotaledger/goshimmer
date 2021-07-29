@@ -9,7 +9,6 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -98,7 +97,6 @@ var DiagnosticBranchesTableDescription = []string{
 	"InclusionState",
 	"Finalized",
 	"LazyBooked",
-	"TransactionLiked",
 }
 
 // DiagnosticBranchInfo holds the information of a branch.
@@ -113,7 +111,6 @@ type DiagnosticBranchInfo struct {
 	InclusionState     string
 	Finalized          bool
 	LazyBooked         bool
-	TransactionLiked   bool
 }
 
 func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchInfo {
@@ -136,16 +133,12 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 
 		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
-			messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
-				conflictInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(attachment.MessageID())
-			})
 		})
 
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
 			conflictInfo.Finalized = transactionMetadata.Finalized()
 			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
-			conflictInfo.TransactionLiked = messagelayer.ConsensusMechanism().TransactionLiked(transactionID)
 		})
 	})
 
@@ -164,7 +157,6 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		d.InclusionState,
 		fmt.Sprint(d.Finalized),
 		fmt.Sprint(d.LazyBooked),
-		fmt.Sprint(d.TransactionLiked),
 	}
 
 	result = strings.Join(row, ",")

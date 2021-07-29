@@ -14,7 +14,6 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -96,7 +95,6 @@ func run(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransaction)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
-	webapi.Server().GET("ledgerstate/transactions/:transactionID/consensus", GetTransactionConsensusMetadata)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
 	webapi.Server().POST("ledgerstate/transactions", PostTransaction)
 }
@@ -415,29 +413,6 @@ func GetTransactionInclusionState(c echo.Context) (err error) {
 	conflicting := len(messagelayer.Tangle().LedgerState.ConflictSet(transactionID)) != 0
 
 	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID, conflicting))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region GetTransactionConsensusMetadata //////////////////////////////////////////////////////////////////////////////
-
-// GetTransactionConsensusMetadata is the handler for the ledgerstate/transactions/:transactionID/consensus endpoint.
-func GetTransactionConsensusMetadata(c echo.Context) (err error) {
-	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	consensusMechanism := messagelayer.Tangle().Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
-	if consensusMechanism != nil {
-		if consensusMechanism.Storage.Opinion(transactionID).Consume(func(opinion *fcob.Opinion) {
-			err = c.JSON(http.StatusOK, jsonmodels.NewTransactionConsensusMetadata(transactionID, opinion))
-		}) {
-			return
-		}
-	}
-
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionConsensusMetadata of Transaction with %s", transactionID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

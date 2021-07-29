@@ -8,9 +8,6 @@ import (
 )
 
 var (
-	_FPCInboundBytes  atomic.Uint64
-	_FPCOutboundBytes atomic.Uint64
-
 	previousNeighbors = make(map[identity.ID]gossipTrafficMetric)
 	gossipOldTx       uint64
 	gossipOldRx       uint64
@@ -19,16 +16,6 @@ var (
 
 	analysisOutboundBytes atomic.Uint64
 )
-
-// FPCInboundBytes returns the total inbound FPC traffic.
-func FPCInboundBytes() uint64 {
-	return _FPCInboundBytes.Load()
-}
-
-// FPCOutboundBytes returns the total outbound FPC traffic.
-func FPCOutboundBytes() uint64 {
-	return _FPCOutboundBytes.Load()
-}
 
 // GossipInboundBytes returns the total inbound gossip traffic.
 func GossipInboundBytes() uint64 {

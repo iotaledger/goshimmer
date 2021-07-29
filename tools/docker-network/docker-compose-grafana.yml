@@ -1,16 +1,6 @@
 version: "3.5"
 
 services:
-  mongodb_container:
-    image: mongo:latest
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
-    ports:
-      - 27017:27017
-    volumes:
-      - mongodb_data_container:/data/db
-
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -36,6 +26,3 @@ services:
     user: "104"
     volumes:
       - ./grafana:/var/lib/grafana:rw
-
-volumes:
-  mongodb_data_container:

@@ -9,8 +9,6 @@ import (
 )
 
 var (
-	fpcInboundBytes          prometheus.Gauge
-	fpcOutboundBytes         prometheus.Gauge
 	analysisOutboundBytes    prometheus.Gauge
 	gossipInboundBytes       prometheus.Gauge
 	gossipOutboundBytes      prometheus.Gauge
@@ -19,14 +17,6 @@ var (
 )
 
 func registerNetworkMetrics() {
-	fpcInboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "traffic_fpc_inbound_bytes",
-		Help: "FPC RX network traffic [bytes].",
-	})
-	fpcOutboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "traffic_fpc_outbound_bytes",
-		Help: "FPC TX network traffic [bytes].",
-	})
 	autopeeringInboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "traffic_autopeering_inbound_bytes",
 		Help: "traffic_autopeering RX network traffic [bytes].",
@@ -52,8 +42,6 @@ func registerNetworkMetrics() {
 		registry.MustRegister(autopeeringInboundBytes)
 		registry.MustRegister(autopeeringOutboundBytes)
 	}
-	registry.MustRegister(fpcInboundBytes)
-	registry.MustRegister(fpcOutboundBytes)
 	registry.MustRegister(analysisOutboundBytes)
 	registry.MustRegister(gossipInboundBytes)
 	registry.MustRegister(gossipOutboundBytes)
@@ -66,8 +54,6 @@ func collectNetworkMetrics() {
 		autopeeringInboundBytes.Set(float64(autopeering.Conn.RXBytes()))
 		autopeeringOutboundBytes.Set(float64(autopeering.Conn.TXBytes()))
 	}
-	fpcInboundBytes.Set(float64(metrics.FPCInboundBytes()))
-	fpcOutboundBytes.Set(float64(metrics.FPCOutboundBytes()))
 	analysisOutboundBytes.Set(float64(metrics.AnalysisOutboundBytes()))
 	gossipInboundBytes.Set(float64(metrics.GossipInboundBytes()))
 	gossipOutboundBytes.Set(float64(metrics.GossipOutboundBytes()))

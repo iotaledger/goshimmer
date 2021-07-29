@@ -71,9 +71,8 @@ func (api *GoShimmerAPI) GetDiagnosticsMessagesByRank(rank uint64) (*csv.Reader,
 // GetDiagnosticsUtxoDag runs diagnostics over utxo dag.
 // Returns csv with the following fields:
 //
-//	ID,IssuanceTime,SolidTime,OpinionFormedTime,AccessManaPledgeID,ConsensusManaPledgeID,Inputs,Outputs,Attachments,
-//	BranchID,BranchLiked,BranchMonotonicallyLiked,Conflicting,InclusionState,Finalized,LazyBooked,Liked,LoK,FCOB1Time,
-//	FCOB2Time
+//	ID,IssuanceTime,SolidTime,AccessManaPledgeID,ConsensusManaPledgeID,Inputs,Outputs,Attachments,
+//	BranchID,BranchLiked,BranchMonotonicallyLiked,Conflicting,InclusionState,Finalized,LazyBooked.
 func (api *GoShimmerAPI) GetDiagnosticsUtxoDag() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsUtxoDag)
 }
