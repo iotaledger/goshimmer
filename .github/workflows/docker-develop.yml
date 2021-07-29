@@ -9,6 +9,7 @@ on:
 jobs:
 
   docker:
+    environment: pre-devnet
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: 1
@@ -51,7 +52,7 @@ jobs:
 
       - name: Install SSH Key
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.PRE_DEVNET_SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh/
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
@@ -64,7 +65,7 @@ jobs:
 
       - name: Ansible deploy
         env:
-          GOSHIMMER_SEEDS: '${{ secrets.PRE_DEVNET_GOSHIMMER_SEEDS }}'
+          GOSHIMMER_SEEDS: '${{ secrets.GOSHIMMER_SEEDS }}'
           MONGODB_USER: '${{ secrets.MONGODB_USER }}'
           MONGODB_PASSWORD: '${{ secrets.MONGODB_PASSWORD }}'
           GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
