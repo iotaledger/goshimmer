@@ -365,6 +365,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		err = errors.Errorf("parents blocks count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
 		return
 	}
+	result.parentsBlocksCount = parentsBlocksCount
 
 	result.parentsBlocks = make([]ParentsBlock, parentsBlocksCount)
 
