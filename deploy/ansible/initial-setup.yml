@@ -23,7 +23,7 @@
 - hosts: drands
   vars:
     numberOfDrands: 5
-    drandsThershold: 3
+    drandsThreshold: 3
     leaderDrandAddress: "drand-01.pre-devnet.shimmer.iota.cafe:1234"
   roles:
     - role: drand
