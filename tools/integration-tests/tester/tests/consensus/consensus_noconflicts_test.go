@@ -30,7 +30,6 @@ func TestConsensusNoConflicts(t *testing.T) {
 		Faucet:      true,
 		Autopeering: true,
 		Activity:    true,
-		FPC:         true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

@@ -14,7 +14,6 @@ var ErrMalformedPacket = errors.New("malformed packet")
 var (
 	// analysisMsgRegistry holds all message definitions for analysis server related messages
 	analysisMsgRegistry *message.Registry
-	fpcHeartBeatOnce    sync.Once
 	heartBeatOnce       sync.Once
 )
 
@@ -23,7 +22,6 @@ func init() {
 	definitions := []*message.Definition{
 		tlv.HeaderMessageDefinition,
 		HeartBeatMessageDefinition(),
-		FPCHeartbeatMessageDefinition(),
 		MetricHeartbeatMessageDefinition,
 	}
 	analysisMsgRegistry = message.NewRegistry(definitions)

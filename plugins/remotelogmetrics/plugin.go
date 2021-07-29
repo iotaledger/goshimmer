@@ -39,7 +39,6 @@ func Plugin() *node.Plugin {
 
 func configure(_ *node.Plugin) {
 	configureSyncMetrics()
-	configureFPCConflictsMetrics()
 	configureDRNGMetrics()
 	configureTransactionMetrics()
 	configureStatementMetrics()
@@ -75,17 +74,11 @@ func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEve
 	}
 }
 
-func configureFPCConflictsMetrics() {
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
-}
-
 func configureDRNGMetrics() {
 	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
 }
 
 func configureTransactionMetrics() {
-	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onTransactionOpinionFormed))
 	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }
 

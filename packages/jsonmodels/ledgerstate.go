@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -794,32 +793,6 @@ func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, id 
 		Confirmed:     inclusionState == ledgerstate.Confirmed,
 		Rejected:      inclusionState == ledgerstate.Rejected,
 		Conflicting:   conflicting,
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionConsensusMetadata /////////////////////////////////////////////////////////////////////////////////
-
-// TransactionConsensusMetadata represents the JSON model of the transaction's consensus metadata.
-type TransactionConsensusMetadata struct {
-	TransactionID string `json:"transactionID"`
-	Timestamp     int64  `json:"timestamp"`
-	Liked         bool   `json:"liked"`
-	LoK           string `json:"lok"`
-	FCOBTime1     int64  `json:"fcobTime1"`
-	FCOBTime2     int64  `json:"fcobTime2"`
-}
-
-// NewTransactionConsensusMetadata returns the TransactionConsensusMetadata from the given transaction ID.
-func NewTransactionConsensusMetadata(transactionID ledgerstate.TransactionID, opinion *fcob.Opinion) *TransactionConsensusMetadata {
-	return &TransactionConsensusMetadata{
-		TransactionID: transactionID.Base58(),
-		Timestamp:     opinion.Timestamp().Unix(),
-		Liked:         opinion.Liked(),
-		LoK:           opinion.LevelOfKnowledge().String(),
-		FCOBTime1:     opinion.FCOBTime1().Unix(),
-		FCOBTime2:     opinion.FCOBTime2().Unix(),
 	}
 }
 

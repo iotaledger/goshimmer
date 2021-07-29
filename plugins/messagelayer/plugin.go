@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
-
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -113,9 +111,6 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
 	}
 
-	fcob.LikedThreshold = time.Duration(Parameters.FCOB.QuarantineTime) * time.Second
-	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.QuarantineTime+Parameters.FCOB.QuarantineTime) * time.Second
-
 	configureApprovalWeight()
 }
 
@@ -144,7 +139,7 @@ func Tangle() *tangle.Tangle {
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 			tangle.Width(Parameters.TangleWidth),
-			tangle.Consensus(ConsensusMechanism()),
+			// tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			tangle.SchedulerConfig(tangle.SchedulerParams{
 				MaxBufferSize:               SchedulerParameters.MaxBufferSize,
@@ -167,24 +162,6 @@ func Tangle() *tangle.Tangle {
 		tangleInstance.Setup()
 	})
 	return tangleInstance
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ConsensusMechanism ///////////////////////////////////////////////////////////////////////////////////////////
-
-var (
-	consensusMechanism     *fcob.ConsensusMechanism
-	consensusMechanismOnce sync.Once
-)
-
-// ConsensusMechanism return the FcoB ConsensusMechanism used by the Tangle.
-func ConsensusMechanism() *fcob.ConsensusMechanism {
-	consensusMechanismOnce.Do(func() {
-		consensusMechanism = fcob.NewConsensusMechanism()
-	})
-
-	return consensusMechanism
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
