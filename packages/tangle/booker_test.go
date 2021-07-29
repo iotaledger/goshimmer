@@ -1783,8 +1783,6 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("D+F+I", "Message5", "Message4", "Message19")
 		testFramework.RegisterBranchID("A+D+F+H", "Message1", "Message5", "Message4", "Message9")
 
-		//testFramework.RegisterBranchID("B+D+F+H", "Message2", "Message5", "Message4", "Message9")
-
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
 			"Message2":    markers.NewMarkers(markers.NewMarker(2, 1)),
@@ -1850,6 +1848,85 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message17":   testFramework.BranchID("B+E+F"),
 			"Message18":   testFramework.BranchID("B+E+F"),
 			"Message19":   testFramework.BranchID("D+F+I"),
+		})
+	}
+
+	// ISSUE Message20 - 23
+	{
+		testFramework.CreateMessage("Message20", WithStrongParents("Message4"))
+		testFramework.CreateMessage("Message21", WithStrongParents("Message4"))
+		testFramework.CreateMessage("Message22", WithStrongParents("Message20", "Message21"))
+		testFramework.CreateMessage("Message23", WithStrongParents("Message5", "Message22"))
+		testFramework.IssueMessages("Message20", "Message21", "Message22", "Message23").WaitMessagesBooked()
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
+			"Message2":    markers.NewMarkers(markers.NewMarker(2, 1)),
+			"Message3":    markers.NewMarkers(markers.NewMarker(3, 1)),
+			"Message4":    markers.NewMarkers(markers.NewMarker(4, 1)),
+			"Message5":    markers.NewMarkers(markers.NewMarker(4, 2)),
+			"Message6":    markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Message7":    markers.NewMarkers(markers.NewMarker(2, 3)),
+			"Message8":    markers.NewMarkers(markers.NewMarker(5, 4)),
+			"Message9":    markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(3, 1)),
+			"Message10":   markers.NewMarkers(markers.NewMarker(2, 4)),
+			"Message11":   markers.NewMarkers(markers.NewMarker(5, 5)),
+			"Message11.5": markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(3, 1)),
+			"Message12":   markers.NewMarkers(markers.NewMarker(6, 2)),
+			"Message13":   markers.NewMarkers(markers.NewMarker(7, 4)),
+			"Message14":   markers.NewMarkers(markers.NewMarker(2, 4)),
+			"Message15":   markers.NewMarkers(markers.NewMarker(2, 5)),
+			"Message16":   markers.NewMarkers(markers.NewMarker(8, 1)),
+			"Message17":   markers.NewMarkers(markers.NewMarker(2, 4)),
+			"Message18":   markers.NewMarkers(markers.NewMarker(7, 5)),
+			"Message19":   markers.NewMarkers(markers.NewMarker(9, 4)),
+			"Message20":   markers.NewMarkers(markers.NewMarker(10, 2)),
+		})
+		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+			"Message1":    ledgerstate.UndefinedBranchID,
+			"Message2":    ledgerstate.UndefinedBranchID,
+			"Message3":    ledgerstate.UndefinedBranchID,
+			"Message4":    ledgerstate.UndefinedBranchID,
+			"Message5":    ledgerstate.UndefinedBranchID,
+			"Message6":    ledgerstate.UndefinedBranchID,
+			"Message7":    ledgerstate.UndefinedBranchID,
+			"Message8":    ledgerstate.UndefinedBranchID,
+			"Message9":    testFramework.BranchID("A+D+F+H"),
+			"Message10":   ledgerstate.UndefinedBranchID,
+			"Message11":   ledgerstate.UndefinedBranchID,
+			"Message11.5": testFramework.BranchID("A+D+F+H"),
+			"Message12":   ledgerstate.UndefinedBranchID,
+			"Message13":   ledgerstate.UndefinedBranchID,
+			"Message14":   testFramework.BranchID("B+E+F"),
+			"Message15":   ledgerstate.UndefinedBranchID,
+			"Message16":   ledgerstate.UndefinedBranchID,
+			"Message17":   testFramework.BranchID("B+E+F"),
+			"Message18":   ledgerstate.UndefinedBranchID,
+			"Message19":   ledgerstate.UndefinedBranchID,
+			"Message20":   ledgerstate.UndefinedBranchID,
+		})
+		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+			"Message1":    testFramework.BranchID("A"),
+			"Message2":    testFramework.BranchID("B"),
+			"Message3":    testFramework.BranchID("C"),
+			"Message4":    testFramework.BranchID("F"),
+			"Message5":    testFramework.BranchID("D+F"),
+			"Message6":    testFramework.BranchID("B"),
+			"Message7":    testFramework.BranchID("B+D+F"),
+			"Message8":    testFramework.BranchID("A+C+D+F"),
+			"Message9":    testFramework.BranchID("A+D+F+H"),
+			"Message10":   testFramework.BranchID("B+D+F"),
+			"Message11":   testFramework.BranchID("A+D+F+H"),
+			"Message11.5": testFramework.BranchID("A+D+F+H"),
+			"Message12":   testFramework.BranchID("A+E"),
+			"Message13":   testFramework.BranchID("B+E+F"),
+			"Message14":   testFramework.BranchID("B+E+F"),
+			"Message15":   testFramework.BranchID("B+D+F"),
+			"Message16":   testFramework.BranchID("G"),
+			"Message17":   testFramework.BranchID("B+E+F"),
+			"Message18":   testFramework.BranchID("B+E+F"),
+			"Message19":   testFramework.BranchID("D+F+I"),
+			"Message20":   testFramework.BranchID("F"),
 		})
 	}
 
