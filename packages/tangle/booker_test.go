@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -1341,12 +1340,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message12
 	{
-		fmt.Println("+++++++++++++++++++++++++++++++ MESSAGE 12 +++++++++++++++++++++++++++++++++++++++++++")
 		testFramework.CreateMessage("Message12", WithStrongParents("Message1"), WithInputs("C"), WithOutput("H", 500))
-		testFramework.RegisterBranchID("D", "Message5")
-		testFramework.RegisterBranchID("E", "Message12")
 		testFramework.IssueMessages("Message12").WaitMessagesBooked()
 
+		testFramework.RegisterBranchID("D", "Message5")
+		testFramework.RegisterBranchID("E", "Message12")
 		testFramework.RegisterBranchID("A+E", "Message1", "Message12")
 		testFramework.RegisterBranchID("B+D", "Message2", "Message5")
 		testFramework.RegisterBranchID("A+C+D", "Message1", "Message3", "Message5")
@@ -1592,19 +1590,15 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message16
 	{
-		fmt.Println("+++++++++++++++++++++++++++++++ MESSAGE 16 +++++++++++++++++++++++++++++++++++++++++++")
-
 		testFramework.CreateMessage("Message16", WithStrongParents("Genesis"), WithInputs("L"), WithOutput("J", 500))
+		testFramework.IssueMessages("Message16").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("F", "Message4")
 		testFramework.RegisterBranchID("G", "Message16")
-		testFramework.IssueMessages("Message16").WaitMessagesBooked()
 		testFramework.RegisterBranchID("D+F", "Message5", "Message4")
 		testFramework.RegisterBranchID("B+D+F", "Message2", "Message5", "Message4")
 		testFramework.RegisterBranchID("A+C+D+F", "Message1", "Message3", "Message5", "Message4")
 		testFramework.RegisterBranchID("B+E+F", "Message2", "Message12", "Message4")
-
-		fmt.Println("D+F", testFramework.BranchID("D+F").Base58())
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),

@@ -99,13 +99,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			strongBranchIDs := b.strongParentsBranchIDs(message)
 			likedBranchIDs := b.likedParentsBranchIDs(message)
 
-			testMessage := "Message20"
-			if id := messageIDAliases[messageID]; id == testMessage {
-				fmt.Println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-				fmt.Println("strong", strongBranchIDs)
-				fmt.Println("liked", likedBranchIDs)
-			}
-
 			collectedStrongParents := ledgerstate.NewBranchIDs()
 			for strongBranchID := range strongBranchIDs {
 				for collectedParent := range b.collectBranchesUpwards(strongBranchID) {
@@ -114,16 +107,9 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			}
 
 			prunedCollectedStrongParents := collectedStrongParents
-
-			if id := messageIDAliases[messageID]; id == testMessage {
-				fmt.Println("collectedStrongParents", collectedStrongParents)
-			}
 			// We now need to subtract liked branches from strong branches (including descendants)
 			for likedBranchID := range likedBranchIDs {
 				b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-					if id := messageIDAliases[messageID]; id == testMessage {
-						fmt.Println("ForEachConflictingBranchID", likedBranchID, conflictingBranchID)
-					}
 					// We like something in the same conflict set of a collected strong parent
 					if prunedCollectedStrongParents.Contains(conflictingBranchID) {
 						// We then remove the collected strong parent from its mapping, including all its children
@@ -139,10 +125,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				})
 			}
 
-			if id := messageIDAliases[messageID]; id == testMessage {
-				fmt.Println("pruned", prunedCollectedStrongParents)
-			}
-
 			// We filter our strong parents and add the liked parents to the resulting set
 			resultLiked := ledgerstate.NewBranchIDs()
 			for strongBranchID := range strongBranchIDs {
@@ -150,14 +132,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 					resultLiked.Add(strongBranchID)
 				}
 			}
-			if id := messageIDAliases[messageID]; id == testMessage {
-				fmt.Println("resultLiked1", resultLiked)
-			}
 			for likedBranchID := range likedBranchIDs {
 				resultLiked.Add(likedBranchID)
-			}
-			if id := messageIDAliases[messageID]; id == testMessage {
-				fmt.Println("resultLiked2", resultLiked)
 			}
 
 			// TODO: this should be taken care of by InheritBranch
@@ -196,9 +172,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			if id := messageIDAliases[messageID]; id == testMessage {
-				fmt.Println("inheritedBranch", inheritedBranch)
-			}
 			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
@@ -534,7 +507,6 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 
 	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
 
-	fmt.Println("UnregisterSequenceAliasMapping from updateMarker", oldBranchID, currentMarker.SequenceID(), currentMarker.Index())
 	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
 
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
@@ -695,7 +667,6 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 		}
 
 		if floorMarker == marker.Index() {
-			fmt.Println("UnregisterSequenceAliasMapping from SetBranchID", floorBranchID, marker.SequenceID(), marker.Index())
 			m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
 			m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 				markerIndexBranchIDMapping.DeleteBranchID(floorMarker)
@@ -703,10 +674,7 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 		}
 
 		// only register RegisterSequenceAliasMapping if there is no higher mapping existing
-		ceilingMarker, ceilingBranchID, exists := m.Ceiling(marker)
-		fmt.Println("ceiling", ceilingMarker, ceilingBranchID, exists)
-		if !exists {
-			fmt.Println("RegisterSequenceAliasMapping from SetBranchID", branchID, marker.SequenceID(), marker.Index())
+		if _, _, exists := m.Ceiling(marker); !exists {
 			m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
 		}
 	}
