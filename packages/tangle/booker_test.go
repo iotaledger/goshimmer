@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -972,10 +971,6 @@ func TestBookerMarkerMappings(t *testing.T) {
 	)
 
 	tangle.Setup()
-
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
-		t.Logf("Error fired: %v", err)
-	}))
 
 	// ISSUE Message1
 	{

@@ -82,77 +82,36 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
+			// We obtain strong parents branches using metadata and past markers
 			strongBranchIDs := b.strongParentsBranchIDs(message)
+			// We obtain liked payload branches
 			likedBranchIDs := b.likedParentsBranchIDs(message)
 
-			collectedStrongParents := ledgerstate.NewBranchIDs()
-			for strongBranchID := range strongBranchIDs {
-				for collectedParent := range b.collectBranchesUpwards(strongBranchID) {
-					collectedStrongParents.Add(collectedParent)
-				}
-			}
+			// We collect strong parents branches recursively
+			prunedCollectedStrongParents := b.collectBranchesUpwards(strongBranchIDs)
 
-			prunedCollectedStrongParents := collectedStrongParents
-
-			// We now need to subtract liked branches from strong branches (including descendants)
+			// For every liked branch we need to prune it and all its descendants from the collected strong branches
 			for likedBranchID := range likedBranchIDs {
 				b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-					// We like something in the same conflict set of a collected strong parent
-					if prunedCollectedStrongParents.Contains(conflictingBranchID) {
-						// We then remove the collected strong parent from its mapping, including all its children
-						collectedChildren := b.collectBranchesDownwards(conflictingBranchID)
-						innerPrunedCollectedStrongParents := ledgerstate.NewBranchIDs()
-						for prunedCollectedStrongParent := range prunedCollectedStrongParents {
-							if !collectedChildren.Contains(prunedCollectedStrongParent) {
-								innerPrunedCollectedStrongParents.Add(prunedCollectedStrongParent)
-							}
-						}
-						prunedCollectedStrongParents = innerPrunedCollectedStrongParents
-					}
+					// If we like something in the same conflict set of a collected strong parent
+					// we remove the collected strong parent from the collection, including all its children
+					prunedCollectedStrongParents.Subtract(b.collectBranchesDownwards(conflictingBranchID))
 				})
 			}
 
 			// We filter our strong parents and add the liked parents to the resulting set
-			resultLiked := ledgerstate.NewBranchIDs()
-			for strongBranchID := range strongBranchIDs {
-				if prunedCollectedStrongParents.Contains(strongBranchID) {
-					resultLiked.Add(strongBranchID)
-				}
-			}
+			supportedBranches := strongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
 
-			for likedBranchID := range likedBranchIDs {
-				resultLiked.Add(likedBranchID)
-			}
-
-			// TODO: this should be taken care of by InheritBranch
-			// Now we check if anything of what we like has overlapping conflict set, in this case the Message is invalid
-			for likedBranchID := range resultLiked {
-				isInvalid := false
-				b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-					if isInvalid {
-						return
-					}
-					if resultLiked.Contains(conflictingBranchID) {
-						isInvalid = true
-					}
-				})
-				if isInvalid {
-					messageMetadata.SetInvalid(true)
-					b.tangle.Events.MessageInvalid.Trigger(messageID)
-					err = errors.Errorf("message parents are inconsistent %s", messageID)
-					return
-				}
-			}
-
-			// TODO: factor Transaction checks out because their are cheaper
+			// We try to book the payload
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
 				return
 			}
 
-			// We add the BranchID of the payload to the computed Branch sets
-			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(resultLiked.Add(branchIDOfPayload))
+			// By adding the BranchID of the payload to the computed supported branches, InheritBranch will check if anything of what we
+			// finally support has overlapping conflict sets, in which case the Message is invalid
+			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(supportedBranches.Add(branchIDOfPayload))
 			if inheritErr != nil {
 				messageMetadata.SetInvalid(true)
 				b.tangle.Events.MessageInvalid.Trigger(messageID)
@@ -298,7 +257,7 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 	return resolvedStrongBranchIDs
 }
 
-// likedParentsBranchIDs gets all the branches of the Message's liked parents
+// likedParentsBranchIDs gets all the payload branches of the Message's liked parents
 func (b *Booker) likedParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = ledgerstate.NewBranchIDs()
 
@@ -325,28 +284,26 @@ func (b *Booker) likedParentsBranchIDs(message *Message) (branchIDs ledgerstate.
 	return branchIDs
 }
 
-// collectParents recursively obtains branch's parents until MasterBranch, including the starting branch
-func (b *Booker) collectBranchesUpwards(branchID ledgerstate.BranchID) (parents ledgerstate.BranchIDs) {
+// collectParents recursively obtains branches' parents until MasterBranch, including the starting branch
+func (b *Booker) collectBranchesUpwards(branchIDs ledgerstate.BranchIDs) (parents ledgerstate.BranchIDs) {
 	parents = ledgerstate.NewBranchIDs()
 
-	if branchID == ledgerstate.MasterBranchID {
-		return
-	}
+	for branchID := range branchIDs {
+		if branchID == ledgerstate.MasterBranchID {
+			continue
+		}
 
-	conflictBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	if err != nil {
-		panic(err)
-	}
+		conflictBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+		if err != nil {
+			panic(err)
+		}
 
-	for conflictBranchID := range conflictBranchIDs {
-		parents.Add(conflictBranchID)
-		b.tangle.LedgerState.BranchDAG.Branch(conflictBranchID).Consume(func(branch ledgerstate.Branch) {
-			for parentBranchID := range branch.Parents() {
-				for innerParent := range b.collectBranchesUpwards(parentBranchID) {
-					parents.Add(innerParent)
-				}
-			}
-		})
+		for conflictBranchID := range conflictBranchIDs {
+			parents.Add(conflictBranchID)
+			b.tangle.LedgerState.BranchDAG.Branch(conflictBranchID).Consume(func(branch ledgerstate.Branch) {
+				parents.AddAll(b.collectBranchesUpwards(branch.Parents()))
+			})
+		}
 	}
 
 	return
