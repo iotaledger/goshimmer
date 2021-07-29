@@ -242,7 +242,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O4", 500))
 	testFramework.IssueMessages("3").WaitMessagesBooked()
 
-	// Message 3
+	// Message 4
 	testFramework.CreateMessage("4", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O6", 500))
 	testFramework.IssueMessages("4").WaitMessagesBooked()
 
@@ -285,7 +285,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	assert.Contains(t, references4, testFramework.Message("2").ID())
 	assert.Len(t, references4, 2)
 
-	// Test third set of parents
+	// Test empty set of parents
 	references5, err := PrepareLikeReferences(MessageIDs{}, time.Now(), tangle)
 	require.NoError(t, err)
 	assert.Empty(t, references5)
@@ -312,6 +312,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	assert.Len(t, references7, 1)
 }
 
+// Tests if error is returned when non-existing transaction is tried to be liked.
 func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
