@@ -90,13 +90,5 @@ func getServices(p *peer.Peer) []jsonmodels.PeerService {
 		})
 	}
 
-	fpcService := p.Services().Get(service.FPCKey)
-	if fpcService != nil {
-		services = append(services, jsonmodels.PeerService{
-			ID:      "FPC",
-			Address: net.JoinHostPort(host, strconv.Itoa(fpcService.Port())),
-		})
-	}
-
 	return services
 }

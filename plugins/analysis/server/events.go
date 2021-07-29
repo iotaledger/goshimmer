@@ -20,8 +20,6 @@ var Events = struct {
 	Error *events.Event
 	// Heartbeat triggers when an heartbeat has been received.
 	Heartbeat *events.Event
-	// FPCHeartbeat triggers when an FPC heartbeat has been received.
-	FPCHeartbeat *events.Event
 	// MetricHeartbeat triggers when an MetricHeartbeat heartbeat has been received.
 	MetricHeartbeat *events.Event
 }{
@@ -31,7 +29,6 @@ var Events = struct {
 	events.NewEvent(disconnectNodesCaller),
 	events.NewEvent(errorCaller),
 	events.NewEvent(heartbeatPacketCaller),
-	events.NewEvent(fpcHeartbeatPacketCaller),
 	events.NewEvent(metricHeartbeatPacketCaller),
 }
 
@@ -83,10 +80,6 @@ func errorCaller(handler interface{}, params ...interface{}) {
 
 func heartbeatPacketCaller(handler interface{}, params ...interface{}) {
 	handler.(func(heartbeat *packet.Heartbeat))(params[0].(*packet.Heartbeat))
-}
-
-func fpcHeartbeatPacketCaller(handler interface{}, params ...interface{}) {
-	handler.(func(hb *packet.FPCHeartbeat))(params[0].(*packet.FPCHeartbeat))
 }
 
 func metricHeartbeatPacketCaller(handler interface{}, params ...interface{}) {

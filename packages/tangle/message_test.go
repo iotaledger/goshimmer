@@ -214,6 +214,8 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
+	tangle.MessageFactory.likeReferencesFunc = emptyLikeReferences
+
 	testMessage, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 	assert.Equal(t, true, testMessage.VerifySignature())
@@ -598,7 +600,6 @@ func TestMessage_Bytes(t *testing.T) {
 		msgBytes := msg.Bytes()
 		// 4 full parents blocks - 1 parent block with 1 parent
 		assert.Equal(t, MaxMessageSize-payload.MaxSize+4-(3*(1+1+8*32)+(7*32)), len(msgBytes))
-
 	})
 }
 
@@ -624,7 +625,7 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.Equal(t, msg.ParentsByType(StrongParentType), result.ParentsByType(StrongParentType))
 		assert.Equal(t, msg.ParentsByType(WeakParentType), result.ParentsByType(WeakParentType))
 		// TODO
-		//assert.Equal(t, msg.ParentsCount(), result.ParentsCount())
+		// assert.Equal(t, msg.ParentsCount(), result.ParentsCount())
 		assert.Equal(t, msg.IssuerPublicKey(), result.IssuerPublicKey())
 		// time is in different representation but it denotes the same time
 		assert.True(t, msg.IssuingTime().Equal(result.IssuingTime()))
@@ -693,7 +694,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		assert.True(t, strings.Contains(err.Error(), "failed to parse parents count"))
 		assert.Equal(t, MessageVersion, result.Version())
 		// TODO
-		//assert.Equal(t, uint8(0), result.ParentsCount())
+		// assert.Equal(t, uint8(0), result.ParentsCount())
 	})
 
 	t.Run("CASE: Invalid parents count (less)", func(t *testing.T) {
@@ -702,10 +703,10 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		marshaller := marshalutil.New(msgBytes[:2])
 		result, err := MessageFromMarshalUtil(marshaller)
 		assert.Error(t, err)
-		//assert.True(t, strings.Contains(err.Error(), fmt.Sprintf("parents count %d not allowed", MinParentsCount-1)))
+		// assert.True(t, strings.Contains(err.Error(), fmt.Sprintf("parents count %d not allowed", MinParentsCount-1)))
 		assert.Equal(t, MessageVersion, result.Version())
 		// TODO
-		//assert.Equal(t, uint8(0), result.ParentsCount())
+		// assert.Equal(t, uint8(0), result.ParentsCount())
 	})
 
 	t.Run("CASE: Invalid parents count (more)", func(t *testing.T) {
@@ -714,10 +715,10 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		marshaller := marshalutil.New(msgBytes[:2])
 		result, err := MessageFromMarshalUtil(marshaller)
 		assert.Error(t, err)
-		//assert.True(t, strings.Contains(err.Error(), fmt.Sprintf("parents count %d not allowed", MaxParentsCount+1)))
+		// assert.True(t, strings.Contains(err.Error(), fmt.Sprintf("parents count %d not allowed", MaxParentsCount+1)))
 		assert.Equal(t, MessageVersion, result.Version())
 		// TODO
-		//assert.Equal(t, uint8(0), result.ParentsCount())
+		// assert.Equal(t, uint8(0), result.ParentsCount())
 	})
 
 	t.Run("CASE: Missing parent types", func(t *testing.T) {
@@ -725,10 +726,10 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		marshaller := marshalutil.New(msgBytes[:2])
 		result, err := MessageFromMarshalUtil(marshaller)
 		assert.Error(t, err)
-		//assert.True(t, strings.Contains(err.Error(), "failed to parse parent types"))
+		// assert.True(t, strings.Contains(err.Error(), "failed to parse parent types"))
 		assert.Equal(t, MessageVersion, result.Version())
 		// TODO
-		//assert.Equal(t, uint8(0), result.ParentsCount())
+		// assert.Equal(t, uint8(0), result.ParentsCount())
 	})
 
 	t.Run("CASE: Invalid parent types", func(t *testing.T) {
@@ -737,10 +738,10 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		marshaller := marshalutil.New(msgBytes[:3])
 		result, err := MessageFromMarshalUtil(marshaller)
 		assert.Error(t, err)
-		//assert.True(t, strings.Contains(err.Error(), "invalid parent types, no strong parent specified"))
+		// assert.True(t, strings.Contains(err.Error(), "invalid parent types, no strong parent specified"))
 		assert.Equal(t, MessageVersion, result.Version())
 		// TODO
-		//assert.Equal(t, uint8(0), result.ParentsCount())
+		// assert.Equal(t, uint8(0), result.ParentsCount())
 	})
 
 	t.Run("CASE: Missing parents (all)", func(t *testing.T) {
@@ -751,7 +752,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
 		assert.Equal(t, MessageVersion, result.Version())
 		// TODO
-		//assert.Equal(t, uint8(0), result.ParentsCount())
+		// assert.Equal(t, uint8(0), result.ParentsCount())
 	})
 
 	t.Run("CASE: Missing parents (one)", func(t *testing.T) {

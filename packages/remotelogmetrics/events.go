@@ -3,8 +3,6 @@ package remotelogmetrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
-
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -35,27 +33,6 @@ type SyncStatusChangedEvent struct {
 	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
 }
 
-// FPCConflictRecord defines the FPC conflict record to sent be to remote logger.
-type FPCConflictRecord struct {
-	// Type defines the type of the message.
-	Type string `json:"type" bson:"type"`
-	// ConflictID defines the ID of the conflict.
-	ConflictID string `json:"conflictid" bson:"conflictid"`
-	// NodeID defines the ID of the node.
-	NodeID string `json:"nodeid" bson:"nodeid"`
-	// Rounds defines number of rounds performed to finalize the conflict.
-	Rounds int `json:"rounds" bson:"rounds"`
-	// Opinions contains the opinion of each round.
-	Opinions []int32 `json:"opinions" bson:"opinions"`
-	// Outcome defines final opinion of the conflict.
-	Outcome int32 `json:"outcome,omitempty" bson:"outcome,omitempty"`
-	// Time defines the time when the voting round has been finalized.
-	Time time.Time `json:"datetime" bson:"datetime"`
-	// ConflictCreationTime points to time when the context has been created
-	ConflictCreationTime time.Time `json:"conflictStart" bson:"conflictStart"`
-	Delta                int64     `json:"delta"`
-}
-
 // TransactionMetrics defines the transaction metrics record to sent be to remote logger.
 type TransactionMetrics struct {
 	Type               string    `json:"type" bson:"type"`
@@ -71,19 +48,6 @@ type TransactionMetrics struct {
 	DeltaScheduled     int64     `json:"deltaArrival"`
 	DeltaBooked        int64     `json:"deltaBooked"`
 	DeltaConfirmed     int64     `json:"deltaConfirmed"`
-}
-
-// TransactionOpinionMetrics defines the transaction opinion metrics record to sent to the remote logger.
-type TransactionOpinionMetrics struct {
-	Type             string                `json:"type" bson:"type"`
-	NodeID           string                `json:"nodeID" bson:"nodeID"`
-	MessageID        string                `json:"messageID" bson:"messageID"`
-	TransactionID    string                `json:"transactionID" bson:"transactionID"`
-	Fcob1Time        time.Time             `json:"fcob1Time" bson:"fcob1Time"`
-	Fcob2Time        time.Time             `json:"fcob2Time" bson:"fcob2Time"`
-	Liked            bool                  `json:"liked" bson:"liked"`
-	LevelOfKnowledge fcob.LevelOfKnowledge `json:"levelOfKnowledge" bson:"levelOfKnowledge"`
-	Timestamp        time.Time             `json:"timestamp" bson:"timestamp"`
 }
 
 // DRNGMetrics defines the DRNG metrics record to sent be to remote logger.

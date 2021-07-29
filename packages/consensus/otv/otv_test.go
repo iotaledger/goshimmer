@@ -6,11 +6,12 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/consensus"
+
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/database"
 	. "github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -53,7 +54,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	type test struct {
 		Scenario   Scenario
-		WeightFunc WeightFunc
+		WeightFunc consensus.WeightFunc
 		executions []execution
 	}
 
@@ -1028,7 +1029,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 			defer branchDAG.Shutdown()
 
 			tt.test.Scenario.CreateBranches(t, branchDAG)
-			o := NewOnTangleVoting(tt.test.WeightFunc, branchDAG)
+			o := NewOnTangleVoting(branchDAG, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
 				liked, err := o.LikedInstead(tt.test.Scenario.BranchID(e.branchAlias))
@@ -1065,7 +1066,7 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 
 	type test struct {
 		Scenario     Scenario
-		WeightFunc   WeightFunc
+		WeightFunc   consensus.WeightFunc
 		args         ArgsFunc
 		wantLiked    ExpectedBranchesFunc
 		wantDisliked ExpectedBranchesFunc
@@ -1383,7 +1384,7 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 			defer branchDAG.Shutdown()
 
 			tt.test.Scenario.CreateBranches(t, branchDAG)
-			o := NewOnTangleVoting(tt.test.WeightFunc, branchDAG)
+			o := NewOnTangleVoting(branchDAG, tt.test.WeightFunc)
 
 			gotLiked, gotDisliked, err := o.Opinion(tt.test.args())
 			if tt.wantErr {
@@ -1516,7 +1517,7 @@ func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMe
 
 // WeightFuncFromScenario creates a WeightFunc from the given scenario so that the approval weight can be mocked
 // according to the branch weight's specified in the scenario.
-func WeightFuncFromScenario(t *testing.T, scenario Scenario) WeightFunc {
+func WeightFuncFromScenario(t *testing.T, scenario Scenario) consensus.WeightFunc {
 	branchIDsToName := scenario.IDsToNames()
 	return func(branchID BranchID) (weight float64) {
 		name, nameOk := branchIDsToName[branchID]

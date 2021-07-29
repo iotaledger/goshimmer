@@ -66,7 +66,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET(RouteDiagnosticsLazyBookedBranches, message.DiagnosticLazyBookedBranchesHandler)
 	webapi.Server().GET(RouteDiagnosticsInvalidBranches, message.DiagnosticInvalidBranchesHandler)
 	webapi.Server().GET(RouteDiagnosticsTips, message.TipsDiagnosticHandler)
-	webapi.Server().GET(RouteDiagnosticsStrongTips, message.StrongTipsDiagnosticHandler)
-	webapi.Server().GET(RouteDiagnosticsWeakTips, message.WeakTipsDiagnosticHandler)
 	webapi.Server().GET(RouteDiagnosticsDRNG, drng.DiagnosticDRNGMessagesHandler)
 }

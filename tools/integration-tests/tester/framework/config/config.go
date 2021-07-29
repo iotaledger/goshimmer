@@ -45,7 +45,6 @@ type GoShimmer struct {
 	Faucet
 	Mana
 	Consensus
-	FPC
 	Activity
 	DRNG
 	Prometheus
@@ -126,13 +125,6 @@ type MessageLayer struct {
 // Consensus defines the parameters of the consensus plugin.
 type Consensus struct {
 	Enabled bool
-}
-
-// FPC defines the parameters used by the FPC consensus.
-type FPC struct {
-	Enabled bool
-
-	messagelayer.FPCParametersDefinition
 }
 
 // Activity defines the parameters of the activity plugin.

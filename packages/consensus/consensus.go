@@ -6,6 +6,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// WeightFunc returns the approval weight for the given branch.
+type WeightFunc func(branchID ledgerstate.BranchID) (weight float64)
+
 type OpinionTuple struct {
 	Liked    ledgerstate.BranchID
 	Disliked ledgerstate.BranchID

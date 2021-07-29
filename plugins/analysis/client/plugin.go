@@ -5,15 +5,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 const (
@@ -23,8 +20,6 @@ const (
 	CfgServerAddress = "analysis.client.serverAddress"
 	// defines the report interval of the reporting in seconds.
 	reportIntervalSec = 5
-	// voteContextChunkThreshold defines the maximum number of vote context to fit into an FPC update.
-	voteContextChunkThreshold = 50
 )
 
 func init() {
@@ -48,21 +43,12 @@ func Plugin() *node.Plugin {
 }
 
 func run(_ *node.Plugin) {
-	finalized = make(map[string]opinion.Opinion)
 	log = logger.NewLogger(PluginName)
 	conn = NewConnector("tcp", config.Node().String(CfgServerAddress))
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		conn.Start()
 		defer conn.Stop()
-
-		onFinalizedClosure := events.NewClosure(onFinalized)
-		messagelayer.Voter().Events().Finalized.Attach(onFinalizedClosure)
-		defer messagelayer.Voter().Events().Finalized.Detach(onFinalizedClosure)
-
-		onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
-		messagelayer.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
-		defer messagelayer.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
 
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()

@@ -76,7 +76,6 @@ var DiagnosticDRNGMessagesTableDescription = []string{
 	"SolidTime",
 	"ScheduledTime",
 	"BookedTime",
-	"OpinionFormedTime",
 	"dRNGPayloadType",
 	"InstanceID",
 	"Round",
@@ -95,7 +94,6 @@ type DiagnosticDRNGMessagesInfo struct {
 	SolidTime         time.Time
 	ScheduledTime     time.Time
 	BookedTime        time.Time
-	OpinionFormedTime time.Time
 	PayloadType       string
 	InstanceID        uint32
 	Round             uint64
@@ -132,7 +130,6 @@ func getDiagnosticDRNGMessageInfo(message *tangle.Message) *DiagnosticDRNGMessag
 		msgInfo.SolidTime = metadata.SolidificationTime()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
-		msgInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(message.ID())
 	}, false)
 
 	return msgInfo
@@ -148,7 +145,6 @@ func (d *DiagnosticDRNGMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.SolidTime.UnixNano()),
 		fmt.Sprint(d.ScheduledTime.UnixNano()),
 		fmt.Sprint(d.BookedTime.UnixNano()),
-		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
 		d.PayloadType,
 		fmt.Sprint(d.InstanceID),
 		fmt.Sprint(d.Round),
