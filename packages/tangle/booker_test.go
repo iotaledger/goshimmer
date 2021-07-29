@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -1331,11 +1332,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message12
 	{
+		fmt.Println("+++++++++++++++++++++++++++++++ MESSAGE 12 +++++++++++++++++++++++++++++++++++++++++++")
 		testFramework.CreateMessage("Message12", WithStrongParents("Message1"), WithInputs("C"), WithOutput("H", 500))
-		testFramework.IssueMessages("Message12").WaitMessagesBooked()
-
 		testFramework.RegisterBranchID("D", "Message5")
 		testFramework.RegisterBranchID("E", "Message12")
+		testFramework.IssueMessages("Message12").WaitMessagesBooked()
+
 		testFramework.RegisterBranchID("A+E", "Message1", "Message12")
 		testFramework.RegisterBranchID("B+D", "Message2", "Message5")
 		testFramework.RegisterBranchID("A+C+D", "Message1", "Message3", "Message5")
@@ -1567,15 +1569,19 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message16
 	{
+		fmt.Println("+++++++++++++++++++++++++++++++ MESSAGE 16 +++++++++++++++++++++++++++++++++++++++++++")
+
 		testFramework.CreateMessage("Message16", WithStrongParents("Genesis"), WithInputs("L"), WithOutput("J", 500))
-		testFramework.IssueMessages("Message16").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("F", "Message4")
 		testFramework.RegisterBranchID("G", "Message16")
+		testFramework.IssueMessages("Message16").WaitMessagesBooked()
 		testFramework.RegisterBranchID("D+F", "Message5", "Message4")
 		testFramework.RegisterBranchID("B+D+F", "Message2", "Message5", "Message4")
 		testFramework.RegisterBranchID("A+C+D+F", "Message1", "Message3", "Message5", "Message4")
 		testFramework.RegisterBranchID("B+E+F", "Message2", "Message12", "Message4")
+
+		fmt.Println("D+F", testFramework.BranchID("D+F").Base58())
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1857,7 +1863,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.CreateMessage("Message21", WithStrongParents("Message4"))
 		testFramework.CreateMessage("Message22", WithStrongParents("Message20", "Message21"))
 		testFramework.CreateMessage("Message23", WithStrongParents("Message5", "Message22"))
-		testFramework.IssueMessages("Message20", "Message21", "Message22", "Message23").WaitMessagesBooked()
+		testFramework.IssueMessages("Message20").WaitMessagesBooked()
+		testFramework.IssueMessages("Message21").WaitMessagesBooked()
+		testFramework.IssueMessages("Message22").WaitMessagesBooked()
+		testFramework.IssueMessages("Message23").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1881,6 +1890,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message18":   markers.NewMarkers(markers.NewMarker(7, 5)),
 			"Message19":   markers.NewMarkers(markers.NewMarker(9, 4)),
 			"Message20":   markers.NewMarkers(markers.NewMarker(10, 2)),
+			"Message21":   markers.NewMarkers(markers.NewMarker(4, 1)),
+			"Message22":   markers.NewMarkers(markers.NewMarker(10, 3)),
+			"Message23":   markers.NewMarkers(markers.NewMarker(4, 4)),
 		})
 		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    ledgerstate.UndefinedBranchID,
@@ -1904,6 +1916,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message18":   ledgerstate.UndefinedBranchID,
 			"Message19":   ledgerstate.UndefinedBranchID,
 			"Message20":   ledgerstate.UndefinedBranchID,
+			"Message21":   ledgerstate.UndefinedBranchID,
+			"Message22":   ledgerstate.UndefinedBranchID,
+			"Message23":   ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
@@ -1927,6 +1942,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message18":   testFramework.BranchID("B+E+F"),
 			"Message19":   testFramework.BranchID("D+F+I"),
 			"Message20":   testFramework.BranchID("F"),
+			"Message21":   testFramework.BranchID("F"),
+			"Message22":   testFramework.BranchID("F"),
+			"Message23":   testFramework.BranchID("D+F"),
 		})
 	}
 

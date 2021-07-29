@@ -99,7 +99,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			strongBranchIDs := b.strongParentsBranchIDs(message)
 			likedBranchIDs := b.likedParentsBranchIDs(message)
 
-			testMessage := "Message120"
+			testMessage := "Message20"
 			if id := messageIDAliases[messageID]; id == testMessage {
 				fmt.Println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 				fmt.Println("strong", strongBranchIDs)
@@ -196,6 +196,9 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
+			if id := messageIDAliases[messageID]; id == testMessage {
+				fmt.Println("inheritedBranch", inheritedBranch)
+			}
 			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
@@ -531,6 +534,7 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 
 	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
 
+	fmt.Println("UnregisterSequenceAliasMapping from updateMarker", oldBranchID, currentMarker.SequenceID(), currentMarker.Index())
 	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
 
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
@@ -691,9 +695,20 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 		}
 
 		if floorMarker == marker.Index() {
+			fmt.Println("UnregisterSequenceAliasMapping from SetBranchID", floorBranchID, marker.SequenceID(), marker.Index())
 			m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
+			m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+				markerIndexBranchIDMapping.DeleteBranchID(floorMarker)
+			})
 		}
-		m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
+
+		// only register RegisterSequenceAliasMapping if there is no higher mapping existing
+		ceilingMarker, ceilingBranchID, exists := m.Ceiling(marker)
+		fmt.Println("ceiling", ceilingMarker, ceilingBranchID, exists)
+		if !exists {
+			fmt.Println("RegisterSequenceAliasMapping from SetBranchID", branchID, marker.SequenceID(), marker.Index())
+			m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
+		}
 	}
 
 	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
@@ -880,6 +895,16 @@ func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID l
 	m.SetModified()
 
 	m.mapping.Set(index, branchID)
+}
+
+// DeleteBranchID deletes a mapping between the given marker Index and the stored BranchID.
+func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
+	m.mappingMutex.Lock()
+	defer m.mappingMutex.Unlock()
+
+	m.SetModified()
+
+	m.mapping.Delete(index)
 }
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
