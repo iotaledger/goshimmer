@@ -140,10 +140,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	}
 	f.issuanceMutex.Unlock()
 
-	// create the signature
-	signature := f.sign(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
-
-	msg := NewMessage(
+	msg, errMsg := NewMessage(
 		parents,
 		nil,
 		nil,
@@ -153,8 +150,16 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		sequenceNumber,
 		p,
 		nonce,
-		signature,
+		// note empty signature
+		ed25519.EmptySignature,
 	)
+	if errMsg != nil {
+		return nil, errMsg
+	}
+
+	// create the signature
+	msg = f.sign(msg)
+
 	f.Events.MessageConstructed.Trigger(msg)
 	return msg, nil
 }
@@ -184,20 +189,26 @@ func (f *MessageFactory) Shutdown() {
 
 func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature).Bytes()
+	message, err := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
+	if err != nil {
+		return 0, err
+	}
+
+	dummy := message.Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(message *Message) *Message {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
-	dummyBytes := dummy.Bytes()
+	messageBytes := message.Bytes()
 
-	contentLength := len(dummyBytes) - len(dummy.Signature())
-	return f.localIdentity.Sign(dummyBytes[:contentLength])
+	contentLength := len(messageBytes) - len(message.Signature())
+	sig := f.localIdentity.Sign(messageBytes[:contentLength])
+	message.signature = sig
+	return message
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

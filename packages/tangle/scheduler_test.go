@@ -400,7 +400,7 @@ func BenchmarkScheduler(b *testing.B) {
 }
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
-	return NewMessage(
+	message, _ := NewMessage(
 		[]MessageID{EmptyMessageID},
 		[]MessageID{},
 		[]MessageID{},
@@ -412,6 +412,7 @@ func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 		0,
 		ed25519.Signature{},
 	)
+	return message
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
