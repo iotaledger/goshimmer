@@ -180,15 +180,13 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 
 	// Message 1
 	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
-	testFramework.IssueMessages("1").WaitMessagesBooked()
 
 	// Message 2
 	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
-	testFramework.IssueMessages("2").WaitMessagesBooked()
 
 	// Message 3
 	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
-	testFramework.IssueMessages("3").WaitMessagesBooked()
+	testFramework.IssueMessages("1", "2", "3").WaitMessagesBooked()
 
 	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
 	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
@@ -232,19 +230,16 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	// Message 1
 	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500), WithIssuingTime(time.Now().Add(5*time.Minute)))
-	testFramework.IssueMessages("1").WaitMessagesBooked()
 
 	// Message 2
 	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500), WithIssuingTime(time.Now().Add(5*time.Minute)))
-	testFramework.IssueMessages("2").WaitMessagesBooked()
 
 	// Message 3
 	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O4", 500))
-	testFramework.IssueMessages("3").WaitMessagesBooked()
 
 	// Message 4
 	testFramework.CreateMessage("4", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O6", 500))
-	testFramework.IssueMessages("4").WaitMessagesBooked()
+	testFramework.IssueMessages("1", "2", "3", "4").WaitMessagesBooked()
 
 	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
 	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
@@ -261,55 +256,30 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	// Test first set of parents
-	references1, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
-	require.NoError(t, err)
-	assert.Contains(t, references1, testFramework.Message("2").ID())
-	assert.Len(t, references1, 1)
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, MessageIDs{testFramework.Message("2").ID()}, time.Now())
 
 	// Test second set of parents
-	references2, err := PrepareLikeReferences(MessageIDs{testFramework.Message("2").ID(), testFramework.Message("1").ID()}, time.Now(), tangle)
-	require.NoError(t, err)
-	assert.Empty(t, references2)
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("2").ID(), testFramework.Message("1").ID()}, MessageIDs{}, time.Now())
 
 	// Test third set of parents
-	references3, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, time.Now(), tangle)
-	require.NoError(t, err)
-	assert.Contains(t, references3, testFramework.Message("1").ID())
-	assert.Contains(t, references3, testFramework.Message("2").ID())
-	assert.Len(t, references3, 2)
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("1").ID(), testFramework.Message("2").ID()}, time.Now())
 
 	// Test fourth set of parents
-	references4, err := PrepareLikeReferences(MessageIDs{testFramework.Message("1").ID(), testFramework.Message("2").ID(), testFramework.Message("3").ID(), testFramework.Message("4").ID()}, time.Now(), tangle)
-	require.NoError(t, err)
-	assert.Contains(t, references4, testFramework.Message("1").ID())
-	assert.Contains(t, references4, testFramework.Message("2").ID())
-	assert.Len(t, references4, 2)
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("1").ID(), testFramework.Message("2").ID(), testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("1").ID(), testFramework.Message("2").ID()}, time.Now())
 
 	// Test empty set of parents
-	references5, err := PrepareLikeReferences(MessageIDs{}, time.Now(), tangle)
-	require.NoError(t, err)
-	assert.Empty(t, references5)
+	checkReferences(t, tangle, MessageIDs{}, MessageIDs{}, time.Now())
 
 	// Add reattachment that is older than the original message
 	// Message 5 (reattachment)
 	testFramework.CreateMessage("5", WithStrongParents("Genesis"), ReattachmentOf("1"))
 	testFramework.IssueMessages("5").WaitMessagesBooked()
-	require.NoError(t, err)
 
 	// Select oldest attachment of the message.
-	references6, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, time.Now(), tangle)
-	require.NoError(t, err)
-	assert.Contains(t, references6, testFramework.Message("5").ID())
-	assert.Contains(t, references6, testFramework.Message("2").ID())
-	assert.Len(t, references6, 2)
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("2").ID(), testFramework.Message("5").ID()}, time.Now())
 
 	// Do not return too old like reference
-	references7, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, time.Now().Add(maxParentsTimeDifference), tangle)
-	require.NoError(t, err)
-	// Select oldest attachment of the message.
-	assert.NotContains(t, references7, testFramework.Message("5").ID())
-	assert.Contains(t, references7, testFramework.Message("2").ID())
-	assert.Len(t, references7, 1)
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("2").ID()}, time.Now().Add(maxParentsTimeDifference))
 }
 
 // Tests if error is returned when non-existing transaction is tried to be liked.
@@ -333,15 +303,13 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 
 	// Message 1
 	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
-	testFramework.IssueMessages("1").WaitMessagesBooked()
 
 	// Message 2
 	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
-	testFramework.IssueMessages("2").WaitMessagesBooked()
 
 	// Message 3
 	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
-	testFramework.IssueMessages("3").WaitMessagesBooked()
+	testFramework.IssueMessages("1", "2", "3").WaitMessagesBooked()
 
 	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
 	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
@@ -359,4 +327,13 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 
 	_, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
 	require.Error(t, err)
+}
+
+func checkReferences(t *testing.T, tangle *Tangle, parents, expected MessageIDs, issuingTime time.Time) {
+	ref, err := PrepareLikeReferences(parents, issuingTime, tangle)
+	require.NoError(t, err)
+	for _, e := range expected {
+		assert.Contains(t, ref, e)
+	}
+	assert.Len(t, ref, len(expected))
 }
