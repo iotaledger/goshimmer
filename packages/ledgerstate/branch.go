@@ -204,6 +204,36 @@ func (b BranchIDs) Add(branchID BranchID) BranchIDs {
 	return b
 }
 
+// AddAll adds all BranchIDs to the collection and returns the collection to enable chaining.
+func (b BranchIDs) AddAll(branchIDs BranchIDs) BranchIDs {
+	for branchID := range branchIDs {
+		b.Add(branchID)
+	}
+
+	return b
+}
+
+// Subtract removes all BranchIDs from the collection and returns the collection to enable chaining.
+func (b BranchIDs) Subtract(branchIDs BranchIDs) BranchIDs {
+	for branchID := range branchIDs {
+		delete(b, branchID)
+	}
+
+	return b
+}
+
+// Intersect removes all BranchIDs from the collection that are not contained in the argument collection.
+// It returns the collection to enable chaining.
+func (b BranchIDs) Intersect(branchIDs BranchIDs) BranchIDs {
+	for branchID := range b {
+		if !branchIDs.Contains(branchID) {
+			delete(b, branchID)
+		}
+	}
+
+	return b
+}
+
 // Contains checks if the given target BranchID is part of the BranchIDs.
 func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
 	for branchID := range b {
