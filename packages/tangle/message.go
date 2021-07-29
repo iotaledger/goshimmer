@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/datastructure/set"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -224,7 +226,7 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
 	// remove duplicates, sort in ASC
 	sortedStrongParents := sortParents(strongParents)
 	sortedWeakParents := sortParents(weakParents)
@@ -236,24 +238,47 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	dislikeParentsCount := len(sortedDislikeParents)
 	likeParentsCount := len(sortedLikeParents)
 
+	// validate parent count
 	if strongParentsCount < MinStrongParentsCount {
-		panic(fmt.Sprintf("amount of strong parents (%d) failed to reach MinStrongParentsCount (%d)", len(strongParents), MinStrongParentsCount))
+		return nil, fmt.Errorf("amount of strong parents (%d) failed to reach MinStrongParentsCount (%d)", len(strongParents), MinStrongParentsCount)
 	}
 
 	if strongParentsCount > MaxParentsCount {
-		panic(fmt.Sprintf("amount of strong parents (%d) not in valid range (%d-%d)", strongParentsCount, MinParentsCount, MaxParentsCount))
+		return nil, fmt.Errorf("amount of strong parents (%d) not in valid range (%d-%d)", strongParentsCount, MinParentsCount, MaxParentsCount)
 	}
 
 	if weakParentsCount > MaxParentsCount {
-		panic(fmt.Sprintf("amount of weak parents (%d) above maximum allowed (%d)", weakParentsCount, MaxParentsCount))
+		return nil, fmt.Errorf("amount of weak parents (%d) above maximum allowed (%d)", weakParentsCount, MaxParentsCount)
 	}
 
 	if dislikeParentsCount > MaxParentsCount {
-		panic(fmt.Sprintf("amount of dislike parents (%d) above maximum allowed (%d)", dislikeParentsCount, MaxParentsCount))
+		return nil, fmt.Errorf("amount of dislike parents (%d) above maximum allowed (%d)", dislikeParentsCount, MaxParentsCount)
 	}
 
 	if likeParentsCount > MaxParentsCount {
-		panic(fmt.Sprintf("amount of like parents (%d) above maximum allowed (%d)", likeParentsCount, MaxParentsCount))
+		return nil, fmt.Errorf("amount of like parents (%d) above maximum allowed (%d)", likeParentsCount, MaxParentsCount)
+	}
+
+	// Validate uniqueness across blocks, but allow duplicates in strong and like blocks
+	combinedParentsSet := set.New(false)
+	for _, strongParent := range strongParents {
+		combinedParentsSet.Add(strongParent)
+	}
+	for _, strongParent := range strongParents {
+		combinedParentsSet.Add(strongParent)
+	}
+	strongAndLikeCount := combinedParentsSet.Size()
+	for _, weakParent := range weakParents {
+		combinedParentsSet.Add(weakParent)
+	}
+	for _, weakParent := range weakParents {
+		combinedParentsSet.Add(weakParent)
+	}
+	for _, dislikeParent := range dislikeParents {
+		combinedParentsSet.Add(dislikeParent)
+	}
+	if combinedParentsSet.Size() != strongAndLikeCount+weakParentsCount+dislikeParentsCount {
+		return nil, fmt.Errorf("Parents repeat across blocks")
 	}
 
 	parentsBlocksCount := 0
@@ -304,7 +329,7 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 		payload:            payload,
 		nonce:              nonce,
 		signature:          signature,
-	}
+	}, nil
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
