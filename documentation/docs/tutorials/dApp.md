@@ -173,6 +173,7 @@ A network delay dApp should help you identify the time it takes for every active
 3. For simplicity, we gather the information in an [ELK stack](https://www.elastic.co/what-is/elk-stack). This helps us to easily interpret and analyze the data.
 
 Within GoShimmer you will need 3 components to realize this undertaking:
+
 1. You need to [define and register a network delay payload type](#define--register-the-network-delay-object). 
 2. You need a way to [initiate a message with a network delay payload via the web API](#create-the-web-api-endpoints). 
 3. You need to [listen for network delay payloads](#listen-for-network-delay-payloads), and take appropriate action.

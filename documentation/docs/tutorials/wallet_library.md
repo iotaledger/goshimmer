@@ -28,7 +28,7 @@ The command line wallet and this tutorial are aimed at a developer audience, you
    ```
 
 :::info
-For simplicity, we  have renamed the binary to `cli-wallet` in this tutorial.
+For simplicity, we renamed the binary to `cli-wallet` in this tutorial.
 :::
 
 You will need to initialize the wallet the first time you start it. This involves generating a secret seed that is used to generate addresses and sign transactions. The wallet will automatically persist the seed in `wallet.dat` after the first run.
