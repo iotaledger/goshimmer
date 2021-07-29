@@ -1,4 +1,4 @@
-name: Develop Docker Image
+name: Pre-devnet deploy
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - 'docs/**'
 jobs:
 
-  docker:
+  deploy:
     environment: pre-devnet
     runs-on: ubuntu-latest
     env:
