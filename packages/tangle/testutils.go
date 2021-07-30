@@ -551,8 +551,8 @@ func WithIssuingTime(issuingTime time.Time) MessageOption {
 	}
 }
 
-// ReattachmentOf returns a MessageOption that is used to select payload of which Message should be reattached.
-func ReattachmentOf(messageAlias string) MessageOption {
+// WithReattachment returns a MessageOption that is used to select payload of which Message should be reattached.
+func WithReattachment(messageAlias string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.reattachmentMessageAlias = messageAlias
 	}

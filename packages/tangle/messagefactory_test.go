@@ -272,7 +272,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	// Add reattachment that is older than the original message
 	// Message 5 (reattachment)
-	testFramework.CreateMessage("5", WithStrongParents("Genesis"), ReattachmentOf("1"))
+	testFramework.CreateMessage("5", WithStrongParents("Genesis"), WithReattachment("1"))
 	testFramework.IssueMessages("5").WaitMessagesBooked()
 
 	// Select oldest attachment of the message.
