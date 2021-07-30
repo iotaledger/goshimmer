@@ -741,6 +741,7 @@ func TestScenario_3(t *testing.T) {
 // }
 // branchIDAliases contains a list of aliases registered for a set of MessageIDs.
 
+// Please refer to packages/tangle/images/TestBookerMarkerMappings.html for a diagram of this test
 func TestBookerMarkerMappings(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
