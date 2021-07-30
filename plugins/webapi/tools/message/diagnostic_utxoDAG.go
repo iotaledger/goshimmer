@@ -56,7 +56,6 @@ var DiagnosticUTXODAGTableDescription = []string{
 	"ID",
 	"IssuanceTime",
 	"SolidTime",
-	"OpinionFormedTime",
 	"AccessManaPledgeID",
 	"ConsensusManaPledgeID",
 	"Inputs",
@@ -77,7 +76,6 @@ type DiagnosticUTXODAGInfo struct {
 	ID                    string
 	IssuanceTimestamp     time.Time
 	SolidTime             time.Time
-	OpinionFormedTime     time.Time
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	Inputs                ledgerstate.Inputs
@@ -134,7 +132,6 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 		d.ID,
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
-		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
 		d.AccessManaPledgeID,
 		d.ConsensusManaPledgeID,
 		strings.Join(d.Inputs.Strings(), ";"),

@@ -15,17 +15,16 @@ import (
 var (
 	messageHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
-		"ScheduledTime", "BookedTime", "OpinionFormedTime", "FinalizedTime", "StrongParents", "WeakParents",
+		"ScheduledTime", "BookedTime", "FinalizedTime", "StrongParents", "WeakParents",
 		"StrongApprovers", "WeakApprovers", "BranchID", "InclusionState", "Scheduled", "Booked", "Eligible", "Invalid",
 		"Finalized", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI", "PayloadType",
-		"TransactionID", "PayloadOpinionFormed", "TimestampOpinionFormed", "MessageOpinionFormed",
-		"MessageOpinionTriggered", "TimestampOpinion", "TimestampLoK",
+		"TransactionID",
 	}
 
 	tipsHeader = append([]string{"tipType"}, messageHeader...)
 
 	branchesHeader = []string{
-		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "OpinionFormedTime", "Liked",
+		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "Liked",
 		"MonotonicallyLiked", "InclusionState", "Finalized", "LazyBooked",
 	}
 
