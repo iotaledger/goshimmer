@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -2438,7 +2439,28 @@ func TestBookerMarkerMappings(t *testing.T) {
 	}
 }
 
+func checkIndividuallyMappedMessages(t *testing.T, testFramework *MessageTestFramework, expectedIndividuallyMappedMessages map[ledgerstate.BranchID][]string) {
+	expectedMappings := 0
+
+	for branchID, expectedMessageAliases := range expectedIndividuallyMappedMessages {
+		for _, alias := range expectedMessageAliases {
+			expectedMappings++
+			assert.True(t, testFramework.tangle.Storage.IndividuallyMappedMessage(branchID, testFramework.Message(alias).ID()).Consume(func(individuallyMappedMessage *IndividuallyMappedMessage) {}))
+		}
+	}
+
 	// check that there's only exactly as many individually mapped messages as expected (ie old stuff gets cleaned up)
+	testFramework.tangle.Storage.individuallyMappedMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		defer cachedObject.Release()
+
+		expectedMappings--
+
+		return true
+	})
+
+	assert.Zero(t, expectedMappings)
+}
+
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
 	for messageID, expectedMarkersOfMessage := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
