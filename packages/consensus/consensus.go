@@ -9,12 +9,13 @@ import (
 // WeightFunc returns the approval weight for the given branch.
 type WeightFunc func(branchID ledgerstate.BranchID) (weight float64)
 
+// OpinionTuple expresses the root of an opinion in the BranchDAG.
 type OpinionTuple struct {
 	Liked    ledgerstate.BranchID
 	Disliked ledgerstate.BranchID
 }
 
-// String returns a human readable version of the OpinionTuple.
+// String returns a human-readable version of the OpinionTuple.
 func (ot OpinionTuple) String() string {
 	return fmt.Sprintf("OpinionTuple(Liked:%s, Disliked:%s)", ot.Liked, ot.Disliked)
 }

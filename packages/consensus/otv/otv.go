@@ -57,9 +57,10 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 			disliked.Add(k.Disliked)
 		}
 	}
-	return
+	return liked, disliked, nil
 }
 
+// LikedInstead determines what vote should be cast given the provided branchID.
 func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
 	opinionTuple = make([]consensus.OpinionTuple, 0)
 	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
@@ -97,7 +98,7 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 		cachedBranch.Release()
 	}
 
-	return
+	return opinionTuple, nil
 }
 
 func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) bool {
@@ -154,7 +155,7 @@ func (o *OnTangleVoting) areParentsLiked(branchID ledgerstate.BranchID, visitedC
 }
 
 // checks whether branchA is heavier than branchB. If they have equal weight, the branch with lower lexical bytes is returned.
-func (o *OnTangleVoting) weighsMore(branchA ledgerstate.BranchID, branchB ledgerstate.BranchID) bool {
+func (o *OnTangleVoting) weighsMore(branchA, branchB ledgerstate.BranchID) bool {
 	weight := o.weightFunc(branchA)
 	weightConflict := o.weightFunc(branchB)
 	// if the current highest weighted branch and the candidate branch share the same weight

@@ -318,7 +318,6 @@ func (b *Booker) collectBranchesDownwards(branchID ledgerstate.BranchID) (childr
 				children.Add(innerChild)
 			}
 		}
-
 	})
 
 	return
