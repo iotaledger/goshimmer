@@ -315,7 +315,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
 	branches["3"], _ = transactionBranchID(tangle, testFramework.TransactionID("3"))
 
-	nonExistingBranchID := aggregatedBranchID(branches["2"], branches["3"])
+	nonExistingBranchID := ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(branches["2"], branches["3"])).ID()
 	mockOTV := &SimpleMockOnTangleVoting{
 		disliked: ledgerstate.NewBranchIDs(branches["3"]),
 		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {
