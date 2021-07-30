@@ -136,7 +136,7 @@ func (r *RateSetter) Size() int {
 	return r.issuingQueue.Size()
 }
 
-//Estimate estimates the issuing time of new message.
+// Estimate estimates the issuing time of new message.
 func (r *RateSetter) Estimate() time.Duration {
 	// TODO: https://github.com/iotaledger/goshimmer/issues/1483
 
