@@ -44,6 +44,13 @@ class NetworkIO {
     ts: string;
 }
 
+class RateSetterMetric {
+    size: number;
+    estimate: string;
+    rate: number;
+    ts: string;
+}
+
 class NeighborMetrics {
     @observable collected: Array<NeighborMetric> = [];
     @observable network_io: Array<NetworkIO> = [];
@@ -169,6 +176,8 @@ export class NodeStore {
     @observable websocketConnected: boolean = false;
     @observable last_mps_metric: MPSMetric = new MPSMetric();
     @observable collected_mps_metrics: Array<MPSMetric> = [];
+    @observable collected_rate_setter_metrics: Array<RateSetterMetric> = [];
+    @observable last_rate_setter_metric: RateSetterMetric = new RateSetterMetric();
     @observable collected_mem_metrics: Array<MemoryMetrics> = [];
     @observable neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
     @observable last_tips_metric: TipsMetric = new TipsMetric();
@@ -191,6 +200,7 @@ export class NodeStore {
         registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
         registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
         registerHandler(WSMsgType.ComponentCounterMetrics, this.updateLastComponentMetric);
+        registerHandler(WSMsgType.RateSetter, this.updateLastRateSetterMetric)
         this.updateCollecting(true);
     }
 
@@ -200,6 +210,7 @@ export class NodeStore {
         unregisterHandler(WSMsgType.NeighborStats);
         unregisterHandler(WSMsgType.TipsMetrics);
         unregisterHandler(WSMsgType.ComponentCounterMetrics);
+        unregisterHandler(WSMsgType.RateSetter);
         this.updateCollecting(false);
     }
 
@@ -266,6 +277,16 @@ export class NodeStore {
                 this.neighbor_metrics.delete(k);
             }
         }
+    };
+
+    @action
+    updateLastRateSetterMetric = (metric: RateSetterMetric) => {
+        metric.ts = dateformat(Date.now(), "HH:MM:ss");
+        this.last_rate_setter_metric = metric;
+        if (this.collected_rate_setter_metrics.length > maxMetricsDataPoints) {
+            this.collected_rate_setter_metrics.shift();
+        }
+        this.collected_rate_setter_metrics.push(metric);
     };
 
     @action

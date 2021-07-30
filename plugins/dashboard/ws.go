@@ -57,6 +57,8 @@ func configureWebSocketWorkerPool() {
 			}})
 		case *componentsmetric:
 			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
+		case *rateSetterMetric:
+			broadcastWsMessage(&wsmsg{MsgTypeRateSetterMetric, x})
 		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
@@ -75,13 +77,22 @@ func runWebSocketStreams() {
 		}
 		wsSendWorkerPool.TrySubmit(updateStatus)
 	})
+	updateRateSetterMetrics := events.NewClosure(func(metric metrics.RateSetterMetric) {
+		wsSendWorkerPool.TrySubmit(&rateSetterMetric{
+			Size:     metric.Size,
+			Estimate: metric.Estimate.String(),
+			Rate:     metric.Rate,
+		})
+	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(shutdownSignal <-chan struct{}) {
 		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
 		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
+		metrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
 		metrics.Events.ReceivedMPSUpdated.Detach(updateStatus)
+		metrics.Events.RateSetterUpdated.Detach(updateRateSetterMetrics)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
 	}, shutdown.PriorityDashboard); err != nil {

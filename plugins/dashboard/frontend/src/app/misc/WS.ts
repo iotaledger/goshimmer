@@ -19,7 +19,8 @@ export enum WSMsgType {
     ManaInitDone,
     MsgManaDashboardAddress,
     MsgTypeMsgOpinionFormed,
-    Chat
+    Chat,
+    RateSetter
 }
 
 export interface WSMessage {

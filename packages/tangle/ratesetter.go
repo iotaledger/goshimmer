@@ -94,10 +94,7 @@ func (r *RateSetter) Setup() {
 		}
 	}))
 	// update own rate setting
-	r.tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
-		if identity.NewID(msgParsedEvent.Message.IssuerPublicKey()) != r.self {
-			return
-		}
+	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
 			return

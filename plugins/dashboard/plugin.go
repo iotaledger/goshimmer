@@ -191,6 +191,8 @@ const (
 	MsgTypeMsgOpinionFormed
 	// MsgTypeChat defines a chat message.
 	MsgTypeChat
+	// MsgTypeRateSetterMetric defines rate setter metrics.
+	MsgTypeRateSetterMetric
 )
 
 type wsmsg struct {
@@ -246,6 +248,12 @@ type componentsmetric struct {
 	Solidifier uint64 `json:"solidifier"`
 	Scheduler  uint64 `json:"scheduler"`
 	Booker     uint64 `json:"booker"`
+}
+
+type rateSetterMetric struct {
+	Size     int     `json:"size"`
+	Estimate string  `json:"estimate"`
+	Rate     float64 `json:"rate"`
 }
 
 func neighborMetrics() []neighbormetric {
