@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/datastructure/set"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -238,49 +236,6 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	dislikeParentsCount := len(sortedDislikeParents)
 	likeParentsCount := len(sortedLikeParents)
 
-	// validate parent count
-	if strongParentsCount < MinStrongParentsCount {
-		return nil, fmt.Errorf("amount of strong parents (%d) failed to reach MinStrongParentsCount (%d)", len(strongParents), MinStrongParentsCount)
-	}
-
-	if strongParentsCount > MaxParentsCount {
-		return nil, fmt.Errorf("amount of strong parents (%d) not in valid range (%d-%d)", strongParentsCount, MinParentsCount, MaxParentsCount)
-	}
-
-	if weakParentsCount > MaxParentsCount {
-		return nil, fmt.Errorf("amount of weak parents (%d) above maximum allowed (%d)", weakParentsCount, MaxParentsCount)
-	}
-
-	if dislikeParentsCount > MaxParentsCount {
-		return nil, fmt.Errorf("amount of dislike parents (%d) above maximum allowed (%d)", dislikeParentsCount, MaxParentsCount)
-	}
-
-	if likeParentsCount > MaxParentsCount {
-		return nil, fmt.Errorf("amount of like parents (%d) above maximum allowed (%d)", likeParentsCount, MaxParentsCount)
-	}
-
-	// Validate uniqueness across blocks, but allow duplicates in strong and like blocks
-	combinedParentsSet := set.New(false)
-	for _, strongParent := range strongParents {
-		combinedParentsSet.Add(strongParent)
-	}
-	for _, strongParent := range strongParents {
-		combinedParentsSet.Add(strongParent)
-	}
-	strongAndLikeCount := combinedParentsSet.Size()
-	for _, weakParent := range weakParents {
-		combinedParentsSet.Add(weakParent)
-	}
-	for _, weakParent := range weakParents {
-		combinedParentsSet.Add(weakParent)
-	}
-	for _, dislikeParent := range dislikeParents {
-		combinedParentsSet.Add(dislikeParent)
-	}
-	if combinedParentsSet.Size() != strongAndLikeCount+weakParentsCount+dislikeParentsCount {
-		return nil, fmt.Errorf("Parents repeat across blocks")
-	}
-
 	parentsBlocksCount := 0
 
 	var parentsBlocks []ParentsBlock
@@ -319,9 +274,61 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 		parentsBlocksCount++
 	}
 
+	return NewMessageFromBlocks(MessageVersion, issuingTime, issuerPublicKey, parentsBlocks, payload, nonce, signature,
+		sequenceNumber)
+}
+
+/**
+NewMessageFromBlocks creates a new message while performing ths following syntactical checks:
+1. A Strong Parents Block must exist.
+2. Parents Block types cannot repeat.
+3. Parent count per block 0 <= x <= 8.
+4. Parents unique within block.
+5. Parents lexicographically sorted within block.
+6. ParentsBlockCount must match blocks actually parsed.
+7. ParentsCount within each block must match the parents actually parsed within the block.
+8. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents
+9. Blocks should be ordered by type in ascending order
+**/
+func NewMessageFromBlocks(version uint8, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, parentsBlocks []ParentsBlock, payload payload.Payload, nonce uint64, signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
+	// Validate strong parent block
+	if parentsBlocks[StrongParentType].ParentsType != StrongParentType &&
+		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
+		return nil, ErrNoStrongParents
+	}
+
+	// Block types must be ordered in ASC order and not repeat
+	for i := 0; i < len(parentsBlocks)-1; i++ {
+		if parentsBlocks[i].ParentsType == parentsBlocks[i+1].ParentsType {
+			return nil, ErrRepeatingBlockTypes
+		}
+		if parentsBlocks[i].ParentsType > parentsBlocks[i+1].ParentsType {
+			return nil, ErrBlocksNotOrderedByType
+		}
+	}
+
+	for _, block := range parentsBlocks {
+		if int(block.ParentsCount) != len(block.References) {
+			return nil, ErrParentsCountMismatch
+		}
+		if block.ParentsCount > MaxParentsBlocksCount || block.ParentsCount < MinParentsCount {
+			return nil, ErrParentsOutOfRange
+		}
+		// The lexicographical order check also makes sure there are no duplicates
+		for i := 0; i < len(block.References)-1; i++ {
+			if block.References[i].CompareTo(block.References[i+1]) != -1 {
+				return nil, ErrParentsNotLexicographicallyOrdered
+			}
+		}
+	}
+
+	if !referencesUniqueAcrossBlocks(parentsBlocks) {
+		return nil, ErrRepeatingMessagesAcrossBlocks
+	}
+
 	return &Message{
-		version:            MessageVersion,
-		parentsBlocksCount: uint8(parentsBlocksCount),
+		version:            version,
+		parentsBlocksCount: uint8(len(parentsBlocks)),
 		parentsBlocks:      parentsBlocks,
 		issuerPublicKey:    issuerPublicKey,
 		issuingTime:        issuingTime,
@@ -330,6 +337,29 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 		nonce:              nonce,
 		signature:          signature,
 	}, nil
+}
+
+// validate messagesIDs are unique across blocks
+// there may be repetition across strong and like parents
+func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
+	combinedMessageMap := make(map[MessageID]types.Empty, 4*8)
+	parentsArray := make(MessageIDs, 16)
+	for _, block := range parentsBlocks {
+		// combine strong parent and like parents
+		if block.ParentsType == StrongParentType || block.ParentsType == LikeParentType {
+			for _, parent := range block.References {
+				combinedMessageMap[parent] = types.Void
+			}
+		} else {
+			parentsArray = append(parentsArray, block.References...)
+		}
+	}
+	expectedLength := len(combinedMessageMap) + len(parentsArray)
+	for _, parent := range parentsArray {
+		combinedMessageMap[parent] = types.Void
+	}
+
+	return expectedLength == len(combinedMessageMap)
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
@@ -370,91 +400,109 @@ func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err err
 }
 
 // MessageFromMarshalUtil parses a message from the given marshal util.
-func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
+func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
 	// determine read offset before starting to parse
 	readOffsetStart := marshalUtil.ReadOffset()
 
 	// parse information
-	result = &Message{}
-	if result.version, err = marshalUtil.ReadByte(); err != nil {
+	version, err := marshalUtil.ReadByte()
+	if err != nil {
 		err = errors.Errorf("failed to parse message version from MarshalUtil: %w", err)
-		return
+		return nil, err
 	}
 
 	var parentsBlocksCount uint8
 	if parentsBlocksCount, err = marshalUtil.ReadByte(); err != nil {
 		err = errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
-		return
+		return nil, err
 	}
 	if parentsBlocksCount < MinParentsBlocksCount || parentsBlocksCount > MaxParentsBlocksCount {
 		err = errors.Errorf("parents blocks count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
-		return
+		return nil, err
 	}
-	result.parentsBlocksCount = parentsBlocksCount
 
-	result.parentsBlocks = make([]ParentsBlock, parentsBlocksCount)
+	parentsBlocks := make([]ParentsBlock, parentsBlocksCount)
 
 	for i := 0; i < int(parentsBlocksCount); i++ {
 		var parentType uint8
 		if parentType, err = marshalUtil.ReadByte(); err != nil {
 			err = errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
-			return
+			return nil, err
 		}
+		if uint8(i) != parentType {
+			err = errors.Errorf("Expected parent type %d, but got parent type %d", i, parentType)
+		}
+
 		var parentsCount uint8
 		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
 			err = errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
-			return
+			return nil, err
 		}
 		references := make(MessageIDs, parentsCount)
 		for j := 0; j < int(parentsCount); j++ {
 			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 				err = errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
-				return
+				return nil, err
 			}
 		}
-		result.parentsBlocks[i] = ParentsBlock{
+		parentsBlocks[i] = ParentsBlock{
 			ParentsType:  ParentsType(parentType),
 			ParentsCount: parentsCount,
 			References:   references,
 		}
 	}
 
-	if result.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
+	issuerPublicKey, err := ed25519.ParsePublicKey(marshalUtil)
+	if err != nil {
 		err = fmt.Errorf("failed to parse issuer public key of the message: %w", err)
-		return
+		return nil, err
 	}
-	if result.issuingTime, err = marshalUtil.ReadTime(); err != nil {
+	issuingTime, err := marshalUtil.ReadTime()
+	if err != nil {
 		err = fmt.Errorf("failed to parse issuing time of the message: %w", err)
-		return
+		return nil, err
 	}
-	if result.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+	msgSequenceNumber, err := marshalUtil.ReadUint64()
+	if err != nil {
 		err = fmt.Errorf("failed to parse sequence number of the message: %w", err)
-		return
+		return nil, err
 	}
-	if result.payload, err = payload.FromMarshalUtil(marshalUtil); err != nil {
+
+	msgPayload, err := payload.FromMarshalUtil(marshalUtil)
+	if err != nil {
 		err = fmt.Errorf("failed to parse payload of the message: %w", err)
-		return
+		return nil, err
 	}
-	if result.nonce, err = marshalUtil.ReadUint64(); err != nil {
+
+	nonce, err := marshalUtil.ReadUint64()
+	if err != nil {
 		err = fmt.Errorf("failed to parse nonce of the message: %w", err)
-		return
+		return nil, err
 	}
-	if result.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
+	signature, err := ed25519.ParseSignature(marshalUtil)
+	if err != nil {
 		err = fmt.Errorf("failed to parse signature of the message: %w", err)
-		return
+		return nil, err
 	}
 
 	// retrieve the number of bytes we processed
 	readOffsetEnd := marshalUtil.ReadOffset()
 
 	// store marshaled version as a copy
-	result.bytes, err = marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
+	msgBytes, err := marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
 	if err != nil {
 		err = fmt.Errorf("error trying to copy raw source bytes: %w", err)
-		return
+		return nil, err
 	}
 
-	return
+	msg, err := NewMessageFromBlocks(version, issuingTime, issuerPublicKey, parentsBlocks, msgPayload, nonce, signature, msgSequenceNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.bytes = msgBytes
+
+	return msg, nil
 }
 
 // MessageFromObjectStorage restores a Message from the ObjectStorage.
@@ -1222,5 +1270,38 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 		consumer(object.(*MessageMetadata))
 	}, forceRelease...)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
+var (
+	// ErrNoStrongParents is returned when strong blocks are missing in messages
+	ErrNoStrongParents = errors.New("Missing strong messages in first parent block")
+
+	// ErrBlockCountMismatch is returned when the number of blocks in the message doesn't match the block count
+	ErrBlockCountMismatch = errors.New("Number of blocks in a message doesn't match block count")
+
+	// ErrBlocksNotOrderedByType is returned when the blocks in the message aren't ordered by type
+	ErrBlocksNotOrderedByType = errors.New("Blocks should be ordered in ascending order according to their type")
+
+	// ErrParentsCountMismatch is returned when the number of parents in a block doesn't match the block count
+	ErrParentsCountMismatch = errors.New("Number of parents in a message doesn't match parent count")
+
+	// ErrParentsOutOfRange is returned when the number of parents in a block is too high or low
+	ErrParentsOutOfRange = errors.New(fmt.Sprintf("There must be at least %d parents and max %d parents within a block",
+		MinParentsCount, MaxParentsCount))
+
+	// ErrParentsNotLexicographicallyOrdered is returned when the messages within a block are not lexicographically sorted
+	ErrParentsNotLexicographicallyOrdered = errors.New("Messages within blocks must be lexicographically ordered")
+
+	// ErrRepeatingBlockTypes is returned when the same block type appears more than once in a message
+	ErrRepeatingBlockTypes = errors.New("Block types within a message must not repeat")
+
+	// ErrRepeatingReferencesInBlock is returned when a parent appears more than once in a block
+	ErrRepeatingReferencesInBlock = errors.New("Duplicate parents in a message block")
+
+	// ErrRepeatingMessagesAcrossBlocks is returned when a parent appears more than once across blocks
+	ErrRepeatingMessagesAcrossBlocks = errors.New("Different blocks have repeating messages")
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
