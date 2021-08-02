@@ -12,7 +12,7 @@ require (
 	github.com/cockroachdb/errors v1.8.4
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
-	github.com/gin-gonic/gin v1.6.3
+	github.com/gin-gonic/gin v1.7.0
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/golang/protobuf v1.4.3
