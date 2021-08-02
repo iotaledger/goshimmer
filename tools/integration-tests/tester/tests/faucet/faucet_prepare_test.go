@@ -44,8 +44,8 @@ func TestFaucetPrepare(t *testing.T) {
 		require.EqualValues(t, tokensPerRequest, tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))
 	}
 
-	// consume all but one of the prepared outputs
-	for i := 1; i < preparedOutputsCount; i++ {
+	// consume all the prepared outputs
+	for i := 1; i <= preparedOutputsCount; i++ {
 		tests.SendFaucetRequest(t, peer, peer.Address(i))
 	}
 
@@ -54,14 +54,10 @@ func TestFaucetPrepare(t *testing.T) {
 		return tests.Balance(t, peer, peer.Address(preparedOutputsCount-1), ledgerstate.ColorIOTA) > 0
 	}, time.Minute, tests.Tick)
 
-	// one prepared output is left on the last address.
-	require.EqualValues(t, tokensPerRequest, tests.Balance(t, faucet, faucet.Address(preparedOutputsCount), ledgerstate.ColorIOTA))
-
 	// check that the remainderBalance is untouched
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
 
-	// issue two more request to split the remainder balance.
-	tests.SendFaucetRequest(t, peer, peer.Address(preparedOutputsCount))
+	// issue one more request to split the remainder balance.
 	tests.SendFaucetRequest(t, peer, peer.Address(preparedOutputsCount+1))
 
 	// wait for the faucet to prepare new outputs
@@ -71,10 +67,16 @@ func TestFaucetPrepare(t *testing.T) {
 		return len(resp.UnspentOutputs[0].Outputs) > 0
 	}, tests.Timeout, tests.Tick)
 
+	// ensure that we have spent the balance associated to the request that triggered the split
+	require.EqualValues(t, 0, tests.Balance(t, faucet, faucet.Address(preparedOutputsCount+1), ledgerstate.ColorIOTA))
+
 	// check that each of the preparedOutputsCount addresses holds the correct balance
 	remainderBalance -= uint64(preparedOutputsCount * tokensPerRequest)
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
-	for i := preparedOutputsCount + 1; i <= preparedOutputsCount+preparedOutputsCount; i++ {
+
+	// we start from preparedOutputsCount + 2 as the address at preparedOutputsCount + 1 is the one already spent
+	// that triggered the split
+	for i := preparedOutputsCount + 2; i <= preparedOutputsCount+preparedOutputsCount; i++ {
 		require.EqualValues(t, tokensPerRequest, tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))
 	}
 }

@@ -220,6 +220,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	if branchesOfInputsConflicting {
 		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
 		targetBranch = InvalidBranchID
+		err = errors.Errorf("branches of inputs are conflicting: %w", err)
 		return
 	}
 

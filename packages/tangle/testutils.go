@@ -67,17 +67,19 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	return
 }
 
-func (m *MessageTestFramework) RegisterBranchID(alias string, messagealiases ...string) {
-	if len(messagealiases) == 1 {
-		branchID := m.BranchIDFromMessage(messagealiases[0])
+// RegisterBranchID registers a BranchID form the given Messages' transactions with the MessageTestFramework and
+// also an alias when printing the BranchID.
+func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...string) {
+	if len(messageAliases) == 1 {
+		branchID := m.BranchIDFromMessage(messageAliases[0])
 		m.branchIDs[alias] = branchID
 		ledgerstate.RegisterBranchIDAlias(branchID, alias)
 		return
 	}
 
 	aggregation := ledgerstate.NewBranchIDs()
-	for _, messagealias := range messagealiases {
-		branch := m.BranchIDFromMessage(messagealias)
+	for _, messageAlias := range messageAliases {
+		branch := m.BranchIDFromMessage(messageAlias)
 		aggregation.Add(branch)
 	}
 	cachedAggregatedBranch, _, err := m.tangle.LedgerState.BranchDAG.AggregateBranches(aggregation)
@@ -90,6 +92,7 @@ func (m *MessageTestFramework) RegisterBranchID(alias string, messagealiases ...
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)
 }
 
+// BranchID returns the BranchID registered with the given alias.
 func (m *MessageTestFramework) BranchID(alias string) ledgerstate.BranchID {
 	branchID, ok := m.branchIDs[alias]
 	if !ok {
@@ -238,8 +241,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
 	}
 
-	outputs := []ledgerstate.Output{}
-	unspentOutputs := []bool{}
+	var outputs []ledgerstate.Output
+	var unspentOutputs []bool
 
 	for address, balance := range genesisOutputs {
 		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
@@ -267,7 +270,10 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		},
 	}
 
-	m.tangle.LedgerState.LoadSnapshot(snapshot)
+	err := m.tangle.LedgerState.LoadSnapshot(snapshot)
+	if err != nil {
+		panic(err)
+	}
 
 	for alias := range m.options.genesisOutputs {
 		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
@@ -551,8 +557,8 @@ func WithIssuingTime(issuingTime time.Time) MessageOption {
 	}
 }
 
-// ReattachmentOf returns a MessageOption that is used to select payload of which Message should be reattached.
-func ReattachmentOf(messageAlias string) MessageOption {
+// WithReattachment returns a MessageOption that is used to select payload of which Message should be reattached.
+func WithReattachment(messageAlias string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.reattachmentMessageAlias = messageAlias
 	}

@@ -1,10 +1,10 @@
+//nolint:dupl
 package tangle
 
 import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
@@ -17,260 +17,42 @@ import (
 func TestScenario_1(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
-	tangle.Booker.Setup()
 
-	wallets := make(map[string]wallet)
-	walletsByAddress := make(map[ledgerstate.Address]wallet)
-	w := createWallets(10)
-	wallets["GENESIS"] = w[0]
-	wallets["A"] = w[1]
-	wallets["B"] = w[2]
-	wallets["C"] = w[3]
-	wallets["D"] = w[4]
-	wallets["E"] = w[5]
-	wallets["F"] = w[6]
-	wallets["H"] = w[7]
-	wallets["I"] = w[8]
-	wallets["J"] = w[9]
-	for _, wallet := range wallets {
-		walletsByAddress[wallet.address] = wallet
-	}
-
-	genesisBalance := ledgerstate.NewColoredBalances(
-		map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: 3,
-		})
-
-	genesisEssence := ledgerstate.NewTransactionEssence(
-		0,
-		time.Unix(DefaultGenesisTime, 0),
-		identity.ID{},
-		identity.ID{},
-		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("G", 3),
 	)
 
-	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+	tangle.Setup()
 
-	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
-			genesisTransaction.ID(): {
-				Essence:        genesisEssence,
-				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
-				UnspentOutputs: []bool{true},
-			},
-		},
+	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithInputs("G"), WithOutput("A", 1), WithOutput("B", 1), WithOutput("C", 1))
+	testFramework.CreateMessage("Message2", WithStrongParents("Genesis", "Message1"), WithInputs("B", "C"), WithOutput("E", 2))
+	testFramework.CreateMessage("Message3", WithStrongParents("Message1", "Message2"), WithReattachment("Message2"))
+	testFramework.CreateMessage("Message4", WithStrongParents("Genesis", "Message1"), WithInputs("A"), WithOutput("D", 1))
+	testFramework.CreateMessage("Message5", WithStrongParents("Message1", "Message2"), WithInputs("A"), WithOutput("F", 1))
+	testFramework.CreateMessage("Message6", WithStrongParents("Message2", "Message5"), WithInputs("E", "F"), WithOutput("H", 3))
+	testFramework.CreateMessage("Message7", WithStrongParents("Message4", "Message5"), WithReattachment("Message2"))
+	testFramework.CreateMessage("Message8", WithStrongParents("Message4", "Message5"), WithInputs("F", "D"), WithOutput("I", 2))
+	testFramework.CreateMessage("Message9", WithStrongParents("Message4", "Message6"), WithInputs("H"), WithOutput("J", 1))
+
+	testFramework.RegisterBranchID("red", "Message4")
+	testFramework.RegisterBranchID("yellow", "Message5")
+
+	testFramework.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6").WaitMessagesBooked()
+	testFramework.IssueMessages("Message7", "Message9").WaitMessagesBooked()
+	testFramework.IssueMessages("Message8").WaitMessagesBooked()
+
+	for _, messageAlias := range []string{"Message7", "Message8", "Message9"} {
+		assert.Truef(t, testFramework.MessageMetadata(messageAlias).invalid, "%s not invalid", messageAlias)
 	}
 
-	tangle.LedgerState.LoadSnapshot(snapshot)
-
-	messages := make(map[string]*Message)
-	transactions := make(map[string]*ledgerstate.Transaction)
-	branches := make(map[string]ledgerstate.BranchID)
-	inputs := make(map[string]*ledgerstate.UTXOInput)
-	outputs := make(map[string]*ledgerstate.SigLockedSingleOutput)
-	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
-
-	branches["empty"] = ledgerstate.BranchID{}
-	branches["green"] = ledgerstate.MasterBranchID
-	branches["grey"] = ledgerstate.InvalidBranchID
-
-	// Message 1
-	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
-	outputs["A"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["A"].address)
-	outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
-
-	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
-	transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["GENESIS"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["GENESIS"])
-	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["1"])
-
-	err := tangle.Booker.BookMessage(messages["1"].ID())
-
-	require.NoError(t, err)
-
-	msgBranchID, err := messageBranchID(tangle, messages["1"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], msgBranchID)
-
-	txBranchID, err := transactionBranchID(tangle, transactions["1"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], txBranchID)
-
-	// Message 2
-	inputs["B"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["B"])))
-	outputsByID[inputs["B"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["B"])[0]
-	inputs["C"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["C"])))
-	outputsByID[inputs["C"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["C"])[0]
-	outputs["E"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["E"].address)
-	transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["B"], inputs["C"]), ledgerstate.NewOutputs(outputs["E"]), outputsByID, walletsByAddress)
-	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["2"])
-
-	err = tangle.Booker.BookMessage(messages["2"].ID())
-	require.NoError(t, err)
-
-	msgBranchID, err = messageBranchID(tangle, messages["2"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["2"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], txBranchID)
-
-	// Message 3 (Reattachemnt of transaction 2)
-	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["3"])
-
-	err = tangle.Booker.BookMessage(messages["3"].ID())
-	require.NoError(t, err)
-
-	msgBranchID, err = messageBranchID(tangle, messages["3"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["2"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], txBranchID)
-
-	// Message 4
-	inputs["A"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["A"])))
-	outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
-	outputs["D"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["D"].address)
-	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["D"]), outputsByID, walletsByAddress)
-	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["4"])
-
-	err = tangle.Booker.BookMessage(messages["4"].ID())
-	require.NoError(t, err)
-
-	msgBranchID, err = messageBranchID(tangle, messages["4"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["3"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], txBranchID)
-
-	assert.True(t, tangle.LedgerState.BranchDAG.Branch(txBranchID).Consume(func(branch ledgerstate.Branch) {
-		assert.True(t, branch.Liked())
-		assert.True(t, branch.MonotonicallyLiked())
-	}))
-
-	// Message 5
-	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
-	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["5"])
-
-	err = tangle.Booker.BookMessage(messages["5"].ID())
-	require.NoError(t, err)
-
-	branches["yellow"] = ledgerstate.NewBranchID(transactions["4"].ID())
-
-	msgBranchID, err = messageBranchID(tangle, messages["5"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["yellow"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["4"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["yellow"], txBranchID)
-
-	branches["red"] = ledgerstate.NewBranchID(transactions["3"].ID())
-
-	msgBranchID, err = messageBranchID(tangle, messages["4"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["red"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["3"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["red"], txBranchID)
-
-	// assess that after forking transaction 3 and thus introducing the red branch, the properties of that branch are correct
-	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["red"]).Consume(func(branch ledgerstate.Branch) {
-		assert.True(t, branch.Liked())
-		assert.True(t, branch.MonotonicallyLiked())
-	}))
-
-	// assess that the properties of the yellow branch are correct
-	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["yellow"]).Consume(func(branch ledgerstate.Branch) {
-		assert.False(t, branch.Liked())
-		assert.False(t, branch.MonotonicallyLiked())
-	}))
-
-	// Message 6
-	inputs["E"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["2"].ID(), 0))
-	outputsByID[inputs["E"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["E"])[0]
-	inputs["F"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["4"].ID(), 0))
-	outputsByID[inputs["F"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["F"])[0]
-	outputs["H"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["H"].address)
-	transactions["5"] = makeTransaction(ledgerstate.NewInputs(inputs["E"], inputs["F"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
-	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["6"])
-
-	err = tangle.Booker.BookMessage(messages["6"].ID())
-	require.NoError(t, err)
-
-	msgBranchID, err = messageBranchID(tangle, messages["6"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["yellow"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["5"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["yellow"], txBranchID)
-
-	// Message 7
-	messages["7"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["7"])
-
-	err = tangle.Booker.BookMessage(messages["7"].ID())
-	require.NoError(t, err)
-
-	msgBranchID, err = messageBranchID(tangle, messages["7"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["grey"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["2"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["green"], txBranchID)
-
-	// Message 8
-	inputs["D"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["3"].ID(), 0))
-	outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
-	outputs["I"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["I"].address)
-	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["F"], inputs["D"]), ledgerstate.NewOutputs(outputs["I"]), outputsByID, walletsByAddress)
-	messages["8"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["8"])
-
-	err = tangle.Booker.BookMessage(messages["8"].ID())
-	require.NoError(t, err)
-
-	msgBranchID, err = messageBranchID(tangle, messages["8"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["grey"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["6"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["grey"], txBranchID)
-
-	// Message 9
-	inputs["H"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["5"].ID(), 0))
-	outputsByID[inputs["H"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["H"])[0]
-	outputs["J"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["J"].address)
-	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["H"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
-	messages["9"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["6"].ID()}, []MessageID{}, nil, nil)
-	tangle.Storage.StoreMessage(messages["9"])
-
-	err = tangle.Booker.BookMessage(messages["9"].ID())
-	require.NoError(t, err)
-
-	msgBranchID, err = messageBranchID(tangle, messages["9"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["grey"], msgBranchID)
-
-	txBranchID, err = transactionBranchID(tangle, transactions["7"].ID())
-	require.NoError(t, err)
-	assert.Equal(t, branches["yellow"], txBranchID)
+	checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+		"Message1": ledgerstate.MasterBranchID,
+		"Message3": ledgerstate.MasterBranchID,
+		"Message2": ledgerstate.MasterBranchID,
+		"Message4": testFramework.BranchID("red"),
+		"Message5": testFramework.BranchID("yellow"),
+	})
 }
 
 func TestScenario_2(t *testing.T) {
@@ -960,6 +742,7 @@ func TestScenario_3(t *testing.T) {
 // }
 // branchIDAliases contains a list of aliases registered for a set of MessageIDs.
 
+// Please refer to packages/tangle/images/TestBookerMarkerMappings.html for a diagram of this test
 func TestBookerMarkerMappings(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
@@ -973,10 +756,6 @@ func TestBookerMarkerMappings(t *testing.T) {
 	)
 
 	tangle.Setup()
-
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
-		t.Logf("Error fired: %v", err)
-	}))
 
 	// ISSUE Message1
 	{
@@ -1223,6 +1002,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message8": ledgerstate.UndefinedBranchID,
 			"Message9": testFramework.BranchID("A+C"),
 		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C"): {"Message9"},
+		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1": testFramework.BranchID("A"),
 			"Message2": testFramework.BranchID("B"),
@@ -1264,6 +1046,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message8":  ledgerstate.UndefinedBranchID,
 			"Message9":  testFramework.BranchID("A+C"),
 			"Message10": ledgerstate.UndefinedBranchID,
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C"): {"Message9"},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":  testFramework.BranchID("A"),
@@ -1312,6 +1097,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message10":   ledgerstate.UndefinedBranchID,
 			"Message11":   ledgerstate.UndefinedBranchID,
 			"Message11.5": testFramework.BranchID("A+C"),
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C"): {"Message9", "Message11.5"},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
@@ -1370,6 +1158,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message11.5": testFramework.BranchID("A+C+D"),
 			"Message12":   ledgerstate.UndefinedBranchID,
 		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C+D"): {"Message9", "Message11.5"},
+		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
 			"Message2":    testFramework.BranchID("B"),
@@ -1425,6 +1216,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message11.5": testFramework.BranchID("A+C+D"),
 			"Message12":   ledgerstate.UndefinedBranchID,
 			"Message13":   ledgerstate.UndefinedBranchID,
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C+D"): {"Message9", "Message11.5"},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
@@ -1482,6 +1276,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message12":   ledgerstate.UndefinedBranchID,
 			"Message13":   ledgerstate.UndefinedBranchID,
 			"Message14":   testFramework.BranchID("B+E"),
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C+D"): {"Message9", "Message11.5"},
+			testFramework.BranchID("B+E"):   {"Message14"},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
@@ -1544,6 +1342,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   ledgerstate.UndefinedBranchID,
 			"Message14":   testFramework.BranchID("B+E"),
 			"Message15":   ledgerstate.UndefinedBranchID,
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C+D"): {"Message9", "Message11.5"},
+			testFramework.BranchID("B+E"):   {"Message14"},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
@@ -1615,6 +1417,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message15":   ledgerstate.UndefinedBranchID,
 			"Message16":   ledgerstate.UndefinedBranchID,
 		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C+D+F"): {"Message9", "Message11.5"},
+			testFramework.BranchID("B+E+F"):   {"Message14"},
+		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
 			"Message2":    testFramework.BranchID("B"),
@@ -1680,6 +1486,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message15":   ledgerstate.UndefinedBranchID,
 			"Message16":   ledgerstate.UndefinedBranchID,
 			"Message17":   testFramework.BranchID("B+E+F"),
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C+D+F"): {"Message9", "Message11.5"},
+			testFramework.BranchID("B+E+F"):   {"Message14", "Message17"},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
@@ -1749,6 +1559,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message16":   ledgerstate.UndefinedBranchID,
 			"Message17":   testFramework.BranchID("B+E+F"),
 			"Message18":   ledgerstate.UndefinedBranchID,
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+C+D+F"): {"Message9", "Message11.5"},
+			testFramework.BranchID("B+E+F"):   {"Message14", "Message17"},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
@@ -1827,6 +1641,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message18":   ledgerstate.UndefinedBranchID,
 			"Message19":   ledgerstate.UndefinedBranchID,
 		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+D+F+H"): {"Message9", "Message11.5"},
+			testFramework.BranchID("B+E+F"):   {"Message14", "Message17"},
+		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
 			"Message2":    testFramework.BranchID("B"),
@@ -1857,7 +1675,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.CreateMessage("Message21", WithStrongParents("Message4"))
 		testFramework.CreateMessage("Message22", WithStrongParents("Message20", "Message21"))
 		testFramework.CreateMessage("Message23", WithStrongParents("Message5", "Message22"))
-		testFramework.IssueMessages("Message20", "Message21", "Message22", "Message23").WaitMessagesBooked()
+		testFramework.IssueMessages("Message20").WaitMessagesBooked()
+		testFramework.IssueMessages("Message21").WaitMessagesBooked()
+		testFramework.IssueMessages("Message22").WaitMessagesBooked()
+		testFramework.IssueMessages("Message23").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1881,6 +1702,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message18":   markers.NewMarkers(markers.NewMarker(7, 5)),
 			"Message19":   markers.NewMarkers(markers.NewMarker(9, 4)),
 			"Message20":   markers.NewMarkers(markers.NewMarker(10, 2)),
+			"Message21":   markers.NewMarkers(markers.NewMarker(4, 1)),
+			"Message22":   markers.NewMarkers(markers.NewMarker(10, 3)),
+			"Message23":   markers.NewMarkers(markers.NewMarker(4, 4)),
 		})
 		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    ledgerstate.UndefinedBranchID,
@@ -1904,6 +1728,13 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message18":   ledgerstate.UndefinedBranchID,
 			"Message19":   ledgerstate.UndefinedBranchID,
 			"Message20":   ledgerstate.UndefinedBranchID,
+			"Message21":   ledgerstate.UndefinedBranchID,
+			"Message22":   ledgerstate.UndefinedBranchID,
+			"Message23":   ledgerstate.UndefinedBranchID,
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			testFramework.BranchID("A+D+F+H"): {"Message9", "Message11.5"},
+			testFramework.BranchID("B+E+F"):   {"Message14", "Message17"},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":    testFramework.BranchID("A"),
@@ -1927,6 +1758,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message18":   testFramework.BranchID("B+E+F"),
 			"Message19":   testFramework.BranchID("D+F+I"),
 			"Message20":   testFramework.BranchID("F"),
+			"Message21":   testFramework.BranchID("F"),
+			"Message22":   testFramework.BranchID("F"),
+			"Message23":   testFramework.BranchID("D+F"),
 		})
 	}
 
@@ -2314,11 +2148,6 @@ func TestBookerMarkerMappings(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message35", WithStrongParents("Message15", "Message16"))
 		testFramework.IssueMessages("Message35").WaitMessagesBooked()
-		/*
-			tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-				assert.True(t, messageMetadata.invalid)
-			})
-		*/
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -2389,10 +2218,6 @@ func TestBookerMarkerMappings(t *testing.T) {
 	}
 }
 
-func aggregatedBranchID(branchIDs ...ledgerstate.BranchID) ledgerstate.BranchID {
-	return ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(branchIDs...)).ID()
-}
-
 func checkIndividuallyMappedMessages(t *testing.T, testFramework *MessageTestFramework, expectedIndividuallyMappedMessages map[ledgerstate.BranchID][]string) {
 	expectedMappings := 0
 
@@ -2403,6 +2228,7 @@ func checkIndividuallyMappedMessages(t *testing.T, testFramework *MessageTestFra
 		}
 	}
 
+	// check that there's only exactly as many individually mapped messages as expected (ie old stuff gets cleaned up)
 	testFramework.tangle.Storage.individuallyMappedMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		defer cachedObject.Release()
 

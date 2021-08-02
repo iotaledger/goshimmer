@@ -91,7 +91,6 @@ var DiagnosticBranchesTableDescription = []string{
 	"ConflictSet",
 	"IssuanceTime",
 	"SolidTime",
-	"OpinionFormedTime",
 	"Liked",
 	"MonotonicallyLiked",
 	"InclusionState",
@@ -105,7 +104,6 @@ type DiagnosticBranchInfo struct {
 	ConflictSet        []string
 	IssuanceTimestamp  time.Time
 	SolidTime          time.Time
-	OpinionFormedTime  time.Time
 	Liked              bool
 	MonotonicallyLiked bool
 	InclusionState     string
@@ -151,7 +149,6 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		strings.Join(d.ConflictSet, ";"),
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
-		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
 		fmt.Sprint(d.Liked),
 		fmt.Sprint(d.MonotonicallyLiked),
 		d.InclusionState,

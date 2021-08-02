@@ -268,7 +268,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	// Add reattachment that is older than the original message
 	// Message 5 (reattachment)
-	testFramework.CreateMessage("5", WithStrongParents("Genesis"), ReattachmentOf("1"))
+	testFramework.CreateMessage("5", WithStrongParents("Genesis"), WithReattachment("1"))
 	testFramework.IssueMessages("5").WaitMessagesBooked()
 
 	// Select oldest attachment of the message.
@@ -309,7 +309,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	testFramework.RegisterBranchID("2", "2")
 	testFramework.RegisterBranchID("3", "3")
 
-	nonExistingBranchID := aggregatedBranchID(testFramework.BranchID("1"), testFramework.BranchID("2"))
+	nonExistingBranchID := ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2"))).ID()
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3")),
