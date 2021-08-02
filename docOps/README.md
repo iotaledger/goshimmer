@@ -71,7 +71,7 @@ You can add a new doc by adding a new object with type `doc` to the sidebar obje
     id: 'tutorials/your_new_tutorials_name',
   }
 ```
-Where:
+where
 
 * `type` should always be 'doc'. 
 * `label` should be your desired sidebar item's label.
@@ -79,7 +79,7 @@ Where:
 
 ### Categories
 
-You can add a new category by adding a new object with type `category` to the sidebar object. 
+You can add a new category by adding a new object with type `category` to the sidebar object: 
 
 ```json
 {
@@ -89,7 +89,7 @@ You can add a new category by adding a new object with type `category` to the si
 }
 ```
 
-Where:
+where
 
 * `type` should always be 'category'. 
 * `label` should be your desired sidebar category's label.
