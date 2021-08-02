@@ -4,7 +4,6 @@ import (
 	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -17,10 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-)
-
-const (
-	oldMessageThreshold = 30 * time.Minute
 )
 
 // ErrMessageNotFound is returned when a message could not be found in the Tangle.
