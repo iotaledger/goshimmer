@@ -6,7 +6,6 @@ on:
       - develop
     paths-ignore:
       - 'docs/**'
-
 jobs:
 
   docker:
@@ -49,3 +48,29 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Install SSH Key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRE_DEVNET_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          sudo chmod 600 ~/.ssh/id_ed25519
+          echo '
+               Host *
+                 StrictHostKeyChecking no
+                 UserKnownHostsFile=/dev/null
+               ' > ~/.ssh/config
+
+      - name: Ansible deploy
+        env:
+          GOSHIMMER_SEEDS: '${{ secrets.PRE_DEVNET_GOSHIMMER_SEEDS }}'
+          MONGODB_USER: '${{ secrets.MONGODB_USER }}'
+          MONGODB_PASSWORD: '${{ secrets.MONGODB_PASSWORD }}'
+          GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
+          ELK_ELASTIC_PASSWORD: '${{ secrets.ELK_ELASTIC_PASSWORD }}'
+          ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
+          COMMIT_SHA: '${{ github.sha }}'
+        run: |
+          export NETWORK_VERSION=$((16#$(git rev-parse --short "$COMMIT_SHA")%1000000000+1000))
+          ./deploy/ansible/run.sh

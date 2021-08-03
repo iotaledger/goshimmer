@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -45,18 +44,18 @@ func Plugin() *node.Plugin {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	if config.Node().Bool(CfgPrometheusWorkerpoolMetrics) {
+	if Parameters.WorkerpoolMetrics {
 		registerWorkerpoolMetrics()
 	}
 
-	if config.Node().Bool(CfgPrometheusGoMetrics) {
+	if Parameters.GoMetrics {
 		registry.MustRegister(prometheus.NewGoCollector())
 	}
-	if config.Node().Bool(CfgPrometheusProcessMetrics) {
+	if Parameters.ProcessMetrics {
 		registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	}
 
-	if config.Node().Bool(metrics.CfgMetricsLocal) {
+	if metrics.Parameters.Local {
 		if !node.IsSkipped(autopeering.Plugin()) {
 			registerAutopeeringMetrics()
 		}
@@ -69,11 +68,11 @@ func configure(plugin *node.Plugin) {
 		registerManaMetrics()
 	}
 
-	if config.Node().Bool(metrics.CfgMetricsGlobal) {
+	if metrics.Parameters.Global {
 		registerClientsMetrics()
 	}
 
-	if config.Node().Bool(metrics.CfgMetricsManaResearch) {
+	if metrics.Parameters.ManaResearch {
 		registerManaResearchMetrics()
 	}
 }
@@ -100,13 +99,13 @@ func run(plugin *node.Plugin) {
 					EnableOpenMetrics: true,
 				},
 			)
-			if config.Node().Bool(CfgPrometheusPromhttpMetrics) {
+			if Parameters.PromhttpMetrics {
 				handler = promhttp.InstrumentMetricHandler(registry, handler)
 			}
 			handler.ServeHTTP(c.Writer, c.Request)
 		})
 
-		bindAddr := config.Node().String(CfgPrometheusBindAddress)
+		bindAddr := Parameters.BindAddress
 		server = &http.Server{Addr: bindAddr, Handler: engine}
 
 		go func() {

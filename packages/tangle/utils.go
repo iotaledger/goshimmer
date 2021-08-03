@@ -3,6 +3,8 @@ package tangle
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/typeutils"
+
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
 
@@ -109,13 +111,14 @@ func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.Tra
 // TransactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
 // indirectly approved by the given Message.
 func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
-	for _, attachmentMessageID := range u.tangle.Storage.AttachmentMessageIDs(transactionID) {
-		if attachmentMessageID == messageID {
+	attachmentMessageIDs := u.tangle.Storage.AttachmentMessageIDs(transactionID)
+	for i := range attachmentMessageIDs {
+		if attachmentMessageIDs[i] == messageID {
 			return true
 		}
 
 		var attachmentBooked bool
-		u.tangle.Storage.MessageMetadata(attachmentMessageID).Consume(func(attachmentMetadata *MessageMetadata) {
+		u.tangle.Storage.MessageMetadata(attachmentMessageIDs[i]).Consume(func(attachmentMetadata *MessageMetadata) {
 			attachmentBooked = attachmentMetadata.IsBooked()
 		})
 		if !attachmentBooked {
@@ -123,24 +126,17 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 		}
 
 		bookedParents := make(MessageIDs, 0)
+
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			for _, parentID := range message.StrongParents() {
-				var parentBooked bool
-				u.tangle.Storage.MessageMetadata(parentID).Consume(func(parentMetadata *MessageMetadata) {
-					parentBooked = parentMetadata.IsBooked()
-				})
-				if !parentBooked {
-					continue
-				}
-
-				// First check all of the parents to avoid unnecessary checks and possible walking.
-				if attachmentMessageID == parentID {
-					approved = true
-					return
-				}
-
-				bookedParents = append(bookedParents, parentID)
+			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
+				return message.WeakParents()
+			}, nil)
+			if approved {
+				return
 			}
+			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
+				return message.StrongParents()
+			}, &bookedParents)
 		})
 		if approved {
 			return
@@ -148,7 +144,7 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 
 		// Only now check all parents.
 		for _, bookedParent := range bookedParents {
-			if u.MessageApprovedBy(attachmentMessageID, bookedParent) {
+			if u.MessageApprovedBy(attachmentMessageIDs[i], bookedParent) {
 				approved = true
 				return
 			}
@@ -159,6 +155,29 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 	}
 
 	return
+}
+
+// checkBookedParents check if message parents are booked and add then to bookedParents. If we find attachmentMessageId in the parents we stop and return true
+func (u *Utils) checkBookedParents(message *Message, attachmentMessageID *MessageID, getParents func(*Message) MessageIDs, bookedParents *MessageIDs) bool {
+	for _, parentID := range getParents(message) {
+		var parentBooked bool
+		u.tangle.Storage.MessageMetadata(parentID).Consume(func(parentMetadata *MessageMetadata) {
+			parentBooked = parentMetadata.IsBooked()
+		})
+		if !parentBooked {
+			continue
+		}
+
+		// First check all of the parents to avoid unnecessary checks and possible walking.
+		if *attachmentMessageID == parentID {
+			return true
+		}
+
+		if !typeutils.IsInterfaceNil(bookedParents) {
+			*bookedParents = append(*bookedParents, parentID)
+		}
+	}
+	return false
 }
 
 // MessageApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the

@@ -21,7 +21,7 @@ import (
 // Network represents a complete GoShimmer network within Docker.
 // Including an entry node and arbitrary many peers.
 type Network struct {
-	id   string
+	Id   string
 	name string
 
 	docker *client.Client
@@ -48,7 +48,7 @@ func NewNetwork(ctx context.Context, dockerClient *client.Client, name string, t
 	}
 
 	return &Network{
-		id:     resp.ID,
+		Id:     resp.ID,
 		name:   name,
 		tester: tester,
 		docker: dockerClient,
@@ -227,12 +227,12 @@ func (n *Network) Shutdown(ctx context.Context) error {
 	}
 
 	// disconnect tester from network otherwise the network can't be removed
-	if err := n.tester.DisconnectFromNetwork(ctx, n.id); err != nil {
+	if err := n.tester.DisconnectFromNetwork(ctx, n.Id); err != nil {
 		return err
 	}
 
 	// remove network
-	if err := n.docker.NetworkRemove(ctx, n.id); err != nil {
+	if err := n.docker.NetworkRemove(ctx, n.Id); err != nil {
 		return err
 	}
 
@@ -264,7 +264,7 @@ func (n *Network) createNode(ctx context.Context, name string, conf config.GoShi
 	if err := container.CreateNode(ctx, conf); err != nil {
 		return nil, err
 	}
-	if err := container.ConnectToNetwork(ctx, n.id); err != nil {
+	if err := container.ConnectToNetwork(ctx, n.Id); err != nil {
 		return nil, err
 	}
 
@@ -296,7 +296,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 		panic("entry node already present")
 	}
 
-	node, err := n.createNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig)
+	node, err := n.createNode(ctx, n.namePrefix(containerNameEntryNode), EntryNodeConfig())
 	if err != nil {
 		return err
 	}
@@ -307,7 +307,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 
 func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig CreateNetworkConfig) error {
 	// create a peer conf from the network conf
-	conf := PeerConfig
+	conf := PeerConfig()
 	if networkConfig.StartSynced {
 		conf.MessageLayer.StartSynced = true
 	}

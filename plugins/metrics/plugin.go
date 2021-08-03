@@ -18,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -47,19 +46,19 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
-	if config.Node().Bool(CfgMetricsLocal) {
+	if Parameters.Local {
 		// initial measurement, since we have to know how many messages are there in the db
 		measureInitialDBStats()
 		registerLocalMetrics()
 	}
 	// Events from analysis server
-	if config.Node().Bool(CfgMetricsGlobal) {
+	if Parameters.Global {
 		server.Events.MetricHeartbeat.Attach(onMetricHeartbeatReceived)
 	}
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
-		if config.Node().Bool(CfgMetricsLocal) {
+		if Parameters.Local {
 			// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 			// safely ignore the last execution when shutting down.
 			timeutil.NewTicker(func() {
@@ -74,7 +73,7 @@ func run(_ *node.Plugin) {
 			}, 1*time.Second, shutdownSignal)
 		}
 
-		if config.Node().Bool(CfgMetricsGlobal) {
+		if Parameters.Global {
 			// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 			// safely ignore the last execution when shutting down.
 			timeutil.NewTicker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
@@ -91,7 +90,7 @@ func run(_ *node.Plugin) {
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
 		timeutil.NewTicker(func() {
 			measureMana()
-		}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
+		}, time.Second*time.Duration(Parameters.ManaUpdateInterval), shutdownSignal)
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-shutdownSignal
 		log.Infof("Stopping Metrics Mana Updater ...")
@@ -99,14 +98,14 @@ func run(_ *node.Plugin) {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
-	if config.Node().Bool(CfgMetricsManaResearch) {
+	if Parameters.ManaResearch {
 		// create a background worker that updates the research mana metrics
 		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(shutdownSignal <-chan struct{}) {
 			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
 			timeutil.NewTicker(func() {
 				measureAccessResearchMana()
 				measureConsensusResearchMana()
-			}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
+			}, time.Second*time.Duration(Parameters.ManaUpdateInterval), shutdownSignal)
 			// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 			<-shutdownSignal
 			log.Infof("Stopping Metrics Research Mana Updater ...")

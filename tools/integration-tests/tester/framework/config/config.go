@@ -1,20 +1,39 @@
 package config
 
 import (
-	"time"
+	"reflect"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/plugins/activity"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/drng"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/pow"
+	"github.com/iotaledger/goshimmer/plugins/profiling"
+	"github.com/iotaledger/goshimmer/plugins/prometheus"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // GoShimmer defines the config of a GoShimmer node.
 type GoShimmer struct {
 	// Name specifies the GoShimmer instance.
 	Name string
+	// Image specifies the docker image for the instance
+	Image string
 	// DisabledPlugins specifies the plugins that are disabled with a config.
 	DisabledPlugins []string
 	// Seed specifies identity.
 	Seed []byte
+
+	// Network specifies network-level configurations
+	Network
 
 	// individual plugin configurations
 	Database
@@ -29,78 +48,79 @@ type GoShimmer struct {
 	FPC
 	Activity
 	DRNG
+	Prometheus
+	Profiling
+}
+
+// NewGoShimmer creates a GoShimmer config initialized with default values.
+func NewGoShimmer() (config GoShimmer) {
+	config = GoShimmer{}
+	fillStructFromDefaultTag(reflect.ValueOf(&config).Elem())
+	return
+}
+
+type Network struct {
+	Enabled bool
+
+	local.ParametersDefinitionNetwork
 }
 
 // Database defines the parameters of the database plugin.
 type Database struct {
 	Enabled bool
 
-	ForceCacheTime time.Duration
+	database.ParametersDefinition
 }
 
 // Gossip defines the parameters of the gossip plugin.
 type Gossip struct {
 	Enabled bool
 
-	Port int
+	gossip.ParametersDefinition
 }
 
 // POW defines the parameters of the PoW plugin.
 type POW struct {
 	Enabled bool
 
-	Difficulty int
+	pow.ParametersDefinition
 }
 
 // Webapi defines the parameters of the Web API plugin.
 type Webapi struct {
 	Enabled bool
 
-	BindAddress string
+	webapi.ParametersDefinition
 }
 
 // Autopeering defines the parameters of the autopeering plugin.
 type Autopeering struct {
 	Enabled bool
 
-	Port       int
-	EntryNodes []string
+	autopeering.ParametersDefinition
+	discovery.ParametersDefinitionDiscovery
+	local.ParametersDefinitionLocal
 }
 
 // Faucet defines the parameters of the faucet plugin.
 type Faucet struct {
 	Enabled bool
 
-	Seed                 string
-	TokensPerRequest     int
-	PowDifficulty        int
-	PreparedOutputsCount int
+	faucet.ParametersDefinition
 }
 
 // Mana defines the parameters of the Mana plugin.
 type Mana struct {
 	Enabled bool
 
-	AllowedAccessPledge           []string
-	AllowedAccessFilterEnabled    bool
-	AllowedConsensusPledge        []string
-	AllowedConsensusFilterEnabled bool
+	messagelayer.ManaParametersDefinition
 }
 
 // MessageLayer defines the parameters used by the message layer.
 type MessageLayer struct {
 	Enabled bool
 
-	Snapshot struct {
-		File        string
-		GenesisNode string
-	}
-	FCOB struct {
-		QuarantineTime int
-	}
-
-	TangleTimeWindow time.Duration
-	StartSynced      bool
+	messagelayer.ParametersDefinition
 }
 
 // Consensus defines the parameters of the consensus plugin.
@@ -112,28 +132,35 @@ type Consensus struct {
 type FPC struct {
 	Enabled bool
 
-	BindAddress             string
-	RoundInterval           int
-	TotalRoundsFinalization int
+	messagelayer.FPCParametersDefinition
 }
 
 // Activity defines the parameters of the activity plugin.
 type Activity struct {
 	Enabled bool
 
-	BroadcastIntervalSec int
+	activity.ParametersDefinition
 }
 
 // DRNG defines the parameters of the DRNG plugin.
 type DRNG struct {
 	Enabled bool
 
-	Custom struct {
-		InstanceId        int
-		Threshold         int
-		DistributedPubKey string
-		CommitteeMembers  []string
-	}
+	drng.ParametersDefinition
+}
+
+// Prometheus defines the parameters of the Prometheus plugin.
+type Prometheus struct {
+	Enabled bool
+
+	prometheus.ParametersDefinition
+}
+
+// Profiling defines the parameters of the Profiling plugin.
+type Profiling struct {
+	Enabled bool
+
+	profiling.ParametersDefinition
 }
 
 // CreateIdentity returns an identity based on the config.

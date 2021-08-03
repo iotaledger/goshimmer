@@ -24,10 +24,54 @@ import (
 
 // region UTXODAG //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// IUTXODAG is the interface for UTXODAG which is the core of the ledger state
+// that is formed by Transactions consuming Inputs and creating Outputs.  It represents all the methods
+// that helps to keep track of the balances and the different perceptions of potential conflicts.
+type IUTXODAG interface {
+	// Events returns all events of the UTXODAG
+	Events() *UTXODAGEvents
+	// Shutdown shuts down the UTXODAG and persists its state.
+	Shutdown()
+	// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
+	CheckTransaction(transaction *Transaction) (err error)
+	// BookTransaction books a Transaction into the ledger state.
+	BookTransaction(transaction *Transaction) (targetBranch BranchID, err error)
+	// InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
+	// Pending, Confirmed or Rejected.
+	InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error)
+	// CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
+	CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction)
+	// Transaction returns a specific transaction, consumed.
+	Transaction(transactionID TransactionID) (transaction *Transaction)
+	// Transactions returns all the transactions, consumed.
+	Transactions() (transactions map[TransactionID]*Transaction)
+	// CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
+	CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata)
+	// CachedOutput retrieves the Output with the given OutputID from the object storage.
+	CachedOutput(outputID OutputID) (cachedOutput *CachedOutput)
+	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
+	CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata)
+	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
+	CachedConsumers(outputID OutputID) (cachedConsumers CachedConsumers)
+	// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
+	LoadSnapshot(snapshot *Snapshot)
+	// CachedAddressOutputMapping retrieves the outputs for the given address.
+	CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings)
+	// SetTransactionConfirmed marks a Transaction (and all Transactions in its past cone) as confirmed. It also marks the
+	// conflicting Transactions to be rejected.
+	SetTransactionConfirmed(transactionID TransactionID) (err error)
+	// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
+	ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs)
+	// ManageStoreAddressOutputMapping mangages how to store the address-output mapping dependent on which type of output it is.
+	ManageStoreAddressOutputMapping(output Output)
+	// StoreAddressOutputMapping stores the address-output mapping.
+	StoreAddressOutputMapping(address Address, outputID OutputID)
+}
+
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
 // the ledger state and keeps track of the balances and the different perceptions of potential conflicts.
 type UTXODAG struct {
-	Events *UTXODAGEvents
+	events *UTXODAGEvents
 
 	transactionStorage          *objectstorage.ObjectStorage
 	transactionMetadataStorage  *objectstorage.ObjectStorage
@@ -44,7 +88,7 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	options := buildObjectStorageOptions(cacheProvider)
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
-		Events: &UTXODAGEvents{
+		events: &UTXODAGEvents{
 			TransactionBranchIDUpdated: events.NewEvent(transactionIDEventHandler),
 			TransactionConfirmed:       events.NewEvent(transactionIDEventHandler),
 		},
@@ -57,6 +101,11 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 		branchDAG:                   branchDAG,
 	}
 	return
+}
+
+// Events returns all events of the UTXODAG
+func (u *UTXODAG) Events() *UTXODAGEvents {
+	return u.events
 }
 
 // Shutdown shuts down the UTXODAG and persists its state.
@@ -86,6 +135,9 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	}
 	if !UnlockBlocksValid(consumedOutputs, transaction) {
 		return errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
+	}
+	if !AliasInitialStateValid(consumedOutputs, transaction) {
+		return errors.Errorf("initial state of created alias output is invalid: %w", ErrTransactionInvalid)
 	}
 
 	return nil
@@ -351,7 +403,7 @@ func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err erro
 			continue
 		}
 
-		u.Events.TransactionConfirmed.Trigger(currentTransactionID)
+		u.Events().TransactionConfirmed.Trigger(currentTransactionID)
 	}
 
 	return err
@@ -505,9 +557,6 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(txMetadata *TransactionMetadata) {
 		conflictBranchID := NewBranchID(transactionID)
-		if txMetadata.BranchID() == conflictBranchID {
-			return
-		}
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
@@ -515,10 +564,23 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		if err != nil {
 			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
 		}
-		cachedConsumingConflictBranch.Release()
+		// We don't need to propagate updates if the branch did already exist.
+		// Though CreateConflictBranch needs to be called so that conflict sets and conflict membership are properly updated.
+		if txMetadata.BranchID() == conflictBranchID {
+			cachedConsumingConflictBranch.Release()
+			return
+		}
+
+		cachedConsumingConflictBranch.Consume(func(newBranch Branch) {
+			// copying the branch metadata properties from the original branch to the newly created.
+			u.branchDAG.Branch(txMetadata.BranchID()).Consume(func(oldBranch Branch) {
+				newBranch.setLiked(oldBranch.Liked())
+				newBranch.setMonotonicallyLiked(oldBranch.MonotonicallyLiked())
+			})
+		})
 
 		txMetadata.SetBranchID(conflictBranchID)
-		u.Events.TransactionBranchIDUpdated.Trigger(transactionID)
+		u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
 
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
@@ -566,7 +628,7 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.SetBranchID(branchID) {
-			u.Events.TransactionBranchIDUpdated.Trigger(transactionID)
+			u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
 
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {

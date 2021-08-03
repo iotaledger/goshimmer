@@ -7,7 +7,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -33,24 +32,21 @@ func Manager() *gossip.Manager {
 }
 
 func createManager() {
-	// assure that the logger is available
-	log := logger.NewLogger(PluginName)
-
 	// announce the gossip service
 	gossipPort := Parameters.Port
 	if !netutil.IsValidPort(gossipPort) {
-		log.Fatalf("Invalid port number: %d", gossipPort)
+		Plugin().LogFatalf("Invalid port number: %d", gossipPort)
 	}
 
 	lPeer := local.GetInstance()
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
-		log.Fatalf("could not update services: %s", err)
+		Plugin().LogFatalf("could not update services: %s", err)
 	}
-	mgr = gossip.NewManager(lPeer, loadMessage, log)
+	mgr = gossip.NewManager(lPeer, loadMessage, Plugin().Logger())
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + PluginName + " ... done")
+	defer Plugin().LogInfo("Stopping " + PluginName + " ... done")
 
 	lPeer := local.GetInstance()
 
@@ -58,28 +54,28 @@ func start(shutdownSignal <-chan struct{}) {
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node().String(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
+	address := net.JoinHostPort(config.Node().String(local.ParametersNetwork.BindAddress), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
+		Plugin().LogFatalf("Error resolving: %v", err)
 	}
 
 	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
 	if err != nil {
-		log.Fatalf("Error listening: %v", err)
+		Plugin().LogFatalf("Error listening: %v", err)
 	}
 	defer listener.Close()
 
-	srv := server.ServeTCP(lPeer, listener, log)
+	srv := server.ServeTCP(lPeer, listener, Plugin().Logger())
 	defer srv.Close()
 
 	mgr.Start(srv)
 	defer mgr.Stop()
 
-	log.Infof("%s started: bind-address=%s", PluginName, localAddr.String())
+	Plugin().LogInfof("%s started: bind-address=%s", PluginName, localAddr.String())
 
 	<-shutdownSignal
-	log.Info("Stopping " + PluginName + " ...")
+	Plugin().LogInfo("Stopping " + PluginName + " ...")
 }
 
 // loads the given message from the message layer and returns it or an error if not found.
