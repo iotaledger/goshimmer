@@ -19,7 +19,7 @@ For these reasons, we use [FCoB](#fcob) to manage FPC.
 
 The following flow diagram shows the current implemention of the FCoB protocol.
 
-![FCoB](../../static/img/protocol_specification/FCOB.png)
+![FCoB](/img/protocol_specification/FCOB.png)
 
 Each opinion is associated to a *Level of Knowledge* (LoK) that defines how confident a node is with respect to the value of the opinion. We can distinguish 3 levels:
 * Level 1 means that the node only knows that it holds this opinion.
@@ -149,7 +149,7 @@ Approval weight is tracked with the help of supporters that cast votes for branc
 Tracking supporters of branches and following the heavier branch effectively is On Tangle Voting. It allows nodes to express their opinion simply by attaching a statement to a branch they like. This statement needs to propagate down the branch DAG, adding support to each of the branch parents. In case a supporter changes their opinion, support needs to be revoked from all conflicting branches and their children. Thus, a node can only support one branch of a conflict set. 
 
 To make this more clear consider the following example:
-![Branch Supporter](../../static/img/protocol_specification/branches.png)
+![Branch Supporter](/img/protocol_specification/branches.png)
 
 The green node issued **statement 1** and attached it to the aggregated branch `Branch 1.1 + Branch 4.1.1`. Thus, the green node is a supporter of all the aggregated branch's parent branches, which are (from top to bottom) `Branch 4.1.1`, `Branch 1.1`, `Branch 4.1`, `Branch 1`, and `Branch 4`.
 
