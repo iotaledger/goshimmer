@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/kvstore"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -27,6 +29,8 @@ var (
 
 	// ErrMessageWasNotIssuedInTime is returned if a message did not get issued within the defined await time.
 	ErrMessageWasNotIssuedInTime = errors.New("message could not be issued in time")
+
+	snapshotLoadedKey = kvstore.Key("snapshot_loaded")
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -90,17 +94,24 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// read snapshot file
-	if Parameters.Snapshot.File != "" {
+	if loaded, _ := database.Store().Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		snapshot := &ledgerstate.Snapshot{}
 		f, err := os.Open(Parameters.Snapshot.File)
 		if err != nil {
 			plugin.Panic("can not open snapshot file:", err)
 		}
+		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 		if _, err := snapshot.ReadFrom(f); err != nil {
 			plugin.Panic("could not read snapshot file in message layer plugin:", err)
 		}
 		Tangle().LedgerState.LoadSnapshot(snapshot)
-		plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
+		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
+
+		// Set flag that we read the snapshot already, so we don't have to do it again after a restart.
+		err = database.Store().Set(snapshotLoadedKey, kvstore.Value{})
+		if err != nil {
+			plugin.LogErrorf("could not store snapshot_loaded flag: %v")
+		}
 	}
 
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.QuarantineTime) * time.Second
