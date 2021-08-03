@@ -51,10 +51,11 @@ func testAreParentsSorted(parents []MessageID) bool {
 	})
 }
 
-func testSortParents(parents []MessageID) {
+func testSortParents(parents []MessageID) []MessageID {
 	sort.Slice(parents, func(i, j int) bool {
 		return bytes.Compare(parents[i].Bytes(), parents[j].Bytes()) < 0
 	})
+	return parents
 }
 
 func TestNewMessageID(t *testing.T) {
@@ -237,64 +238,381 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	}
 }
 
-func TestMessage_NewMessage(t *testing.T) {
+func TestNewMessageWithValidation(t *testing.T) {
 	t.Run("CASE: Too many strong parents", func(t *testing.T) {
 		// too many strong parents
-		strongParents := randomParents(MaxParentsCount + 1)
+		strongParents := testSortParents(randomParents(MaxParentsCount + 1))
+		block := ParentsBlock{
+			ParentsType:  StrongParentType,
+			ParentsCount: uint8(len(strongParents)),
+			References:   strongParents,
+		}
 
-		_, err := NewMessage(
-			strongParents,
-			nil,
-			nil,
-			nil,
+		_, err := NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{block},
 			time.Now(),
 			ed25519.PublicKey{},
-			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0,
 		)
 		assert.ErrorIs(t, err, ErrParentsOutOfRange)
 	})
 
-	t.Run("CASE: Too few strong parents", func(t *testing.T) {
-		weakParents := randomParents(MaxParentsCount)
-
-		_, err := NewMessage(
-			nil,
-			weakParents,
-			nil,
+	t.Run("CASE: Nil block", func(t *testing.T) {
+		_, err := NewMessageWithValidation(
+			MessageVersion,
 			nil,
 			time.Now(),
 			ed25519.PublicKey{},
-			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0,
 		)
 		assert.ErrorIs(t, err, ErrNoStrongParents)
 	})
 
+	t.Run("CASE: Empty Block", func(t *testing.T) {
+		block := ParentsBlock{}
+
+		_, err := NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{block},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrNoStrongParents)
+	})
+
+	t.Run("CASE: Blocks are unordered", func(t *testing.T) {
+		parents := testSortParents(randomParents(MaxParentsCount))
+
+		strongBlock := ParentsBlock{
+			ParentsType:  StrongParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+		weakBlock := ParentsBlock{
+			ParentsType:  WeakParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+		dislikeBlock := ParentsBlock{
+			ParentsType:  DislikeParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+		likeBlock := ParentsBlock{
+			ParentsType:  LikeParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+
+		_, err := NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{weakBlock, strongBlock, dislikeBlock, likeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "weak block came before strong block")
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock, likeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, weakBlock, likeBlock, dislikeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "like block came before dislike block")
+	})
+
+	t.Run("CASE: Repeating block types", func(t *testing.T) {
+		parents := testSortParents(randomParents(MaxParentsCount))
+
+		strongBlock := ParentsBlock{
+			ParentsType:  StrongParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+		strongBlock2 := ParentsBlock{
+			ParentsType:  StrongParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+		likeBlock := ParentsBlock{
+			ParentsType:  LikeParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+		likeBlock2 := ParentsBlock{
+			ParentsType:  LikeParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+
+		_, err := NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, strongBlock2, likeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+
+		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "strong block repeats")
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, likeBlock, likeBlock2},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+
+		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "like block repeats")
+	})
+
+	t.Run("CASE: Parent count doesn't fit length of references", func(t *testing.T) {
+		parents := testSortParents(randomParents(4))
+		strongBlock := ParentsBlock{
+			ParentsType:  StrongParentType,
+			ParentsCount: uint8(len(parents)) - 1,
+			References:   parents,
+		}
+		weakBlock := ParentsBlock{
+			ParentsType:  WeakParentType,
+			ParentsCount: uint8(len(parents)) - 1,
+			References:   parents,
+		}
+		dislikeBlock := ParentsBlock{
+			ParentsType:  DislikeParentType,
+			ParentsCount: uint8(len(parents)) - 1,
+			References:   parents,
+		}
+		likeBlock := ParentsBlock{
+			ParentsType:  LikeParentType,
+			ParentsCount: uint8(len(parents)) - 1,
+			References:   parents,
+		}
+
+		_, err := NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+
+		assert.ErrorIs(t, err, ErrParentsCountMismatch, "strong block has a mismatch")
+
+		strongBlock.ParentsCount = uint8(len(parents))
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, weakBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrParentsCountMismatch, "weak block has a mismatch")
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, dislikeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrParentsCountMismatch, "dislike block has a mismatch")
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, likeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrParentsCountMismatch, "like block has a mismatch")
+	})
+
+	t.Run("Case: Duplicate references", func(t *testing.T) {
+		parents := testSortParents(randomParents(4))
+		parentsDup := append(parents, parents[3])
+
+		strongBlock := ParentsBlock{
+			ParentsType:  StrongParentType,
+			ParentsCount: uint8(len(parentsDup)),
+			References:   parentsDup,
+		}
+
+		_, err := NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		assert.ErrorIs(t, err, ErrRepeatingReferencesInBlock)
+
+		parents = testSortParents(randomParents(4))
+		parentsDup = append(parents, parents[1])
+
+		strongBlock.References = parentsDup
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+		// if the duplicates are not consecutive a lexicographically order error is returned
+		assert.ErrorIs(t, err, ErrParentsNotLexicographicallyOrdered)
+	})
+
+	t.Run("Parents Repeating across blocks", func(t *testing.T) {
+		parents := testSortParents(randomParents(4))
+		strongBlock := ParentsBlock{
+			ParentsType:  StrongParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+
+		likeBlock := ParentsBlock{
+			ParentsType:  LikeParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+
+		_, err := NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, likeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+
+		// strong and like parents may have duplicate parents
+		assert.NoError(t, err)
+
+		weakBlock := ParentsBlock{
+			ParentsType:  WeakParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, weakBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+
+		assert.ErrorIs(t, err, ErrRepeatingMessagesAcrossBlocks)
+
+		// check for repeating message across weak and dislike block
+		weakParents := testSortParents(randomParents(4))
+		dislikeParents := testSortParents(randomParents(4))
+		// create duplicate
+		dislikeParents[2] = weakParents[2]
+
+		weakBlock = ParentsBlock{
+			ParentsType:  WeakParentType,
+			ParentsCount: uint8(len(weakParents)),
+			References:   weakParents,
+		}
+
+		dislikeBlock := ParentsBlock{
+			ParentsType:  LikeParentType,
+			ParentsCount: uint8(len(dislikeParents)),
+			References:   dislikeParents,
+		}
+
+		_, err = NewMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0)
+	})
+}
+
+func TestMessage_NewMessage(t *testing.T) {
 	t.Run("CASE: No parents at all", func(t *testing.T) {
 		_, err := NewMessage(
 			nil,
 			nil,
-			nil,
-			nil,
-			time.Now(),
-			ed25519.PublicKey{},
-			0,
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-		)
-		assert.ErrorIs(t, err, ErrNoStrongParents)
-	})
-
-	t.Run("CASE: Only one weak parent", func(t *testing.T) {
-		_, err := NewMessage(
-			nil,
-			[]MessageID{EmptyMessageID},
 			nil,
 			nil,
 			time.Now(),
