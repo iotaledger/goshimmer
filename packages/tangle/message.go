@@ -48,6 +48,8 @@ const (
 
 	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
 	MinStrongParentsCount = 1
+
+	numberOfBlockTypes = 4
 )
 
 // region MessageID ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -274,12 +276,12 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 		parentsBlocksCount++
 	}
 
-	return NewMessageFromBlocks(MessageVersion, issuingTime, issuerPublicKey, parentsBlocks, payload, nonce, signature,
+	return NewMessageWithValidation(MessageVersion, issuingTime, issuerPublicKey, parentsBlocks, payload, nonce, signature,
 		sequenceNumber)
 }
 
 /**
-NewMessageFromBlocks creates a new message while performing ths following syntactical checks:
+NewMessageWithValidation creates a new message while performing ths following syntactical checks:
 1. A Strong Parents Block must exist.
 2. Parents Block types cannot repeat.
 3. Parent count per block 0 <= x <= 8.
@@ -290,9 +292,9 @@ NewMessageFromBlocks creates a new message while performing ths following syntac
 8. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents
 9. Blocks should be ordered by type in ascending order
 **/
-func NewMessageFromBlocks(version uint8, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, parentsBlocks []ParentsBlock, payload payload.Payload, nonce uint64, signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
+func NewMessageWithValidation(version uint8, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, parentsBlocks []ParentsBlock, payload payload.Payload, nonce uint64, signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
 	// Validate strong parent block
-	if parentsBlocks[StrongParentType].ParentsType != StrongParentType &&
+	if parentsBlocks[StrongParentType].ParentsType != StrongParentType ||
 		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
 		return nil, ErrNoStrongParents
 	}
@@ -342,8 +344,8 @@ func NewMessageFromBlocks(version uint8, issuingTime time.Time, issuerPublicKey 
 // validate messagesIDs are unique across blocks
 // there may be repetition across strong and like parents
 func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
-	combinedMessageMap := make(map[MessageID]types.Empty, 4*8)
-	parentsArray := make(MessageIDs, 16)
+	combinedMessageMap := make(map[MessageID]types.Empty, numberOfBlockTypes*MaxParentsCount)
+	parentsArray := make(MessageIDs, 0, MaxParentsCount*2)
 	for _, block := range parentsBlocks {
 		// combine strong parent and like parents
 		if block.ParentsType == StrongParentType || block.ParentsType == LikeParentType {
@@ -495,7 +497,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		return nil, err
 	}
 
-	msg, err := NewMessageFromBlocks(version, issuingTime, issuerPublicKey, parentsBlocks, msgPayload, nonce, signature, msgSequenceNumber)
+	msg, err := NewMessageWithValidation(version, issuingTime, issuerPublicKey, parentsBlocks, msgPayload, nonce, signature, msgSequenceNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -1288,8 +1290,7 @@ var (
 	ErrParentsCountMismatch = errors.New("Number of parents in a message doesn't match parent count")
 
 	// ErrParentsOutOfRange is returned when the number of parents in a block is too high or low
-	ErrParentsOutOfRange = errors.New(fmt.Sprintf("There must be at least %d parents and max %d parents within a block",
-		MinParentsCount, MaxParentsCount))
+	ErrParentsOutOfRange = errors.Errorf("A block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
 
 	// ErrParentsNotLexicographicallyOrdered is returned when the messages within a block are not lexicographically sorted
 	ErrParentsNotLexicographicallyOrdered = errors.New("Messages within blocks must be lexicographically ordered")
