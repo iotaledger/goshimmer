@@ -5,6 +5,7 @@ on: workflow_dispatch
 jobs:
 
   docker:
+    environment: pre-devnet
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: 1
