@@ -276,8 +276,7 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 		parentsBlocksCount++
 	}
 
-	return NewMessageWithValidation(MessageVersion, issuingTime, issuerPublicKey, parentsBlocks, payload, nonce, signature,
-		sequenceNumber)
+	return NewMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, payload, nonce, signature, sequenceNumber)
 }
 
 /**
@@ -292,7 +291,9 @@ NewMessageWithValidation creates a new message while performing ths following sy
 8. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents
 9. Blocks should be ordered by type in ascending order
 **/
-func NewMessageWithValidation(version uint8, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, parentsBlocks []ParentsBlock, payload payload.Payload, nonce uint64, signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
+func NewMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
+	issuerPublicKey ed25519.PublicKey, payload payload.Payload, nonce uint64,
+	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
 	// Validate strong parent block
 	if parentsBlocks[StrongParentType].ParentsType != StrongParentType ||
 		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
@@ -318,6 +319,9 @@ func NewMessageWithValidation(version uint8, issuingTime time.Time, issuerPublic
 		}
 		// The lexicographical order check also makes sure there are no duplicates
 		for i := 0; i < len(block.References)-1; i++ {
+			if block.References[i].CompareTo(block.References[i+1]) == 0 {
+				return nil, ErrRepeatingReferencesInBlock
+			}
 			if block.References[i].CompareTo(block.References[i+1]) != -1 {
 				return nil, ErrParentsNotLexicographicallyOrdered
 			}
@@ -497,7 +501,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		return nil, err
 	}
 
-	msg, err := NewMessageWithValidation(version, issuingTime, issuerPublicKey, parentsBlocks, msgPayload, nonce, signature, msgSequenceNumber)
+	msg, err := NewMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber)
 	if err != nil {
 		return nil, err
 	}
