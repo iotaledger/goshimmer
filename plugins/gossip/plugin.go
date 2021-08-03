@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -68,14 +67,9 @@ func configureMessageLayer() {
 		messagelayer.Tangle().ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
-	// configure flow of outgoing messages (gossip after booking)
-	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	// configure flow of outgoing messages (gossip after ordering)
+	messagelayer.Tangle().Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			// avoid gossiping old messages
-			if clock.Since(message.IssuingTime()) > oldMessageThreshold {
-				return
-			}
-
 			mgr.SendMessage(message.Bytes())
 		})
 	}))
