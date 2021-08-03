@@ -254,12 +254,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			ed25519.Signature{},
 		)
-		assert.NoError(t, err)
-	})
-
-	t.Run("CASE: Strong and weak parents are individually okay, but, their sum is bigger", func(t *testing.T) {
-		// strong and weak parents are individually okay, but, their sum is bigger
-		// TODO
+		assert.ErrorIs(t, err, ErrParentsOutOfRange)
 	})
 
 	t.Run("CASE: Too few strong parents", func(t *testing.T) {
@@ -277,7 +272,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			ed25519.Signature{},
 		)
-		assert.NoError(t, err)
+		assert.ErrorIs(t, err, ErrNoStrongParents)
 	})
 
 	t.Run("CASE: No parents at all", func(t *testing.T) {
@@ -293,7 +288,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			ed25519.Signature{},
 		)
-		assert.NoError(t, err)
+		assert.ErrorIs(t, err, ErrNoStrongParents)
 	})
 
 	t.Run("CASE: Only one weak parent", func(t *testing.T) {
@@ -309,7 +304,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			ed25519.Signature{},
 		)
-		assert.NoError(t, err)
+		assert.ErrorIs(t, err, ErrNoStrongParents)
 	})
 
 	t.Run("CASE: Minimum number of parents", func(t *testing.T) {
@@ -325,6 +320,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			ed25519.Signature{},
 		)
+		// should pass since EmptyMessageId is a valid MessageId
 		assert.NoError(t, err)
 	})
 
@@ -346,9 +342,9 @@ func TestMessage_NewMessage(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("CASE: Maximum number of parents (one strong)", func(t *testing.T) {
-		// max number of parents supplied (one strong)
-		weakParents := randomParents(MaxParentsCount - 1)
+	t.Run("CASE: Maximum number of weak parents (one strong)", func(t *testing.T) {
+		// max number of weak parents plus one strong
+		weakParents := randomParents(MaxParentsCount)
 		_, err := NewMessage(
 			[]MessageID{EmptyMessageID},
 			weakParents,
@@ -364,6 +360,7 @@ func TestMessage_NewMessage(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	// TODO add test for new constructor
 	t.Run("CASE: Too many parents, but okay without duplicates", func(t *testing.T) {
 		strongParents := randomParents(MaxParentsCount)
 		// MaxParentsCount + 1 parents, but there is one duplicate
@@ -383,58 +380,7 @@ func TestMessage_NewMessage(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("CASE: Strong parents are sorted", func(t *testing.T) {
-		// max number of parents supplied (only strong)
-		strongParents := randomParents(MaxParentsCount)
-		if !testAreParentsSorted(strongParents) {
-			testSortParents(strongParents)
-			assert.True(t, testAreParentsSorted(strongParents))
-		}
-
-		msg, err := NewMessage(
-			strongParents,
-			nil,
-			nil,
-			nil,
-			time.Now(),
-			ed25519.PublicKey{},
-			0,
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-		)
-		assert.NoError(t, err)
-
-		msgStrongParents := msg.ParentsByType(StrongParentType)
-		assert.True(t, testAreParentsSorted(msgStrongParents))
-	})
-
-	t.Run("CASE: Weak parents are sorted", func(t *testing.T) {
-		// max number of weak parents supplied (MaxParentsCount-1)
-		weakParents := randomParents(MaxParentsCount - 1)
-		if !testAreParentsSorted(weakParents) {
-			testSortParents(weakParents)
-			assert.True(t, testAreParentsSorted(weakParents))
-		}
-
-		msg, err := NewMessage(
-			[]MessageID{EmptyMessageID},
-			weakParents,
-			nil,
-			nil,
-			time.Now(),
-			ed25519.PublicKey{},
-			0,
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-		)
-		assert.NoError(t, err)
-
-		msgWeakParents := msg.ParentsByType(WeakParentType)
-		assert.True(t, testAreParentsSorted(msgWeakParents))
-	})
-
+	// TODO
 	t.Run("CASE: Duplicate strong parents", func(t *testing.T) {
 		// max number of parents supplied (only strong)
 		strongParents := randomParents(MaxParentsCount / 2)
@@ -736,6 +682,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		// assert.Equal(t, uint8(0), result.ParentsCount())
 	})
 
+	// TODO, delete?
 	t.Run("CASE: Invalid parent types", func(t *testing.T) {
 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
 		msgBytes[2] = 0
@@ -773,18 +720,16 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 	})
 
 	t.Run("CASE: Unsorted parents", func(t *testing.T) {
-		/*
-			msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-			// put and empty msg ID at position MinParentsCount+1
-			copy(msgBytes[3+MinParentsCount*32:3+(MinParentsCount+1)*32], EmptyMessageID.Bytes())
-			marshaller := marshalutil.New(msgBytes[:3+(MinParentsCount+1)*32])
-			result, err := MessageFromMarshalUtil(marshaller)
-			assert.Error(t, err)
-			//assert.True(t, strings.Contains(err.Error(), "parents not sorted lexicographically ascending"))
-			assert.Equal(t, MessageVersion, result.Version())
-			// TODO
-			//assert.Equal(t, uint8(MinParentsCount+1), result.ParentsCount())
-		*/
+		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+		// put and empty msg ID at position MinParentsCount+1
+		copy(msgBytes[3+MinParentsCount*32:3+(MinParentsCount+1)*32], EmptyMessageID.Bytes())
+		marshaller := marshalutil.New(msgBytes[:3+(MinParentsCount+1)*32])
+		_, err := MessageFromMarshalUtil(marshaller)
+		assert.Error(t, err)
+		// assert.True(t, strings.Contains(err.Error(), "parents not sorted lexicographically ascending"))
+		// assert.Equal(t, MessageVersion, result.Version())
+		// TODO
+		// assert.Equal(t, uint8(MinParentsCount+1), result.ParentsCount())
 	})
 
 	t.Run("CASE: Wrong min strong parent count", func(t *testing.T) {
