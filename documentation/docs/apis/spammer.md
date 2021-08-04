@@ -64,7 +64,7 @@ curl --location 'http://localhost:8080/spammer?cmd=stop'
 
 Spammer can be enabled and disabled via `ToggleSpammer(enable bool, rate int, imif string) (*jsonmodels.SpammerResponse, error)`
 ```go
-res, err := goshimAPI.ToggleSpammer(true, 100, "uniform")
+res, err := goshimAPI.ToggleSpammer(true, 100, "mps", "uniform")
 if err != nil {
     // return error
 }
