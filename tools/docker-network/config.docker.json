@@ -19,7 +19,7 @@
   },
   "dashboard": {
     "bindAddress": "0.0.0.0:8081",
-    "devDashboardAddress": "http://172.17.0.2:9093/",
+    "devDashboardAddress": "http://127.0.0.1:9090/",
     "dev": false,
     "basic_auth": {
       "enabled": false,
