@@ -51,38 +51,40 @@ func (s *Spammer) Shutdown() {
 func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 	defer s.wg.Done()
 
-	// emit messages every msgInterval interval, when IMIF is other than exponential
-	msgInterval := time.Duration(timeUnit.Nanoseconds() / int64(rate))
+	// create ticker with interval for default imif
+	ticker := time.NewTicker(timeUnit / time.Duration(rate))
+	defer ticker.Stop()
+
+	done := make(chan bool)
+	wg := sync.WaitGroup{}
+
 	for {
-		start := time.Now()
-
-		if !s.running.IsSet() {
-			// the spammer has stopped
+		select {
+		case <-done:
+			wg.Wait()
 			return
+		case <-ticker.C:
+			wg.Add(1)
+			// adjust the ticker interval for the poisson imif
+			if imif == "poisson" {
+				ticker = time.NewTicker(time.Duration(float64(timeUnit.Nanoseconds()) * rand.ExpFloat64() / float64(rate)))
+			}
+			go func() {
+				defer wg.Done()
+				if !s.running.IsSet() {
+					// the spammer has stopped
+					done <- true
+				}
+				// we don't care about errors or the actual issued message
+				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
+				if errors.Is(err, tangle.ErrNotSynced) {
+					s.log.Info("Stopped spamming messages because node lost sync")
+					done <- true
+				}
+				if err != nil {
+					s.log.Warnf("could not issue spam payload: %s", err)
+				}
+			}()
 		}
-
-		// we don't care about errors or the actual issued message
-		_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-		if errors.Is(err, tangle.ErrNotSynced) {
-			s.log.Info("Stopped spamming messages because node lost sync")
-			s.running.SetTo(false)
-			return
-		}
-		if err != nil {
-			s.log.Warnf("could not issue spam payload: %s", err)
-		}
-
-		currentInterval := time.Since(start)
-
-		if imif == "poisson" {
-			// emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
-			msgInterval = time.Duration(float64(timeUnit.Nanoseconds()) * rand.ExpFloat64() / float64(rate))
-		}
-
-		if currentInterval < msgInterval {
-			// there is still time, sleep until msgInterval
-			time.Sleep(msgInterval - currentInterval)
-		}
-		// when currentInterval > msgInterval, the node can't issue msgs as fast as requested, will do as fast as it can
 	}
 }

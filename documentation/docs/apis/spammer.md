@@ -28,7 +28,7 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 | **Parameter**            | `mpm`      |
 |--------------------------|----------------|
 | **Required or Optional** | optional       |
-| **Description**          | Messages per minute. Only applicable when `cmd=start`. (default: 1)  |
+| **Description**          | Messages per second. Only applicable when `cmd=start`. (default: 1)  |
 | **Type**                 | `int`         |
 
 
@@ -36,7 +36,7 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 | **Parameter**            | `imif` (Inter Message Issuing Function)     |
 |--------------------------|----------------|
 | **Required or Optional** | optional       |
-| **Description**          | Parameter indicating time interval between issued messages. Possible values: `poisson`, `uniform`. Field only available in HTTP API. |
+| **Description**          | Parameter indicating time interval between issued messages. Possible values: `poisson`, `uniform`. |
 | **Type**                 | `string`         |
 
 
@@ -49,16 +49,16 @@ Description of `imif` values:
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/spammer?cmd=start&mpm=1000'
-curl --location 'http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform'
-curl --location 'http://localhost:8080/spammer?cmd=shutdown'
+curl --location 'http://localhost:8080/spammer?cmd=start&mps=100'
+curl --location 'http://localhost:8080/spammer?cmd=start&mps=100&imif=uniform'
+curl --location 'http://localhost:8080/spammer?cmd=stop'
 ```
 
 #### Client lib - `ToggleSpammer()`
 
-Spammer can be enabled and disabled via `ToggleSpammer(enable bool, mpm int) (*jsonmodels.SpammerResponse, error)`
+Spammer can be enabled and disabled via `ToggleSpammer(enable bool, mps int, imif string) (*jsonmodels.SpammerResponse, error)`
 ```go
-res, err := goshimAPI.ToggleSpammer(true, 100)
+res, err := goshimAPI.ToggleSpammer(true, 100, "uniform")
 if err != nil {
     // return error
 }
