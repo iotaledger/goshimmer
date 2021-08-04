@@ -42,13 +42,14 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid     bool   `json:"solid"`
-	BranchID  string `json:"branchID"`
-	Scheduled bool   `json:"scheduled"`
-	Booked    bool   `json:"booked"`
-	Eligible  bool   `json:"eligible"`
-	Invalid   bool   `json:"invalid"`
-	Finalized bool   `json:"finalized"`
+	Solid           bool   `json:"solid"`
+	BranchID        string `json:"branchID"`
+	Scheduled       bool   `json:"scheduled"`
+	ScheduledBypass bool   `json:"scheduledBypass"`
+	Booked          bool   `json:"booked"`
+	Eligible        bool   `json:"eligible"`
+	Invalid         bool   `json:"invalid"`
+	Finalized       bool   `json:"finalized"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -89,6 +90,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Solid:                   messageMetadata.IsSolid(),
 		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
+		ScheduledBypass:         messageMetadata.ScheduledBypass(),
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),

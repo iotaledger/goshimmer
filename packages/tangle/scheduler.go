@@ -117,7 +117,7 @@ func (s *Scheduler) Setup() {
 		})
 		if skipScheduler {
 			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				messageMetadata.SetScheduled(true)
+				messageMetadata.SetScheduledBypass(true)
 			})
 			return
 		}
