@@ -12,15 +12,19 @@ const (
 )
 
 // ToggleSpammer toggles the node internal spammer.
-func (api *GoShimmerAPI) ToggleSpammer(enable bool, mps int, imif string) (*jsonmodels.SpammerResponse, error) {
+func (api *GoShimmerAPI) ToggleSpammer(enable bool, rate int, timeUnit string, imif string) (*jsonmodels.SpammerResponse, error) {
 	// set default imif in case of incorrect imif value
-	if imif != "poisson" && imif != "uniform" {
+	if imif != "poisson" {
 		imif = "uniform"
+	}
+	// set default time unit in case of incorrect unit value
+	if timeUnit != "mpm" {
+		timeUnit = "mps"
 	}
 	res := &jsonmodels.SpammerResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		if enable {
-			return fmt.Sprintf("%s?cmd=start&mps=%d&imif=%s", routeSpammer, mps, imif)
+			return fmt.Sprintf("%s?cmd=start&rate=%d&imif=%s&unit=%s", routeSpammer, rate, imif, timeUnit)
 		}
 		return fmt.Sprintf("%s?cmd=stop", routeSpammer)
 	}(), nil, res); err != nil {

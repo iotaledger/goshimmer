@@ -10,5 +10,6 @@ type SpammerResponse struct {
 type SpammerRequest struct {
 	Cmd  string `json:"cmd"`
 	IMIF string `json:"imif"`
-	MPS  int    `json:"mps"`
+	Rate int    `json:"rate"`
+	Unit string `json:"unit"`
 }
