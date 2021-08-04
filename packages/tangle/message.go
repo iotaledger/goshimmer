@@ -424,9 +424,6 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		if parentType, err = marshalUtil.ReadByte(); err != nil {
 			return nil, errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
 		}
-		if uint8(i) != parentType {
-			return nil, errors.Errorf("Expected parent type %d, but got parent type %d", i, parentType)
-		}
 
 		var parentsCount uint8
 		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
