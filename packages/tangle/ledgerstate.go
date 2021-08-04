@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -167,7 +166,6 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 	l.UTXODAG.LoadSnapshot(snapshot)
 	// add attachment link between txs from snapshot and the genesis message (EmptyMessageID).
 	for txID, record := range snapshot.Transactions {
-		fmt.Println("... Loading snapshot transaction: ", txID, "#outputs=", len(record.Essence.Outputs()), record.UnspentOutputs)
 		attachment, _ := l.tangle.Storage.StoreAttachment(txID, EmptyMessageID)
 		if attachment != nil {
 			attachment.Release()

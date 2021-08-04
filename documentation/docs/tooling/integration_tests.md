@@ -1,6 +1,6 @@
 # Integration tests with Docker
 
-![Integration testing](../../static/img/tooling/integration-testing.png "Integration testing")
+![Integration testing](/img/tooling/integration-testing.png "Integration testing")
 
 Running the integration tests spins up a `tester` container within which every test can specify its own GoShimmer network with Docker as schematically shown in the figure above.
 
