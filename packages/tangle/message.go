@@ -322,7 +322,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	}
 
 	if !referencesUniqueAcrossBlocks(parentsBlocks) {
-		return nil, ErrRepeatingMessagesAcrossBlocks
+		return nil, errRepeatingMessagesAcrossBlocks
 	}
 
 	return &Message{
@@ -1261,31 +1261,15 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 var (
-	// errNoStrongParents is returned when strong blocks are missing in messages
-	errNoStrongParents = errors.New("Missing strong messages in first parent block")
-
-	// errBlocksNotOrderedByType is returned when the blocks in the message aren't ordered by type
-	errBlocksNotOrderedByType = errors.New("Blocks should be ordered in ascending order according to their type")
-
-	errBlockTypeIsUnknown = errors.Errorf("Block types must range from %d-%d", 0, numberOfBlockTypes-1)
-
-	// errParentsCountMismatch is returned when the number of parents in a block doesn't match the block count
-	errParentsCountMismatch = errors.New("Number of parents in a message doesn't match parent count")
-
-	// errParentsOutOfRange is returned when the number of parents in a block is too high or low
-	errParentsOutOfRange = errors.Errorf("A block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
-
-	// errParentsNotLexicographicallyOrdered is returned when the messages within a block are not lexicographically sorted
+	errNoStrongParents                    = errors.New("Missing strong messages in first parent block")
+	errBlocksNotOrderedByType             = errors.New("Blocks should be ordered in ascending order according to their type")
+	errBlockTypeIsUnknown                 = errors.Errorf("Block types must range from %d-%d", 0, numberOfBlockTypes-1)
+	errParentsCountMismatch               = errors.New("Number of parents in a message doesn't match parent count")
+	errParentsOutOfRange                  = errors.Errorf("A block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
 	errParentsNotLexicographicallyOrdered = errors.New("Messages within blocks must be lexicographically ordered")
-
-	// errRepeatingBlockTypes is returned when the same block type appears more than once in a message
-	errRepeatingBlockTypes = errors.New("Block types within a message must not repeat")
-
-	// errRepeatingReferencesInBlock is returned when a parent appears more than once in a block
-	errRepeatingReferencesInBlock = errors.New("Duplicate parents in a message block")
-
-	// ErrRepeatingMessagesAcrossBlocks is returned when a parent appears more than once across blocks
-	ErrRepeatingMessagesAcrossBlocks = errors.New("Different blocks have repeating messages")
+	errRepeatingBlockTypes                = errors.New("Block types within a message must not repeat")
+	errRepeatingReferencesInBlock         = errors.New("Duplicate parents in a message block")
+	errRepeatingMessagesAcrossBlocks      = errors.New("Different blocks have repeating messages")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

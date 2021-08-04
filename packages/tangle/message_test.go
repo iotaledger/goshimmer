@@ -609,7 +609,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 		)
 
-		assert.ErrorIs(t, err, ErrRepeatingMessagesAcrossBlocks, "messages repeating in weak and strong block")
+		assert.ErrorIs(t, err, errRepeatingMessagesAcrossBlocks, "messages repeating in weak and strong block")
 
 		// check for repeating message across weak and dislike block
 		weakParents := testSortParents(randomParents(4))
@@ -639,7 +639,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0)
 
-		assert.ErrorIs(t, err, ErrRepeatingMessagesAcrossBlocks, "message repeated across weak and dislike blocks")
+		assert.ErrorIs(t, err, errRepeatingMessagesAcrossBlocks, "message repeated across weak and dislike blocks")
 	})
 }
 
