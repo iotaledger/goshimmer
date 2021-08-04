@@ -75,4 +75,4 @@ jobs:
           COMMIT_SHA: '${{ github.sha }}'
         run: |
           export NETWORK_VERSION=$((16#$(git rev-parse --short "$COMMIT_SHA")%1000000000+1000))
-          ./deploy/ansible/run.sh
+          ./deploy/ansible/run.sh pre-devnet.yml

@@ -1,5 +1,5 @@
 eval "$GOSHIMMER_SEEDS"
-ansible-playbook -u root -i deploy/ansible/hosts.yml --extra-vars \
+ansible-playbook -u root -i deploy/ansible/"${1}" --extra-vars \
   "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
 BOOTSTRAP_01_SEED=$BOOTSTRAP_01_SEED
 VANILLA_01_SEED=$VANILLA_01_SEED
@@ -17,4 +17,4 @@ networkVersion=$NETWORK_VERSION
 grafanaAdminPassword=$GRAFANA_ADMIN_PASSWORD
 elkElasticUser=$ELK_ELASTIC_USER
 elkElasticPassword=$ELK_ELASTIC_PASSWORD" \
-  deploy/ansible/"${1:-deploy.yml}"
+  deploy/ansible/"${2:-deploy.yml}"

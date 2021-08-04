@@ -6,6 +6,8 @@ supports:
   hosts:
     analysisentry-01.pre-devnet.shimmer.iota.cafe:
       entryNodeSeed: "{{ ANALYSISSENTRY_01_ENTRYNODE_SEED }}"
+      mongoDBHost: "metrics-01.pre-devnet.shimmer.iota.cafe"
+      manaDashboardAddress: "bootstrap-01.pre-devnet.shimmer.iota.cafe"
 
 goshimmers:
   hosts:
@@ -28,7 +30,13 @@ goshimmers:
       seed: "{{ FAUCET_01_SEED }}"
       faucet: true
       faucetSeed: "{{ FAUCET_01_FAUCET_SEED }}"
+  vars:
+    analysisServerHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
+    entryNodeHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
+    remoteLoggerHost: "metrics-01.pre-devnet.shimmer.iota.cafe"
 
 drands:
   hosts:
     drand-01.pre-devnet.shimmer.iota.cafe:
+  vars:
+    goshimmerHostTemplate: "drng-0{drandNumber}.pre-devnet.shimmer.iota.cafe"
