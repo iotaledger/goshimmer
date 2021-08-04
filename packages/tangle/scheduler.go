@@ -116,6 +116,9 @@ func (s *Scheduler) Setup() {
 			skipScheduler = clock.Since(message.IssuingTime()) > oldMessageThreshold
 		})
 		if skipScheduler {
+			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+				messageMetadata.SetScheduled(true)
+			})
 			return
 		}
 
