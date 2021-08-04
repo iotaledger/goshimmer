@@ -310,6 +310,7 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		d.BranchID,
 		d.InclusionState,
 		fmt.Sprint(d.Scheduled),
+		fmt.Sprint(d.ScheduledBypass),
 		fmt.Sprint(d.Booked),
 		fmt.Sprint(d.Eligible),
 		fmt.Sprint(d.Invalid),
