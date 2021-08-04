@@ -129,7 +129,7 @@ func (id MessageID) Base58() string {
 
 // CompareTo does a lexicographical comparison to another messageID.
 // Returns 0 if equal, -1 if smaller, or 1 if larger than other.
-// Passing nil to other will result in an exception
+// Passing nil as other will result in a panic
 func (id MessageID) CompareTo(other MessageID) int {
 	return bytes.Compare(id.Bytes(), other.Bytes())
 }
@@ -272,7 +272,7 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 newMessageWithValidation creates a new message while performing ths following syntactical checks:
 1. A Strong Parents Block must exist.
 2. Parents Block types cannot repeat.
-3. Parent count per block 0 <= x <= 8.
+3. Parent count per block 1 <= x <= 8.
 4. Parents unique within block.
 5. Parents lexicographically sorted within block.
 6. ParentsBlockCount must match blocks actually parsed.
@@ -284,35 +284,35 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	issuerPublicKey ed25519.PublicKey, payload payload.Payload, nonce uint64,
 	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
 	// Validate strong parent block
-	if parentsBlocks == nil || parentsBlocks[StrongParentType].ParentsType != StrongParentType ||
+	if parentsBlocks == nil || len(parentsBlocks) == 0 || parentsBlocks[StrongParentType].ParentsType != StrongParentType ||
 		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
-		return nil, ErrNoStrongParents
+		return nil, errNoStrongParents
 	}
 
 	// Block types must be ordered in ASC order and not repeat
 	for i := 0; i < len(parentsBlocks)-1; i++ {
 		if parentsBlocks[i].ParentsType == parentsBlocks[i+1].ParentsType {
-			return nil, ErrRepeatingBlockTypes
+			return nil, errRepeatingBlockTypes
 		}
 		if parentsBlocks[i].ParentsType > parentsBlocks[i+1].ParentsType {
-			return nil, ErrBlocksNotOrderedByType
+			return nil, errBlocksNotOrderedByType
 		}
 	}
 
 	for _, block := range parentsBlocks {
 		if int(block.ParentsCount) != len(block.References) {
-			return nil, ErrParentsCountMismatch
+			return nil, errParentsCountMismatch
 		}
 		if block.ParentsCount > MaxParentsCount || block.ParentsCount < MinParentsCount {
-			return nil, ErrParentsOutOfRange
+			return nil, errParentsOutOfRange
 		}
 		// The lexicographical order check also makes sure there are no duplicates
 		for i := 0; i < len(block.References)-1; i++ {
 			if block.References[i].CompareTo(block.References[i+1]) == 0 {
-				return nil, ErrRepeatingReferencesInBlock
+				return nil, errRepeatingReferencesInBlock
 			}
 			if block.References[i].CompareTo(block.References[i+1]) != -1 {
-				return nil, ErrParentsNotLexicographicallyOrdered
+				return nil, errParentsNotLexicographicallyOrdered
 			}
 		}
 	}
@@ -1270,29 +1270,29 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 var (
-	// ErrNoStrongParents is returned when strong blocks are missing in messages
-	ErrNoStrongParents = errors.New("Missing strong messages in first parent block")
+	// errNoStrongParents is returned when strong blocks are missing in messages
+	errNoStrongParents = errors.New("Missing strong messages in first parent block")
 
-	// ErrBlockCountMismatch is returned when the number of blocks in the message doesn't match the block count
-	ErrBlockCountMismatch = errors.New("Number of blocks in a message doesn't match block count")
+	// errBlockCountMismatch is returned when the number of blocks in the message doesn't match the block count
+	errBlockCountMismatch = errors.New("Number of blocks in a message doesn't match block count")
 
-	// ErrBlocksNotOrderedByType is returned when the blocks in the message aren't ordered by type
-	ErrBlocksNotOrderedByType = errors.New("Blocks should be ordered in ascending order according to their type")
+	// errBlocksNotOrderedByType is returned when the blocks in the message aren't ordered by type
+	errBlocksNotOrderedByType = errors.New("Blocks should be ordered in ascending order according to their type")
 
-	// ErrParentsCountMismatch is returned when the number of parents in a block doesn't match the block count
-	ErrParentsCountMismatch = errors.New("Number of parents in a message doesn't match parent count")
+	// errParentsCountMismatch is returned when the number of parents in a block doesn't match the block count
+	errParentsCountMismatch = errors.New("Number of parents in a message doesn't match parent count")
 
-	// ErrParentsOutOfRange is returned when the number of parents in a block is too high or low
-	ErrParentsOutOfRange = errors.Errorf("A block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
+	// errParentsOutOfRange is returned when the number of parents in a block is too high or low
+	errParentsOutOfRange = errors.Errorf("A block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
 
-	// ErrParentsNotLexicographicallyOrdered is returned when the messages within a block are not lexicographically sorted
-	ErrParentsNotLexicographicallyOrdered = errors.New("Messages within blocks must be lexicographically ordered")
+	// errParentsNotLexicographicallyOrdered is returned when the messages within a block are not lexicographically sorted
+	errParentsNotLexicographicallyOrdered = errors.New("Messages within blocks must be lexicographically ordered")
 
-	// ErrRepeatingBlockTypes is returned when the same block type appears more than once in a message
-	ErrRepeatingBlockTypes = errors.New("Block types within a message must not repeat")
+	// errRepeatingBlockTypes is returned when the same block type appears more than once in a message
+	errRepeatingBlockTypes = errors.New("Block types within a message must not repeat")
 
-	// ErrRepeatingReferencesInBlock is returned when a parent appears more than once in a block
-	ErrRepeatingReferencesInBlock = errors.New("Duplicate parents in a message block")
+	// errRepeatingReferencesInBlock is returned when a parent appears more than once in a block
+	errRepeatingReferencesInBlock = errors.New("Duplicate parents in a message block")
 
 	// ErrRepeatingMessagesAcrossBlocks is returned when a parent appears more than once across blocks
 	ErrRepeatingMessagesAcrossBlocks = errors.New("Different blocks have repeating messages")

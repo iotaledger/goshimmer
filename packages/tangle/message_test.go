@@ -258,7 +258,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrParentsOutOfRange)
+		assert.ErrorIs(t, err, errParentsOutOfRange)
 	})
 
 	t.Run("CASE: Nil block", func(t *testing.T) {
@@ -272,7 +272,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrNoStrongParents)
+		assert.ErrorIs(t, err, errNoStrongParents)
 	})
 
 	t.Run("CASE: Empty Block", func(t *testing.T) {
@@ -288,7 +288,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrNoStrongParents)
+		assert.ErrorIs(t, err, errNoStrongParents)
 	})
 
 	t.Run("CASE: Blocks are unordered", func(t *testing.T) {
@@ -326,7 +326,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 		)
 		// Since no strong parents in first block the validator will assume they are missing
-		assert.ErrorIs(t, err, ErrNoStrongParents, "weak block came before strong block")
+		assert.ErrorIs(t, err, errNoStrongParents, "weak block came before strong block")
 
 		_, err = newMessageWithValidation(
 			MessageVersion,
@@ -338,7 +338,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
+		assert.ErrorIs(t, err, errBlocksNotOrderedByType, "dislike block came before weak block")
 
 		_, err = newMessageWithValidation(
 			MessageVersion,
@@ -350,7 +350,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
+		assert.ErrorIs(t, err, errBlocksNotOrderedByType, "dislike block came before weak block")
 
 		_, err = newMessageWithValidation(
 			MessageVersion,
@@ -362,7 +362,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "like block came before dislike block")
+		assert.ErrorIs(t, err, errBlocksNotOrderedByType, "like block came before dislike block")
 	})
 
 	t.Run("CASE: Repeating block types", func(t *testing.T) {
@@ -400,7 +400,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 		)
 
-		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "strong block repeats")
+		assert.ErrorIs(t, err, errRepeatingBlockTypes, "strong block repeats")
 
 		_, err = newMessageWithValidation(
 			MessageVersion,
@@ -413,7 +413,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 		)
 
-		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "like block repeats")
+		assert.ErrorIs(t, err, errRepeatingBlockTypes, "like block repeats")
 	})
 
 	t.Run("CASE: Parent count doesn't fit length of references", func(t *testing.T) {
@@ -450,7 +450,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 		)
 
-		assert.ErrorIs(t, err, ErrParentsCountMismatch, "strong block has a mismatch")
+		assert.ErrorIs(t, err, errParentsCountMismatch, "strong block has a mismatch")
 
 		strongBlock.ParentsCount = uint8(len(parents))
 
@@ -464,7 +464,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrParentsCountMismatch, "weak block has a mismatch")
+		assert.ErrorIs(t, err, errParentsCountMismatch, "weak block has a mismatch")
 
 		_, err = newMessageWithValidation(
 			MessageVersion,
@@ -476,7 +476,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrParentsCountMismatch, "dislike block has a mismatch")
+		assert.ErrorIs(t, err, errParentsCountMismatch, "dislike block has a mismatch")
 
 		_, err = newMessageWithValidation(
 			MessageVersion,
@@ -488,7 +488,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrParentsCountMismatch, "like block has a mismatch")
+		assert.ErrorIs(t, err, errParentsCountMismatch, "like block has a mismatch")
 	})
 
 	t.Run("Case: Duplicate references", func(t *testing.T) {
@@ -511,7 +511,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrRepeatingReferencesInBlock)
+		assert.ErrorIs(t, err, errRepeatingReferencesInBlock)
 
 		parents = testSortParents(randomParents(4))
 		parents = append(parents, parents[1])
@@ -529,7 +529,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 		)
 		// if the duplicates are not consecutive a lexicographically order error is returned
-		assert.ErrorIs(t, err, ErrParentsNotLexicographicallyOrdered)
+		assert.ErrorIs(t, err, errParentsNotLexicographicallyOrdered)
 	})
 
 	t.Run("Parents Repeating across blocks", func(t *testing.T) {
@@ -624,7 +624,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			ed25519.Signature{},
 		)
-		assert.ErrorIs(t, err, ErrNoStrongParents)
+		assert.ErrorIs(t, err, errNoStrongParents)
 	})
 
 	t.Run("CASE: Minimum number of parents", func(t *testing.T) {
