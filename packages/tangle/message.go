@@ -414,7 +414,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 	}
 	if parentsBlocksCount < MinParentsCount || parentsBlocksCount > MaxParentsCount {
-		return nil, errors.Errorf("parents blocks count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
+		return nil, errors.Errorf("parents count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
 	}
 
 	parentsBlocks := make([]ParentsBlock, parentsBlocksCount)
