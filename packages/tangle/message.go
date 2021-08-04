@@ -297,6 +297,10 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 		if parentsBlocks[i].ParentsType > parentsBlocks[i+1].ParentsType {
 			return nil, errBlocksNotOrderedByType
 		}
+		// we can skip the first block because we already acertained it is of StrongParentType
+		if parentsBlocks[i+1].ParentsType >= numberOfBlockTypes {
+			return nil, errBlockTypeIsUnknown
+		}
 	}
 
 	for _, block := range parentsBlocks {
@@ -1262,6 +1266,8 @@ var (
 
 	// errBlocksNotOrderedByType is returned when the blocks in the message aren't ordered by type
 	errBlocksNotOrderedByType = errors.New("Blocks should be ordered in ascending order according to their type")
+
+	errBlockTypeIsUnknown = errors.Errorf("Block types must range from %d-%d", 0, numberOfBlockTypes-1)
 
 	// errParentsCountMismatch is returned when the number of parents in a block doesn't match the block count
 	errParentsCountMismatch = errors.New("Number of parents in a message doesn't match parent count")

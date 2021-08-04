@@ -416,6 +416,39 @@ func TestNewMessageWithValidation(t *testing.T) {
 		assert.ErrorIs(t, err, errRepeatingBlockTypes, "like block repeats")
 	})
 
+	t.Run("CASE: Unknown block type", func(t *testing.T) {
+		parents := testSortParents(randomParents(MaxParentsCount))
+
+		strongBlock := ParentsBlock{
+			ParentsType:  StrongParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+		likeBlock := ParentsBlock{
+			ParentsType:  LikeParentType,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+		unknownBlock := ParentsBlock{
+			ParentsType:  numberOfBlockTypes, // this should always be out of range
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
+		}
+
+		_, err := newMessageWithValidation(
+			MessageVersion,
+			[]ParentsBlock{strongBlock, likeBlock, unknownBlock},
+			time.Now(),
+			ed25519.PublicKey{},
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			0,
+		)
+
+		assert.ErrorIs(t, err, errBlockTypeIsUnknown)
+	})
+
 	t.Run("CASE: Parent count doesn't fit length of references", func(t *testing.T) {
 		parents := testSortParents(randomParents(4))
 		strongBlock := ParentsBlock{
