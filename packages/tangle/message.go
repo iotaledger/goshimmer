@@ -40,12 +40,6 @@ const (
 	// MaxParentsCount defines the maximum number of parents each parents block must have.
 	MaxParentsCount = 8
 
-	// MinParentsBlocksCount defines the minimum number of parents each parents block must have.
-	MinParentsBlocksCount = 1
-
-	// MaxParentsBlocksCount defines the maximum number of parents each parents block must have.
-	MaxParentsBlocksCount = 8
-
 	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
 	MinStrongParentsCount = 1
 
@@ -226,7 +220,8 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
+func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageIDs, issuingTime time.Time,
+	issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
 	// remove duplicates, sort in ASC
 	sortedStrongParents := sortParents(strongParents)
 	sortedWeakParents := sortParents(weakParents)
@@ -238,8 +233,6 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	dislikeParentsCount := len(sortedDislikeParents)
 	likeParentsCount := len(sortedLikeParents)
 
-	parentsBlocksCount := 0
-
 	var parentsBlocks []ParentsBlock
 
 	parentsBlocks = append(parentsBlocks, ParentsBlock{
@@ -247,7 +240,6 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 		ParentsCount: uint8(strongParentsCount),
 		References:   sortedStrongParents,
 	})
-	parentsBlocksCount++
 
 	if weakParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
@@ -255,7 +247,6 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 			ParentsCount: uint8(weakParentsCount),
 			References:   sortedWeakParents,
 		})
-		parentsBlocksCount++
 	}
 
 	if dislikeParentsCount > 0 {
@@ -264,7 +255,6 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 			ParentsCount: uint8(dislikeParentsCount),
 			References:   sortedDislikeParents,
 		})
-		parentsBlocksCount++
 	}
 
 	if likeParentsCount > 0 {
@@ -273,14 +263,13 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 			ParentsCount: uint8(likeParentsCount),
 			References:   sortedLikeParents,
 		})
-		parentsBlocksCount++
 	}
 
-	return NewMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, payload, nonce, signature, sequenceNumber)
+	return newMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, payload, nonce, signature, sequenceNumber)
 }
 
 /**
-NewMessageWithValidation creates a new message while performing ths following syntactical checks:
+newMessageWithValidation creates a new message while performing ths following syntactical checks:
 1. A Strong Parents Block must exist.
 2. Parents Block types cannot repeat.
 3. Parent count per block 0 <= x <= 8.
@@ -291,11 +280,11 @@ NewMessageWithValidation creates a new message while performing ths following sy
 8. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents
 9. Blocks should be ordered by type in ascending order
 **/
-func NewMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
+func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
 	issuerPublicKey ed25519.PublicKey, payload payload.Payload, nonce uint64,
 	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
 	// Validate strong parent block
-	if parentsBlocks[StrongParentType].ParentsType != StrongParentType ||
+	if parentsBlocks == nil || parentsBlocks[StrongParentType].ParentsType != StrongParentType ||
 		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
 		return nil, ErrNoStrongParents
 	}
@@ -314,7 +303,7 @@ func NewMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 		if int(block.ParentsCount) != len(block.References) {
 			return nil, ErrParentsCountMismatch
 		}
-		if block.ParentsCount > MaxParentsBlocksCount || block.ParentsCount < MinParentsCount {
+		if block.ParentsCount > MaxParentsCount || block.ParentsCount < MinParentsCount {
 			return nil, ErrParentsOutOfRange
 		}
 		// The lexicographical order check also makes sure there are no duplicates
@@ -422,7 +411,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		err = errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		return nil, err
 	}
-	if parentsBlocksCount < MinParentsBlocksCount || parentsBlocksCount > MaxParentsBlocksCount {
+	if parentsBlocksCount < MinParentsCount || parentsBlocksCount > MaxParentsCount {
 		err = errors.Errorf("parents blocks count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
 		return nil, err
 	}
@@ -501,7 +490,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		return nil, err
 	}
 
-	msg, err := NewMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber)
+	msg, err := newMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber)
 	if err != nil {
 		return nil, err
 	}

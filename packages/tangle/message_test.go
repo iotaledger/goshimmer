@@ -248,7 +248,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:   strongParents,
 		}
 
-		_, err := NewMessageWithValidation(
+		_, err := newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{block},
 			time.Now(),
@@ -262,7 +262,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 	})
 
 	t.Run("CASE: Nil block", func(t *testing.T) {
-		_, err := NewMessageWithValidation(
+		_, err := newMessageWithValidation(
 			MessageVersion,
 			nil,
 			time.Now(),
@@ -278,7 +278,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 	t.Run("CASE: Empty Block", func(t *testing.T) {
 		block := ParentsBlock{}
 
-		_, err := NewMessageWithValidation(
+		_, err := newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{block},
 			time.Now(),
@@ -315,7 +315,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:   parents,
 		}
 
-		_, err := NewMessageWithValidation(
+		_, err := newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{weakBlock, strongBlock, dislikeBlock, likeBlock},
 			time.Now(),
@@ -325,9 +325,10 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "weak block came before strong block")
+		// Since no strong parents in first block the validator will assume they are missing
+		assert.ErrorIs(t, err, ErrNoStrongParents, "weak block came before strong block")
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
 			time.Now(),
@@ -339,9 +340,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 		)
 		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock, likeBlock},
+			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
 			time.Now(),
 			ed25519.PublicKey{},
 			payload.NewGenericDataPayload([]byte("")),
@@ -351,7 +352,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		)
 		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, weakBlock, likeBlock, dislikeBlock},
 			time.Now(),
@@ -388,7 +389,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:   parents,
 		}
 
-		_, err := NewMessageWithValidation(
+		_, err := newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, strongBlock2, likeBlock},
 			time.Now(),
@@ -401,7 +402,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "strong block repeats")
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, likeBlock, likeBlock2},
 			time.Now(),
@@ -438,7 +439,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:   parents,
 		}
 
-		_, err := NewMessageWithValidation(
+		_, err := newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock},
 			time.Now(),
@@ -453,7 +454,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		strongBlock.ParentsCount = uint8(len(parents))
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, weakBlock},
 			time.Now(),
@@ -465,7 +466,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		)
 		assert.ErrorIs(t, err, ErrParentsCountMismatch, "weak block has a mismatch")
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, dislikeBlock},
 			time.Now(),
@@ -477,7 +478,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		)
 		assert.ErrorIs(t, err, ErrParentsCountMismatch, "dislike block has a mismatch")
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, likeBlock},
 			time.Now(),
@@ -492,15 +493,15 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 	t.Run("Case: Duplicate references", func(t *testing.T) {
 		parents := testSortParents(randomParents(4))
-		parentsDup := append(parents, parents[3])
+		parents = append(parents, parents[3])
 
 		strongBlock := ParentsBlock{
 			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(parentsDup)),
-			References:   parentsDup,
+			ParentsCount: uint8(len(parents)),
+			References:   parents,
 		}
 
-		_, err := NewMessageWithValidation(
+		_, err := newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock},
 			time.Now(),
@@ -513,11 +514,11 @@ func TestNewMessageWithValidation(t *testing.T) {
 		assert.ErrorIs(t, err, ErrRepeatingReferencesInBlock)
 
 		parents = testSortParents(randomParents(4))
-		parentsDup = append(parents, parents[1])
+		parents = append(parents, parents[1])
 
-		strongBlock.References = parentsDup
+		strongBlock.References = parents
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock},
 			time.Now(),
@@ -545,7 +546,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:   parents,
 		}
 
-		_, err := NewMessageWithValidation(
+		_, err := newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, likeBlock},
 			time.Now(),
@@ -556,8 +557,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 		)
 
-		// strong and like parents may have duplicate parents
-		assert.NoError(t, err)
+		assert.NoError(t, err, "strong and like parents may have duplicate parents")
 
 		weakBlock := ParentsBlock{
 			ParentsType:  WeakParentType,
@@ -565,7 +565,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:   parents,
 		}
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, weakBlock},
 			time.Now(),
@@ -576,7 +576,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 		)
 
-		assert.ErrorIs(t, err, ErrRepeatingMessagesAcrossBlocks)
+		assert.ErrorIs(t, err, ErrRepeatingMessagesAcrossBlocks, "messages repeating in weak and strong block")
 
 		// check for repeating message across weak and dislike block
 		weakParents := testSortParents(randomParents(4))
@@ -596,7 +596,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:   dislikeParents,
 		}
 
-		_, err = NewMessageWithValidation(
+		_, err = newMessageWithValidation(
 			MessageVersion,
 			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock},
 			time.Now(),
@@ -605,6 +605,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 			ed25519.Signature{},
 			0)
+
+		assert.ErrorIs(t, err, ErrRepeatingMessagesAcrossBlocks, "message repeated across weak and dislike blocks")
 	})
 }
 
@@ -678,7 +680,6 @@ func TestMessage_NewMessage(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	// TODO add test for new constructor
 	t.Run("CASE: Too many parents, but okay without duplicates", func(t *testing.T) {
 		strongParents := randomParents(MaxParentsCount)
 		// MaxParentsCount + 1 parents, but there is one duplicate
@@ -698,7 +699,6 @@ func TestMessage_NewMessage(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	// TODO
 	t.Run("CASE: Duplicate strong parents", func(t *testing.T) {
 		// max number of parents supplied (only strong)
 		strongParents := randomParents(MaxParentsCount / 2)
@@ -748,26 +748,6 @@ func TestMessage_NewMessage(t *testing.T) {
 }
 
 func TestMessage_Bytes(t *testing.T) {
-	t.Run("CASE: Parents sorted", func(t *testing.T) {
-		msg, err := NewMessage(
-			randomParents(4),
-			randomParents(4),
-			nil,
-			nil,
-			time.Now(),
-			ed25519.PublicKey{},
-			0,
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-		)
-		assert.NoError(t, err)
-
-		msgBytes := msg.Bytes()
-		_, _, err = MessageFromBytes(msgBytes)
-		assert.NoError(t, err)
-	})
-
 	t.Run("CASE: Parents not sorted", func(t *testing.T) {
 		msg, err := NewMessage(
 			randomParents(4),
@@ -792,36 +772,6 @@ func TestMessage_Bytes(t *testing.T) {
 		copy(msgBytes[3+32:35+32], tmp)
 		_, _, err = MessageFromBytes(msgBytes)
 		assert.Error(t, err)
-	})
-
-	t.Run("CASE: Only strong parents", func(t *testing.T) {
-		/*
-			msg := NewMessage(
-				randomParents(MaxParentsCount),
-				nil,
-				nil,
-				nil,
-				time.Now(),
-				ed25519.PublicKey{},
-				0,
-				payload.NewGenericDataPayload([]byte("")),
-				0,
-				ed25519.Signature{},
-			)
-			msgBytes := msg.Bytes()
-
-			// byte 2 is the parents count, that should be MaxParentsCount
-			assert.Equal(t, MaxParentsCount, int(msgBytes[1]))
-			// byte 3 is the parent bitmask. there are only strong parents, so all bits are set in the bitMask
-			assert.Equal(t, math.MaxUint8, int(msgBytes[2]))
-
-			strongParents := msg.ParentsByType(StrongParentType)
-			for index, parent := range strongParents {
-				parentBytes := parent.Bytes()
-				msgParentBytes := msgBytes[3+index*32 : 35+index*32]
-				assert.Equal(t, parentBytes, msgParentBytes)
-			}
-		*/
 	})
 
 	t.Run("CASE: Max msg size", func(t *testing.T) {
