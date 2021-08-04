@@ -30,11 +30,10 @@ var (
 
 // vertex defines a vertex in a DAG.
 type vertex struct {
-	ID              string   `json:"id"`
-	StrongParentIDs []string `json:"strongParentIDs"`
-	WeakParentIDs   []string `json:"weakParentIDs"`
-	IsFinalized     bool     `json:"is_finalized"`
-	IsTx            bool     `json:"is_tx"`
+	ID              string              `json:"id"`
+	ParentIDsByType map[string][]string `json:"parentIDsByType"`
+	IsFinalized     bool                `json:"is_finalized"`
+	IsTx            bool                `json:"is_tx"`
 }
 
 // tipinfo holds information about whether a given message is a tip or not.
@@ -68,8 +67,7 @@ func configureVisualizer() {
 func sendVertex(msg *tangle.Message, finalized bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:              msg.ID().Base58(),
-		StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-		WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
+		ParentIDsByType: prepareParentReferences(msg),
 		IsFinalized:     finalized,
 		IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 	}}, true)
@@ -131,8 +129,7 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 		for _, msg := range cpyHistory {
 			res = append(res, vertex{
 				ID:              msg.ID().Base58(),
-				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
+				ParentIDsByType: prepareParentReferences(msg),
 				IsFinalized:     msgFinalized[msg.ID().Base58()],
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 			})

@@ -187,6 +187,10 @@ const (
 	LikeParentType
 )
 
+func (bp ParentsType) String() string {
+	return []string{"Strong Parent", "Weak Parent", "Dislike Parent", "Like Parent"}[bp]
+}
+
 type ParentsBlock struct {
 	ParentsType
 	ParentsCount uint8
@@ -507,7 +511,7 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 	for _, parentBlock := range m.parentsBlocks {
 		for _, parentID := range parentBlock.References {
 			consumer(Parent{
-				Type: uint8(parentBlock.ParentsType),
+				Type: parentBlock.ParentsType,
 				ID:   parentID,
 			})
 		}
@@ -661,7 +665,7 @@ func (m *Message) String() string {
 // Parent is a parent that can be either strong or weak.
 type Parent struct {
 	ID   MessageID
-	Type uint8
+	Type ParentsType
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
