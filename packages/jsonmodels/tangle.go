@@ -42,7 +42,7 @@ type MessageMetadata struct {
 	Invalid            bool                      `json:"invalid"`
 	Finalized          bool                      `json:"finalized"`
 	FinalizedTime   int64               `json:"finalizedTime"`
-	GradeOfFinality gof.GradeOfFinality `json:"grade_of_finality"`
+	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
