@@ -7,17 +7,20 @@ import (
 )
 
 var (
-	messageTips              prometheus.Gauge
-	messagePerTypeCount      *prometheus.GaugeVec
-	messagePerComponentCount *prometheus.GaugeVec
-	messageTotalCount        prometheus.Gauge
-	messageTotalCountDB      prometheus.Gauge
-	messageSolidCountDB      prometheus.Gauge
-	avgSolidificationTime    prometheus.Gauge
-	messageMissingCountDB    prometheus.Gauge
-	messageRequestCount      prometheus.Gauge
-
-	transactionCounter prometheus.Gauge
+	messageTips                  prometheus.Gauge
+	messagePerTypeCount          *prometheus.GaugeVec
+	messagePerComponentCount     *prometheus.GaugeVec
+	messageTotalCount            prometheus.Gauge
+	messageTotalCountDB          prometheus.Gauge
+	messageSolidCountDB          prometheus.Gauge
+	avgSolidificationTime        prometheus.Gauge
+	messageMissingCountDB        prometheus.Gauge
+	messageRequestCount          prometheus.Gauge
+	confirmedBranchCount         prometheus.Gauge
+	branchConfirmationTotalTime  prometheus.Gauge
+	finalizedMessageCount        prometheus.Gauge
+	messageFinalizationTotalTime prometheus.Gauge
+	transactionCounter           prometheus.Gauge
 )
 
 func registerTangleMetrics() {
@@ -76,6 +79,22 @@ func registerTangleMetrics() {
 		Name: "tangle_message_request_queue_size",
 		Help: "current number requested messages by the message tangle",
 	})
+	messageFinalizationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_finalization_time",
+		Help: "total number of milliseconds taken for messages to finalize",
+	})
+	finalizedMessageCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_finalized_count",
+		Help: "current number of finalized messages",
+	})
+	branchConfirmationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_branch_confirmation_time",
+		Help: "total number of milliseconds taken for branch to finalize",
+	})
+	confirmedBranchCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_branch_confirmed_count",
+		Help: "current number of confirmed branches",
+	})
 
 	registry.MustRegister(messageTips)
 	registry.MustRegister(messagePerTypeCount)
@@ -86,6 +105,10 @@ func registerTangleMetrics() {
 	registry.MustRegister(avgSolidificationTime)
 	registry.MustRegister(messageMissingCountDB)
 	registry.MustRegister(messageRequestCount)
+	registry.MustRegister(messageFinalizationTotalTime)
+	registry.MustRegister(finalizedMessageCount)
+	registry.MustRegister(branchConfirmationTotalTime)
+	registry.MustRegister(confirmedBranchCount)
 	registry.MustRegister(transactionCounter)
 
 	addCollect(collectTangleMetrics)
@@ -107,5 +130,9 @@ func collectTangleMetrics() {
 	avgSolidificationTime.Set(metrics.AvgSolidificationTime())
 	messageMissingCountDB.Set(float64(metrics.MessageMissingCountDB()))
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
+	confirmedBranchCount.Set(float64(metrics.ConfirmedBranchCount()))
+	branchConfirmationTotalTime.Set(float64(metrics.BranchConfirmationTotalTime()))
+	finalizedMessageCount.Set(float64(metrics.FinalizedMessageCount()))
+	messageFinalizationTotalTime.Set(float64(metrics.MessageFinalizationTotalTime()))
 	// transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
 }

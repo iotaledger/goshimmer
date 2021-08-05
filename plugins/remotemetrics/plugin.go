@@ -88,7 +88,6 @@ func configureBranchConfirmationMetrics() {
 		return
 	}
 	messagelayer.Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(onBranchConfirmed))
-	messagelayer.Tangle().Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(onBranchConfirmed))
 }
 
 func configureMessageFinalizedMetrics() {

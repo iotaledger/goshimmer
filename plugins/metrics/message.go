@@ -70,6 +70,18 @@ var (
 	// current number of missing messages in missingMessageStorage
 	missingMessageCountDB atomic.Uint64
 
+	// current number of finalized messages
+	finalizedMessageCount atomic.Uint64
+
+	// total time it took all messages to finalize. unit is milliseconds!
+	messageFinalizationTotalTime atomic.Uint64
+
+	// current number of finalized branches
+	confirmedBranchCount atomic.Uint64
+
+	// total time it took all branches to finalize. unit is milliseconds!
+	branchConfirmationTotalTime atomic.Uint64
+
 	// current number of message tips.
 	messageTips atomic.Uint64
 
@@ -180,6 +192,26 @@ func AvgSolidificationTime() (result float64) {
 // MessageMissingCountDB returns the number of messages in missingMessageStore.
 func MessageMissingCountDB() uint64 {
 	return initialMissingMessageCountDB + missingMessageCountDB.Load()
+}
+
+// MessageFinalizationTotalTime returns total time it took for all messages to finalize.
+func MessageFinalizationTotalTime() uint64 {
+	return messageFinalizationTotalTime.Load()
+}
+
+// FinalizedMessageCount returns the number of messages finalized.
+func FinalizedMessageCount() uint64 {
+	return finalizedMessageCount.Load()
+}
+
+// BranchConfirmationTotalTime returns total time it took for all confirmed branches to be confirmed.
+func BranchConfirmationTotalTime() uint64 {
+	return branchConfirmationTotalTime.Load()
+}
+
+// ConfirmedBranchCount returns the number of confirmed branches.
+func ConfirmedBranchCount() uint64 {
+	return confirmedBranchCount.Load()
 }
 
 // ReceivedMessagesPerSecond retrieves the current messages per second number.

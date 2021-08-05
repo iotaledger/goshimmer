@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"time"
 
@@ -167,6 +169,23 @@ func registerLocalMetrics() {
 
 	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(message tangle.MessageID) {
 		increasePerComponentCounter(Booker)
+	}))
+
+	messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			messageFinalizationTotalTime.Add(uint64(messageMetadata.FinalizedTime().Sub(messageMetadata.ReceivedTime()).Milliseconds()))
+		}) {
+			finalizedMessageCount.Inc()
+		}
+	}))
+
+	messagelayer.Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		oldestAttachmentTime, _, err := messagelayer.Tangle().Utils.FirstAttachment(branchID.TransactionID())
+		if err != nil {
+			return
+		}
+		confirmedBranchCount.Inc()
+		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
 	}))
 
 	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
