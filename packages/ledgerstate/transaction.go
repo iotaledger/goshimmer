@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
@@ -20,6 +19,8 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -894,7 +895,7 @@ func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFina
 	t.gradeOfFinalityMutex.Lock()
 	defer t.gradeOfFinalityMutex.Unlock()
 
-	if t.gradeOfFinality == t.gradeOfFinality {
+	if t.gradeOfFinality == gradeOfFinality {
 		return
 	}
 

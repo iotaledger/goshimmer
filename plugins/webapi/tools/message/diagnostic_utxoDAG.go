@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"

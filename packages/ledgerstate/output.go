@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -21,6 +20,8 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
@@ -2547,7 +2548,7 @@ func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality)
 	o.gradeOfFinalityMutex.Lock()
 	defer o.gradeOfFinalityMutex.Unlock()
 
-	if o.gradeOfFinality == o.gradeOfFinality {
+	if o.gradeOfFinality == gradeOfFinality {
 		return
 	}
 

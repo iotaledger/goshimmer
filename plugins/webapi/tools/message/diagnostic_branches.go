@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -109,8 +109,8 @@ type DiagnosticBranchInfo struct {
 	MonotonicallyLiked bool
 	InclusionState     string
 	Finalized          bool
-	LazyBooked      bool
-	GradeOfFinality gof.GradeOfFinality
+	LazyBooked         bool
+	GradeOfFinality    gof.GradeOfFinality
 }
 
 func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchInfo {

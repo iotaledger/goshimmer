@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"

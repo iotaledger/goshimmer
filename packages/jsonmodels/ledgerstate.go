@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
