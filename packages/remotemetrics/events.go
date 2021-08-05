@@ -1,7 +1,9 @@
-package remotelogmetrics
+package remotemetrics
 
 import (
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/hive.go/events"
 )
@@ -23,6 +25,8 @@ type SyncStatusChangedEvent struct {
 	Type string `json:"type" bson:"type"`
 	// NodeID defines the ID of the node.
 	NodeID string `json:"nodeid" bson:"nodeid"`
+	// MetricsLevel defines the amount of metrics that are sent by the node.
+	MetricsLevel uint8 `json:"metricsLevel" bson:"metricsLevel"`
 	// Time defines the time when the sync status changed.
 	Time time.Time `json:"datetime" bson:"datetime"`
 	// CurrentStatus contains current sync status
@@ -33,45 +37,45 @@ type SyncStatusChangedEvent struct {
 	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
 }
 
-// TransactionMetrics defines the transaction metrics record to sent be to remote logger.
-type TransactionMetrics struct {
+// MessageFinalizedMetrics defines the transaction metrics record to sent be to remote logger.
+type MessageFinalizedMetrics struct {
 	Type               string    `json:"type" bson:"type"`
 	NodeID             string    `json:"nodeID" bson:"nodeID"`
+	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
 	MessageID          string    `json:"messageID" bson:"messageID"`
-	TransactionID      string    `json:"transactionID" bson:"transactionID"`
+	TransactionID      string    `json:"transactionID,omitempty" bson:"transactionID"`
 	IssuedTimestamp    time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	SolidTimestamp     time.Time `json:"solidTimestamp" bson:"solidTimestamp"`
+	SolidTimestamp     time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
 	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
 	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
 	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
-	DeltaSolid         int64     `json:"deltaSolid"`
-	DeltaScheduled     int64     `json:"deltaArrival"`
-	DeltaBooked        int64     `json:"deltaBooked"`
-	DeltaConfirmed     int64     `json:"deltaConfirmed"`
+	DeltaSolid         int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
+	DeltaScheduled     int64     `json:"deltaArrival" bson:"deltaArrival"`
+	DeltaBooked        int64     `json:"deltaBooked" bson:"deltaBooked"`
+	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
+}
+
+// BranchConfirmationMetrics defines the branch confirmation metrics record to sent be to remote logger.
+type BranchConfirmationMetrics struct {
+	Type               string                     `json:"type" bson:"type"`
+	NodeID             string                     `json:"nodeID" bson:"nodeID"`
+	MetricsLevel       uint8                      `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID          string                     `json:"messageID" bson:"messageID"`
+	BranchID           string                     `json:"transactionID" bson:"transactionID"`
+	CreatedTimestamp   time.Time                  `json:"createdTimestamp" bson:"createdTimestamp"`
+	ConfirmedTimestamp time.Time                  `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
+	DeltaConfirmed     int64                      `json:"deltaConfirmed" bson:"deltaConfirmed"`
+	InclusionState     ledgerstate.InclusionState `json:"inclusionState" bson:"inclusionState"`
 }
 
 // DRNGMetrics defines the DRNG metrics record to sent be to remote logger.
 type DRNGMetrics struct {
 	Type              string    `json:"type" bson:"type"`
 	NodeID            string    `json:"nodeID" bson:"nodeID"`
+	MetricsLevel      uint8     `json:"metricsLevel" bson:"metricsLevel"`
 	InstanceID        uint32    `json:"instanceID" bson:"instanceID"`
 	Round             uint64    `json:"round" bson:"round"`
 	IssuedTimestamp   time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
 	ReceivedTimestamp time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
 	DeltaReceived     int64     `json:"deltaReceived"  bson:"deltaReceived"`
-}
-
-// StatementLog defines the statement metrics record to sent be to remote logger.
-type StatementLog struct {
-	NodeID       string    `json:"nodeID"`
-	MsgID        string    `json:"msgID"`
-	IssuerID     string    `json:"issuerID"`
-	IssuedTime   time.Time `json:"issuedTime"`
-	ArrivalTime  time.Time `json:"arrivalTime"`
-	SolidTime    time.Time `json:"solidTime"`
-	DeltaArrival int64     `json:"deltaArrival"`
-	DeltaSolid   int64     `json:"deltaSolid"`
-	Clock        bool      `json:"clock"`
-	Sync         bool      `json:"sync"`
-	Type         string    `json:"type"`
 }

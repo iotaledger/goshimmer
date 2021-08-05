@@ -1,7 +1,7 @@
 // Package remotelogmetrics is a plugin that enables log metrics too complex for Prometheus, but still interesting in terms of analysis and debugging.
 // It is enabled by default.
 // The destination can be set via logger.remotelog.serverAddress.
-package remotelogmetrics
+package remotemetrics
 
 import (
 	"sync"
@@ -12,15 +12,21 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
-	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
+	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 const (
 	updateTime = 500 * time.Millisecond
+)
+
+const (
+	Debug uint8 = iota
+	Info
+	Important
+	Critical
 )
 
 var (
@@ -40,8 +46,8 @@ func Plugin() *node.Plugin {
 func configure(_ *node.Plugin) {
 	configureSyncMetrics()
 	configureDRNGMetrics()
-	configureTransactionMetrics()
-	configureStatementMetrics()
+	configureBranchConfirmationMetrics()
+	configureMessageFinalizedMetrics()
 }
 
 func run(_ *node.Plugin) {
@@ -61,27 +67,36 @@ func run(_ *node.Plugin) {
 }
 
 func configureSyncMetrics() {
-	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
+	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotemetrics.SyncStatusChangedEvent) {
 		isTangleTimeSynced.Store(syncUpdate.CurrentStatus)
 	}))
-	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
-}
-
-func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
-	err := remotelog.RemoteLogger().Send(syncUpdate)
-	if err != nil {
-		plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
-	}
+	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
 }
 
 func configureDRNGMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
 	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
 }
 
-func configureTransactionMetrics() {
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+func configureBranchConfirmationMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
+	messagelayer.Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(onBranchConfirmed))
+	messagelayer.Tangle().Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(onBranchConfirmed))
 }
 
-func configureStatementMetrics() {
-	messagelayer.Tangle().ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
+func configureMessageFinalizedMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	} else if Parameters.MetricsLevel == Info {
+		messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+	} else {
+		messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(events.NewClosure(onMessageFinalized))
+	}
 }

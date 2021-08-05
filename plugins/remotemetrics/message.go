@@ -1,8 +1,8 @@
-package remotelogmetrics
+package remotemetrics
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
+	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -14,24 +14,32 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 		return
 	}
 
+	messageIDs := messagelayer.Tangle().Storage.AttachmentMessageIDs(transactionID)
+	if len(messageIDs) == 0 {
+		return
+	}
+
+	onMessageFinalized(messageIDs[0])
+}
+
+func onMessageFinalized(messageID tangle.MessageID) {
+	if !messagelayer.Tangle().Synced() {
+		return
+	}
+
 	var nodeID string
 	if local.GetInstance() != nil {
 		nodeID = local.GetInstance().ID().String()
 	}
 
-	record := &remotelogmetrics.TransactionMetrics{
-		Type:          "transaction",
-		NodeID:        nodeID,
-		TransactionID: transactionID.Base58(),
+	record := &remotemetrics.MessageFinalizedMetrics{
+		Type:         "messageFinalized",
+		NodeID:       nodeID,
+		MetricsLevel: Parameters.MetricsLevel,
+		MessageID:    messageID.Base58(),
 	}
 
-	messageIDs := messagelayer.Tangle().Storage.AttachmentMessageIDs(transactionID)
-	if len(messageIDs) == 0 {
-		return
-	}
-	messageID := messageIDs[0]
 	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		record.MessageID = messageID.Base58()
 		record.IssuedTimestamp = message.IssuingTime()
 	})
 	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
@@ -43,12 +51,15 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 		record.DeltaConfirmed = messageMetadata.FinalizedTime().Sub(record.IssuedTimestamp).Nanoseconds()
 	})
 
-	messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		record.SolidTimestamp = transactionMetadata.SolidificationTime()
-		record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
+	messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			record.SolidTimestamp = transactionMetadata.SolidificationTime()
+			record.TransactionID = transactionID.Base58()
+			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
+		})
 	})
 
 	if err := remotelog.RemoteLogger().Send(record); err != nil {
-		plugin.Logger().Errorw("Failed to send Transaction record", "err", err)
+		plugin.Logger().Errorw("Failed to send MessageFinalizedMetrics record", "err", err)
 	}
 }
