@@ -613,9 +613,10 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		// check for repeating message across weak and dislike block
 		weakParents := testSortParents(randomParents(4))
-		dislikeParents := testSortParents(randomParents(4))
+		dislikeParents := randomParents(4)
 		// create duplicate
 		dislikeParents[2] = weakParents[2]
+		dislikeParents = testSortParents(dislikeParents)
 
 		weakBlock = ParentsBlock{
 			ParentsType:  WeakParentType,
