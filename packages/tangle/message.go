@@ -43,7 +43,11 @@ const (
 	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
 	MinStrongParentsCount = 1
 
+	// numberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents
 	numberOfBlockTypes = 4
+
+	// numberOfUniqueBlocks counts WeakParents and DislikeParents block
+	numberOfUniqueBlocks = 2
 )
 
 // region MessageID ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -342,7 +346,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 // there may be repetition across strong and like parents
 func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
 	combinedMessageMap := make(map[MessageID]types.Empty, numberOfBlockTypes*MaxParentsCount)
-	parentsArray := make(MessageIDs, 0, MaxParentsCount*2) // we have 2 blocks that we should consider for the array
+	parentsArray := make(MessageIDs, 0, MaxParentsCount*numberOfUniqueBlocks)
 	for _, block := range parentsBlocks {
 		// combine strong parent and like parents
 		if block.ParentsType == StrongParentType || block.ParentsType == LikeParentType {
