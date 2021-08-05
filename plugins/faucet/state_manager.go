@@ -74,7 +74,7 @@ type StateManager struct {
 	tokensPerRequest uint64
 	// number of funding outputs to prepare for supply address that will be break down further if fundingOutputs is short on funds
 	preparedOutputsCount uint64
-	// number of funding outputs for each supply transaction during the splitting period
+	// number of funding outputs for each output in supply transaction during the splitting period
 	splitOutputsCount uint64
 	// the seed instance of the faucet holding the tokens
 	seed *walletseed.Seed
@@ -345,7 +345,9 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	return nil
 }
 
-// prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output, submits the transaction
+// prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output and submits supply transactions
+// SupplyAddressIndex
+// submits the transaction
 // to the Tangle, waits for its confirmation, and then updates the internal state of the faucet.
 func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	// no remainder output present
@@ -372,20 +374,25 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 			return
 		}
 	}
-
 	// not enough funds to carry out operation
-	if s.tokensPerRequest*s.preparedOutputsCount > s.remainderOutput.Balance {
+	if s.tokensPerRequest*s.preparedOutputsCount*s.splitOutputsCount > s.remainderOutput.Balance {
 		err = ErrNotEnoughFunds
 		return
 	}
 
-	// take remainder output and split it up
-	tx := s.createSplittingTx()
+	// take remainder output and split it up to create supply transaction that will be used for further splitting
+	tx := s.createSplittingTx() // TODO check dest address, should be
 
-	txConfirmed := make(chan ledgerstate.TransactionID, 1)
+}
+
+// waitUntilAndProcessAfterConfirmation issues all transactions provided in preparedTxIDs,
+// monitors them until confirmation and updates the faucet internal state
+func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[ledgerstate.TransactionID]*ledgerstate.Transaction) error {
+	// buffered channel will store all confirmed transactions
+	txConfirmed := make(chan ledgerstate.TransactionID, len(preparedTxIDs)) //s.preparedOutputsCount or 1
 
 	monitorTxConfirmation := events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		if tx.ID() == transactionID {
+		if _, ok := preparedTxIDs[transactionID]; ok {
 			txConfirmed <- transactionID
 		}
 	})
@@ -394,29 +401,47 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
 	defer messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
-	// issue the tx
-	issuedMsg, issueErr := s.issueTX(tx)
-	if issueErr != nil {
-		return issueErr
+	// issue all transactions from the map
+	for txID, tx := range preparedTxIDs {
+		// issue the tx
+		_, issueErr := s.issueTX(tx)
+		// remove tx from the map in cas of issuing failure
+		if issueErr != nil {
+			delete(preparedTxIDs, txID)
+		}
 	}
 
+	// waiting for transactions to be confirmed
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
 	timeoutCounter := 0
 	maxWaitAttempts := 50 // 500 s max timeout (if fpc voting is in place)
 
+	issuedCount := uint64(len(preparedTxIDs))
+	var confirmedCount uint64
+	var stateUpdatedCount uint64
 	for {
 		select {
 		case confirmedTx := <-txConfirmed:
-			err = s.updateState(confirmedTx)
-			return err
+			confirmedCount += 1
+			// TODO updateState should behave different for first split and next supply txs
+			err := s.updateState(confirmedTx)
+			if err == nil {
+				stateUpdatedCount++
+			}
+
+			// all issued transactions has been confirmed
+			if confirmedCount == issuedCount {
+				return nil
+			}
 		case <-ticker.C:
 			if timeoutCounter >= maxWaitAttempts {
-				return errors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)
+				return errors.Errorf("Confirmed %d and saved %d out of %d issued tranascions: %w", confirmedCount, stateUpdatedCount, issuedCount, ErrConfirmationTimeoutExpired)
 			}
 			timeoutCounter++
 		}
 	}
+
 }
 
 // updateState takes a confirmed transaction (splitting tx), and updates the faucet internal state based on its content.
