@@ -618,7 +618,15 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		return nil, err
 	}
 
-	msg, errMsg := NewMessage(
+	// create the signature
+	signature, err := f.sign(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	if err != nil {
+		err = fmt.Errorf("signing failed failed: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	msg, err := NewMessage(
 		parents,
 		nil,
 		nil,
@@ -628,15 +636,12 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		sequenceNumber,
 		p,
 		nonce,
-		// note empty signature
-		ed25519.EmptySignature,
+		signature,
 	)
-	if errMsg != nil {
-		return nil, errMsg
+	if err != nil {
+		err = fmt.Errorf("problem with message syntax: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
 	}
-
-	// create the signature
-	msg = f.sign(msg)
-
 	return msg, nil
 }
