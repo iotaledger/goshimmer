@@ -27,6 +27,10 @@ const (
 	// RemainderAddressIndex is the RemainderAddressIndex.
 	RemainderAddressIndex = 0
 
+	// SupplyAddressIndex holds funds prepared for splitting, in case of failure during the split outputs will stay on this
+	// address and will be joined in one bigger reminder output
+	SupplyAddressIndex = 1
+
 	// MinimumFaucetBalance defines the minimum token amount required, before the faucet stops operating.
 	MinimumFaucetBalance = 0.1 * GenesisTokenAmount
 
@@ -58,6 +62,8 @@ type StateManager struct {
 	fundingOutputs *list.List
 	// output that holds the remainder funds to the faucet, should always be on address 0
 	remainderOutput *FaucetOutput
+	// outputs that holds funds during the splitting period, filled in only with outputs needed for next split, should always be on address 1
+	supplyOutputs []*FaucetOutput
 	// the last funding output address index
 	// when we prepare new funding outputs, we start from lastFundingOutputAddressIndex + 1
 	lastFundingOutputAddressIndex uint64
@@ -66,8 +72,10 @@ type StateManager struct {
 
 	// the amount of tokens to send to every request
 	tokensPerRequest uint64
-	// number of funding outputs to prepare if fundingOutputs is exhausted
+	// number of funding outputs to prepare for supply address that will be break down further if fundingOutputs is short on funds
 	preparedOutputsCount uint64
+	// number of funding outputs for each supply transaction during the splitting period
+	splitOutputsCount uint64
 	// the seed instance of the faucet holding the tokens
 	seed *walletseed.Seed
 
@@ -84,22 +92,29 @@ func NewStateManager(
 	tokensPerRequest uint64,
 	seed *walletseed.Seed,
 	preparedOutputsCount uint64,
+	splitOutputsCount uint64,
 	maxTxBookedTime time.Duration,
 ) *StateManager {
 	// currently the max number of outputs in a tx is 127, therefore, when creating the splitting tx, we can have at most
 	// 126 prepared outputs (+1 remainder output).
-	// TODO: break down the splitting into more tx steps to be able to create more, than 126
 	if preparedOutputsCount > MaxFaucetOutputsCount {
 		preparedOutputsCount = MaxFaucetOutputsCount
 	}
+	// number of outputs for each split supply transaction is also limited by the max num of outputs
+	if splitOutputsCount > MaxFaucetOutputsCount {
+		splitOutputsCount = MaxFaucetOutputsCount
+	}
+
 	res := &StateManager{
 		fundingOutputs: list.New(),
 		addressToIndex: map[string]uint64{
 			seed.Address(RemainderAddressIndex).Address().Base58(): RemainderAddressIndex,
+			seed.Address(SupplyAddressIndex).Address().Base58():    SupplyAddressIndex,
 		},
 
 		tokensPerRequest:     tokensPerRequest,
 		preparedOutputsCount: preparedOutputsCount,
+		splitOutputsCount:    splitOutputsCount,
 		seed:                 seed,
 		maxTxBookedAwaitTime: maxTxBookedTime,
 	}
@@ -129,7 +144,7 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 	if err != nil {
 		return
 	}
-
+	// TODO needs to be adjusted after introducing splitting
 	endIndex := (GenesisTokenAmount - s.remainderOutput.Balance) / s.tokensPerRequest
 	Plugin().LogInfof("%d indices have already been used based on found remainder output", endIndex)
 
