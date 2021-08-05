@@ -46,3 +46,7 @@
         - { drandNumber: 3 }
         - { drandNumber: 4 }
         - { drandNumber: 5 }
+
+- hosts: asset-registries
+  roles:
+    - asset-registry
