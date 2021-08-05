@@ -11,7 +11,9 @@ type WeightFunc func(branchID ledgerstate.BranchID) (weight float64)
 
 // OpinionTuple expresses the root of an opinion in the BranchDAG.
 type OpinionTuple struct {
-	Liked    ledgerstate.BranchID
+	// Liked is the liked branch out of a conflict set.
+	Liked ledgerstate.BranchID
+	// Disliked is the disliked branch out of a conflict set.
 	Disliked ledgerstate.BranchID
 }
 

@@ -213,9 +213,9 @@ func (b BranchIDs) AddAll(branchIDs BranchIDs) BranchIDs {
 	return b
 }
 
-// Subtract removes all BranchIDs from the collection and returns the collection to enable chaining.
-func (b BranchIDs) Subtract(branchIDs BranchIDs) BranchIDs {
-	for branchID := range branchIDs {
+// Subtract removes all other from the collection and returns the collection to enable chaining.
+func (b BranchIDs) Subtract(other BranchIDs) BranchIDs {
+	for branchID := range other {
 		delete(b, branchID)
 	}
 

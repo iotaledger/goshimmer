@@ -65,6 +65,10 @@ func (b *Booker) Setup() {
 
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds. If the Message is invalid it fires a MessageInvalid event.
+// Booking a message essentially means that parents are examined, the branch of the message determined based on the
+// branch inheritance rules of the like switch and markers are inherited. If everything is valid, the message is marked
+// as booked. Following, the message branch is set, and it can continue in the dataflow to add support to the determined
+// branches and markers.
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
@@ -74,7 +78,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			// Like references need to point to messages containing transactions
+			// Like references need to point to messages containing transactions in order to be able to solidify these
+			// and, thus, knowing about the given conflict.
 			if !b.allMessagesContainTransactions(message.ParentsByType(LikeParentType)) {
 				messageMetadata.SetInvalid(true)
 				b.tangle.Events.MessageInvalid.Trigger(messageID)
@@ -82,24 +87,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			// We obtain strong parents branches using metadata and past markers
-			strongBranchIDs := b.strongParentsBranchIDs(message)
-			// We obtain liked payload branches
-			likedBranchIDs := b.likedParentsBranchIDs(message)
-
-			// We collect strong parents branches recursively
-			prunedCollectedStrongParents := b.collectBranchesUpwards(strongBranchIDs)
-			// For every liked branch we need to prune it and all its descendants from the collected strong branches
-			for likedBranchID := range likedBranchIDs {
-				b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-					// If we like something in the same conflict set of a collected strong parent
-					// we remove the collected strong parent from the collection, including all its children
-					prunedCollectedStrongParents.Subtract(b.collectBranchesDownwards(conflictingBranchID))
-				})
-			}
-
-			// We filter our strong parents and add the liked parents to the resulting set
-			supportedBranches := strongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
+			supportedBranches := b.supportedBranches(message)
 
 			// We try to book the payload
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
@@ -202,23 +190,47 @@ func (b *Booker) Shutdown() {
 	b.MarkersManager.Shutdown()
 }
 
-// allMessagesContainTransactions checks all passed messages contain a transaction
+// allMessagesContainTransactions checks whether all passed messages contain a transaction.
 func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDs) (areAllTransactions bool) {
 	areAllTransactions = true
 	for _, messageID := range messageIDs {
-		if !areAllTransactions {
-			return
-		}
 		b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			if message.Payload().Type() != ledgerstate.TransactionType {
 				areAllTransactions = false
 			}
 		})
+		if !areAllTransactions {
+			return
+		}
 	}
 	return
 }
 
-// strongParentsBranchIDs the branches of the Message's strong parents
+// supportedBranches returns the branches that the given message supports based on its strong and liked parents.
+// It determines the branches based on the like switch rules.
+func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
+	// We obtain strong parents branches using metadata and past markers
+	strongBranchIDs := b.strongParentsBranchIDs(message)
+	// We obtain liked payload branches
+	likedBranchIDs := b.likedParentsBranchIDs(message)
+
+	// We collect strong parents branches recursively
+	prunedCollectedStrongParents := b.collectBranchesUpwards(strongBranchIDs)
+	// For every liked branch we need to prune it and all its descendants from the collected strong branches
+	for likedBranchID := range likedBranchIDs {
+		b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
+			// If we like something in the same conflict set of a collected strong parent
+			// we remove the collected strong parent from the collection, including all its children
+			prunedCollectedStrongParents.Subtract(b.collectBranchesDownwards(conflictingBranchID))
+		})
+	}
+
+	// We filter our strong parents and add the liked parents to the resulting set
+	supportedBranches := strongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
+	return supportedBranches
+}
+
+// strongParentsBranchIDs returns the branches of the Message's strong parents.
 func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = ledgerstate.NewBranchIDs()
 
@@ -250,13 +262,13 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 
 	resolvedStrongBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(branchIDs)
 	if err != nil {
-		panic(errors.Wrap(err, "could not resolve parent branch IDs"))
+		panic(errors.Wrapf(err, "could not resolve parent branch IDs of %s", branchIDs))
 	}
 
 	return resolvedStrongBranchIDs
 }
 
-// likedParentsBranchIDs gets all the payload branches of the Message's liked parents
+// likedParentsBranchIDs returns all the payload branches of the Message's liked parents.
 func (b *Booker) likedParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = ledgerstate.NewBranchIDs()
 
@@ -283,7 +295,7 @@ func (b *Booker) likedParentsBranchIDs(message *Message) (branchIDs ledgerstate.
 	return branchIDs
 }
 
-// collectParents recursively obtains branches' parents until MasterBranch, including the starting branch
+// collectBranchesUpwards recursively obtains branches' parents until MasterBranch, including the starting branch.
 func (b *Booker) collectBranchesUpwards(branchIDs ledgerstate.BranchIDs) (parents ledgerstate.BranchIDs) {
 	parents = ledgerstate.NewBranchIDs()
 
@@ -308,15 +320,13 @@ func (b *Booker) collectBranchesUpwards(branchIDs ledgerstate.BranchIDs) (parent
 	return
 }
 
-// collectBranchesDownwards recursively obtains branch's children until the leaves, including the starting branch
+// collectBranchesDownwards recursively obtains branch's children until the leaves, including the starting branch.
 func (b *Booker) collectBranchesDownwards(branchID ledgerstate.BranchID) (children ledgerstate.BranchIDs) {
 	children = ledgerstate.NewBranchIDs(branchID)
 
 	b.tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
 		if childBranch.ChildBranchType() == ledgerstate.ConflictBranchType {
-			for innerChild := range b.collectBranchesDownwards(childBranch.ChildBranchID()) {
-				children.Add(innerChild)
-			}
+			children.AddAll(b.collectBranchesDownwards(childBranch.ChildBranchID()))
 		}
 	})
 

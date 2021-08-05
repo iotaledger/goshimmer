@@ -4,10 +4,11 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 func TestScenario_1(t *testing.T) {
@@ -417,6 +418,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message5": ledgerstate.UndefinedBranchID,
 			"Message6": ledgerstate.UndefinedBranchID,
 			"Message7": ledgerstate.UndefinedBranchID,
+			"Message8": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1": testFramework.BranchID("A"),

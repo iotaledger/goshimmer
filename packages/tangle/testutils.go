@@ -67,7 +67,7 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	return
 }
 
-// RegisterBranchID registers a BranchID form the given Messages' transactions with the MessageTestFramework and
+// RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
 // also an alias when printing the BranchID.
 func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...string) {
 	if len(messageAliases) == 1 {
@@ -270,8 +270,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		},
 	}
 
-	err := m.tangle.LedgerState.LoadSnapshot(snapshot)
-	if err != nil {
+	if err := m.tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
 		panic(err)
 	}
 
