@@ -133,7 +133,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	}
 
 	if errPoW != nil {
-		err = errors.Errorf("pow failed: %w", err)
+		err = errors.Errorf("pow failed: %w", errPoW)
 		f.Events.Error.Trigger(err)
 		f.issuanceMutex.Unlock()
 		return nil, err
