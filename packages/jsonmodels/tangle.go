@@ -1,5 +1,9 @@
 package jsonmodels
 
+import (
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+)
+
 // region Message ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Message represents the JSON model of a tangle.Message.
@@ -24,20 +28,21 @@ type Message struct {
 
 // MessageMetadata represents the JSON model of the tangle.MessageMetadata.
 type MessageMetadata struct {
-	ID                 string            `json:"id"`
-	ReceivedTime       int64             `json:"receivedTime"`
-	Solid              bool              `json:"solid"`
-	SolidificationTime int64             `json:"solidificationTime"`
-	StructureDetails   *StructureDetails `json:"structureDetails,omitempty"`
-	BranchID           string            `json:"branchID"`
-	Scheduled          bool              `json:"scheduled"`
-	ScheduledTime      int64             `json:"scheduledTime"`
-	Booked             bool              `json:"booked"`
-	BookedTime         int64             `json:"bookedTime"`
-	Eligible           bool              `json:"eligible"`
-	Invalid            bool              `json:"invalid"`
-	Finalized          bool              `json:"finalized"`
-	FinalizedTime      int64             `json:"finalizedTime"`
+	ID                 string                    `json:"id"`
+	ReceivedTime       int64                     `json:"receivedTime"`
+	Solid              bool                      `json:"solid"`
+	SolidificationTime int64                     `json:"solidificationTime"`
+	StructureDetails   *StructureDetails         `json:"structureDetails,omitempty"`
+	BranchID           string                    `json:"branchID"`
+	Scheduled          bool                      `json:"scheduled"`
+	ScheduledTime      int64                     `json:"scheduledTime"`
+	Booked             bool                      `json:"booked"`
+	BookedTime         int64                     `json:"bookedTime"`
+	Eligible           bool                      `json:"eligible"`
+	Invalid            bool                      `json:"invalid"`
+	Finalized          bool                      `json:"finalized"`
+	FinalizedTime   int64               `json:"finalizedTime"`
+	GradeOfFinality gof.GradeOfFinality `json:"grade_of_finality"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

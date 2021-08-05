@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
@@ -697,6 +698,8 @@ type TransactionMetadata struct {
 	finalizedMutex          sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -876,6 +879,28 @@ func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 	t.SetModified()
 	modified = true
 
+	return
+}
+
+// GradeOfFinality returns the grade of finality.
+func (t *TransactionMetadata) GradeOfFinality() gof.GradeOfFinality {
+	t.gradeOfFinalityMutex.RLock()
+	defer t.gradeOfFinalityMutex.RUnlock()
+	return t.gradeOfFinality
+}
+
+// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
+func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	t.gradeOfFinalityMutex.Lock()
+	defer t.gradeOfFinalityMutex.Unlock()
+
+	if t.gradeOfFinality == t.gradeOfFinality {
+		return
+	}
+
+	t.gradeOfFinality = gradeOfFinality
+	t.SetModified()
+	modified = true
 	return
 }
 

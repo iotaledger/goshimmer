@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -2334,6 +2335,8 @@ type OutputMetadata struct {
 	finalizedMutex          sync.RWMutex
 	confirmedConsumer       TransactionID // not nil if the spending transaction of the output is finalized
 	confirmedConsumerMutex  sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -2516,14 +2519,6 @@ func (o *OutputMetadata) Finalized() (finalized bool) {
 	return o.finalized
 }
 
-// ConfirmedConsumer returns the consumer that spent the transaction if the consumer is confirmed already
-func (o *OutputMetadata) ConfirmedConsumer() TransactionID {
-	o.confirmedConsumerMutex.RLock()
-	defer o.confirmedConsumerMutex.RUnlock()
-
-	return o.confirmedConsumer
-}
-
 // SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.Lock()
@@ -2538,6 +2533,36 @@ func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	modified = true
 
 	return
+}
+
+// GradeOfFinality returns the grade of finality.
+func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
+	o.gradeOfFinalityMutex.RLock()
+	defer o.gradeOfFinalityMutex.RUnlock()
+	return o.gradeOfFinality
+}
+
+// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
+func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	o.gradeOfFinalityMutex.Lock()
+	defer o.gradeOfFinalityMutex.Unlock()
+
+	if o.gradeOfFinality == o.gradeOfFinality {
+		return
+	}
+
+	o.gradeOfFinality = gradeOfFinality
+	o.SetModified()
+	modified = true
+	return
+}
+
+// ConfirmedConsumer returns the consumer that spent the transaction if the consumer is confirmed already
+func (o *OutputMetadata) ConfirmedConsumer() TransactionID {
+	o.confirmedConsumerMutex.RLock()
+	defer o.confirmedConsumerMutex.RUnlock()
+
+	return o.confirmedConsumer
 }
 
 // SetConfirmedConsumer updates the confirmedConsumer of the output.

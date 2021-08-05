@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
@@ -387,6 +388,12 @@ type Branch interface {
 	// setFinalized sets the finalized property to the given value. It returns true if the value has been updated.
 	setFinalized(finalized bool) (modified bool)
 
+	// GradeOfFinality returns the grade of finality of the branch.
+	GradeOfFinality() gof.GradeOfFinality
+
+	// setGradeOfFinality sets the grade of finality of the branch. It returns true if the value has been updated.
+	setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool)
+
 	// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
 	// ledger state.
 	InclusionState() InclusionState
@@ -561,6 +568,8 @@ type ConflictBranch struct {
 	finalizedMutex          sync.RWMutex
 	inclusionState          InclusionState
 	inclusionStateMutex     sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -786,6 +795,28 @@ func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modif
 	return
 }
 
+// GradeOfFinality returns the grade of finality of the branch.
+func (c *ConflictBranch) GradeOfFinality() gof.GradeOfFinality {
+	c.gradeOfFinalityMutex.RLock()
+	defer c.gradeOfFinalityMutex.RUnlock()
+	return c.gradeOfFinality
+}
+
+// setGradeOfFinality sets the grade of finality.
+func (c *ConflictBranch) setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	c.gradeOfFinalityMutex.Lock()
+	defer c.gradeOfFinalityMutex.Unlock()
+
+	if c.gradeOfFinality == gradeOfFinality {
+		return
+	}
+
+	c.gradeOfFinality = gradeOfFinality
+	c.SetModified()
+	modified = true
+	return
+}
+
 // Bytes returns a marshaled version of the Branch.
 func (c *ConflictBranch) Bytes() []byte {
 	return c.ObjectStorageValue()
@@ -851,6 +882,8 @@ type AggregatedBranch struct {
 	finalizedMutex          sync.RWMutex
 	inclusionState          InclusionState
 	inclusionStateMutex     sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -1043,6 +1076,28 @@ func (a *AggregatedBranch) setInclusionState(inclusionState InclusionState) (mod
 	a.SetModified()
 	modified = true
 
+	return
+}
+
+// GradeOfFinality returns the grade of finality of the branch.
+func (a *AggregatedBranch) GradeOfFinality() gof.GradeOfFinality {
+	a.gradeOfFinalityMutex.RLock()
+	defer a.gradeOfFinalityMutex.RUnlock()
+	return a.gradeOfFinality
+}
+
+// setGradeOfFinality sets the grade of finality.
+func (a *AggregatedBranch) setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	a.gradeOfFinalityMutex.Lock()
+	defer a.gradeOfFinalityMutex.Unlock()
+
+	if a.gradeOfFinality == gradeOfFinality {
+		return
+	}
+
+	a.gradeOfFinality = gradeOfFinality
+	a.SetModified()
+	modified = true
 	return
 }
 

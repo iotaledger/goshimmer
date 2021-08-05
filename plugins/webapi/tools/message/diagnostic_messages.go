@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
@@ -178,6 +179,7 @@ type DiagnosticMessagesInfo struct {
 	ScheduledTime     time.Time
 	BookedTime        time.Time
 	FinalizedTime     time.Time
+	GradeOfFinality   gof.GradeOfFinality
 	StrongParents     tangle.MessageIDs
 	WeakParents       tangle.MessageIDs
 	StrongApprovers   tangle.MessageIDs
@@ -230,6 +232,7 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
 		msgInfo.FinalizedTime = metadata.FinalizedTime()
+		msgInfo.GradeOfFinality = metadata.GradeOfFinality()
 		msgInfo.Booked = metadata.IsBooked()
 		msgInfo.Eligible = metadata.IsEligible()
 		msgInfo.Invalid = metadata.IsInvalid()
