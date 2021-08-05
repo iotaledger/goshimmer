@@ -2398,6 +2398,12 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = errors.Errorf("failed to parse confirmed consumer: %w", err)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -2598,6 +2604,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
 		stringify.StructField("finalized", o.Finalized()),
 		stringify.StructField("confirmedConsumer", o.ConfirmedConsumer()),
+		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
 	)
 }
 
@@ -2623,6 +2630,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		Write(o.FirstConsumer()).
 		WriteBool(o.Finalized()).
 		Write(o.ConfirmedConsumer()).
+		WriteUint8(uint8(o.GradeOfFinality())).
 		Bytes()
 }
 

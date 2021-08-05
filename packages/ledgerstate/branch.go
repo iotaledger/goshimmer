@@ -637,6 +637,12 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	conflictBranch.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -833,6 +839,7 @@ func (c *ConflictBranch) String() string {
 		stringify.StructField("monotonicallyLiked", c.MonotonicallyLiked()),
 		stringify.StructField("finalized", c.Finalized()),
 		stringify.StructField("inclusionState", c.InclusionState()),
+		stringify.StructField("gradeOfFinality", c.GradeOfFinality()),
 	)
 }
 
@@ -859,6 +866,7 @@ func (c *ConflictBranch) ObjectStorageValue() []byte {
 		WriteBool(c.MonotonicallyLiked()).
 		WriteBool(c.Finalized()).
 		Write(c.InclusionState()).
+		WriteUint8(uint8(c.GradeOfFinality())).
 		Bytes()
 }
 
@@ -959,6 +967,12 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggr
 		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	aggregatedBranch.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -1116,6 +1130,7 @@ func (a *AggregatedBranch) String() string {
 		stringify.StructField("monotonicallyLiked", a.MonotonicallyLiked()),
 		stringify.StructField("finalized", a.Finalized()),
 		stringify.StructField("inclusionState", a.InclusionState()),
+		stringify.StructField("gradeOfFinality", a.GradeOfFinality()),
 	)
 }
 
@@ -1141,6 +1156,7 @@ func (a *AggregatedBranch) ObjectStorageValue() []byte {
 		WriteBool(a.MonotonicallyLiked()).
 		WriteBool(a.Finalized()).
 		Write(a.InclusionState()).
+		WriteUint8(uint8(a.GradeOfFinality())).
 		Bytes()
 }
 

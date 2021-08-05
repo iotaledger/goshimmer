@@ -4,10 +4,10 @@ package gof
 type GradeOfFinality uint8
 
 const (
-	// GradeOfFinalityLow defines a low GradeOfFinality.
-	GradeOfFinalityLow GradeOfFinality = iota
-	// GradeOfFinalityMiddle defines a medium GradeOfFinality.
-	GradeOfFinalityMiddle
-	// GradeOfFinalityHigh defines a high GradeOfFinality.
-	GradeOfFinalityHigh
+	// Low defines a low GradeOfFinality.
+	Low GradeOfFinality = iota
+	// Middle defines a medium GradeOfFinality.
+	Middle
+	// High defines a high GradeOfFinality.
+	High
 )

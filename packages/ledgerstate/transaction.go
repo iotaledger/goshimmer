@@ -21,7 +21,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -751,6 +750,12 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -919,6 +924,7 @@ func (t *TransactionMetadata) String() string {
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("finalized", t.Finalized()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
+		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
 	)
 }
 
@@ -942,6 +948,7 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.Finalized()).
 		WriteBool(t.LazyBooked()).
+		WriteUint8(uint8(t.GradeOfFinality())).
 		Bytes()
 }
 
