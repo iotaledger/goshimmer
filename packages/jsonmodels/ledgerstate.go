@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -478,14 +479,15 @@ func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
 
 // OutputMetadata represents the JSON model of the ledgerstate.OutputMetadata.
 type OutputMetadata struct {
-	OutputID           *OutputID `json:"outputID"`
-	BranchID           string    `json:"branchID"`
-	Solid              bool      `json:"solid"`
-	SolidificationTime int64     `json:"solidificationTime"`
-	ConsumerCount      int       `json:"consumerCount"`
-	FirstConsumer      string    `json:"firstConsumer,omitempty"`
-	ConfirmedConsumer  string    `json:"confirmedConsumer,omitempty"`
-	Finalized          bool      `json:"finalized"`
+	OutputID           *OutputID           `json:"outputID"`
+	BranchID           string              `json:"branchID"`
+	Solid              bool                `json:"solid"`
+	SolidificationTime int64               `json:"solidificationTime"`
+	ConsumerCount      int                 `json:"consumerCount"`
+	FirstConsumer      string              `json:"firstConsumer,omitempty"`
+	ConfirmedConsumer  string              `json:"confirmedConsumer,omitempty"`
+	Finalized          bool                `json:"finalized"`
+	GradeOfFinality    gof.GradeOfFinality `json:"gradeOfFinality"`
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
@@ -509,6 +511,7 @@ func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetada
 		FirstConsumer:      firstConsumer,
 		ConfirmedConsumer:  confirmedConsumer,
 		Finalized:          outputMetadata.Finalized(),
+		GradeOfFinality:    outputMetadata.GradeOfFinality(),
 	}
 }
 
@@ -536,14 +539,15 @@ func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 
 // Branch represents the JSON model of a ledgerstate.Branch.
 type Branch struct {
-	ID                 string   `json:"id"`
-	Type               string   `json:"type"`
-	Parents            []string `json:"parents"`
-	ConflictIDs        []string `json:"conflictIDs,omitempty"`
-	Liked              bool     `json:"liked"`
-	MonotonicallyLiked bool     `json:"monotonicallyLiked"`
-	Finalized          bool     `json:"finalized"`
-	InclusionState     string   `json:"inclusionState"`
+	ID                 string              `json:"id"`
+	Type               string              `json:"type"`
+	Parents            []string            `json:"parents"`
+	ConflictIDs        []string            `json:"conflictIDs,omitempty"`
+	Liked              bool                `json:"liked"`
+	MonotonicallyLiked bool                `json:"monotonicallyLiked"`
+	Finalized          bool                `json:"finalized"`
+	InclusionState     string              `json:"inclusionState"`
+	GradeOfFinality    gof.GradeOfFinality `json:"grade_of_finality"`
 }
 
 // NewBranch returns a Branch from the given ledgerstate.Branch.
@@ -575,6 +579,7 @@ func NewBranch(branch ledgerstate.Branch) Branch {
 		MonotonicallyLiked: branch.MonotonicallyLiked(),
 		Finalized:          branch.Finalized(),
 		InclusionState:     branch.InclusionState().String(),
+		GradeOfFinality:    branch.GradeOfFinality(),
 	}
 }
 
@@ -752,12 +757,13 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 
 // TransactionMetadata represents the JSON model of the ledgerstate.TransactionMetadata.
 type TransactionMetadata struct {
-	TransactionID      string `json:"transactionID"`
-	BranchID           string `json:"branchID"`
-	Solid              bool   `json:"solid"`
-	SolidificationTime int64  `json:"solidificationTime"`
-	Finalized          bool   `json:"finalized"`
-	LazyBooked         bool   `json:"lazyBooked"`
+	TransactionID      string              `json:"transactionID"`
+	BranchID           string              `json:"branchID"`
+	Solid              bool                `json:"solid"`
+	SolidificationTime int64               `json:"solidificationTime"`
+	Finalized          bool                `json:"finalized"`
+	LazyBooked         bool                `json:"lazyBooked"`
+	GradeOfFinality    gof.GradeOfFinality `json:"gradeOfFinality"`
 }
 
 // NewTransactionMetadata returns the TransactionMetadata from the given ledgerstate.TransactionMetadata.
@@ -769,6 +775,7 @@ func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata
 		SolidificationTime: transactionMetadata.SolidificationTime().Unix(),
 		Finalized:          transactionMetadata.Finalized(),
 		LazyBooked:         transactionMetadata.LazyBooked(),
+		GradeOfFinality:    transactionMetadata.GradeOfFinality(),
 	}
 }
 

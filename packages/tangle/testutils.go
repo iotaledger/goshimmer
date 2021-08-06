@@ -6,15 +6,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus"
-
-	"github.com/iotaledger/goshimmer/packages/database"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
+	"github.com/iotaledger/goshimmer/packages/consensus"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -26,6 +24,7 @@ import (
 // simplified way.
 type MessageTestFramework struct {
 	tangle                   *Tangle
+	branchIDs                map[string]ledgerstate.BranchID
 	messagesByAlias          map[string]*Message
 	walletsByAlias           map[string]wallet
 	walletsByAddress         map[ledgerstate.Address]wallet
@@ -42,6 +41,7 @@ type MessageTestFramework struct {
 func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
 	messageTestFramework = &MessageTestFramework{
 		tangle:           tangle,
+		branchIDs:        make(map[string]ledgerstate.BranchID),
 		messagesByAlias:  make(map[string]*Message),
 		walletsByAlias:   make(map[string]wallet),
 		walletsByAddress: make(map[ledgerstate.Address]wallet),
@@ -67,6 +67,40 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	return
 }
 
+// RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
+// also an alias when printing the BranchID.
+func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...string) {
+	if len(messageAliases) == 1 {
+		branchID := m.BranchIDFromMessage(messageAliases[0])
+		m.branchIDs[alias] = branchID
+		ledgerstate.RegisterBranchIDAlias(branchID, alias)
+		return
+	}
+
+	aggregation := ledgerstate.NewBranchIDs()
+	for _, messageAlias := range messageAliases {
+		branch := m.BranchIDFromMessage(messageAlias)
+		aggregation.Add(branch)
+	}
+	cachedAggregatedBranch, _, err := m.tangle.LedgerState.BranchDAG.AggregateBranches(aggregation)
+	if err != nil {
+		panic("my mom beats me with an aggregated branch")
+	}
+	defer cachedAggregatedBranch.Release()
+	branchID := cachedAggregatedBranch.ID()
+	m.branchIDs[alias] = branchID
+	ledgerstate.RegisterBranchIDAlias(branchID, alias)
+}
+
+// BranchID returns the BranchID registered with the given alias.
+func (m *MessageTestFramework) BranchID(alias string) ledgerstate.BranchID {
+	branchID, ok := m.branchIDs[alias]
+	if !ok {
+		panic("no branch registered with such alias " + alias)
+	}
+	return branchID
+}
+
 // CreateMessage creates a Message with the given alias and MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
 	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
@@ -74,23 +108,24 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 	if options.reattachmentMessageAlias != "" {
 		reattachmentPayload := m.Message(options.reattachmentMessageAlias).Payload()
 		if options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
 		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer, options.issuingTime)
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
 		}
 	} else {
 		transaction := m.buildTransaction(options)
 
 		if transaction != nil && options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
 		} else if transaction != nil && !options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer, options.issuingTime)
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
 		} else if options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
+			m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
 		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageTimestampIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer, options.issuingTime)
+			m.messagesByAlias[messageAlias] = newTestParentsDataMessageTimestampIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
 		}
 	}
+
 	RegisterMessageIDAlias(m.messagesByAlias[messageAlias].ID(), messageAlias)
 
 	return m.messagesByAlias[messageAlias]
@@ -169,8 +204,8 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.Tr
 	return messagePayload.(*ledgerstate.Transaction).ID()
 }
 
-// BranchID returns the BranchID of the Transaction contained in the Message associated with the given alias.
-func (m *MessageTestFramework) BranchID(messageAlias string) ledgerstate.BranchID {
+// BranchIDFromMessage returns the BranchID of the Transaction contained in the Message associated with the given alias.
+func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerstate.BranchID {
 	messagePayload := m.messagesByAlias[messageAlias].Payload()
 	if messagePayload.Type() != ledgerstate.TransactionType {
 		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
@@ -206,8 +241,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
 	}
 
-	outputs := []ledgerstate.Output{}
-	unspentOutputs := []bool{}
+	var outputs []ledgerstate.Output
+	var unspentOutputs []bool
 
 	for address, balance := range genesisOutputs {
 		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
@@ -235,10 +270,9 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		},
 	}
 
-	fmt.Println("............... snapshot: ")
-	fmt.Println(snapshot)
-
-	m.tangle.LedgerState.LoadSnapshot(snapshot)
+	if err := m.tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
+		panic(err)
+	}
 
 	for alias := range m.options.genesisOutputs {
 		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
@@ -343,6 +377,23 @@ func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessag
 	return
 }
 
+// likeParentIDs returns the MessageIDs that were defined to be the like parents of the
+// MessageTestFrameworkMessageOptions.
+func (m *MessageTestFramework) likeParentIDs(options *MessageTestFrameworkMessageOptions) (likeParentIDs MessageIDs) {
+	likeParentIDs = make(MessageIDs, 0)
+	for likeParentAlias := range options.likeParents {
+		if likeParentAlias == "Genesis" {
+			likeParentIDs = append(likeParentIDs, EmptyMessageID)
+
+			continue
+		}
+
+		likeParentIDs = append(likeParentIDs, m.messagesByAlias[likeParentAlias].ID())
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MessageTestFrameworkOptions //////////////////////////////////////////////////////////////////////////////////
@@ -414,6 +465,7 @@ type MessageTestFrameworkMessageOptions struct {
 	coloredOutputs           map[string]map[ledgerstate.Color]uint64
 	strongParents            map[string]types.Empty
 	weakParents              map[string]types.Empty
+	likeParents              map[string]types.Empty
 	issuer                   ed25519.PublicKey
 	issuingTime              time.Time
 	reattachmentMessageAlias string
@@ -426,6 +478,7 @@ func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOpt
 		outputs:       make(map[string]uint64),
 		strongParents: make(map[string]types.Empty),
 		weakParents:   make(map[string]types.Empty),
+		likeParents:   make(map[string]types.Empty),
 	}
 
 	for _, option := range options {
@@ -480,6 +533,15 @@ func WithWeakParents(messageAliases ...string) MessageOption {
 	}
 }
 
+// WithLikeParents returns a MessageOption that is used to define the like parents of the Message.
+func WithLikeParents(messageAliases ...string) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		for _, messageAlias := range messageAliases {
+			options.likeParents[messageAlias] = types.Void
+		}
+	}
+}
+
 // WithIssuer returns a MessageOption that is used to define the issuer of the Message.
 func WithIssuer(issuer ed25519.PublicKey) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
@@ -494,8 +556,8 @@ func WithIssuingTime(issuingTime time.Time) MessageOption {
 	}
 }
 
-// ReattachmentOf returns a MessageOption that is used to select payload of which Message should be reattached.
-func ReattachmentOf(messageAlias string) MessageOption {
+// WithReattachment returns a MessageOption that is used to select payload of which Message should be reattached.
+func WithReattachment(messageAlias string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.reattachmentMessageAlias = messageAlias
 	}
@@ -523,36 +585,36 @@ func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicK
 	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
-func newTestParentsDataMessage(payloadString string, strongParents, weakParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, nil, nil, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessage(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID) *Message {
+	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
-func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
-	return NewMessage(strongParents, weakParents, nil, nil, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey) *Message {
+	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
-func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, nil, nil, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
+	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
-func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, nil, nil, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
+	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
-func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, nil, nil, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID) *Message {
+	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
 
-func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
-	return NewMessage(strongParents, weakParents, nil, nil, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey) *Message {
+	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
 
-func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, strongParents, weakParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, nil, nil, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
+	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
 
-func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, nil, nil, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
+	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 }
 
 type wallet struct {

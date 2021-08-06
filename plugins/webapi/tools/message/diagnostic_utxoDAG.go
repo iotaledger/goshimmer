@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -56,7 +57,6 @@ var DiagnosticUTXODAGTableDescription = []string{
 	"ID",
 	"IssuanceTime",
 	"SolidTime",
-	"OpinionFormedTime",
 	"AccessManaPledgeID",
 	"ConsensusManaPledgeID",
 	"Inputs",
@@ -77,7 +77,6 @@ type DiagnosticUTXODAGInfo struct {
 	ID                    string
 	IssuanceTimestamp     time.Time
 	SolidTime             time.Time
-	OpinionFormedTime     time.Time
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	Inputs                ledgerstate.Inputs
@@ -92,6 +91,7 @@ type DiagnosticUTXODAGInfo struct {
 	InclusionState           string
 	Finalized                bool
 	LazyBooked               bool
+	GradeOfFinality          gof.GradeOfFinality
 }
 
 func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) DiagnosticUTXODAGInfo {
@@ -124,6 +124,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		txInfo.Finalized = transactionMetadata.Finalized()
 		txInfo.LazyBooked = transactionMetadata.LazyBooked()
 		txInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(transactionMetadata.BranchID()).String()
+		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()
 	})
 
 	return txInfo
@@ -134,7 +135,6 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 		d.ID,
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
-		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
 		d.AccessManaPledgeID,
 		d.ConsensusManaPledgeID,
 		strings.Join(d.Inputs.Strings(), ";"),
