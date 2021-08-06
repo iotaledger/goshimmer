@@ -53,6 +53,9 @@ type MessageFinalizedMetrics struct {
 	DeltaScheduled     int64     `json:"deltaArrival" bson:"deltaArrival"`
 	DeltaBooked        int64     `json:"deltaBooked" bson:"deltaBooked"`
 	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
+	StrongParentCount  int       `json:"strongParentCount" bson:"strongParentCount"`
+	WeakParentsCount   int       `json:"weakParentsCount,omitempty" bson:"weakParentsCount"`
+	LikeParentCount    int       `json:"likeParentCount,omitempty" bson:"likeParentCount"`
 }
 
 // BranchConfirmationMetrics defines the branch confirmation metrics record to sent be to remote logger.

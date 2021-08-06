@@ -1,8 +1,6 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"time"
 
@@ -12,7 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	gossippkg "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -172,10 +172,22 @@ func registerLocalMetrics() {
 	}))
 
 	messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messageType := DataMessage
+		messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
+			messageType = Transaction
+		})
+
+		var issuingTime time.Time
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			message.ForEachParent(func(parent tangle.Parent) {
+				increasePerParentType(parent.Type)
+			})
+			issuingTime = message.IssuingTime()
+		})
 		if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			messageFinalizationTotalTime.Add(uint64(messageMetadata.FinalizedTime().Sub(messageMetadata.ReceivedTime()).Milliseconds()))
+			messageFinalizationTotalTime[messageType] += uint64(messageMetadata.FinalizedTime().Sub(issuingTime).Milliseconds())
 		}) {
-			finalizedMessageCount.Inc()
+			finalizedMessageCount[messageType]++
 		}
 	}))
 

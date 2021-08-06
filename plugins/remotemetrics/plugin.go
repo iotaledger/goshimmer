@@ -23,9 +23,13 @@ const (
 )
 
 const (
+	// Debug defines the most verbose metrics collection level.
 	Debug uint8 = iota
+	// Info defines regular metrics collection level.
 	Info
+	// Important defines the level of collection of only most important metrics.
 	Important
+	// Critical defines the level of collection of only critical metrics.
 	Critical
 )
 

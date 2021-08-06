@@ -7,9 +7,32 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
+
+// MessageType defines the component for the different MPS metrics.
+type MessageType byte
+
+const (
+	// DataMessage denotes data message type.
+	DataMessage MessageType = iota
+	// Transaction denotes transaction message.
+	Transaction
+)
+
+// String returns the stringified component type.
+func (c MessageType) String() string {
+	switch c {
+	case DataMessage:
+		return "DataMessage"
+	case Transaction:
+		return "Transaction"
+	default:
+		return "Unknown"
+	}
+}
 
 // ComponentType defines the component for the different MPS metrics.
 type ComponentType byte
@@ -71,10 +94,16 @@ var (
 	missingMessageCountDB atomic.Uint64
 
 	// current number of finalized messages
-	finalizedMessageCount atomic.Uint64
+	finalizedMessageCount = make(map[MessageType]uint64)
+
+	// protect map from concurrent read/write.
+	finalizedMessageCountMutex syncutils.RWMutex
 
 	// total time it took all messages to finalize. unit is milliseconds!
-	messageFinalizationTotalTime atomic.Uint64
+	messageFinalizationTotalTime = make(map[MessageType]uint64)
+
+	// protect map from concurrent read/write.
+	messageFinalizationTotalTimeMutex syncutils.RWMutex
 
 	// current number of finalized branches
 	confirmedBranchCount atomic.Uint64
@@ -84,6 +113,12 @@ var (
 
 	// current number of message tips.
 	messageTips atomic.Uint64
+
+	// total number of parents of all messages per parent type
+	parentsCountPerType = make(map[tangle.ParentsType]uint64)
+
+	// protect map from concurrent read/write.
+	parentsCountPerTypetMutex syncutils.RWMutex
 
 	// counter for the received MPS
 	mpsReceivedSinceLastMeasurement atomic.Uint64
@@ -194,14 +229,32 @@ func MessageMissingCountDB() uint64 {
 	return initialMissingMessageCountDB + missingMessageCountDB.Load()
 }
 
-// MessageFinalizationTotalTime returns total time it took for all messages to finalize.
-func MessageFinalizationTotalTime() uint64 {
-	return messageFinalizationTotalTime.Load()
+// MessageFinalizationTotalTimePerType returns total time it took for all messages to finalize per message type.
+func MessageFinalizationTotalTimePerType() map[MessageType]uint64 {
+	messageFinalizationTotalTimeMutex.RLock()
+	defer messageFinalizationTotalTimeMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[MessageType]uint64)
+	for key, element := range messageFinalizationTotalTime {
+		clone[key] = element
+	}
+
+	return clone
 }
 
-// FinalizedMessageCount returns the number of messages finalized.
-func FinalizedMessageCount() uint64 {
-	return finalizedMessageCount.Load()
+// FinalizedMessageCountPerType returns the number of messages finalized per message type.
+func FinalizedMessageCountPerType() map[MessageType]uint64 {
+	finalizedMessageCountMutex.RLock()
+	defer finalizedMessageCountMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[MessageType]uint64)
+	for key, element := range finalizedMessageCount {
+		clone[key] = element
+	}
+
+	return clone
 }
 
 // BranchConfirmationTotalTime returns total time it took for all confirmed branches to be confirmed.
@@ -212,6 +265,20 @@ func BranchConfirmationTotalTime() uint64 {
 // ConfirmedBranchCount returns the number of confirmed branches.
 func ConfirmedBranchCount() uint64 {
 	return confirmedBranchCount.Load()
+}
+
+// ParentCountPerType returns a map of parent counts per parent type.
+func ParentCountPerType() map[tangle.ParentsType]uint64 {
+	parentsCountPerTypetMutex.RLock()
+	defer parentsCountPerTypetMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[tangle.ParentsType]uint64)
+	for key, element := range parentsCountPerType {
+		clone[key] = element
+	}
+
+	return clone
 }
 
 // ReceivedMessagesPerSecond retrieves the current messages per second number.
@@ -237,6 +304,14 @@ func increasePerComponentCounter(c ComponentType) {
 	// increase cumulative metrics
 	messageCountPerComponentDashboard[c]++
 	messageCountPerComponentGrafana[c]++
+}
+
+func increasePerParentType(c tangle.ParentsType) {
+	parentsCountPerTypetMutex.Lock()
+	defer parentsCountPerTypetMutex.Unlock()
+
+	// increase cumulative metrics
+	parentsCountPerType[c]++
 }
 
 // measures the Component Counter value per second

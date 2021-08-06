@@ -41,6 +41,13 @@ func onMessageFinalized(messageID tangle.MessageID) {
 
 	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		record.IssuedTimestamp = message.IssuingTime()
+		record.StrongParentCount = len(message.ParentsByType(tangle.StrongParentType))
+		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
+			record.WeakParentsCount = weakParentsCount
+		}
+		if likeParentsCount := len(message.ParentsByType(tangle.LikeParentType)); likeParentsCount > 0 {
+			record.LikeParentCount = len(message.ParentsByType(tangle.LikeParentType))
+		}
 	})
 	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		record.ScheduledTimestamp = messageMetadata.ScheduledTime()

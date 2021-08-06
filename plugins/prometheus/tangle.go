@@ -10,6 +10,7 @@ var (
 	messageTips                  prometheus.Gauge
 	messagePerTypeCount          *prometheus.GaugeVec
 	messagePerComponentCount     *prometheus.GaugeVec
+	parentsCount                 *prometheus.GaugeVec
 	messageTotalCount            prometheus.Gauge
 	messageTotalCountDB          prometheus.Gauge
 	messageSolidCountDB          prometheus.Gauge
@@ -18,8 +19,8 @@ var (
 	messageRequestCount          prometheus.Gauge
 	confirmedBranchCount         prometheus.Gauge
 	branchConfirmationTotalTime  prometheus.Gauge
-	finalizedMessageCount        prometheus.Gauge
-	messageFinalizationTotalTime prometheus.Gauge
+	finalizedMessageCount        *prometheus.GaugeVec
+	messageFinalizationTotalTime *prometheus.GaugeVec
 	transactionCounter           prometheus.Gauge
 )
 
@@ -35,6 +36,14 @@ func registerTangleMetrics() {
 			Help: "number of messages per payload type seen since the start of the node",
 		}, []string{
 			"message_type",
+		})
+
+	parentsCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_messages_parent_count_per_type",
+			Help: "number of parents of all messages",
+		}, []string{
+			"type",
 		})
 
 	messagePerComponentCount = prometheus.NewGaugeVec(
@@ -79,14 +88,23 @@ func registerTangleMetrics() {
 		Name: "tangle_message_request_queue_size",
 		Help: "current number requested messages by the message tangle",
 	})
-	messageFinalizationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_finalization_time",
-		Help: "total number of milliseconds taken for messages to finalize",
-	})
-	finalizedMessageCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_finalized_count",
-		Help: "current number of finalized messages",
-	})
+
+	messageFinalizationTotalTime = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_message_finalization_time",
+			Help: "total number of milliseconds taken for messages to finalize",
+		}, []string{
+			"messageType",
+		})
+
+	finalizedMessageCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_message_finalized_count",
+			Help: "current number of finalized messages per type",
+		}, []string{
+			"messageType",
+		})
+
 	branchConfirmationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_branch_confirmation_time",
 		Help: "total number of milliseconds taken for branch to finalize",
@@ -98,6 +116,7 @@ func registerTangleMetrics() {
 
 	registry.MustRegister(messageTips)
 	registry.MustRegister(messagePerTypeCount)
+	registry.MustRegister(parentsCount)
 	registry.MustRegister(messagePerComponentCount)
 	registry.MustRegister(messageTotalCount)
 	registry.MustRegister(messageTotalCountDB)
@@ -132,7 +151,17 @@ func collectTangleMetrics() {
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
 	confirmedBranchCount.Set(float64(metrics.ConfirmedBranchCount()))
 	branchConfirmationTotalTime.Set(float64(metrics.BranchConfirmationTotalTime()))
-	finalizedMessageCount.Set(float64(metrics.FinalizedMessageCount()))
-	messageFinalizationTotalTime.Set(float64(metrics.MessageFinalizationTotalTime()))
+	finalizedMessageCountPerType := metrics.FinalizedMessageCountPerType()
+	for messageType, count := range finalizedMessageCountPerType {
+		finalizedMessageCount.WithLabelValues(messageType.String()).Set(float64(count))
+	}
+	messageFinalizationTotalTimePerType := metrics.MessageFinalizationTotalTimePerType()
+	for messageType, count := range messageFinalizationTotalTimePerType {
+		messageFinalizationTotalTime.WithLabelValues(messageType.String()).Set(float64(count))
+	}
+	parentsCountPerType := metrics.ParentCountPerType()
+	for parentType, count := range parentsCountPerType {
+		parentsCount.WithLabelValues(parentType.String()).Set(float64(count))
+	}
 	// transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
 }
