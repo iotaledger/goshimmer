@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -109,6 +110,7 @@ type DiagnosticBranchInfo struct {
 	InclusionState     string
 	Finalized          bool
 	LazyBooked         bool
+	GradeOfFinality    gof.GradeOfFinality
 }
 
 func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchInfo {
@@ -120,6 +122,7 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 		conflictInfo.Liked = branch.Liked()
 		conflictInfo.MonotonicallyLiked = branch.MonotonicallyLiked()
 		conflictInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(branchID).String()
+		conflictInfo.GradeOfFinality = branch.GradeOfFinality()
 
 		if branch.Type() == ledgerstate.AggregatedBranchType {
 			return

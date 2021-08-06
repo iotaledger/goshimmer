@@ -17,6 +17,8 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -387,6 +389,12 @@ type Branch interface {
 	// setFinalized sets the finalized property to the given value. It returns true if the value has been updated.
 	setFinalized(finalized bool) (modified bool)
 
+	// GradeOfFinality returns the grade of finality of the branch.
+	GradeOfFinality() gof.GradeOfFinality
+
+	// setGradeOfFinality sets the grade of finality of the branch. It returns true if the value has been updated.
+	setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool)
+
 	// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
 	// ledger state.
 	InclusionState() InclusionState
@@ -561,6 +569,8 @@ type ConflictBranch struct {
 	finalizedMutex          sync.RWMutex
 	inclusionState          InclusionState
 	inclusionStateMutex     sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -627,6 +637,12 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	conflictBranch.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -786,6 +802,28 @@ func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modif
 	return
 }
 
+// GradeOfFinality returns the grade of finality of the branch.
+func (c *ConflictBranch) GradeOfFinality() gof.GradeOfFinality {
+	c.gradeOfFinalityMutex.RLock()
+	defer c.gradeOfFinalityMutex.RUnlock()
+	return c.gradeOfFinality
+}
+
+// setGradeOfFinality sets the grade of finality.
+func (c *ConflictBranch) setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	c.gradeOfFinalityMutex.Lock()
+	defer c.gradeOfFinalityMutex.Unlock()
+
+	if c.gradeOfFinality == gradeOfFinality {
+		return
+	}
+
+	c.gradeOfFinality = gradeOfFinality
+	c.SetModified()
+	modified = true
+	return
+}
+
 // Bytes returns a marshaled version of the Branch.
 func (c *ConflictBranch) Bytes() []byte {
 	return c.ObjectStorageValue()
@@ -801,6 +839,7 @@ func (c *ConflictBranch) String() string {
 		stringify.StructField("monotonicallyLiked", c.MonotonicallyLiked()),
 		stringify.StructField("finalized", c.Finalized()),
 		stringify.StructField("inclusionState", c.InclusionState()),
+		stringify.StructField("gradeOfFinality", c.GradeOfFinality()),
 	)
 }
 
@@ -827,6 +866,7 @@ func (c *ConflictBranch) ObjectStorageValue() []byte {
 		WriteBool(c.MonotonicallyLiked()).
 		WriteBool(c.Finalized()).
 		Write(c.InclusionState()).
+		WriteUint8(uint8(c.GradeOfFinality())).
 		Bytes()
 }
 
@@ -851,6 +891,8 @@ type AggregatedBranch struct {
 	finalizedMutex          sync.RWMutex
 	inclusionState          InclusionState
 	inclusionStateMutex     sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -925,6 +967,12 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggr
 		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	aggregatedBranch.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -1046,6 +1094,28 @@ func (a *AggregatedBranch) setInclusionState(inclusionState InclusionState) (mod
 	return
 }
 
+// GradeOfFinality returns the grade of finality of the branch.
+func (a *AggregatedBranch) GradeOfFinality() gof.GradeOfFinality {
+	a.gradeOfFinalityMutex.RLock()
+	defer a.gradeOfFinalityMutex.RUnlock()
+	return a.gradeOfFinality
+}
+
+// setGradeOfFinality sets the grade of finality.
+func (a *AggregatedBranch) setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	a.gradeOfFinalityMutex.Lock()
+	defer a.gradeOfFinalityMutex.Unlock()
+
+	if a.gradeOfFinality == gradeOfFinality {
+		return
+	}
+
+	a.gradeOfFinality = gradeOfFinality
+	a.SetModified()
+	modified = true
+	return
+}
+
 // Bytes returns a marshaled version of the Branch.
 func (a *AggregatedBranch) Bytes() []byte {
 	return a.ObjectStorageValue()
@@ -1060,6 +1130,7 @@ func (a *AggregatedBranch) String() string {
 		stringify.StructField("monotonicallyLiked", a.MonotonicallyLiked()),
 		stringify.StructField("finalized", a.Finalized()),
 		stringify.StructField("inclusionState", a.InclusionState()),
+		stringify.StructField("gradeOfFinality", a.GradeOfFinality()),
 	)
 }
 
@@ -1085,6 +1156,7 @@ func (a *AggregatedBranch) ObjectStorageValue() []byte {
 		WriteBool(a.MonotonicallyLiked()).
 		WriteBool(a.Finalized()).
 		Write(a.InclusionState()).
+		WriteUint8(uint8(a.GradeOfFinality())).
 		Bytes()
 }
 
