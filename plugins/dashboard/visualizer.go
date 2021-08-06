@@ -30,11 +30,10 @@ var (
 
 // vertex defines a vertex in a DAG.
 type vertex struct {
-	ID              string   `json:"id"`
-	StrongParentIDs []string `json:"strongParentIDs"`
-	WeakParentIDs   []string `json:"weakParentIDs"`
-	IsFinalized     bool     `json:"is_finalized"`
-	IsTx            bool     `json:"is_tx"`
+	ID              string              `json:"id"`
+	ParentIDsByType map[string][]string `json:"parentIDsByType"`
+	IsFinalized     bool                `json:"is_finalized"`
+	IsTx            bool                `json:"is_tx"`
 }
 
 // tipinfo holds information about whether a given message is a tip or not.
@@ -53,8 +52,7 @@ func configureVisualizer() {
 		switch x := task.Param(0).(type) {
 		case *tangle.Message:
 			sendVertex(x, task.Param(1).(bool))
-		// TODO to remove
-		case tangle.TipType:
+		case *tangle.TipEvent:
 			sendTipInfo(task.Param(1).(tangle.MessageID), task.Param(2).(bool))
 		}
 
@@ -69,8 +67,7 @@ func configureVisualizer() {
 func sendVertex(msg *tangle.Message, finalized bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:              msg.ID().Base58(),
-		StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-		WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
+		ParentIDsByType: prepareParentReferences(msg),
 		IsFinalized:     finalized,
 		IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 	}}, true)
@@ -95,11 +92,11 @@ func runVisualizer() {
 	})
 
 	notifyNewTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
-		visualizerWorkerPool.TrySubmit(tipEvent.TipType, tipEvent.MessageID, true)
+		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.MessageID, true)
 	})
 
 	notifyDeletedTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
-		visualizerWorkerPool.TrySubmit(tipEvent.TipType, tipEvent.MessageID, false)
+		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.MessageID, false)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
@@ -132,8 +129,7 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 		for _, msg := range cpyHistory {
 			res = append(res, vertex{
 				ID:              msg.ID().Base58(),
-				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
+				ParentIDsByType: prepareParentReferences(msg),
 				IsFinalized:     msgFinalized[msg.ID().Base58()],
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 			})

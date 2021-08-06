@@ -5,8 +5,7 @@ import {default as Viva} from 'vivagraphjs';
 
 export class Vertex {
     id: string;
-    strongParentIDs: Array<string>;
-    weakParentIDs: Array<string>;
+    parentIDsByType: Map<String, Array<string>>;
     is_tip: boolean;
     is_finalized: boolean;
     is_tx: boolean;
@@ -52,15 +51,15 @@ export class VisualizerStore {
         this.routerStore = routerStore;
         this.fetchHistory();
         registerHandler(WSMsgType.Vertex, this.addVertex);
-        registerHandler(WSMsgType.TipInfo, this.addTipInfo); 
+        registerHandler(WSMsgType.TipInfo, this.addTipInfo);
     }
 
     fetchHistory = async () => {
         try {
-            let res = await fetch(`/api/visualizer/history`);           
+            let res = await fetch(`/api/visualizer/history`);
             let history: history = await res.json();
             history.vertices.forEach(v => {
-               this.addVertex(v); 
+                this.addVertex(v);
             });
         } catch (err) {
             console.log("Fail to fetch history in visualizer", err);
@@ -106,7 +105,7 @@ export class VisualizerStore {
     }
 
     @action
-    addVertex = (vert: Vertex) => {        
+    addVertex = (vert: Vertex) => {
         let existing = this.vertices.get(vert.id);
         if (existing) {
             if (!existing.is_finalized && vert.is_finalized) {
@@ -115,8 +114,7 @@ export class VisualizerStore {
             }
             // update parent1 and parent2 ids since we might be dealing
             // with a vertex obj only created from a tip info
-            existing.strongParentIDs = vert.strongParentIDs;
-            existing.weakParentIDs = vert.weakParentIDs;
+            existing.parentIDsByType = vert.parentIDsByType;
             vert = existing;
         } else {
             if (vert.is_finalized) {
@@ -172,11 +170,11 @@ export class VisualizerStore {
             if (vert.is_tip) {
                 this.tips_count--;
             }
-            vert.strongParentIDs.forEach((value) => {
-                this.deleteApproveeLink(value)
-            })
-            vert.weakParentIDs.forEach((value) => {
-                this.deleteApproveeLink(value)
+
+            Object.keys(vert.parentIDsByType).map((parentType) => {
+                vert.parentIDsByType[parentType].forEach((value) => {
+                    this.deleteApproveeLink(value)
+                })
             })
         }
     }
@@ -215,11 +213,10 @@ export class VisualizerStore {
         } else {
             node = this.graph.addNode(vert.id, vert);
         }
-
-        if (vert.strongParentIDs) {
-            vert.strongParentIDs.forEach((value) => {
+        Object.keys(vert.parentIDsByType).map((parentType) => {
+            vert.parentIDsByType[parentType].forEach((value) => {
                 // if value is valid AND (links is empty OR there is no between parent and children)
-                if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
+                if (value && ((!node.links || !node.links.some(link => link.fromId === value)))) {
                     // draw the link only when the parent exists
                     let existing = this.graph.getNode(value);
                     if (existing) {
@@ -227,23 +224,11 @@ export class VisualizerStore {
                     }
                 }
             })
-        }
-        if (vert.weakParentIDs){
-            vert.weakParentIDs.forEach((value) => {
-                // if value is valid AND (links is empty OR there is no between parent and children)
-                if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
-                    // draw the link only when the parent exists
-                    let existing = this.graph.getNode(value);
-                    if (existing) {
-                        this.graph.addLink(value, vert.id);
-                    }
-                }
-            })
-        }
+        })
     }
 
     colorForVertexState = (vert: Vertex) => {
-        if (!vert || (!vert.strongParentIDs && !vert.weakParentIDs)) return "#b58900";
+        if (!vert || !vert.parentIDsByType || Object.keys(vert.parentIDsByType).length === 0) return "#b58900";
         if (vert.is_tip) {
             return "#cb4b16";
         }
@@ -254,7 +239,7 @@ export class VisualizerStore {
             }
             return "#6c71c4"
         }
-        
+
         // pending
         if (vert.is_tx) {
             return "#393e46"
