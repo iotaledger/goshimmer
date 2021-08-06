@@ -1,6 +1,7 @@
 package spammer
 
 import (
+	"go.uber.org/atomic"
 	"math/rand"
 	"sync"
 	"time"
@@ -13,6 +14,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
+const (
+	// limit the number of max allowed go routines created during spam
+	maxGoroutines = 2
+)
+
 // IssuePayloadFunc is a function which issues a payload.
 type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*tangle.Message, error)
 
@@ -23,6 +29,7 @@ type Spammer struct {
 	running          typeutils.AtomicBool
 	shutdown         chan struct{}
 	wg               sync.WaitGroup
+	goroutinesCount  *atomic.Int32
 }
 
 // New creates a new spammer.
@@ -61,7 +68,7 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 	// create ticker with interval for default imif
 	ticker := time.NewTicker(timeUnit / time.Duration(rate))
 	defer ticker.Stop()
-
+	s.goroutinesCount = atomic.NewInt32(0)
 	for {
 		select {
 		case <-s.shutdown:
@@ -71,7 +78,13 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 			if imif == "poisson" {
 				ticker = time.NewTicker(time.Duration(float64(timeUnit.Nanoseconds()) * rand.ExpFloat64() / float64(rate)))
 			}
+			// start only if at most maxGoroutines not finished their work
+			if s.goroutinesCount.Load() >= maxGoroutines {
+				break
+			}
 			go func() {
+				s.goroutinesCount.Add(1)
+				defer s.goroutinesCount.Add(-1)
 				// we don't care about errors or the actual issued message
 				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
 				if errors.Is(err, tangle.ErrNotSynced) {
