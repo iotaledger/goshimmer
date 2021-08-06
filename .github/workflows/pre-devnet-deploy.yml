@@ -1,4 +1,4 @@
-name: Develop Docker Image
+name: Pre-devnet deploy
 
 on:
   push:
@@ -8,7 +8,8 @@ on:
       - 'docs/**'
 jobs:
 
-  docker:
+  deploy:
+    environment: pre-devnet
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: 1
@@ -51,7 +52,7 @@ jobs:
 
       - name: Install SSH Key
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.PRE_DEVNET_SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh/
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
@@ -64,12 +65,13 @@ jobs:
 
       - name: Ansible deploy
         env:
-          GOSHIMMER_SEEDS: '${{ secrets.PRE_DEVNET_GOSHIMMER_SEEDS }}'
+          GOSHIMMER_SEEDS: '${{ secrets.GOSHIMMER_SEEDS }}'
           MONGODB_USER: '${{ secrets.MONGODB_USER }}'
           MONGODB_PASSWORD: '${{ secrets.MONGODB_PASSWORD }}'
           GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
           ELK_ELASTIC_PASSWORD: '${{ secrets.ELK_ELASTIC_PASSWORD }}'
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
+          DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
           COMMIT_SHA: '${{ github.sha }}'
         run: |
           export NETWORK_VERSION=$((16#$(git rev-parse --short "$COMMIT_SHA")%1000000000+1000))

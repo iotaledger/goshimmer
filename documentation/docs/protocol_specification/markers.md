@@ -127,15 +127,15 @@ The rank of a sequence graph is the number of sequences from the starting point 
 Here is an example of how the markers and sequences structures would look in the Tangle:
 The purple colored messages are markers.
 
-![Example 1](../../static/img/protocol_specification/example_1.png "Example 1")
+![Example 1](/img/protocol_specification/example_1.png "Example 1")
 
 ## Example 2: Test for the Mapping interaction with the Booker
 
 The Marker tool implementation is tested for correct Marker and Booker mapping. A transaction-by-transaction discussion of the test can be found [here](https://github.com/iotaledger/goshimmer/blob/develop/packages/tangle/images/TestBookerMarkerMappings.md) and can be viewed by opening the file locally in a browser. Transactions arrive in the order of the their transaction number. The end result and the values in the various fields is shown in the following figures:
 
-![Example 2.1](../../static/img/protocol_specification/example_2_1.png "Example 2.1")
+![Example 2.1](/img/protocol_specification/example_2_1.png "Example 2.1")
 
-![Example 2.2](../../static/img/protocol_specification/example_2_2.png "Example 2.2")
+![Example 2.2](/img/protocol_specification/example_2_2.png "Example 2.2")
 
 ## Implementation details
 In the following we describe some of the functions in more detail.

@@ -14,8 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/timeutil"
-	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -39,7 +37,6 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
-	FIFOScheduler         *FIFOScheduler
 	Orderer               *Orderer
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
@@ -55,8 +52,6 @@ type Tangle struct {
 	Events                *Events
 
 	setupParserOnce sync.Once
-	fifoScheduling  typeutils.AtomicBool
-	shutdownSignal  chan struct{}
 }
 
 // New is the constructor for the Tangle.
@@ -67,7 +62,6 @@ func New(options ...Option) (tangle *Tangle) {
 			MessageInvalid:  events.NewEvent(MessageIDCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},
-		shutdownSignal: make(chan struct{}),
 	}
 
 	tangle.Configure(options...)
@@ -76,7 +70,6 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Storage = NewStorage(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.FIFOScheduler = NewFIFOScheduler(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
@@ -117,7 +110,6 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
-	t.FIFOScheduler.Setup()
 	t.Scheduler.Setup()
 	t.Orderer.Setup()
 	t.Booker.Setup()
@@ -134,40 +126,8 @@ func (t *Tangle) Setup() {
 		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
 	}))
 
-	// we are never using the FIFOScheduler when the node is started in a synced state
-	t.fifoScheduling.SetTo(!t.Synced())
-
-	// start the corresponding scheduler
-	if t.fifoScheduling.IsSet() {
-		t.FIFOScheduler.Start()
-	} else {
-		t.Scheduler.Start()
-	}
-
-	t.TimeManager.Start()
-
-	// pass solid messages to the scheduler
-	t.Solidifier.Events.MessageSolid.Attach(events.NewClosure(t.schedule))
-
-	var switchSchedulerOnce sync.Once
-	// switch the scheduler, the first time we get synced
-	t.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(e *SyncChangedEvent) {
-		// only switch, if we became synced and the FIFO scheduler is currently running
-		if !e.Synced || !t.fifoScheduling.IsSet() {
-			return
-		}
-		switchSchedulerOnce.Do(func() {
-			// switching the scheduler takes some time, so we must not do it directly in the event func
-			go func() {
-				// delay the actual switch by the sync time windows, the SyncChange event will be triggered
-				// at least this duration before the most recent messages have been solidified
-				if timeutil.Sleep(t.Options.SyncTimeWindow, t.shutdownSignal) {
-					t.fifoScheduling.SetTo(false) // stop adding new messages to the FIFO scheduler
-					t.FIFOScheduler.Shutdown()    // schedule remaining messages
-					t.Scheduler.Start()           // start the actual scheduler
-				}
-			}()
-		})
+	t.Scheduler.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
 	}))
 }
 
@@ -219,10 +179,7 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
-	close(t.shutdownSignal)
-
 	t.MessageFactory.Shutdown()
-	t.FIFOScheduler.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()
 	t.Booker.Shutdown()
@@ -236,19 +193,6 @@ func (t *Tangle) Shutdown() {
 
 	if t.WeightProvider != nil {
 		t.WeightProvider.Shutdown()
-	}
-}
-
-// schedule schedules the message with the given id.
-func (t *Tangle) schedule(id MessageID) {
-	// during bootstrapping use the FIFOScheduler for everything
-	if t.fifoScheduling.IsSet() {
-		t.FIFOScheduler.Schedule(id)
-		return
-	}
-
-	if err := t.Scheduler.SubmitAndReady(id); err != nil {
-		t.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 	}
 }
 

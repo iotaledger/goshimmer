@@ -119,7 +119,7 @@ module.exports = {
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           editUrl:
-            'https://github.com/iotaledger/Goshimmer/tree/develop/docOps/',
+            'https://github.com/iotaledger/goshimmer/tree/develop/documentation/',
         },
         theme: {
           customCss: require.resolve('./src/css/iota.css'),

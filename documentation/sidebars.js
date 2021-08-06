@@ -32,7 +32,7 @@ module.exports = {
     {
       type: 'doc',
       label: 'Obtain tokens',
-      id: 'tutorials/send_transaction',
+      id: 'tutorials/obtain_tokens',
     },
     {
       type: 'doc',

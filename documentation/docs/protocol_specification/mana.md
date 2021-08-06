@@ -63,7 +63,7 @@ module (FPC, Autopeering, DRNG, Rate Control, tools, etc.).
 
 Following figure summarizes how `Access Mana` and `Consensus Mana` is derived from a transaction:
 
-![Mana](../../static/img/protocol_specification/mana.png "Mana")
+![Mana](/img/protocol_specification/mana.png "Mana")
 
 The reason for having two separate `Base Mana Vectors` is the fact, that `accessMana` and `consensusMana` can be pledged
 to different nodes.

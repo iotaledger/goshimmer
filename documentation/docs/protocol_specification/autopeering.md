@@ -18,7 +18,7 @@ Once a peer has been verified, it can be queried to discover new peers by sendin
 
 This process is summarized in the following figure and detailed in the following subsections:
 
-![Peer discovery](../../static/img/protocol_specification/peer_discovery.png "Peer discovery")
+![Peer discovery](/img/protocol_specification/peer_discovery.png "Peer discovery")
 
 
 ### Verification
