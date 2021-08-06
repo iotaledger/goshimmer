@@ -5,10 +5,11 @@ import {
     DrngCbPayload,
     DrngPayload,
     DrngSubtype,
-    PayloadType,
-    TransactionPayload,
     getPayloadType,
-    Output, SigLockedSingleOutput
+    Output,
+    PayloadType,
+    SigLockedSingleOutput,
+    TransactionPayload
 } from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
@@ -25,8 +26,7 @@ export class Message {
     issuer_public_key: string;
     issuer_short_id: string;
     signature: string;
-    strongParents: Array<string>;
-    weakParents: Array<string>;
+    parentsByType: Map<string, Array<string>>;
     strongApprovers: Array<string>;
     weakApprovers: Array<string>;
     solid: boolean;

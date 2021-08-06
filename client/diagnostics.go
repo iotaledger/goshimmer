@@ -24,10 +24,6 @@ const (
 	RouteDiagnosticsInvalidBranches = RouteDiagnosticsBranches + "/invalid"
 	// RouteDiagnosticsTips is the API route for tips diagnostics
 	RouteDiagnosticsTips = routeDiagnostics + "/tips"
-	// RouteDiagnosticsStrongTips is the API route for strong tips diagnostics
-	RouteDiagnosticsStrongTips = RouteDiagnosticsTips + "/strong"
-	// RouteDiagnosticsWeakTips is the API route for weak tips diagnostics
-	RouteDiagnosticsWeakTips = RouteDiagnosticsTips + "/weak"
 	// RouteDiagnosticsDRNG is the API route for DRNG diagnostics
 	RouteDiagnosticsDRNG = routeDiagnostics + "/drng"
 )
