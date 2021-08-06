@@ -21,6 +21,7 @@ type Spammer struct {
 	issuePayloadFunc IssuePayloadFunc
 	log              *logger.Logger
 	running          typeutils.AtomicBool
+	shutdown         chan struct{}
 	wg               sync.WaitGroup
 }
 
@@ -28,6 +29,7 @@ type Spammer struct {
 func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger) *Spammer {
 	return &Spammer{
 		issuePayloadFunc: issuePayloadFunc,
+		shutdown:         make(chan struct{}),
 		log:              log,
 	}
 }
@@ -44,42 +46,38 @@ func (s *Spammer) Start(rate int, timeUnit time.Duration, imif string) {
 
 // Shutdown shuts down the spammer.
 func (s *Spammer) Shutdown() {
-	s.running.SetTo(false)
+	s.signalShutdown()
 	s.wg.Wait()
+}
+
+func (s *Spammer) signalShutdown() {
+	if s.running.SetToIf(true, false) {
+		s.shutdown <- struct{}{}
+	}
 }
 
 func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 	defer s.wg.Done()
-
 	// create ticker with interval for default imif
 	ticker := time.NewTicker(timeUnit / time.Duration(rate))
 	defer ticker.Stop()
 
-	done := make(chan bool)
-	wg := sync.WaitGroup{}
-
 	for {
 		select {
-		case <-done:
-			wg.Wait()
+		case <-s.shutdown:
 			return
 		case <-ticker.C:
-			wg.Add(1)
 			// adjust the ticker interval for the poisson imif
 			if imif == "poisson" {
 				ticker = time.NewTicker(time.Duration(float64(timeUnit.Nanoseconds()) * rand.ExpFloat64() / float64(rate)))
 			}
 			go func() {
-				defer wg.Done()
-				if !s.running.IsSet() {
-					// the spammer has stopped
-					done <- true
-				}
 				// we don't care about errors or the actual issued message
 				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
 				if errors.Is(err, tangle.ErrNotSynced) {
 					s.log.Info("Stopped spamming messages because node lost sync")
-					done <- true
+					s.signalShutdown()
+					return
 				}
 				if err != nil {
 					s.log.Warnf("could not issue spam payload: %s", err)
