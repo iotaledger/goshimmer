@@ -187,6 +187,7 @@ const (
 	LikeParentType
 )
 
+// String returns string representation of ParentsType
 func (bp ParentsType) String() string {
 	return []string{"Strong Parent", "Weak Parent", "Dislike Parent", "Like Parent"}[bp]
 }

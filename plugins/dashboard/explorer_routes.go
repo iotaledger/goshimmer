@@ -107,19 +107,14 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 }
 
 func prepareParentReferences(msg *tangle.Message) map[string][]string {
-	parentsByType := make(map[string]tangle.MessageIDs)
-	parentsStringsByType := make(map[string][]string)
+	parentsByType := make(map[string][]string)
 	msg.ForEachParent(func(parent tangle.Parent) {
 		if _, ok := parentsByType[parent.Type.String()]; !ok {
-			parentsByType[parent.Type.String()] = tangle.MessageIDs{}
+			parentsByType[parent.Type.String()] = make([]string, 0)
 		}
-		parentsByType[parent.Type.String()] = append(parentsByType[parent.Type.String()], parent.ID)
+		parentsByType[parent.Type.String()] = append(parentsByType[parent.Type.String()], parent.ID.Base58())
 	})
-
-	for parentsType, parents := range parentsByType {
-		parentsStringsByType[parentsType] = parents.ToStrings()
-	}
-	return parentsStringsByType
+	return parentsByType
 }
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
