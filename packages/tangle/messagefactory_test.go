@@ -176,8 +176,6 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 		t.Logf("Error fired: %v", err)
 	}))
 
-	branches := make(map[string]ledgerstate.BranchID)
-
 	// Message 1
 	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
 
@@ -188,15 +186,15 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
 	testFramework.IssueMessages("1", "2", "3").WaitMessagesBooked()
 
-	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
-	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
-	branches["3"], _ = transactionBranchID(tangle, testFramework.TransactionID("3"))
+	testFramework.RegisterBranchID("1", "1")
+	testFramework.RegisterBranchID("2", "2")
+	testFramework.RegisterBranchID("3", "3")
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		disliked: ledgerstate.NewBranchIDs(branches["3"]),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {
-			consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]},
-			consensus.OpinionTuple{Liked: branches["1"], Disliked: branches["3"]},
+		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3")),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{testFramework.BranchID("3"): {
+			consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")},
+			consensus.OpinionTuple{Liked: testFramework.BranchID("1"), Disliked: testFramework.BranchID("3")},
 		}},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
@@ -226,8 +224,6 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 		t.Logf("Error fired: %v", err)
 	}))
 
-	branches := make(map[string]ledgerstate.BranchID)
-
 	// Message 1
 	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500), WithIssuingTime(time.Now().Add(5*time.Minute)))
 
@@ -241,16 +237,16 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	testFramework.CreateMessage("4", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O6", 500))
 	testFramework.IssueMessages("1", "2", "3", "4").WaitMessagesBooked()
 
-	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
-	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
-	branches["3"], _ = transactionBranchID(tangle, testFramework.TransactionID("3"))
-	branches["4"], _ = transactionBranchID(tangle, testFramework.TransactionID("4"))
+	testFramework.RegisterBranchID("1", "1")
+	testFramework.RegisterBranchID("2", "2")
+	testFramework.RegisterBranchID("3", "3")
+	testFramework.RegisterBranchID("4", "4")
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		disliked: ledgerstate.NewBranchIDs(branches["3"], branches["4"]),
+		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3"), testFramework.BranchID("4")),
 		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{
-			branches["3"]: {consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]}},
-			branches["4"]: {consensus.OpinionTuple{Liked: branches["1"], Disliked: branches["4"]}},
+			testFramework.BranchID("3"): {consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")}},
+			testFramework.BranchID("4"): {consensus.OpinionTuple{Liked: testFramework.BranchID("1"), Disliked: testFramework.BranchID("4")}},
 		},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
@@ -272,7 +268,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	// Add reattachment that is older than the original message
 	// Message 5 (reattachment)
-	testFramework.CreateMessage("5", WithStrongParents("Genesis"), ReattachmentOf("1"))
+	testFramework.CreateMessage("5", WithStrongParents("Genesis"), WithReattachment("1"))
 	testFramework.IssueMessages("5").WaitMessagesBooked()
 
 	// Select oldest attachment of the message.
@@ -299,8 +295,6 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 		t.Logf("Error fired: %v", err)
 	}))
 
-	branches := make(map[string]ledgerstate.BranchID)
-
 	// Message 1
 	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
 
@@ -311,16 +305,17 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
 	testFramework.IssueMessages("1", "2", "3").WaitMessagesBooked()
 
-	branches["1"], _ = transactionBranchID(tangle, testFramework.TransactionID("1"))
-	branches["2"], _ = transactionBranchID(tangle, testFramework.TransactionID("2"))
-	branches["3"], _ = transactionBranchID(tangle, testFramework.TransactionID("3"))
+	testFramework.RegisterBranchID("1", "1")
+	testFramework.RegisterBranchID("2", "2")
+	testFramework.RegisterBranchID("3", "3")
 
-	nonExistingBranchID := aggregatedBranchID(branches["2"], branches["3"])
+	nonExistingBranchID := ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2"))).ID()
+
 	mockOTV := &SimpleMockOnTangleVoting{
-		disliked: ledgerstate.NewBranchIDs(branches["3"]),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{branches["3"]: {
-			consensus.OpinionTuple{Liked: branches["2"], Disliked: branches["3"]},
-			consensus.OpinionTuple{Liked: nonExistingBranchID, Disliked: branches["3"]},
+		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3")),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{testFramework.BranchID("3"): {
+			consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")},
+			consensus.OpinionTuple{Liked: nonExistingBranchID, Disliked: testFramework.BranchID("3")},
 		}},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)

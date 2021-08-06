@@ -20,6 +20,8 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
@@ -2334,6 +2336,8 @@ type OutputMetadata struct {
 	finalizedMutex          sync.RWMutex
 	confirmedConsumer       TransactionID // not nil if the spending transaction of the output is finalized
 	confirmedConsumerMutex  sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -2394,6 +2398,12 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = errors.Errorf("failed to parse confirmed consumer: %w", err)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -2516,14 +2526,6 @@ func (o *OutputMetadata) Finalized() (finalized bool) {
 	return o.finalized
 }
 
-// ConfirmedConsumer returns the consumer that spent the transaction if the consumer is confirmed already
-func (o *OutputMetadata) ConfirmedConsumer() TransactionID {
-	o.confirmedConsumerMutex.RLock()
-	defer o.confirmedConsumerMutex.RUnlock()
-
-	return o.confirmedConsumer
-}
-
 // SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.Lock()
@@ -2538,6 +2540,36 @@ func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	modified = true
 
 	return
+}
+
+// GradeOfFinality returns the grade of finality.
+func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
+	o.gradeOfFinalityMutex.RLock()
+	defer o.gradeOfFinalityMutex.RUnlock()
+	return o.gradeOfFinality
+}
+
+// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
+func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	o.gradeOfFinalityMutex.Lock()
+	defer o.gradeOfFinalityMutex.Unlock()
+
+	if o.gradeOfFinality == gradeOfFinality {
+		return
+	}
+
+	o.gradeOfFinality = gradeOfFinality
+	o.SetModified()
+	modified = true
+	return
+}
+
+// ConfirmedConsumer returns the consumer that spent the transaction if the consumer is confirmed already
+func (o *OutputMetadata) ConfirmedConsumer() TransactionID {
+	o.confirmedConsumerMutex.RLock()
+	defer o.confirmedConsumerMutex.RUnlock()
+
+	return o.confirmedConsumer
 }
 
 // SetConfirmedConsumer updates the confirmedConsumer of the output.
@@ -2572,6 +2604,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
 		stringify.StructField("finalized", o.Finalized()),
 		stringify.StructField("confirmedConsumer", o.ConfirmedConsumer()),
+		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
 	)
 }
 
@@ -2597,6 +2630,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		Write(o.FirstConsumer()).
 		WriteBool(o.Finalized()).
 		Write(o.ConfirmedConsumer()).
+		WriteUint8(uint8(o.GradeOfFinality())).
 		Bytes()
 }
 

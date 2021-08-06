@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -55,7 +54,6 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	if err != nil {
 		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
 			inheritedBranch = ledgerstate.InvalidBranchID
-			err = nil
 			return
 		}
 
@@ -103,18 +101,13 @@ func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledg
 func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
 	targetBranch, err = l.UTXODAG.BookTransaction(transaction)
 	if err != nil {
-		if !errors.Is(err, ledgerstate.ErrTransactionInvalid) && !errors.Is(err, ledgerstate.ErrTransactionNotSolid) {
-			err = errors.Errorf("failed to book Transaction: %w", err)
-			return
-		}
+		err = errors.Errorf("failed to book Transaction: %w", err)
 
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
 			messagemetadata.SetInvalid(true)
 		})
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
 
-		// non-fatal errors should not bubble up - we trigger a MessageInvalid event instead
-		err = nil
 		return
 	}
 
@@ -167,7 +160,6 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 	l.UTXODAG.LoadSnapshot(snapshot)
 	// add attachment link between txs from snapshot and the genesis message (EmptyMessageID).
 	for txID, record := range snapshot.Transactions {
-		fmt.Println("... Loading snapshot transaction: ", txID, "#outputs=", len(record.Essence.Outputs()), record.UnspentOutputs)
 		attachment, _ := l.tangle.Storage.StoreAttachment(txID, EmptyMessageID)
 		if attachment != nil {
 			attachment.Release()

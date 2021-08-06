@@ -20,6 +20,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -697,6 +698,8 @@ type TransactionMetadata struct {
 	finalizedMutex          sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -747,6 +750,12 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -879,6 +888,28 @@ func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 	return
 }
 
+// GradeOfFinality returns the grade of finality.
+func (t *TransactionMetadata) GradeOfFinality() gof.GradeOfFinality {
+	t.gradeOfFinalityMutex.RLock()
+	defer t.gradeOfFinalityMutex.RUnlock()
+	return t.gradeOfFinality
+}
+
+// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
+func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	t.gradeOfFinalityMutex.Lock()
+	defer t.gradeOfFinalityMutex.Unlock()
+
+	if t.gradeOfFinality == gradeOfFinality {
+		return
+	}
+
+	t.gradeOfFinality = gradeOfFinality
+	t.SetModified()
+	modified = true
+	return
+}
+
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
 func (t *TransactionMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(t.ObjectStorageKey(), t.ObjectStorageValue())
@@ -893,6 +924,7 @@ func (t *TransactionMetadata) String() string {
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("finalized", t.Finalized()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
+		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
 	)
 }
 
@@ -916,6 +948,7 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.Finalized()).
 		WriteBool(t.LazyBooked()).
+		WriteUint8(uint8(t.GradeOfFinality())).
 		Bytes()
 }
 
