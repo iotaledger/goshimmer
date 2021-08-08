@@ -120,6 +120,7 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		Invalid:            metadata.IsInvalid(),
 		Finalized:          metadata.IsFinalized(),
 		FinalizedTime:      metadata.FinalizedTime().Unix(),
+		GradeOfFinality:    metadata.GradeOfFinality(),
 	}
 }
 

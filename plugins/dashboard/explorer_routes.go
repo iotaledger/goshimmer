@@ -33,10 +33,8 @@ type ExplorerMessage struct {
 	IssuerShortID string `json:"issuer_short_id"`
 	// The signature of the message.
 	Signature string `json:"signature"`
-	// StrongParents are the strong parents (references) of the message.
-	StrongParents []string `json:"strongParents"`
-	// WeakParents are the weak parents (references) of the message.
-	WeakParents []string `json:"weakParents"`
+	// ParentsByType is the map of parents group by type
+	ParentsByType map[string][]string `json:"parentsByType"`
 	// StrongApprovers are the strong approvers of the message.
 	StrongApprovers []string `json:"strongApprovers"`
 	// WeakApprovers are the weak approvers of the message.
@@ -82,8 +80,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		IssuerShortID:           identity.NewID(msg.IssuerPublicKey()).String(),
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
-		StrongParents:           msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-		WeakParents:             msg.ParentsByType(tangle.WeakParentType).ToStrings(),
+		ParentsByType:           prepareParentReferences(msg),
 		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
@@ -107,6 +104,17 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	}
 
 	return t
+}
+
+func prepareParentReferences(msg *tangle.Message) map[string][]string {
+	parentsByType := make(map[string][]string)
+	msg.ForEachParent(func(parent tangle.Parent) {
+		if _, ok := parentsByType[parent.Type.String()]; !ok {
+			parentsByType[parent.Type.String()] = make([]string, 0)
+		}
+		parentsByType[parent.Type.String()] = append(parentsByType[parent.Type.String()], parent.ID.Base58())
+	})
+	return parentsByType
 }
 
 // ExplorerAddress defines the struct of the ExplorerAddress.

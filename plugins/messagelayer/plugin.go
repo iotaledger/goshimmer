@@ -5,6 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/node"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -12,13 +20,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
-
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
 )
 
 var (
@@ -27,6 +28,8 @@ var (
 
 	// ErrMessageWasNotIssuedInTime is returned if a message did not get issued within the defined await time.
 	ErrMessageWasNotIssuedInTime = errors.New("message could not be issued in time")
+
+	snapshotLoadedKey = kvstore.Key("snapshot_loaded")
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,14 +68,6 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("message with %s rejected in Parser: %v", ev.Message.ID().Base58(), err)
 	}))
 
-	Tangle().FIFOScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message discarded in FIFOScheduler %s", messageID.Base58())
-	}))
-
-	Tangle().FIFOScheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("node %s is blacklisted in FIFOScheduler", nodeID.String())
-	}))
-
 	Tangle().Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		plugin.LogInfof("message rejected in Scheduler: %s", messageID.Base58())
 	}))
@@ -98,17 +93,24 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// read snapshot file
-	if Parameters.Snapshot.File != "" {
+	if loaded, _ := database.Store().Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		snapshot := &ledgerstate.Snapshot{}
 		f, err := os.Open(Parameters.Snapshot.File)
 		if err != nil {
 			plugin.Panic("can not open snapshot file:", err)
 		}
+		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 		if _, err := snapshot.ReadFrom(f); err != nil {
 			plugin.Panic("could not read snapshot file in message layer plugin:", err)
 		}
 		Tangle().LedgerState.LoadSnapshot(snapshot)
-		plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
+		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
+
+		// Set flag that we read the snapshot already, so we don't have to do it again after a restart.
+		err = database.Store().Set(snapshotLoadedKey, kvstore.Value{})
+		if err != nil {
+			plugin.LogErrorf("could not store snapshot_loaded flag: %v")
+		}
 	}
 
 	configureApprovalWeight()

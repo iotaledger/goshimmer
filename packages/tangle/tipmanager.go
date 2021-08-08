@@ -17,13 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-// region TipType //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TipType is the type (weak/strong) of the tip.
-type TipType uint8 // TODO remove tip type from visualiser configureVisualizer()
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region TimedTaskExecutor ////////////////////////////////////////////////////////////////////////////////////////////
 
 // TimedTaskExecutor is a TimedExecutor that internally manages the scheduled callbacks as tasks with a unique
@@ -347,9 +340,6 @@ type TipManagerEvents struct {
 type TipEvent struct {
 	// MessageID of the added/removed tip.
 	MessageID MessageID
-
-	// TipType is the type of the added/removed tip.
-	TipType TipType
 }
 
 func tipEventHandler(handler interface{}, params ...interface{}) {

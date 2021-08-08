@@ -236,7 +236,6 @@ type neighbormetric struct {
 
 type tipsInfo struct {
 	TotalTips int `json:"totaltips"`
-	WeakTips  int `json:"weaktips"`
 }
 
 type componentsmetric struct {

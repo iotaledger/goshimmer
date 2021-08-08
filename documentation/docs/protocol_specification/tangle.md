@@ -346,7 +346,7 @@ Each message can express two levels of approval with respect to its parents:
 
 Let's consider the following example:
 
-![Detailed Design Example](../../static/img/protocol_specification/detailed_desing.png "Detailed Design Example")
+![Detailed Design Example](/img/protocol_specification/detailed_desing.png "Detailed Design Example")
 
 Message *D* contains a transaction that has been rejected, thus, due to the monotonicity rule, its future cone must be orphaned. Both messages *F* (transaction) and *E* (data) directly reference *D* and, traditionally, they should not be considered for tip selection. However, by introducing the approval switch, these messages can be picked up via a **weak** reference as messages *G* and *H* show.
 
@@ -384,7 +384,7 @@ A message inherits the branch of its strong parents, while it does not inherit t
 The approval weight of a given message takes into account all of its future cone built over all its strong approvers.
 Let's consider the following example:
 
-![Approval Weight](../../static/img/protocol_specification/approval_weight_example.png "Approval Weight")
+![Approval Weight](/img/protocol_specification/approval_weight_example.png "Approval Weight")
 
 *E* is a weak message strongly approving *B* and *D*. When considering the approval weight of *B*, only the strong approvers of its future cone are used, thus, *D, E, F*. Note that, the approval weight of *E* would instead be built over *G, H, I*. Therefore, its approval weight does not add up to its own weight (for instance, when looking at the approval weight of *B*).
 
@@ -473,4 +473,4 @@ func Synced() bool {
 ```
 
 The following figure displays the Tangle Time visually: 
-![Tangle Time Example](../../static/img/protocol_specification/tangle_time.jpg "Tangle Time Example")
+![Tangle Time Example](/img/protocol_specification/tangle_time.jpg "Tangle Time Example")

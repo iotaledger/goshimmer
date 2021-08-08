@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -91,7 +92,6 @@ var DiagnosticBranchesTableDescription = []string{
 	"ConflictSet",
 	"IssuanceTime",
 	"SolidTime",
-	"OpinionFormedTime",
 	"Liked",
 	"MonotonicallyLiked",
 	"InclusionState",
@@ -105,12 +105,12 @@ type DiagnosticBranchInfo struct {
 	ConflictSet        []string
 	IssuanceTimestamp  time.Time
 	SolidTime          time.Time
-	OpinionFormedTime  time.Time
 	Liked              bool
 	MonotonicallyLiked bool
 	InclusionState     string
 	Finalized          bool
 	LazyBooked         bool
+	GradeOfFinality    gof.GradeOfFinality
 }
 
 func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchInfo {
@@ -122,6 +122,7 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 		conflictInfo.Liked = branch.Liked()
 		conflictInfo.MonotonicallyLiked = branch.MonotonicallyLiked()
 		conflictInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(branchID).String()
+		conflictInfo.GradeOfFinality = branch.GradeOfFinality()
 
 		if branch.Type() == ledgerstate.AggregatedBranchType {
 			return
@@ -151,7 +152,6 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		strings.Join(d.ConflictSet, ";"),
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
-		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
 		fmt.Sprint(d.Liked),
 		fmt.Sprint(d.MonotonicallyLiked),
 		d.InclusionState,

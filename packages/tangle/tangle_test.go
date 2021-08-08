@@ -334,9 +334,9 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{})
-	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
-	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
+	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
+	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
+	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
 
 	var wg sync.WaitGroup
 
@@ -530,11 +530,6 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		n := atomic.AddInt32(&scheduledMessages, 1)
-		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
-	}))
-
 	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&bookedMessages, 1)
 		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, messageID)
@@ -571,10 +566,10 @@ func TestTangle_Flow(t *testing.T) {
 	}
 
 	// wait for all messages to have a formed opinion
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&opinionFormedMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&opinionFormedMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
 	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))

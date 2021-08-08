@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -193,6 +194,11 @@ const (
 	DislikeParentType
 	LikeParentType
 )
+
+// String returns string representation of ParentsType
+func (bp ParentsType) String() string {
+	return []string{"Strong Parent", "Weak Parent", "Dislike Parent", "Like Parent"}[bp]
+}
 
 type ParentsBlock struct {
 	ParentsType
@@ -574,7 +580,7 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 	for _, parentBlock := range m.parentsBlocks {
 		for _, parentID := range parentBlock.References {
 			consumer(Parent{
-				Type: uint8(parentBlock.ParentsType),
+				Type: parentBlock.ParentsType,
 				ID:   parentID,
 			})
 		}
@@ -728,7 +734,7 @@ func (m *Message) String() string {
 // Parent is a parent that can be either strong or weak.
 type Parent struct {
 	ID   MessageID
-	Type uint8
+	Type ParentsType
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -790,6 +796,7 @@ type MessageMetadata struct {
 	invalid            bool
 	finalized          bool
 	finalizedTime      time.Time
+	gradeOfFinality    gof.GradeOfFinality
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
@@ -803,6 +810,7 @@ type MessageMetadata struct {
 	invalidMutex            sync.RWMutex
 	finalizedMutex          sync.RWMutex
 	finalizedTimeMutex      sync.RWMutex
+	gradeOfFinalityMutex    sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -882,6 +890,12 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse finalized time of message metadata: %w", err)
 		return
 	}
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = fmt.Errorf("failed to parse grade of finality of message metadata: %w", err)
+		return
+	}
+	result.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -1156,6 +1170,31 @@ func (m *MessageMetadata) FinalizedTime() time.Time {
 	return m.finalizedTime
 }
 
+// SetGradeOfFinality sets the grade of finality associated with this metadata.
+// It returns true if the grade of finality is modified. False otherwise.
+func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	m.gradeOfFinalityMutex.Lock()
+	defer m.gradeOfFinalityMutex.Unlock()
+
+	if m.gradeOfFinality == gradeOfFinality {
+		return false
+	}
+
+	m.gradeOfFinality = gradeOfFinality
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// GradeOfFinality returns the grade of finality.
+func (m *MessageMetadata) GradeOfFinality() (result gof.GradeOfFinality) {
+	m.gradeOfFinalityMutex.RLock()
+	defer m.gradeOfFinalityMutex.RUnlock()
+
+	return m.gradeOfFinality
+}
+
 // Bytes returns a marshaled version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
@@ -1184,6 +1223,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBool(m.IsInvalid()).
 		WriteBool(m.IsFinalized()).
 		WriteTime(m.FinalizedTime()).
+		WriteUint8(uint8(m.GradeOfFinality())).
 		Bytes()
 }
 
@@ -1210,6 +1250,7 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("invalid", m.IsInvalid()),
 		stringify.StructField("finalized", m.IsFinalized()),
 		stringify.StructField("finalizedTime", m.FinalizedTime()),
+		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
 	)
 }
 
