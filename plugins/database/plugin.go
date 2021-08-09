@@ -1,12 +1,12 @@
-// Package database is a plugin that manages the pebble database (e.g. garbage collection).
+// Package database is a plugin that manages the RocksDB database (e.g. garbage collection).
 package database
 
 import (
-	"errors"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the database plugin.
@@ -26,15 +25,17 @@ var (
 	pluginOnce sync.Once
 	log        *logger.Logger
 
-	db        database.DB
-	store     kvstore.KVStore
-	storeOnce sync.Once
+	db                database.DB
+	store             kvstore.KVStore
+	cacheTimeProvider *database.CacheTimeProvider
+	storeOnce         sync.Once
+	cacheProviderOnce sync.Once
 )
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
 	return plugin
 }
@@ -43,6 +44,16 @@ func Plugin() *node.Plugin {
 func Store() kvstore.KVStore {
 	storeOnce.Do(createStore)
 	return store
+}
+
+// CacheTimeProvider  returns the cacheTimeProvider instance
+func CacheTimeProvider() *database.CacheTimeProvider {
+	cacheProviderOnce.Do(createCacheTimeProvider)
+	return cacheTimeProvider
+}
+
+func createCacheTimeProvider() {
+	cacheTimeProvider = database.NewCacheTimeProvider(Parameters.ForceCacheTime)
 }
 
 // StoreRealm is a factory method for a different realm backed by the KVStore instance.
@@ -54,11 +65,10 @@ func createStore() {
 	log = logger.NewLogger(PluginName)
 
 	var err error
-	if config.Node().Bool(CfgDatabaseInMemory) {
+	if Parameters.InMemory {
 		db, err = database.NewMemDB()
 	} else {
-		dbDir := config.Node().String(CfgDatabaseDir)
-		db, err = database.NewDB(dbDir)
+		db, err = database.NewDB(Parameters.Directory)
 	}
 	if err != nil {
 		log.Fatal("Unable to open the database, please delete the database folder. Error: %s", err)
@@ -79,10 +89,10 @@ func configure(_ *node.Plugin) {
 		log.Fatalf("Failed to check database version: %s", err)
 	}
 
-	if str := config.Node().String(CfgDatabaseDirty); str != "" {
-		val, err := strconv.ParseBool(str)
+	if Parameters.Directory != "" {
+		val, err := strconv.ParseBool(Parameters.Dirty)
 		if err != nil {
-			log.Warnf("Invalid %s: %s", CfgDatabaseDirty, err)
+			log.Warnf("Invalid database.dirty flag: %s", err)
 		} else if val {
 			MarkDatabaseUnhealthy()
 		} else {
@@ -101,6 +111,10 @@ func configure(_ *node.Plugin) {
 
 	// run GC up on startup
 	runDatabaseGC()
+}
+
+func run(*node.Plugin) {
+	// placeholder
 }
 
 // manageDBLifetime takes care of managing the lifetime of the database. It marks the database as dirty up on

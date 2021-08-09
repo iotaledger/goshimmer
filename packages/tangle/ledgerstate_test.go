@@ -8,12 +8,11 @@ import (
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestLoadSnapshot(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	ledgerState := tangle.LedgerState
@@ -29,7 +28,7 @@ func TestLoadSnapshot(t *testing.T) {
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -39,8 +38,12 @@ func TestLoadSnapshot(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 

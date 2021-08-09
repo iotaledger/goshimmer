@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // ConsensusBaseManaVector represents a base mana vector.
@@ -37,39 +37,39 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
-// BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
-// `eventLogs` is expected to be sorted chronologically.
-func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
-	if c.vector == nil {
-		c.vector = make(map[identity.ID]*ConsensusBaseMana)
-	}
-	for _, _ev := range eventsLog {
-		switch _ev.Type() {
-		case EventTypePledge:
-			ev := _ev.(*PledgedEvent)
-			if ev.Time.After(t) {
-				return nil
-			}
-			if _, exist := c.vector[ev.NodeID]; !exist {
-				c.vector[ev.NodeID] = &ConsensusBaseMana{}
-			}
-			c.vector[ev.NodeID].pledge(txInfoFromPledgeEvent(ev))
-		case EventTypeRevoke:
-			ev := _ev.(*RevokedEvent)
-			if ev.Time.After(t) {
-				return nil
-			}
-			if _, exist := c.vector[ev.NodeID]; !exist {
-				c.vector[ev.NodeID] = &ConsensusBaseMana{}
-			}
-			err := c.vector[ev.NodeID].revoke(ev.Amount, ev.Time)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
+//// BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
+//// `eventLogs` is expected to be sorted chronologically.
+//func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
+//	if c.vector == nil {
+//		c.vector = make(map[identity.ID]*ConsensusBaseMana)
+//	}
+//	for _, _ev := range eventsLog {
+//		switch _ev.Type() {
+//		case EventTypePledge:
+//			ev := _ev.(*PledgedEvent)
+//			if ev.Time.After(t) {
+//				return nil
+//			}
+//			if _, exist := c.vector[ev.NodeID]; !exist {
+//				c.vector[ev.NodeID] = &ConsensusBaseMana{}
+//			}
+//			c.vector[ev.NodeID].pledge(txInfoFromPledgeEvent(ev))
+//		case EventTypeRevoke:
+//			ev := _ev.(*RevokedEvent)
+//			if ev.Time.After(t) {
+//				return nil
+//			}
+//			if _, exist := c.vector[ev.NodeID]; !exist {
+//				c.vector[ev.NodeID] = &ConsensusBaseMana{}
+//			}
+//			err := c.vector[ev.NodeID].revoke(ev.Amount, ev.Time)
+//			if err != nil {
+//				return err
+//			}
+//		}
+//	}
+//	return nil
+//}
 
 func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 	return &TxInfo{
@@ -92,104 +92,113 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 }
 
 // LoadSnapshot loads the snapshot.
-func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotInfo, snapshotTime time.Time) {
+func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
 	c.Lock()
 	defer c.Unlock()
 
-	for nodeID, info := range snapshot {
-		c.vector[nodeID] = &ConsensusBaseMana{
-			BaseMana1:          info.Value,
-			EffectiveBaseMana1: info.Value,
-			LastUpdated:        snapshotTime,
+	for nodeID, records := range snapshot {
+		var value float64
+		for _, record := range records.SortedTxSnapshot {
+			value += record.Value
+
+			// trigger event
+			Events().Pledged.Trigger(&PledgedEvent{
+				NodeID:        nodeID,
+				Amount:        record.Value,
+				Time:          record.Timestamp,
+				ManaType:      c.Type(),
+				TransactionID: record.TxID,
+			})
 		}
-		// trigger events
-		Events().Pledged.Trigger(&PledgedEvent{
-			NodeID:        nodeID,
-			Amount:        info.Value,
-			Time:          snapshotTime,
-			ManaType:      c.Type(),
-			TransactionID: info.TxID,
-		})
+
+		c.vector[nodeID] = &ConsensusBaseMana{
+			BaseMana1: value,
+		}
 	}
 }
 
 // Book books mana for a transaction.
 func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
-	c.Lock()
-	defer c.Unlock()
-	// first, revoke mana from previous owners
-	for _, inputInfo := range txInfo.InputInfos {
-		// which node did the input pledge mana to?
-		pledgeNodeID := inputInfo.PledgeID[c.Type()]
+	// gather events to be triggered once the lock is lifted
+	var revokeEvents []*RevokedEvent
+	var pledgeEvents []*PledgedEvent
+	var updateEvents []*UpdatedEvent
+	// only lock mana vector while we are working with it
+	func() {
+		c.Lock()
+		defer c.Unlock()
+		// first, revoke mana from previous owners
+		for _, inputInfo := range txInfo.InputInfos {
+			// which node did the input pledge mana to?
+			pledgeNodeID := inputInfo.PledgeID[c.Type()]
+			if _, exist := c.vector[pledgeNodeID]; !exist {
+				// first time we see this node
+				c.vector[pledgeNodeID] = &ConsensusBaseMana{}
+			}
+			// save old mana
+			oldMana := *c.vector[pledgeNodeID]
+			// revoke BM1
+			err := c.vector[pledgeNodeID].revoke(inputInfo.Amount)
+			if errors.Is(err, ErrBaseManaNegative) {
+				panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
+			}
+			// save events for later triggering
+			revokeEvents = append(revokeEvents, &RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID, inputInfo.InputID})
+			updateEvents = append(updateEvents, &UpdatedEvent{pledgeNodeID, &oldMana, c.vector[pledgeNodeID], c.Type()})
+		}
+		// second, pledge mana to new nodes
+		pledgeNodeID := txInfo.PledgeID[c.Type()]
 		if _, exist := c.vector[pledgeNodeID]; !exist {
 			// first time we see this node
 			c.vector[pledgeNodeID] = &ConsensusBaseMana{}
 		}
-		// save old mana
+		// save it for proper event trigger
 		oldMana := *c.vector[pledgeNodeID]
-		// revoke BM1
-		err := c.vector[pledgeNodeID].revoke(inputInfo.Amount, txInfo.TimeStamp)
-		switch err {
-		case ErrBaseManaNegative:
-			panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
-		case ErrEffBaseManaNegative:
-			panic(fmt.Sprintf("Revoking (%f) eff base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
-		}
-		// trigger events
-		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID, inputInfo.InputID})
-		Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, &oldMana, c.vector[pledgeNodeID], c.Type()})
-	}
-	// second, pledge mana to new nodes
-	pledgeNodeID := txInfo.PledgeID[c.Type()]
-	if _, exist := c.vector[pledgeNodeID]; !exist {
-		// first time we see this node
-		c.vector[pledgeNodeID] = &ConsensusBaseMana{}
-	}
-	// save it for proper event trigger
-	oldMana := *c.vector[pledgeNodeID]
-	// actually pledge and update
-	pledged := c.vector[pledgeNodeID].pledge(txInfo)
+		// actually pledge and update
+		pledged := c.vector[pledgeNodeID].pledge(txInfo)
+		pledgeEvents = append(pledgeEvents, &PledgedEvent{
+			NodeID:        pledgeNodeID,
+			Amount:        pledged,
+			Time:          txInfo.TimeStamp,
+			ManaType:      c.Type(),
+			TransactionID: txInfo.TransactionID,
+		})
+		updateEvents = append(updateEvents, &UpdatedEvent{
+			NodeID:   pledgeNodeID,
+			OldMana:  &oldMana,
+			NewMana:  c.vector[pledgeNodeID],
+			ManaType: c.Type(),
+		})
+	}()
 
-	// trigger events
-	Events().Pledged.Trigger(&PledgedEvent{
-		NodeID:        pledgeNodeID,
-		Amount:        pledged,
-		Time:          txInfo.TimeStamp,
-		ManaType:      c.Type(),
-		TransactionID: txInfo.TransactionID,
-	})
-	Events().Updated.Trigger(&UpdatedEvent{
-		NodeID:   pledgeNodeID,
-		OldMana:  &oldMana,
-		NewMana:  c.vector[pledgeNodeID],
-		ManaType: c.Type(),
-	})
+	// trigger the events once we released the lock on the mana vector
+	for _, ev := range revokeEvents {
+		Events().Revoked.Trigger(ev)
+	}
+	for _, ev := range pledgeEvents {
+		Events().Pledged.Trigger(ev)
+	}
+	for _, ev := range updateEvents {
+		Events().Updated.Trigger(ev)
+	}
 }
 
 // Update updates the mana entries for a particular node wrt time.
 func (c *ConsensusBaseManaVector) Update(nodeID identity.ID, t time.Time) error {
-	c.Lock()
-	defer c.Unlock()
-	return c.update(nodeID, t)
+	panic("not implemented")
 }
 
 // UpdateAll updates all entries in the base mana vector wrt to `t`.
 func (c *ConsensusBaseManaVector) UpdateAll(t time.Time) error {
-	c.Lock()
-	defer c.Unlock()
-	for nodeID := range c.vector {
-		if err := c.update(nodeID, t); err != nil {
-			return err
-		}
-	}
-	return nil
+	panic("not implemented")
 }
 
 // GetMana returns the Effective Base Mana.
 func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	c.Lock()
 	defer c.Unlock()
-	return c.getMana(nodeID, optionalUpdateTime...)
+	mana, err := c.getMana(nodeID)
+	return mana, time.Now(), err
 }
 
 // GetManaMap returns mana perception of the node.
@@ -197,13 +206,10 @@ func (c *ConsensusBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (r
 	c.Lock()
 	defer c.Unlock()
 	t = time.Now()
-	if len(optionalUpdateTime) > 0 {
-		t = optionalUpdateTime[0]
-	}
 	res = make(map[identity.ID]float64)
 	for ID := range c.vector {
 		var mana float64
-		mana, _, err = c.getMana(ID, t)
+		mana, err = c.getMana(ID)
 		if err != nil {
 			return nil, t, err
 		}
@@ -216,14 +222,14 @@ func (c *ConsensusBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (r
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
 func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.Time, err error) {
+	t = time.Now()
 	err = func() error {
 		// don't lock the vector after this func returns
 		c.Lock()
 		defer c.Unlock()
-		t = time.Now()
 		for ID := range c.vector {
 			var mana float64
-			mana, _, err = c.getMana(ID, t)
+			mana, err = c.getMana(ID)
 			if err != nil {
 				return err
 			}
@@ -255,11 +261,11 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t tim
 func (c *ConsensusBaseManaVector) GetHighestManaNodesFraction(p float64) (res []Node, t time.Time, err error) {
 	emptyNodeID := identity.ID{}
 	totalMana := 0.0
+	t = time.Now()
 	err = func() error {
 		// don't lock the vector after this func returns
 		c.Lock()
 		defer c.Unlock()
-		t = time.Now()
 		for ID := range c.vector {
 			// skip the empty node ID
 			if bytes.Equal(ID[:], emptyNodeID[:]) {
@@ -267,7 +273,7 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodesFraction(p float64) (res []
 			}
 
 			var mana float64
-			mana, _, err = c.getMana(ID, t)
+			mana, err = c.getMana(ID)
 			if err != nil {
 				return err
 			}
@@ -328,11 +334,9 @@ func (c *ConsensusBaseManaVector) ToPersistables() []*PersistableBaseMana {
 	var result []*PersistableBaseMana
 	for nodeID, bm := range c.vector {
 		pbm := &PersistableBaseMana{
-			ManaType:        c.Type(),
-			BaseValues:      []float64{bm.BaseValue()},
-			EffectiveValues: []float64{bm.EffectiveValue()},
-			LastUpdated:     bm.LastUpdated,
-			NodeID:          nodeID,
+			ManaType:   c.Type(),
+			BaseValues: []float64{bm.BaseValue()},
+			NodeID:     nodeID,
 		}
 		result = append(result, pbm)
 	}
@@ -342,23 +346,17 @@ func (c *ConsensusBaseManaVector) ToPersistables() []*PersistableBaseMana {
 // FromPersistable fills the ConsensusBaseManaVector from persistable mana objects.
 func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err error) {
 	if p.ManaType != ConsensusMana {
-		err = xerrors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), ConsensusMana.String())
+		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), ConsensusMana.String())
 		return
 	}
 	if len(p.BaseValues) != 1 {
-		err = xerrors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
-		return
-	}
-	if len(p.EffectiveValues) != 1 {
-		err = xerrors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues))
+		err = errors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
 		return
 	}
 	c.Lock()
 	defer c.Unlock()
 	c.vector[p.NodeID] = &ConsensusBaseMana{
-		BaseMana1:          p.BaseValues[0],
-		EffectiveBaseMana1: p.EffectiveValues[0],
-		LastUpdated:        p.LastUpdated,
+		BaseMana1: p.BaseValues[0],
 	}
 	return
 }
@@ -368,7 +366,7 @@ func (c *ConsensusBaseManaVector) RemoveZeroNodes() {
 	c.Lock()
 	defer c.Unlock()
 	for nodeID, baseMana := range c.vector {
-		if baseMana.EffectiveValue() < MinEffectiveMana && baseMana.BaseValue() == 0 {
+		if baseMana.BaseValue() == 0 {
 			delete(c.vector, nodeID)
 		}
 	}
@@ -378,30 +376,12 @@ var _ BaseManaVector = &ConsensusBaseManaVector{}
 
 //// Region Internal methods ////
 
-// update updates the mana entries for a particular node wrt time. Not concurrency safe.
-func (c *ConsensusBaseManaVector) update(nodeID identity.ID, t time.Time) error {
+// getMana returns the consensus mana.
+func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID) (float64, error) {
 	if _, exist := c.vector[nodeID]; !exist {
-		return ErrNodeNotFoundInBaseManaVector
+		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
-	oldMana := *c.vector[nodeID]
-	if err := c.vector[nodeID].update(t); err != nil {
-		return err
-	}
-	Events().Updated.Trigger(&UpdatedEvent{nodeID, &oldMana, c.vector[nodeID], c.Type()})
-	return nil
-}
-
-// getMana returns the Effective Base Mana 1. Will update base mana by default.
-func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
-	t := time.Now()
-	if _, exist := c.vector[nodeID]; !exist {
-		return 0.0, t, ErrNodeNotFoundInBaseManaVector
-	}
-	if len(optionalUpdateTime) > 0 {
-		t = optionalUpdateTime[0]
-	}
-	_ = c.update(nodeID, t)
 
 	baseMana := c.vector[nodeID]
-	return baseMana.EffectiveBaseMana1, t, nil
+	return baseMana.BaseValue(), nil
 }

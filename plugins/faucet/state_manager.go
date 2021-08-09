@@ -6,13 +6,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -123,43 +124,20 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 
 	foundPreparedOutputs := make([]*FaucetOutput, 0)
 	toBeSweptOutputs := make([]*FaucetOutput, 0)
-	var foundRemainderOutput *FaucetOutput
 
-	remainderAddress := s.seed.Address(RemainderAddressIndex).Address()
-
-	// remainder output should sit on address 0
-	messagelayer.Tangle().LedgerState.OutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
-		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if outputMetadata.ConsumerCount() < 1 {
-				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
-				if !ok || iotaBalance < MinimumFaucetBalance {
-					return
-				}
-				if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
-					// when multiple "big" unspent outputs sit on this address, take the biggest one
-					return
-				}
-				foundRemainderOutput = &FaucetOutput{
-					ID:           output.ID(),
-					Balance:      iotaBalance,
-					Address:      output.Address(),
-					AddressIndex: RemainderAddressIndex,
-				}
-			}
-		})
-	})
-	if foundRemainderOutput == nil {
-		return xerrors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinimumFaucetBalance))
+	err = s.findUnspentRemainderOutput()
+	if err != nil {
+		return
 	}
 
-	endIndex := (GenesisTokenAmount - foundRemainderOutput.Balance) / s.tokensPerRequest
-	log.Infof("%d indices have already been used based on found remainder output", endIndex)
+	endIndex := (GenesisTokenAmount - s.remainderOutput.Balance) / s.tokensPerRequest
+	Plugin().LogInfof("%d indices have already been used based on found remainder output", endIndex)
 
-	log.Infof("Looking for prepared outputs in the Tangle...")
+	Plugin().LogInfof("Looking for prepared outputs in the Tangle...")
 
 	for i := startIndex; uint64(i) <= endIndex; i++ {
-		messagelayer.Tangle().LedgerState.OutputsOnAddress(s.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
-			messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(s.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
+			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() < 1 {
 					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
 					if !colorExist {
@@ -186,22 +164,20 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 			})
 		})
 	}
-	log.Infof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
-	log.Infof("Looking for prepared outputs in the Tangle... DONE")
-
-	s.remainderOutput = foundRemainderOutput
+	Plugin().LogInfof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
+	Plugin().LogInfof("Looking for prepared outputs in the Tangle... DONE")
 
 	if len(foundPreparedOutputs) == 0 {
 		// prepare more funding outputs if we did not find any
 		err = s.prepareMoreFundingOutputs()
 		if err != nil {
-			return xerrors.Errorf("Found no prepared outputs, failed to create them: %w", err)
+			return errors.Errorf("Found no prepared outputs, failed to create them: %w", err)
 		}
 	} else {
 		// else just save the found outputs into the state
 		s.saveFundingOutputs(foundPreparedOutputs)
 	}
-	log.Infof("Remainder output %s had %d funds", s.remainderOutput.ID.Base58(), s.remainderOutput.Balance)
+	Plugin().LogInfof("Remainder output %s had %d funds", s.remainderOutput.ID.Base58(), s.remainderOutput.Balance)
 	// ignore toBeSweptOutputs
 	return err
 }
@@ -212,28 +188,28 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	s.Lock()
 	defer s.Unlock()
 
-	faucetReq := requestMsg.Payload().(*Request)
+	faucetReq := requestMsg.Payload().(*faucet.Request)
 
 	// get an output that we can spend
 	fundingOutput, fErr := s.getFundingOutput()
 	// we don't have funding outputs
-	if xerrors.Is(fErr, ErrNotEnoughFundingOutputs) {
+	if errors.Is(fErr, ErrNotEnoughFundingOutputs) {
 		// try preparing them
-		log.Infof("Preparing more outputs...")
+		Plugin().LogInfof("Preparing more outputs...")
 		pErr := s.prepareMoreFundingOutputs()
 		if pErr != nil {
-			err = xerrors.Errorf("failed to prepare more outputs: %w", pErr)
+			err = errors.Errorf("failed to prepare more outputs: %w", pErr)
 			return
 		}
-		log.Infof("Preparing more outputs... DONE")
+		Plugin().LogInfof("Preparing more outputs... DONE")
 		// and try getting the output again
 		fundingOutput, fErr = s.getFundingOutput()
 		if fErr != nil {
-			err = xerrors.Errorf("failed to gather funding outputs")
+			err = errors.Errorf("failed to gather funding outputs")
 			return
 		}
 	} else if fErr != nil {
-		err = xerrors.Errorf("failed to gather funding outputs")
+		err = errors.Errorf("failed to gather funding outputs")
 		return
 	}
 
@@ -306,8 +282,8 @@ func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 	}
 	s.lastFundingOutputAddressIndex = s.fundingOutputs.Back().Value.(*FaucetOutput).AddressIndex
 
-	log.Infof("Added %d new funding outputs, last used address index is %d", len(fundingOutputs), s.lastFundingOutputAddressIndex)
-	log.Infof("There are currently %d prepared outputs in the faucet", s.fundingOutputs.Len())
+	Plugin().LogInfof("Added %d new funding outputs, last used address index is %d", len(fundingOutputs), s.lastFundingOutputAddressIndex)
+	Plugin().LogInfof("There are currently %d prepared outputs in the faucet", s.fundingOutputs.Len())
 }
 
 // getFundingOutput returns the first funding output in the list.
@@ -319,13 +295,67 @@ func (s *StateManager) getFundingOutput() (fundingOutput *FaucetOutput, err erro
 	return
 }
 
+// findUnspentRemainderOutput finds the remainder output and updates the state manager
+func (s *StateManager) findUnspentRemainderOutput() error {
+	var foundRemainderOutput *FaucetOutput
+
+	remainderAddress := s.seed.Address(RemainderAddressIndex).Address()
+
+	// remainder output should sit on address 0
+	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
+				outputMetadata.Finalized() {
+				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
+				if !ok || iotaBalance < MinimumFaucetBalance {
+					return
+				}
+				if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
+					// when multiple "big" unspent outputs sit on this address, take the biggest one
+					return
+				}
+				foundRemainderOutput = &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: RemainderAddressIndex,
+				}
+			}
+		})
+	})
+	if foundRemainderOutput == nil {
+		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinimumFaucetBalance))
+	}
+	s.remainderOutput = foundRemainderOutput
+	return nil
+}
+
 // prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output, submits the transaction
 // to the Tangle, waits for its confirmation, and then updates the internal state of the faucet.
 func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	// no remainder output present
 	if s.remainderOutput == nil {
-		err = ErrMissingRemainderOutput
-		return
+		err = s.findUnspentRemainderOutput()
+		if err != nil {
+			return errors.Errorf("%w: %w", ErrMissingRemainderOutput, err)
+		}
+		// if no error was returned, s.remainderOutput is not nil anymore
+	}
+
+	remainderSpent := false
+	// is the remainder output still unspent?
+	messagelayer.Tangle().LedgerState.CachedOutputMetadata(s.remainderOutput.ID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		// GenesisTransactionID is the empty id
+		if outputMetadata.ConfirmedConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
+			remainderSpent = true
+		}
+	})
+	if remainderSpent {
+		// refresh remainder
+		err = s.findUnspentRemainderOutput()
+		if err != nil {
+			return
+		}
 	}
 
 	// not enough funds to carry out operation
@@ -337,27 +367,17 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	// take remainder output and split it up
 	tx := s.createSplittingTx()
 
-	txConfirmed := make(chan *ledgerstate.Transaction, 1)
+	txConfirmed := make(chan ledgerstate.TransactionID, 1)
 
-	monitorTxConfirmation := events.NewClosure(
-		func(msgID tangle.MessageID) {
-			messagelayer.Tangle().Storage.Message(msgID).Consume(func(msg *tangle.Message) {
-				if msg.Payload().Type() == ledgerstate.TransactionType {
-					msgTx, _, er := ledgerstate.TransactionFromBytes(msg.Payload().Bytes())
-					if er != nil {
-						// log.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
-						return
-					}
-					if msgTx.ID() == tx.ID() {
-						txConfirmed <- msgTx
-					}
-				}
-			})
-		})
+	monitorTxConfirmation := events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+		if tx.ID() == transactionID {
+			txConfirmed <- transactionID
+		}
+	})
 
 	// listen on confirmation
-	messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(monitorTxConfirmation)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	// issue the tx
 	issuedMsg, issueErr := s.issueTX(tx)
@@ -368,7 +388,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
 	timeoutCounter := 0
-	maxWaitAttempts := 10 // 100 s max timeout (if fpc voting is in place)
+	maxWaitAttempts := 50 // 500 s max timeout (if fpc voting is in place)
 
 	for {
 		select {
@@ -377,7 +397,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 			return err
 		case <-ticker.C:
 			if timeoutCounter >= maxWaitAttempts {
-				return xerrors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)
+				return errors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)
 			}
 			timeoutCounter++
 		}
@@ -385,39 +405,43 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 }
 
 // updateState takes a confirmed transaction (splitting tx), and updates the faucet internal state based on its content.
-func (s *StateManager) updateState(tx *ledgerstate.Transaction) error {
-	remainingBalance := s.remainderOutput.Balance - s.tokensPerRequest*s.preparedOutputsCount
-	fundingOutputs := make([]*FaucetOutput, 0, s.preparedOutputsCount)
+func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err error) {
+	messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		remainingBalance := s.remainderOutput.Balance - s.tokensPerRequest*s.preparedOutputsCount
+		fundingOutputs := make([]*FaucetOutput, 0, s.preparedOutputsCount)
 
-	// derive information from outputs
-	for _, output := range tx.Essence().Outputs() {
-		iotaBalance, hasIota := output.Balances().Get(ledgerstate.ColorIOTA)
-		if !hasIota {
-			return xerrors.Errorf("tx outputs don't have IOTA balance ")
-		}
-		switch iotaBalance {
-		case s.tokensPerRequest:
-			fundingOutputs = append(fundingOutputs, &FaucetOutput{
-				ID:           output.ID(),
-				Balance:      iotaBalance,
-				Address:      output.Address(),
-				AddressIndex: s.addressToIndex[output.Address().Base58()],
-			})
-		case remainingBalance:
-			s.remainderOutput = &FaucetOutput{
-				ID:           output.ID(),
-				Balance:      iotaBalance,
-				Address:      output.Address(),
-				AddressIndex: s.addressToIndex[output.Address().Base58()],
+		// derive information from outputs
+		for _, output := range transaction.Essence().Outputs() {
+			iotaBalance, hasIota := output.Balances().Get(ledgerstate.ColorIOTA)
+			if !hasIota {
+				err = errors.Errorf("tx outputs don't have IOTA balance ")
+				return
 			}
-		default:
-			err := xerrors.Errorf("tx %s should not have output with balance %d", tx.ID().Base58(), iotaBalance)
-			return err
+			switch iotaBalance {
+			case s.tokensPerRequest:
+				fundingOutputs = append(fundingOutputs, &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: s.addressToIndex[output.Address().Base58()],
+				})
+			case remainingBalance:
+				s.remainderOutput = &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: s.addressToIndex[output.Address().Base58()],
+				}
+			default:
+				err = errors.Errorf("tx %s should not have output with balance %d", transactionID.Base58(), iotaBalance)
+				return
+			}
 		}
-	}
-	// save the info in internal state
-	s.saveFundingOutputs(fundingOutputs)
-	return nil
+		// save the info in internal state
+		s.saveFundingOutputs(fundingOutputs)
+	})
+
+	return err
 }
 
 // createSplittingTx takes the current remainder output and creates a transaction that splits it into s.preparedOutputsCount
@@ -487,7 +511,7 @@ func (s *StateManager) issueTX(tx *ledgerstate.Transaction) (msg *tangle.Message
 	// TODO: replace with an actual more reactive way
 	msg, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), s.maxTxBookedAwaitTime)
 	if err != nil {
-		return nil, xerrors.Errorf("%w: tx %s", err, tx.ID().String())
+		return nil, errors.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 	return
 }

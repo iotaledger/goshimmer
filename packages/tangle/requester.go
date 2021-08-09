@@ -22,7 +22,7 @@ type RequesterOptions struct {
 
 func newRequesterOptions(optionalOptions []RequesterOption) *RequesterOptions {
 	result := &RequesterOptions{
-		retryInterval: 10 * time.Second,
+		retryInterval: DefaultRetryInterval,
 	}
 
 	for _, optionalOption := range optionalOptions {

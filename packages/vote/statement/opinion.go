@@ -4,10 +4,10 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
@@ -37,7 +37,7 @@ func (o Opinion) Bytes() (bytes []byte) {
 func OpinionFromBytes(bytes []byte) (opinion Opinion, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if opinion, err = OpinionFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Opinion from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Opinion from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -53,19 +53,19 @@ func OpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result Opinio
 	result = Opinion{}
 	opinionByte, e := marshalUtil.ReadByte()
 	if e != nil {
-		err = xerrors.Errorf("failed to parse opinion from bytes: %w", e)
+		err = errors.Errorf("failed to parse opinion from bytes: %w", e)
 		return
 	}
 	result.Value = opinion.Opinion(opinionByte)
 
 	if result.Round, err = marshalUtil.ReadUint8(); err != nil {
-		err = xerrors.Errorf("failed to parse round from bytes: %w", err)
+		err = errors.Errorf("failed to parse round from bytes: %w", err)
 		return
 	}
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != OpinionLength {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, OpinionLength, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, OpinionLength, cerrors.ErrParseBytesFailed)
 		return
 	}
 

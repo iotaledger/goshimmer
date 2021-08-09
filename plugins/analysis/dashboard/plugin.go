@@ -2,10 +2,10 @@ package dashboard
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"

@@ -2,12 +2,11 @@ package tangle
 
 import (
 	"context"
-	"crypto"
-	"errors"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -64,7 +63,7 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 
 var (
 	testPeer       *peer.Peer
-	testWorker     = pow.New(crypto.BLAKE2b_512, 1)
+	testWorker     = pow.New(1)
 	testDifficulty = 10
 )
 

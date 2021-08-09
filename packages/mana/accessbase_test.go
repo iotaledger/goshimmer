@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var delta = 0.001
+
 func TestUpdateBM2(t *testing.T) {
 	t.Run("CASE: Zero values", func(t *testing.T) {
 		bm := AccessBaseMana{}
@@ -112,9 +114,8 @@ func TestRevoke_Access(t *testing.T) {
 		EffectiveBaseMana2: 0.0,
 		LastUpdated:        baseTime,
 	}
-	revokeTime := baseTime.Add(time.Hour * 6)
 	assert.Panics(t, func() {
-		_ = bm.revoke(1.0, revokeTime)
+		_ = bm.revoke(1.0)
 	})
 }
 

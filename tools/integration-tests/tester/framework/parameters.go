@@ -1,120 +1,128 @@
 package framework
 
+import (
+	"fmt"
+	"time"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/mr-tron/base58"
+)
+
 const (
-	autopeeringMaxTries = 50
+	// ports
+	apiPort     = 8080
+	gossipPort  = 14666
+	peeringPort = 14626
+	fpcPort     = 10895
 
-	apiPort = "8080"
-
-	containerNameTester      = "/tester"
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
 	containerNameDrand       = "drand_"
 	containerNameSuffixPumba = "_pumba"
 
-	logsDir = "/tmp/logs/"
+	graceTimePumba = 3 * time.Second
 
-	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,syncbeaconfollower,metrics,valuetransfers,consensus,messagelayer,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint,clock"
-	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling,clock"
-	snapshotFilePath         = "/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin"
-	dockerLogsPrefixLen      = 8
+	logsDir             = "/tmp/logs/"
+	dockerLogsPrefixLen = 8
+)
 
-	dkgMaxTries = 50
-
-	exitStatusSuccessful = 0
-
-	syncBeaconSeed      = "Dw6dKWvQGbcijpib6A8t1vSiuDU1XWsnT71xhLSzXUGc"
-	syncBeaconPublicKey = "6wuo4zNP4MXzojmj2EXGsPEHPkWJNnbKZ9e17ufdTmp"
-
+var (
 	// GenesisTokenAmount is the amount of tokens in the genesis output.
 	GenesisTokenAmount = 1000000000000000
+	// GenesisSeed is the seed of the funds created at genesis.
+	GenesisSeed = []byte{
+		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
+		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
+	}
+
+	// MasterSeed denotes the identity seed of the master peer.
+	MasterSeed = []byte{
+		37, 202, 104, 245, 5, 80, 107, 111, 131, 48, 156, 82, 158, 253, 215, 219,
+		229, 168, 205, 88, 39, 177, 106, 25, 78, 47, 62, 28, 242, 12, 6, 237,
+	}
 )
 
-// Parameters to override before calling any peer creation function.
-var (
-	// ParaFCoBAverageNetworkDelay defines the configured avg. network delay (in seconds) for the FCOB rules.
-	ParaFCoBAverageNetworkDelay = 5
-	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
-	ParaOutboundUpdateIntervalMs = 100
-	// ParaFaucetTokensPerRequest defines the tokens to send up on each faucet request message.
-	ParaFaucetTokensPerRequest int64 = 1337
-	// ParaPoWDifficulty defines the PoW difficulty.
-	ParaPoWDifficulty = 2
-	// ParaWaitToKill defines the time to wait before killing the node.
-	ParaWaitToKill = 60
-	// ParaPoWFaucetDifficulty defines the PoW difficulty for faucet payloads.
-	ParaPoWFaucetDifficulty = 2
-	// ParaFaucetPreparedOutputsCount defines the number of outputs the faucet should prepare.
-	ParaFaucetPreparedOutputsCount = 10
-	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
-	ParaSyncBeaconOnEveryNode = false
-	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
-	ParaManaOnEveryNode = true
-	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
-	ParaFPCRoundInterval int64 = 10
-	// ParaFPCTotalRoundsFinalization the amount of FPC rounds where an opinion needs to stay the same to be considered final. Also called 'l'.
-	ParaFPCTotalRoundsFinalization int = 10
-	// ParaWaitForStatement is the time in seconds for which the node wait for receiving the new statement.
-	ParaWaitForStatement = 3
-	// ParaFPCListen defines if the FPC service should listen.
-	ParaFPCListen = false
-	// ParaWriteStatement defines if the node should write statements.
-	ParaWriteStatement = true
-	// ParaReadManaThreshold defines the Mana threshold to accept a statement.
-	ParaReadManaThreshold = 1.0
-	// ParaWriteManaThreshold defines the Mana threshold to write a statement.
-	ParaWriteManaThreshold = 1.0
-)
-
-var (
-	genesisSeed = []byte{95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
-		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230}
-	genesisSeedBase58 = "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih"
-)
-
-//GoShimmerConfig defines the config of a GoShimmer node.
-type GoShimmerConfig struct {
-	Seed               string
-	Name               string
-	EntryNodeHost      string
-	EntryNodePublicKey string
-	DisabledPlugins    string
-	SnapshotFilePath   string
-
-	DRNGCommittee string
-	DRNGDistKey   string
-	DRNGInstance  int
-	DRNGThreshold int
-
-	Faucet bool
-
-	SyncBeacon                  bool
-	SyncBeaconFollower          bool
-	SyncBeaconFollowNodes       string
-	SyncBeaconBroadcastInterval int
-	SyncBeaconMaxTimeOfflineSec int
-
-	Mana                              bool
-	ManaAllowedAccessFilterEnabled    bool
-	ManaAllowedConsensusFilterEnabled bool
-	ManaAllowedAccessPledge           []string
-	ManaAllowedConsensusPledge        []string
-
-	FPCRoundInterval           int64
-	FPCTotalRoundsFinalization int
-	WaitForStatement           int
-	FPCListen                  bool
-	WriteStatement             bool
-	WriteManaThreshold         float64
-	ReadManaThreshold          float64
-}
-
-// NetworkConfig defines the config of a GoShimmer Docker network.
-type NetworkConfig struct {
-	BootstrapInitialIssuanceTimePeriodSec int
-}
-
-// CreateNetworkConfig is the config for optional plugins passed through createNetwork.
+// CreateNetworkConfig is the config for optional plugins passed through NewNetwork.
 type CreateNetworkConfig struct {
+	// StartSynced specifies whether all node in the network start synced.
+	StartSynced bool
+	// Autopeering specifies whether autopeering or manual peering is used.
+	Autopeering bool
+	// Faucet specifies whether the first peer should have the faucet enabled.
 	Faucet bool
-	Mana   bool
+	// Activity specifies whether nodes schedule activity messages in regular intervals.
+	Activity bool
+	// FPC specified whether FPC is enabled.
+	FPC bool
+}
+
+// PeerConfig specifies the default config of a standard GoShimmer peer.
+func PeerConfig() config.GoShimmer {
+	c := config.NewGoShimmer()
+
+	c.Image = "iotaledger/goshimmer"
+
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
+
+	c.Network.Enabled = true
+
+	c.Database.Enabled = true
+	c.Database.ForceCacheTime = 0 // disable caching for tests
+
+	c.Gossip.Enabled = true
+	c.Gossip.Port = gossipPort
+
+	c.POW.Enabled = true
+	c.POW.Difficulty = 2
+
+	c.Webapi.Enabled = true
+	c.Webapi.BindAddress = fmt.Sprintf(":%d", apiPort)
+
+	c.Autopeering.Enabled = false
+	c.Autopeering.Port = peeringPort
+	c.Autopeering.EntryNodes = nil
+
+	c.MessageLayer.Enabled = true
+	c.MessageLayer.FCOB.QuarantineTime = 2
+	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed))
+	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
+
+	c.Faucet.Enabled = false
+	c.Faucet.Seed = base58.Encode(GenesisSeed)
+	c.Faucet.PowDifficulty = 3
+	c.PreparedOutputsCount = 10
+
+	c.Mana.Enabled = true
+
+	c.Consensus.Enabled = false
+
+	c.FPC.Enabled = true
+	c.FPC.BindAddress = fmt.Sprintf(":%d", fpcPort)
+	c.FPC.RoundInterval = 5
+	c.FPC.TotalRoundsFinalization = 10
+
+	c.Activity.Enabled = false
+	c.BroadcastIntervalSec = 1 // increase frequency to speedup tests
+
+	c.DRNG.Enabled = false
+
+	return c
+}
+
+// EntryNodeConfig specifies the default config of a standard GoShimmer entry node.
+func EntryNodeConfig() config.GoShimmer {
+	c := PeerConfig()
+
+	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
+	c.Gossip.Enabled = false
+	c.Autopeering.Enabled = true
+	c.MessageLayer.Enabled = false
+	c.Faucet.Enabled = false
+	c.Mana.Enabled = false
+	c.Consensus.Enabled = false
+	c.FPC.Enabled = false
+	c.Activity.Enabled = false
+	c.DRNG.Enabled = false
+
+	return c
 }

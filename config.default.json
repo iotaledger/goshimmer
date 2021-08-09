@@ -14,16 +14,9 @@
   "autopeering": {
     "entryNodes": [
       "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626",
-      "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entryshimmer.tanglebay.com:14646"
+      "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646"
     ],
     "port": 14626
-  },
-  "syncbeaconfollower": {
-    "followNodes": [
-      "Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24",
-      "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
-    ],
-    "syncPercentage": 0.5
   },
   "dashboard": {
     "bindAddress": "127.0.0.1:8081",
@@ -77,7 +70,6 @@
   },
   "gossip": {
     "port": 14666,
-    "ageThreshold": "5s",
     "tipsBroadcaster": {
       "interval": "10s"
     }
@@ -118,6 +110,7 @@
     "difficulty": 22,
     "numThreads": 1,
     "timeout": "1m"
+
   },
   "profiling": {
     "bindAddress": "127.0.0.1:6061"

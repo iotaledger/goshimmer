@@ -1,0 +1,9 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+## Default Kibana configuration from Kibana base image.
+## https://github.com/elastic/kibana/blob/master/src/dev/build/tasks/os_packages/docker_generator/templates/kibana_yml.template.js
+#
+server.name: kibana
+server.host: "0.0.0.0"
+elasticsearch.username: "{{ elkElasticUser }}"
+elasticsearch.password: "{{ elkElasticPassword }}"
+elasticsearch.hosts: [ "http://elasticsearch:9200" ]

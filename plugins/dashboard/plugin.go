@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/http"
 	"runtime"
@@ -10,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -23,7 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -59,6 +58,7 @@ func configure(plugin *node.Plugin) {
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
 	configureDrngLiveFeed()
+	configureChatLiveFeed()
 	configureVisualizer()
 	configureManaFeed()
 	configureServer()
@@ -66,14 +66,19 @@ func configure(plugin *node.Plugin) {
 
 func configureServer() {
 	server = echo.New()
+	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		Skipper:      middleware.DefaultSkipper,
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
+	}))
 	server.HideBanner = true
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if config.Node().Bool(CfgBasicAuthEnabled) {
+	if Parameters.BasicAuth.Enabled {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.Node().String(CfgBasicAuthUsername) &&
-				password == config.Node().String(CfgBasicAuthPassword) {
+			if username == Parameters.BasicAuth.Username &&
+				password == Parameters.BasicAuth.Password {
 				return true, nil
 			}
 			return false, nil
@@ -95,6 +100,10 @@ func run(*node.Plugin) {
 	if !node.IsSkipped(drng.Plugin()) {
 		runDrngLiveFeed()
 	}
+	// run chat live feed if chat app is enabled
+	if !node.IsSkipped(chat.App()) {
+		runChatLiveFeed()
+	}
 
 	log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
@@ -105,8 +114,6 @@ func run(*node.Plugin) {
 func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
-	// start the web socket worker pool
-	wsSendWorkerPool.Start()
 	defer wsSendWorkerPool.Stop()
 
 	// submit the mps to the worker pool when triggered
@@ -115,10 +122,9 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node().String(CfgBindAddress)
 	go func() {
-		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().Bool(CfgBasicAuthEnabled))
-		if err := server.Start(bindAddr); err != nil {
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, Parameters.BindAddress, Parameters.BasicAuth.Enabled)
+		if err := server.Start(Parameters.BindAddress); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
 			}
@@ -181,6 +187,8 @@ const (
 	MsgManaDashboardAddress
 	// MsgTypeMsgOpinionFormed defines a tip info message.
 	MsgTypeMsgOpinionFormed
+	// MsgTypeChat defines a chat message.
+	MsgTypeChat
 )
 
 type wsmsg struct {
@@ -195,19 +203,17 @@ type msg struct {
 }
 
 type nodestatus struct {
-	ID      string            `json:"id"`
-	Version string            `json:"version"`
-	Uptime  int64             `json:"uptime"`
-	Synced  bool              `json:"synced"`
-	Beacons map[string]Beacon `json:"beacons"`
-	Mem     *memmetrics       `json:"mem"`
+	ID         string      `json:"id"`
+	Version    string      `json:"version"`
+	Uptime     int64       `json:"uptime"`
+	Mem        *memmetrics `json:"mem"`
+	TangleTime tangleTime  `json:"tangleTime"`
 }
 
-// Beacon contains a sync beacons detailed status.
-type Beacon struct {
-	MsgID    string `json:"msg_id"`
-	SentTime int64  `json:"sent_time"`
-	Synced   bool   `json:"synced"`
+type tangleTime struct {
+	Synced    bool   `json:"synced"`
+	Time      int64  `json:"time"`
+	MessageID string `json:"messageID"`
 }
 
 type memmetrics struct {
@@ -226,6 +232,11 @@ type neighbormetric struct {
 	ConnectionOrigin string `json:"connection_origin"`
 	BytesRead        uint64 `json:"bytes_read"`
 	BytesWritten     uint64 `json:"bytes_written"`
+}
+
+type tipsInfo struct {
+	TotalTips int `json:"totaltips"`
+	WeakTips  int `json:"weaktips"`
 }
 
 type componentsmetric struct {
@@ -270,25 +281,12 @@ func neighborMetrics() []neighbormetric {
 func currentNodeStatus() *nodestatus {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	status := &nodestatus{
-		Beacons: make(map[string]Beacon),
-	}
+	status := &nodestatus{}
 	status.ID = local.GetInstance().ID().String()
 
 	// node status
 	status.Version = banner.AppVersion
 	status.Uptime = time.Since(nodeStartAt).Milliseconds()
-
-	var beacons map[ed25519.PublicKey]messagelayer.Status
-	status.Synced, beacons = messagelayer.SyncStatus()
-
-	for publicKey, s := range beacons {
-		status.Beacons[publicKey.String()] = Beacon{
-			MsgID:    s.MsgID.Base58(),
-			SentTime: s.SentTime,
-			Synced:   s.Synced,
-		}
-	}
 
 	// memory metrics
 	status.Mem = &memmetrics{
@@ -299,6 +297,14 @@ func currentNodeStatus() *nodestatus {
 		HeapObjects:  m.HeapObjects,
 		NumGC:        m.NumGC,
 		LastPauseGC:  m.PauseNs[(m.NumGC+255)%256],
+	}
+
+	// get TangleTime
+	lcm := messagelayer.Tangle().TimeManager.LastConfirmedMessage()
+	status.TangleTime = tangleTime{
+		Synced:    messagelayer.Tangle().TimeManager.Synced(),
+		Time:      lcm.Time.UnixNano(),
+		MessageID: lcm.MessageID.Base58(),
 	}
 	return status
 }

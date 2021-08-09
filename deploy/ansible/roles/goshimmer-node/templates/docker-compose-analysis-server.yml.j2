@@ -1,0 +1,33 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: "3"
+
+services:
+  analysis_server:
+    image: iotaledger/goshimmer:develop
+    container_name: analysis-server
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "./db:/db"
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - DATABASE_DIRECTORY=/db/mainnetdb
+      - PROFILING_BINDADDRESS=0.0.0.0:6063
+    entrypoint: /run/goshimmer
+    command: >
+      --skip-config=true
+      --autopeering.entryNodes=
+      --analysis.client.serverAddress=
+      --analysis.server.bindAddress=0.0.0.0:21888
+      --analysis.dashboard.bindAddress=0.0.0.0:28080
+      --analysis.dashboard.mongodb.enabled=true
+      --analysis.dashboard.mongodb.hostAddress=metrics-01.pre-devnet.shimmer.iota.cafe:27117
+      --analysis.dashboard.mongodb.username="{{ mongoDBUser }}"
+      --analysis.dashboard.mongodb.password="{{ mongoDBPassword }}"
+      --analysis.dashboard.manaAddress="http://bootstrap-01.pre-devnet.shimmer.iota.cafe:9001"
+      --prometheus.bindAddress=0.0.0.0:9312
+      --metrics.local=false
+      --metrics.global=true
+      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
+      --node.disablePlugins=autopeering,portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --logger.level=debug

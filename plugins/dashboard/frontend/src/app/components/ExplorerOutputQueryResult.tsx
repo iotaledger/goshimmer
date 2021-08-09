@@ -7,6 +7,7 @@ import ExplorerStore from "app/stores/ExplorerStore";
 import Badge from "react-bootstrap/Badge";
 import {displayManaUnit} from "app/utils";
 import {resolveBase58BranchID} from "app/utils/branch";
+import {outputToComponent} from "app/utils/output";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -58,17 +59,8 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
             <Container>
                 <h4>Output</h4>
                 {output && <div className={"mb-2"}>
+                    {outputToComponent(output)}
                     <ListGroup>
-                        <ListGroup.Item>Output ID: {output.outputID.base58}</ListGroup.Item>
-                        <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${output.outputID.transactionID}`}>{output.outputID.transactionID}</a> </ListGroup.Item>
-                        <ListGroup.Item>Index: {output.outputID.outputIndex}</ListGroup.Item>
-                        <ListGroup.Item>Type: {output.type}</ListGroup.Item>
-                        <ListGroup.Item>
-                            Balances:
-                            <span>
-                                {Object.entries(output.balances).map((entry, i) => (<div className={"mr-2"} key={i}><Badge variant="secondary">{entry[1]} {entry[0]}</Badge></div>))}
-                            </span>
-                        </ListGroup.Item>
                         {pendingMana && <ListGroup.Item>
                             Pending Mana
                             <hr/>
@@ -87,6 +79,7 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                         <ListGroup.Item>Solidification Time: {new Date(outputMetadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                         <ListGroup.Item>Consumer Count: {outputMetadata.consumerCount}</ListGroup.Item>
                         <ListGroup.Item>First Consumer: <a href={`/explorer/transaction/${outputMetadata.firstConsumer}`}>{outputMetadata.firstConsumer}</a> </ListGroup.Item>
+                        <ListGroup.Item>Confirmed Consumer: <a href={`/explorer/transaction/${outputMetadata.confirmedConsumer}`}>{outputMetadata.confirmedConsumer}</a> </ListGroup.Item>
                         <ListGroup.Item>Finalized: {outputMetadata.finalized.toString()}</ListGroup.Item>
                     </ListGroup>
                 </div>}

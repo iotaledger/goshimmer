@@ -4,11 +4,14 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
-import ExplorerStore from "app/stores/ExplorerStore";
+import {ExplorerStore, ExplorerOutput, OutputMetadata, InclusionState} from "app/stores/ExplorerStore";
 import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
 import {displayManaUnit} from "app/utils";
+import {outputToComponent, totalBalanceFromExplorerOutputs} from "app/utils/output";
+import {Badge, Button, ListGroupItem} from "react-bootstrap";
+import {resolveBase58BranchID} from "app/utils/branch";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -40,16 +43,11 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
     render() {
         let {id} = this.props.match.params;
         let {addr, query_loading, query_err} = this.props.explorerStore;
-        let outputs = [];
+        // spent outputs
+        let spent: Array<ExplorerOutput> = [];
+        // unspent outputs
+        let unspent: Array<ExplorerOutput> = [];
         let available_balances = [];
-        let total_balance = new Map();
-
-        let get_balances = function (balances) {
-            if (balances.length == 0) {
-                return "empty";
-            }
-            return balances;
-         }
 
         if (query_err) {
             return (
@@ -63,104 +61,106 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
         }
 
         if (addr) {
-            for (let i = 0; i < addr.output_ids.length; i++) {
-                let output = addr.output_ids[i];
-
-                let consumed = "Spent: ";
-                let conflicting = "Conflicting: false";
-                if (output.consumer_count) {
-                    consumed += "true";
-                    if (output.consumer_count > 1) {
-                        conflicting = "Conflicting: true";
-                    }
+            // separate spent from unspent
+            addr.explorerOutputs.forEach((o) => {
+                if (o.metadata.consumerCount > 0) {
+                    spent.push(o);
                 } else {
-                    consumed += "false";
+                    unspent.push(o);
                 }
+            })
 
-                let status = "Status: ";
-                if (output.inclusion_state.confirmed) {
-                    status += ' confirmed ';
-                } else if (output.inclusion_state.rejected) {
-                    status += ' rejected ';
-                } else {
-                    status += ' pending ';
-                }
-
-                let balances = [];
-                for (let j=0; j < addr.output_ids[i].balances.length; j++) {
-                    let balance = addr.output_ids[i].balances[j]
-                    
-                    let oldBalance = 0;
-                    if (total_balance.has(balance.color)) {
-                        oldBalance = total_balance.get(balance.color);
+            let timestampCompareFn = (a: ExplorerOutput, b: ExplorerOutput) => {
+                if (b.txTimestamp === a.txTimestamp) {
+                    // outputs have the same timestamp
+                    if (b.id.transactionID == a.id.transactionID) {
+                        // outputs belong to the same tx, sort based on index
+                        return b.id.outputIndex - a.id.outputIndex;
                     }
-                    if (addr.output_ids[i].consumer_count == 0 && addr.output_ids[i].inclusion_state.confirmed) {
-                        total_balance.set(balance.color, balance.value + oldBalance);
-                    }
-
-                    balances.push(
-                        <ListGroup.Item key={balance.color}>
-                            <small>
-                                {'Color:'} {balance.color} {' Value:'} {balance.value}
-                            </small>
-                        </ListGroup.Item>
-                    )
+                    // same timestamp, but different tx
+                    return b.id.transactionID.localeCompare(a.id.transactionID);
                 }
-
-                outputs.push(
-                    <ListGroup.Item key={output.id}>
-                        <small>
-                            <div>Output ID: <a href={`/explorer/output/${output.id}`}>{output.id}</a></div>
-                            <div>Transaction ID:  <a href={`/explorer/transaction/${output.transaction_id}`}>{output.transaction_id}</a></div>
-                            <div>Index: {output.index}</div>
-                            <div>Type: {output.type}</div>
-                            {output.solidification_time != 0 &&
-                                <div>Solidification Time: {new Date(output.solidification_time * 1000).toLocaleString()}</div>
-                            }
-                            <div>{status}</div>
-                            <div>{consumed}</div>
-                            <div>{conflicting}</div>
-                            <div>{'Balance:'} {balances}</div>
-                            <div>Pending Mana: {displayManaUnit(output.pending_mana)}</div>
-                        </small>
-                    </ListGroup.Item>
-                );
+                return b.txTimestamp - a.txTimestamp;
             }
 
-            total_balance.forEach((balance: number, color: string) => {
+            // sort outputs
+            unspent.sort(timestampCompareFn)
+            spent.sort(timestampCompareFn)
+
+            // derive the available funds
+            totalBalanceFromExplorerOutputs(unspent, addr.address).forEach((balance: number, color: string) => {
                 available_balances.push(
-                    <ListGroup.Item key={color}>
-                            {'Color:'} {color} {' Value:'} {balance}
+                    <ListGroup.Item key={color} style={{textAlign: 'center'}}>
+                        <Row>
+                            <Col xs={9}>
+                                {color}
+                            </Col>
+                            <Col>
+                                {new Intl.NumberFormat().format(balance)}
+                            </Col>
+                        </Row>
                     </ListGroup.Item>
                 )
             });
         }
         return (
             <Container>
-                <h3>Address {addr !== null && <span>({addr.output_ids.length} Outputs)</span>}</h3>
-                <p>
-                    {id} {' '}
-                </p>
+                <h3 style={{marginBottom: "40px"}}>Address <strong>{id}</strong> {addr !== null && <span>({addr.explorerOutputs.length} Outputs)</span>}</h3>
                 {
                     addr !== null ?
                         <React.Fragment>
                             {
-                                addr.output_ids !== null && addr.output_ids.length === 100 &&
+                                addr.explorerOutputs !== null && addr.explorerOutputs.length === 100 &&
                                 <Alert variant={"warning"}>
                                     Max. 100 outputs are shown.
                                 </Alert>
                             }
                              <Row className={"mb-3"}>
-                                <Col>
+                                <Col xs={7}>
                                     <ListGroup>
-                                        {"Available balances:"} {get_balances(available_balances)} 
+                                        <h4>Available Balances</h4>
+                                        {available_balances.length === 0? "There are no balances currently available." : <div>
+                                            <ListGroupItem
+                                                style={{textAlign: 'center'}}
+                                                key={'header'}
+                                            >
+                                                <Row>
+                                                    <Col xs={9}>
+                                                        <strong>Color</strong>
+                                                    </Col>
+                                                    <Col>
+                                                        <strong>Balance</strong>
+                                                    </Col>
+                                                </Row>
+                                            </ListGroupItem>
+                                            {available_balances}
+                                        </div> }
                                     </ListGroup>
                                 </Col>
                             </Row>
                             <Row className={"mb-3"}>
                                 <Col>
                                     <ListGroup variant={"flush"}>
-                                        {"Outputs detail:"} {outputs}
+                                        <h4>Unspent Outputs</h4>
+                                        {unspent.length === 0? "There are no unspent outputs currently available." : <div>
+                                            {unspent.map((o) => {
+                                                return <OutputButton output={o}/>
+                                            })}
+                                        </div>
+                                        }
+                                    </ListGroup>
+                                </Col>
+                            </Row>
+                            <Row className={"mb-3"}>
+                                <Col>
+                                    <ListGroup variant={"flush"}>
+                                        <h4>Spent Outputs</h4>
+                                        {spent.length === 0? "There are no spent outputs currently available." : <div>
+                                            {spent.map((o) => {
+                                                return <OutputButton output={o}/>
+                                            })}
+                                        </div>
+                                        }
                                     </ListGroup>
                                 </Col>
                             </Row>
@@ -172,8 +172,123 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
                             </Col>
                         </Row>
                 }
-
             </Container>
         );
+    }
+}
+
+interface oProps {
+    output: ExplorerOutput;
+}
+
+class OutputButton extends React.Component<oProps, any> {
+    constructor(props) {
+        super(props);
+        this.state = {
+            enabled: false
+        };
+    }
+
+    render() {
+        return (
+            <ListGroup.Item>
+                <Button
+                    variant={getVariant(this.props.output.output.type)}
+                    onClick={ () => { this.setState({enabled: !this.state.enabled})}}
+                    block
+                >
+                 <Row>
+                     <Col xs={6} style={{textAlign: "left"}}>{this.props.output.id.base58} </Col>
+                     <Col style={{textAlign: "left"}}>{this.props.output.output.type.replace("Type", "")} </Col>
+                     <Col style={{textAlign: "left"}}>{new Date(this.props.output.txTimestamp * 1000).toLocaleString()}</Col>
+                 </Row>
+                </Button>
+                <Row style={{fontSize: "90%"}}>
+                    <Col>
+                        {
+                            this.state.enabled? outputToComponent(this.props.output.output): null
+                        }
+                    </Col>
+                    <Col>
+                        {
+                            this.state.enabled? <OutputMeta
+                                metadata={this.props.output.metadata}
+                                inclusion={this.props.output.inclusionState}
+                                timestamp={this.props.output.txTimestamp}
+                                pendingMana={this.props.output.pendingMana}
+                            />: null
+                        }
+                    </Col>
+                </Row>
+            </ListGroup.Item>
+            );
+    }
+}
+
+interface omProps {
+    metadata: OutputMetadata;
+    inclusion: InclusionState;
+    timestamp: number;
+    pendingMana: number;
+}
+
+class OutputMeta extends React.Component<omProps, any> {
+    render() {
+        let metadata = this.props.metadata;
+        let inclusion = this.props.inclusion;
+        let timestamp = this.props.timestamp;
+        let pendingMana = this.props.pendingMana;
+        return (
+            <ListGroup>
+                <ListGroup.Item>Status: {deriveStatus(inclusion)} {deriveSolid(metadata)} {deriveLiked(inclusion)} {deriveFinalized(inclusion)} {deriveConflicting(inclusion)}</ListGroup.Item>
+                <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${metadata.branchID}`}>{resolveBase58BranchID(metadata.branchID)}</a> </ListGroup.Item>
+                <ListGroup.Item>Pending mana: {displayManaUnit(pendingMana)}</ListGroup.Item>
+                <ListGroup.Item>Timestamp: {new Date(timestamp * 1000).toLocaleString()}</ListGroup.Item>
+                <ListGroup.Item>Solidification Time: {new Date(metadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
+                <ListGroup.Item>Consumer Count: {metadata.consumerCount}</ListGroup.Item>
+                { metadata.firstConsumer && <ListGroup.Item>First Consumer: <a href={`/explorer/transaction/${metadata.firstConsumer}`}>{metadata.firstConsumer}</a> </ListGroup.Item>}
+                { metadata.confirmedConsumer && <ListGroup.Item>Confirmed Consumer: <a href={`/explorer/transaction/${metadata.confirmedConsumer}`}>{metadata.confirmedConsumer}</a> </ListGroup.Item>}
+            </ListGroup>
+        );
+    }
+}
+
+let deriveStatus = (i: InclusionState) => {
+    if (i.confirmed) {
+        return <Badge variant={"success"}>confirmed</Badge>;
+    } else if (i.rejected) {
+        return <Badge variant={"danger"}>rejected</Badge>;
+    }
+    return <Badge variant={"warning"}>pending</Badge>;
+}
+
+let deriveSolid = (m: OutputMetadata) => {
+    return m.solid? <Badge variant={"success"}>solid</Badge>: <Badge variant={"danger"}>not solid</Badge>;
+}
+
+let deriveLiked = (i: InclusionState) => {
+    return i.liked? <Badge variant={"success"}>liked</Badge>: <Badge variant={"danger"}>not liked</Badge>;
+}
+
+let deriveFinalized = (i: InclusionState) => {
+    return i.finalized? <Badge variant={"success"}>finalized</Badge>: <Badge variant={"danger"}>pending</Badge>;
+}
+
+let deriveConflicting = (i: InclusionState) => {
+    return i.conflicting && <Badge variant={"danger"}>conflicting</Badge>;
+}
+
+let getVariant = (outputType) => {
+    switch (outputType) {
+        case "SigLockedSingleOutputType":
+            return "light";
+        case "SigLockedColoredOutputType":
+            return "light";
+        case "AliasOutputType":
+            return "success";
+        case "ExtendedLockedOutputType":
+            return "info";
+        default:
+            return "danger";
     }
 }

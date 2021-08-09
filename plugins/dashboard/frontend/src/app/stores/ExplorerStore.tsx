@@ -7,14 +7,15 @@ import {
     DrngSubtype,
     PayloadType,
     TransactionPayload,
-    SyncBeaconPayload,
-    getPayloadType
+    getPayloadType,
+    Output, SigLockedSingleOutput
 } from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
 
 export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
+export const GenesisTransactionID = "11111111111111111111111111111111";
 
 export class Message {
     id: string;
@@ -22,6 +23,7 @@ export class Message {
     issuance_timestamp: number;
     sequence_number: number;
     issuer_public_key: string;
+    issuer_short_id: string;
     signature: string;
     strongParents: Array<string>;
     weakParents: Array<string>;
@@ -33,26 +35,29 @@ export class Message {
     booked: boolean;
     eligible: boolean;
     invalid: boolean;
-    finalizedApprovalWeight: boolean;
+    finalized: boolean;
     payload_type: number;
     payload: any;
+    rank: number;
+    sequenceID: number;
+    isPastMarker: boolean;
+    pastMarkerGap: number;
+    pastMarkers: string;
+    futureMarkers: string;
 }
 
-class AddressResult {
+export class AddressResult {
     address: string;
-    output_ids: Array<Output>;
+    explorerOutputs: Array<ExplorerOutput>;
 }
 
-class Output {
-    id: string;
-    transaction_id: string;
-    type: string;
-    index: number;
-    balances: Array<Balance>;
-    inclusion_state: InclusionState;
-    consumer_count: number;
-    solidification_time: number;
-    pending_mana: number;
+export class ExplorerOutput {
+    id: OutputID;
+    output: Output;
+    metadata: OutputMetadata
+    inclusionState: InclusionState;
+    txTimestamp: number;
+    pendingMana: number;
 }
 
 class OutputID {
@@ -61,13 +66,14 @@ class OutputID {
     outputIndex: number;
 }
 
-class OutputMetadata {
+export class OutputMetadata {
     outputID: OutputID;
     branchID: string;
     solid: boolean;
     solidificationTime: number;
     consumerCount: number;
-    firstConsumer: string; //tx id
+    firstConsumer: string; // tx id of first consumer (can be unconfirmed)
+    confirmedConsumer: string // tx id of confirmed consumer
     finalized: boolean;
 }
 
@@ -119,12 +125,7 @@ class BranchConflicts {
     conflicts: Array<BranchConflict>
 }
 
-class Balance {
-    value: number;
-    color: string;
-}
-
-class InclusionState {
+export class InclusionState {
 	liked: boolean;
 	rejected: boolean;
 	finalized: boolean;
@@ -266,11 +267,20 @@ export class ExplorerStore {
             }
             let tx = await res.json()
             for(let i = 0; i < tx.inputs.length; i++) {
-                let inputID = tx.inputs[i].referencedOutputID ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
+                let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
                 try{
                     let referencedOutputRes = await fetch(`/api/output/${inputID}`)
+                    if (referencedOutputRes.status === 404){
+                        let genOutput = new Output();
+                        genOutput.output = new SigLockedSingleOutput();
+                        genOutput.output.balance = 0;
+                        genOutput.output.address = "LOADED FROM SNAPSHOT";
+                        genOutput.type = "SigLockedSingleOutputType";
+                        genOutput.outputID = tx.inputs[i].referencedOutputID;
+                        tx.inputs[i].output = genOutput;
+                    }
                     if (referencedOutputRes.status === 200){
-                        tx.inputs[i].referencedOutput = await referencedOutputRes.json()
+                        tx.inputs[i].output = await referencedOutputRes.json()
                     }
                 }catch(err){
                     // ignore
@@ -518,10 +528,6 @@ export class ExplorerStore {
             case PayloadType.Data:
                 this.payload = msg.payload as BasicPayload
                 break;
-            case PayloadType.SyncBeacon:
-                this.payload = msg.payload as SyncBeaconPayload
-                // console.log(this.payload.sent_time);
-                break;
             case PayloadType.Faucet:
             default:
                 this.payload = msg.payload as BasicPayload
@@ -559,7 +565,7 @@ export class ExplorerStore {
                 <tr key={msg.id}>
                     <td>
                         <Link to={`/explorer/message/${msg.id}`}>
-                            {msg.id.substr(0, 35)}
+                            {msg.id}
                         </Link>
                     </td>
                     <td>

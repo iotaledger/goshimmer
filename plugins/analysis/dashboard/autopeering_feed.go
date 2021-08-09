@@ -15,7 +15,7 @@ import (
 var (
 	autopeeringWorkerCount     = 1
 	autopeeringWorkerQueueSize = 500
-	autopeeringWorkerPool      *workerpool.WorkerPool
+	autopeeringWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 )
 
 // JSON encoded websocket message for adding a node
@@ -46,7 +46,7 @@ type disconnectNodes struct {
 
 func configureAutopeeringWorkerPool() {
 	// create a new worker pool for processing autopeering updates coming from analysis server
-	autopeeringWorkerPool = workerpool.New(func(task workerpool.Task) {
+	autopeeringWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		// determine what msg to send based on first parameter
 		// first parameter is always a letter denoting what to do with the following string or strings
 		x := fmt.Sprintf("%v", task.Param(0))
@@ -137,7 +137,6 @@ func runAutopeeringFeed() {
 		defer analysisserver.Events.ConnectNodes.Detach(notifyConnectNodes)
 		analysisserver.Events.DisconnectNodes.Attach(notifyDisconnectNodes)
 		defer analysisserver.Events.DisconnectNodes.Detach(notifyDisconnectNodes)
-		autopeeringWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Analysis-Dashboard[AutopeeringVisualizer] ...")
 		autopeeringWorkerPool.Stop()

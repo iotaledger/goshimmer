@@ -7,11 +7,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 )
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,7 +34,7 @@ func NewMarker(sequenceID SequenceID, index Index) *Marker {
 func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markerBytes)
 	if marker, err = MarkerFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -45,11 +45,11 @@ func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err
 func MarkerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err error) {
 	marker = &Marker{}
 	if marker.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 	if marker.index, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Index from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Index from MarshalUtil: %w", err)
 		return
 	}
 
@@ -98,7 +98,7 @@ type Markers struct {
 func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markersBytes)
 	if markers, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -110,7 +110,7 @@ func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err er
 func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Markers, err error) {
 	markersCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Markers count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Markers count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -120,12 +120,12 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Markers, er
 	for i := 0; i < int(markersCount); i++ {
 		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
 		if sequenceIDErr != nil {
-			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
+			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
 			return
 		}
 		index, indexErr := IndexFromMarshalUtil(marshalUtil)
 		if indexErr != nil {
-			err = xerrors.Errorf("failed to parse Index from MarshalUtil: %w", indexErr)
+			err = errors.Errorf("failed to parse Index from MarshalUtil: %w", indexErr)
 			return
 		}
 		markers.Set(sequenceID, index)
@@ -203,7 +203,7 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) 
 			m.markers[sequenceID] = index
 
 			// find new lowest index
-			if index == m.lowestIndex {
+			if existingIndex == m.lowestIndex {
 				m.lowestIndex = 0
 				for _, scannedIndex := range m.markers {
 					if scannedIndex < m.lowestIndex || m.lowestIndex == 0 {
@@ -405,6 +405,8 @@ func (m *Markers) String() (humanReadableMarkers string) {
 
 		return true
 	})
+	structBuilder.AddField(stringify.StructField("lowestIndex", m.LowestIndex()))
+	structBuilder.AddField(stringify.StructField("highestIndex", m.HighestIndex()))
 
 	return structBuilder.String()
 }
@@ -444,7 +446,7 @@ func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
 func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(referencingMarkersBytes)
 	if referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -603,7 +605,7 @@ func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarker
 func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(parentReferencesBytes)
 	if referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -685,7 +687,7 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
 			index := Index(node.Key().(uint64))
-			referencedIndex := Index(node.Value().(uint64))
+			referencedIndex := node.Value().(Index)
 			if _, exists := referencedMarkersByReferencingIndex[index]; !exists {
 				referencedMarkersByReferencingIndex[index] = NewMarkers()
 
@@ -940,19 +942,19 @@ func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode 
 
 	sequenceCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Sequence count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Sequence count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	for i := uint64(0); i < sequenceCount; i++ {
 		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
 		if sequenceIDErr != nil {
-			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
+			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
 			return
 		}
 
 		referenceCount, referenceCountErr := marshalUtil.ReadUint64()
 		if referenceCountErr != nil {
-			err = xerrors.Errorf("failed to parse reference count (%v): %w", referenceCountErr, cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("failed to parse reference count (%v): %w", referenceCountErr, cerrors.ErrParseBytesFailed)
 			return
 		}
 		thresholdMap := thresholdmap.New(mode)
@@ -961,13 +963,13 @@ func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode 
 			for j := uint64(0); j < referenceCount; j++ {
 				referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
 				if referencingIndexErr != nil {
-					err = xerrors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
+					err = errors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
 					return
 				}
 
 				referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
 				if referencedIndexErr != nil {
-					err = xerrors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
+					err = errors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
 					return
 				}
 
@@ -977,13 +979,13 @@ func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode 
 			for j := uint64(0); j < referenceCount; j++ {
 				referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
 				if referencedIndexErr != nil {
-					err = xerrors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
+					err = errors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
 					return
 				}
 
 				referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
 				if referencingIndexErr != nil {
-					err = xerrors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
+					err = errors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
 					return
 				}
 

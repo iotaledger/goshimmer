@@ -5,13 +5,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -58,10 +58,10 @@ const (
 
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
-)
 
-// CacheTime defines how long the object stay in the cache of the object storage.
-var CacheTime = 2 * time.Second
+	// cacheTime defines the number of seconds an object will wait in storage cache
+	cacheTime = 2 * time.Second
+)
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -88,22 +88,23 @@ type Storage struct {
 // NewStorage creates a new Storage.
 func NewStorage(tangle *Tangle) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixTangle)
+	cacheProvider := tangle.Options.CacheTimeProvider
 
 	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
-		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage:            osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:                   osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
-		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false)),
-		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
+		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		messageMetadataStorage:            osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:                   osFactory.New(PrefixApprovers, ApproverFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -544,7 +545,7 @@ type ApproverType uint8
 func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -556,11 +557,11 @@ func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedByt
 func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approverType ApproverType, err error) {
 	untypedApproverType, err := marshalUtil.ReadUint8()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if approverType = ApproverType(untypedApproverType); approverType != StrongApprover && approverType != WeakApprover {
-		err = xerrors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -624,15 +625,15 @@ func ApproverFromBytes(bytes []byte) (result *Approver, consumedBytes int, err e
 func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
 	result = &Approver{}
 	if result.referencedMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
 		return
 	}
 	if result.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
 		return
 	}
 	if result.approverMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -642,7 +643,7 @@ func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Appr
 // ApproverFromObjectStorage is the factory method for Approvers stored in the ObjectStorage.
 func ApproverFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = ApproverFromBytes(key); err != nil {
-		err = xerrors.Errorf("failed to parse Approver from bytes: %w", err)
+		err = errors.Errorf("failed to parse Approver from bytes: %w", err)
 		return
 	}
 
@@ -827,11 +828,11 @@ func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, e
 func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
 	result = &Attachment{}
 	if result.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse transaction ID in attachment: %w", err)
+		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
 	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse message ID in attachment: %w", err)
+		err = errors.Errorf("failed to parse message ID in attachment: %w", err)
 		return
 	}
 
@@ -843,7 +844,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, 
 func AttachmentFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = AttachmentFromBytes(key)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse attachment from object storage: %w", err)
+		err = errors.Errorf("failed to parse attachment from object storage: %w", err)
 	}
 
 	return

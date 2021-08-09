@@ -2,8 +2,8 @@ package pow
 
 import (
 	"context"
-	"crypto"
 	"math"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -19,7 +18,7 @@ const (
 	target  = 10
 )
 
-var testWorker = New(crypto.BLAKE2b_512, workers)
+var testWorker = New(workers)
 
 func TestWorker_Work(t *testing.T) {
 	nonce, err := testWorker.Mine(context.Background(), nil, target)
@@ -41,7 +40,7 @@ func TestWorker_Validate(t *testing.T) {
 		{msg: make([]byte, 10240), nonce: 0, expLeadingZeros: 1, expErr: nil},
 	}
 
-	w := &Worker{hash: crypto.BLAKE2b_512}
+	w := &Worker{}
 	for _, tt := range tests {
 		zeros, err := w.LeadingZerosWithNonce(tt.msg, tt.nonce)
 		assert.Equal(t, tt.expLeadingZeros, zeros)
@@ -53,14 +52,19 @@ func TestWorker_Cancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	var err error
 	go func() {
+		defer wg.Done()
 		_, err = testWorker.Mine(ctx, nil, math.MaxInt32)
 	}()
 	time.Sleep(10 * time.Millisecond)
 	cancel()
 
-	assert.Eventually(t, func() bool { return xerrors.Is(err, ErrCancelled) }, time.Second, 10*time.Millisecond)
+	wg.Wait()
+
+	assert.ErrorIs(t, err, ErrCancelled)
 }
 
 func BenchmarkWorker(b *testing.B) {

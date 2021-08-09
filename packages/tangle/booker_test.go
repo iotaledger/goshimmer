@@ -9,13 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 func TestScenario_1(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 
@@ -43,7 +42,7 @@ func TestScenario_1(t *testing.T) {
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -53,8 +52,12 @@ func TestScenario_1(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 
@@ -148,6 +151,11 @@ func TestScenario_1(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], txBranchID)
 
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(txBranchID).Consume(func(branch ledgerstate.Branch) {
+		assert.True(t, branch.Liked())
+		assert.True(t, branch.MonotonicallyLiked())
+	}))
+
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
@@ -176,6 +184,18 @@ func TestScenario_1(t *testing.T) {
 	txBranchID, err = transactionBranchID(tangle, transactions["3"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["red"], txBranchID)
+
+	// assess that after forking transaction 3 and thus introducing the red branch, the properties of that branch are correct
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["red"]).Consume(func(branch ledgerstate.Branch) {
+		assert.True(t, branch.Liked())
+		assert.True(t, branch.MonotonicallyLiked())
+	}))
+
+	// assess that the properties of the yellow branch are correct
+	assert.True(t, tangle.LedgerState.BranchDAG.Branch(branches["yellow"]).Consume(func(branch ledgerstate.Branch) {
+		assert.False(t, branch.Liked())
+		assert.False(t, branch.MonotonicallyLiked())
+	}))
 
 	// Message 6
 	inputs["E"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["2"].ID(), 0))
@@ -253,7 +273,7 @@ func TestScenario_1(t *testing.T) {
 }
 
 func TestScenario_2(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 
@@ -281,7 +301,7 @@ func TestScenario_2(t *testing.T) {
 		})
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -291,8 +311,12 @@ func TestScenario_2(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 
@@ -540,54 +564,64 @@ func TestScenario_2(t *testing.T) {
 		structureDetails := make(map[MessageID]*markers.StructureDetails)
 		structureDetails[messages["1"].ID()] = &markers.StructureDetails{
 			Rank:          1,
+			SequenceID:    1,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 1)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(3, 2)),
 		}
 		structureDetails[messages["2"].ID()] = &markers.StructureDetails{
 			Rank:          2,
+			SequenceID:    1,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 2)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(2, 3)),
 		}
 		structureDetails[messages["3"].ID()] = &markers.StructureDetails{
 			Rank:          3,
+			SequenceID:    1,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 3)),
 			FutureMarkers: markers.NewMarkers(),
 		}
 		structureDetails[messages["4"].ID()] = &markers.StructureDetails{
 			Rank:          2,
+			SequenceID:    1,
+			PastMarkerGap: 1,
 			IsPastMarker:  false,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 1)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(3, 2)),
 		}
 		structureDetails[messages["5"].ID()] = &markers.StructureDetails{
 			Rank:          3,
+			SequenceID:    2,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 3)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 4)),
 		}
 		structureDetails[messages["6"].ID()] = &markers.StructureDetails{
 			Rank:          4,
+			SequenceID:    2,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 4)),
 			FutureMarkers: markers.NewMarkers(),
 		}
 		structureDetails[messages["7"].ID()] = &markers.StructureDetails{
 			Rank:          3,
+			SequenceID:    3,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(3, 2)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(3, 3), markers.NewMarker(4, 3)),
 		}
 		structureDetails[messages["8"].ID()] = &markers.StructureDetails{
 			Rank:          4,
+			SequenceID:    3,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(3, 3)),
 			FutureMarkers: markers.NewMarkers(),
 		}
 		structureDetails[messages["9"].ID()] = &markers.StructureDetails{
 			Rank:          4,
+			SequenceID:    4,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(4, 3)),
 			FutureMarkers: markers.NewMarkers(),
@@ -603,7 +637,7 @@ func TestScenario_2(t *testing.T) {
 }
 
 func TestScenario_3(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 
@@ -631,7 +665,7 @@ func TestScenario_3(t *testing.T) {
 		})
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -641,8 +675,12 @@ func TestScenario_3(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 
@@ -886,8 +924,42 @@ func TestScenario_3(t *testing.T) {
 	assert.Equal(t, branches["purple"], txBranchID)
 }
 
+// func TestBookerNewAutomaticSequence(t *testing.T) {
+// 	tangle := newTestTangle()
+// 	defer tangle.Shutdown()
+
+// 	testFramework := NewMessageTestFramework(tangle)
+
+// 	tangle.Setup()
+
+// 	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"))
+// 	testFramework.CreateMessage("Message2", WithStrongParents("Message1"))
+// 	testFramework.IssueMessages("Message1", "Message2").WaitMessagesBooked()
+
+// 	messageAliases := []string{"Message1"}
+// 	for i := 0; i < 3020; i++ {
+// 		parentMessageAlias := messageAliases[i]
+// 		currentMessageAlias := "Message" + strconv.Itoa(i+3)
+// 		messageAliases = append(messageAliases, currentMessageAlias)
+// 		testFramework.CreateMessage(currentMessageAlias, WithStrongParents(parentMessageAlias))
+// 		testFramework.IssueMessages(currentMessageAlias)
+// 		testFramework.WaitMessagesBooked()
+// 	}
+
+// 	assert.True(t, tangle.Storage.MessageMetadata(testFramework.Message("Message3009").ID()).Consume(func(messageMetadata *MessageMetadata) {
+// 		assert.Equal(t, &markers.StructureDetails{
+// 			Rank:          3008,
+// 			PastMarkerGap: 0,
+// 			IsPastMarker:  true,
+// 			SequenceID:    2,
+// 			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 9)),
+// 			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 10)),
+// 		}, messageMetadata.StructureDetails())
+// 	}))
+// }
+
 func TestBookerMarkerMappings(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
@@ -2221,7 +2293,8 @@ func checkIndividuallyMappedMessages(t *testing.T, testFramework *MessageTestFra
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
 	for messageID, expectedMarkersOfMessage := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.Equal(t, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers, "Markers of %s are wrong", messageID)
+			assert.True(t, expectedMarkersOfMessage.Equals(messageMetadata.StructureDetails().PastMarkers), "Markers of %s are wrong.\n"+
+				"Expected: %+v\nActual: %+v", messageID, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers)
 		}))
 
 		// if we have only a single marker - check if the marker is mapped to this message (or its inherited past marker)

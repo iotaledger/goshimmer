@@ -1,26 +1,32 @@
 package dashboard
 
 import (
-	flag "github.com/spf13/pflag"
+	"github.com/iotaledger/hive.go/configuration"
 )
 
-const (
-	// CfgBindAddress defines the config flag of the dashboard binding address.
-	CfgBindAddress = "dashboard.bindAddress"
-	// CfgDev defines the config flag of the  dashboard dev mode.
-	CfgDev = "dashboard.dev"
-	// CfgBasicAuthEnabled defines the config flag of the dashboard basic auth enabler.
-	CfgBasicAuthEnabled = "dashboard.basic_auth.enabled"
-	// CfgBasicAuthUsername defines the config flag of the dashboard basic auth username.
-	CfgBasicAuthUsername = "dashboard.basic_auth.username"
-	// CfgBasicAuthPassword defines the config flag of the dashboard basic auth password.
-	CfgBasicAuthPassword = "dashboard.basic_auth.password"
-)
+// ParametersDefinition contains the definition of configuration parameters used by the dashboard plugin.
+type ParametersDefinition struct {
+	// BindAddress defines the config flag of the dashboard binding address.
+	BindAddress string `default:"127.0.0.1:8081" usage:"the bind address of the dashboard"`
+
+	// Dev defines the config flag of the  dashboard dev mode.
+	Dev bool `default:"false" usage:"whether the dashboard runs in dev mode"`
+
+	BasicAuth struct {
+		// Enabled defines the config flag of the dashboard basic auth enabler.
+		Enabled bool `default:"false" usage:"whether to enable HTTP basic auth"`
+
+		// Username defines the config flag of the dashboard basic auth username.
+		Username string `default:"goshimmer" usage:"HTTP basic auth username"`
+
+		// Password defines the config flag of the dashboard basic auth password.
+		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
+	} `name:"basic_auth"`
+}
+
+// Parameters contains the configuration parameters of the dashboard plugin.
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	flag.String(CfgBindAddress, "127.0.0.1:8081", "the bind address of the dashboard")
-	flag.Bool(CfgDev, false, "whether the dashboard runs in dev mode")
-	flag.Bool(CfgBasicAuthEnabled, false, "whether to enable HTTP basic auth")
-	flag.String(CfgBasicAuthUsername, "goshimmer", "HTTP basic auth username")
-	flag.String(CfgBasicAuthPassword, "goshimmer", "HTTP basic auth password")
+	configuration.BindParameters(Parameters, "dashboard")
 }

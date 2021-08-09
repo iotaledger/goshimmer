@@ -1,16 +1,16 @@
 package faucet
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 )
 
 var (
 	// ErrNotEnoughFundingOutputs if there are not enough funding outputs in the faucet.
-	ErrNotEnoughFundingOutputs = xerrors.New("not enough funding outputs to complete the request")
+	ErrNotEnoughFundingOutputs = errors.New("not enough funding outputs to complete the request")
 	// ErrMissingRemainderOutput is returned if the remainder output can not be found.
-	ErrMissingRemainderOutput = xerrors.New("can't find faucet remainder output")
+	ErrMissingRemainderOutput = errors.New("can't find faucet remainder output")
 	// ErrNotEnoughFunds is returned when not enough funds are left in the faucet.
-	ErrNotEnoughFunds = xerrors.New("not enough funds in the faucet")
+	ErrNotEnoughFunds = errors.New("not enough funds in the faucet")
 	// ErrConfirmationTimeoutExpired is returned when a faucet transaction was not confirmed in expected time.
-	ErrConfirmationTimeoutExpired = xerrors.New("tx confirmation time expired")
+	ErrConfirmationTimeoutExpired = errors.New("tx confirmation time expired")
 )

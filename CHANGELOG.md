@@ -1,3 +1,185 @@
+# v0.7.4 - 2021-07-08
+* Add ParametersDefinition structs in integration test framework
+* Add UTXO-DAG interface
+* Fix setting correct properties to newly forked branches
+* Fix using weak parents for direct approvers when looking for transactions that are approved by a message
+* Update entry node from community
+* Update docs
+* Update snapshot file with DevNet UTXO at 2021-07-08 07:09 UTC
+* **Breaking**: bumps network and database versions
+
+# v0.7.3 - 2021-07-01
+* Add latest snapshot download from S3
+* Add weak tips on local dashboard
+* Improve integration test framework
+* Add FCoB metrics to remote logger
+* Remove tips broadcaster
+* Improve APIs
+* Fix Sync status
+* Fix gossip and requester issues
+* Fix Inclusion state inconsistencies
+* Fix Prometheus issues when autopeering is not enabled
+* Increase maxVerticesWithoutFutureMarker to 3000000
+* Update snapshot file with DevNet UTXO at 2021-06-30 21:16 UTC
+* Update JS dependencies
+* Update hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.7.2 - 2021-06-17
+* Add local double spend filter in webAPI
+* Add SetBranchFinalized to FCoB
+* Set message of the weak parents finalized rather than only their payload
+* Update snapshot file with DevNet UTXO at 2021-06-17 08:52 UTC
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.7.1 - 2021-06-15
+* Improve Faucet
+* Improve docs
+* Improve message requester
+* Improve common integration test
+* Improve collected Elasticsearch metrics
+* Add run callback to database plugin
+* Add Client Library Import Check
+* Add time range check in wallet lib
+* Replace builtin hash map with a sorted set
+* Enable Github Actions Caching
+* Fix wrong account mention
+* Fix gossip neighbor disconnect
+* Fix Genesis Loaded Transaction View
+* Fix memory leak in pow plugin/pkg
+* Fix overlocking and sleeping issues 
+* Fix snapshot bug
+* Fix typos
+* Update Graphana debugging dashboard
+* Update snapshot file with DevNet UTXO at 2021-06-15 09:09 UTC
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.7.0 - 2021-06-02
+* Add client diagnostic API
+* Improve docs and tutorials
+* Improve congestion control
+* Improve dashboard
+* Improve Grafana dashboard
+* Limit chat fields length
+* Fix several bugs
+* Reset snapshot file
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.6.4 - 2021-05-29
+* Add simple chat dApp
+* Improve client lib
+* Improve manual peering and add tutorial
+* Improve docs and tutorials
+* Improve congestion control
+* Fix mana dashboard deadlock
+* Fix several bugs
+* Update snapshot file with Pollen UTXO at 2021-05-29 10:22 UTC
+* Update JS dependencies
+* Update lo latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.6.3 - 2021-05-25
+* Improve congestion control
+* Fix builds
+* Fix dRNG shutdown deadlock
+* Fix panic on booking
+* Fix locking management on message factory
+* Fix several visualizer bugs
+* Update Grafana pie charts
+* Update snapshot file with Pollen UTXO at 2021-05-25 16:54 UTC
+* **Breaking**: bumps network and database versions
+
+# v0.6.2 - 2021-05-24
+* Add Congestion Control
+* Add global snapshot
+* Add Central Asset Registry to cli-wallet
+* Switch to RocksDB instead of BadgerDB
+* Enhance manual peering
+* Improve gossip
+* Improve APIs
+* Fix several dashboard bugs
+* Update lo latest hive.go
+* Update snapshot file 
+* **Breaking**: bumps network and database versions
+
+# v0.6.1 - 2021-05-19
+* Change Faucet default parameters
+* **Breaking**: bumps network and database versions
+
+# v0.6.0 - 2021-05-19
+* Add first iteration of the tokenization framework
+* Add aMana refresher
+* Add CORS to middleware Dashboard server
+* Allow specifying parents count when issuing messages 
+* Move PoW for Faucet requests to client
+* Remove Faucet requests from Node's Dashboard
+* Improve cli-wallet
+* Improve APIs
+* Improve integration tests
+* Refactor statement remote logging  
+* Display full messageID in explorer feed
+* Update JS dependencies
+* Update documentation
+* **Breaking**: bumps network and database versions
+
+# v0.5.9 - 2021-05-11
+* Replace sync beacons with Tangle Time
+* Fix approval weight manager persistence
+* Fix non positive ticker
+* Fix marker issues
+* Fix solidification issues
+* Fix concurrency-related issues
+* Improve FPC metrics logging
+* Improve clock synchronization handling
+* Improve dRNG plugin
+* Improve integration tests
+* Update JS dependencies
+* Update to latest hive.go
+* Update documentation
+* **Breaking**: bumps network and database versions
+
+# v0.5.8 - 2021-05-07
+* Integrate FPC with the X-Team committee
+* Enable finality via approval weight
+* Add Tangle Time
+* Add sync status monitoring
+* Add activity plugin
+* Add manual peering support
+* Add markers info to message view
+* Remove moving average for cMana
+* Replace epochs with weight provider using Tangle Time
+* Fix marker issues
+* Fix sync issues
+* Disable past-cone check when booking transactions
+* Improve integration tests
+* Refactor error handling
+* Update snapshot
+* Update JS dependencies
+* Update to latest hive.go
+* Update documentation
+* **Breaking**: bumps network and database versions
+
+# v0.5.7 - 2021-04-23
+* Add approval weight manager (soft launch)
+* Add epochs
+* Add debug APIs for epochs
+* Update local dashboard to show finalization based on approval weight
+* Improve FPC
+* Improve markers manager
+* Improve integration tests
+* Improve payload unmarshaling
+* Remove unless-stopped option from Docker default config
+* Increase CfgGossipAgeThreshold parameter
+* Fix several bugs on hive.go
+* Fix mana event storage pruning
+* Fix mana leaderboard and explorer live feed scroll view
+* Update snapshot with initial mana state
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
 # v0.5.6 - 2021-04-03
 * Fix childBranchType
 * Fix FPC empty round increase

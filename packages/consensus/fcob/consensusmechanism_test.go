@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -20,13 +21,30 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
+var schedulerParams = tangle.SchedulerParams{
+	MaxBufferSize:               100000000,
+	Rate:                        100 * time.Millisecond,
+	AccessManaRetrieveFunc:      getAccessMana,
+	TotalAccessManaRetrieveFunc: getTotalAccessMana,
+}
+
+func getAccessMana(_ identity.ID) float64 {
+	return 800
+}
+
+func getTotalAccessMana() float64 {
+	return 2000
+}
+
 func TestOpinionFormer_Scenario2(t *testing.T) {
 	LikedThreshold = 2 * time.Second
 	LocallyFinalizedThreshold = 2 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
+		tangle.CacheTimeProvider(cacheTimeProvider))
 	defer testTangle.Shutdown()
 	testTangle.Setup()
 
@@ -55,7 +73,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(tangle.DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -65,8 +83,12 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 
@@ -224,8 +246,10 @@ func TestOpinionFormer(t *testing.T) {
 	LocallyFinalizedThreshold = 2 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
-	testTangle := tangle.New(tangle.Consensus(consensusProvider))
+	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
+		tangle.CacheTimeProvider(cacheTimeProvider))
 	defer testTangle.Shutdown()
 
 	messageA := newTestDataMessage("A")
@@ -239,7 +263,7 @@ func TestOpinionFormer(t *testing.T) {
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(tangle.DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -249,8 +273,12 @@ func TestOpinionFormer(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 

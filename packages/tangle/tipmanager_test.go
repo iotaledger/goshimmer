@@ -10,12 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestTipManager_AddTip(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
@@ -32,7 +31,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -42,8 +41,12 @@ func TestTipManager_AddTip(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true},
+			},
 		},
 	}
 
@@ -180,7 +183,7 @@ func TestTipManager_AddTip(t *testing.T) {
 }
 
 func TestTipManager_DataMessageTips(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
 
@@ -360,7 +363,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 func TestTipManager_TransactionTips(t *testing.T) {
 	// set up scenario (images/tipmanager-TransactionTips-test.png)
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
 
@@ -410,7 +413,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -423,15 +426,19 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence,
+		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
+			genesisTransaction.ID(): {
+				Essence:        genesisEssence,
+				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
+				UnspentOutputs: []bool{true, true},
+			},
 		},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
 	// determine genesis index so that correct output can be referenced
 	var g1, g2 uint16
-	tangle.LedgerState.utxoDAG.Output(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
+	tangle.LedgerState.UTXODAG.CachedOutput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
 		balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
 		if balance == uint64(5) {
 			g1 = 0
@@ -835,7 +842,7 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 	tangle.Storage.StoreMessage(message)
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
 	if message.payload.Type() == ledgerstate.TransactionType {
-		err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
+		err := tangle.LedgerState.UTXODAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
 		require.NoError(t, err)
 	}
 	err := tangle.Booker.BookMessage(message.ID())
@@ -885,6 +892,10 @@ func (m *mockConsensusProvider) Setup() {}
 
 func (m *mockConsensusProvider) TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool) {
 	return m.opinionLikedFnc(transactionID)
+}
+
+func (m *mockConsensusProvider) SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool) {
+	return
 }
 
 func (m *mockConsensusProvider) Shutdown() {}

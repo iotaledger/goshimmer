@@ -1,0 +1,48 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: '3.3'
+
+services:
+  goshimmer:
+    image: iotaledger/goshimmer:develop
+    container_name: goshimmer
+    network_mode: "host"
+    volumes:
+      - "./db:/db"
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - DATABASE_DIRECTORY=/db/mainnetdb
+      - ANALYSIS_CLIENT_SERVERADDRESS=analysisentry-01.pre-devnet.shimmer.iota.cafe:21888
+      - AUTOPEERING_SEED={{ seed }}
+      - AUTOPEERING_PORT=33501
+      - DASHBOARD_BINDADDRESS=0.0.0.0:9001
+      - GOSSIP_PORT=33601
+      - WEBAPI_BINDADDRESS=0.0.0.0:9101
+      - PROFILING_BINDADDRESS=0.0.0.0:6061
+      - FPC_BINDADDRESS=0.0.0.0:10891
+    entrypoint: /run/goshimmer
+    command: >
+      --skip-config=true
+      --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.pre-devnet.shimmer.iota.cafe:15626
+      --autopeering.networkVersion={{ networkVersion }}
+      --node.disablePlugins=
+      --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,"WebAPI tools Endpoint"
+      --prometheus.bindAddress=0.0.0.0:9312
+      --messageLayer.snapshot.file=/snapshot.bin
+     {% if faucet|default(false) %}
+      --faucet.seed={{ faucetSeed }}
+      --faucet.tokensPerRequest=1000000
+     {% endif %}
+      --faucet.powDifficulty=22
+      --pow.difficulty=22
+      --pow.numThreads=8
+      --pow.timeout=60s
+      --logger.level=info
+      --logger.disableEvents=false
+      --logger.remotelog.serverAddress=metrics-01.pre-devnet.shimmer.iota.cafe:5213
+      {% if bootstrap|default(false) %}
+      --messageLayer.startSynced=true
+      {% endif %}
+      --statement.writeStatement=true
+      --drng.pollen.instanceId=1
+      --drng.pollen.threshold=3
+      --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga

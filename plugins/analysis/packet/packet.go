@@ -1,9 +1,9 @@
 package packet
 
 import (
-	"errors"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 )

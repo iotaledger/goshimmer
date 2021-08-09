@@ -16,21 +16,16 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
-	flag "github.com/spf13/pflag"
 	"gopkg.in/src-d/go-git.v4"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
 )
 
 const (
-	// CfgLoggerRemotelogServerAddress defines the config flag of the server address.
-	CfgLoggerRemotelogServerAddress = "logger.remotelog.serverAddress"
-	// CfgDisableEvents defines the config flag for disabling logger events.
-	CfgDisableEvents = "logger.disableEvents"
 	// PluginName is the name of the remote log plugin.
 	PluginName = "RemoteLog"
 
@@ -45,11 +40,10 @@ var (
 	// plugin is the plugin instance of the remote plugin instance.
 	plugin      *node.Plugin
 	pluginOnce  sync.Once
-	log         *logger.Logger
 	myID        string
 	myGitHead   string
 	myGitBranch string
-	workerPool  *workerpool.WorkerPool
+	workerPool  *workerpool.NonBlockingQueuedWorkerPool
 
 	remoteLogger     *RemoteLoggerConn
 	remoteLoggerOnce sync.Once
@@ -63,15 +57,8 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-func init() {
-	flag.String(CfgLoggerRemotelogServerAddress, "ressims.iota.cafe:5213", "RemoteLog server address")
-}
-
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger(PluginName)
-
-	if config.Node().Bool(CfgDisableEvents) {
-		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
+	if logger_plugin.Parameters.DisableEvents {
 		return
 	}
 
@@ -84,7 +71,7 @@ func configure(plugin *node.Plugin) {
 
 	getGitInfo()
 
-	workerPool = workerpool.New(func(task workerpool.Task) {
+	workerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
 
 		task.Return(nil)
@@ -98,14 +85,13 @@ func run(plugin *node.Plugin) {
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		logger.Events.AnyMsg.Attach(logEvent)
-		workerPool.Start()
 		<-shutdownSignal
-		log.Infof("Stopping %s ...", PluginName)
+		plugin.LogInfof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)
 		workerPool.Stop()
-		log.Infof("Stopping %s ... done", PluginName)
+		plugin.LogInfof("Stopping %s ... done", PluginName)
 	}, shutdown.PriorityRemoteLog); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -129,7 +115,7 @@ func SendLogMsg(level logger.Level, name, msg string) {
 func getGitInfo() {
 	r, err := git.PlainOpen(getGitDir())
 	if err != nil {
-		log.Debug("Could not open Git repo.")
+		plugin.LogDebug("Could not open Git repo.")
 		return
 	}
 
@@ -167,9 +153,9 @@ func getGitDir() string {
 // RemoteLogger represents a connection to our remote log server.
 func RemoteLogger() *RemoteLoggerConn {
 	remoteLoggerOnce.Do(func() {
-		r, err := newRemoteLoggerConn(config.Node().String(CfgLoggerRemotelogServerAddress))
+		r, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
 		if err != nil {
-			log.Fatal(err)
+			plugin.LogFatal(err)
 			return
 		}
 

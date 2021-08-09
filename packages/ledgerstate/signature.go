@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"bytes"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/bls"
@@ -11,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 )
 
 // region SignatureType ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,7 +64,7 @@ type Signature interface {
 func SignatureFromBytes(bytes []byte) (signature Signature, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = SignatureFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Signature from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Signature from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -76,12 +76,12 @@ func SignatureFromBytes(bytes []byte) (signature Signature, consumedBytes int, e
 func SignatureFromBase58EncodedString(base58String string) (signature Signature, err error) {
 	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded Signature (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded Signature (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if signature, _, err = SignatureFromBytes(decodedBytes); err != nil {
-		err = xerrors.Errorf("failed to parse Signature from bytes: %w", err)
+		err = errors.Errorf("failed to parse Signature from bytes: %w", err)
 		return
 	}
 
@@ -92,7 +92,7 @@ func SignatureFromBase58EncodedString(base58String string) (signature Signature,
 func SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature Signature, err error) {
 	signatureType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SignatureType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SignatureType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -100,16 +100,16 @@ func SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature S
 	switch SignatureType(signatureType) {
 	case ED25519SignatureType:
 		if signature, err = ED25519SignatureFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse ED25519Signature: %w", err)
+			err = errors.Errorf("failed to parse ED25519Signature: %w", err)
 			return
 		}
 	case BLSSignatureType:
 		if signature, err = BLSSignatureFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse BLSSignature: %w", err)
+			err = errors.Errorf("failed to parse BLSSignature: %w", err)
 			return
 		}
 	default:
-		err = xerrors.Errorf("unsupported SignatureType (%X): %w", signatureType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("unsupported SignatureType (%X): %w", signatureType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -138,7 +138,7 @@ func NewED25519Signature(publicKey ed25519.PublicKey, signature ed25519.Signatur
 func ED25519SignatureFromBytes(bytes []byte) (signature *ED25519Signature, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = ED25519SignatureFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ED25519Signature from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ED25519Signature from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -150,12 +150,12 @@ func ED25519SignatureFromBytes(bytes []byte) (signature *ED25519Signature, consu
 func ED25519SignatureFromBase58EncodedString(base58String string) (signature *ED25519Signature, err error) {
 	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded ED25519Signature (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded ED25519Signature (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if signature, _, err = ED25519SignatureFromBytes(decodedBytes); err != nil {
-		err = xerrors.Errorf("failed to parse ED25519Signature from bytes: %w", err)
+		err = errors.Errorf("failed to parse ED25519Signature from bytes: %w", err)
 		return
 	}
 
@@ -166,21 +166,21 @@ func ED25519SignatureFromBase58EncodedString(base58String string) (signature *ED
 func ED25519SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature *ED25519Signature, err error) {
 	signatureType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SignatureType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SignatureType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if SignatureType(signatureType) != ED25519SignatureType {
-		err = xerrors.Errorf("invalid SignatureType (%X): %w", signatureType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid SignatureType (%X): %w", signatureType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	signature = &ED25519Signature{}
 	if signature.PublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse public key (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse public key (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if signature.Signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse signature (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse signature (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	return
@@ -251,7 +251,7 @@ func NewBLSSignature(signature bls.SignatureWithPublicKey) *BLSSignature {
 func BLSSignatureFromBytes(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = BLSSignatureFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BLSSignature from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BLSSignature from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -263,12 +263,12 @@ func BLSSignatureFromBytes(bytes []byte) (signature *BLSSignature, consumedBytes
 func BLSSignatureFromBase58EncodedString(base58String string) (signature *BLSSignature, err error) {
 	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded BLSSignature (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded BLSSignature (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if signature, _, err = BLSSignatureFromBytes(decodedBytes); err != nil {
-		err = xerrors.Errorf("failed to parse BLSSignature from bytes: %w", err)
+		err = errors.Errorf("failed to parse BLSSignature from bytes: %w", err)
 		return
 	}
 
@@ -279,17 +279,17 @@ func BLSSignatureFromBase58EncodedString(base58String string) (signature *BLSSig
 func BLSSignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature *BLSSignature, err error) {
 	signatureType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SignatureType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SignatureType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if SignatureType(signatureType) != BLSSignatureType {
-		err = xerrors.Errorf("invalid SignatureType (%X): %w", signatureType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid SignatureType (%X): %w", signatureType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	signature = &BLSSignature{}
 	if signature.Signature, err = bls.SignatureWithPublicKeyFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SignatureWithPublicKey from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SignatureWithPublicKey from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 

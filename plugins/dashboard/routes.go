@@ -1,12 +1,12 @@
 package dashboard
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
+	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 	"github.com/markbates/pkger"
 
@@ -31,7 +31,7 @@ const (
 )
 
 func indexRoute(e echo.Context) error {
-	if config.Node().Bool(CfgDev) {
+	if Parameters.Dev {
 		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://127.0.0.1:9090/", nil /* body */)
 		if err != nil {
 			return err
@@ -92,7 +92,6 @@ func setupRoutes(e *echo.Echo) {
 	apiRoutes := e.Group("/api")
 
 	setupExplorerRoutes(apiRoutes)
-	setupFaucetRoutes(apiRoutes)
 	setupVisualizerRoutes(apiRoutes)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {

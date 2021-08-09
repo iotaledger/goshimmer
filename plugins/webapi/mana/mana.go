@@ -4,15 +4,14 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/xerrors"
-
+	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // getManaHandler handles the request.
@@ -31,7 +30,7 @@ func getManaHandler(c echo.Context) error {
 	t := time.Now()
 	accessMana, tAccess, err := manaPlugin.GetAccessMana(ID, t)
 	if err != nil {
-		if xerrors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 			accessMana = 0
 			tAccess = t
 		} else {
@@ -40,7 +39,7 @@ func getManaHandler(c echo.Context) error {
 	}
 	consensusMana, tConsensus, err := manaPlugin.GetConsensusMana(ID, t)
 	if err != nil {
-		if xerrors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 			consensusMana = 0
 			tConsensus = t
 		} else {

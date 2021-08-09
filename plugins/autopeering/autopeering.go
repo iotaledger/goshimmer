@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -27,12 +26,6 @@ var (
 	// the peer selection protocol
 	peerSel     *selection.Protocol
 	peerSelOnce sync.Once
-
-	// block until the peering server has been started
-	srvBarrier = struct {
-		once sync.Once
-		c    chan *server.Server
-	}{c: make(chan *server.Server, 1)}
 )
 
 // Selection returns the neighbor selection instance.
@@ -44,20 +37,8 @@ func Selection() *selection.Protocol {
 // BindAddress returns the string form of the autopeering bind address.
 func BindAddress() string {
 	peering := local.GetInstance().Services().Get(service.PeeringKey)
-	host := config.Node().String(local.CfgBind)
 	port := strconv.Itoa(peering.Port())
-	return net.JoinHostPort(host, port)
-}
-
-// StartSelection starts the neighbor selection process.
-// It blocks until the peer discovery has been started. Multiple calls of StartSelection are ignored.
-func StartSelection() {
-	srvBarrier.once.Do(func() {
-		srv := <-srvBarrier.c
-		close(srvBarrier.c)
-
-		Selection().Start(srv)
-	})
+	return net.JoinHostPort(local.ParametersNetwork.BindAddress, port)
 }
 
 func createPeerSel() {
@@ -97,7 +78,7 @@ func start(shutdownSignal <-chan struct{}) {
 	// resolve the bind address
 	localAddr, err := net.ResolveUDPAddr(peering.Network(), BindAddress())
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
+		log.Fatalf("Error resolving: %v", err)
 	}
 
 	conn, err := net.ListenUDP(peering.Network(), localAddr)
@@ -114,21 +95,26 @@ func start(shutdownSignal <-chan struct{}) {
 
 	// start the peer discovery on that connection
 	discovery.Discovery().Start(srv)
-	srvBarrier.c <- srv
+
+	// start the neighbor selection process.
+	Selection().Start(srv)
 
 	log.Infof("%s started: ID=%s Address=%s/%s", PluginName, lPeer.ID(), localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
 
 	log.Infof("Stopping %s ...", PluginName)
+	Selection().Close()
 
 	discovery.Discovery().Close()
-	Selection().Close()
 
 	lPeer.Database().Close()
 }
 
 func evalMana(nodeIdentity *identity.Identity) uint64 {
+	if !manaEnabled {
+		return 0
+	}
 	m, _, err := messagelayer.GetConsensusMana(nodeIdentity.ID())
 	if err != nil {
 		return 0

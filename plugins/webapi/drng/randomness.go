@@ -5,8 +5,8 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // randomnessHandler returns the current DRNG randomness used.

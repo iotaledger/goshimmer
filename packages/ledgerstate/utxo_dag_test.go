@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -76,7 +78,7 @@ func TestExampleC(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx3 is correct
 		Tx3AggregatedBranch := NewAggregatedBranch(NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID())))
-		utxoDAG.TransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx3AggregatedBranch.ID(), metadata.BranchID())
 		})
 
@@ -146,7 +148,7 @@ func TestExampleB(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx3 is correct
 		Tx3BranchID := NewBranchID(transactions["TX3"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx3BranchID, metadata.BranchID())
 		})
 
@@ -160,7 +162,7 @@ func TestExampleB(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx4 is correct
 		Tx4BranchID := NewBranchID(transactions["TX4"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX4"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx4BranchID, metadata.BranchID())
 		})
 		// Checking that the parents BranchID of TX4 is MasterBranchID
@@ -180,7 +182,7 @@ func TestExampleB(t *testing.T) {
 	// Checking that the BranchID of TX2 is correct and it is the parent of both TX3 and TX4.
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx2BranchID, metadata.BranchID())
 		})
 
@@ -244,7 +246,7 @@ func TestExampleA(t *testing.T) {
 	// Checking TX2
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx2BranchID, metadata.BranchID())
 		})
 	}
@@ -253,7 +255,7 @@ func TestExampleA(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx3 is correct
 		Tx3BranchID := NewBranchID(transactions["TX2"].ID())
-		utxoDAG.TransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
+		utxoDAG.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx3BranchID, metadata.BranchID())
 		})
 
@@ -285,7 +287,7 @@ func TestBookInvalidTransaction(t *testing.T) {
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -313,10 +315,10 @@ func TestBookRejectedTransaction(t *testing.T) {
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
 
 	rejectedBranch := NewConflictBranch(BranchID(tx.ID()), nil, nil)
-	rejectedBranch.SetFinalized(true)
+	rejectedBranch.setFinalized(true)
 	utxoDAG.branchDAG.branchStorage.Store(rejectedBranch).Release()
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -346,7 +348,7 @@ func TestBookRejectedConflictingTransaction(t *testing.T) {
 	// double spend
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -374,7 +376,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -408,7 +410,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
 	tx1, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
 
-	cachedTxMetadata := utxoDAG.TransactionMetadata(tx1.ID())
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx1.ID())
 	defer cachedTxMetadata.Release()
 	txMetadata := cachedTxMetadata.Unwrap()
 
@@ -424,7 +426,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 	// double spend
 	tx2, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
 
-	cachedTxMetadata2 := utxoDAG.TransactionMetadata(tx2.ID())
+	cachedTxMetadata2 := utxoDAG.CachedTransactionMetadata(tx2.ID())
 	defer cachedTxMetadata2.Release()
 	txMetadata2 := cachedTxMetadata2.Unwrap()
 
@@ -586,10 +588,10 @@ func TestInputsInRejectedBranch(t *testing.T) {
 	cachedRejectedBranch, _ := branchDAG.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(tx.ID()), nil, nil))
 
 	(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-		branch.SetLiked(false)
-		branch.SetMonotonicallyLiked(false)
-		branch.SetFinalized(true)
-		branch.SetInclusionState(Rejected)
+		branch.setLiked(false)
+		branch.setMonotonicallyLiked(false)
+		branch.setFinalized(true)
+		branch.setInclusionState(Rejected)
 	})
 
 	outputsMetadata := []*OutputMetadata{
@@ -781,18 +783,135 @@ func TestAddressOutputMapping(t *testing.T) {
 		NewED25519Address(kp.PublicKey),
 	}
 	utxoDAG.addressOutputMappingStorage.Store(NewAddressOutputMapping(w.address, EmptyOutputID)).Release()
-	res := utxoDAG.AddressOutputMapping(w.address)
+	res := utxoDAG.CachedAddressOutputMapping(w.address)
 	res.Release()
 	assert.Equal(t, 1, len(res))
 }
 
+func TestUTXODAG_CheckTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+	defer utxoDAG.Shutdown()
+
+	w := genRandomWallet()
+	governingWallet := genRandomWallet()
+	alias := &AliasOutput{
+		outputID:         randOutputID(),
+		balances:         NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:     *randAliasAddress(),
+		stateAddress:     w.address, // alias state controller is our wallet
+		stateIndex:       10,
+		governingAddress: governingWallet.address,
+	}
+	nextAlias := alias.NewAliasOutputNext(false)
+	toBeConsumedExtended := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, alias.GetAliasAddress())
+	toBeConsumedExtended.SetID(randOutputID())
+	inputs := NewOutputs(alias, toBeConsumedExtended)
+	// book manually the outputs into utxoDAG
+	for _, output := range inputs {
+		// replace ColorMint color with unique color based on OutputID
+		output = output.UpdateMintingColor()
+
+		// store Output
+		utxoDAG.outputStorage.Store(output).Release()
+
+		// store OutputMetadata
+		metadata := NewOutputMetadata(output.ID())
+		metadata.SetBranchID(MasterBranchID)
+		metadata.SetSolid(true)
+		utxoDAG.outputMetadataStorage.Store(metadata).Release()
+	}
+
+	nextAliasBalance := alias.Balances().Map()
+	// add 1 more iota from consumed extended output
+	nextAliasBalance[ColorIOTA]++
+	err := nextAlias.SetBalances(nextAliasBalance)
+	assert.NoError(t, err)
+
+	essence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, NewInputs(toBeConsumedExtended.Input(), alias.Input()), NewOutputs(nextAlias))
+	// which input index did the alias get?
+	var aliasInputIndex uint16
+	orderedInputs := make(Outputs, len(essence.Inputs()))
+	for i, input := range essence.Inputs() {
+		casted := input.(*UTXOInput)
+		if casted.ReferencedOutputID() == alias.ID() {
+			aliasInputIndex = uint16(i)
+			orderedInputs[i] = alias
+		}
+		if casted.ReferencedOutputID() == toBeConsumedExtended.ID() {
+			orderedInputs[i] = toBeConsumedExtended
+		}
+	}
+
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		// create mapping from outputID to unlockBlock
+		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
+		inputToUnlockMapping[alias.ID()] = NewSignatureUnlockBlock(w.sign(essence))
+		inputToUnlockMapping[toBeConsumedExtended.ID()] = NewAliasUnlockBlock(aliasInputIndex)
+
+		// fill unlock blocks
+		unlocks := make(UnlockBlocks, len(essence.Inputs()))
+		for i, input := range essence.Inputs() {
+			unlocks[i] = inputToUnlockMapping[input.(*UTXOInput).ReferencedOutputID()]
+		}
+
+		tx := NewTransaction(essence, unlocks)
+
+		bErr := utxoDAG.CheckTransaction(tx)
+		assert.NoError(t, bErr)
+	})
+
+	t.Run("CASE: Tx not okay, wrong signature", func(t *testing.T) {
+		// create mapping from outputID to unlockBlock
+		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
+		inputToUnlockMapping[alias.ID()] = NewSignatureUnlockBlock(genRandomWallet().sign(essence))
+		inputToUnlockMapping[toBeConsumedExtended.ID()] = NewAliasUnlockBlock(aliasInputIndex)
+
+		// fill unlock blocks
+		unlocks := make(UnlockBlocks, len(essence.Inputs()))
+		for i, input := range essence.Inputs() {
+			unlocks[i] = inputToUnlockMapping[input.(*UTXOInput).ReferencedOutputID()]
+		}
+
+		tx := NewTransaction(essence, unlocks)
+
+		bErr := utxoDAG.CheckTransaction(tx)
+		t.Log(bErr)
+		assert.Error(t, bErr)
+	})
+
+	t.Run("CASE: Tx not okay, alias unlocked for governance", func(t *testing.T) {
+		// tx alias output will be unlocked for governance
+		nextAlias = alias.NewAliasOutputNext(true)
+		essence.outputs = NewOutputs(nextAlias, NewSigLockedSingleOutput(1, randEd25119Address()))
+
+		// create mapping from outputID to unlockBlock
+		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
+		inputToUnlockMapping[alias.ID()] = NewSignatureUnlockBlock(governingWallet.sign(essence))
+		inputToUnlockMapping[toBeConsumedExtended.ID()] = NewAliasUnlockBlock(aliasInputIndex)
+
+		// fill unlock blocks
+		unlocks := make(UnlockBlocks, len(essence.Inputs()))
+		for i, input := range essence.Inputs() {
+			unlocks[i] = inputToUnlockMapping[input.(*UTXOInput).ReferencedOutputID()]
+		}
+
+		tx := NewTransaction(essence, unlocks)
+
+		bErr := utxoDAG.CheckTransaction(tx)
+		t.Log(bErr)
+		assert.Error(t, bErr)
+	})
+}
+
 func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
 	store := mapdb.NewMapDB()
-	branchDAG := NewBranchDAG(store)
+	cacheTimeProvider := database.NewCacheTimeProvider(0)
+	branchDAG := NewBranchDAG(store, cacheTimeProvider)
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 
-	return branchDAG, NewUTXODAG(store, branchDAG)
+	return branchDAG, NewUTXODAG(store, cacheTimeProvider, branchDAG)
 }
 
 type wallet struct {
@@ -900,7 +1019,7 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 	branchIDs := make(BranchIDs, len(outputsToSpend))
 	for i, outputToSpend := range outputsToSpend {
 		inputs[i] = NewUTXOInput(outputToSpend.ID())
-		utxoDAG.OutputMetadata(outputToSpend.ID()).Consume(func(outputMetadata *OutputMetadata) {
+		utxoDAG.CachedOutputMetadata(outputToSpend.ID()).Consume(func(outputMetadata *OutputMetadata) {
 			branchIDs[outputMetadata.BranchID()] = types.Void
 		})
 	}

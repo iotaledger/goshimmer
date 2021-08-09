@@ -1,11 +1,11 @@
 package tangle
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -328,7 +328,7 @@ type PowFilter struct {
 	worker     *pow.Worker
 	difficulty int
 
-	mu             sync.Mutex
+	mu             sync.RWMutex
 	acceptCallback func([]byte, *peer.Peer)
 	rejectCallback func([]byte, error, *peer.Peer)
 }
@@ -344,10 +344,10 @@ func NewPowFilter(worker *pow.Worker, difficulty int) *PowFilter {
 // Filter checks whether the given bytes pass the PoW validation and calls the corresponding callback.
 func (f *PowFilter) Filter(msgBytes []byte, p *peer.Peer) {
 	if err := f.validate(msgBytes); err != nil {
-		f.reject(msgBytes, err, p)
+		f.getRejectCallback()(msgBytes, err, p)
 		return
 	}
-	f.accept(msgBytes, p)
+	f.getAcceptCallback()(msgBytes, p)
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
@@ -364,20 +364,18 @@ func (f *PowFilter) OnReject(callback func([]byte, error, *peer.Peer)) {
 	f.rejectCallback = callback
 }
 
-func (f *PowFilter) accept(msgBytes []byte, p *peer.Peer) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.acceptCallback != nil {
-		f.acceptCallback(msgBytes, p)
-	}
+func (f *PowFilter) getAcceptCallback() (result func(msgBytes []byte, peer *peer.Peer)) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	result = f.acceptCallback
+	return
 }
 
-func (f *PowFilter) reject(msgBytes []byte, err error, p *peer.Peer) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.rejectCallback != nil {
-		f.rejectCallback(msgBytes, err, p)
-	}
+func (f *PowFilter) getRejectCallback() (result func(msgBytes []byte, err error, p *peer.Peer)) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	result = f.rejectCallback
+	return
 }
 
 func (f *PowFilter) validate(msgBytes []byte) error {
@@ -450,16 +448,16 @@ func (r *RecentlySeenBytesFilter) OnReject(callback func(bytes []byte, err error
 }
 
 func (r *RecentlySeenBytesFilter) getAcceptCallback() (result func(bytes []byte, peer *peer.Peer)) {
-	r.onAcceptCallbackMutex.Lock()
+	r.onAcceptCallbackMutex.RLock()
 	result = r.onAcceptCallback
-	r.onAcceptCallbackMutex.Unlock()
+	r.onAcceptCallbackMutex.RUnlock()
 	return
 }
 
 func (r *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []byte, err error, peer *peer.Peer)) {
-	r.onRejectCallbackMutex.Lock()
+	r.onRejectCallbackMutex.RLock()
 	result = r.onRejectCallback
-	r.onRejectCallbackMutex.Unlock()
+	r.onRejectCallbackMutex.RUnlock()
 	return
 }
 

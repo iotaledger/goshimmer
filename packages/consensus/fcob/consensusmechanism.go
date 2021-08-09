@@ -18,10 +18,10 @@ import (
 
 var (
 	// LikedThreshold is the first time threshold of FCoB.
-	LikedThreshold = 5 * time.Second
+	LikedThreshold = 2 * time.Second
 
 	// LocallyFinalizedThreshold is the second time threshold of FCoB.
-	LocallyFinalizedThreshold = 10 * time.Second
+	LocallyFinalizedThreshold = 4 * time.Second
 )
 
 // region ConsensusMechanism ///////////////////////////////////////////////////////////////////////////////////////////
@@ -51,11 +51,20 @@ func NewConsensusMechanism() *ConsensusMechanism {
 // Init initializes the ConsensusMechanism by making the Tangle object available that is using it.
 func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 	f.tangle = tangle
-	f.Storage = NewStorage(tangle.Options.Store)
+	f.Storage = NewStorage(tangle.Options.Store, tangle.Options.CacheTimeProvider)
 }
 
 // Setup sets up the behavior of the ConsensusMechanism by making it attach to the relevant events in the Tangle.
 func (f *ConsensusMechanism) Setup() {
+	f.tangle.LedgerState.BranchDAG.Events.BranchConfirmed.Attach(events.NewClosure(func(branchDAGEvent *ledgerstate.BranchDAGEvent) {
+		defer branchDAGEvent.Release()
+		f.SetTransactionLiked(branchDAGEvent.Branch.ID().TransactionID(), true)
+	}))
+	f.tangle.LedgerState.BranchDAG.Events.BranchRejected.Attach(events.NewClosure(func(branchDAGEvent *ledgerstate.BranchDAGEvent) {
+		defer branchDAGEvent.Release()
+		f.SetTransactionLiked(branchDAGEvent.Branch.ID().TransactionID(), false)
+	}))
+
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.Evaluate))
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.EvaluateTimestamp))
 }
@@ -75,6 +84,16 @@ func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.Transact
 	})
 
 	return
+}
+
+// SetTransactionLiked sets the transaction like status.
+func (f *ConsensusMechanism) SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool) {
+	f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+		modified = opinion.SetLiked(liked)
+		opinion.SetLevelOfKnowledge(Three)
+	})
+
+	return modified
 }
 
 // Shutdown shuts down the ConsensusMechanism and persists its state.
@@ -286,16 +305,16 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 }
 
 func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, liked bool) {
-	// set BranchLiked and BranchFinalized if this payload was a conflict
+	// set BranchLiked if this payload was a conflict and the transaction has not been finalized yet by the approval weight.
 	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			transactionMetadata.SetFinalized(true)
+			if !transactionMetadata.Finalized() && f.tangle.LedgerState.TransactionConflicting(transactionID) {
+				_, err := f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
+				if err != nil {
+					panic(err)
+				}
+			}
 		})
-		if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-			_, _ = f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
-			// TODO: move this to approval weight logic
-			_, _ = f.tangle.LedgerState.BranchDAG.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
-		}
 	})
 
 	f.setPayloadOpinionDone(messageID)
@@ -313,20 +332,6 @@ func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID, wa
 	if !f.setMessageOpinionFormed(messageID) {
 		return
 	}
-
-	// trigger TransactionOpinionFormed if the message contains a transaction
-	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		if f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID)) == ledgerstate.Confirmed {
-			// skip reattachments
-			for _, attachmentID := range f.tangle.Storage.AttachmentMessageIDs(transactionID) {
-				if f.messageOpinionTriggered(attachmentID) {
-					return
-				}
-			}
-
-			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
-		}
-	})
 
 	f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
 

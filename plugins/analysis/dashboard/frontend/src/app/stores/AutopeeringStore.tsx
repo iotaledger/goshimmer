@@ -6,11 +6,11 @@ import { IConnectNodesMessage } from "../models/messages/IConnectNodesMessage";
 import { IDisconnectNodesMessage } from "../models/messages/IDisconnectNodesMessage";
 import { IRemoveNodeMessage } from "../models/messages/IRemoveNodeMessage";
 import { WSMsgType } from "../models/ws/wsMsgType";
-import {connectWebSocket, registerHandler} from "../services/WS";
+import { connectWebSocket, registerHandler } from "../services/WS";
 import { buildCircleNodeShader } from "../utils/circleNodeShader";
 import { parseColor } from "../utils/colorHelper";
-import {Neighbors} from "../models/Neighbors";
-import {manaStore} from "../../main";
+import { Neighbors } from "../models/Neighbors";
+import { manaStore } from "../../main";
 import tinycolor from "tinycolor2";
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
@@ -58,21 +58,21 @@ export class AutopeeringStore {
     public manaColoringActive: boolean;
 
     @observable
-    public readonly  versions: ObservableSet = new ObservableSet()
+    public readonly versions: ObservableSet = new ObservableSet()
 
     @observable
-    public readonly nodes: ObservableMap<string,ObservableSet<string>>  = new ObservableMap<string,ObservableSet<string>>();
+    public readonly nodes: ObservableMap<string, ObservableSet<string>> = new ObservableMap<string, ObservableSet<string>>();
 
     // keeps a log of what color a node should have, updated based on mana
     // maps shortNodeID -> color string
     @observable
-    public nodeManaColors: ObservableMap<string,string> = new ObservableMap<string,string>();
+    public nodeManaColors: ObservableMap<string, string> = new ObservableMap<string, string>();
 
     @observable
-    public readonly connections: ObservableMap<string,ObservableSet<string>> = new ObservableMap<string,ObservableSet<string>>();
+    public readonly connections: ObservableMap<string, ObservableSet<string>> = new ObservableMap<string, ObservableSet<string>>();
 
     @observable
-    private readonly neighbors: ObservableMap<string,ObservableMap<string, INeighbors>>  = new ObservableMap<string,ObservableMap<string, INeighbors>>();
+    private readonly neighbors: ObservableMap<string, ObservableMap<string, INeighbors>> = new ObservableMap<string, ObservableMap<string, INeighbors>>();
 
     @observable
     private selectionActive: boolean = false;
@@ -126,7 +126,7 @@ export class AutopeeringStore {
     @action
     public handleVersionSelection = (userSelectedVersion: string) => {
         this.userSelectedNetworkVersion = userSelectedVersion;
-        if (this.selectedNetworkVersion !== userSelectedVersion){
+        if (this.selectedNetworkVersion !== userSelectedVersion) {
             // we switch network, should redraw the graph.
             this.clearNodeSelection();
             this.selectedNetworkVersion = userSelectedVersion;
@@ -137,7 +137,7 @@ export class AutopeeringStore {
 
     @action
     public handleAutoVersionSelection = (autoSelectedVersion: string) => {
-        if (this.selectedNetworkVersion !== autoSelectedVersion){
+        if (this.selectedNetworkVersion !== autoSelectedVersion) {
             this.userSelectedNetworkVersion = "";
             // we switch network, should redraw the graph.
             // no need to reset colors as the graph will be disposed anyway
@@ -175,11 +175,11 @@ export class AutopeeringStore {
 
     @action
     private autoSelectNetwork = () => {
-        if (this.versions.size === 0){
+        if (this.versions.size === 0) {
             return "";
         }
         let versionsArray = Array.from(this.versions);
-        versionsArray.sort((a,b) => {
+        versionsArray.sort((a, b) => {
             return b.localeCompare(a);
         })
         return versionsArray[0];
@@ -188,27 +188,27 @@ export class AutopeeringStore {
 
     @action
     private setManaDashboardAddress(address: string): void {
-       manaStore.setManaDashboardAddress(address)
+        manaStore.setManaDashboardAddress(address)
     }
 
     @action
     private onAddNode(msg: IAddNodeMessage): void {
-        if (!this.versions.has(msg.networkVersion)){
+        if (!this.versions.has(msg.networkVersion)) {
             this.versions.add(msg.networkVersion);
-            if (this.userSelectedNetworkVersion === ""){
+            if (this.userSelectedNetworkVersion === "") {
                 // usert hasn't specified a network version yet, we choose the newest
                 // otherwise we display wahtever the user selected
                 this.handleAutoVersionSelection(this.autoSelectNetwork());
             }
         }
         // when we see the network for the first time
-        if (this.nodes.get(msg.networkVersion) === undefined){
+        if (this.nodes.get(msg.networkVersion) === undefined) {
             this.nodes.set(msg.networkVersion, new ObservableSet<string>());
         }
 
         let nodeSet = this.nodes.get(msg.networkVersion);
         // @ts-ignore
-        if (nodeSet.has(msg.id)){
+        if (nodeSet.has(msg.id)) {
             console.log("Node %s already known.", msg.id);
             return;
         }
@@ -216,7 +216,7 @@ export class AutopeeringStore {
         nodeSet.add(msg.id);
         console.log("Node %s added, network: %s", msg.id, msg.networkVersion);
         // only update visuals when the current network is displayed
-        if (this.selectedNetworkVersion === msg.networkVersion){
+        if (this.selectedNetworkVersion === msg.networkVersion) {
             if (this.graph) {
                 this.drawNode(msg.id);
             }
@@ -232,7 +232,7 @@ export class AutopeeringStore {
 
     @action
     private onRemoveNode(msg: IRemoveNodeMessage): void {
-        if (this.nodes.get(msg.networkVersion) === undefined){
+        if (this.nodes.get(msg.networkVersion) === undefined) {
             // nowhere to remove it from
             return;
         }
@@ -258,7 +258,7 @@ export class AutopeeringStore {
         // @ts-ignore
         nodeSet.delete(msg.id);
         // @ts-ignore
-        if (nodeSet.size === 0){
+        if (nodeSet.size === 0) {
             // this was the last node for this network version
             this.nodes.delete(msg.networkVersion);
             this.neighbors.delete(msg.networkVersion);
@@ -266,7 +266,7 @@ export class AutopeeringStore {
             this.versions.delete(msg.networkVersion);
             console.log("Removed all data for network %s", msg.networkVersion);
 
-            if (this.selectedNetworkVersion === msg.networkVersion){
+            if (this.selectedNetworkVersion === msg.networkVersion) {
                 // we were looking at this network, but it gets deleted.
                 // auto select
                 this.handleAutoVersionSelection(this.autoSelectNetwork());
@@ -277,10 +277,10 @@ export class AutopeeringStore {
 
     @action
     private onConnectNodes(msg: IConnectNodesMessage): void {
-        if (this.nodes.get(msg.networkVersion) === undefined){
+        if (this.nodes.get(msg.networkVersion) === undefined) {
             // we haven't seen this network before. trigger addnode (creates the set)
-            this.onAddNode({networkVersion: msg.networkVersion, id: msg.source});
-            this.onAddNode({networkVersion: msg.networkVersion, id: msg.target});
+            this.onAddNode({ networkVersion: msg.networkVersion, id: msg.source });
+            this.onAddNode({ networkVersion: msg.networkVersion, id: msg.target });
         }
         let nodeSet = this.nodes.get(msg.networkVersion);
         // @ts-ignore
@@ -300,7 +300,7 @@ export class AutopeeringStore {
         }
 
         // first time we see connectNodes for this network
-        if (this.connections.get(msg.networkVersion) === undefined){
+        if (this.connections.get(msg.networkVersion) === undefined) {
             this.connections.set(msg.networkVersion, new ObservableSet<string>());
         }
         // update connections
@@ -308,7 +308,7 @@ export class AutopeeringStore {
         this.connections.get(msg.networkVersion).add(msg.source + msg.target);
 
         // first time we see connectNodes for this network
-        if (this.neighbors.get(msg.networkVersion) === undefined){
+        if (this.neighbors.get(msg.networkVersion) === undefined) {
             this.neighbors.set(msg.networkVersion, new ObservableMap<string, INeighbors>());
         }
 
@@ -342,7 +342,7 @@ export class AutopeeringStore {
 
     @action
     private onDisconnectNodes(msg: IDisconnectNodesMessage): void {
-        if (this.graph && this.selectedNetworkVersion === msg.networkVersion){
+        if (this.graph && this.selectedNetworkVersion === msg.networkVersion) {
             let existingLink = this.graph.getLink(msg.source, msg.target);
             if (!existingLink) {
                 console.log("Link %s -> %s is missing from graph", msg.source, msg.target);
@@ -352,14 +352,14 @@ export class AutopeeringStore {
         }
 
         // update connections and neighbors
-        if (this.connections.get(msg.networkVersion) === undefined){
+        if (this.connections.get(msg.networkVersion) === undefined) {
             console.log("Can't find connections set for %s", msg.networkVersion)
         } else {
             // @ts-ignore
             this.connections.get(msg.networkVersion).delete(msg.source + msg.target);
         }
 
-        if (this.neighbors.get(msg.networkVersion) === undefined){
+        if (this.neighbors.get(msg.networkVersion) === undefined) {
             console.log("Can't find neighbors map for %s", msg.networkVersion)
         } else {
             // @ts-ignore
@@ -368,10 +368,10 @@ export class AutopeeringStore {
             this.neighbors.get(msg.networkVersion).get(msg.target).in.delete(msg.source);
 
         }
-        console.log("Disconnected nodes %s -> %s, network: %s",msg.source, msg.target, msg.networkVersion);
+        console.log("Disconnected nodes %s -> %s, network: %s", msg.source, msg.target, msg.networkVersion);
     }
 
-        
+
     // updates the currently selected node
     @action
     private updateSelectedNode(node: string): void {
@@ -393,7 +393,7 @@ export class AutopeeringStore {
 
     // handles clearing the node selection
     @action
-    private clearNodeSelection(resetPrevColors: boolean=true): void {
+    private clearNodeSelection(resetPrevColors: boolean = true): void {
         if (resetPrevColors) {
             this.resetPreviousColors();
         }
@@ -488,7 +488,7 @@ export class AutopeeringStore {
     @computed
     public get nodeListView(): string[] {
         let nodeSet = this.nodes.get(this.selectedNetworkVersion);
-        if (nodeSet === undefined){
+        if (nodeSet === undefined) {
             return [];
         }
         let results;
@@ -521,17 +521,17 @@ export class AutopeeringStore {
     }
 
     @computed
-    public get networkVersionList(): string[]{
-        return Array.from(this.versions).sort((a,b) => {
+    public get networkVersionList(): string[] {
+        return Array.from(this.versions).sort((a, b) => {
             return a.localeCompare(b);
         });
     }
 
     @computed
-    public get AvgNumNeighbors(): string{
+    public get AvgNumNeighbors(): string {
         let nodeSet = this.nodes.get(this.selectedNetworkVersion);
         let connectionSet = this.connections.get(this.selectedNetworkVersion);
-        if ( nodeSet === undefined || connectionSet === undefined) {
+        if (nodeSet === undefined || connectionSet === undefined) {
             return "0"
         }
         // @ts-ignore
@@ -542,7 +542,7 @@ export class AutopeeringStore {
     }
 
     @computed
-    get NodesOnline(){
+    get NodesOnline() {
         let nodeSet = this.nodes.get(this.selectedNetworkVersion);
         if (nodeSet === undefined) {
             return "0"
@@ -556,17 +556,17 @@ export class AutopeeringStore {
     // fill graph with data we have previously collected
     private initialDrawGraph(version: string): void {
         if (this.graph) {
-            if (this.nodes.get(version) !== undefined){
+            if (this.nodes.get(version) !== undefined) {
                 // @ts-ignore
-                this.nodes.get(version).forEach((node,key,map) => {
+                this.nodes.get(version).forEach((node, key, map) => {
                     this.drawNode(node);
                 })
             }
-            if (this.neighbors.get(version) !== undefined){
+            if (this.neighbors.get(version) !== undefined) {
                 // @ts-ignore
-                this.neighbors.get(version).forEach((node,key,map) => {
+                this.neighbors.get(version).forEach((node, key, map) => {
                     // Only do it for one type of neighbors, as it is duplicated
-                    node.out.forEach((outNeighborID) =>{
+                    node.out.forEach((outNeighborID) => {
                         // @ts-ignore
                         this.graph.addLink(key, outNeighborID);
                     });
@@ -600,23 +600,23 @@ export class AutopeeringStore {
 
     @action
     updateNodeColoring = () => {
-        if (!this.manaColoringActive || this.selectionActive || !this.graphics){
+        if (!this.manaColoringActive || this.selectionActive || !this.graphics) {
             return;
         }
-         this.nodeManaColors.forEach((color, nodeID) => {
-             let nodeUI = this.graphics.getNodeUI(nodeID)
-             if (!nodeUI) {
-                 // node is not part of the current view
-                 return;
-             }
-             nodeUI.color = color;
-         })
+        this.nodeManaColors.forEach((color, nodeID) => {
+            let nodeUI = this.graphics.getNodeUI(nodeID)
+            if (!nodeUI) {
+                // node is not part of the current view
+                return;
+            }
+            nodeUI.color = color;
+        })
         this.renderer.rerender();
     }
 
     @action
     disableNodeColoring = () => {
-        if (!this.graphics){
+        if (!this.graphics) {
             return;
         }
         this.nodeManaColors.forEach((color, nodeID) => {
@@ -637,8 +637,13 @@ export class AutopeeringStore {
         this.nodeManaColors.set(nodeId, colorMana)
     }
 
-    getColorFromMana = (mana:number) => {
-        let hue = 180.0 * ( 1.0 - mana/1000000000000000.0);
+    getColorFromMana = (mana: number) => {
+        let logMana = 0
+        if (mana >= 1.0) {
+            logMana = Math.log(mana)
+        }
+        let logMaxMana = Math.log(1000000000000000.0)
+        let hue = 180.0 * (1.0 - logMana / logMaxMana);
         let c = tinycolor(({ h: hue, s: 1, l: .5 }));
         return "0x" + c.toHex();
     }
@@ -715,7 +720,7 @@ export class AutopeeringStore {
         // Remove highlighting of selected node
         if (this.selectedNode) {
             let prevColor = this.nodeManaColors.get(this.selectedNode);
-            if (!prevColor || !this.manaColoringActive){
+            if (!prevColor || !this.manaColoringActive) {
                 prevColor = VERTEX_COLOR_DEFAULT;
             }
             this.updateNodeUiColor(this.selectedNode, prevColor, VERTEX_SIZE);
@@ -723,7 +728,7 @@ export class AutopeeringStore {
             if (this.selectedNodeInNeighbors) {
                 for (const inNeighborID of this.selectedNodeInNeighbors) {
                     let prevColor = this.nodeManaColors.get(inNeighborID);
-                    if (!prevColor || !this.manaColoringActive){
+                    if (!prevColor || !this.manaColoringActive) {
                         prevColor = VERTEX_COLOR_DEFAULT;
                     }
                     // Remove highlighting of neighbor
@@ -735,7 +740,7 @@ export class AutopeeringStore {
             if (this.selectedNodeOutNeighbors) {
                 for (const outNeighborID of this.selectedNodeOutNeighbors) {
                     let prevColor = this.nodeManaColors.get(outNeighborID);
-                    if (!prevColor || !this.manaColoringActive){
+                    if (!prevColor || !this.manaColoringActive) {
                         prevColor = VERTEX_COLOR_DEFAULT;
                     }
                     // Remove highlighting of neighbor
