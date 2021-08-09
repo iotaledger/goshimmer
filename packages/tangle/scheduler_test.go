@@ -281,15 +281,6 @@ func TestSchedulerFlow(t *testing.T) {
 	messageScheduled := make(chan MessageID, len(messages))
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
 
-	// Bypass the Booker
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBooked(true)
-			tangle.Booker.Events.MessageBooked.Trigger(messageID)
-			tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-		})
-	}))
-
 	for _, message := range messages {
 		tangle.Storage.StoreMessage(message)
 	}

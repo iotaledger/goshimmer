@@ -136,6 +136,9 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	if !UnlockBlocksValid(consumedOutputs, transaction) {
 		return errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 	}
+	if !AliasInitialStateValid(consumedOutputs, transaction) {
+		return errors.Errorf("initial state of created alias output is invalid: %w", ErrTransactionInvalid)
+	}
 
 	return nil
 }
@@ -554,9 +557,6 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(txMetadata *TransactionMetadata) {
 		conflictBranchID := NewBranchID(transactionID)
-		if txMetadata.BranchID() == conflictBranchID {
-			return
-		}
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
@@ -564,6 +564,13 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		if err != nil {
 			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
 		}
+		// We don't need to propagate updates if the branch did already exist.
+		// Though CreateConflictBranch needs to be called so that conflict sets and conflict membership are properly updated.
+		if txMetadata.BranchID() == conflictBranchID {
+			cachedConsumingConflictBranch.Release()
+			return
+		}
+
 		cachedConsumingConflictBranch.Consume(func(newBranch Branch) {
 			// copying the branch metadata properties from the original branch to the newly created.
 			u.branchDAG.Branch(txMetadata.BranchID()).Consume(func(oldBranch Branch) {

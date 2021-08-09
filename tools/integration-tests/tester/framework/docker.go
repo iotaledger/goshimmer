@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -28,8 +29,8 @@ func newDockerClient() (*client.Client, error) {
 
 // DockerContainer is a wrapper object for a Docker container.
 type DockerContainer struct {
-	name string
-	id   string
+	Name string
+	Id   string
 
 	client *client.Client
 }
@@ -47,10 +48,10 @@ func NewDockerContainerFromExisting(ctx context.Context, c *client.Client, name 
 	}
 
 	for _, cont := range containers {
-		if cont.Names[0] == name {
+		if cont.Names[0] == name || strings.HasPrefix(cont.ID, name) {
 			return &DockerContainer{
-				name:   name,
-				id:     cont.ID,
+				Name:   cont.Names[0],
+				Id:     cont.ID,
 				client: c,
 			}, nil
 		}
@@ -67,9 +68,13 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 	}
 	cmd = append(cmd, conf.CreateFlags()...)
 
+	if conf.Image == "" {
+		return fmt.Errorf("docker image must be provided as part of the configuration")
+	}
+
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
-		Image: "iotaledger/goshimmer",
+		Image: conf.Image,
 		ExposedPorts: nat.PortSet{
 			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):     {},
 			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):  {},
@@ -151,24 +156,24 @@ func (d *DockerContainer) CreateContainer(ctx context.Context, name string, cont
 		return err
 	}
 
-	d.id = resp.ID
-	d.name = name
+	d.Id = resp.ID
+	d.Name = name
 	return nil
 }
 
 // ConnectToNetwork connects a container to an existent network in the docker host.
 func (d *DockerContainer) ConnectToNetwork(ctx context.Context, networkID string) error {
-	return d.client.NetworkConnect(ctx, networkID, d.id, nil)
+	return d.client.NetworkConnect(ctx, networkID, d.Id, nil)
 }
 
 // DisconnectFromNetwork disconnects a container from an existent network in the docker host.
 func (d *DockerContainer) DisconnectFromNetwork(ctx context.Context, networkID string) error {
-	return d.client.NetworkDisconnect(ctx, networkID, d.id, true)
+	return d.client.NetworkDisconnect(ctx, networkID, d.Id, true)
 }
 
 // Start sends a request to the docker daemon to start a container.
 func (d *DockerContainer) Start(ctx context.Context) error {
-	return d.client.ContainerStart(ctx, d.id, types.ContainerStartOptions{})
+	return d.client.ContainerStart(ctx, d.Id, types.ContainerStartOptions{})
 }
 
 // Stop stops the container without terminating the process.
@@ -178,12 +183,12 @@ func (d *DockerContainer) Stop(ctx context.Context, optionalTimeout ...time.Dura
 	if optionalTimeout != nil {
 		duration = optionalTimeout[0]
 	}
-	return d.client.ContainerStop(ctx, d.id, &duration)
+	return d.client.ContainerStop(ctx, d.Id, &duration)
 }
 
 // ExitStatus returns the exit status according to the container information.
 func (d *DockerContainer) ExitStatus(ctx context.Context) (int, error) {
-	resp, err := d.client.ContainerInspect(ctx, d.id)
+	resp, err := d.client.ContainerInspect(ctx, d.Id)
 	if err != nil {
 		return -1, err
 	}
@@ -201,7 +206,7 @@ func (d *DockerContainer) Shutdown(ctx context.Context, optionalTimeout ...time.
 	if err != nil {
 		return 0, err
 	}
-	err = createLogFile(d.name, logs)
+	err = createLogFile(d.Name, logs)
 	if err != nil {
 		return 0, err
 	}
@@ -210,12 +215,12 @@ func (d *DockerContainer) Shutdown(ctx context.Context, optionalTimeout ...time.
 
 // Remove kills and removes a container from the docker host.
 func (d *DockerContainer) Remove(ctx context.Context) error {
-	return d.client.ContainerRemove(ctx, d.id, types.ContainerRemoveOptions{Force: true})
+	return d.client.ContainerRemove(ctx, d.Id, types.ContainerRemoveOptions{Force: true})
 }
 
 // IP returns the IP address according to the container information for the given network.
 func (d *DockerContainer) IP(ctx context.Context, network string) (string, error) {
-	resp, err := d.client.ContainerInspect(ctx, d.id)
+	resp, err := d.client.ContainerInspect(ctx, d.Id)
 	if err != nil {
 		return "", err
 	}
@@ -240,5 +245,5 @@ func (d *DockerContainer) Logs(ctx context.Context) (io.ReadCloser, error) {
 		Tail:       "",
 		Details:    false,
 	}
-	return d.client.ContainerLogs(ctx, d.id, options)
+	return d.client.ContainerLogs(ctx, d.Id, options)
 }

@@ -5,6 +5,7 @@ name: Release
       - published
 jobs:
   goreleaser:
+    environment: devnet
     name: GoReleaser
     runs-on:
       - ubuntu-latest
@@ -27,6 +28,7 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
   docker:
+    environment: devnet
     name: Docker
     runs-on:
       - ubuntu-latest

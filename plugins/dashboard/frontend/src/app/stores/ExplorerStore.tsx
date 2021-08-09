@@ -32,6 +32,7 @@ export class Message {
     solid: boolean;
     branchID: string;
     scheduled: boolean;
+    scheduledBypass: boolean;
     booked: boolean;
     eligible: boolean;
     invalid: boolean;

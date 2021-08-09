@@ -22,6 +22,8 @@ const (
 	// MinMana is the minimum amount of Mana needed to issue messages.
 	// MaxMessageSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
 	MinMana float64 = 1.0
+	// oldMessageThreshold defines the threshold at which consider the message too old to be scheduled.
+	oldMessageThreshold = 5 * time.Minute
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has been stopped
@@ -69,6 +71,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			MessageScheduled: events.NewEvent(MessageIDCaller),
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
+			Error:            events.NewEvent(events.ErrorCaller),
 		},
 		tangle:         tangle,
 		rate:           atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
@@ -104,7 +107,32 @@ func (s *Scheduler) Shutdown() {
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
-func (s *Scheduler) Setup() {}
+func (s *Scheduler) Setup() {
+	// pass booked messages to the scheduler
+	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+		// avoid scheduling old messages
+		skipScheduler := false
+		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			skipScheduler = clock.Since(message.IssuingTime()) > oldMessageThreshold
+		})
+		if skipScheduler {
+			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+				messageMetadata.SetScheduledBypass(true)
+			})
+			return
+		}
+
+		if err := s.SubmitAndReady(messageID); err != nil {
+			if !errors.Is(err, schedulerutils.ErrBufferFull) &&
+				!errors.Is(err, schedulerutils.ErrInboxExceeded) &&
+				!errors.Is(err, schedulerutils.ErrInsufficientMana) {
+				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+			}
+		}
+	}))
+
+	s.Start()
+}
 
 // SetRate sets the rate of the scheduler.
 func (s *Scheduler) SetRate(rate time.Duration) {
@@ -226,7 +254,7 @@ func (s *Scheduler) submit(message *Message) error {
 	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 	if mana < MinMana {
 		s.Events.MessageDiscarded.Trigger(message.ID())
-		return errors.Errorf("%w: id=%s, mana=%f", schedulerutils.ErrInsufficientMana, nodeID, mana)
+		return schedulerutils.ErrInsufficientMana
 	}
 
 	err := s.buffer.Submit(message, mana)
@@ -372,6 +400,7 @@ type SchedulerEvents struct {
 	MessageScheduled *events.Event
 	MessageDiscarded *events.Event
 	NodeBlacklisted  *events.Event
+	Error            *events.Event
 }
 
 // NodeIDCaller is the caller function for events that hand over a NodeID.

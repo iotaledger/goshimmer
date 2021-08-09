@@ -1,0 +1,25 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: "3"
+
+services:
+  entrynode:
+    image: iotaledger/goshimmer:develop
+    container_name: entrynode
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - "./db:/db"
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - DATABASE_DIRECTORY=/db/mainnetdb
+      - AUTOPEERING_SEED={{ entryNodeSeed }}
+      - PROFILING_BINDADDRESS=0.0.0.0:6060
+    entrypoint: /run/goshimmer
+    command: >
+      --skip-config=true
+      --autopeering.port=15626
+      --autopeering.networkVersion={{ networkVersion }}
+      --autopeering.entryNodes=
+      --analysis.client.serverAddress=
+      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,metrics,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --logger.level=debug
