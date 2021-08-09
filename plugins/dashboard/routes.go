@@ -31,7 +31,7 @@ const (
 )
 
 func indexRoute(e echo.Context) error {
-	if config.Node().Bool(CfgDev) {
+	if Parameters.Dev {
 		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://127.0.0.1:9090/", nil /* body */)
 		if err != nil {
 			return err

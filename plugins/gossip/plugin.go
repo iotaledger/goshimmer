@@ -6,10 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -23,8 +21,6 @@ var (
 	// plugin is the plugin instance of the gossip plugin.
 	plugin *node.Plugin
 	once   sync.Once
-
-	log *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -36,15 +32,13 @@ func Plugin() *node.Plugin {
 }
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
-
 	configureLogging()
 	configureMessageLayer()
 }
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		Plugin().Logger().Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -54,13 +48,13 @@ func configureLogging() {
 
 	// log the gossip events
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
-		log.Infof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
+		Plugin().LogInfof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
-		log.Infof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+		Plugin().LogInfof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
-		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+		Plugin().LogInfof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
 }
 
@@ -76,11 +70,6 @@ func configureMessageLayer() {
 	// configure flow of outgoing messages (gossip after ordering)
 	messagelayer.Tangle().Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			// avoid gossiping old messages
-			if clock.Since(message.IssuingTime()) > oldMessageThreshold {
-				return
-			}
-
 			mgr.SendMessage(message.Bytes())
 		})
 	}))

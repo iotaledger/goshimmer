@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
-var faucetPoWDifficulty = framework.PeerConfig.Faucet.PowDifficulty
+var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
 
 const (
 	// Timeout denotes the default condition polling timout duration.

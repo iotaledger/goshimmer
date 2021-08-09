@@ -529,7 +529,7 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// data messages should not trigger this event
-	tangle.LedgerState.UTXODAG.Events.TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
 		t.Logf("opinion formed transaction %d/%d - %s", n, totalMsgCount, transactionID)
 	}))

@@ -6,8 +6,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/plugins/config"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -83,14 +81,11 @@ func addPeersFromConfigToManager(mgr *manualpeering.Manager) {
 }
 
 func getKnownPeersFromConfig() ([]*manualpeering.KnownPeerToAdd, error) {
-	rawMap := config.Node().Get(CfgManualpeeringKnownPeers)
-	// This is a hack to transform a map from config into peer.Peer struct.
-	jsonData, err := json.Marshal(rawMap)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't marshal known peers map from config into json data")
+	if Parameters.KnownPeers == "" {
+		return []*manualpeering.KnownPeerToAdd{}, nil
 	}
 	var peers []*manualpeering.KnownPeerToAdd
-	if err := json.Unmarshal(jsonData, &peers); err != nil {
+	if err := json.Unmarshal([]byte(Parameters.KnownPeers), &peers); err != nil {
 		return nil, errors.Wrap(err, "can't parse peers from json")
 	}
 	return peers, nil

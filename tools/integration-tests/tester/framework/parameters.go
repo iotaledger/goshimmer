@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mr-tron/base58"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/mr-tron/base58"
 )
 
 const (
@@ -16,7 +15,6 @@ const (
 	peeringPort = 14626
 	fpcPort     = 10895
 
-	containerNameTester      = "/tester"
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
 	containerNameDrand       = "drand_"
@@ -59,91 +57,72 @@ type CreateNetworkConfig struct {
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.
-var PeerConfig = config.GoShimmer{
-	DisabledPlugins: []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"},
-	Database: config.Database{
-		Enabled:        true,
-		ForceCacheTime: 0, // disable caching for tests
-	},
-	Gossip: config.Gossip{
-		Enabled: true,
-		Port:    gossipPort,
-	},
-	POW: config.POW{
-		Enabled:    true,
-		Difficulty: 2,
-	},
-	Webapi: config.Webapi{
-		Enabled:     true,
-		BindAddress: fmt.Sprintf(":%d", apiPort),
-	},
-	Autopeering: config.Autopeering{
-		Enabled: false,
-		Port:    peeringPort,
-	},
-	MessageLayer: config.MessageLayer{
-		Enabled: true,
-		FCOB: struct{ QuarantineTime int }{
-			QuarantineTime: 2,
-		},
-		Snapshot: struct {
-			File        string
-			GenesisNode string
-		}{
-			File:        fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed)),
-			GenesisNode: "", // use the default
-		},
-		TangleTimeWindow: 2 * time.Minute,
-		StartSynced:      false,
-	},
-	Faucet: config.Faucet{
-		Enabled:              false,
-		Seed:                 base58.Encode(GenesisSeed),
-		TokensPerRequest:     1000000,
-		PowDifficulty:        3,
-		PreparedOutputsCount: 10,
-	},
-	Mana: config.Mana{
-		Enabled:                       true,
-		AllowedAccessFilterEnabled:    false,
-		AllowedConsensusFilterEnabled: false,
-	},
-	Consensus: config.Consensus{
-		Enabled: false,
-	},
-	FPC: config.FPC{
-		Enabled:                 false,
-		BindAddress:             fmt.Sprintf(":%d", fpcPort),
-		RoundInterval:           5,
-		TotalRoundsFinalization: 10,
-	},
-	Activity: config.Activity{
-		Enabled:              false,
-		BroadcastIntervalSec: 1, // increase frequency to speedup tests
-	},
-	DRNG: config.DRNG{
-		Enabled: false,
-	},
+func PeerConfig() config.GoShimmer {
+	c := config.NewGoShimmer()
+
+	c.Image = "iotaledger/goshimmer"
+
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
+
+	c.Network.Enabled = true
+
+	c.Database.Enabled = true
+	c.Database.ForceCacheTime = 0 // disable caching for tests
+
+	c.Gossip.Enabled = true
+	c.Gossip.Port = gossipPort
+
+	c.POW.Enabled = true
+	c.POW.Difficulty = 2
+
+	c.Webapi.Enabled = true
+	c.Webapi.BindAddress = fmt.Sprintf(":%d", apiPort)
+
+	c.Autopeering.Enabled = false
+	c.Autopeering.Port = peeringPort
+	c.Autopeering.EntryNodes = nil
+
+	c.MessageLayer.Enabled = true
+	c.MessageLayer.FCOB.QuarantineTime = 2
+	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed))
+	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
+
+	c.Faucet.Enabled = false
+	c.Faucet.Seed = base58.Encode(GenesisSeed)
+	c.Faucet.PowDifficulty = 3
+	c.PreparedOutputsCount = 10
+
+	c.Mana.Enabled = true
+
+	c.Consensus.Enabled = false
+
+	c.FPC.Enabled = true
+	c.FPC.BindAddress = fmt.Sprintf(":%d", fpcPort)
+	c.FPC.RoundInterval = 5
+	c.FPC.TotalRoundsFinalization = 10
+
+	c.Activity.Enabled = false
+	c.BroadcastIntervalSec = 1 // increase frequency to speedup tests
+
+	c.DRNG.Enabled = false
+
+	return c
 }
 
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.
-var EntryNodeConfig = config.GoShimmer{
-	DisabledPlugins: append(PeerConfig.DisabledPlugins,
-		"issuer", "metrics", "valuetransfers", "consensus"),
-	Database: PeerConfig.Database,
-	Gossip:   config.Gossip{Enabled: false},
-	POW:      PeerConfig.POW,
-	Webapi:   PeerConfig.Webapi,
-	Autopeering: config.Autopeering{
-		Enabled:    true,
-		Port:       peeringPort,
-		EntryNodes: nil,
-	},
-	MessageLayer: config.MessageLayer{Enabled: false},
-	Faucet:       config.Faucet{Enabled: false},
-	Mana:         config.Mana{Enabled: false},
-	Consensus:    config.Consensus{Enabled: false},
-	FPC:          config.FPC{Enabled: false},
-	Activity:     config.Activity{Enabled: false},
-	DRNG:         config.DRNG{Enabled: false},
+func EntryNodeConfig() config.GoShimmer {
+	c := PeerConfig()
+
+	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
+	c.Gossip.Enabled = false
+	c.Autopeering.Enabled = true
+	c.MessageLayer.Enabled = false
+	c.Faucet.Enabled = false
+	c.Mana.Enabled = false
+	c.Consensus.Enabled = false
+	c.FPC.Enabled = false
+	c.Activity.Enabled = false
+	c.DRNG.Enabled = false
+
+	return c
 }
