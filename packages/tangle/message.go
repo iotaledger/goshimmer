@@ -47,7 +47,7 @@ const (
 	// numberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents
 	numberOfBlockTypes = 4
 
-	// numberOfUniqueBlocks counts WeakParents and DislikeParents block
+	// numberOfUniqueBlocks counts WeakParents and DislikeParents block.
 	numberOfUniqueBlocks = 2
 )
 
@@ -134,7 +134,7 @@ func (id MessageID) Base58() string {
 
 // CompareTo does a lexicographical comparison to another messageID.
 // Returns 0 if equal, -1 if smaller, or 1 if larger than other.
-// Passing nil as other will result in a panic
+// Passing nil as other will result in a panic.
 func (id MessageID) CompareTo(other MessageID) int {
 	return bytes.Compare(id.Bytes(), other.Bytes())
 }
