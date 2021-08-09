@@ -1,10 +1,11 @@
 package spammer
 
 import (
-	"go.uber.org/atomic"
 	"math/rand"
 	"sync"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/logger"
