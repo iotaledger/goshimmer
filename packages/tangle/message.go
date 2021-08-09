@@ -295,43 +295,43 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	// Validate strong parent block
 	if len(parentsBlocks) == 0 || parentsBlocks[StrongParentType].ParentsType != StrongParentType ||
 		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
-		return nil, errNoStrongParents
+		return nil, ErrNoStrongParents
 	}
 
 	// Block types must be ordered in ASC order and not repeat
 	for i := 0; i < len(parentsBlocks)-1; i++ {
 		if parentsBlocks[i].ParentsType == parentsBlocks[i+1].ParentsType {
-			return nil, errRepeatingBlockTypes
+			return nil, ErrRepeatingBlockTypes
 		}
 		if parentsBlocks[i].ParentsType > parentsBlocks[i+1].ParentsType {
-			return nil, errBlocksNotOrderedByType
+			return nil, ErrBlocksNotOrderedByType
 		}
 		// we can skip the first block because we already ascertained it is of StrongParentType
 		if parentsBlocks[i+1].ParentsType >= numberOfBlockTypes {
-			return nil, errBlockTypeIsUnknown
+			return nil, ErrBlockTypeIsUnknown
 		}
 	}
 
 	for _, block := range parentsBlocks {
 		if int(block.ParentsCount) != len(block.References) {
-			return nil, errParentsCountMismatch
+			return nil, ErrParentsCountMismatch
 		}
 		if block.ParentsCount > MaxParentsCount || block.ParentsCount < MinParentsCount {
-			return nil, errParentsOutOfRange
+			return nil, ErrParentsOutOfRange
 		}
 		// The lexicographical order check also makes sure there are no duplicates
 		for i := 0; i < len(block.References)-1; i++ {
 			switch block.References[i].CompareTo(block.References[i+1]) {
 			case 0:
-				return nil, errRepeatingReferencesInBlock
+				return nil, ErrRepeatingReferencesInBlock
 			case 1:
-				return nil, errParentsNotLexicographicallyOrdered
+				return nil, ErrParentsNotLexicographicallyOrdered
 			}
 		}
 	}
 
 	if !referencesUniqueAcrossBlocks(parentsBlocks) {
-		return nil, errRepeatingMessagesAcrossBlocks
+		return nil, ErrRepeatingMessagesAcrossBlocks
 	}
 
 	return &Message{
@@ -1302,15 +1302,15 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 var (
-	errNoStrongParents                    = errors.New("missing strong messages in first parent block")
-	errBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
-	errBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, numberOfBlockTypes-1)
-	errParentsCountMismatch               = errors.New("number of parents in a message doesn't match parent count")
-	errParentsOutOfRange                  = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
-	errParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
-	errRepeatingBlockTypes                = errors.New("block types within a message must not repeat")
-	errRepeatingReferencesInBlock         = errors.New("duplicate parents in a message block")
-	errRepeatingMessagesAcrossBlocks      = errors.New("different blocks have repeating messages")
+	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
+	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
+	ErrBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, numberOfBlockTypes-1)
+	ErrParentsCountMismatch               = errors.New("number of parents in a message doesn't match parent count")
+	ErrParentsOutOfRange                  = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
+	ErrParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
+	ErrRepeatingBlockTypes                = errors.New("block types within a message must not repeat")
+	ErrRepeatingReferencesInBlock         = errors.New("duplicate parents in a message block")
+	ErrRepeatingMessagesAcrossBlocks      = errors.New("different blocks have repeating messages")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
