@@ -19,6 +19,8 @@ var (
 	messageRequestCount          prometheus.Gauge
 	confirmedBranchCount         prometheus.Gauge
 	branchConfirmationTotalTime  prometheus.Gauge
+	totalBranchCountDB           prometheus.Gauge
+	finalizedBranchCountDB       prometheus.Gauge
 	finalizedMessageCount        *prometheus.GaugeVec
 	messageFinalizationTotalTime *prometheus.GaugeVec
 	transactionCounter           prometheus.Gauge
@@ -109,6 +111,16 @@ func registerTangleMetrics() {
 		Name: "tangle_branch_confirmation_time",
 		Help: "total number of milliseconds taken for branch to finalize",
 	})
+
+	totalBranchCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_branch_total_count_db",
+		Help: "total number branches stored in database",
+	})
+
+	finalizedBranchCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_branch_finalized_count_db",
+		Help: "number of finalized branches stored in database",
+	})
 	confirmedBranchCount = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_branch_confirmed_count",
 		Help: "current number of confirmed branches",
@@ -128,6 +140,8 @@ func registerTangleMetrics() {
 	registry.MustRegister(finalizedMessageCount)
 	registry.MustRegister(branchConfirmationTotalTime)
 	registry.MustRegister(confirmedBranchCount)
+	registry.MustRegister(totalBranchCountDB)
+	registry.MustRegister(finalizedBranchCountDB)
 	registry.MustRegister(transactionCounter)
 
 	addCollect(collectTangleMetrics)
@@ -151,6 +165,9 @@ func collectTangleMetrics() {
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
 	confirmedBranchCount.Set(float64(metrics.ConfirmedBranchCount()))
 	branchConfirmationTotalTime.Set(float64(metrics.BranchConfirmationTotalTime()))
+	totalBranchCountDB.Set(float64(metrics.TotalBranchCountDB()))
+	finalizedBranchCountDB.Set(float64(metrics.FinalizedBranchCountDB()))
+
 	finalizedMessageCountPerType := metrics.FinalizedMessageCountPerType()
 	for messageType, count := range finalizedMessageCountPerType {
 		finalizedMessageCount.WithLabelValues(messageType.String()).Set(float64(count))

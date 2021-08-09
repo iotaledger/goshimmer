@@ -57,8 +57,10 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 		err = errors.Errorf("failed to normalize parent Branches: %w", err)
 		return
 	}
-
 	cachedConflictBranch, newBranchCreated, err = b.createConflictBranchFromNormalizedParentBranchIDs(branchID, normalizedParentBranchIDs, conflictIDs)
+	if newBranchCreated {
+		b.Events.BranchCreated.Trigger(branchID)
+	}
 	return
 }
 
@@ -1415,6 +1417,9 @@ type BranchDAGEvents struct {
 	// monotonically liked before.
 	BranchMonotonicallyDisliked *events.Event
 
+	// BranchCreated gets triggered when a new Branch is created.
+	BranchCreated *events.Event
+
 	// BranchFinalized gets triggered when a decision on a Branch is finalized and there will be no further state
 	// changes regarding its liked state.
 	BranchFinalized *events.Event
@@ -1440,6 +1445,7 @@ func NewBranchDAGEvents() *BranchDAGEvents {
 		BranchDisliked:              events.NewEvent(branchEventCaller),
 		BranchMonotonicallyLiked:    events.NewEvent(branchEventCaller),
 		BranchMonotonicallyDisliked: events.NewEvent(branchEventCaller),
+		BranchCreated:               events.NewEvent(branchEventCaller),
 		BranchFinalized:             events.NewEvent(branchEventCaller),
 		BranchUnfinalized:           events.NewEvent(branchEventCaller),
 		BranchConfirmed:             events.NewEvent(branchEventCaller),
