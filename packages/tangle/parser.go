@@ -537,7 +537,8 @@ func (f *TransactionFilter) Close() {}
 // region Timestamp filter /////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	timestampFilterWorkerCount = 1
+	timestampFilterWorkerCount  = 1
+	maxTimestampFilterQueueSize = 1024
 )
 
 // TimestampFilter is the filter to not process messages with timestamp in the future.
@@ -554,7 +555,10 @@ type TimestampFilter struct {
 // NewTimestampFilter creates a new message timestamp filter.
 func NewTimestampFilter() *TimestampFilter {
 	return &TimestampFilter{
-		queue: timedexecutor.New(timestampFilterWorkerCount),
+		queue: timedexecutor.New(
+			timestampFilterWorkerCount,
+			timedexecutor.WithMaxQueueSize(maxTimestampFilterQueueSize),
+		),
 	}
 }
 
