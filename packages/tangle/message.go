@@ -306,7 +306,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 		if parentsBlocks[i].ParentsType > parentsBlocks[i+1].ParentsType {
 			return nil, errBlocksNotOrderedByType
 		}
-		// we can skip the first block because we already acertained it is of StrongParentType
+		// we can skip the first block because we already ascertained it is of StrongParentType
 		if parentsBlocks[i+1].ParentsType >= numberOfBlockTypes {
 			return nil, errBlockTypeIsUnknown
 		}
