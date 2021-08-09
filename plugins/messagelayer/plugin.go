@@ -113,7 +113,7 @@ func configure(plugin *node.Plugin) {
 		}
 	}
 
-	configureApprovalWeight()
+	configureFinality()
 }
 
 func run(*node.Plugin) {
