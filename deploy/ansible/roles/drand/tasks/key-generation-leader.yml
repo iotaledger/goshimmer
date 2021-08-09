@@ -1,4 +1,0 @@
-- name: Generate key materials in leader Drand
-  community.docker.docker_container_exec:
-    container: drand{{ drandNumber }}
-    command: drand share --leader --nodes {{ numberOfDrands }} --threshold {{ drandsThreshold }} --secret "{{ drandsSecret }}" --period 10s --catchup-period 0

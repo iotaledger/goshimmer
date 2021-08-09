@@ -2,7 +2,7 @@
 # Components of the Protocol
 This section provides a high-level description of the interaction between components of the currently implemented GoShimmer protocol. The protocol can be divided into three main elements: a P2P overlay network, an immutable data structure, and a consensus mechanism. We abstract these three elements into layers, where—similarly to other architectures—upper layers build on the functionality provided by the layers below them. The definition of the different layers is merely about the convenience of creating a clear separation of concerns.
 
-![Components of the Protocol](../../static/img/protocol_specification/layers.png "Components of the Protocol")
+![Components of the Protocol](/img/protocol_specification/layers.png "Components of the Protocol")
 
 ## Network Layer
 The network is maintained by the network layer modules, which can be characterized as a pure P2P overlay network, meaning that it is a system that runs on top of another network (e.g., the internet), and where all nodes have the same roles and perform the same actions (in contrast to client-server systems). GoShimmer's Network Layer consists of three basic modules: the [peer discovery](autopeering.md#peer-discovery) module (which provides a list of nodes actively using the network), and the [neighbor selection](autopeering.md#neighbor-selection) module (also known as autopeering), which actually selects peers. Finally, the P2P Communication manages a node's neighbors, either selected via [autopeering](autopeering.md) or [manual peering](../tutorials/manual_peering.md).
@@ -25,7 +25,7 @@ The diagram below represents the interaction between the different modules in th
 
 As an example, take the Parser component. The function `ProcessGossipMessage` will trigger the method `Parse`, which is the only entry to the component. There are three possible outcomes to the `Parser`: triggering a `ParsingFailed` event, a `MessageRejected` event, or a `MessageParsed` event. In the last case, the event will trigger the `StoreMessage` method (which is the entry to the Storage component), whereas the first two events do not trigger any other component.
 
-![Data Flow - Overview](../../static/img/protocol_specification/data-flow.png "Data Flow - Overview")
+![Data Flow - Overview](/img/protocol_specification/data-flow.png "Data Flow - Overview")
 
 We call this the data flow, i.e., the [life cycle of a message](protocol.md), from message reception (meaning that we focus here on the point of view of a node receiving a message issued by another node) up until acceptance in the Tangle. Notice that any message, either created locally by the node or received from a neighbor needs to pass through the data flow.
 
@@ -79,7 +79,7 @@ At this point, the missing steps are the most computationally expensive:
 7.  Inputs' conflicting branches check: it checks if the branches of the inputs are conflicting. As in the last step, if the message does not pass this check, the message is marked as `invalid` and not booked. If it passes the check, it goes to the next step.
 8. Conflict check: it checks if the inputs are conflicting with an unconfirmed transaction. In this step, the branch to which the message belongs is computed. In both cases (passing the check or not), the transaction is booked into the ledger state and the message is booked into the Tangle, but its branch ID will be different depending on the outcome of the check.
 
-![Booker](../../static/img/protocol_specification/booker.png "Booker")
+![Booker](/img/protocol_specification/booker.png "Booker")
 
 Finally, after a message is booked, it might become a [marker](markers.md) (depending on the marker policy) and can be gossiped.
 
@@ -90,7 +90,7 @@ Afterwards, we form opinions in two independent processes, that can be done in p
 
 In parallel to the message timestamp opinion setting, a payload evaluation is also done. If the message does not contain a transaction payload, the payload opinion is automatically set to `liked`. Otherwise, it has to pass the FCoB rule (and possibly, an FPC voting) in order to be `liked`, as described [here](consensus_mechanism.md#fpc).
 
-![Consensus Mechanism](../../static/img/protocol_specification/consensus_mechanism.png "Consensus Mechanism")
+![Consensus Mechanism](/img/protocol_specification/consensus_mechanism.png "Consensus Mechanism")
 
 
 ### Tip Manager

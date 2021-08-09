@@ -2,7 +2,7 @@
 
 We provide a tool at `tools/docker-network` with which a local test network can be set up locally with docker. 
  
-![Docker network](../../static/img/tooling/docker-network.png "Docker network")
+![Docker network](/img/tooling/docker-network.png "Docker network")
 
 
 ## How to use the tool

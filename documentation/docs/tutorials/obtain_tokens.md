@@ -45,13 +45,13 @@ You can request funds by pressing the `Request Funds` in the wallet.
 
 **Note**: You need to create a wallet first before requesting funds.
 
-![Pollen Wallet](../../static/img/tutorials/request_funds/pollen_wallet.png "Pollen Wallet")
+![Pollen Wallet](/img/tutorials/request_funds/pollen_wallet.png "Pollen Wallet")
 
 
 This may take a while to receive funds:
 
-![Pollen Wallet requesting funds](../../static/img/tutorials/request_funds/pollen_wallet_requesting_funds.png "Pollen Wallet requesting funds")
+![Pollen Wallet requesting funds](/img/tutorials/request_funds/pollen_wallet_requesting_funds.png "Pollen Wallet requesting funds")
 
 When the faucet request is successful, you can check the received balances:
 
-![Pollen Wallet transfer success](../../static/img/tutorials/request_funds/pollen_wallet_transfer_success.png "Pollen Wallet requesting transfer success")
+![Pollen Wallet transfer success](/img/tutorials/request_funds/pollen_wallet_transfer_success.png "Pollen Wallet requesting transfer success")
