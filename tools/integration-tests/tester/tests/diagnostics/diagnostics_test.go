@@ -16,7 +16,7 @@ var (
 	messageHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
 		"ScheduledTime", "BookedTime", "OpinionFormedTime", "FinalizedTime", "StrongParents", "WeakParents",
-		"StrongApprovers", "WeakApprovers", "BranchID", "InclusionState", "Scheduled", "Booked", "Eligible", "Invalid",
+		"StrongApprovers", "WeakApprovers", "BranchID", "InclusionState", "Scheduled", "ScheduledBypass", "Booked", "Eligible", "Invalid",
 		"Finalized", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI", "PayloadType",
 		"TransactionID", "PayloadOpinionFormed", "TimestampOpinionFormed", "MessageOpinionFormed",
 		"MessageOpinionTriggered", "TimestampOpinion", "TimestampLoK",

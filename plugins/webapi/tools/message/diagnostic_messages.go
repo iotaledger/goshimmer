@@ -154,6 +154,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"BranchID",
 	"InclusionState",
 	"Scheduled",
+	"ScheduledBypass",
 	"Booked",
 	"Eligible",
 	"Invalid",
@@ -195,6 +196,7 @@ type DiagnosticMessagesInfo struct {
 	BranchID          string
 	InclusionState    string
 	Scheduled         bool
+	ScheduledBypass   bool
 	Booked            bool
 	Eligible          bool
 	Invalid           bool
@@ -245,6 +247,7 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.BranchID = branchID.String()
 		msgInfo.Scheduled = metadata.Scheduled()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
+		msgInfo.ScheduledBypass = metadata.ScheduledBypass()
 		msgInfo.BookedTime = metadata.BookedTime()
 		msgInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(messageID)
 		msgInfo.FinalizedTime = metadata.FinalizedTime()
@@ -307,6 +310,7 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		d.BranchID,
 		d.InclusionState,
 		fmt.Sprint(d.Scheduled),
+		fmt.Sprint(d.ScheduledBypass),
 		fmt.Sprint(d.Booked),
 		fmt.Sprint(d.Eligible),
 		fmt.Sprint(d.Invalid),
