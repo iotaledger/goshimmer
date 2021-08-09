@@ -321,10 +321,10 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 		}
 		// The lexicographical order check also makes sure there are no duplicates
 		for i := 0; i < len(block.References)-1; i++ {
-			if block.References[i].CompareTo(block.References[i+1]) == 0 {
+			switch compare := block.References[i].CompareTo(block.References[i+1]); compare {
+			case 0:
 				return nil, errRepeatingReferencesInBlock
-			}
-			if block.References[i].CompareTo(block.References[i+1]) != -1 {
+			case 1:
 				return nil, errParentsNotLexicographicallyOrdered
 			}
 		}
