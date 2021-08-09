@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"container/list"
+	"github.com/iotaledger/hive.go/typeutils"
 	"sort"
 	"sync"
 	"time"
@@ -34,6 +35,9 @@ const (
 	// MinimumFaucetBalance defines the minimum token amount required, before the faucet stops operating.
 	MinimumFaucetBalance = 0.1 * GenesisTokenAmount
 
+	// MinimumFaucetFundsLeft defines the minimum fraction (x/100) of prepared fundingReminders limit that triggers funds preparation
+	MinimumFaucetRemindersFractionLeft = 10
+
 	// MaxFaucetOutputsCount defines the max outputs count for the Facuet as the ledgerstate.MaxOutputCount -1 remainder output.
 	MaxFaucetOutputsCount = ledgerstate.MaxOutputCount - 1
 
@@ -60,22 +64,27 @@ type FaucetOutput struct {
 type StateManager struct {
 	// ordered list of available outputs to fund faucet requests
 	fundingOutputs *list.List
+	// ensures that only one goroutine can change fundingOutputs map at the same time.
+	fundingMutex sync.Mutex
+
 	// output that holds the remainder funds to the faucet, should always be on address 0
 	remainderOutput *FaucetOutput
 	// outputs that holds funds during the splitting period, filled in only with outputs needed for next split, should always be on address 1
-	supplyOutputs []*FaucetOutput
+	supplyOutputs *list.List
 	// the last funding output address index
 	// when we prepare new funding outputs, we start from lastFundingOutputAddressIndex + 1
 	lastFundingOutputAddressIndex uint64
 	// mapping base58 encoded addresses to their indices
 	addressToIndex map[string]uint64
+	// ensures that fields related to new funds creation can be accesses by only one goroutine at the same time
+	preparingMutex sync.Mutex
 
 	// the amount of tokens to send to every request
 	tokensPerRequest uint64
 	// number of funding outputs to prepare for supply address that will be break down further if fundingOutputs is short on funds
 	preparedOutputsCount uint64
 	// number of funding outputs for each output in supply transaction during the splitting period
-	splitOutputsCount uint64
+	splittingMultiplayer uint64
 	// the seed instance of the faucet holding the tokens
 	seed *walletseed.Seed
 
@@ -83,8 +92,8 @@ type StateManager struct {
 	// to become booked in the value layer
 	maxTxBookedAwaitTime time.Duration
 
-	// ensures that only one goroutine can work on the stateManager at any time
-	sync.RWMutex
+	// isPreparingFunds indicates if faucet is currently preparing next batch of reminders
+	isPreparingFunds typeutils.AtomicBool
 }
 
 // NewStateManager creates a new state manager for the faucet.
@@ -92,7 +101,7 @@ func NewStateManager(
 	tokensPerRequest uint64,
 	seed *walletseed.Seed,
 	preparedOutputsCount uint64,
-	splitOutputsCount uint64,
+	splittingMultiplayer uint64,
 	maxTxBookedTime time.Duration,
 ) *StateManager {
 	// currently the max number of outputs in a tx is 127, therefore, when creating the splitting tx, we can have at most
@@ -101,8 +110,8 @@ func NewStateManager(
 		preparedOutputsCount = MaxFaucetOutputsCount
 	}
 	// number of outputs for each split supply transaction is also limited by the max num of outputs
-	if splitOutputsCount > MaxFaucetOutputsCount {
-		splitOutputsCount = MaxFaucetOutputsCount
+	if splittingMultiplayer > MaxFaucetOutputsCount {
+		splittingMultiplayer = MaxFaucetOutputsCount
 	}
 
 	res := &StateManager{
@@ -112,9 +121,10 @@ func NewStateManager(
 			seed.Address(SupplyAddressIndex).Address().Base58():    SupplyAddressIndex,
 		},
 
+		supplyOutputs:        list.New(),
 		tokensPerRequest:     tokensPerRequest,
 		preparedOutputsCount: preparedOutputsCount,
-		splitOutputsCount:    splitOutputsCount,
+		splittingMultiplayer: splittingMultiplayer,
 		seed:                 seed,
 		maxTxBookedAwaitTime: maxTxBookedTime,
 	}
@@ -124,9 +134,14 @@ func NewStateManager(
 
 // FundingOutputsCount returns the number of available outputs that can be used to fund a request.
 func (s *StateManager) FundingOutputsCount() int {
-	s.RLock()
-	defer s.RUnlock()
+	s.fundingMutex.Lock()
+	defer s.fundingMutex.Unlock()
 	return s.fundingOutputs.Len()
+}
+
+// SupplyOutputsCount returns the number of available outputs that can be split to prepare more faucet funds.
+func (s *StateManager) SupplyOutputsCount() int {
+	return s.supplyOutputs.Len()
 }
 
 // DeriveStateFromTangle derives the faucet state from a synchronized Tangle.
@@ -134,53 +149,18 @@ func (s *StateManager) FundingOutputsCount() int {
 //  - remainder output should always sit on address 0.
 //   - if no funding outputs are found, the faucet creates them from the remainder output.
 func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
-	s.Lock()
-	defer s.Unlock()
-
-	foundPreparedOutputs := make([]*FaucetOutput, 0)
-	toBeSweptOutputs := make([]*FaucetOutput, 0)
+	// TODO check startIndex
+	s.isPreparingFunds.Set()
+	defer s.isPreparingFunds.UnSet()
 
 	err = s.findUnspentRemainderOutput()
 	if err != nil {
 		return
 	}
-	// TODO needs to be adjusted after introducing splitting
-	endIndex := (GenesisTokenAmount - s.remainderOutput.Balance) / s.tokensPerRequest
+	endIndex := (GenesisTokenAmount-s.remainderOutput.Balance)/s.tokensPerRequest + 1
 	Plugin().LogInfof("%d indices have already been used based on found remainder output", endIndex)
 
-	Plugin().LogInfof("Looking for prepared outputs in the Tangle...")
-
-	for i := startIndex; uint64(i) <= endIndex; i++ {
-		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(s.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
-			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-				if outputMetadata.ConsumerCount() < 1 {
-					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
-					if !colorExist {
-						return
-					}
-					switch iotaBalance {
-					case s.tokensPerRequest:
-						// we found a prepared output
-						foundPreparedOutputs = append(foundPreparedOutputs, &FaucetOutput{
-							ID:           output.ID(),
-							Balance:      iotaBalance,
-							Address:      output.Address(),
-							AddressIndex: uint64(i),
-						})
-					default:
-						toBeSweptOutputs = append(toBeSweptOutputs, &FaucetOutput{
-							ID:           output.ID(),
-							Balance:      iotaBalance,
-							Address:      output.Address(),
-							AddressIndex: uint64(i),
-						})
-					}
-				}
-			})
-		})
-	}
-	Plugin().LogInfof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
-	Plugin().LogInfof("Looking for prepared outputs in the Tangle... DONE")
+	foundPreparedOutputs := s.findPreparedOutputs(endIndex)
 
 	if len(foundPreparedOutputs) == 0 {
 		// prepare more funding outputs if we did not find any
@@ -193,38 +173,33 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 		s.saveFundingOutputs(foundPreparedOutputs)
 	}
 	Plugin().LogInfof("Remainder output %s had %d funds", s.remainderOutput.ID.Base58(), s.remainderOutput.Balance)
-	// ignore toBeSweptOutputs
+
+	// check for any unfinished funds preparation and use all remaining supply outputs
+	err = s.findSupplyOutputs()
+	if err != nil {
+		return
+	}
+	err = s.prepareSupplyFunding()
+
 	return err
 }
 
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
 func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tangle.Message, txID string, err error) {
-	s.Lock()
-	defer s.Unlock()
 
 	faucetReq := requestMsg.Payload().(*faucet.Request)
+
+	// trigger funds preparation, because there are less than 1/10th outputs left
+	if uint64(s.FundingOutputsCount()) < s.splittingMultiplayer*s.preparedOutputsCount/MinimumFaucetRemindersFractionLeft {
+		s.signalMoreFundingNeeded()
+	}
 
 	// get an output that we can spend
 	fundingOutput, fErr := s.getFundingOutput()
 	// we don't have funding outputs
 	if errors.Is(fErr, ErrNotEnoughFundingOutputs) {
-		// try preparing them
-		Plugin().LogInfof("Preparing more outputs...")
-		pErr := s.prepareMoreFundingOutputs()
-		if pErr != nil {
-			err = errors.Errorf("failed to prepare more outputs: %w", pErr)
-			return
-		}
-		Plugin().LogInfof("Preparing more outputs... DONE")
-		// and try getting the output again
-		fundingOutput, fErr = s.getFundingOutput()
-		if fErr != nil {
-			err = errors.Errorf("failed to gather funding outputs")
-			return
-		}
-	} else if fErr != nil {
-		err = errors.Errorf("failed to gather funding outputs")
+		err = errors.Errorf("failed to gather funding outputs: %w", fErr)
 		return
 	}
 
@@ -249,6 +224,28 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	txID = tx.ID().Base58()
 
 	return m, txID, err
+}
+
+// signalMoreFundingNeeded triggers preparation of faucet funding only if none preparation is currently running
+func (s *StateManager) signalMoreFundingNeeded() {
+	if s.isPreparingFunds.SetToIf(false, true) {
+		//TODO add wait group or use some more sophisticated thingy to handle during the shutdown (should it wait for the confirmation?)
+		go func() {
+			Plugin().LogInfof("Preparing more outputs...")
+			err := s.prepareMoreFundingOutputs()
+			if err != nil {
+				if errors.Is(err, ErrSplittingFundsFailed) {
+					err = errors.Errorf("failed to prepare more outputs: %w", err)
+					Plugin().LogError(err)
+					return
+				}
+				if errors.Is(err, ErrConfirmationTimeoutExpired) {
+					Plugin().LogInfof("Preparing more outputs partially successful: %w", err)
+				}
+				Plugin().LogInfof("Preparing more outputs... DONE")
+			}
+		}()
+	}
 }
 
 // prepareFaucetTransaction prepares a funding faucet transaction that spends fundingOutput to destAddr and pledges
@@ -291,18 +288,22 @@ func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 		return fundingOutputs[i].AddressIndex < fundingOutputs[j].AddressIndex
 	})
 
+	s.fundingMutex.Lock()
 	// fill prepared output list
 	for _, fOutput := range fundingOutputs {
 		s.fundingOutputs.PushBack(fOutput)
 	}
 	s.lastFundingOutputAddressIndex = s.fundingOutputs.Back().Value.(*FaucetOutput).AddressIndex
+	s.fundingMutex.Unlock()
 
 	Plugin().LogInfof("Added %d new funding outputs, last used address index is %d", len(fundingOutputs), s.lastFundingOutputAddressIndex)
-	Plugin().LogInfof("There are currently %d prepared outputs in the faucet", s.fundingOutputs.Len())
+	Plugin().LogInfof("There are currently %d prepared outputs in the faucet", s.FundingOutputsCount())
 }
 
 // getFundingOutput returns the first funding output in the list.
 func (s *StateManager) getFundingOutput() (fundingOutput *FaucetOutput, err error) {
+	s.fundingMutex.Lock()
+	defer s.fundingMutex.Unlock()
 	if s.fundingOutputs.Len() < 1 {
 		return nil, ErrNotEnoughFundingOutputs
 	}
@@ -310,8 +311,45 @@ func (s *StateManager) getFundingOutput() (fundingOutput *FaucetOutput, err erro
 	return
 }
 
+// findPreparedOutputs looks for prepared outputs in the tangle.
+func (s *StateManager) findPreparedOutputs(endIndex uint64) []*FaucetOutput {
+
+	foundPreparedOutputs := make([]*FaucetOutput, 0)
+
+	Plugin().LogInfof("Looking for prepared outputs in the Tangle...")
+
+	for i := startIndex; uint64(i) <= endIndex; i++ {
+		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(s.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
+			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				if outputMetadata.ConsumerCount() < 1 {
+					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
+					if !colorExist {
+						return
+					}
+					switch iotaBalance {
+					case s.tokensPerRequest:
+						// we found a prepared output
+						foundPreparedOutputs = append(foundPreparedOutputs, &FaucetOutput{
+							ID:           output.ID(),
+							Balance:      iotaBalance,
+							Address:      output.Address(),
+							AddressIndex: uint64(i),
+						})
+					}
+				}
+			})
+		})
+	}
+	Plugin().LogInfof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
+	Plugin().LogInfof("Looking for prepared outputs in the Tangle... DONE")
+	return foundPreparedOutputs
+}
+
 // findUnspentRemainderOutput finds the remainder output and updates the state manager
 func (s *StateManager) findUnspentRemainderOutput() error {
+	s.preparingMutex.Lock()
+	defer s.preparingMutex.Unlock()
+
 	var foundRemainderOutput *FaucetOutput
 
 	remainderAddress := s.seed.Address(RemainderAddressIndex).Address()
@@ -342,7 +380,56 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinimumFaucetBalance))
 	}
 	s.remainderOutput = foundRemainderOutput
+
 	return nil
+}
+
+// findSupplyOutputs looks for splittingMultiplayer number of reminders of supply transaction and updates the StateManager
+func (s *StateManager) findSupplyOutputs() (err error) {
+	s.preparingMutex.Lock()
+	defer s.preparingMutex.Unlock()
+
+	var foundSupplyCount uint64
+
+	supplyAddress := s.seed.Address(SupplyAddressIndex).Address()
+
+	// remainder output should sit on address 1
+	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
+		if foundSupplyCount >= s.splittingMultiplayer {
+			// return when enough outputs has been collected
+			return
+		}
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
+				outputMetadata.Finalized() {
+				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
+				if !ok || iotaBalance != s.tokensPerRequest {
+					return
+				}
+				supplyOutput := &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: RemainderAddressIndex,
+				}
+				s.supplyOutputs.PushBack(supplyOutput)
+				foundSupplyCount++
+			}
+		})
+	})
+	if foundSupplyCount == 0 {
+		return errors.Errorf("can't find any supply output on address %s that has %d tokens", supplyAddress.Base58(), int(s.tokensPerRequest))
+	}
+	return
+}
+
+// nextSupplyReminder returns the first supply address in the list
+func (s *StateManager) nextSupplyReminder() (supplyOutput *FaucetOutput, err error) {
+	if s.supplyOutputs.Len() < 1 {
+		return nil, ErrNotEnoughSupplyOutputs
+	}
+	supplyOutput = s.supplyOutputs.Remove(s.supplyOutputs.Front()).(*FaucetOutput)
+	return
 }
 
 // prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output and submits supply transactions
@@ -350,39 +437,78 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 // submits the transaction
 // to the Tangle, waits for its confirmation, and then updates the internal state of the faucet.
 func (s *StateManager) prepareMoreFundingOutputs() (err error) {
+	defer s.isPreparingFunds.UnSet()
 	// no remainder output present
-	if s.remainderOutput == nil {
-		err = s.findUnspentRemainderOutput()
-		if err != nil {
-			return errors.Errorf("%w: %w", ErrMissingRemainderOutput, err)
-		}
-		// if no error was returned, s.remainderOutput is not nil anymore
+	err = s.findUnspentRemainderOutput()
+	if err != nil {
+		return errors.Errorf("%w: %w", ErrMissingRemainderOutput, err)
 	}
+	// if no error was returned, s.remainderOutput is not nil anymore
 
-	remainderSpent := false
-	// is the remainder output still unspent?
-	messagelayer.Tangle().LedgerState.CachedOutputMetadata(s.remainderOutput.ID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		// GenesisTransactionID is the empty id
-		if outputMetadata.ConfirmedConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
-			remainderSpent = true
-		}
-	})
-	if remainderSpent {
-		// refresh remainder
-		err = s.findUnspentRemainderOutput()
-		if err != nil {
-			return
-		}
-	}
-	// not enough funds to carry out operation
-	if s.tokensPerRequest*s.preparedOutputsCount*s.splitOutputsCount > s.remainderOutput.Balance {
+	if !s.isEnoughFunds() {
 		err = ErrNotEnoughFunds
 		return
 	}
 
-	// take remainder output and split it up to create supply transaction that will be used for further splitting
-	tx := s.createSplittingTx() // TODO check dest address, should be
+	err = s.prepareSupplyFunding()
+	if err != nil {
+		return errors.Errorf("%w: %w", ErrSupplyPreparationFailed, err)
+	}
 
+	err = s.findSupplyOutputs()
+	if err != nil {
+		return errors.Errorf("%w : %w", ErrMissingSupplyOutputs, err)
+	}
+
+	err = s.splitSupplyTransaction()
+	if errors.Is(err, ErrSplittingFundsFailed) {
+		return err
+	}
+
+	return
+}
+
+// isEnoughFunds indicates if there is enough funds to carry on the faucet funds preparation
+func (s *StateManager) isEnoughFunds() bool {
+	s.preparingMutex.Lock()
+	defer s.preparingMutex.Unlock()
+	// not enough funds to carry out operation
+	if s.tokensPerRequest*s.preparedOutputsCount*s.splittingMultiplayer > s.remainderOutput.Balance {
+		return false
+	}
+	return true
+}
+
+// prepareSupplyFunding take remainder output and split it up to create supply transaction that will be used for further splitting
+func (s *StateManager) prepareSupplyFunding() (err error) {
+	s.preparingMutex.Lock()
+	defer s.preparingMutex.Unlock()
+
+	tx, err := s.createSplittingTx(true)
+	if err != nil {
+		return err
+	}
+	m := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
+	m[tx.ID()] = tx
+	err = s.waitUntilAndProcessAfterConfirmation(m)
+	return
+}
+
+func (s *StateManager) splitSupplyTransaction() (err error) {
+	s.preparingMutex.Lock()
+	defer s.preparingMutex.Unlock()
+
+	m := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
+	var tx *ledgerstate.Transaction
+	for i := uint64(0); i < uint64(s.SupplyOutputsCount()); i++ {
+		tx, err = s.createSplittingTx(false)
+		if err != nil {
+			return
+		}
+		m[tx.ID()] = tx
+	}
+	err = s.waitUntilAndProcessAfterConfirmation(m)
+	return
 }
 
 // waitUntilAndProcessAfterConfirmation issues all transactions provided in preparedTxIDs,
@@ -424,7 +550,6 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 		select {
 		case confirmedTx := <-txConfirmed:
 			confirmedCount += 1
-			// TODO updateState should behave different for first split and next supply txs
 			err := s.updateState(confirmedTx)
 			if err == nil {
 				stateUpdatedCount++
@@ -436,7 +561,10 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 			}
 		case <-ticker.C:
 			if timeoutCounter >= maxWaitAttempts {
-				return errors.Errorf("Confirmed %d and saved %d out of %d issued tranascions: %w", confirmedCount, stateUpdatedCount, issuedCount, ErrConfirmationTimeoutExpired)
+				if confirmedCount == 0 {
+					return ErrSplittingFundsFailed
+				}
+				return errors.Errorf("confirmed %d and saved %d out of %d issued transactions: %w", confirmedCount, stateUpdatedCount, issuedCount, ErrConfirmationTimeoutExpired)
 			}
 			timeoutCounter++
 		}
@@ -447,7 +575,9 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 // updateState takes a confirmed transaction (splitting tx), and updates the faucet internal state based on its content.
 func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err error) {
 	messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-		remainingBalance := s.remainderOutput.Balance - s.tokensPerRequest*s.preparedOutputsCount
+		remainingBalance := s.remainderOutput.Balance - s.tokensPerRequest*s.preparedOutputsCount*s.splittingMultiplayer
+		supplyBalance := s.tokensPerRequest * s.splittingMultiplayer
+
 		fundingOutputs := make([]*FaucetOutput, 0, s.preparedOutputsCount)
 
 		// derive information from outputs
@@ -472,6 +602,13 @@ func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err
 					Address:      output.Address(),
 					AddressIndex: s.addressToIndex[output.Address().Base58()],
 				}
+			case supplyBalance:
+				s.supplyOutputs.PushBack(&FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: s.addressToIndex[output.Address().Base58()],
+				})
 			default:
 				err = errors.Errorf("tx %s should not have output with balance %d", transactionID.Base58(), iotaBalance)
 				return
@@ -484,37 +621,47 @@ func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err
 	return err
 }
 
-// createSplittingTx takes the current remainder output and creates a transaction that splits it into s.preparedOutputsCount
-// funding outputs and one remainder output.
-func (s *StateManager) createSplittingTx() *ledgerstate.Transaction {
-	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(s.remainderOutput.ID))
+// createSplittingTx takes the current remainder output and creates a first splitting transaction into s.preparedOutputsCount
+// funding outputs and one remainder output if supplyTx is true. Otherwise it uses
+func (s *StateManager) createSplittingTx(isSupplyTx bool) (*ledgerstate.Transaction, error) {
+	var inputs ledgerstate.Inputs
+	var outputs ledgerstate.Outputs
+	var w wallet
+	// prepare inputs and outputs for supply transaction
+	if isSupplyTx {
+		inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(s.remainderOutput.ID))
+		// prepare s.preparedOutputsCount number of supply outputs for further splitting.
+		outputs = make(ledgerstate.Outputs, 0, s.preparedOutputsCount+1)
+		balance := s.tokensPerRequest * s.splittingMultiplayer
+		// all funding outputs will land on supply address
+		for i := uint64(0); i < s.preparedOutputsCount; i++ {
+			outputs = append(outputs, s.createOutput(s.seed.Address(SupplyAddressIndex).Address(), balance))
+		}
+		// add the remainder output
+		balance = s.remainderOutput.Balance - s.tokensPerRequest*s.splittingMultiplayer*s.preparedOutputsCount
+		outputs = append(outputs, s.createOutput(s.seed.Address(RemainderAddressIndex).Address(), balance))
+		// signature
+		w = wallet{keyPair: *s.seed.KeyPair(RemainderAddressIndex)}
 
-	// prepare s.preparedOutputsCount number of funding outputs.
-	outputs := make(ledgerstate.Outputs, 0, s.preparedOutputsCount+1)
-	// start from the last used funding output address index
-	for i := s.lastFundingOutputAddressIndex + 1; i < s.lastFundingOutputAddressIndex+1+s.preparedOutputsCount; i++ {
-		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(
-			ledgerstate.NewColoredBalances(
-				map[ledgerstate.Color]uint64{
-					ledgerstate.ColorIOTA: s.tokensPerRequest,
-				}),
-			s.seed.Address(i).Address(),
-		),
-		)
-		s.addressToIndex[s.seed.Address(i).Address().Base58()] = i
+		// prepare inputs and outputs for splitting transaction
+	} else {
+		reminder, err := s.nextSupplyReminder()
+		if err != nil {
+			return nil, errors.Errorf("could not retrieve supply output: %w", err)
+		}
+		inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(reminder.ID))
+		// prepare s.splittingMultiplayer number of funding outputs.
+		outputs = make(ledgerstate.Outputs, 0, s.splittingMultiplayer)
+		// start from the last used funding output address index
+		for index := s.lastFundingOutputAddressIndex + 1; index < s.lastFundingOutputAddressIndex+1+s.splittingMultiplayer; index++ {
+			outputs = append(outputs, s.createOutput(s.seed.Address(index).Address(), s.tokensPerRequest))
+			s.addressToIndex[s.seed.Address(index).Address().Base58()] = index
+		}
+
+		// signature
+		w = wallet{keyPair: *s.seed.KeyPair(SupplyAddressIndex)}
+
 	}
-
-	// add the remainder output
-	outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(
-		ledgerstate.NewColoredBalances(
-			map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: s.remainderOutput.Balance - s.tokensPerRequest*s.preparedOutputsCount,
-			}),
-
-		s.seed.Address(RemainderAddressIndex).Address(),
-	),
-	)
-
 	essence := ledgerstate.NewTransactionEssence(
 		0,
 		clock.SyncedTime(),
@@ -525,14 +672,23 @@ func (s *StateManager) createSplittingTx() *ledgerstate.Transaction {
 		ledgerstate.NewOutputs(outputs...),
 	)
 
-	w := wallet{keyPair: *s.seed.KeyPair(s.remainderOutput.AddressIndex)}
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
 
 	tx := ledgerstate.NewTransaction(
 		essence,
 		ledgerstate.UnlockBlocks{unlockBlock},
 	)
-	return tx
+	return tx, nil
+}
+
+func (s *StateManager) createOutput(addr ledgerstate.Address, balance uint64) ledgerstate.Output {
+	return ledgerstate.NewSigLockedColoredOutput(
+		ledgerstate.NewColoredBalances(
+			map[ledgerstate.Color]uint64{
+				ledgerstate.ColorIOTA: balance,
+			}),
+		addr,
+	)
 }
 
 // issueTX issues a transaction to the Tangle and waits for it to become booked.
