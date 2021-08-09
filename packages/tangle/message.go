@@ -1302,15 +1302,15 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 var (
-	errNoStrongParents                    = errors.New("Missing strong messages in first parent block")
-	errBlocksNotOrderedByType             = errors.New("Blocks should be ordered in ascending order according to their type")
-	errBlockTypeIsUnknown                 = errors.Errorf("Block types must range from %d-%d", 0, numberOfBlockTypes-1)
-	errParentsCountMismatch               = errors.New("Number of parents in a message doesn't match parent count")
-	errParentsOutOfRange                  = errors.Errorf("A block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
-	errParentsNotLexicographicallyOrdered = errors.New("Messages within blocks must be lexicographically ordered")
-	errRepeatingBlockTypes                = errors.New("Block types within a message must not repeat")
-	errRepeatingReferencesInBlock         = errors.New("Duplicate parents in a message block")
-	errRepeatingMessagesAcrossBlocks      = errors.New("Different blocks have repeating messages")
+	errNoStrongParents                    = errors.New("missing strong messages in first parent block")
+	errBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
+	errBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, numberOfBlockTypes-1)
+	errParentsCountMismatch               = errors.New("number of parents in a message doesn't match parent count")
+	errParentsOutOfRange                  = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
+	errParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
+	errRepeatingBlockTypes                = errors.New("block types within a message must not repeat")
+	errRepeatingReferencesInBlock         = errors.New("duplicate parents in a message block")
+	errRepeatingMessagesAcrossBlocks      = errors.New("different blocks have repeating messages")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
