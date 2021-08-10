@@ -131,7 +131,7 @@ var (
 	parentsCountPerType = make(map[tangle.ParentsType]uint64)
 
 	// protect map from concurrent read/write.
-	parentsCountPerTypetMutex syncutils.RWMutex
+	parentsCountPerTypeMutex syncutils.RWMutex
 
 	// counter for the received MPS
 	mpsReceivedSinceLastMeasurement atomic.Uint64
@@ -292,8 +292,8 @@ func ConfirmedBranchCount() uint64 {
 
 // ParentCountPerType returns a map of parent counts per parent type.
 func ParentCountPerType() map[tangle.ParentsType]uint64 {
-	parentsCountPerTypetMutex.RLock()
-	defer parentsCountPerTypetMutex.RUnlock()
+	parentsCountPerTypeMutex.RLock()
+	defer parentsCountPerTypeMutex.RUnlock()
 
 	// copy the original map
 	clone := make(map[tangle.ParentsType]uint64)
@@ -330,8 +330,8 @@ func increasePerComponentCounter(c ComponentType) {
 }
 
 func increasePerParentType(c tangle.ParentsType) {
-	parentsCountPerTypetMutex.Lock()
-	defer parentsCountPerTypetMutex.Unlock()
+	parentsCountPerTypeMutex.Lock()
+	defer parentsCountPerTypeMutex.Unlock()
 
 	// increase cumulative metrics
 	parentsCountPerType[c]++

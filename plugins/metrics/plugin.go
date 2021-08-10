@@ -190,15 +190,16 @@ func registerLocalMetrics() {
 
 	messagelayer.Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		oldestAttachmentTime, _, err := messagelayer.Tangle().Utils.FirstAttachment(branchID.TransactionID())
-		finalizedBranchCountDB.Inc()
+		if err != nil {
+			return
+		}
+
 		messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
 			}
 		})
-		if err != nil {
-			return
-		}
+		finalizedBranchCountDB.Inc()
 		confirmedBranchCount.Inc()
 		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
 	}))

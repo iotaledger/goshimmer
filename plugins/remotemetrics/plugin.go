@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/drng"
@@ -92,6 +93,9 @@ func configureBranchConfirmationMetrics() {
 		return
 	}
 	messagelayer.Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(onBranchConfirmed))
+	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		sendBranchMetrics()
+	}))
 }
 
 func configureMessageFinalizedMetrics() {

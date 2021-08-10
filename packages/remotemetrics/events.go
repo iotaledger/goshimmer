@@ -71,6 +71,15 @@ type BranchConfirmationMetrics struct {
 	InclusionState     ledgerstate.InclusionState `json:"inclusionState" bson:"inclusionState"`
 }
 
+// BranchCountUpdate defines the branch confirmation metrics record to sent be to remote logger.
+type BranchCountUpdate struct {
+	Type                 string `json:"type" bson:"type"`
+	NodeID               string `json:"nodeID" bson:"nodeID"`
+	MetricsLevel         uint8  `json:"metricsLevel" bson:"metricsLevel"`
+	TotalBranchCount     uint64 `json:"totalBranchCount" bson:"totalBranchCount"`
+	FinalizedBranchCount uint64 `json:"finalizedBranchCount" bson:"finalizedBranchCount"`
+}
+
 // DRNGMetrics defines the DRNG metrics record to sent be to remote logger.
 type DRNGMetrics struct {
 	Type              string    `json:"type" bson:"type"`

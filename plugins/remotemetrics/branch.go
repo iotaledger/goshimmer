@@ -1,14 +1,14 @@
 package remotemetrics
 
 import (
-	"github.com/iotaledger/hive.go/events"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
+	"github.com/iotaledger/hive.go/events"
 )
 
 func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
@@ -42,6 +42,28 @@ func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition e
 	}
 
 	if err = remotelog.RemoteLogger().Send(record); err != nil {
+		plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
+	}
+	sendBranchMetrics()
+}
+
+func sendBranchMetrics() {
+	if !messagelayer.Tangle().Synced() {
+		return
+	}
+
+	var myID string
+	if local.GetInstance() != nil {
+		myID = local.GetInstance().ID().String()
+	}
+	record := remotemetrics.BranchCountUpdate{
+		Type:                 "branchCounts",
+		NodeID:               myID,
+		MetricsLevel:         Parameters.MetricsLevel,
+		TotalBranchCount:     metrics.TotalBranchCountDB(),
+		FinalizedBranchCount: metrics.FinalizedBranchCountDB(),
+	}
+	if err := remotelog.RemoteLogger().Send(record); err != nil {
 		plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
 	}
 }

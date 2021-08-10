@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1628244741047,
+  "iteration": 1628585633487,
   "links": [],
   "panels": [
     {
@@ -4156,7 +4156,9 @@
         }
       ],
       "thresholds": [],
+      "timeFrom": null,
       "timeRegions": [],
+      "timeShift": null,
       "title": "Average number of parents by type",
       "tooltip": {
         "shared": true,
@@ -4193,6 +4195,246 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 14
+      },
+      "id": 123,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.5.6",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "tangle_branch_total_count_db{instance=\"$instance\"}",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
+      "title": "Total number of branches",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 14
+      },
+      "id": 125,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.5.6",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "tangle_branch_total_count_db{instance=\"$instance\"}",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
+      "title": "Total number of branches",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 18
+      },
+      "id": 124,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.5.6",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "tangle_branch_total_count_db{instance=\"$instance\"} - tangle_branch_finalized_count_db{instance=\"$instance\"}",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
+      "title": "Total number of finalized branches",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 18
+      },
+      "id": 126,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.5.6",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "tangle_branch_confirmed_count{instance=\"$instance\"}",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
+      "title": "Total number of confirmed branches",
+      "type": "stat"
     }
   ],
   "refresh": false,
@@ -4266,8 +4508,8 @@
     ]
   },
   "time": {
-    "from": "2021-08-06T10:13:23.621Z",
-    "to": "2021-08-06T10:17:59.715Z"
+    "from": "now-15m",
+    "to": "now"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -4285,5 +4527,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 14
+  "version": 18
 }
