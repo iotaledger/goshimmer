@@ -1,4 +1,5 @@
 - [Local GoShimmer](#local-goshimmer)
+	- [Running a local GoShimmer network](#running-a-local-goshimmer-network)
 - [Base components](#base-components)
 	- [Configuration](#configuration)
 	- [Peer master](#peer-master)
@@ -30,7 +31,16 @@ Create a local [GoShimmer](https://goshimmer.docs.iota.org/docs/welcome) network
 
 > Note: If you make changes to `peer_master` docker-compose will recreate it and you will lose tangle sync as the peer master is not configured to reach out for auto-peering like the replicas are. You'll need to run `docker-compose down` and then bring it back up in order to re-establish peering.
 
-This also creates
+## Running a local GoShimmer network
+
+Using this Docker Compose file makes creating a local GoShimmer instance very easy. To get an instance up and running on your machine make sure you have [Docker Compose](https://docs.docker.com/compose/install/) set up properly.
+
+Then you just need to run this command:
+```bash
+MONGO_DB_ENABLED=true docker-compose --profile drng --profile grafana up -d
+```
+
+> Note: The first time you run this Docker will build the GoShimmer image which can take a few minutes.
 
 # Base components
 

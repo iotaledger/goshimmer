@@ -11,7 +11,7 @@ ENV GO111MODULE=on
 WORKDIR ${WORK_DIR}
 
 COPY . .
-RUN apk add build-base
+RUN apk update && apk add build-base
 RUN go mod download 
 RUN	go mod verify 
 RUN go build -tags ${BUILD_TAGS} -ldflags '-w -s' -o ${BINARY_NAME} main.go pkged.go
@@ -21,7 +21,7 @@ FROM golang:${GOLANG_IMAGE_TAG} as final
 ARG BINARY_NAME=goshimmer
 ARG WORK_DIR=/go/src/goshimmer
 
-RUN apk add build-base
+RUN apk update && apk add build-base
 COPY --from=build ${WORK_DIR}/${BINARY_NAME} /go/bin/
 
 # Gossip
