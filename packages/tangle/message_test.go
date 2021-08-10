@@ -430,7 +430,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:   parents,
 		}
 		unknownBlock := ParentsBlock{
-			ParentsType:  numberOfBlockTypes, // this should always be out of range
+			ParentsType:  NumberOfBlockTypes, // this should always be out of range
 			ParentsCount: uint8(len(parents)),
 			References:   parents,
 		}

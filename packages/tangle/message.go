@@ -43,12 +43,6 @@ const (
 
 	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
 	MinStrongParentsCount = 1
-
-	// numberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents
-	numberOfBlockTypes = 4
-
-	// numberOfUniqueBlocks counts WeakParents and DislikeParents block.
-	numberOfUniqueBlocks = 2
 )
 
 // region MessageID ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -193,6 +187,14 @@ const (
 	WeakParentType
 	DislikeParentType
 	LikeParentType
+
+	// NumberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents.
+	// it must be placed after the declaration of all block types.
+	NumberOfBlockTypes
+
+	// NumberOfUniqueBlocks counts the blocks that may not have their parents repeat in other blocks.
+	// Currently it is only Weak and Dislike blocks.
+	NumberOfUniqueBlocks = 2
 )
 
 // String returns string representation of ParentsType
@@ -307,7 +309,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 			return nil, ErrBlocksNotOrderedByType
 		}
 		// we can skip the first block because we already ascertained it is of StrongParentType
-		if parentsBlocks[i+1].ParentsType >= numberOfBlockTypes {
+		if parentsBlocks[i+1].ParentsType >= NumberOfBlockTypes {
 			return nil, ErrBlockTypeIsUnknown
 		}
 	}
@@ -350,8 +352,8 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 // validate messagesIDs are unique across blocks
 // there may be repetition across strong and like parents
 func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
-	combinedMessageMap := make(map[MessageID]types.Empty, numberOfBlockTypes*MaxParentsCount)
-	parentsArray := make(MessageIDs, 0, MaxParentsCount*numberOfUniqueBlocks)
+	combinedMessageMap := make(map[MessageID]types.Empty, NumberOfBlockTypes*MaxParentsCount)
+	parentsArray := make(MessageIDs, 0, MaxParentsCount*NumberOfUniqueBlocks)
 	for _, block := range parentsBlocks {
 		// combine strong parent and like parents
 		if block.ParentsType == StrongParentType || block.ParentsType == LikeParentType {
@@ -1300,11 +1302,11 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Errors /////////////////////////////tangle.m//////////////////////////////////////////////////////////////////////////
 var (
 	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
 	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
-	ErrBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, numberOfBlockTypes-1)
+	ErrBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
 	ErrParentsCountMismatch               = errors.New("number of parents in a message doesn't match parent count")
 	ErrParentsOutOfRange                  = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
 	ErrParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
