@@ -5,14 +5,13 @@ x-build-goshimmer: &goshimmer_build
   args:
     GOLANG_IMAGE_TAG: 1.16.7-alpine
     BUILD_TAGS: rocksdb,builtin_static,netgo
-    GOOS: ${GOOS:-linux}
-    GOARCH: ${GOARCH:-amd64}
     BINARY_NAME: goshimmer
     WORK_DIR: /go/src/goshimmer
 services:
   peer_master:
     build: *goshimmer_build
     stop_grace_period: 1m
+    restart: on-failure
     command: >
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
@@ -56,7 +55,6 @@ services:
       - shimmer
   peer_replica:
     build: *goshimmer_build
-    # image: iotaledger/goshimmer:${GOSHIMMER_TAG:-develop}
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
@@ -89,7 +87,6 @@ services:
       - peer_master
   faucet:
     build: *goshimmer_build
-    # image: iotaledger/goshimmer:${GOSHIMMER_TAG:-develop}
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
