@@ -314,6 +314,9 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 		}
 	}
 
+	// 1. Parent Count is correct for each block
+	// 2. Number of parents in eac block is in range
+	// 3. Parents are lexicographically ordered with no repetitions
 	for _, block := range parentsBlocks {
 		if int(block.ParentsCount) != len(block.References) {
 			return nil, ErrParentsCountMismatch
