@@ -2,7 +2,7 @@ package finality
 
 import (
 	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -13,17 +13,29 @@ import (
 type Gadget interface {
 	HandleMarker(marker markers.Marker, aw float64) (err error)
 	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)
+	Events() Events
 }
 
-type MarkerThresholdTranslation func(aw float64) gof.GradeOfFinality
+type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
 type BranchThresholdTranslation func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality
+
+type Events struct {
+	MessageGoFReached     events.Event
+	TransactionGoFReached events.Event
+}
 
 // region SimpleFinalityGadget /////////////////////////////////////////////////////////////////////////////////////////
 
 type SimpleFinalityGadget struct {
-	tangle    *tangle.Tangle
-	branchGoF BranchThresholdTranslation
-	markerGoF MarkerThresholdTranslation
+	tangle *tangle.Tangle
+
+	branchGoF             BranchThresholdTranslation
+	branchGoFReachedLevel gof.GradeOfFinality
+
+	messageGoF             MessageThresholdTranslation
+	messageGoFReachedLevel gof.GradeOfFinality
+
+	events *Events
 }
 
 func NewSimpleFinalityGadget(tangle *tangle.Tangle) *SimpleFinalityGadget {
@@ -41,7 +53,8 @@ func NewSimpleFinalityGadget(tangle *tangle.Tangle) *SimpleFinalityGadget {
 				return gof.None
 			}
 		},
-		markerGoF: func(aw float64) gof.GradeOfFinality {
+		branchGoFReachedLevel: gof.High,
+		messageGoF: func(aw float64) gof.GradeOfFinality {
 			switch {
 			case aw >= 0.2 && aw < 0.3:
 				return gof.Low
@@ -53,11 +66,21 @@ func NewSimpleFinalityGadget(tangle *tangle.Tangle) *SimpleFinalityGadget {
 				return gof.None
 			}
 		},
+		messageGoFReachedLevel: gof.High,
+
+		events: &Events{
+			//MessageGoFReached:     events.NewEvent(),
+			//TransactionGoFReached: events.NewEvent(),
+		},
 	}
 }
 
+func (s *SimpleFinalityGadget) Events() *Events {
+	return s.events
+}
+
 func (s *SimpleFinalityGadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
-	gradeOfFinality := s.markerGoF(aw)
+	gradeOfFinality := s.messageGoF(aw)
 	if gradeOfFinality == gof.None {
 		return
 	}
@@ -76,14 +99,14 @@ func (s *SimpleFinalityGadget) HandleMarker(marker markers.Marker, aw float64) (
 		return
 	}
 
-	propagateGoF := func(message *tangle.Message, messageMetadata *tangle.MessageMetadata, finalizedWalker *walker.Walker) {
+	propagateGoF := func(message *tangle.Message, messageMetadata *tangle.MessageMetadata, w *walker.Walker) {
 		// stop walking to past cone if reach a marker
-		if messageMetadata.StructureDetails().IsPastMarker && messageMetadata.IsFinalized() {
+		if messageMetadata.StructureDetails().IsPastMarker && messageMetadata.GradeOfFinality() == gradeOfFinality {
 			return
 		}
 
-		// abort if the message is already finalized
-		if !s.setMessageFinalized(messageMetadata) {
+		// abort if message has GoF already set
+		if !s.setMessageGoF(messageMetadata, gradeOfFinality) {
 			return
 		}
 
@@ -91,13 +114,13 @@ func (s *SimpleFinalityGadget) HandleMarker(marker markers.Marker, aw float64) (
 		// mark weak parents as finalized but not propagate finalized flag to its past cone
 		//message.ForEachParentByType(tangle.WeakParentType, func(parentID tangle.MessageID) {
 		//	Tangle().Storage.MessageMetadata(parentID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		//		setMessageFinalized(messageMetadata)
+		//		setMessageGoF(messageMetadata)
 		//	})
 		//})
 
-		// propagate finalized to strong parents
+		// propagate GoF to strong parents
 		message.ForEachParentByType(tangle.StrongParentType, func(parentID tangle.MessageID) {
-			finalizedWalker.Push(parentID)
+			w.Push(parentID)
 		})
 	}
 
@@ -115,32 +138,56 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw fl
 	return
 }
 
-func (s *SimpleFinalityGadget) setMessageFinalized(messageMetadata *tangle.MessageMetadata) (modified bool) {
-	// abort if the message is already finalized
-	if modified = messageMetadata.SetFinalized(true); !modified {
+func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMetadata, gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	// abort if message has GoF already set
+	if modified = messageMetadata.SetGradeOfFinality(gradeOfFinality); !modified {
 		return
 	}
 
-	// TODO: is this still necessary?
-	// set issuer of message as active node
-	s.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *tangle.Message) {
-		s.tangle.WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
-	})
+	// set GoF of payload (applicable only to transactions)
+	s.setPayloadGoF(messageMetadata.ID(), gradeOfFinality)
 
-	//s.setPayloadFinalized(messageMetadata.ID())
-
-	// TODO: introduce message finalized event? could be used for TangleTime
-	//Tangle().ApprovalWeightManager.Events.MessageFinalized.Trigger(messageMetadata.ID())
+	if gradeOfFinality >= s.messageGoFReachedLevel {
+		s.Events().MessageGoFReached.Trigger(messageMetadata.ID())
+	}
 
 	return modified
 }
 
-func (s *SimpleFinalityGadget) setPayloadFinalized(messageID tangle.MessageID) {
+func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
 	s.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		// TODO: evaluate like switch, intersect with branch supporters
-		//if err := s.tangle.LedgerState.UTXODAG.SetTransactionConfirmed(transactionID); err != nil {
-		//	panic(err)
-		//}
+		s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			// TODO: check if conflicting, if yes then we need to evaluate based on branch
+			if !s.tangle.LedgerState.TransactionConflicting(transactionID) {
+
+			}
+
+			// abort if transaction has GoF already set
+			if !transactionMetadata.SetGradeOfFinality(gradeOfFinality) {
+				return
+			}
+
+			// set GoF in outputs
+			s.tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+				for _, output := range transaction.Essence().Outputs() {
+					s.tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+						outputMetadata.SetGradeOfFinality(gradeOfFinality)
+					})
+				}
+
+				//for _, input := range transaction.Essence().Inputs() {
+				//	referencedOutputID := input.(*UTXOInput).ReferencedOutputID()
+				//	// TODO: do we still need this?
+				//	u.CachedOutputMetadata(referencedOutputID).Consume(func(outputMetadata *OutputMetadata) {
+				//		outputMetadata.SetConfirmedConsumer(*transaction.id)
+				//	})
+				//}
+			})
+
+			if gradeOfFinality >= s.branchGoFReachedLevel {
+				s.Events().TransactionGoFReached.Trigger(transactionID)
+			}
+		})
 	})
 }
 
@@ -148,9 +195,9 @@ func (s *SimpleFinalityGadget) setPayloadFinalized(messageID tangle.MessageID) {
 
 type Option func(s *SimpleFinalityGadget)
 
-func WithMarkerThresholdTranslation(t MarkerThresholdTranslation) Option {
+func WithMessageThresholdTranslation(t MessageThresholdTranslation) Option {
 	return func(s *SimpleFinalityGadget) {
-		s.markerGoF = t
+		s.messageGoF = t
 	}
 }
 
