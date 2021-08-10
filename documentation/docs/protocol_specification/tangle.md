@@ -272,7 +272,6 @@ A message is syntactically valid if:
 1. Parents in each Parents Block types must be ordered ASC without repetition. 
 1. Parents must be unique across Parents Blocks. But there may be repetitions across the <i>Strong</i> and <i>Liked</i> blocks.
 1. <i>Parents Block Count</i> and <i>Parents Count</i> must match the actual number of blocks and parents respectively.
-1. Parents should be lexicographically ordered within a block.
 
 ### Semantic Validation
 Messages that do not pass the Semantic Validation are discarded. Only semantically valid messages continue in the data flow.
