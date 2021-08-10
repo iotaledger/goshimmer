@@ -14,9 +14,15 @@
     - role: goshimmer-node
       nodeType: analysis-server
 
-- hosts: goshimmers
+- hosts: goshimmers:&internal-nodes
   vars:
     nodeType: goshimmer
+  roles:
+    - goshimmer-node
+
+- hosts: goshimmers:&public-nodes
+  vars:
+    nodeType: public-node
   roles:
     - goshimmer-node
 
