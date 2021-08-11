@@ -49,13 +49,13 @@ func (t *Ticker) UpdateRandomness(r Randomness) {
 
 // Start starts the Ticker.
 func (t *Ticker) Start() {
-	now := clock.SyncedTime().Unix()
-	nextTimePoint := ResolveNextTimePoint(time.Duration(now)*time.Second, t.interval)
-	time.AfterFunc(nextTimePoint-time.Duration(now)*time.Second, func() {
+	nowSec := clock.SyncedTime().Unix()
+	nextTimePoint := ResolveNextTimePoint(time.Duration(nowSec)*time.Second, t.interval)
+	time.AfterFunc(nextTimePoint-time.Duration(nowSec)*time.Second, func() {
 		// send for the first time right after the timer is executed
 		t.send()
 
-		t.dRNGTicker = time.NewTicker(time.Duration(t.interval) * time.Second)
+		t.dRNGTicker = time.NewTicker(t.interval)
 		defer t.Stop()
 	out:
 		for {
