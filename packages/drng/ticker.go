@@ -102,11 +102,11 @@ func (t *Ticker) send() {
 	if t.dRNGState() != nil && t.dRNGTicker != nil {
 		// we expect a randomness, it arrived already, and its newer than the last one
 		// OR we were missing a dRNG message previously but the check if the last randomness received is "fresh"
-		if now.Sub(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second && now.Sub(t.dRNGState().Randomness().Timestamp) > 0 {
+		if now.Sub(t.dRNGState().Randomness().Timestamp) < t.interval && now.Sub(t.dRNGState().Randomness().Timestamp) > 0 {
 			t.missingDRNG = false
 			randomness = t.dRNGState().Randomness().Float64()
-			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(now)
-			t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
+			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(t.interval).Sub(now)
+			t.setDelayedRoundStart(t.interval - timeToNextDRNG)
 			t.dRNGTicker.Reset(timeToNextDRNG)
 		} else {
 			// set ticker to awaitOffset, to await arrival of randomness event, continue at out:
