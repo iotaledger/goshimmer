@@ -392,8 +392,8 @@ type Branch interface {
 	// GradeOfFinality returns the grade of finality of the branch.
 	GradeOfFinality() gof.GradeOfFinality
 
-	// setGradeOfFinality sets the grade of finality of the branch. It returns true if the value has been updated.
-	setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool)
+	// SetGradeOfFinality sets the grade of finality of the branch. It returns true if the value has been updated.
+	SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool)
 
 	// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
 	// ledger state.
@@ -810,7 +810,7 @@ func (c *ConflictBranch) GradeOfFinality() gof.GradeOfFinality {
 }
 
 // setGradeOfFinality sets the grade of finality.
-func (c *ConflictBranch) setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+func (c *ConflictBranch) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
 	c.gradeOfFinalityMutex.Lock()
 	defer c.gradeOfFinalityMutex.Unlock()
 
@@ -1102,7 +1102,7 @@ func (a *AggregatedBranch) GradeOfFinality() gof.GradeOfFinality {
 }
 
 // setGradeOfFinality sets the grade of finality.
-func (a *AggregatedBranch) setGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+func (a *AggregatedBranch) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
 	a.gradeOfFinalityMutex.Lock()
 	defer a.gradeOfFinalityMutex.Unlock()
 
