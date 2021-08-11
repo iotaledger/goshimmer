@@ -1,6 +1,8 @@
 package manaeventlogger
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/configuration"
 )
 
@@ -11,7 +13,7 @@ type ParametersDefinition struct {
 	// Buffersize defines the events' buffer size.
 	BufferSize int `default:"100" usage:"event logs buffer size"`
 	// CheckBufferIntervalSec defines interval between buffer checks.
-	CheckBufferIntervalSec int `default:"5" usage:"check buffer interval secs"`
+	CheckBufferIntervalSec time.Duration `default:"5s" usage:"check buffer interval"`
 }
 
 // Parameters contains the configuration used by the manaeventlogger plugin.
