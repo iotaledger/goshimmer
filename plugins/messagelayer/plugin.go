@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -160,6 +161,9 @@ func Tangle() *tangle.Tangle {
 		tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
 		tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
+
+		finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
+		tangleInstance.IsMarkerConfirmed = finalityGadget.IsMarkerConfirmed
 
 		tangleInstance.Setup()
 	})

@@ -49,6 +49,7 @@ type Tangle struct {
 	LedgerState           *LedgerState
 	Utils                 *Utils
 	WeightProvider        WeightProvider
+	IsMarkerConfirmed     MarkerConfirmed
 	Events                *Events
 
 	setupParserOnce sync.Once

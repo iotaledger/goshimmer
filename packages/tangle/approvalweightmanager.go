@@ -26,6 +26,9 @@ const (
 	minSupporterWeight float64 = 0.01
 )
 
+// MarkerConfirmed is a function type that provides information whether a marker is confirmed.
+type MarkerConfirmed func(marker *markers.Marker) (confirmed bool)
+
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 // ApprovalWeightManager is a Tangle component to keep track of relative weights of branches and markers so that
@@ -53,7 +56,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (a *ApprovalWeightManager) Setup() {
-	if a.tangle.WeightProvider == nil {
+	if a.tangle.WeightProvider == nil || a.tangle.IsMarkerConfirmed == nil {
 		return
 	}
 
@@ -173,10 +176,10 @@ func (a *ApprovalWeightManager) firstUnconfirmedMarkerIndex(sequenceID markers.S
 		a.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
 			index = sequence.LowestIndex()
 		})
-		//TODO:
-		//for ; a.Events.MarkerConfirmation.Level(*markers.NewMarker(sequenceID, index)) != 0; index++ {
-		//	a.lastConfirmedMarkers[sequenceID] = index
-		//}
+
+		for ; a.tangle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)); index++ {
+			a.lastConfirmedMarkers[sequenceID] = index
+		}
 		return
 	}
 
@@ -419,12 +422,12 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 			})
 		}
 
-		a.Events.MarkerWeightChanged.Trigger(MarkerWeightChangedEvent{*currentMarker, supporterWeight / totalWeight})
-		//if _, transition := a.Events.MarkerConfirmation.Set(*currentMarker, supporterWeight/totalWeight); transition != events.ThresholdLevelIncreased {
-		//	break
-		//}
-		// TODO: how to set last confirmed marker
-		// a.lastConfirmedMarkers[marker.SequenceID()] = currentMarker.Index()
+		a.Events.MarkerWeightChanged.Trigger(MarkerWeightChangedEvent{currentMarker, supporterWeight / totalWeight})
+
+		// remember that the current marker is confirmed, so we can start from it next time instead from beginning of the sequence
+		if a.tangle.IsMarkerConfirmed(currentMarker) {
+			a.lastConfirmedMarkers[currentMarker.SequenceID()] = currentMarker.Index()
+		}
 	}
 }
 
@@ -525,7 +528,7 @@ type ApprovalWeightManagerEvents struct {
 
 // MarkerWeightChangedEvent holds information about a marker and its updated weight.
 type MarkerWeightChangedEvent struct {
-	Marker markers.Marker
+	Marker *markers.Marker
 	Weight float64
 }
 

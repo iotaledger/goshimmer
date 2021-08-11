@@ -13,9 +13,10 @@ import (
 )
 
 type Gadget interface {
-	HandleMarker(marker markers.Marker, aw float64) (err error)
+	HandleMarker(marker *markers.Marker, aw float64) (err error)
 	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)
-	Events() Events
+	Events() *Events
+	IsMarkerConfirmed(marker *markers.Marker) (confirmed bool)
 }
 
 type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
@@ -89,14 +90,28 @@ func (s *SimpleFinalityGadget) Events() *Events {
 	return s.events
 }
 
-func (s *SimpleFinalityGadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
+func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker *markers.Marker) (confirmed bool) {
+	messageID := s.tangle.Booker.MarkersManager.MessageID(marker)
+	if messageID == tangle.EmptyMessageID {
+		return false
+	}
+
+	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+		if messageMetadata.GradeOfFinality() >= s.messageGoFReachedLevel {
+			confirmed = true
+		}
+	})
+	return
+}
+
+func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) (err error) {
 	gradeOfFinality := s.messageGoF(aw)
 	if gradeOfFinality == gof.None {
 		return
 	}
 
 	// get message ID of marker
-	messageID := s.tangle.Booker.MarkersManager.MessageID(&marker)
+	messageID := s.tangle.Booker.MarkersManager.MessageID(marker)
 
 	// check that we're updating the GoF
 	var gofIncreased bool

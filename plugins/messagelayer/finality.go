@@ -10,8 +10,6 @@ import (
 var finalityGadget finality.Gadget
 
 func configureFinality() {
-	finalityGadget = finality.NewSimpleFinalityGadget(Tangle())
-
 	Tangle().ApprovalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
 		if err := finalityGadget.HandleMarker(e.Marker, e.Weight); err != nil {
 			plugin.LogError(err)
