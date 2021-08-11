@@ -33,9 +33,9 @@ import (
 
 const (
 	// DefaultPollingInterval is the polling interval of the wallet when waiting for confirmation. (in ms)
-	DefaultPollingInterval = 500 * time.Millisecond // in ms
+	DefaultPollingInterval = 500 * time.Millisecond
 	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms)
-	DefaultConfirmationTimeout = 150000 * time.Millisecond // in ms
+	DefaultConfirmationTimeout = 150000 * time.Millisecond
 	// DefaultAssetRegistryNetwork is the default asset registry network.
 	DefaultAssetRegistryNetwork = "nectar"
 )
@@ -53,8 +53,8 @@ type Wallet struct {
 	faucetPowDifficulty int
 	// if this option is enabled the wallet will use a single reusable address instead of changing addresses.
 	reusableAddress          bool
-	ConfirmationPollInterval time.Duration // in milliseconds
-	ConfirmationTimeout      time.Duration // in ms
+	ConfirmationPollInterval time.Duration
+	ConfirmationTimeout      time.Duration
 }
 
 // New is the factory method of the wallet. It either creates a new wallet or restores the wallet backup that is handed

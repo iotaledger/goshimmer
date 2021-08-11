@@ -78,9 +78,9 @@ func TestSendIndividually(t *testing.T) {
 }
 
 func tickerFunc(timestamp, timestampSendTime time.Duration, missingDRNG bool) (randResult, randInput float64, delay time.Duration) {
-	testInterval := int64(10)
+	testInterval := 10 * time.Second
 	randDefault := 0.6
-	awaitOffset := int64(3)
+	awaitOffset := 3 * time.Second
 	testState := NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now())))
 	stateFunc := func() *State { return testState }
 	ticker := NewTicker(stateFunc, testInterval, randDefault, awaitOffset)
@@ -110,9 +110,9 @@ func tickerFunc(timestamp, timestampSendTime time.Duration, missingDRNG bool) (r
 }
 
 func TestNoDRNGTicker(t *testing.T) {
-	interval := int64(5)
+	interval := 5 * time.Second
 	defaultValue := 0.6
-	awaitOffset := int64(3)
+	awaitOffset := 3 * time.Second
 
 	stateFunc := func() *State { return nil }
 
