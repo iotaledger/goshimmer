@@ -295,7 +295,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
 	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
 	// Validate strong parent block
-	if len(parentsBlocks) == 0 || parentsBlocks[StrongParentType].ParentsType != StrongParentType ||
+	if len(parentsBlocks) == 0 || parentsBlocks[0].ParentsType != StrongParentType ||
 		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
 		return nil, ErrNoStrongParents
 	}
