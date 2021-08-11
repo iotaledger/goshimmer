@@ -234,9 +234,10 @@ func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMeta
 func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
 	s.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			// TODO: check if conflicting, if yes then we need to evaluate based on branch
-			if !s.tangle.LedgerState.TransactionConflicting(transactionID) {
-
+			// if the transaction is part of a conflicting branch then we need to evaluate based on branch AW
+			if s.tangle.LedgerState.TransactionConflicting(transactionID) {
+				branchID := ledgerstate.NewBranchID(transactionID)
+				gradeOfFinality = s.branchGoF(branchID, s.tangle.ApprovalWeightManager.WeightOfBranch(branchID))
 			}
 
 			// abort if transaction has GoF already set
