@@ -21,7 +21,7 @@ var (
 	wsSendWorkerCount     = 1
 	wsSendWorkerQueueSize = 250
 	wsSendWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	webSocketWriteTimeout = time.Duration(3) * time.Second
+	webSocketWriteTimeout = 3 * time.Second
 
 	// clients
 	wsClientsMu    sync.RWMutex
