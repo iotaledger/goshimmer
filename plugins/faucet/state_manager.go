@@ -393,7 +393,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	return nil
 }
 
-// findSupplyOutputs looks for splittingMultiplayer number of reminders of supply transaction and updates the StateManager
+// findSupplyOutputs looks for preparedOutputsCount number of reminders of supply transaction and updates the StateManager
 func (s *StateManager) findSupplyOutputs() (err error) {
 	s.preparingMutex.Lock()
 	defer s.preparingMutex.Unlock()
@@ -409,7 +409,7 @@ func (s *StateManager) findSupplyOutputs() (err error) {
 
 		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
 			if foundSupplyCount >= s.splittingMultiplayer || foundOnCurrentAddress {
-				// return when enough outputs has been collected or output already found on this address
+				// return when enough outputs has been collected or output has been already found on this address
 				return
 			}
 			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
@@ -449,7 +449,7 @@ func (s *StateManager) nextSupplyReminder() (supplyOutput *FaucetOutput, err err
 }
 
 // prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output on preparedOutputsCount outputs plus new reminder.
-// and submits supply transactions. After transaction is confirmed it uses each output and splits it again for splittingMultiplayer many times.
+// and submits supply transactions. After transaction is confirmed it uses each supply output and splits it again for splittingMultiplayer many times.
 // After confirmation outputs are added to fundingOutputs list.
 // Reminder is stored on address 0. Next 126 indexes are reserved for supply transaction outputs.
 func (s *StateManager) prepareMoreFundingOutputs() (err error) {
@@ -500,7 +500,7 @@ func (s *StateManager) prepareSupplyFunding() (err error) {
 	s.preparingMutex.Lock()
 	defer s.preparingMutex.Unlock()
 
-	tx, err := s.createSplittingTx(true)
+	tx, err := s.createSplittingTx(s.supplyTransactionElements)
 	if err != nil {
 		return err
 	}
@@ -510,6 +510,7 @@ func (s *StateManager) prepareSupplyFunding() (err error) {
 	return
 }
 
+// splitSupplyTransaction splits further outputs from supply transaction to create fundingReminders.
 func (s *StateManager) splitSupplyTransaction() (err error) {
 	s.preparingMutex.Lock()
 	defer s.preparingMutex.Unlock()
@@ -517,7 +518,7 @@ func (s *StateManager) splitSupplyTransaction() (err error) {
 	m := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
 	var tx *ledgerstate.Transaction
 	for i := uint64(0); i < uint64(s.SupplyOutputsCount()); i++ {
-		tx, err = s.createSplittingTx(false)
+		tx, err = s.createSplittingTx(s.splittingTransactionElements)
 		if err != nil {
 			return
 		}
@@ -547,7 +548,7 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 	for txID, tx := range preparedTxIDs {
 		// issue the tx
 		_, issueErr := s.issueTX(tx)
-		// remove tx from the map in cas of issuing failure
+		// remove tx from the map in case of issuing failure
 		if issueErr != nil {
 			delete(preparedTxIDs, txID)
 		}
@@ -570,7 +571,6 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 			if err == nil {
 				stateUpdatedCount++
 			}
-
 			// all issued transactions has been confirmed
 			if confirmedCount == issuedCount {
 				return nil
@@ -643,44 +643,11 @@ func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err
 // funding outputs and one remainder output if supplyTx is true. It uses address indices 1-126 because each address
 // in transaction output has to be unique and can prepare at most MaxFaucetOutputsCount supply outputs at once.
 // If supplyTx is false it uses lastFundingOutputAddressIndex to derive address.
-func (s *StateManager) createSplittingTx(isSupplyTx bool) (*ledgerstate.Transaction, error) {
-	var inputs ledgerstate.Inputs
-	var outputs ledgerstate.Outputs
-	var w wallet
+func (s *StateManager) createSplittingTx(transactionElementsCallback func() (ledgerstate.Inputs, ledgerstate.Outputs, wallet, error)) (*ledgerstate.Transaction, error) {
 	// prepare inputs and outputs for supply transaction
-	if isSupplyTx {
-		inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(s.remainderOutput.ID))
-		// prepare s.preparedOutputsCount number of supply outputs for further splitting.
-		outputs = make(ledgerstate.Outputs, 0, s.preparedOutputsCount+1)
-		balance := s.tokensPerRequest * s.splittingMultiplayer
-		// all funding outputs will land on supply addresses 1 to 126
-		for index := uint64(1); index < s.preparedOutputsCount+1; index++ {
-			outputs = append(outputs, s.createOutput(s.seed.Address(index).Address(), balance))
-			s.addressToIndex[s.seed.Address(index).Address().Base58()] = index
-		}
-		// add the remainder output
-		balance = s.remainderOutput.Balance - s.tokensPerRequest*s.splittingMultiplayer*s.preparedOutputsCount
-		outputs = append(outputs, s.createOutput(s.seed.Address(RemainderAddressIndex).Address(), balance))
-		// signature
-		w = wallet{keyPair: *s.seed.KeyPair(RemainderAddressIndex)}
-
-		// prepare inputs and outputs for splitting transaction
-	} else {
-		reminder, err := s.nextSupplyReminder()
-		if err != nil {
-			return nil, errors.Errorf("could not retrieve supply output: %w", err)
-		}
-		inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(reminder.ID))
-		// prepare s.splittingMultiplayer number of funding outputs.
-		outputs = make(ledgerstate.Outputs, 0, s.splittingMultiplayer)
-		// start from the last used funding output address index
-		for index := s.lastFundingOutputAddressIndex + 1; index < s.lastFundingOutputAddressIndex+s.splittingMultiplayer+1; index++ {
-			outputs = append(outputs, s.createOutput(s.seed.Address(index).Address(), s.tokensPerRequest))
-			s.addressToIndex[s.seed.Address(index).Address().Base58()] = index
-		}
-
-		// signature
-		w = wallet{keyPair: *s.seed.KeyPair(reminder.AddressIndex)}
+	inputs, outputs, w, err := transactionElementsCallback()
+	if err != nil {
+		return nil, err
 	}
 	essence := ledgerstate.NewTransactionEssence(
 		0,
@@ -699,6 +666,46 @@ func (s *StateManager) createSplittingTx(isSupplyTx bool) (*ledgerstate.Transact
 		ledgerstate.UnlockBlocks{unlockBlock},
 	)
 	return tx, nil
+}
+
+// supplyTransactionElements is a callback function used during supply transaction creation
+func (s *StateManager) supplyTransactionElements() (inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, w wallet, err error) {
+	inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(s.remainderOutput.ID))
+	// prepare s.preparedOutputsCount number of supply outputs for further splitting.
+	outputs = make(ledgerstate.Outputs, 0, s.preparedOutputsCount+1)
+	balance := s.tokensPerRequest * s.splittingMultiplayer
+	// all funding outputs will land on supply addresses 1 to 126
+	for index := uint64(1); index < s.preparedOutputsCount+1; index++ {
+		outputs = append(outputs, s.createOutput(s.seed.Address(index).Address(), balance))
+		s.addressToIndex[s.seed.Address(index).Address().Base58()] = index
+	}
+	// add the remainder output
+	balance = s.remainderOutput.Balance - s.tokensPerRequest*s.splittingMultiplayer*s.preparedOutputsCount
+	outputs = append(outputs, s.createOutput(s.seed.Address(RemainderAddressIndex).Address(), balance))
+	// signature
+	w = wallet{keyPair: *s.seed.KeyPair(RemainderAddressIndex)}
+	return
+}
+
+// splittingTransactionElements is a callback function used during creation of splitting transactions
+func (s *StateManager) splittingTransactionElements() (inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, w wallet, err error) {
+	reminder, err := s.nextSupplyReminder()
+	if err != nil {
+		err = errors.Errorf("could not retrieve supply output: %w", err)
+		return
+	}
+	inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(reminder.ID))
+	// prepare s.splittingMultiplayer number of funding outputs.
+	outputs = make(ledgerstate.Outputs, 0, s.splittingMultiplayer)
+	// start from the last used funding output address index
+	for index := s.lastFundingOutputAddressIndex + 1; index < s.lastFundingOutputAddressIndex+s.splittingMultiplayer+1; index++ {
+		outputs = append(outputs, s.createOutput(s.seed.Address(index).Address(), s.tokensPerRequest))
+		s.addressToIndex[s.seed.Address(index).Address().Base58()] = index
+	}
+	// signature
+	w = wallet{keyPair: *s.seed.KeyPair(reminder.AddressIndex)}
+
+	return
 }
 
 func (s *StateManager) createOutput(addr ledgerstate.Address, balance uint64) ledgerstate.Output {
