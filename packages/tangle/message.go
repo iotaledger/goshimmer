@@ -288,8 +288,8 @@ newMessageWithValidation creates a new message while performing ths following sy
 4. Parents unique within block.
 5. Parents lexicographically sorted within block.
 6. ParentsCount within each block must match the parents actually parsed within the block.
-7. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents
-8. Blocks should be ordered by type in ascending order
+7. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
+8. Blocks should be ordered by type in ascending order.
 **/
 func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
 	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
