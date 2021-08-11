@@ -28,10 +28,7 @@ type ParametersDefinition struct {
 
 	// SplittingMultiplayer defines how many outputs each splitting transaction will have.
 	// SplittingMultiplayer * PreparedOutputsCount indicates how many outputs faucet will prepare during funds preparation.
-	SplittingMultiplayer int `default:"100" usage:"SplittingMultiplayer defines how many outputs each supply transaction will have."`
-
-	// StartIndex defines from which address index the faucet should start gathering outputs.
-	StartIndex int `default:"0" usage:"address index to start faucet with"`
+	SplittingMultiplayer int `default:"126" usage:"SplittingMultiplayer defines how many outputs each supply transaction will have."`
 }
 
 // Parameters contains the configuration parameters of the faucet plugin.

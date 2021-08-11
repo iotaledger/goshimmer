@@ -40,7 +40,6 @@ var (
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
 	fundingWorkerQueueSize = 500
 	targetPoWDifficulty    int
-	startIndex             int
 	// blacklist makes sure that an address might only request tokens once.
 	blacklist         *orderedmap.OrderedMap
 	blacklistCapacity int
@@ -94,7 +93,6 @@ func Faucet() *StateManager {
 
 func configure(*node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
-	startIndex = Parameters.StartIndex
 	blacklist = orderedmap.New()
 	blacklistCapacity = Parameters.BlacklistCapacity
 	Faucet()
@@ -132,7 +130,7 @@ func run(*node.Plugin) {
 
 		Plugin().LogInfof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
-		if err := Faucet().DeriveStateFromTangle(startIndex); err != nil {
+		if err := Faucet().DeriveStateFromTangle(); err != nil {
 			Plugin().LogErrorf("failed to derive state: %s", err)
 			return
 		}
