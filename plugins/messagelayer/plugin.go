@@ -115,7 +115,7 @@ func configure(plugin *node.Plugin) {
 	}
 
 	fcob.LikedThreshold = Parameters.FCOB.QuarantineTime
-	fcob.LocallyFinalizedThreshold = Parameters.FCOB.QuarantineTime + Parameters.FCOB.QuarantineTime
+	fcob.LocallyFinalizedThreshold = 2 * Parameters.FCOB.QuarantineTime
 
 	configureApprovalWeight()
 }

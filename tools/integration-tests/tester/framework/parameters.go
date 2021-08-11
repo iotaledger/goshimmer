@@ -83,7 +83,7 @@ func PeerConfig() config.GoShimmer {
 	c.Autopeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
-	c.MessageLayer.FCOB.QuarantineTime = 2
+	c.MessageLayer.FCOB.QuarantineTime = 2 * time.Second
 	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed))
 	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
 

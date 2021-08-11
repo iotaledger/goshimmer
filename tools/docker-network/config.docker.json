@@ -34,7 +34,9 @@
       "instanceId": 111,
       "threshold": 3,
       "distributedPubKey": "",
-      "committeeMembers": ["EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"]
+      "committeeMembers": [
+        "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
+      ]
     }
   },
   "fpc": {
@@ -56,8 +58,8 @@
       "serverAddress": "remotelog.goshimmer.iota.cafe:5213"
     }
   },
-  "metrics":{
-    "manaUpdateInterval": 5
+  "metrics": {
+    "manaUpdateIntervalSec": 5
   },
   "network": {
     "bindAddress": "0.0.0.0",
