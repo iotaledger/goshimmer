@@ -355,24 +355,24 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 // validate messagesIDs are unique across blocks
 // there may be repetition across strong and like parents
 func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
-	combinedMessageMap := make(map[MessageID]types.Empty, NumberOfBlockTypes*MaxParentsCount)
-	parentsArray := make(MessageIDs, 0, MaxParentsCount*NumberOfUniqueBlocks)
+	combinedParents := make(map[MessageID]types.Empty, NumberOfBlockTypes*MaxParentsCount)
+	uniqueParents := make(MessageIDs, 0, MaxParentsCount*NumberOfUniqueBlocks)
 	for _, block := range parentsBlocks {
 		// combine strong parent and like parents
 		if block.ParentsType == StrongParentType || block.ParentsType == LikeParentType {
 			for _, parent := range block.References {
-				combinedMessageMap[parent] = types.Void
+				combinedParents[parent] = types.Void
 			}
 		} else {
-			parentsArray = append(parentsArray, block.References...)
+			uniqueParents = append(uniqueParents, block.References...)
 		}
 	}
-	expectedLength := len(combinedMessageMap) + len(parentsArray)
-	for _, parent := range parentsArray {
-		combinedMessageMap[parent] = types.Void
+	expectedLength := len(combinedParents) + len(uniqueParents)
+	for _, parent := range uniqueParents {
+		combinedParents[parent] = types.Void
 	}
 
-	return expectedLength == len(combinedMessageMap)
+	return expectedLength == len(combinedParents)
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
