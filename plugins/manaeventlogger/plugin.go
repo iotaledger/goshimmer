@@ -46,7 +46,7 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	eventsBufferSize = Parameters.BufferSize
 	csvPath = Parameters.CSV
-	checkBufferInterval = Parameters.CheckBufferIntervalSec
+	checkBufferInterval = Parameters.CheckBufferInterval
 	onPledgeEventClosure = events.NewClosure(logPledge)
 	onRevokeEventClosure = events.NewClosure(logRevoke)
 	configureEvents()
