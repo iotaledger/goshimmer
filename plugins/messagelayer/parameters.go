@@ -62,7 +62,7 @@ type FPCParametersDefinition struct {
 // StatementParametersDefinition contains the definition of the parameters used by the FPC statements in the tangle.
 type StatementParametersDefinition struct {
 	// WaitForStatement is the time in seconds for which the node wait for receiving the new statement.
-	WaitForStatement int `default:"5" usage:"the time in seconds for which the node wait for receiving the new statement"`
+	WaitForStatement time.Duration `default:"5s" usage:"the time for which the node wait for receiving the new statement"`
 
 	// WriteStatement defines if the node should write statements.
 	WriteStatement bool `default:"true" usage:"if the node should make statements"`
@@ -74,10 +74,10 @@ type StatementParametersDefinition struct {
 	WriteManaThreshold float64 `default:"0.7" usage:"Value describing the percentage of top mana nodes that can write a statement"`
 
 	// CleanInterval defines the time interval [in minutes] for cleaning the statement registry.
-	CleanInterval int `default:"5" usage:"the time in minutes after which the node cleans the statement registry"`
+	CleanInterval time.Duration `default:"5m" usage:"the time after which the node cleans the statement registry"`
 
 	// DeleteAfter defines the time [in minutes] after which older statements are deleted from the registry.
-	DeleteAfter int `default:"5" usage:"the time in minutes after which older statements are deleted from the registry"`
+	DeleteAfter time.Duration `default:"5m" usage:"the time after which older statements are deleted from the registry"`
 }
 
 // ManaParametersDefinition contains the definition of the parameters used by the mana plugin.

@@ -207,13 +207,13 @@ func runFPC(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("StatementCleaner", func(shutdownSignal <-chan struct{}) {
 		plugin.LogInfof("Started Statement Cleaner")
 		defer plugin.LogInfof("Stopped Statement Cleaner")
-		ticker := time.NewTicker(time.Duration(StatementParameters.CleanInterval) * time.Minute)
+		ticker := time.NewTicker(StatementParameters.CleanInterval)
 		defer ticker.Stop()
 	exit:
 		for {
 			select {
 			case <-ticker.C:
-				Registry().Clean(time.Duration(StatementParameters.DeleteAfter) * time.Minute)
+				Registry().Clean(StatementParameters.DeleteAfter)
 			case <-shutdownSignal:
 				break exit
 			}
@@ -240,7 +240,7 @@ type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, delayedRoundStart ...time.Duration) (opinions opinion.Opinions, err error) {
-	waitForStatements := time.Duration(StatementParameters.WaitForStatement) * time.Second
+	waitForStatements := StatementParameters.WaitForStatement
 	// delayedRoundStart gives the time that has elapsed since the start of the current round.
 	if len(delayedRoundStart) != 0 {
 		if delayedRoundStart[0] < waitForStatements && delayedRoundStart[0] > 0 {
