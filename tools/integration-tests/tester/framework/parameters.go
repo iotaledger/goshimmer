@@ -98,7 +98,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.FPC.Enabled = true
 	c.FPC.BindAddress = fmt.Sprintf(":%d", fpcPort)
-	c.FPC.RoundInterval = 5
+	c.FPC.RoundInterval = 5 * time.Second
 	c.FPC.TotalRoundsFinalization = 10
 
 	c.Activity.Enabled = false

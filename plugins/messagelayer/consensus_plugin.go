@@ -256,7 +256,7 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []st
 
 		// check if node has been active in the last two rounds
 		// note, we cannot simply set one RoundInterval since the last message could e.g. have arrived 1.5 intervals ago
-		if o.view.LastStatementReceivedTimestamp.Add(2 * time.Duration(FPCParameters.RoundInterval) * time.Second).After(clockPkg.SyncedTime()) {
+		if o.view.LastStatementReceivedTimestamp.Add(2 * FPCParameters.RoundInterval).After(clockPkg.SyncedTime()) {
 			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 			if err == nil {
 				return opinions, nil

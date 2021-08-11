@@ -1,12 +1,16 @@
 package main
 
-import "github.com/iotaledger/goshimmer/plugins/config"
+import (
+	"time"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
+)
 
 var (
 	nodes        []string
 	target       = ""
 	msgData      = "TEST99BROADCAST99DATA"
-	cooldownTime = 2
+	cooldownTime = 2 * time.Second
 	repeat       = 1
 )
 
@@ -26,7 +30,7 @@ func initConfig() {
 		msgData = config.Node().String(CfgData)
 	}
 	if config.Node().Int(CfgCooldownTime) > 0 {
-		cooldownTime = config.Node().Int(CfgCooldownTime)
+		cooldownTime = time.Duration(config.Node().Int(CfgCooldownTime)) * time.Second
 	}
 	if config.Node().Int(CfgRepeat) > 0 {
 		repeat = config.Node().Int(CfgRepeat)
