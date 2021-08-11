@@ -212,7 +212,7 @@ volumes:
 # read only files to load in the containers that may be shared across containers
 secrets:
   goshimmer.message.snapshot.bin:
-    file: ${MESSAGE_SNAPSHOT_FILE:-../integration-tests/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin}
+    file: ${SNAPSHOT_FILE:-../integration-tests/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin}
   goshimmer.config.json:
     file: ${GOSHIMMER_CONFIG:-./config.docker.json}
   prometheus.yml:

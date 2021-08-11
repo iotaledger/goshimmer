@@ -23,7 +23,7 @@ The third argument is optional for activating a dRNG committee, where
 * 1: dRNG enabled
 
 The peers can communicate freely within the Docker network 
-while the analysis and visualizer dashboard, as well as the `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
+while the analysis and visualizer dashboard, as well as the `peer_master's` dashboard and web API are reachable from the host system on the respective ports.
 
 The settings for the different containers (`peer_master`, `peer_replica`) can be modified in `docker-compose.yml`.
 
@@ -35,17 +35,20 @@ Prerequisites:
 - Docker compose: file format 3.5
 
 Reachable from the host system
-- analysis dashboard (autopeering visualizer): http://localhost:9000
-- `master_peer's` dashboard: http: http://localhost:8081
-- `master_peer's` web API: http: http://localhost:8080
+- `peer_master's` analysis dashboard (autopeering visualizer): http://localhost:9000
+- `peer_master's` web API: http: http://localhost:8080
+- `faucet's` dashboard: http: http://localhost:8081
+<!-- Running the dashboard and analysis dashboard on the same container causes the dashboard to malfunction -->
 
-It is therefore possible to send messages to the local network via the `master_peer`. Log messages of a specific containter can be followed via 
+It is therefore possible to send messages to the local network via the `peer_master`. Log messages of a specific containter can be followed via 
 ```
 docker logs --follow CONTAINERNAME
 ```
 
 ## Snapshot tool
 A snapshot tool is provided in the tools folder. The snapshot file that is created must be moved into the `integration-tests/assets` folder. There, rename and replace the existing bin file (`7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`). After restarting the docker network the snapshot file will be loaded.
+
+Docker Compose uses the `SNAPSHOT_FILE` environment variable to determine the location of the snapshot. Once you have a new snapshot you can simply set `SNAPSHOT_FILE` to the location of your new snapshot and Docker Compose will use your snapshot the nest time you run `docker-compose up`.
 
 ## How to use message approval check tool
 
@@ -127,7 +130,7 @@ These services that are created by default with `docker-compose up -d`.
 #### Configuration
 
 - MONGO_DB_ENABLED: Determines if the analysis tools should use a MongoDB instance for storing analysis data. Defaults to `false`. **Required if using [`--profile grafana`](#grafana)**.
-- MESSAGE_SNAPSHOT_FILE: The full path to the message snapshot file. Defaults to `./goshimmer/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`
+- SNAPSHOT_FILE: The full path to the message snapshot file. Defaults to `./goshimmer/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`
 - GOSHIMMER_TAG: (Optional) The [iotaledger/goshimmer](https://hub.docker.com/r/iotaledger/goshimmer) tag to use. Defaults to `develop`.
 - GOSHIMMER_CONFIG: The location of the GoShimmer config file. Defaults to `./config.docker.json`.
 
