@@ -12,8 +12,8 @@ type ParametersDefinition struct {
 	CSV string `name:"csv" default:"/tmp/consensusManaEvents.csv" usage:"file to store mana events"`
 	// Buffersize defines the events' buffer size.
 	BufferSize int `default:"100" usage:"event logs buffer size"`
-	// CheckBufferIntervalSec defines interval between buffer checks.
-	CheckBufferIntervalSec time.Duration `default:"5s" usage:"check buffer interval"`
+	// CheckBufferInterval defines interval between buffer checks.
+	CheckBufferInterval time.Duration `default:"5s" usage:"check buffer interval"`
 }
 
 // Parameters contains the configuration used by the manaeventlogger plugin.
