@@ -102,7 +102,7 @@ func PeerConfig() config.GoShimmer {
 	c.FPC.TotalRoundsFinalization = 10
 
 	c.Activity.Enabled = false
-	c.BroadcastIntervalSec = 1 // increase frequency to speedup tests
+	c.BroadcastInterval = 1 * time.Second // increase frequency to speedup tests
 
 	c.DRNG.Enabled = false
 
