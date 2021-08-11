@@ -25,7 +25,7 @@ The third argument is optional for activating a dRNG committee, where
 The peers can communicate freely within the Docker network 
 while the analysis and visualizer dashboard, as well as the `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
 
-The settings for the different containers (`entry_node`, `peer_master`, `peer_replica`) can be modified in `docker-compose.yml`.
+The settings for the different containers (`peer_master`, `peer_replica`) can be modified in `docker-compose.yml`.
 
 ## How to use as development tool
 Using a standalone throwaway Docker network can be really helpful as a development tool. 
