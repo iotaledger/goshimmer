@@ -11,24 +11,28 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // IssuePayloadFunc is a function which issues a payload.
 type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*tangle.Message, error)
 
+// EstimateFunc returns the time estimate required for the message to be issued by the rate setter.
+type EstimateFunc = func() time.Duration
+
 // Spammer spams messages with a static data payload.
 type Spammer struct {
 	issuePayloadFunc IssuePayloadFunc
+	estimateFunc     EstimateFunc
 	log              *logger.Logger
 	running          typeutils.AtomicBool
 	wg               sync.WaitGroup
 }
 
 // New creates a new spammer.
-func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger) *Spammer {
+func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger, estimateFunc EstimateFunc) *Spammer {
 	return &Spammer{
 		issuePayloadFunc: issuePayloadFunc,
+		estimateFunc:     estimateFunc,
 		log:              log,
 	}
 }
@@ -62,7 +66,7 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 			return
 		}
 
-		estimatedDuration := messagelayer.Tangle().RateSetter.Estimate()
+		estimatedDuration := s.estimateFunc()
 		time.Sleep(estimatedDuration)
 
 		// we don't care about errors or the actual issued message
