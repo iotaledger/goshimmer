@@ -11,9 +11,9 @@ import (
 type Ticker struct {
 	dRNGState           func() *State
 	dRNGTicker          *time.Ticker
-	interval            time.Duration // the interval at which the ticker should tick (in seconds).
+	interval            time.Duration // the interval at which the ticker should tick.
 	defaultValue        float64
-	awaitOffset         time.Duration // defines the max amount of time (in seconds) to wait for the next dRNG round after the expected time has elapsed.
+	awaitOffset         time.Duration // defines the max amount of time to wait for the next dRNG round after the expected time has elapsed.
 	missingDRNG         bool
 	delayedRoundStart   time.Duration
 	delayedRoundStartMu sync.RWMutex
