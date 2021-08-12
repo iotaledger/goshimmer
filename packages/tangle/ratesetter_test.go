@@ -54,7 +54,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	discardedCounter := events.NewClosure(func(id MessageID) { messageDiscarded <- id })
 	rateSetter.Events.MessageDiscarded.Attach(discardedCounter)
 
-	msg := NewMessage(
+	msg, _ := NewMessage(
 		[]MessageID{EmptyMessageID},
 		[]MessageID{},
 		nil,
