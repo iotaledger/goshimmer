@@ -295,18 +295,18 @@ func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fu
 
 // saveFundingOutputs sorts the given slice of faucet funding outputs based on the address indices, and then saves them in stateManager.
 func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
-	// sort prepared outputs based on address index
-	sort.Slice(fundingOutputs, func(i, j int) bool {
-		return fundingOutputs[i].AddressIndex < fundingOutputs[j].AddressIndex
-	})
-
 	s.fundingMutex.Lock()
+	defer s.fundingMutex.Unlock()
+
+	maxFundingOutputAddressIndex := s.lastFundingOutputAddressIndex
 	// fill prepared output list
 	for _, fOutput := range fundingOutputs {
+		if maxFundingOutputAddressIndex < fOutput.AddressIndex {
+			maxFundingOutputAddressIndex = fOutput.AddressIndex
+		}
 		s.fundingOutputs.PushBack(fOutput)
 	}
-	s.lastFundingOutputAddressIndex = s.fundingOutputs.Back().Value.(*FaucetOutput).AddressIndex
-	s.fundingMutex.Unlock()
+	s.lastFundingOutputAddressIndex = maxFundingOutputAddressIndex
 }
 
 // getFundingOutput returns the first funding output in the list.
