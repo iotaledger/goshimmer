@@ -1,6 +1,8 @@
 package messagelayer
 
 import (
+	"sync"
+
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
@@ -8,6 +10,14 @@ import (
 )
 
 var finalityGadget finality.Gadget
+var finalityOnce sync.Once
+
+func FinalityGadget() finality.Gadget {
+	finalityOnce.Do(func() {
+		Tangle()
+	})
+	return finalityGadget
+}
 
 func configureFinality() {
 	Tangle().ApprovalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
