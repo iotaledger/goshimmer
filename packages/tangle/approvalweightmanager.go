@@ -422,7 +422,7 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 			})
 		}
 
-		a.Events.MarkerWeightChanged.Trigger(MarkerWeightChangedEvent{currentMarker, supporterWeight / totalWeight})
+		a.Events.MarkerWeightChanged.Trigger(&MarkerWeightChangedEvent{currentMarker, supporterWeight / totalWeight})
 
 		// remember that the current marker is confirmed, so we can start from it next time instead from beginning of the sequence
 		if a.tangle.IsMarkerConfirmed(currentMarker) {
@@ -452,14 +452,14 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
 				branchWeight.SetWeight(newBranchWeight)
 
-				a.Events.BranchWeightChanged.Trigger(BranchWeightChangedEvent{conflictBranchID, newBranchWeight - a.weightOfHeaviestConflictingBranch(branchID)})
+				a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight - a.weightOfHeaviestConflictingBranch(branchID)})
 			})
 		default:
 			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
 				if newBranchWeight > branchWeight.Weight() {
 					branchWeight.SetWeight(newBranchWeight)
 
-					a.Events.BranchWeightChanged.Trigger(BranchWeightChangedEvent{conflictBranchID, newBranchWeight - a.weightOfHeaviestConflictingBranch(branchID)})
+					a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight - a.weightOfHeaviestConflictingBranch(branchID)})
 				}
 			})
 		}
