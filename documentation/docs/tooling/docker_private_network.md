@@ -48,7 +48,7 @@ docker logs --follow CONTAINERNAME
 ## Snapshot tool
 A snapshot tool is provided in the tools folder. The snapshot file that is created must be moved into the `integration-tests/assets` folder. There, rename and replace the existing bin file (`7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`). After restarting the docker network the snapshot file will be loaded.
 
-Docker Compose uses the `SNAPSHOT_FILE` environment variable to determine the location of the snapshot. Once you have a new snapshot you can simply set `SNAPSHOT_FILE` to the location of your new snapshot and Docker Compose will use your snapshot the nest time you run `docker-compose up`.
+Docker Compose uses the `SNAPSHOT_FILE` environment variable to determine the location of the snapshot. Once you have a new snapshot you can simply set `SNAPSHOT_FILE` to the location of your new snapshot and Docker Compose will use your snapshot the next time you run `docker-compose up`.
 
 ## How to use message approval check tool
 
@@ -134,6 +134,14 @@ These services that are created by default with `docker-compose up -d`.
 - GOSHIMMER_TAG: (Optional) The [iotaledger/goshimmer](https://hub.docker.com/r/iotaledger/goshimmer) tag to use. Defaults to `develop`.
 - GOSHIMMER_CONFIG: The location of the GoShimmer config file. Defaults to `./config.docker.json`.
 
+#### Example
+
+You can set the environment variable configuration inline as seen in this example.
+
+```bash
+GOSHIMMER_TAG=develop docker-compose up -d
+```
+
 #### Peer master
 
 A node that is used to expose ports via the host and to have a single attachment point for monitoring tools.
@@ -141,14 +149,6 @@ A node that is used to expose ports via the host and to have a single attachment
 ##### Volumes
 
 Docker Compose creates a `shimmerdb` volume to maintain a tangle even after tearing down the containers. Run `docker-compose down -v` to clear the volume.
-
-##### Example
-
-You can set the environment variable configuration inline as seen in this example.
-
-```bash
-GOSHIMMER_TAG=develop docker-compose up -d
-```
 
 ##### Ports
 
@@ -163,14 +163,6 @@ The following ports are exposed on the host to allow for interacting with the Ta
 
 A node that can be replicated to add more nodes to your local tangle.
 
-##### Example
-
-You can set the environment variable configuration inline as seen in this example.
-
-```bash
-GOSHIMMER_TAG=develop docker-compose up -d
-```
-
 ##### Ports
 
 These expose 0 ports because they are replicas and the host system cannot map a port to multiple containers.
@@ -178,14 +170,6 @@ These expose 0 ports because they are replicas and the host system cannot map a 
 #### Faucet
 
 A node that can dispense tokens.
-
-##### Example
-
-You can set the environment variable configuration inline as seen in this example.
-
-```bash
-GOSHIMMER_TAG=develop docker-compose up -d
-```
 
 ##### Ports
 
