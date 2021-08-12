@@ -460,11 +460,10 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500))
 		testFramework.RegisterBranchID("Branch2", "Message6")
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.60)
-		//testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.30)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.10)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.30)
@@ -482,40 +481,58 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 			*markers.NewMarker(2, 5): 0.10,
 		})
 	}
-	return
+
 	// ISSUE Message7
 	{
 		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
 
-		testFramework.PreventNewMarkers(true)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.55)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.25)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.55)
+
 		issueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[string]float64{
-			"Message5": 0.55,
-			"Message6": 0.1,
+			"Branch1": 0.55,
+			"Branch2": 0.1,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 0.85,
 			*markers.NewMarker(1, 4): 0.85,
 			*markers.NewMarker(1, 5): 0.55,
+			*markers.NewMarker(1, 6): 0.25,
 			*markers.NewMarker(2, 5): 0.10,
 		})
-		testFramework.PreventNewMarkers(false)
 	}
 
 	// ISSUE Message7.1
 	{
 		testFramework.CreateMessage("Message7.1", WithStrongParents("Message7"), WithIssuer(nodes["A"].PublicKey()))
 
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.55)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.55)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.55)
+
 		testFramework.PreventNewMarkers(true)
 		issueAndValidateMessageApproval(t, "Message7.1", testEventMock, testFramework, map[string]float64{
-			"Message5": 0.55,
-			"Message6": 0.1,
+			"Branch1": 0.55,
+			"Branch2": 0.1,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 0.85,
 			*markers.NewMarker(1, 4): 0.85,
 			*markers.NewMarker(1, 5): 0.55,
+			*markers.NewMarker(1, 6): 0.55,
 			*markers.NewMarker(2, 5): 0.10,
 		})
 		testFramework.PreventNewMarkers(false)
@@ -525,15 +542,25 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message8", WithStrongParents("Message6"), WithIssuer(nodes["D"].PublicKey()))
 
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.3)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.2)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch2"), 0.3)
+
 		issueAndValidateMessageApproval(t, "Message8", testEventMock, testFramework, map[string]float64{
-			"Message5": 0.55,
-			"Message6": 0.30,
+			"Branch1": 0.55,
+			"Branch2": 0.30,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 0.85,
 			*markers.NewMarker(1, 4): 0.85,
 			*markers.NewMarker(1, 5): 0.55,
+			*markers.NewMarker(1, 6): 0.55,
 			*markers.NewMarker(2, 5): 0.30,
 			*markers.NewMarker(2, 6): 0.20,
 		})
@@ -543,15 +570,27 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message9", WithStrongParents("Message8"), WithIssuer(nodes["A"].PublicKey()))
 
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.6)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.5)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 7), 0.3)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.25)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch2"), 0.60)
+
 		issueAndValidateMessageApproval(t, "Message9", testEventMock, testFramework, map[string]float64{
-			"Message5": 0.25,
-			"Message6": 0.60,
+			"Branch1": 0.25,
+			"Branch2": 0.60,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 0.85,
 			*markers.NewMarker(1, 4): 0.85,
-			*markers.NewMarker(1, 5): 0.25,
+			*markers.NewMarker(1, 5): 0.55,
+			*markers.NewMarker(1, 6): 0.55,
 			*markers.NewMarker(2, 5): 0.60,
 			*markers.NewMarker(2, 6): 0.50,
 			*markers.NewMarker(2, 7): 0.30,
@@ -562,15 +601,27 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.65)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 7), 0.45)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 8), 0.15)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch2"), 0.75)
+
 		issueAndValidateMessageApproval(t, "Message10", testEventMock, testFramework, map[string]float64{
-			"Message5": 0.25,
-			"Message6": 0.75,
+			"Branch1": 0.25,
+			"Branch2": 0.75,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 1,
 			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 0.25,
+			*markers.NewMarker(1, 5): 0.55,
+			*markers.NewMarker(1, 6): 0.55,
 			*markers.NewMarker(2, 5): 0.75,
 			*markers.NewMarker(2, 6): 0.65,
 			*markers.NewMarker(2, 7): 0.45,
@@ -581,23 +632,36 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	// ISSUE Message11
 	{
 		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch3")
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message11")), "Branch4")
+		testFramework.RegisterBranchID("Branch3", "Message7")
+		testFramework.RegisterBranchID("Branch4", "Message11")
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.55)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 6), 0.3)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.55)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch2"), 0.45)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch3"), 0.25)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch4"), 0.30)
 
 		issueAndValidateMessageApproval(t, "Message11", testEventMock, testFramework, map[string]float64{
-			"Message5":  0.55,
-			"Message6":  0.45,
-			"Message7":  0.25,
-			"Message11": 0.30,
+			"Branch1": 0.55,
+			"Branch2": 0.45,
+			"Branch3": 0.25,
+			"Branch4": 0.30,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 1,
 			*markers.NewMarker(1, 4): 1,
 			*markers.NewMarker(1, 5): 0.55,
-			*markers.NewMarker(2, 5): 0.45,
-			*markers.NewMarker(2, 6): 0.35,
-			*markers.NewMarker(2, 7): 0.15,
+			*markers.NewMarker(1, 6): 0.55,
+			*markers.NewMarker(2, 5): 0.75,
+			*markers.NewMarker(2, 6): 0.65,
+			*markers.NewMarker(2, 7): 0.45,
 			*markers.NewMarker(2, 8): 0.15,
 			*markers.NewMarker(3, 6): 0.30,
 		})
@@ -607,20 +671,33 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
 
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 6), 0.5)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 7), 0.2)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.75)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch2"), 0.25)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch4"), 0.50)
+
 		issueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, map[string]float64{
-			"Message5":  0.75,
-			"Message6":  0.25,
-			"Message7":  0.25,
-			"Message11": 0.50,
+			"Branch1": 0.75,
+			"Branch2": 0.25,
+			"Branch3": 0.25,
+			"Branch4": 0.50,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 1,
 			*markers.NewMarker(1, 4): 1,
 			*markers.NewMarker(1, 5): 0.75,
-			*markers.NewMarker(2, 5): 0.25,
-			*markers.NewMarker(2, 6): 0.15,
-			*markers.NewMarker(2, 7): 0.15,
+			*markers.NewMarker(1, 6): 0.55,
+			*markers.NewMarker(2, 5): 0.75,
+			*markers.NewMarker(2, 6): 0.65,
+			*markers.NewMarker(2, 7): 0.45,
 			*markers.NewMarker(2, 8): 0.15,
 			*markers.NewMarker(3, 6): 0.50,
 			*markers.NewMarker(3, 7): 0.20,
@@ -631,20 +708,34 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message13", WithStrongParents("Message12"), WithIssuer(nodes["E"].PublicKey()))
 
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 6), 0.6)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 7), 0.3)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 8), 0.1)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.85)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch2"), 0.15)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch4"), 0.60)
+
 		issueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[string]float64{
-			"Message5":  0.85,
-			"Message6":  0.15,
-			"Message7":  0.25,
-			"Message11": 0.60,
+			"Branch1": 0.85,
+			"Branch2": 0.15,
+			"Branch3": 0.25,
+			"Branch4": 0.60,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 1,
 			*markers.NewMarker(1, 4): 1,
 			*markers.NewMarker(1, 5): 0.85,
-			*markers.NewMarker(2, 5): 0.15,
-			*markers.NewMarker(2, 6): 0.15,
-			*markers.NewMarker(2, 7): 0.15,
+			*markers.NewMarker(1, 6): 0.55,
+			*markers.NewMarker(2, 5): 0.75,
+			*markers.NewMarker(2, 6): 0.65,
+			*markers.NewMarker(2, 7): 0.45,
 			*markers.NewMarker(2, 8): 0.15,
 			*markers.NewMarker(3, 6): 0.60,
 			*markers.NewMarker(3, 7): 0.30,
@@ -656,75 +747,36 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
 
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 6), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 7), 0.45)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 8), 0.25)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 9), 0.15)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 1.0)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch2"), 0.0)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch4"), 0.75)
+
 		issueAndValidateMessageApproval(t, "Message14", testEventMock, testFramework, map[string]float64{
-			"Message5":  1,
-			"Message6":  0,
-			"Message7":  0.25,
-			"Message11": 0.75,
+			"Branch1": 1,
+			"Branch2": 0,
+			"Branch3": 0.25,
+			"Branch4": 0.75,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1,
 			*markers.NewMarker(1, 2): 1,
 			*markers.NewMarker(1, 3): 1,
 			*markers.NewMarker(1, 4): 1,
 			*markers.NewMarker(1, 5): 1,
-			*markers.NewMarker(2, 5): 0,
-			*markers.NewMarker(2, 6): 0,
-			*markers.NewMarker(2, 7): 0,
-			*markers.NewMarker(2, 8): 0,
-			*markers.NewMarker(3, 6): 0.75,
-			*markers.NewMarker(3, 7): 0.45,
-			*markers.NewMarker(3, 8): 0.25,
-			*markers.NewMarker(3, 9): 0.15,
-		})
-	}
-
-	// ISSUE Message15
-	{
-		testFramework.CreateMessage("Message15", WithStrongParents("Message11", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
-
-		issueAndValidateMessageApproval(t, "Message15", testEventMock, testFramework, map[string]float64{
-			"Message5":  1,
-			"Message6":  0,
-			"Message7":  0.25,
-			"Message11": 0.75,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 1,
-			*markers.NewMarker(2, 5): 0,
-			*markers.NewMarker(2, 6): 0,
-			*markers.NewMarker(2, 7): 0,
-			*markers.NewMarker(2, 8): 0,
-			*markers.NewMarker(3, 6): 0.75,
-			*markers.NewMarker(3, 7): 0.45,
-			*markers.NewMarker(3, 8): 0.25,
-			*markers.NewMarker(3, 9): 0.15,
-		})
-	}
-
-	// ISSUE Message16
-	{
-		testFramework.CreateMessage("Message16", WithStrongParents("Message12", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message15")), "Branch4")
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message16")), "Branch5")
-
-		issueAndValidateMessageApproval(t, "Message16", testEventMock, testFramework, map[string]float64{
-			"Message5":  1,
-			"Message6":  0,
-			"Message7":  0.25,
-			"Message11": 0.75,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 1,
-			*markers.NewMarker(2, 5): 0,
-			*markers.NewMarker(2, 6): 0,
-			*markers.NewMarker(2, 7): 0,
-			*markers.NewMarker(2, 8): 0,
+			*markers.NewMarker(1, 6): 0.55,
+			*markers.NewMarker(2, 5): 0.75,
+			*markers.NewMarker(2, 6): 0.65,
+			*markers.NewMarker(2, 7): 0.45,
+			*markers.NewMarker(2, 8): 0.15,
 			*markers.NewMarker(3, 6): 0.75,
 			*markers.NewMarker(3, 7): 0.45,
 			*markers.NewMarker(3, 8): 0.25,
@@ -862,6 +914,10 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			fmt.Println(branch)
 		})
 	}
+}
+
+func setMarkerConfirmed(confirmedMarkers map[markers.Marker]types.Empty, sequenceID markers.SequenceID, index markers.Index) {
+	confirmedMarkers[*markers.NewMarker(sequenceID, index)] = types.Void
 }
 
 func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *eventMock, testFramework *MessageTestFramework, expectedBranchWeights map[string]float64, expectedMarkerWeights map[markers.Marker]float64) {
