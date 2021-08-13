@@ -119,7 +119,7 @@ type MsgTransaction struct {
 	Tx *ledgerstate.Transaction
 }
 
-// MsgTxInclusionState informs the client with the gof of a given
+// MsgTxGoF informs the client with the GoF of a given
 // transaction as a response from the given address.
 type MsgTxGoF struct {
 	Address         ledgerstate.Address

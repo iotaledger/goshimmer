@@ -736,22 +736,27 @@ func NewTestTangle(options ...Option) *Tangle {
 	return t
 }
 
+// MockConfirmationOracle is a mock of a ConfirmationOracle.
 type MockConfirmationOracle struct{}
 
+// IsMarkerConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
 	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
 	// beginning of the sequence for all markers.
 	return false
 }
 
+// IsMessageConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsMessageConfirmed(msgId MessageID) bool {
 	return false
 }
 
+// IsBranchConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsBranchConfirmed(branchId ledgerstate.BranchID) bool {
 	return false
 }
 
+// Events mocks its interface function.
 func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 	return &ConfirmationEvents{
 		MessageConfirmed:     events.NewEvent(nil),

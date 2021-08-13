@@ -105,12 +105,12 @@ func (webConnector WebConnector) SendTransaction(tx *ledgerstate.Transaction) (e
 }
 
 // GetTransactionGoF fetches the GoF of the transaction.
-func (webConnector WebConnector) GetTransactionGoF(txID ledgerstate.TransactionID) (gof gof.GradeOfFinality, err error) {
+func (webConnector WebConnector) GetTransactionGoF(txID ledgerstate.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	txmeta, err := webConnector.client.GetTransactionMetadata(txID.Base58())
 	if err != nil {
 		return
 	}
-	gof = txmeta.GradeOfFinality
+	gradeOfFinality = txmeta.GradeOfFinality
 	return
 }
 

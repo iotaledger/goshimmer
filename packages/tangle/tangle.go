@@ -54,13 +54,15 @@ type Tangle struct {
 	setupParserOnce sync.Once
 }
 
+// ConfirmationOracle answers questions about entities' confirmation.
 type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker *markers.Marker) bool
-	IsMessageConfirmed(msgId MessageID) bool
-	IsBranchConfirmed(branchId ledgerstate.BranchID) bool
+	IsMessageConfirmed(msgID MessageID) bool
+	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
 	Events() *ConfirmationEvents
 }
 
+// ConfirmationEvents are events entailing confirmation.
 type ConfirmationEvents struct {
 	MessageConfirmed     *events.Event
 	BranchConfirmed      *events.Event

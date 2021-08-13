@@ -23,6 +23,7 @@ func (gof GradeOfFinality) String() string {
 	}[gof]
 }
 
+// Bytes returns the byte representation of the GradeOfFinality.
 func (gof GradeOfFinality) Bytes() []byte {
 	return []byte{byte(gof)}
 }

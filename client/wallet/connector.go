@@ -14,6 +14,6 @@ type Connector interface {
 	SendTransaction(transaction *ledgerstate.Transaction) (err error)
 	RequestFaucetFunds(address address.Address, powTarget int) (err error)
 	GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error)
-	GetTransactionGoF(txID ledgerstate.TransactionID) (gof gof.GradeOfFinality, err error)
+	GetTransactionGoF(txID ledgerstate.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error)
 	GetUnspentAliasOutput(address *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error)
 }

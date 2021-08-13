@@ -66,6 +66,7 @@ type SimpleFinalityGadget struct {
 	events *tangle.ConfirmationEvents
 }
 
+// NewSimpleFinalityGadget creates a new SimpleFinalityGadget.
 func NewSimpleFinalityGadget(t *tangle.Tangle) *SimpleFinalityGadget {
 	return &SimpleFinalityGadget{
 		tangle:                 t,
@@ -80,6 +81,7 @@ func NewSimpleFinalityGadget(t *tangle.Tangle) *SimpleFinalityGadget {
 	}
 }
 
+// Events returns the events this gadget exposes.
 func (s *SimpleFinalityGadget) Events() *tangle.ConfirmationEvents {
 	return s.events
 }
@@ -98,6 +100,7 @@ func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker *markers.Marker) (confir
 	return
 }
 
+// IsMessageConfirmed returns whether the given message is confirmed.
 func (s *SimpleFinalityGadget) IsMessageConfirmed(msgId tangle.MessageID) (confirmed bool) {
 	s.tangle.Storage.MessageMetadata(msgId).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		if messageMetadata.GradeOfFinality() >= s.messageGoFReachedLevel {
@@ -107,6 +110,7 @@ func (s *SimpleFinalityGadget) IsMessageConfirmed(msgId tangle.MessageID) (confi
 	return
 }
 
+// IsBranchConfirmed returns whether the given branch is confirmed.
 func (s *SimpleFinalityGadget) IsBranchConfirmed(branchId ledgerstate.BranchID) (confirmed bool) {
 	s.tangle.LedgerState.BranchDAG.Branch(branchId).Consume(func(branch ledgerstate.Branch) {
 		if branch.GradeOfFinality() >= s.messageGoFReachedLevel {

@@ -261,6 +261,6 @@ func (connector *mockConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAdd
 	return
 }
 
-func (connector *mockConnector) GetTransactionGoF(txID ledgerstate.TransactionID) (gof gof.GradeOfFinality, err error) {
+func (connector *mockConnector) GetTransactionGoF(txID ledgerstate.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	return
 }

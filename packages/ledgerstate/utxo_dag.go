@@ -213,7 +213,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 
 // InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
 // Pending, Confirmed or Rejected.
-func (u *UTXODAG) GradeOfFinality(transactionID TransactionID) (gof gof.GradeOfFinality, err error) {
+func (u *UTXODAG) GradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	cachedTransactionMetadata := u.CachedTransactionMetadata(transactionID)
 	defer cachedTransactionMetadata.Release()
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
@@ -230,7 +230,7 @@ func (u *UTXODAG) GradeOfFinality(transactionID TransactionID) (gof gof.GradeOfF
 		return
 	}
 
-	gof = branch.GradeOfFinality()
+	gradeOfFinality = branch.GradeOfFinality()
 
 	return
 }

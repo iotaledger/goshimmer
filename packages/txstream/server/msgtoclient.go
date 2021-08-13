@@ -43,11 +43,11 @@ func (c *Connection) sendMsgToClient(msg txstream.Message) {
 	}
 }
 
-func (c *Connection) sendTxInclusionState(txid ledgerstate.TransactionID, addr ledgerstate.Address, gof gof.GradeOfFinality) {
+func (c *Connection) sendTxInclusionState(txid ledgerstate.TransactionID, addr ledgerstate.Address, gradeOfFinality gof.GradeOfFinality) {
 	c.sendMsgToClient(&txstream.MsgTxGoF{
 		Address:         addr,
 		TxID:            txid,
-		GradeOfFinality: gof,
+		GradeOfFinality: gradeOfFinality,
 	})
 }
 
