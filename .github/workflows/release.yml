@@ -10,14 +10,11 @@ on:
         required: true
 
 jobs:
-  build:
+  createTag:
     environment: devnet
-    name: GoReleaser
+    name: Create Git tag
     runs-on:
       - ubuntu-latest
-    container:
-      image: gohornet/goreleaser-cgo-cross-compiler:1.16.3
-      volumes: [/repo]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -27,6 +24,20 @@ jobs:
           git tag ${{ github.event.inputs.tagName }}
           git push origin ${{ github.event.inputs.tagName }}
 
+  goreleaser:
+    environment: devnet
+    needs: createTag
+    name: GoReleaser
+    runs-on:
+      - ubuntu-latest
+    container:
+      image: gohornet/goreleaser-cgo-cross-compiler:1.16.3
+      volumes: [/repo]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: "refs/tags/${{github.event.inputs.tagName}}"
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -44,6 +55,17 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
+  docker:
+    environment: devnet
+    needs: createTag
+    name: Docker build and deploy
+    runs-on:
+      - ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: "refs/tags/${{github.event.inputs.tagName}}"
       - name: Publish to Docker Hub
         uses: docker/build-push-action@92e71463491f2d026a477188b8ad3a0fdd9d672c
         env:
