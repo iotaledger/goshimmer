@@ -671,14 +671,6 @@ func createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle *Tangle, 
 	return
 }
 
-func createAndStoreEligibleTestParentsDataMessageInInvalidBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
-	message = newTestParentsDataMessage("testmessage", strongParents, weakParents, nil, nil)
-	tangle.Storage.StoreMessage(message)
-	message.setMessageMetadata(tangle, true, ledgerstate.InvalidBranchID)
-
-	return
-}
-
 func (m *Message) setMessageMetadata(tangle *Tangle, eligible bool, branchID ledgerstate.BranchID) {
 	tangle.Storage.MessageMetadata(m.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		messageMetadata.SetEligible(eligible)

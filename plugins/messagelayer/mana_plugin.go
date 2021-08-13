@@ -48,7 +48,7 @@ var (
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32
-	onTransactionGoFReachedClosure *events.Closure
+	onTransactionConfirmedClosure *events.Closure
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool
@@ -65,7 +65,7 @@ func ManaPlugin() *node.Plugin {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionGoFReachedClosure = events.NewClosure(onTransactionGoFReached)
+	onTransactionConfirmedClosure = events.NewClosure(onTransactionGoFReached)
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -102,7 +102,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	FinalityGadget().Events().MessageGoFReached.Attach(onTransactionGoFReachedClosure)
+	FinalityGadget().Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	// mana.Events().Pledged.Attach(onPledgeEventClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -224,7 +224,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				FinalityGadget().Events().MessageGoFReached.Detach(onTransactionGoFReachedClosure)
+				FinalityGadget().Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return

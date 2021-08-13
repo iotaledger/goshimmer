@@ -45,7 +45,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionGoFReached *events.Closure
+	onTransactionConfirmed *events.Closure
 
 	// logger
 	log *logger.Logger
@@ -70,10 +70,10 @@ func Filter() *DoubleSpendFilter {
 
 func configure(*node.Plugin) {
 	doubleSpendFilter = Filter()
-	onTransactionGoFReached = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	onTransactionConfirmed = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		doubleSpendFilter.Remove(transactionID)
 	})
-	messagelayer.FinalityGadget().Events().MessageGoFReached.Attach(onTransactionGoFReached)
+	messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(onTransactionConfirmed)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -113,7 +113,7 @@ func worker(shutdownSignal <-chan struct{}) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	messagelayer.FinalityGadget().Events().TransactionGoFReached.Detach(onTransactionGoFReached)
+	messagelayer.FinalityGadget().Events().TransactionConfirmed.Detach(onTransactionConfirmed)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

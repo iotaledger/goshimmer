@@ -79,7 +79,7 @@ func configureDRNGMetrics() {
 }
 
 func configureTransactionMetrics() {
-	messagelayer.FinalityGadget().Events().TransactionGoFReached.Attach(events.NewClosure(onTransactionGoFReached))
+	messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }
 
 func configureStatementMetrics() {

@@ -55,7 +55,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (a *ApprovalWeightManager) Setup() {
-	if a.tangle.WeightProvider == nil || a.tangle.IsMarkerConfirmed == nil {
+	if a.tangle.WeightProvider == nil {
 		return
 	}
 
@@ -151,7 +151,7 @@ func (a *ApprovalWeightManager) firstUnconfirmedMarkerIndex(sequenceID markers.S
 			index = sequence.LowestIndex()
 		})
 
-		for ; a.tangle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)); index++ {
+		for ; a.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)); index++ {
 			a.lastConfirmedMarkers[sequenceID] = index
 		}
 		return
@@ -389,7 +389,7 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 		a.Events.MarkerWeightChanged.Trigger(&MarkerWeightChangedEvent{currentMarker, supporterWeight / totalWeight})
 
 		// remember that the current marker is confirmed, so we can start from it next time instead from beginning of the sequence
-		if a.tangle.IsMarkerConfirmed(currentMarker) {
+		if a.tangle.ConfirmationOracle.IsMarkerConfirmed(currentMarker) {
 			a.lastConfirmedMarkers[currentMarker.SequenceID()] = currentMarker.Index()
 		}
 	}
@@ -428,18 +428,6 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 			})
 		}
 	}
-}
-
-func (a *ApprovalWeightManager) weightOfHeaviestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
-	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-		a.tangle.Storage.BranchWeight(conflictingBranchID).Consume(func(branchWeight *BranchWeight) {
-			if newWeight := branchWeight.Weight(); newWeight > weight {
-				weight = newWeight
-			}
-		})
-	})
-
-	return
 }
 
 func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {

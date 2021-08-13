@@ -208,6 +208,28 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	}
 }
 
+type MockConfirmationOracle struct{}
+
+func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
+	return false
+}
+
+func (m *MockConfirmationOracle) IsMessageConfirmed(msgId MessageID) bool {
+	return false
+}
+
+func (m *MockConfirmationOracle) IsBranchConfirmed(branchId ledgerstate.BranchID) bool {
+	return false
+}
+
+func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
+	return &ConfirmationEvents{
+		MessageConfirmed:     events.Event{},
+		TransactionConfirmed: events.Event{},
+		BranchConfirmed:      events.Event{},
+	}
+}
+
 // TestApprovalWeightManager_updateSequenceSupporters tests the ApprovalWeightManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
 func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
@@ -226,9 +248,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	// We do not use the optimization via map for the test. Thus, in the test it always needs to start checking from the
 	// beginning of the sequence for all markers.
-	tangle.IsMarkerConfirmed = func(marker *markers.Marker) (confirmed bool) {
-		return false
-	}
+	tangle.ConfirmationOracle = &MockConfirmationOracle{}
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 	supporters := map[string]*identity.Identity{
@@ -370,9 +390,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	// We do not use the optimization via map for the test. Thus, in the test it always needs to start checking from the
 	// beginning of the sequence for all markers.
-	tangle.IsMarkerConfirmed = func(marker *markers.Marker) (confirmed bool) {
-		return false
-	}
+	tangle.ConfirmationOracle = &MockConfirmationOracle{}
 	defer tangle.Shutdown()
 	tangle.Setup()
 
@@ -807,6 +825,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+	tangle.ConfirmationOracle = &MockConfirmationOracle{}
 	defer tangle.Shutdown()
 	tangle.Setup()
 
@@ -914,10 +933,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			fmt.Println(branch)
 		})
 	}
-}
-
-func setMarkerConfirmed(confirmedMarkers map[markers.Marker]types.Empty, sequenceID markers.SequenceID, index markers.Index) {
-	confirmedMarkers[*markers.NewMarker(sequenceID, index)] = types.Void
 }
 
 func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *eventMock, testFramework *MessageTestFramework, expectedBranchWeights map[string]float64, expectedMarkerWeights map[markers.Marker]float64) {

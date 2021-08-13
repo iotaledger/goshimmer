@@ -3,7 +3,6 @@ package finality
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -15,18 +14,12 @@ import (
 type Gadget interface {
 	HandleMarker(marker *markers.Marker, aw float64) (err error)
 	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)
-	Events() *Events
 	IsMarkerConfirmed(marker *markers.Marker) (confirmed bool)
 	tangle.ConfirmationOracle
 }
 
 type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
 type BranchThresholdTranslation func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality
-
-type Events struct {
-	MessageGoFReached     events.Event
-	TransactionGoFReached events.Event
-}
 
 // region SimpleFinalityGadget /////////////////////////////////////////////////////////////////////////////////////////
 var (
@@ -70,15 +63,15 @@ type SimpleFinalityGadget struct {
 	messageGoF             MessageThresholdTranslation
 	messageGoFReachedLevel gof.GradeOfFinality
 
-	events *Events
+	events *tangle.ConfirmationEvents
 }
 
-func NewSimpleFinalityGadget(tangle *tangle.Tangle) *SimpleFinalityGadget {
+func NewSimpleFinalityGadget(t *tangle.Tangle) *SimpleFinalityGadget {
 	return &SimpleFinalityGadget{
-		tangle:                 tangle,
+		tangle:                 t,
 		branchGoFReachedLevel:  gof.High,
 		messageGoFReachedLevel: gof.High,
-		events:                 &Events{
+		events:                 &tangle.ConfirmationEvents{
 			//MessageGoFReached:     events.NewEvent(),
 			//TransactionGoFReached: events.NewEvent(),
 		},
@@ -87,7 +80,7 @@ func NewSimpleFinalityGadget(tangle *tangle.Tangle) *SimpleFinalityGadget {
 	}
 }
 
-func (s *SimpleFinalityGadget) Events() *Events {
+func (s *SimpleFinalityGadget) Events() *tangle.ConfirmationEvents {
 	return s.events
 }
 
@@ -244,7 +237,7 @@ func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMeta
 	s.setPayloadGoF(messageMetadata.ID(), gradeOfFinality)
 
 	if gradeOfFinality >= s.messageGoFReachedLevel {
-		s.Events().MessageGoFReached.Trigger(messageMetadata.ID())
+		s.Events().MessageConfirmed.Trigger(messageMetadata.ID())
 	}
 
 	return modified
@@ -282,7 +275,7 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 			})
 
 			if gradeOfFinality >= s.branchGoFReachedLevel {
-				s.Events().TransactionGoFReached.Trigger(transactionID)
+				s.Events().TransactionConfirmed.Trigger(transactionID)
 			}
 		})
 	})

@@ -376,8 +376,8 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	})
 
 	// listen on confirmation
-	messagelayer.FinalityGadget().Events().TransactionGoFReached.Attach(monitorTxConfirmation)
-	defer messagelayer.FinalityGadget().Events().TransactionGoFReached.Detach(monitorTxConfirmation)
+	messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer messagelayer.FinalityGadget().Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	// issue the tx
 	issuedMsg, issueErr := s.issueTX(tx)

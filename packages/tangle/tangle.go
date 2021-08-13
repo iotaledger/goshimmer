@@ -48,7 +48,6 @@ type Tangle struct {
 	LedgerState           *LedgerState
 	Utils                 *Utils
 	WeightProvider        WeightProvider
-	IsMarkerConfirmed     MarkerConfirmed
 	Events                *Events
 	ConfirmationOracle    ConfirmationOracle
 
@@ -56,8 +55,16 @@ type Tangle struct {
 }
 
 type ConfirmationOracle interface {
+	IsMarkerConfirmed(marker *markers.Marker) bool
 	IsMessageConfirmed(msgId MessageID) bool
 	IsBranchConfirmed(branchId ledgerstate.BranchID) bool
+	Events() *ConfirmationEvents
+}
+
+type ConfirmationEvents struct {
+	MessageConfirmed     events.Event
+	BranchConfirmed      events.Event
+	TransactionConfirmed events.Event
 }
 
 // New is the constructor for the Tangle.
