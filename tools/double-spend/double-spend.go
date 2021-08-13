@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -49,7 +50,7 @@ func main() {
 		for _, v := range resp.UnspentOutputs {
 			if len(v.Outputs) > 0 {
 				myOutputID = v.Outputs[0].Output.OutputID.Base58
-				confirmed = v.Outputs[0].InclusionState.Confirmed
+				confirmed = v.Outputs[0].GradeOfFinality == gof.High
 				break
 			}
 		}

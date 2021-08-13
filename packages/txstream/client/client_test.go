@@ -65,7 +65,7 @@ func send(t *testing.T, n *Client, sendMsg func(), callback func(msg txstream.Me
 		defer n.Events.TransactionReceived.Detach(cl)
 	}
 	{
-		cl := events.NewClosure(func(msg *txstream.MsgTxInclusionState) { go enqueueMessage(msg) })
+		cl := events.NewClosure(func(msg *txstream.MsgTxGoF) { go enqueueMessage(msg) })
 		n.Events.InclusionStateReceived.Attach(cl)
 		defer n.Events.InclusionStateReceived.Detach(cl)
 	}
@@ -201,28 +201,6 @@ func TestPostRequest(t *testing.T) {
 	require.Equal(t, 2, len(seen))
 	require.True(t, seen[createTx.ID()])
 	require.True(t, seen[reqTx.ID()])
-}
-
-func TestRequestInclusionLevel(t *testing.T) {
-	ledger, n := start(t)
-	createTx, chainAddress := createAliasChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
-
-	// request inclusion level
-	var resp *txstream.MsgTxInclusionState
-	send(t, n,
-		func() {
-			n.RequestTxInclusionState(chainAddress, createTx.ID())
-		},
-		func(msg txstream.Message) bool {
-			if msg, ok := msg.(*txstream.MsgTxInclusionState); ok {
-				resp = msg
-				return true
-			}
-			return false
-		},
-	)
-
-	require.EqualValues(t, ledgerstate.Confirmed, resp.State)
 }
 
 func TestRequestOutput(t *testing.T) {

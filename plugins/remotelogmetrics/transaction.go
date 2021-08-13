@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
-func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
+func onTransactionGoFReached(transactionID ledgerstate.TransactionID) {
 	if !messagelayer.Tangle().Synced() {
 		return
 	}

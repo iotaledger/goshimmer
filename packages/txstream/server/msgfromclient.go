@@ -53,9 +53,6 @@ func (c *Connection) processMessageFromClient(data []byte) error {
 	case *txstream.MsgGetConfirmedTransaction:
 		c.pushTransaction(msg.TxID, msg.Address)
 
-	case *txstream.MsgGetTxInclusionState:
-		c.getTxInclusionState(msg.TxID, msg.Address)
-
 	case *txstream.MsgGetBacklog:
 		c.getBacklog(msg.Address)
 

@@ -125,21 +125,11 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID             *jsonmodels.OutputID       `json:"id"`
-	Output         *jsonmodels.Output         `json:"output"`
-	Metadata       *jsonmodels.OutputMetadata `json:"metadata"`
-	InclusionState ExplorerInclusionState     `json:"inclusionState"`
-	TxTimestamp    int                        `json:"txTimestamp"`
-	PendingMana    float64                    `json:"pendingMana"`
-}
-
-// ExplorerInclusionState defines the struct for storing inclusion states for ExplorerOutput
-type ExplorerInclusionState struct {
-	Confirmed   bool `json:"confirmed,omitempty"`
-	Rejected    bool `json:"rejected,omitempty"`
-	Liked       bool `json:"liked,omitempty"`
-	Conflicting bool `json:"conflicting,omitempty"`
-	Finalized   bool `json:"finalized,omitempty"`
+	ID          *jsonmodels.OutputID       `json:"id"`
+	Output      *jsonmodels.Output         `json:"output"`
+	Metadata    *jsonmodels.OutputMetadata `json:"metadata"`
+	TxTimestamp int                        `json:"txTimestamp"`
+	PendingMana float64                    `json:"pendingMana"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -241,27 +231,15 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	// get outputids by address
 	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
-		inclusionState := ExplorerInclusionState{}
 		var timestamp int64
 
 		// get output metadata + liked status from branch of the output
 		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
-			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
-				inclusionState.Liked = branch.Liked()
-			})
 		})
 
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
-		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
-
-		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
-			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
-			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
-			inclusionState.Finalized = txMeta.Finalized()
-			inclusionState.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
-		})
 
 		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			timestamp = transaction.Essence().Timestamp().Unix()
@@ -271,12 +249,11 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
 		outputs = append(outputs, ExplorerOutput{
-			ID:             jsonmodels.NewOutputID(output.ID()),
-			Output:         jsonmodels.NewOutput(output),
-			Metadata:       jsonmodels.NewOutputMetadata(metaData),
-			InclusionState: inclusionState,
-			TxTimestamp:    int(timestamp),
-			PendingMana:    pendingMana,
+			ID:          jsonmodels.NewOutputID(output.ID()),
+			Output:      jsonmodels.NewOutput(output),
+			Metadata:    jsonmodels.NewOutputMetadata(metaData),
+			TxTimestamp: int(timestamp),
+			PendingMana: pendingMana,
 		})
 	})
 

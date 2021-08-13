@@ -3,10 +3,11 @@ package utxodbledger
 import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
-	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // UtxoDBLedger implements txstream.Ledger by wrapping UTXODB
@@ -52,22 +53,18 @@ func (u *UtxoDBLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output
 	}
 }
 
-// GetConfirmedTransaction fetches a transaction by ID, and executes the given callback if found
-func (u *UtxoDBLedger) GetConfirmedTransaction(txid ledgerstate.TransactionID, f func(*ledgerstate.Transaction)) bool {
-	tx, ok := u.UtxoDB.GetTransaction(txid)
-	if ok {
-		f(tx)
-	}
-	return ok
-}
-
-// GetTxInclusionState returns the inclusion state of the given transaction
-func (u *UtxoDBLedger) GetTxInclusionState(txid ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
-	_, ok := u.UtxoDB.GetTransaction(txid)
-	if !ok {
-		return ledgerstate.Pending, xerrors.Errorf("UtxoDBLedger.GetTxInclusionState: not found %s", txid.Base58())
-	}
-	return ledgerstate.Confirmed, nil
+// GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high
+func (u *UtxoDBLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
+	found = false
+	messagelayer.Tangle().LedgerState.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
+		if txmeta.GradeOfFinality() == gof.High {
+			found = true
+			messagelayer.Tangle().LedgerState.Transaction(txid).Consume(func(tx *ledgerstate.Transaction) {
+				f(tx)
+			})
+		}
+	})
+	return
 }
 
 // RequestFunds requests funds from the faucet

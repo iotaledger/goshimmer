@@ -21,7 +21,6 @@ const (
 	pathConflicts      = "/conflicts"
 	pathConsumers      = "/consumers"
 	pathMetadata       = "/metadata"
-	pathInclusionState = "/inclusionState"
 	pathConsensus      = "/consensus"
 	pathAttachments    = "/attachments"
 )
@@ -141,17 +140,6 @@ func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID strin
 	res := &jsonmodels.TransactionMetadata{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathMetadata}, "")
-	}(), nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-// GetTransactionInclusionState gets inclusion state of the transaction corresponding to TransactionID.
-func (api *GoShimmerAPI) GetTransactionInclusionState(base58EncodedTransactionID string) (*jsonmodels.TransactionInclusionState, error) {
-	res := &jsonmodels.TransactionInclusionState{}
-	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathInclusionState}, "")
 	}(), nil, res); err != nil {
 		return nil, err
 	}

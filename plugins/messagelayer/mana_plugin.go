@@ -48,7 +48,7 @@ var (
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32
-	onTransactionConfirmedClosure *events.Closure
+	onTransactionGoFReachedClosure *events.Closure
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool
@@ -65,7 +65,7 @@ func ManaPlugin() *node.Plugin {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionConfirmedClosure = events.NewClosure(onTransactionConfirmed)
+	onTransactionGoFReachedClosure = events.NewClosure(onTransactionGoFReached)
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -102,7 +102,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	FinalityGadget().Events().MessageGoFReached.Attach(onTransactionGoFReachedClosure)
 	// mana.Events().Pledged.Attach(onPledgeEventClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -121,7 +121,7 @@ func configureEvents() {
 //	}
 //}
 
-func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
+func onTransactionGoFReached(transactionID ledgerstate.TransactionID) {
 	Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
@@ -224,7 +224,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				FinalityGadget().Events().MessageGoFReached.Detach(onTransactionGoFReachedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return

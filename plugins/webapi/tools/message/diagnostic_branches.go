@@ -101,16 +101,12 @@ var DiagnosticBranchesTableDescription = []string{
 
 // DiagnosticBranchInfo holds the information of a branch.
 type DiagnosticBranchInfo struct {
-	ID                 string
-	ConflictSet        []string
-	IssuanceTimestamp  time.Time
-	SolidTime          time.Time
-	Liked              bool
-	MonotonicallyLiked bool
-	InclusionState     string
-	Finalized          bool
-	LazyBooked         bool
-	GradeOfFinality    gof.GradeOfFinality
+	ID                string
+	ConflictSet       []string
+	IssuanceTimestamp time.Time
+	SolidTime         time.Time
+	LazyBooked        bool
+	GradeOfFinality   gof.GradeOfFinality
 }
 
 func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchInfo {
@@ -119,9 +115,6 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 	}
 
 	messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		conflictInfo.Liked = branch.Liked()
-		conflictInfo.MonotonicallyLiked = branch.MonotonicallyLiked()
-		conflictInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(branchID).String()
 		conflictInfo.GradeOfFinality = branch.GradeOfFinality()
 
 		if branch.Type() == ledgerstate.AggregatedBranchType {
@@ -138,7 +131,6 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
-			conflictInfo.Finalized = transactionMetadata.Finalized()
 			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
 		})
 	})
@@ -152,10 +144,6 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		strings.Join(d.ConflictSet, ";"),
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
-		fmt.Sprint(d.Liked),
-		fmt.Sprint(d.MonotonicallyLiked),
-		d.InclusionState,
-		fmt.Sprint(d.Finalized),
 		fmt.Sprint(d.LazyBooked),
 	}
 

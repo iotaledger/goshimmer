@@ -141,7 +141,7 @@ func (n *Client) decodeReceivedMessage(data []byte, msgChopper *chopper.Chopper)
 		n.log.Debugf("received message from server: %T", msg)
 		n.Events.TransactionReceived.Trigger(msg)
 
-	case *txstream.MsgTxInclusionState:
+	case *txstream.MsgTxGoF:
 		n.log.Debugf("received message from server: %T", msg)
 		n.Events.InclusionStateReceived.Trigger(msg)
 

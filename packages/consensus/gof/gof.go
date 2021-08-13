@@ -22,3 +22,7 @@ func (gof GradeOfFinality) String() string {
 		"GoF(High)",
 	}[gof]
 }
+
+func (gof GradeOfFinality) Bytes() []byte {
+	return []byte{byte(gof)}
+}

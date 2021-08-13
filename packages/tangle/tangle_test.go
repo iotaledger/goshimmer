@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -532,12 +531,6 @@ func TestTangle_Flow(t *testing.T) {
 	tangle.ConsensusManager.Events.MessageOpinionFormed.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&opinionFormedMessages, 1)
 		t.Logf("opinion formed messages %d/%d", n, totalMsgCount)
-	}))
-
-	// data messages should not trigger this event
-	tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		n := atomic.AddInt32(&opinionFormedTransactions, 1)
-		t.Logf("opinion formed transaction %d/%d - %s", n, totalMsgCount, transactionID)
 	}))
 
 	tangle.Events.Error.Attach(events.NewClosure(func(err error) {

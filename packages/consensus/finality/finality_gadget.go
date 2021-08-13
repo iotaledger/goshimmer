@@ -17,6 +17,7 @@ type Gadget interface {
 	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)
 	Events() *Events
 	IsMarkerConfirmed(marker *markers.Marker) (confirmed bool)
+	tangle.ConfirmationOracle
 }
 
 type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
@@ -98,6 +99,24 @@ func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker *markers.Marker) (confir
 
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		if messageMetadata.GradeOfFinality() >= s.messageGoFReachedLevel {
+			confirmed = true
+		}
+	})
+	return
+}
+
+func (s *SimpleFinalityGadget) IsMessageConfirmed(msgId tangle.MessageID) (confirmed bool) {
+	s.tangle.Storage.MessageMetadata(msgId).Consume(func(messageMetadata *tangle.MessageMetadata) {
+		if messageMetadata.GradeOfFinality() >= s.messageGoFReachedLevel {
+			confirmed = true
+		}
+	})
+	return
+}
+
+func (s *SimpleFinalityGadget) IsBranchConfirmed(branchId ledgerstate.BranchID) (confirmed bool) {
+	s.tangle.LedgerState.BranchDAG.Branch(branchId).Consume(func(branch ledgerstate.Branch) {
+		if branch.GradeOfFinality() >= s.messageGoFReachedLevel {
 			confirmed = true
 		}
 	})

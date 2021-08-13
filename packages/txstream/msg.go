@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/marshalutil"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -30,7 +31,7 @@ const (
 	msgTypeSetID
 
 	msgTypeTransaction = MessageType(FlagServerToClient + iota)
-	msgTypeTxInclusionState
+	msgTypeTxGoF
 	msgTypeOutput
 	msgTypeUnspentAliasOutput
 )
@@ -118,12 +119,12 @@ type MsgTransaction struct {
 	Tx *ledgerstate.Transaction
 }
 
-// MsgTxInclusionState informs the client with the inclusion state of a given
+// MsgTxInclusionState informs the client with the gof of a given
 // transaction as a response from the given address.
-type MsgTxInclusionState struct {
-	Address ledgerstate.Address
-	TxID    ledgerstate.TransactionID
-	State   ledgerstate.InclusionState
+type MsgTxGoF struct {
+	Address         ledgerstate.Address
+	TxID            ledgerstate.TransactionID
+	GradeOfFinality gof.GradeOfFinality
 }
 
 // MsgOutput is the response for MsgGetConfirmedOutput
@@ -188,8 +189,8 @@ func DecodeMsg(data []byte, expectedFlags uint8) (interface{}, error) {
 	case msgTypeTransaction:
 		ret = &MsgTransaction{}
 
-	case msgTypeTxInclusionState:
-		ret = &MsgTxInclusionState{}
+	case msgTypeTxGoF:
+		ret = &MsgTxGoF{}
 
 	case msgTypeGetConfirmedOutput:
 		ret = &MsgGetConfirmedOutput{}
@@ -356,18 +357,15 @@ func (msg *MsgTransaction) Type() MessageType {
 	return msgTypeTransaction
 }
 
-func (msg *MsgTxInclusionState) Write(w *marshalutil.MarshalUtil) {
+func (msg *MsgTxGoF) Write(w *marshalutil.MarshalUtil) {
 	w.Write(msg.Address)
-	w.Write(msg.State)
+	w.Write(msg.GradeOfFinality)
 	w.Write(msg.TxID)
 }
 
-func (msg *MsgTxInclusionState) Read(m *marshalutil.MarshalUtil) error {
+func (msg *MsgTxGoF) Read(m *marshalutil.MarshalUtil) error {
 	var err error
 	if msg.Address, err = ledgerstate.AddressFromMarshalUtil(m); err != nil {
-		return err
-	}
-	if msg.State, err = ledgerstate.InclusionStateFromMarshalUtil(m); err != nil {
 		return err
 	}
 	if msg.TxID, err = ledgerstate.TransactionIDFromMarshalUtil(m); err != nil {
@@ -377,8 +375,8 @@ func (msg *MsgTxInclusionState) Read(m *marshalutil.MarshalUtil) error {
 }
 
 // Type returns the Message type
-func (msg *MsgTxInclusionState) Type() MessageType {
-	return msgTypeTxInclusionState
+func (msg *MsgTxGoF) Type() MessageType {
+	return msgTypeTxGoF
 }
 
 func (msg *MsgGetConfirmedOutput) Write(w *marshalutil.MarshalUtil) {

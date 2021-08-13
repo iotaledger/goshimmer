@@ -45,7 +45,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionConfirmedClosure *events.Closure
+	onTransactionGoFReached *events.Closure
 
 	// logger
 	log *logger.Logger
@@ -70,10 +70,10 @@ func Filter() *DoubleSpendFilter {
 
 func configure(*node.Plugin) {
 	doubleSpendFilter = Filter()
-	onTransactionConfirmedClosure = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	onTransactionGoFReached = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		doubleSpendFilter.Remove(transactionID)
 	})
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	messagelayer.FinalityGadget().Events().MessageGoFReached.Attach(onTransactionGoFReached)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -94,7 +94,6 @@ func run(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransaction)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
-	webapi.Server().GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
 	webapi.Server().POST("ledgerstate/transactions", PostTransaction)
 }
@@ -114,7 +113,7 @@ func worker(shutdownSignal <-chan struct{}) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+	messagelayer.FinalityGadget().Events().TransactionGoFReached.Detach(onTransactionGoFReached)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -197,25 +196,14 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 			cachedOutputMetadata := messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID())
 			cachedOutputMetadata.Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() == 0 {
-					inclusionState := jsonmodels.InclusionState{}
-					txID := output.ID().TransactionID()
-					txInclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(txID)
-					if err != nil {
-						return
-					}
-					inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
-					inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
-					inclusionState.Conflicting = len(messagelayer.Tangle().LedgerState.ConflictSet(txID)) != 0
-
 					cachedTx := messagelayer.Tangle().LedgerState.Transaction(output.ID().TransactionID())
 					var timestamp time.Time
 					cachedTx.Consume(func(tx *ledgerstate.Transaction) {
 						timestamp = tx.Essence().Timestamp()
 					})
 					res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
-						Output:         *jsonmodels.NewOutput(output),
-						InclusionState: inclusionState,
-						Metadata:       jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
+						Output:   *jsonmodels.NewOutput(output),
+						Metadata: jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
 					})
 				}
 			})
@@ -392,27 +380,6 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 	}
 
 	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region GetTransactionInclusionState /////////////////////////////////////////////////////////////////////////////////
-
-// GetTransactionInclusionState is the handler for the ledgerstate/transactions/:transactionID/inclusionState endpoint.
-func GetTransactionInclusionState(c echo.Context) (err error) {
-	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	inclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	conflicting := len(messagelayer.Tangle().LedgerState.ConflictSet(transactionID)) != 0
-
-	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID, conflicting))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

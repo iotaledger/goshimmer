@@ -694,8 +694,6 @@ type TransactionMetadata struct {
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	finalized               bool
-	finalizedMutex          sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
@@ -740,10 +738,6 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
@@ -838,31 +832,6 @@ func (t *TransactionMetadata) SolidificationTime() time.Time {
 	return t.solidificationTime
 }
 
-// Finalized returns a boolean flag that indicates if the Transaction has been finalized regarding its decision of being
-// included in the ledger state.
-func (t *TransactionMetadata) Finalized() (finalized bool) {
-	t.finalizedMutex.RLock()
-	defer t.finalizedMutex.RUnlock()
-
-	return t.finalized
-}
-
-// SetFinalized updates the finalized flag of the Transaction. It returns true if the value was modified.
-func (t *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
-	t.finalizedMutex.Lock()
-	defer t.finalizedMutex.Unlock()
-
-	if t.finalized == finalized {
-		return
-	}
-
-	t.finalized = finalized
-	t.SetModified()
-	modified = true
-
-	return
-}
-
 // LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
 // status of its consumed Branches.
 func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
@@ -922,7 +891,6 @@ func (t *TransactionMetadata) String() string {
 		stringify.StructField("branchID", t.BranchID()),
 		stringify.StructField("solid", t.Solid()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
-		stringify.StructField("finalized", t.Finalized()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
 	)
@@ -946,7 +914,6 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		Write(t.BranchID()).
 		WriteBool(t.Solid()).
 		WriteTime(t.SolidificationTime()).
-		WriteBool(t.Finalized()).
 		WriteBool(t.LazyBooked()).
 		WriteUint8(uint8(t.GradeOfFinality())).
 		Bytes()

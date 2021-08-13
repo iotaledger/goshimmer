@@ -83,16 +83,10 @@ func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) 
 	}
 	// it has to be unspent
 	isUnspent := false
-	isConfirmed := false
 	messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		isUnspent = outputMetadata.ConsumerCount() == 0
-		incState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(output.ID().TransactionID())
-		if err != nil {
-			return
-		}
-		isConfirmed = incState == ledgerstate.Confirmed
 	})
-	if !isUnspent || !isConfirmed {
+	if !isUnspent {
 		return false
 	}
 	// has to be a delegation alias that the delegation address owns for at least 1 min into the future

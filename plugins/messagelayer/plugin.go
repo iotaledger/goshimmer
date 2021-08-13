@@ -163,7 +163,7 @@ func Tangle() *tangle.Tangle {
 		tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 		finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
-		tangleInstance.IsMarkerConfirmed = finalityGadget.IsMarkerConfirmed
+		tangleInstance.ConfirmationOracle = finalityGadget
 
 		tangleInstance.Setup()
 	})
