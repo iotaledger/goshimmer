@@ -125,50 +125,9 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 	Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
+
 		// process transaction object to build txInfo
-		var totalAmount float64
-		var inputInfos []mana.InputInfo
-
-		// iterate over all inputs within the transaction
-		for _, input := range transaction.Essence().Inputs() {
-			i := input.(*ledgerstate.UTXOInput)
-
-			var amount float64
-			var inputTimestamp time.Time
-			var accessManaNodeID identity.ID
-			var consensusManaNodeID identity.ID
-			var _inputInfo mana.InputInfo
-
-			Tangle().LedgerState.CachedOutput(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
-				// first, sum balances of the input, calculate total amount as well for later
-				o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-					amount += float64(balance)
-					totalAmount += amount
-					return true
-				})
-				// derive the transaction that created this input
-				inputTxID := o.ID().TransactionID()
-				// look into the transaction, we need timestamp and access & consensus pledge IDs
-				Tangle().LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
-					if transaction != nil {
-						inputTimestamp = transaction.Essence().Timestamp()
-						accessManaNodeID = transaction.Essence().AccessPledgeID()
-						consensusManaNodeID = transaction.Essence().ConsensusPledgeID()
-					}
-				})
-				// build InputInfo for this particular input in the transaction
-				_inputInfo = mana.InputInfo{
-					TimeStamp: inputTimestamp,
-					Amount:    amount,
-					PledgeID: map[mana.Type]identity.ID{
-						mana.AccessMana:    accessManaNodeID,
-						mana.ConsensusMana: consensusManaNodeID,
-					},
-					InputID: o.ID(),
-				}
-			})
-			inputInfos = append(inputInfos, _inputInfo)
-		}
+		totalAmount, inputInfos := gatherInputInfos(transaction)
 
 		txInfo = &mana.TxInfo{
 			TimeStamp:     transaction.Essence().Timestamp(),
@@ -185,6 +144,40 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 			baseManaVector.Book(txInfo)
 		}
 	})
+}
+
+func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64, inputInfos []mana.InputInfo) {
+	inputInfos = make([]mana.InputInfo, 0)
+	for _, input := range transaction.Essence().Inputs() {
+		var inputInfo mana.InputInfo
+
+		Tangle().LedgerState.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+			inputInfo.InputID = o.ID()
+
+			// first, sum balances of the input, calculate total amount as well for later
+			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				inputInfo.Amount += float64(balance)
+				totalAmount += float64(balance)
+				return true
+			})
+
+			// derive the transaction that created this input
+			inputTxID := o.ID().TransactionID()
+			// look into the transaction, we need timestamp and access & consensus pledge IDs
+			Tangle().LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
+				if transaction == nil {
+					return
+				}
+				inputInfo.TimeStamp = transaction.Essence().Timestamp()
+				inputInfo.PledgeID = map[mana.Type]identity.ID{
+					mana.AccessMana:    transaction.Essence().AccessPledgeID(),
+					mana.ConsensusMana: transaction.Essence().ConsensusPledgeID(),
+				}
+			})
+		})
+		inputInfos = append(inputInfos, inputInfo)
+	}
+	return totalAmount, inputInfos
 }
 
 func runManaPlugin(_ *node.Plugin) {
