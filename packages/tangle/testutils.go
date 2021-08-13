@@ -747,12 +747,12 @@ func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
 }
 
 // IsMessageConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsMessageConfirmed(msgId MessageID) bool {
+func (m *MockConfirmationOracle) IsMessageConfirmed(msgID MessageID) bool {
 	return false
 }
 
 // IsBranchConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsBranchConfirmed(branchId ledgerstate.BranchID) bool {
+func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID) bool {
 	return false
 }
 

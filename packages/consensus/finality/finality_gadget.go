@@ -101,8 +101,8 @@ func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker *markers.Marker) (confir
 }
 
 // IsMessageConfirmed returns whether the given message is confirmed.
-func (s *SimpleFinalityGadget) IsMessageConfirmed(msgId tangle.MessageID) (confirmed bool) {
-	s.tangle.Storage.MessageMetadata(msgId).Consume(func(messageMetadata *tangle.MessageMetadata) {
+func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confirmed bool) {
+	s.tangle.Storage.MessageMetadata(msgID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		if messageMetadata.GradeOfFinality() >= s.messageGoFReachedLevel {
 			confirmed = true
 		}
@@ -111,8 +111,8 @@ func (s *SimpleFinalityGadget) IsMessageConfirmed(msgId tangle.MessageID) (confi
 }
 
 // IsBranchConfirmed returns whether the given branch is confirmed.
-func (s *SimpleFinalityGadget) IsBranchConfirmed(branchId ledgerstate.BranchID) (confirmed bool) {
-	s.tangle.LedgerState.BranchDAG.Branch(branchId).Consume(func(branch ledgerstate.Branch) {
+func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
+	s.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		if branch.GradeOfFinality() >= s.messageGoFReachedLevel {
 			confirmed = true
 		}
