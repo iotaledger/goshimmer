@@ -98,20 +98,12 @@ func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (w
 // WeightOfMarker returns the weight of the given marker based on the anchorTime.
 func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
 	activeWeight, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
-	branchID := a.tangle.Booker.MarkersManager.BranchID(marker)
+
 	supportersOfMarker := a.supportersOfMarker(marker)
 	supporterWeight := float64(0)
-	if branchID == ledgerstate.MasterBranchID {
-		supportersOfMarker.ForEach(func(supporter Supporter) {
-			supporterWeight += activeWeight[supporter]
-		})
-	} else {
-		a.supportersOfBranch(branchID).ForEach(func(supporter Supporter) {
-			if supportersOfMarker.Has(supporter) {
-				supporterWeight += activeWeight[supporter]
-			}
-		})
-	}
+	supportersOfMarker.ForEach(func(supporter Supporter) {
+		supporterWeight += activeWeight[supporter]
+	})
 
 	return supporterWeight / totalWeight
 }
@@ -320,22 +312,21 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, messa
 	a.tangle.Storage.SequenceSupporters(marker.SequenceID(), func() *SequenceSupporters {
 		return NewSequenceSupporters(marker.SequenceID())
 	}).Consume(func(sequenceSupporters *SequenceSupporters) {
-		if sequenceSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()), marker.Index()) {
-			a.updateMarkerWeight(marker, message)
+		sequenceSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()), marker.Index())
+		a.updateMarkerWeight(marker, message)
 
-			a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
-				sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-					// Avoid adding and tracking support of markers in sequence 0.
-					if sequenceID == 0 {
-						return true
-					}
-
-					walk.Push(markers.NewMarker(sequenceID, index))
-
+		a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+			sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+				// Avoid adding and tracking support of markers in sequence 0.
+				if sequenceID == 0 {
 					return true
-				})
+				}
+
+				walk.Push(markers.NewMarker(sequenceID, index))
+
+				return true
 			})
-		}
+		})
 	})
 }
 
@@ -379,7 +370,6 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 
 	for i := a.firstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
-		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
 		if a.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID {
@@ -392,17 +382,9 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 
 		supportersOfMarker := a.supportersOfMarker(currentMarker)
 		supporterWeight := float64(0)
-		if branchID == ledgerstate.MasterBranchID {
-			supportersOfMarker.ForEach(func(supporter Supporter) {
-				supporterWeight += activeWeights[supporter]
-			})
-		} else {
-			a.supportersOfBranch(branchID).ForEach(func(supporter Supporter) {
-				if supportersOfMarker.Has(supporter) {
-					supporterWeight += activeWeights[supporter]
-				}
-			})
-		}
+		supportersOfMarker.ForEach(func(supporter Supporter) {
+			supporterWeight += activeWeights[supporter]
+		})
 
 		a.Events.MarkerWeightChanged.Trigger(&MarkerWeightChangedEvent{currentMarker, supporterWeight / totalWeight})
 
@@ -434,14 +416,14 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
 				branchWeight.SetWeight(newBranchWeight)
 
-				a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight - a.weightOfHeaviestConflictingBranch(branchID)})
+				a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
 			})
 		default:
 			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
 				if newBranchWeight > branchWeight.Weight() {
 					branchWeight.SetWeight(newBranchWeight)
 
-					a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight - a.weightOfHeaviestConflictingBranch(branchID)})
+					a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
 				}
 			})
 		}
