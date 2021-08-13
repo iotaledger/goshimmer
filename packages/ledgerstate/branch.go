@@ -50,6 +50,11 @@ func NewBranchID(transactionID TransactionID) (branchID BranchID) {
 	return
 }
 
+// BranchIDEventHandler is an event handler for an event with a BranchID.
+func BranchIDEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(BranchID))(params[0].(BranchID))
+}
+
 // BranchIDFromBytes unmarshals a BranchID from a sequence of bytes.
 func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)

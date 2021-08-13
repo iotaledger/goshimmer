@@ -3,6 +3,7 @@ package finality
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -28,9 +29,9 @@ var (
 		switch {
 		case aw >= 0.2 && aw < 0.3:
 			return gof.Low
-		case aw >= 0.3 && aw < 0.6:
+		case aw >= 0.3 && aw < 0.4:
 			return gof.Middle
-		case aw >= 0.6:
+		case aw >= 0.4:
 			return gof.High
 		default:
 			return gof.None
@@ -41,9 +42,9 @@ var (
 		switch {
 		case aw >= 0.2 && aw < 0.3:
 			return gof.Low
-		case aw >= 0.3 && aw < 0.6:
+		case aw >= 0.3 && aw < 0.4:
 			return gof.Middle
-		case aw >= 0.6:
+		case aw >= 0.4:
 			return gof.High
 		default:
 			return gof.None
@@ -72,9 +73,10 @@ func NewSimpleFinalityGadget(t *tangle.Tangle) *SimpleFinalityGadget {
 		tangle:                 t,
 		branchGoFReachedLevel:  gof.High,
 		messageGoFReachedLevel: gof.High,
-		events:                 &tangle.ConfirmationEvents{
-			//MessageGoFReached:     events.NewEvent(),
-			//TransactionGoFReached: events.NewEvent(),
+		events: &tangle.ConfirmationEvents{
+			MessageConfirmed:     events.NewEvent(tangle.MessageIDCaller),
+			TransactionConfirmed: events.NewEvent(ledgerstate.TransactionIDEventHandler),
+			BranchConfirmed:      events.NewEvent(ledgerstate.BranchIDEventHandler),
 		},
 		branchGoF:  DefaultBranchGoFTranslation,
 		messageGoF: DefaultMessageGoFTranslation,
@@ -114,6 +116,16 @@ func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confi
 func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
 	s.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		if branch.GradeOfFinality() >= s.messageGoFReachedLevel {
+			confirmed = true
+		}
+	})
+	return
+}
+
+// IsOutputConfirmed returns whether the given output is confirmed.
+func (s *SimpleFinalityGadget) IsOutputConfirmed(outputID ledgerstate.OutputID) (confirmed bool) {
+	s.tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		if outputMetadata.GradeOfFinality() >= s.messageGoFReachedLevel {
 			confirmed = true
 		}
 	})

@@ -756,6 +756,11 @@ func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID
 	return false
 }
 
+// IsOutputConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsOutputConfirmed(outputID ledgerstate.OutputID) bool {
+	return false
+}
+
 // Events mocks its interface function.
 func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 	return &ConfirmationEvents{

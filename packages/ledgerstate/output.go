@@ -2332,8 +2332,6 @@ type OutputMetadata struct {
 	consumerCount           int
 	firstConsumer           TransactionID
 	consumerMutex           sync.RWMutex
-	finalized               bool
-	finalizedMutex          sync.RWMutex
 	confirmedConsumer       TransactionID // not nil if the spending transaction of the output is finalized
 	confirmedConsumerMutex  sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
@@ -2388,10 +2386,6 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 	outputMetadata.consumerCount = int(consumerCount)
 	if outputMetadata.firstConsumer, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse first consumer: %w", err)
-		return
-	}
-	if outputMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.confirmedConsumer, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
@@ -2517,31 +2511,6 @@ func (o *OutputMetadata) FirstConsumer() TransactionID {
 	return o.firstConsumer
 }
 
-// Finalized returns a boolean flag that indicates if the Transaction has been finalized regarding its decision of being
-// included in the ledger state.
-func (o *OutputMetadata) Finalized() (finalized bool) {
-	o.finalizedMutex.RLock()
-	defer o.finalizedMutex.RUnlock()
-
-	return o.finalized
-}
-
-// SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
-func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
-	o.finalizedMutex.Lock()
-	defer o.finalizedMutex.Unlock()
-
-	if o.finalized == finalized {
-		return
-	}
-
-	o.finalized = finalized
-	o.SetModified()
-	modified = true
-
-	return
-}
-
 // GradeOfFinality returns the grade of finality.
 func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
 	o.gradeOfFinalityMutex.RLock()
@@ -2602,7 +2571,6 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("consumerCount", o.ConsumerCount()),
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
-		stringify.StructField("finalized", o.Finalized()),
 		stringify.StructField("confirmedConsumer", o.ConfirmedConsumer()),
 		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
 	)
@@ -2628,7 +2596,6 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		WriteTime(o.SolidificationTime()).
 		WriteUint64(uint64(o.ConsumerCount())).
 		Write(o.FirstConsumer()).
-		WriteBool(o.Finalized()).
 		Write(o.ConfirmedConsumer()).
 		WriteUint8(uint8(o.GradeOfFinality())).
 		Bytes()

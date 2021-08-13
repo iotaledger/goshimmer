@@ -93,7 +93,6 @@ func TestGetOutput(t *testing.T) {
 	require.False(t, succ)
 
 	succ = u.GetOutputMetadata(outid0, func(metadata *ledgerstate.OutputMetadata) {
-		require.True(t, metadata.Finalized())
 		require.True(t, metadata.Solid())
 		require.Equal(t, 0, metadata.ConsumerCount())
 	})

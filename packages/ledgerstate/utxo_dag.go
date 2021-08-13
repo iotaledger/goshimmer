@@ -83,7 +83,7 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
-			TransactionBranchIDUpdated: events.NewEvent(transactionIDEventHandler),
+			TransactionBranchIDUpdated: events.NewEvent(TransactionIDEventHandler),
 		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, options.transactionMetadataStorageOptions...),
@@ -313,7 +313,6 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			metadata := NewOutputMetadata(output.ID())
 			metadata.SetBranchID(MasterBranchID)
 			metadata.SetSolid(true)
-			metadata.SetFinalized(true)
 			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
 			if stored {
 				cachedMetadata.Release()
@@ -813,7 +812,8 @@ type UTXODAGEvents struct {
 	TransactionBranchIDUpdated *events.Event
 }
 
-func transactionIDEventHandler(handler interface{}, params ...interface{}) {
+// TransactionIDEventHandler is an event handler for an event with a TransactionID.
+func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(TransactionID))(params[0].(TransactionID))
 }
 
