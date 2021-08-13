@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 const (
@@ -144,13 +143,7 @@ func (t *TimeManager) updateSyncedState() {
 }
 
 // updateTime updates the last confirmed message.
-func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
-	if transition != events.ThresholdLevelIncreased {
-		return
-	}
-
-	messageID := t.tangle.Booker.MarkersManager.MessageID(&marker)
-
+func (t *TimeManager) updateTime(messageID MessageID) {
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		t.lastConfirmedMutex.Lock()
 		defer t.lastConfirmedMutex.Unlock()
