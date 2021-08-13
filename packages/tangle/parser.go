@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -256,8 +257,8 @@ type MessageFilter interface {
 	OnAccept(callback func(msg *Message, peer *peer.Peer))
 	// OnAccept registers the given callback as the rejection function of the filter.
 	OnReject(callback func(msg *Message, err error, peer *peer.Peer))
-	// Close closes the filter.
-	Close()
+	// Closer closes the filter.
+	io.Closer
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -317,7 +318,7 @@ func (f *MessageSignatureFilter) getRejectCallback() (result func(msg *Message, 
 }
 
 // Close closes the filter.
-func (f *MessageSignatureFilter) Close() {}
+func (f *MessageSignatureFilter) Close() error { return nil }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -530,7 +531,7 @@ func (f *TransactionFilter) getRejectCallback() (result func(msg *Message, err e
 }
 
 // Close closes the filter.
-func (f *TransactionFilter) Close() {}
+func (f *TransactionFilter) Close() error { return nil }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -571,7 +572,7 @@ func (f *TimestampFilter) Filter(msg *Message, p *peer.Peer) {
 		f.getAcceptCallback()(msg, p)
 		return
 	}
-	// // add the message with timestamp in the future to the timed executor
+	// add the message with timestamp in the future to the timed executor
 	f.queue.ExecuteAt(func() {
 		f.getAcceptCallback()(msg, p)
 	}, msg.IssuingTime())
@@ -599,8 +600,9 @@ func (f *TimestampFilter) getAcceptCallback() (result func(msg *Message, p *peer
 }
 
 // Close closes the filter.
-func (f *TimestampFilter) Close() {
+func (f *TimestampFilter) Close() error {
 	f.queue.Shutdown(timedexecutor.CancelPendingTasks)
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
