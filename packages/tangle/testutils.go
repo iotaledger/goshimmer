@@ -729,7 +729,35 @@ func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
-	return New(options...)
+
+	t := New(options...)
+	t.ConfirmationOracle = &MockConfirmationOracle{}
+
+	return t
+}
+
+type MockConfirmationOracle struct{}
+
+func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
+	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
+	// beginning of the sequence for all markers.
+	return false
+}
+
+func (m *MockConfirmationOracle) IsMessageConfirmed(msgId MessageID) bool {
+	return false
+}
+
+func (m *MockConfirmationOracle) IsBranchConfirmed(branchId ledgerstate.BranchID) bool {
+	return false
+}
+
+func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
+	return &ConfirmationEvents{
+		MessageConfirmed:     events.NewEvent(nil),
+		TransactionConfirmed: events.NewEvent(nil),
+		BranchConfirmed:      events.NewEvent(nil),
+	}
 }
 
 // SimpleMockOnTangleVoting is mock of OTV mechanism.
