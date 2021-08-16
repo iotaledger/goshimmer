@@ -9,7 +9,6 @@ import (
 	"github.com/labstack/echo"
 
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 )
 
@@ -104,7 +103,7 @@ func websocketRoute(c echo.Context) error {
 	defer removeWsClient(clientID)
 
 	// send mana dashboard address info
-	manaDashboardHostAddress := config.Node().String(CfgManaDashboardAddress)
+	manaDashboardHostAddress := Parameters.CfgManaDashboardAddress
 	err = sendJSON(ws, &wsmsg{
 		Type: dashboard.MsgManaDashboardAddress,
 		Data: manaDashboardHostAddress,
