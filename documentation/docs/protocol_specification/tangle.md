@@ -266,10 +266,12 @@ Messages that do no pass the Syntactical Validation are discarded. Only syntacti
 A message is syntactically valid if:
 1. The message length does not exceed `MAX_MESSAGE_SIZE` bytes.
 1. When the message parsing is complete, there are not any trailing bytes left that were not parsed.
-1. Parents Blocks must be ordered by ASC type.
-1. Exactly 1 <i>Strong Parents Block</i> must exist.
+1. Parents Blocks must be ordered by ASC type with no repetitions.
+1. A <i>Strong Parents Block</i> must exist.
+1. There must be at least 1 parent per block and no more than 8.
 1. Parents in each Parents Block types must be ordered ASC without repetition. 
-1. Parents must be unique across Parents Blocks.
+1. Parents must be unique across Parents Blocks. But there may be repetitions across the <i>Strong</i> and <i>Liked</i> blocks.
+1. <i>Parents Block Count</i> and <i>Parents Count</i> must match the actual number of blocks and parents respectively.
 
 ### Semantic Validation
 Messages that do not pass the Semantic Validation are discarded. Only semantically valid messages continue in the data flow.
