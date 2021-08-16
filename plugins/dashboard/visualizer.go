@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -84,9 +85,9 @@ func runVisualizer() {
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-				finalized := messageMetadata.IsFinalized()
-				addToHistory(message, finalized)
-				visualizerWorkerPool.TrySubmit(message, finalized)
+				gradeOfFinality := messageMetadata.GradeOfFinality()
+				addToHistory(message, gradeOfFinality)
+				visualizerWorkerPool.TrySubmit(message, gradeOfFinality)
 			})
 		})
 	})
@@ -139,7 +140,7 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func addToHistory(msg *tangle.Message, opinionFormed bool) {
+func addToHistory(msg *tangle.Message, gradeOfFinality gof.GradeOfFinality) {
 	msgHistoryMutex.Lock()
 	defer msgHistoryMutex.Unlock()
 	if _, exist := msgFinalized[msg.ID().Base58()]; exist {

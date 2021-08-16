@@ -40,13 +40,13 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid     bool   `json:"solid"`
-	BranchID  string `json:"branchID"`
-	Scheduled bool   `json:"scheduled"`
-	Booked    bool   `json:"booked"`
-	Eligible  bool   `json:"eligible"`
-	Invalid   bool   `json:"invalid"`
-	Finalized bool   `json:"finalized"`
+	Solid           bool   `json:"solid"`
+	BranchID        string `json:"branchID"`
+	Scheduled       bool   `json:"scheduled"`
+	Booked          bool   `json:"booked"`
+	Eligible        bool   `json:"eligible"`
+	Invalid         bool   `json:"invalid"`
+	GradeOfFinality string `json:"gradeOfFinality"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -89,7 +89,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
-		Finalized:               messageMetadata.IsFinalized(),
+		GradeOfFinality:         messageMetadata.GradeOfFinality().String(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
@@ -234,7 +234,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var metaData *ledgerstate.OutputMetadata
 		var timestamp int64
 
-		// get output metadata + liked status from branch of the output
+		// get output metadata + grade of finality status from branch of the output
 		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
 		})

@@ -33,7 +33,7 @@ export function totalBalanceFromExplorerOutputs(outputs: Array<ExplorerOutput>, 
     if (outputs.length === 0) {return totalBalance;}
     for (let i = 0; i < outputs.length; i++) {
         let o = outputs[i];
-        if (o.inclusionState.finalized !== true) {
+        if (o.metadata.gradeOfFinality !== "GoF(High)") {
             // ignore all unconfirmed balances
             continue
         }
