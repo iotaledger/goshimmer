@@ -26,7 +26,7 @@ services:
       --analysis.dashboard.CfgMongoDBEnabled=${MONGO_DB_ENABLED:-false}
       --analysis.dashboard.CfgMongoDBHostAddress=mongodb:27017
       --analysis.server.bindAddress=0.0.0.0:1888
-      --autopeering.entryNodes=
+      --autopeering.discovery.EntryNodes=
       --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
