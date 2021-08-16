@@ -92,10 +92,6 @@ var DiagnosticBranchesTableDescription = []string{
 	"ConflictSet",
 	"IssuanceTime",
 	"SolidTime",
-	"Liked",
-	"MonotonicallyLiked",
-	"InclusionState",
-	"Finalized",
 	"LazyBooked",
 }
 

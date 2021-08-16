@@ -63,11 +63,7 @@ var DiagnosticUTXODAGTableDescription = []string{
 	"Outputs",
 	"Attachments",
 	"BranchID",
-	"BranchLiked",
-	"BranchMonotonicallyLiked",
 	"Conflicting",
-	"InclusionState",
-	"Finalized",
 	"LazyBooked",
 }
 

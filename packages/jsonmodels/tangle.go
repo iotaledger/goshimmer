@@ -40,8 +40,6 @@ type MessageMetadata struct {
 	BookedTime         int64               `json:"bookedTime"`
 	Eligible           bool                `json:"eligible"`
 	Invalid            bool                `json:"invalid"`
-	Finalized          bool                `json:"finalized"`
-	FinalizedTime      int64               `json:"finalizedTime"`
 	GradeOfFinality    gof.GradeOfFinality `json:"gradeOfFinality"`
 }
 

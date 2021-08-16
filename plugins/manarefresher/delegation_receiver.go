@@ -83,10 +83,12 @@ func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) 
 	}
 	// it has to be unspent
 	isUnspent := false
+	isConfirmed := false
 	messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		isUnspent = outputMetadata.ConsumerCount() == 0
+		isConfirmed = messagelayer.Tangle().ConfirmationOracle.IsOutputConfirmed(output.ID())
 	})
-	if !isUnspent {
+	if !isUnspent || !isConfirmed {
 		return false
 	}
 	// has to be a delegation alias that the delegation address owns for at least 1 min into the future

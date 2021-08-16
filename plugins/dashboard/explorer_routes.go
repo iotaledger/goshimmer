@@ -125,11 +125,12 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID          *jsonmodels.OutputID       `json:"id"`
-	Output      *jsonmodels.Output         `json:"output"`
-	Metadata    *jsonmodels.OutputMetadata `json:"metadata"`
-	TxTimestamp int                        `json:"txTimestamp"`
-	PendingMana float64                    `json:"pendingMana"`
+	ID              *jsonmodels.OutputID       `json:"id"`
+	Output          *jsonmodels.Output         `json:"output"`
+	Metadata        *jsonmodels.OutputMetadata `json:"metadata"`
+	TxTimestamp     int                        `json:"txTimestamp"`
+	PendingMana     float64                    `json:"pendingMana"`
+	GradeOfFinality string                     `json:"gradeOfFinality"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -249,11 +250,12 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
 		outputs = append(outputs, ExplorerOutput{
-			ID:          jsonmodels.NewOutputID(output.ID()),
-			Output:      jsonmodels.NewOutput(output),
-			Metadata:    jsonmodels.NewOutputMetadata(metaData),
-			TxTimestamp: int(timestamp),
-			PendingMana: pendingMana,
+			ID:              jsonmodels.NewOutputID(output.ID()),
+			Output:          jsonmodels.NewOutput(output),
+			Metadata:        jsonmodels.NewOutputMetadata(metaData),
+			TxTimestamp:     int(timestamp),
+			PendingMana:     pendingMana,
+			GradeOfFinality: metaData.GradeOfFinality().String(),
 		})
 	})
 
