@@ -15,7 +15,7 @@ services:
       - "14626:14626/udp" # autopeering discovery
     command: >
       --autopeering.seed=${SEED}
-      --autopeering.entryNodes=
+      --autopeering.discovery.EntryNodes=
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.CfgBindAddress=0.0.0.0:8080
