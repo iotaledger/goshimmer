@@ -65,7 +65,7 @@ func ManaPlugin() *node.Plugin {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionConfirmedClosure = events.NewClosure(onTransactionGoFReached)
+	onTransactionConfirmedClosure = events.NewClosure(onTransactionConfirmed)
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
