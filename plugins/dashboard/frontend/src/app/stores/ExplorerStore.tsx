@@ -35,7 +35,7 @@ export class Message {
     booked: boolean;
     eligible: boolean;
     invalid: boolean;
-    finalized: boolean;
+    gradeOfFinality: string;
     payload_type: number;
     payload: any;
     rank: number;
@@ -55,7 +55,6 @@ export class ExplorerOutput {
     id: OutputID;
     output: Output;
     metadata: OutputMetadata
-    inclusionState: InclusionState;
     txTimestamp: number;
     pendingMana: number;
 }
@@ -74,7 +73,7 @@ export class OutputMetadata {
     consumerCount: number;
     firstConsumer: string; // tx id of first consumer (can be unconfirmed)
     confirmedConsumer: string // tx id of confirmed consumer
-    finalized: boolean;
+    gradeOfFinality: string
 }
 
 class OutputConsumer {
@@ -99,10 +98,7 @@ class Branch {
     type: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
-    liked: boolean;
-    monotonicallyLiked: boolean;
-    finalized: boolean;
-    inclusionState: string;
+    gradeOfFinality: string
 }
 
 class BranchChildren {
@@ -123,14 +119,6 @@ class BranchConflict {
 class BranchConflicts {
     branchID: string;
     conflicts: Array<BranchConflict>
-}
-
-export class InclusionState {
-	liked: boolean;
-	rejected: boolean;
-	finalized: boolean;
-	conflicting: boolean;
-	confirmed: boolean;
 }
 
 class SearchResult {
