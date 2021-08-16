@@ -62,7 +62,7 @@ func indexRoute(e echo.Context) error {
 }
 
 func setupRoutes(e *echo.Echo) {
-	if config.Node().Bool("analysis.dashboard.dev") {
+	if config.Node().Bool("dashboard.CfgDev") {
 		e.Static("/assets", "./plugins/analysis/dashboard/frontend/src/assets")
 	} else {
 		// load assets from packr: either from within the binary or actual disk
