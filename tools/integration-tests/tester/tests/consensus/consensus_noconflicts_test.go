@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -86,14 +87,12 @@ func TestConsensusNoConflicts(t *testing.T) {
 	log.Println("checking that genesis has no UTXOs")
 	tests.RequireNoUnspentOutputs(t, n.Peers(), genesisAddr)
 
-	// Wait for the approval weigth to build up via the sync beacon.
+	// Wait for the approval weight to build up via the sync beacon.
 	time.Sleep(20 * time.Second)
 	log.Println("check that the transaction is finalized/confirmed by all peers")
-	tests.RequireInclusionStateEqual(t, n.Peers(), map[string]tests.ExpectedInclusionState{
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), map[string]tests.ExpectedState{
 		txID: {
-			Confirmed: tests.True(), Finalized: tests.True(),
-			Conflicting: tests.False(), Solid: tests.True(),
-			Rejected: tests.False(), Liked: tests.True(),
+			GradeOfFinality: tests.GoFPointer(gof.High),
 		},
 	}, tests.Timeout, tests.Tick)
 	tests.RequireTransactionsEqual(t, n.Peers(), map[string]*tests.ExpectedTransaction{
@@ -108,7 +107,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	secondReceiverSeed := seed.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
 	secondReceiverExpectedBalances := map[string]map[ledgerstate.Color]uint64{}
-	secondReceiverExpectedStates := map[string]tests.ExpectedInclusionState{}
+	secondReceiverExpectedStates := map[string]tests.ExpectedState{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
 
 	for i := 0; i < depositCount; i++ {
@@ -129,10 +128,8 @@ func TestConsensusNoConflicts(t *testing.T) {
 		utilsTx := jsonmodels.NewTransaction(tx)
 
 		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}
-		secondReceiverExpectedStates[txID] = tests.ExpectedInclusionState{
-			Confirmed: tests.True(), Finalized: tests.True(),
-			Conflicting: tests.False(), Solid: tests.True(),
-			Rejected: tests.False(), Liked: tests.True(),
+		secondReceiverExpectedStates[txID] = tests.ExpectedState{
+			GradeOfFinality: tests.GoFPointer(gof.High),
 		}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks,
@@ -148,7 +145,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// Wait for the approval weigth to build up via the sync beacon.
 	time.Sleep(20 * time.Second)
 	log.Println("checking that the 2nd batch transactions are finalized/confirmed")
-	tests.RequireInclusionStateEqual(t, n.Peers(), secondReceiverExpectedStates, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), secondReceiverExpectedStates, tests.Timeout, tests.Tick)
 	tests.RequireTransactionsEqual(t, n.Peers(), secondReceiverExpectedTransactions)
 
 	log.Println("check that the 2nd batch of receive addresses is the same on all peers")

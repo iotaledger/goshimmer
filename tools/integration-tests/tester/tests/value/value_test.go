@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -53,25 +54,25 @@ func TestValueTransactionPersistence(t *testing.T) {
 	}
 
 	// send IOTA tokens from every peer
-	expectedStates := make(map[string]tests.ExpectedInclusionState)
+	expectedStates := make(map[string]tests.ExpectedState)
 	for _, peer := range peers {
 		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
 		require.NoError(t, err)
-		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
+		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
 	}
 
 	// check ledger state
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	// send colored tokens from every peer
 	for _, peer := range peers {
 		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
-		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
+		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
 	}
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	log.Printf("Restarting %d peers...", len(peers))
@@ -83,7 +84,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 }
 
@@ -113,13 +114,12 @@ func TestValueAliasPersistence(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	inclusionState := map[string]tests.ExpectedInclusionState{
+	inclusionState := map[string]tests.ExpectedState{
 		tx.ID().Base58(): {
-			Confirmed: tests.True(),
-			Rejected:  tests.False(),
+			GradeOfFinality: tests.GoFPointer(gof.High),
 		},
 	}
-	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
 
 	aliasOutputID := checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -133,7 +133,7 @@ func TestValueAliasPersistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
-	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
 
 	checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -221,9 +221,9 @@ func TestValueAliasDelegation(t *testing.T) {
 	_, err = peer.PostTransaction(tx.Bytes())
 	require.NoError(t, err)
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), map[string]tests.ExpectedInclusionState{
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), map[string]tests.ExpectedState{
 		tx.ID().Base58(): {
-			Confirmed: tests.True(),
+			GradeOfFinality: tests.GoFPointer(gof.High),
 		},
 	}, tests.Timeout, tests.Tick)
 
