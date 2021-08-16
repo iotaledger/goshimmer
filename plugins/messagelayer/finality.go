@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -29,5 +30,12 @@ func configureFinality() {
 		if err := finalityGadget.HandleBranch(e.BranchID, e.Weight); err != nil {
 			plugin.LogError(err)
 		}
+	}))
+
+	// we need to update the WeightProvider on confirmation
+	finalityGadget.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			Tangle().WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
+		})
 	}))
 }

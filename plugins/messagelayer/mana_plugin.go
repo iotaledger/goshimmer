@@ -214,6 +214,13 @@ func runManaPlugin(_ *node.Plugin) {
 					plugin.Panic("could not read snapshot file in Mana Plugin:", err)
 				}
 				loadSnapshot(snapshot)
+
+				// initialize cMana WeightProvider with snapshot
+				t := time.Unix(tangle.DefaultGenesisTime, 0)
+				for nodeID := range GetCMana() {
+					Tangle().WeightProvider.Update(t, nodeID)
+				}
+
 				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)
 			}
 		}
