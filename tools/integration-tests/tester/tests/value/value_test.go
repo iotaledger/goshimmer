@@ -114,12 +114,12 @@ func TestValueAliasPersistence(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	inclusionState := map[string]tests.ExpectedState{
+	expectedState := map[string]tests.ExpectedState{
 		tx.ID().Base58(): {
 			GradeOfFinality: tests.GoFPointer(gof.High),
 		},
 	}
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)
 
 	aliasOutputID := checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -133,7 +133,7 @@ func TestValueAliasPersistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)
 
 	checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 

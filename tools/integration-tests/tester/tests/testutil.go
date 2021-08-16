@@ -368,7 +368,7 @@ func RequireGradeOfFinalityEqual(t *testing.T, nodes []*framework.Node, expected
 				}
 				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
-				// the inclusion state can change, so we should check all transactions every time
+				// the grade of finality can change, so we should check all transactions every time
 				if !txMetadataStateEqual(t, node, txID, expInclState) {
 					return false
 				}
@@ -377,9 +377,9 @@ func RequireGradeOfFinalityEqual(t *testing.T, nodes []*framework.Node, expected
 		return true
 	}
 
-	log.Printf("Waiting for %d transactions to reach the correct inclusion state...", len(expectedStates))
+	log.Printf("Waiting for %d transactions to reach the correct grade of finality...", len(expectedStates))
 	require.Eventually(t, condition, waitFor, tick)
-	log.Println("Waiting for inclusion state... done")
+	log.Println("Waiting for grade of finality... done")
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
