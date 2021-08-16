@@ -241,7 +241,6 @@ type Options struct {
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
 	CacheTimeProvider            *database.CacheTimeProvider
-	ConfirmationOracle           ConfirmationOracle
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
