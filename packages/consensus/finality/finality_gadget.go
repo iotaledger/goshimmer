@@ -15,7 +15,6 @@ import (
 type Gadget interface {
 	HandleMarker(marker *markers.Marker, aw float64) (err error)
 	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)
-	IsMarkerConfirmed(marker *markers.Marker) (confirmed bool)
 	tangle.ConfirmationOracle
 }
 
