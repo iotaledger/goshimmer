@@ -45,8 +45,8 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 				o.unspentOutputs[addy] = make(map[ledgerstate.OutputID]*Output)
 			}
 			// mark the output as spent if we already marked it as spent locally
-			if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.GradeOfFinalityReached {
-				output.GradeOfFinalityReached = true
+			if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
+				output.Spent = true
 			}
 			o.unspentOutputs[addy][outputID] = output
 		}
@@ -96,9 +96,14 @@ func (o *OutputManager) getOutputs(includePending bool, addresses ...address.Add
 		// iterate through outputs
 		for transactionID, output := range unspentOutputsOnAddress {
 			// skip spent outputs
-			if output.GradeOfFinalityReached {
+			if output.Spent {
 				continue
 			}
+			// discard non-confirmed if includePending is false
+			if !includePending && !output.GradeOfFinalityReached {
+				continue
+			}
+
 			// store unspent outputs in result
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
 				unspentOutputs[addr] = make(map[ledgerstate.OutputID]*Output)
@@ -122,5 +127,5 @@ func (o *OutputManager) MarkOutputSpent(addy address.Address, outputID ledgersta
 	}
 
 	// mark output as spent
-	output.GradeOfFinalityReached = true
+	output.Spent = true
 }

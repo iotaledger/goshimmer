@@ -79,8 +79,10 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 			}
 			// build output
 			walletOutput := &Output{
-				Address: addr,
-				Object:  lOutput,
+				Address:                addr,
+				Object:                 lOutput,
+				GradeOfFinalityReached: output.GradeOfFinality == gof.High,
+				Spent:                  false,
 				Metadata: OutputMetadata{
 					Timestamp: output.Metadata.Timestamp,
 				},

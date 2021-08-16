@@ -202,8 +202,9 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 						timestamp = tx.Essence().Timestamp()
 					})
 					res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
-						Output:   *jsonmodels.NewOutput(output),
-						Metadata: jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
+						Output:          *jsonmodels.NewOutput(output),
+						GradeOfFinality: outputMetadata.GradeOfFinality(),
+						Metadata:        jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
 					})
 				}
 			})

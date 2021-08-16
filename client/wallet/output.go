@@ -13,6 +13,8 @@ type Output struct {
 	Object                 ledgerstate.Output
 	Metadata               OutputMetadata
 	GradeOfFinalityReached bool
+	// Spent is a local wallet-only property that gets set once an output is spent from within the same wallet.
+	Spent bool
 }
 
 // OutputMetadata is metadata about the output.
