@@ -31,10 +31,10 @@ const (
 	// MinimumFaucetBalance defines the minimum token amount required, before the faucet stops operating.
 	MinimumFaucetBalance = 0.1 * GenesisTokenAmount
 
-	// MinimumFaucetFundsLeft defines the minimum fraction (x/100) of prepared fundingReminders limit that triggers funds preparation
-	MinimumFaucetRemindersFractionLeft = 10
+	// MinimumFaucetRemindersPercentageLeft defines the minimum percentage of prepared fundingReminders that triggers funds preparation
+	MinimumFaucetRemindersPercentageLeft = 10
 
-	// MaxFaucetOutputsCount defines the max outputs count for the Facuet as the ledgerstate.MaxOutputCount -1 remainder output.
+	// MaxFaucetOutputsCount defines the max outputs count for the Faucet as the ledgerstate.MaxOutputCount -1 remainder output.
 	MaxFaucetOutputsCount = ledgerstate.MaxOutputCount - 1
 
 	// WaitForConfirmation defines the wait time before considering a transaction confirmed.
@@ -423,7 +423,7 @@ func (s *StateManager) findSupplyOutputs() (err error) {
 						ID:           output.ID(),
 						Balance:      iotaBalance,
 						Address:      output.Address(),
-						AddressIndex: RemainderAddressIndex,
+						AddressIndex: supplyAddr,
 					}
 					s.supplyOutputs.PushBack(supplyOutput)
 					foundSupplyCount++
@@ -469,11 +469,6 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	err = s.prepareSupplyFunding()
 	if err != nil {
 		return errors.Errorf("%w: %w", ErrSupplyPreparationFailed, err)
-	}
-
-	err = s.findSupplyOutputs()
-	if err != nil {
-		return errors.Errorf("%w : %w", ErrMissingSupplyOutputs, err)
 	}
 
 	err = s.splitSupplyTransaction()
@@ -585,7 +580,6 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 			timeoutCounter++
 		}
 	}
-
 }
 
 // updateState takes a confirmed transaction (splitting tx), and updates the faucet internal state based on its content.
@@ -593,8 +587,6 @@ func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err
 	messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		remainingBalance := s.remainderOutput.Balance - s.tokensPerRequest*s.preparedOutputsCount*s.splittingMultiplayer
 		supplyBalance := s.tokensPerRequest * s.splittingMultiplayer
-
-		fundingOutputs := make([]*FaucetOutput, 0, s.preparedOutputsCount)
 
 		// derive information from outputs
 		for _, output := range transaction.Essence().Outputs() {
@@ -605,7 +597,7 @@ func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err
 			}
 			switch iotaBalance {
 			case s.tokensPerRequest:
-				fundingOutputs = append(fundingOutputs, &FaucetOutput{
+				s.fundingOutputs.PushBack(&FaucetOutput{
 					ID:           output.ID(),
 					Balance:      iotaBalance,
 					Address:      output.Address(),
@@ -629,10 +621,6 @@ func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err
 				err = errors.Errorf("tx %s should not have output with balance %d", transactionID.Base58(), iotaBalance)
 				return
 			}
-		}
-		// save the info in internal state for tokensPerRequest case
-		if len(fundingOutputs) != 0 {
-			s.saveFundingOutputs(fundingOutputs)
 		}
 	})
 
@@ -698,9 +686,11 @@ func (s *StateManager) splittingTransactionElements() (inputs ledgerstate.Inputs
 	// prepare s.splittingMultiplayer number of funding outputs.
 	outputs = make(ledgerstate.Outputs, 0, s.splittingMultiplayer)
 	// start from the last used funding output address index
-	for index := s.lastFundingOutputAddressIndex + 1; index < s.lastFundingOutputAddressIndex+s.splittingMultiplayer+1; index++ {
-		outputs = append(outputs, s.createOutput(s.seed.Address(index).Address(), s.tokensPerRequest))
-		s.addressToIndex[s.seed.Address(index).Address().Base58()] = index
+	for i := uint64(0); i < s.splittingMultiplayer; i++ {
+		s.lastFundingOutputAddressIndex++
+		addr := s.seed.Address(s.lastFundingOutputAddressIndex).Address()
+		outputs = append(outputs, s.createOutput(addr, s.tokensPerRequest))
+		s.addressToIndex[addr.Base58()] = s.lastFundingOutputAddressIndex
 	}
 	// signature
 	w = wallet{keyPair: *s.seed.KeyPair(reminder.AddressIndex)}
