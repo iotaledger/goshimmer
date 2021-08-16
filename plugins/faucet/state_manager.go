@@ -2,10 +2,10 @@ package faucet
 
 import (
 	"container/list"
-	"github.com/iotaledger/hive.go/typeutils"
-	"sort"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -39,6 +39,9 @@ const (
 
 	// WaitForConfirmation defines the wait time before considering a transaction confirmed.
 	WaitForConfirmation = 10 * time.Second
+
+	// totalPercentage constant used to calculate percentage of funds left in the faucet
+	totalPercentage = 100
 )
 
 // region FaucetOutput
@@ -90,6 +93,9 @@ type StateManager struct {
 
 	// isPreparingFunds indicates if faucet is currently preparing next batch of reminders
 	isPreparingFunds typeutils.AtomicBool
+
+	// wg is used when fulfilling request for waiting for more funds in case they were not prepared on time
+	wg sync.WaitGroup
 }
 
 // NewStateManager creates a new state manager for the faucet.
@@ -165,28 +171,17 @@ func (s *StateManager) DeriveStateFromTangle() (err error) {
 	endIndex := (GenesisTokenAmount-s.remainderOutput.Balance)/s.tokensPerRequest + 1
 	Plugin().LogInfof("%d indices have already been used based on found remainder output", endIndex)
 
-	foundPreparedOutputs := s.findPreparedOutputs(endIndex)
+	foundPreparedOutputs := s.findFundingOutputs(endIndex)
 
 	if len(foundPreparedOutputs) != 0 {
 		// save all already prepared outputs into the state manager
 		s.saveFundingOutputs(foundPreparedOutputs)
 	}
 
-	// trigger funds preparation, because there are less than 1/10th possible outputs left
-	if uint64(s.FundingOutputsCount()) < s.splittingMultiplayer*s.preparedOutputsCount/MinimumFaucetRemindersFractionLeft {
+	if s.notEnoughFundsInTheFaucet() {
 		Plugin().LogInfof("Preparing more outputs...")
 		err = s.prepareMoreFundingOutputs()
-		if err != nil {
-			if errors.Is(err, ErrSplittingFundsFailed) {
-				err = errors.Errorf("failed to prepare more outputs: %w", err)
-				Plugin().LogError(err)
-				return
-			}
-			if errors.Is(err, ErrConfirmationTimeoutExpired) {
-				Plugin().LogInfof("Preparing more outputs partially successful: %w", err)
-			}
-			Plugin().LogInfof("Preparing more outputs... DONE")
-		}
+		err = s.handlePrepareErrors(err)
 	}
 
 	Plugin().LogInfof("Added new funding outputs, last used address index is %d", s.lastFundingOutputAddressIndex)
@@ -199,12 +194,12 @@ func (s *StateManager) DeriveStateFromTangle() (err error) {
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
 func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tangle.Message, txID string, err error) {
-
 	faucetReq := requestMsg.Payload().(*faucet.Request)
 
-	// trigger funds preparation, because there are less than 1/10th outputs left
-	if uint64(s.FundingOutputsCount()) < s.splittingMultiplayer*s.preparedOutputsCount/MinimumFaucetRemindersFractionLeft {
-		s.signalMoreFundingNeeded()
+	if s.notEnoughFundsInTheFaucet() {
+		// wait if there is no outputs prepared
+		waitForPreparation := s.FundingOutputsCount() == 0
+		s.signalMoreFundingNeeded(waitForPreparation)
 	}
 
 	// get an output that we can spend
@@ -235,28 +230,27 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	}
 	txID = tx.ID().Base58()
 
-	return m, txID, err
+	return
+}
+
+// notEnoughFundsInTheFaucet checks if number of funding outputs is lower than MinimumFaucetRemindersPercentageLeft of total funds prepared at once
+func (s *StateManager) notEnoughFundsInTheFaucet() bool {
+	return uint64(s.FundingOutputsCount()) < uint64(float64(s.splittingMultiplayer*s.preparedOutputsCount)*float64(MinimumFaucetRemindersPercentageLeft)/totalPercentage)
 }
 
 // signalMoreFundingNeeded triggers preparation of faucet funding only if none preparation is currently running
-func (s *StateManager) signalMoreFundingNeeded() {
+// if wait is true it awaits for funds to be prepared
+func (s *StateManager) signalMoreFundingNeeded(wait bool) {
 	if s.isPreparingFunds.SetToIf(false, true) {
-		//TODO add wait group or use some more sophisticated thingy to handle during the shutdown (should it wait for the confirmation?)
 		go func() {
 			Plugin().LogInfof("Preparing more outputs...")
 			err := s.prepareMoreFundingOutputs()
-			if err != nil {
-				if errors.Is(err, ErrSplittingFundsFailed) {
-					err = errors.Errorf("failed to prepare more outputs: %w", err)
-					Plugin().LogError(err)
-					return
-				}
-				if errors.Is(err, ErrConfirmationTimeoutExpired) {
-					Plugin().LogInfof("Preparing more outputs partially successful: %w", err)
-				}
-				Plugin().LogInfof("Preparing more outputs... DONE")
-			}
+			_ = s.handlePrepareErrors(err)
 		}()
+	}
+	// waits until preparation of funds will finish
+	if wait {
+		s.wg.Wait()
 	}
 }
 
@@ -293,7 +287,7 @@ func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fu
 	return
 }
 
-// saveFundingOutputs sorts the given slice of faucet funding outputs based on the address indices, and then saves them in stateManager.
+// saveFundingOutputs saves the given slice of indices in StateManager and updates lastFundingOutputAddressIndex.
 func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 	s.fundingMutex.Lock()
 	defer s.fundingMutex.Unlock()
@@ -320,9 +314,8 @@ func (s *StateManager) getFundingOutput() (fundingOutput *FaucetOutput, err erro
 	return
 }
 
-// findPreparedOutputs looks for prepared outputs in the tangle.
-func (s *StateManager) findPreparedOutputs(endIndex uint64) []*FaucetOutput {
-
+// findFundingOutputs looks for prepared outputs in the tangle.
+func (s *StateManager) findFundingOutputs(endIndex uint64) []*FaucetOutput {
 	foundPreparedOutputs := make([]*FaucetOutput, 0)
 
 	Plugin().LogInfof("Looking for prepared outputs in the Tangle...")
@@ -335,8 +328,7 @@ func (s *StateManager) findPreparedOutputs(endIndex uint64) []*FaucetOutput {
 					if !colorExist {
 						return
 					}
-					switch iotaBalance {
-					case s.tokensPerRequest:
+					if iotaBalance == s.tokensPerRequest {
 						// we found a prepared output
 						foundPreparedOutputs = append(foundPreparedOutputs, &FaucetOutput{
 							ID:           output.ID(),
@@ -436,7 +428,7 @@ func (s *StateManager) findSupplyOutputs() (err error) {
 	if foundSupplyCount == 0 {
 		return errors.Errorf("can't find any supply output that has %d tokens", int(s.tokensPerRequest))
 	}
-	return
+	return nil
 }
 
 // nextSupplyReminder returns the first supply address in the list.
@@ -450,9 +442,12 @@ func (s *StateManager) nextSupplyReminder() (supplyOutput *FaucetOutput, err err
 
 // prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output on preparedOutputsCount outputs plus new reminder.
 // and submits supply transactions. After transaction is confirmed it uses each supply output and splits it again for splittingMultiplayer many times.
-// After confirmation outputs are added to fundingOutputs list.
+// After confirmation, outputs are added to fundingOutputs list.
 // Reminder is stored on address 0. Next 126 indexes are reserved for supply transaction outputs.
 func (s *StateManager) prepareMoreFundingOutputs() (err error) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
 	defer s.isPreparingFunds.UnSet()
 	// no remainder output present
 	err = s.findUnspentRemainderOutput()
@@ -461,7 +456,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	}
 	// if no error was returned, s.remainderOutput is not nil anymore
 
-	if !s.isEnoughFunds() {
+	if s.notEnoughFunds() {
 		err = ErrNotEnoughFunds
 		return
 	}
@@ -475,22 +470,33 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	if errors.Is(err, ErrSplittingFundsFailed) {
 		return err
 	}
+	return nil
+}
 
-	return
+func (s *StateManager) handlePrepareErrors(err error) error {
+	if err != nil {
+		if errors.Is(err, ErrSplittingFundsFailed) {
+			err = errors.Errorf("failed to prepare more outputs: %w", err)
+			Plugin().LogError(err)
+			return err
+		}
+		if errors.Is(err, ErrConfirmationTimeoutExpired) {
+			Plugin().LogInfof("Preparing more outputs partially successful: %w", err)
+		}
+		Plugin().LogInfof("Preparing more outputs... DONE")
+	}
+	return err
 }
 
 // isEnoughFunds indicates if there is enough funds to carry on the faucet funds preparation
-func (s *StateManager) isEnoughFunds() bool {
+func (s *StateManager) notEnoughFunds() bool {
 	s.preparingMutex.Lock()
 	defer s.preparingMutex.Unlock()
 	// not enough funds to carry out operation
-	if s.tokensPerRequest*s.preparedOutputsCount*s.splittingMultiplayer > s.remainderOutput.Balance {
-		return false
-	}
-	return true
+	return s.remainderOutput.Balance < s.tokensPerRequest*s.preparedOutputsCount*s.splittingMultiplayer
 }
 
-// prepareSupplyFunding take remainder output and split it up to create supply transaction that will be used for further splitting
+// prepareSupplyFunding takes a remainder output and splits it up to create supply transaction that will be used for further splitting
 func (s *StateManager) prepareSupplyFunding() (err error) {
 	s.preparingMutex.Lock()
 	defer s.preparingMutex.Unlock()
@@ -499,9 +505,9 @@ func (s *StateManager) prepareSupplyFunding() (err error) {
 	if err != nil {
 		return err
 	}
-	m := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
-	m[tx.ID()] = tx
-	err = s.waitUntilAndProcessAfterConfirmation(m)
+	supplyMap := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
+	supplyMap[tx.ID()] = tx
+	err = s.waitUntilAndProcessAfterConfirmation(supplyMap)
 	return
 }
 
@@ -510,16 +516,17 @@ func (s *StateManager) splitSupplyTransaction() (err error) {
 	s.preparingMutex.Lock()
 	defer s.preparingMutex.Unlock()
 
-	m := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
+	splittingMap := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
 	var tx *ledgerstate.Transaction
-	for i := uint64(0); i < uint64(s.SupplyOutputsCount()); i++ {
+	supplyToProcess := uint64(s.SupplyOutputsCount())
+	for i := uint64(0); i < supplyToProcess; i++ {
 		tx, err = s.createSplittingTx(s.splittingTransactionElements)
 		if err != nil {
 			return
 		}
-		m[tx.ID()] = tx
+		splittingMap[tx.ID()] = tx
 	}
-	err = s.waitUntilAndProcessAfterConfirmation(m)
+	err = s.waitUntilAndProcessAfterConfirmation(splittingMap)
 	return
 }
 
@@ -527,7 +534,7 @@ func (s *StateManager) splitSupplyTransaction() (err error) {
 // monitors them until confirmation and updates the faucet internal state
 func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[ledgerstate.TransactionID]*ledgerstate.Transaction) error {
 	// buffered channel will store all confirmed transactions
-	txConfirmed := make(chan ledgerstate.TransactionID, len(preparedTxIDs)) //s.preparedOutputsCount or 1
+	txConfirmed := make(chan ledgerstate.TransactionID, len(preparedTxIDs)) // length is s.preparedOutputsCount or 1
 
 	monitorTxConfirmation := events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		if _, ok := preparedTxIDs[transactionID]; ok {
@@ -561,7 +568,7 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 	for {
 		select {
 		case confirmedTx := <-txConfirmed:
-			confirmedCount += 1
+			confirmedCount++
 			err := s.updateState(confirmedTx)
 			if err == nil {
 				stateUpdatedCount++
