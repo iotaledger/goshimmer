@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -296,21 +297,13 @@ func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ..
 	}
 }
 
-// ExpectedInclusionState is an expected inclusion state.
+// ExpectedState is an expected state.
 // All fields are optional.
-type ExpectedInclusionState struct {
-	// The optional confirmed state to check against.
-	Confirmed *bool
-	// The optional finalized state to check against.
-	Finalized *bool
-	// The optional conflict state to check against.
-	Conflicting *bool
+type ExpectedState struct {
+	// The optional grade of finality state to check against.
+	GradeOfFinality *gof.GradeOfFinality
 	// The optional solid state to check against.
 	Solid *bool
-	// The optional rejected state to check against.
-	Rejected *bool
-	// The optional liked state to check against.
-	Liked *bool
 }
 
 // True returns a pointer to a true bool.
@@ -323,6 +316,11 @@ func True() *bool {
 func False() *bool {
 	x := false
 	return &x
+}
+
+// GoFPointer returns a pointer to the given grade of finality value.
+func GoFPointer(gradeOfFinality gof.GradeOfFinality) *gof.GradeOfFinality {
+	return &gradeOfFinality
 }
 
 // ExpectedTransaction defines the expected data of a transaction.
@@ -357,9 +355,9 @@ func RequireTransactionsEqual(t *testing.T, nodes []*framework.Node, transaction
 	}
 }
 
-// RequireInclusionStateEqual asserts that all nodes have received the transaction and have correct expectedStates
+// RequireGradeOfFinalityEqual asserts that all nodes have received the transaction and have correct expectedStates
 // in waitFor time, periodically checking each tick.
-func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedStates map[string]ExpectedInclusionState, waitFor time.Duration, tick time.Duration) {
+func RequireGradeOfFinalityEqual(t *testing.T, nodes []*framework.Node, expectedStates map[string]ExpectedState, waitFor time.Duration, tick time.Duration) {
 	condition := func() bool {
 		for _, node := range nodes {
 			for txID, expInclState := range expectedStates {
@@ -370,8 +368,8 @@ func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedS
 				}
 				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
-				// the inclusion state can change, so we should check all transactions every time
-				if !inclusionStateEqual(t, node, txID, expInclState) {
+				// the grade of finality can change, so we should check all transactions every time
+				if !txMetadataStateEqual(t, node, txID, expInclState) {
 					return false
 				}
 			}
@@ -379,9 +377,9 @@ func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedS
 		return true
 	}
 
-	log.Printf("Waiting for %d transactions to reach the correct inclusion state...", len(expectedStates))
+	log.Printf("Waiting for %d transactions to reach the correct grade of finality...", len(expectedStates))
 	require.Eventually(t, condition, waitFor, tick)
-	log.Println("Waiting for inclusion state... done")
+	log.Println("Waiting for grade of finality... done")
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
@@ -401,17 +399,12 @@ func OutputIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 	panic("invalid address")
 }
 
-func inclusionStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedInclusionState) bool {
-	inclusionState, err := node.GetTransactionInclusionState(txID)
-	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionInclusionState' failed")
+func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) bool {
 	metadata, err := node.GetTransactionMetadata(txID)
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 
-	if (expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed) ||
-		(expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized) ||
-		(expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting) ||
-		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) ||
-		(expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected) {
+	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
+		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) {
 		return false
 	}
 	return true

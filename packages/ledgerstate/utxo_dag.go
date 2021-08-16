@@ -313,6 +313,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			metadata := NewOutputMetadata(output.ID())
 			metadata.SetBranchID(MasterBranchID)
 			metadata.SetSolid(true)
+			metadata.SetGradeOfFinality(gof.High)
 			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
 			if stored {
 				cachedMetadata.Release()

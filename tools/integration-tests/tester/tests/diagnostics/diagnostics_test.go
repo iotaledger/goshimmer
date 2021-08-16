@@ -16,7 +16,7 @@ var (
 	messageHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
 		"ScheduledTime", "BookedTime", "FinalizedTime", "StrongParents", "WeakParents",
-		"StrongApprovers", "WeakApprovers", "BranchID", "InclusionState", "Scheduled", "Booked", "Eligible", "Invalid",
+		"StrongApprovers", "WeakApprovers", "BranchID", "Scheduled", "Booked", "GradeOfFinality", "Eligible", "Invalid",
 		"Finalized", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI", "PayloadType",
 		"TransactionID",
 	}
@@ -24,14 +24,12 @@ var (
 	tipsHeader = append([]string{"tipType"}, messageHeader...)
 
 	branchesHeader = []string{
-		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "Liked",
-		"MonotonicallyLiked", "InclusionState", "Finalized", "LazyBooked",
+		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "GradeOfFinality",
 	}
 
 	utxoDagHeader = []string{
 		"ID", "IssuanceTime", "SolidTime", "AccessManaPledgeID",
-		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "BranchLiked", "BranchMonotonicallyLiked",
-		"Conflicting", "InclusionState", "Finalized", "LazyBooked",
+		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "GradeOfFinality",
 	}
 
 	drngHeader = []string{

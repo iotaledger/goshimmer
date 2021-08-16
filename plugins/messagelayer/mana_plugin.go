@@ -65,7 +65,7 @@ func ManaPlugin() *node.Plugin {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionConfirmedClosure = events.NewClosure(onTransactionGoFReached)
+	onTransactionConfirmedClosure = events.NewClosure(onTransactionConfirmed)
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -121,7 +121,7 @@ func configureEvents() {
 //	}
 //}
 
-func onTransactionGoFReached(transactionID ledgerstate.TransactionID) {
+func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 	Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
