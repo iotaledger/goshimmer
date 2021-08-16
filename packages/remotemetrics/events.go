@@ -37,7 +37,7 @@ type SyncStatusChangedEvent struct {
 	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
 }
 
-// MessageFinalizedMetrics defines the transaction metrics record to sent be to remote logger.
+// MessageFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
 type MessageFinalizedMetrics struct {
 	Type               string    `json:"type" bson:"type"`
 	NodeID             string    `json:"nodeID" bson:"nodeID"`
@@ -58,7 +58,7 @@ type MessageFinalizedMetrics struct {
 	LikeParentCount    int       `json:"likeParentCount,omitempty" bson:"likeParentCount"`
 }
 
-// BranchConfirmationMetrics defines the branch confirmation metrics record to sent be to remote logger.
+// BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.
 type BranchConfirmationMetrics struct {
 	Type               string                     `json:"type" bson:"type"`
 	NodeID             string                     `json:"nodeID" bson:"nodeID"`
@@ -71,7 +71,7 @@ type BranchConfirmationMetrics struct {
 	InclusionState     ledgerstate.InclusionState `json:"inclusionState" bson:"inclusionState"`
 }
 
-// BranchCountUpdate defines the branch confirmation metrics record to sent be to remote logger.
+// BranchCountUpdate defines the branch confirmation metrics record that is sent to remote logger.
 type BranchCountUpdate struct {
 	Type                 string `json:"type" bson:"type"`
 	NodeID               string `json:"nodeID" bson:"nodeID"`
@@ -80,7 +80,7 @@ type BranchCountUpdate struct {
 	FinalizedBranchCount uint64 `json:"finalizedBranchCount" bson:"finalizedBranchCount"`
 }
 
-// DRNGMetrics defines the DRNG metrics record to sent be to remote logger.
+// DRNGMetrics defines the DRNG metrics record that is sent to remote logger.
 type DRNGMetrics struct {
 	Type              string    `json:"type" bson:"type"`
 	NodeID            string    `json:"nodeID" bson:"nodeID"`
