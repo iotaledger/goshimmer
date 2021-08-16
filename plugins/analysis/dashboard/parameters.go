@@ -3,26 +3,26 @@ package dashboard
 import "github.com/iotaledger/hive.go/configuration"
 
 type ParametersDefinition struct {
-	// CfgBindAddress defines the config flag of the analysis dashboard binding address.
-	CfgBindAddress string `default:"0.0.0.0:8000" usage:"the bind address of the analysis dashboard"`
-	// CfgDev defines the config flag of the analysis dashboard dev mode.
-	CfgDev bool `default:"false" usage:""whether the analysis dashboard runs in dev mode""`
-	// CfgBasicAuthEnabled defines the config flag of the analysis dashboard basic auth enabler.
-	CfgBasicAuthEnabled bool `default:"false" usage:"whether to enable HTTP basic auth"`
-	// CfgBasicAuthUsername defines the config flag of the analysis dashboard basic auth username.
-	CfgBasicAuthUsername string `default:"goshimmer" usage:"HTTP basic auth username"`
-	// CfgBasicAuthPassword defines the config flag of the analysis dashboard basic auth password.
-	CfgBasicAuthPassword string `default:"goshimmer" usage:"HTTP basic auth password"`
-	// CfgMongoDBEnabled defines the config flag of the analysis dashboard to enable mongoDB.
-	CfgMongoDBEnabled bool `default:"false" usage:"whether to enable MongoDB"`
-	// CfgMongoDBUsername defines the config flag of the analysis dashboard mongoDB username.
-	CfgMongoDBUsername string `default:"root" usage:"MongoDB username"`
-	// CfgMongoDBPassword defines the config flag of the analysis dashboard mongoDB password.
-	CfgMongoDBPassword string `default:"password" usage:"MongoDB username"`
-	// CfgMongoDBHostAddress defines the config flag of the analysis dashboard mongoDB binding address.
-	CfgMongoDBHostAddress string `default:"mongodb:27017" usage:"MongoDB host address"`
-	// CfgManaDashboardAddress defines the address of the mana dashboard to stream mana info from.
-	CfgManaDashboardAddress string `default:"http://127.0.0.1:8081" usage:"dashboard host address"`
+	// BindAddress defines the config flag of the analysis dashboard binding address.
+	BindAddress string `default:"0.0.0.0:8000" usage:"the bind address of the analysis dashboard"`
+	// Dev defines the config flag of the analysis dashboard dev mode.
+	Dev bool `default:"false" usage:""whether the analysis dashboard runs in dev mode""`
+	// BasicAuthEnabled defines the config flag of the analysis dashboard basic auth enabler.
+	BasicAuthEnabled bool `default:"false" usage:"whether to enable HTTP basic auth"`
+	// BasicAuthUsername defines the config flag of the analysis dashboard basic auth username.
+	BasicAuthUsername string `default:"goshimmer" usage:"HTTP basic auth username"`
+	// BasicAuthPassword defines the config flag of the analysis dashboard basic auth password.
+	BasicAuthPassword string `default:"goshimmer" usage:"HTTP basic auth password"`
+	// MongoDBEnabled defines the config flag of the analysis dashboard to enable mongoDB.
+	MongoDBEnabled bool `default:"false" usage:"whether to enable MongoDB"`
+	// MongoDBUsername defines the config flag of the analysis dashboard mongoDB username.
+	MongoDBUsername string `default:"root" usage:"MongoDB username"`
+	// MongoDBPassword defines the config flag of the analysis dashboard mongoDB password.
+	MongoDBPassword string `default:"password" usage:"MongoDB username"`
+	// MongoDBHostAddress defines the config flag of the analysis dashboard mongoDB binding address.
+	MongoDBHostAddress string `default:"mongodb:27017" usage:"MongoDB host address"`
+	// ManaDashboardAddress defines the address of the mana dashboard to stream mana info from.
+	ManaDashboardAddress string `default:"http://127.0.0.1:8081" usage:"dashboard host address"`
 }
 
 // Parameters contains the configuration parameters of the logger plugin.

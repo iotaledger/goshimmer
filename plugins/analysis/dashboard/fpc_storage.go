@@ -55,9 +55,9 @@ func mongoDB() *mongo.Database {
 }
 
 func newMongoDB() (*mongo.Client, error) {
-	username := Parameters.CfgMongoDBUsername
-	password := Parameters.CfgMongoDBPassword
-	hostAddr := Parameters.CfgMongoDBHostAddress
+	username := Parameters.MongoDBUsername
+	password := Parameters.MongoDBPassword
+	hostAddr := Parameters.MongoDBHostAddress
 
 	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://" + username + ":" + password + "@" + hostAddr))
 	if err != nil {

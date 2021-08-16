@@ -103,7 +103,7 @@ func websocketRoute(c echo.Context) error {
 	defer removeWsClient(clientID)
 
 	// send mana dashboard address info
-	manaDashboardHostAddress := Parameters.CfgManaDashboardAddress
+	manaDashboardHostAddress := Parameters.ManaDashboardAddress
 	err = sendJSON(ws, &wsmsg{
 		Type: dashboard.MsgManaDashboardAddress,
 		Data: manaDashboardHostAddress,

@@ -18,7 +18,7 @@ services:
       --autopeering.discovery.EntryNodes=
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:1888
-      --analysis.dashboard.CfgBindAddress=0.0.0.0:8080
+      --analysis.dashboard.BindAddress=0.0.0.0:8080
       --config.enablePlugins=analysis-server,analysis-dashboard
       --config.disablePlugins=analysis-client,gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
 

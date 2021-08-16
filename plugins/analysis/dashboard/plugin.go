@@ -44,10 +44,10 @@ func configureServer() {
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if Parameters.CfgBasicAuthEnabled {
+	if Parameters.BasicAuthEnabled {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == Parameters.CfgBasicAuthUsername &&
-				password == Parameters.CfgBasicAuthPassword {
+			if username == Parameters.BasicAuthUsername &&
+				password == Parameters.BasicAuthPassword {
 				return true, nil
 			}
 			return false, nil
@@ -73,7 +73,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := Parameters.CfgBindAddress
+	bindAddr := Parameters.BindAddress
 	go func() {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		if err := server.Start(bindAddr); err != nil {

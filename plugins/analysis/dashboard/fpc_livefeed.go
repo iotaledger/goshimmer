@@ -40,7 +40,7 @@ type FPCUpdate struct {
 }
 
 func configureFPCLiveFeed() {
-	if Parameters.CfgMongoDBEnabled {
+	if Parameters.MongoDBEnabled {
 		mongoDB()
 	}
 
@@ -50,7 +50,7 @@ func configureFPCLiveFeed() {
 		task.Return(nil)
 	}, workerpool.WorkerCount(fpcLiveFeedWorkerCount), workerpool.QueueSize(fpcLiveFeedWorkerQueueSize))
 
-	if Parameters.CfgMongoDBEnabled {
+	if Parameters.MongoDBEnabled {
 		fpcStoreFinalizedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 			storeFinalizedVoteContext(task.Param(0).(FPCRecords))
 			task.Return(nil)
@@ -67,7 +67,7 @@ func runFPCLiveFeed() {
 
 		defer fpcLiveFeedWorkerPool.Stop()
 
-		if Parameters.CfgMongoDBEnabled {
+		if Parameters.MongoDBEnabled {
 			defer fpcStoreFinalizedWorkerPool.Stop()
 		}
 
@@ -147,7 +147,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 		})
 	}
 
-	if Parameters.CfgMongoDBEnabled {
+	if Parameters.MongoDBEnabled {
 		fpcStoreFinalizedWorkerPool.TrySubmit(finalizedConflicts)
 	}
 
