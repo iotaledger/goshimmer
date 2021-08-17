@@ -13,6 +13,6 @@ var (
 	ErrNotEnoughFunds = errors.New("not enough funds in the faucet")
 	// ErrConfirmationTimeoutExpired is returned when a faucet transaction was not confirmed in expected time.
 	ErrConfirmationTimeoutExpired = errors.New("tx confirmation time expired")
-	// ErrFundingCancelled is returned when a faucet funding is cancelled.
-	ErrFundingCancelled = errors.New("tx funding cancelled")
+	// ErrFundingCanceled is returned when a faucet funding is canceled.
+	ErrFundingCanceled = errors.New("tx funding canceled")
 )

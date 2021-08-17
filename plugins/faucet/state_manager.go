@@ -119,7 +119,7 @@ func (s *StateManager) FundingOutputsCount() int {
 //  - startIndex defines from which address index to start look for prepared outputs.
 //  - remainder output should always sit on address 0.
 //   - if no funding outputs are found, the faucet creates them from the remainder output.
-func (s *StateManager) DeriveStateFromTangle(startIndex int, ctx context.Context) (err error) {
+func (s *StateManager) DeriveStateFromTangle(ctx context.Context, startIndex int) (err error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -397,7 +397,7 @@ func (s *StateManager) prepareMoreFundingOutputs(ctx context.Context) (err error
 			err = s.updateState(confirmedTx)
 			return err
 		case <-ctx.Done():
-			return errors.Errorf("Message %s: %w", issuedMsg.ID(), ErrFundingCancelled)
+			return errors.Errorf("Message %s: %w", issuedMsg.ID(), ErrFundingCanceled)
 		case <-ticker.C:
 			if timeoutCounter >= maxWaitAttempts {
 				return errors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)

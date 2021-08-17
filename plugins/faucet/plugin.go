@@ -137,7 +137,7 @@ func run(*node.Plugin) {
 		}()
 
 		// determine state, prepare more outputs if needed
-		if err := Faucet().DeriveStateFromTangle(startIndex, ctx); err != nil {
+		if err := Faucet().DeriveStateFromTangle(ctx, startIndex); err != nil {
 			Plugin().LogErrorf("failed to derive state: %s", err)
 			return
 		}
