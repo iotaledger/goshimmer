@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -175,17 +176,17 @@ func registerLocalMetrics() {
 	// }))
 
 	// FPC round executed
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+	consensus.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		processRoundStats(roundStats)
 	}))
 
 	// a conflict has been finalized
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+	consensus.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		processFinalized(ev.Ctx)
 	}))
 
 	// consensus failure in conflict resolution
-	messagelayer.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+	consensus.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		processFailed(ev.Ctx)
 	}))
 

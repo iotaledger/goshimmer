@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -76,8 +77,8 @@ func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEve
 }
 
 func configureFPCConflictsMetrics() {
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
+	consensus.Voter().Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
+	consensus.Voter().Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
 }
 
 func configureDRNGMetrics() {

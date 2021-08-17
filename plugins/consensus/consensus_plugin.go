@@ -1,4 +1,4 @@
-package messagelayer
+package consensus
 
 import (
 	"context"
@@ -34,23 +34,24 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
 	// plugin is the plugin instance of the statement plugin.
-	consensusPlugin     *node.Plugin
-	consensusPluginOnce sync.Once
-	voter               *fpc.FPC
-	voterOnce           sync.Once
-	voterServer         *votenet.VoterServer
-	registry            *statement.Registry
-	registryOnce        sync.Once
-	dRNGState           *drng.State
-	dRNGStateMutex      sync.RWMutex
-	dRNGTicker          *drng.Ticker
-	dRNGTickerMutex     sync.RWMutex
+	plugin          *node.Plugin
+	pluginOnce      sync.Once
+	voter           *fpc.FPC
+	voterOnce       sync.Once
+	voterServer     *votenet.VoterServer
+	registry        *statement.Registry
+	registryOnce    sync.Once
+	dRNGState       *drng.State
+	dRNGStateMutex  sync.RWMutex
+	dRNGTicker      *drng.Ticker
+	dRNGTickerMutex sync.RWMutex
 )
 
 // DRNGTicker returns the pointer to the dRNGTicker.
@@ -60,29 +61,29 @@ func DRNGTicker() *drng.Ticker {
 	return dRNGTicker
 }
 
-// ConsensusPlugin returns the consensus plugin.
-func ConsensusPlugin() *node.Plugin {
-	consensusPluginOnce.Do(func() {
-		consensusPlugin = node.NewPlugin("Consensus", node.Enabled, configureConsensusPlugin, runConsensusPlugin)
+// Plugin returns the consensus plugin.
+func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin("Consensus", node.Enabled, configureConsensusPlugin, runConsensusPlugin)
 	})
-	return consensusPlugin
+	return plugin
 }
 
 func configureConsensusPlugin(plugin *node.Plugin) {
 	configureFPC(plugin)
 
 	// subscribe to FCOB events
-	ConsensusMechanism().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
+	messagelayer.ConsensusMechanism().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
 		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
 			plugin.LogWarnf("FPC vote: %s", err)
 		}
 	}))
-	ConsensusMechanism().Events.Error.Attach(events.NewClosure(func(err error) {
+	messagelayer.ConsensusMechanism().Events.Error.Attach(events.NewClosure(func(err error) {
 		plugin.LogErrorf("FCOB error: %s", err)
 	}))
 
 	// subscribe to message-layer
-	Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
+	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
 }
 
 func runConsensusPlugin(plugin *node.Plugin) {
@@ -131,7 +132,7 @@ func configureFPC(plugin *node.Plugin) {
 		plugin.LogDebugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 
-	Voter().Events().Finalized.Attach(events.NewClosure(ConsensusMechanism().ProcessVote))
+	Voter().Events().Finalized.Attach(events.NewClosure(messagelayer.ConsensusMechanism().ProcessVote))
 	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
 			plugin.LogInfof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
@@ -283,7 +284,7 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
-	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+	consensusManaNodes, _, err := messagelayer.GetManaMap(mana.ConsensusMana)
 	if err != nil {
 		plugin.LogErrorf("Error retrieving consensus mana: %s", err)
 	}
@@ -406,7 +407,7 @@ func (pog *PeerOpinionGiver) Address() string {
 // OwnManaRetriever returns the current consensus mana of a vector
 func OwnManaRetriever() (float64, error) {
 	var ownMana float64
-	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+	consensusManaNodes, _, err := messagelayer.GetManaMap(mana.ConsensusMana)
 	if v, ok := consensusManaNodes[local.GetInstance().ID()]; ok {
 		ownMana = v
 	}
@@ -431,7 +432,7 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 			return opinion.Unknown
 		}
 
-		opinionEssence := ConsensusMechanism().TransactionOpinionEssence(transactionID)
+		opinionEssence := messagelayer.ConsensusMechanism().TransactionOpinionEssence(transactionID)
 
 		if opinionEssence.LevelOfKnowledge() == fcob.Pending {
 			return opinion.Unknown
@@ -455,7 +456,7 @@ const (
 
 // checkEnoughMana function check whether a node with id is among the top holders of p percent of consensus mana mana
 func checkEnoughMana(id identity.ID, threshold float64) bool {
-	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
+	highestManaNodes, _, err := messagelayer.GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
 	enoughMana := true
 	if err == nil && threshold < 1.0 && len(highestManaNodes) > 0 {
 		enoughMana = false
@@ -548,7 +549,7 @@ func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, er
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-	msg, err := Tangle().IssuePayload(statement.New(conflicts, timestamps))
+	msg, err := messagelayer.Tangle().IssuePayload(statement.New(conflicts, timestamps))
 	if err != nil {
 		plugin.LogWarnf("error issuing statement: %s", err)
 		return
@@ -558,7 +559,7 @@ func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Time
 }
 
 func readStatement(messageID tangle.MessageID) {
-	Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+	messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		messagePayload := msg.Payload()
 		if messagePayload.Type() != statement.StatementType {
 			return
@@ -587,7 +588,7 @@ func readStatement(messageID tangle.MessageID) {
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
 
 		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
-		Tangle().ConsensusManager.Events.StatementProcessed.Trigger(msg)
+		messagelayer.Tangle().ConsensusManager.Events.StatementProcessed.Trigger(msg)
 	})
 }
 

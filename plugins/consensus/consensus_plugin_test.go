@@ -1,4 +1,4 @@
-package messagelayer
+package consensus
 
 import (
 	"fmt"
