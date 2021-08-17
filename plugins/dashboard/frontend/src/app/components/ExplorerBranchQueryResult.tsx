@@ -59,7 +59,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                             {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
                         </ListGroup>}
                     </ListGroup.Item>}
-                    <ListGroup.Item>Inclusion State: {branch.gradeOfFinality}</ListGroup.Item>
+                    <ListGroup.Item>Grade of Finality: {branch.gradeOfFinality}</ListGroup.Item>
                     <ListGroup.Item> Children:
                         {branchChildren && <ListGroup>
                             {branchChildren.childBranches.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}

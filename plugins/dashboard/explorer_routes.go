@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -40,13 +41,13 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid           bool   `json:"solid"`
-	BranchID        string `json:"branchID"`
-	Scheduled       bool   `json:"scheduled"`
-	Booked          bool   `json:"booked"`
-	Eligible        bool   `json:"eligible"`
-	Invalid         bool   `json:"invalid"`
-	GradeOfFinality string `json:"gradeOfFinality"`
+	Solid           bool                `json:"solid"`
+	BranchID        string              `json:"branchID"`
+	Scheduled       bool                `json:"scheduled"`
+	Booked          bool                `json:"booked"`
+	Eligible        bool                `json:"eligible"`
+	Invalid         bool                `json:"invalid"`
+	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -89,7 +90,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
-		GradeOfFinality:         messageMetadata.GradeOfFinality().String(),
+		GradeOfFinality:         messageMetadata.GradeOfFinality(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
@@ -130,7 +131,7 @@ type ExplorerOutput struct {
 	Metadata        *jsonmodels.OutputMetadata `json:"metadata"`
 	TxTimestamp     int                        `json:"txTimestamp"`
 	PendingMana     float64                    `json:"pendingMana"`
-	GradeOfFinality string                     `json:"gradeOfFinality"`
+	GradeOfFinality gof.GradeOfFinality        `json:"gradeOfFinality"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -255,7 +256,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			Metadata:        jsonmodels.NewOutputMetadata(metaData),
 			TxTimestamp:     int(timestamp),
 			PendingMana:     pendingMana,
-			GradeOfFinality: metaData.GradeOfFinality().String(),
+			GradeOfFinality: metaData.GradeOfFinality(),
 		})
 	})
 

@@ -541,7 +541,7 @@ type Branch struct {
 	Type            string              `json:"type"`
 	Parents         []string            `json:"parents"`
 	ConflictIDs     []string            `json:"conflictIDs,omitempty"`
-	GradeOfFinality gof.GradeOfFinality `json:"grade_of_finality"`
+	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
 }
 
 // NewBranch returns a Branch from the given ledgerstate.Branch.
