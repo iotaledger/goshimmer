@@ -59,6 +59,8 @@ linters-settings:
                 checks: argument,case,condition,return
     govet:
         check-shadowing: true
+    golint:
+        min-confidence: 0.5
     misspell:
         locale: US
     nolintlint:
