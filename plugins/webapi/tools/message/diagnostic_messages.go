@@ -152,7 +152,6 @@ var DiagnosticMessagesTableDescription = []string{
 	"StrongApprovers",
 	"WeakApprovers",
 	"BranchID",
-	"InclusionState",
 	"Scheduled",
 	"Booked",
 	"Eligible",

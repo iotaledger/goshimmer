@@ -65,6 +65,7 @@ var DiagnosticUTXODAGTableDescription = []string{
 	"BranchID",
 	"Conflicting",
 	"LazyBooked",
+	"GradeOfFinality",
 }
 
 // DiagnosticUTXODAGInfo holds the information of a UTXO.

@@ -93,6 +93,7 @@ var DiagnosticBranchesTableDescription = []string{
 	"IssuanceTime",
 	"SolidTime",
 	"LazyBooked",
+	"GradeOfFinality",
 }
 
 // DiagnosticBranchInfo holds the information of a branch.
