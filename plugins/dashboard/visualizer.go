@@ -144,7 +144,8 @@ func addToHistory(msg *tangle.Message, gradeOfFinality gof.GradeOfFinality) {
 	msgHistoryMutex.Lock()
 	defer msgHistoryMutex.Unlock()
 	if _, exist := msgFinalized[msg.ID().Base58()]; exist {
-		msgFinalized[msg.ID().Base58()] = false
+		// TODO: replace this with conf. oracle
+		msgFinalized[msg.ID().Base58()] = gradeOfFinality == gof.High
 		return
 	}
 
@@ -157,5 +158,6 @@ func addToHistory(msg *tangle.Message, gradeOfFinality gof.GradeOfFinality) {
 	}
 	// add new msg
 	msgHistory = append(msgHistory, msg)
-	msgFinalized[msg.ID().Base58()] = false
+	// TODO: replace this with conf. oracle
+	msgFinalized[msg.ID().Base58()] = gradeOfFinality == gof.High
 }
