@@ -144,7 +144,7 @@ func addToHistory(msg *tangle.Message, gradeOfFinality gof.GradeOfFinality) {
 	msgHistoryMutex.Lock()
 	defer msgHistoryMutex.Unlock()
 	if _, exist := msgFinalized[msg.ID().Base58()]; exist {
-		msgFinalized[msg.ID().Base58()] = opinionFormed
+		msgFinalized[msg.ID().Base58()] = false
 		return
 	}
 
@@ -157,5 +157,5 @@ func addToHistory(msg *tangle.Message, gradeOfFinality gof.GradeOfFinality) {
 	}
 	// add new msg
 	msgHistory = append(msgHistory, msg)
-	msgFinalized[msg.ID().Base58()] = opinionFormed
+	msgFinalized[msg.ID().Base58()] = false
 }
