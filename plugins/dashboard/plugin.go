@@ -10,22 +10,25 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/chat"
-	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -38,12 +41,25 @@ var (
 	// plugin is the plugin instance of the dashboard plugin.
 	plugin *node.Plugin
 	once   sync.Once
+	deps   dependencies
 
 	log    *logger.Logger
 	server *echo.Echo
 
 	nodeStartAt = time.Now()
 )
+
+type dependencies struct {
+	dig.In
+
+	Node         *configuration.Configuration
+	Local        *peer.Local
+	Selection    *selection.Protocol
+	GossipMgr    *gossip.Manager
+	Tangle       *tangle.Tangle
+	DrngPlugin   *node.Plugin `name:"drng"`
+	DrngInstance *drng.DRNG
+}
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
@@ -54,6 +70,10 @@ func Plugin() *node.Plugin {
 }
 
 func configure(plugin *node.Plugin) {
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+
 	log = logger.NewLogger(plugin.Name)
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
@@ -97,7 +117,7 @@ func run(*node.Plugin) {
 	runVisualizer()
 	runManaFeed()
 	// run dRNG live feed if dRNG plugin is enabled
-	if !node.IsSkipped(drng.Plugin()) {
+	if !node.IsSkipped(deps.DrngPlugin) {
 		runDrngLiveFeed()
 	}
 	// run chat live feed if chat app is enabled
@@ -250,7 +270,7 @@ func neighborMetrics() []neighbormetric {
 	var stats []neighbormetric
 
 	// gossip plugin might be disabled
-	neighbors := gossip.Manager().AllNeighbors()
+	neighbors := deps.GossipMgr.AllNeighbors()
 	if neighbors == nil {
 		return stats
 	}
@@ -258,7 +278,7 @@ func neighborMetrics() []neighbormetric {
 	for _, neighbor := range neighbors {
 		// unfortunately the neighbor manager doesn't keep track of the origin of the connection
 		origin := "Inbound"
-		for _, peer := range autopeering.Selection().GetOutgoingNeighbors() {
+		for _, peer := range deps.Selection.GetOutgoingNeighbors() {
 			if neighbor.Peer == peer {
 				origin = "Outbound"
 				break
@@ -282,7 +302,7 @@ func currentNodeStatus() *nodestatus {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	status := &nodestatus{}
-	status.ID = local.GetInstance().ID().String()
+	status.ID = deps.Local.ID().String()
 
 	// node status
 	status.Version = banner.AppVersion
@@ -300,9 +320,9 @@ func currentNodeStatus() *nodestatus {
 	}
 
 	// get TangleTime
-	lcm := messagelayer.Tangle().TimeManager.LastConfirmedMessage()
+	lcm := deps.Tangle.TimeManager.LastConfirmedMessage()
 	status.TangleTime = tangleTime{
-		Synced:    messagelayer.Tangle().TimeManager.Synced(),
+		Synced:    deps.Tangle.TimeManager.Synced(),
 		Time:      lcm.Time.UnixNano(),
 		MessageID: lcm.MessageID.Base58(),
 	}

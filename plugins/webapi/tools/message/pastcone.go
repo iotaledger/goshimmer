@@ -9,7 +9,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PastconeHandler process a pastcone request.
@@ -41,8 +40,8 @@ func PastconeHandler(c echo.Context) error {
 		stack.Remove(currentMsgElement)
 
 		// ask node if it has it
-		msgObject := messagelayer.Tangle().Storage.Message(currentMsgID)
-		msgMetadataObject := messagelayer.Tangle().Storage.MessageMetadata(currentMsgID)
+		msgObject := deps.Tangle.Storage.Message(currentMsgID)
+		msgMetadataObject := deps.Tangle.Storage.MessageMetadata(currentMsgID)
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
 			return c.JSON(http.StatusOK, jsonmodels.PastconeResponse{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})

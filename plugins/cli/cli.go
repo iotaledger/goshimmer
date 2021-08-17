@@ -7,10 +7,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (

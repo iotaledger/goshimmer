@@ -5,14 +5,17 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
@@ -22,36 +25,43 @@ const PluginName = "Manualpeering"
 
 var (
 	// plugin is the plugin instance of the manualpeering plugin.
-	plugin      *node.Plugin
-	pluginOnce  sync.Once
+	Plugin      *node.Plugin
+	deps        dependencies
 	manager     *manualpeering.Manager
 	managerOnce sync.Once
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configurePlugin, runPlugin)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Local     *peer.Local
+	GossipMgr *gossip.Manager
+	Server    *echo.Echo
+}
+
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configurePlugin, runPlugin)
 }
 
 // Manager is a singleton for manualpeering Manager.
 func Manager() *manualpeering.Manager {
 	managerOnce.Do(func() {
-		lPeer := local.GetInstance()
-		manager = manualpeering.NewManager(gossip.Manager(), lPeer, logger.NewLogger(PluginName))
+		lPeer := deps.Local
+		manager = manualpeering.NewManager(deps.GossipMgr, lPeer, logger.NewLogger(PluginName))
 	})
 	return manager
 }
 
 func configurePlugin(*node.Plugin) {
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
 	configureWebAPI()
 }
 
 func runPlugin(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, startManager, shutdown.PriorityManualpeering); err != nil {
-		plugin.Panicf("Failed to start as daemon: %s", err)
+		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -60,7 +70,7 @@ func startManager(shutdownSignal <-chan struct{}) {
 	mgr.Start()
 	defer func() {
 		if err := mgr.Stop(); err != nil {
-			plugin.Logger().Errorw("Failed to stop the manager", "err", err)
+			Plugin.Logger().Errorw("Failed to stop the manager", "err", err)
 		}
 	}()
 	addPeersFromConfigToManager(mgr)
@@ -70,11 +80,11 @@ func startManager(shutdownSignal <-chan struct{}) {
 func addPeersFromConfigToManager(mgr *manualpeering.Manager) {
 	peers, err := getKnownPeersFromConfig()
 	if err != nil {
-		plugin.Logger().Errorw("Failed to get known peers from the config file, continuing without them...", "err", err)
+		Plugin.Logger().Errorw("Failed to get known peers from the config file, continuing without them...", "err", err)
 	} else if len(peers) != 0 {
-		plugin.Logger().Infow("Pass known peers list from the config file to the manager", "peers", peers)
+		Plugin.Logger().Infow("Pass known peers list from the config file to the manager", "peers", peers)
 		if err := mgr.AddPeer(peers...); err != nil {
-			plugin.Logger().Infow("Failed to pass known peers list from the config file to the manager",
+			Plugin.Logger().Infow("Failed to pass known peers list from the config file to the manager",
 				"peers", peers, "err", err)
 		}
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/discover"
@@ -14,8 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 )
 
 // autopeering constants
@@ -32,22 +29,15 @@ var (
 	// ErrParsingEntryNode is returned for an invalid entry node.
 	ErrParsingEntryNode = errors.New("cannot parse entry node")
 
-	// the peer discovery protocol
-	peerDisc     *discover.Protocol
-	peerDiscOnce sync.Once
-
 	networkVersion uint32
 )
 
-// Discovery returns the peer discovery instance.
-func Discovery() *discover.Protocol {
-	peerDiscOnce.Do(createPeerDisc)
-	return peerDisc
-}
-
-func createPeerDisc() {
+func CreatePeerDisc(localID *peer.Local) *discover.Protocol {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName).Named("disc")
+	if localID == nil {
+		log.Error("nil localID in discover")
+	}
 
 	networkVersion = uint32(Parameters.NetworkVersion)
 
@@ -57,7 +47,7 @@ func createPeerDisc() {
 	}
 	log.Debugf("Entry nodes: %v", entryNodes)
 
-	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion(),
+	return discover.New(localID, ProtocolVersion, NetworkVersion(),
 		discover.Logger(log),
 		discover.MasterPeers(entryNodes),
 	)

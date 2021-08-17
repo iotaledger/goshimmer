@@ -4,18 +4,21 @@
 package remotelogmetrics
 
 import (
-	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
+	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -24,20 +27,31 @@ const (
 )
 
 var (
-	// plugin is the plugin instance of the remote plugin instance.
-	plugin     *node.Plugin
-	pluginOnce sync.Once
+	// Plugin is the plugin instance of the remote plugin instance.
+	Plugin *node.Plugin
+	deps   dependencies
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin("RemoteLogMetrics", node.Enabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Local              *peer.Local
+	Tangle             *tangle.Tangle
+	Voter              vote.DRNGRoundBasedVoter
+	RemoteLogger       *remotelog.RemoteLoggerConn
+	DrngInstance       *drng.DRNG
+	ClockPlugin        *node.Plugin `name:"clock" optional:"true"`
+	ConsensusMechanism tangle.ConsensusMechanism
+}
+
+func init() {
+	Plugin = node.NewPlugin("RemoteLogMetrics", node.Enabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
 	configureSyncMetrics()
 	configureFPCConflictsMetrics()
 	configureDRNGMetrics()
@@ -57,7 +71,7 @@ func run(_ *node.Plugin) {
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-shutdownSignal
 	}, shutdown.PriorityRemoteLog); err != nil {
-		plugin.Panicf("Failed to start as daemon: %s", err)
+		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -69,26 +83,26 @@ func configureSyncMetrics() {
 }
 
 func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
-	err := remotelog.RemoteLogger().Send(syncUpdate)
+	err := deps.RemoteLogger.Send(syncUpdate)
 	if err != nil {
-		plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
+		Plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
 	}
 }
 
 func configureFPCConflictsMetrics() {
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
+	deps.Voter.Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
+	deps.Voter.Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
 }
 
 func configureDRNGMetrics() {
-	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
+	deps.DrngInstance.Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
 }
 
 func configureTransactionMetrics() {
-	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onTransactionOpinionFormed))
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onTransactionOpinionFormed))
+	deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }
 
 func configureStatementMetrics() {
-	messagelayer.Tangle().ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
+	deps.Tangle.ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
 }

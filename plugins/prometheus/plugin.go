@@ -3,19 +3,21 @@ package prometheus
 import (
 	"context"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/gin-gonic/gin"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -24,8 +26,8 @@ const PluginName = "Prometheus"
 
 // Plugin Prometheus
 var (
-	plugin *node.Plugin
-	once   sync.Once
+	Plugin *node.Plugin
+	deps   dependencies
 	log    *logger.Logger
 
 	server   *http.Server
@@ -33,16 +35,22 @@ var (
 	collects []func()
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+	autopeeringPlugin *node.Plugin `name:"autopeering"`
+	Local             *peer.Local
+	GossipMgr         *gossip.Manager
+}
+
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 }
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
 
 	if Parameters.WorkerpoolMetrics {
 		registerWorkerpoolMetrics()
@@ -56,7 +64,7 @@ func configure(plugin *node.Plugin) {
 	}
 
 	if metrics.Parameters.Local {
-		if !node.IsSkipped(autopeering.Plugin()) {
+		if !node.IsSkipped(deps.autopeeringPlugin) {
 			registerAutopeeringMetrics()
 		}
 		registerDBMetrics()

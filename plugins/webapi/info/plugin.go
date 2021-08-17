@@ -3,43 +3,51 @@ package info
 import (
 	"net/http"
 	"sort"
-	goSync "sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
 const PluginName = "WebAPI info Endpoint"
 
+type dependencies struct {
+	dig.In
+
+	Server *echo.Echo
+	Local  *peer.Local
+	Tangle *tangle.Tangle
+}
+
 var (
-	// plugin is the plugin instance of the web API info endpoint plugin.
-	plugin *node.Plugin
-	once   goSync.Once
+	// Plugin is the plugin instance of the web API info endpoint plugin.
+	Plugin *node.Plugin
+	deps   dependencies
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 }
 
 func configure(_ *node.Plugin) {
-	webapi.Server().GET("info", getInfo)
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+	deps.Server.GET("info", getInfo)
 }
 
 // getInfo returns the info of the node
@@ -96,16 +104,16 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	// get TangleTime
-	lcm := messagelayer.Tangle().TimeManager.LastConfirmedMessage()
+	lcm := deps.Tangle.TimeManager.LastConfirmedMessage()
 	tangleTime := jsonmodels.TangleTime{
-		Synced:    messagelayer.Tangle().TimeManager.Synced(),
+		Synced:    deps.Tangle.TimeManager.Synced(),
 		Time:      lcm.Time.UnixNano(),
 		MessageID: lcm.MessageID.Base58(),
 	}
 
 	t := time.Now()
-	accessMana, tAccess, _ := messagelayer.GetAccessMana(local.GetInstance().ID(), t)
-	consensusMana, tConsensus, _ := messagelayer.GetConsensusMana(local.GetInstance().ID(), t)
+	accessMana, tAccess, _ := messagelayer.GetAccessMana(deps.Local.ID(), t)
+	consensusMana, tConsensus, _ := messagelayer.GetConsensusMana(deps.Local.ID(), t)
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
@@ -120,7 +128,7 @@ func getInfo(c echo.Context) error {
 	}
 
 	nodeQueueSizes := make(map[string]int)
-	for nodeID, size := range messagelayer.Tangle().Scheduler.NodeQueueSizes() {
+	for nodeID, size := range deps.Tangle.Scheduler.NodeQueueSizes() {
 		nodeQueueSizes[nodeID.String()] = size
 	}
 
@@ -128,9 +136,9 @@ func getInfo(c echo.Context) error {
 		Version:                 banner.AppVersion,
 		NetworkVersion:          discovery.NetworkVersion(),
 		TangleTime:              tangleTime,
-		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),
-		IdentityIDShort:         local.GetInstance().Identity.ID().String(),
-		PublicKey:               local.GetInstance().PublicKey().String(),
+		IdentityID:              base58.Encode(deps.Local.Identity.ID().Bytes()),
+		IdentityIDShort:         deps.Local.Identity.ID().String(),
+		PublicKey:               deps.Local.PublicKey().String(),
 		MessageRequestQueueSize: int(metrics.MessageRequestQueueSize()),
 		SolidMessageCount:       int(metrics.MessageSolidCountDB()),
 		TotalMessageCount:       int(metrics.MessageTotalCountDB()),
@@ -140,8 +148,8 @@ func getInfo(c echo.Context) error {
 		ManaDelegationAddress:   delegationAddressString,
 		ManaDecay:               mana.Decay,
 		Scheduler: jsonmodels.Scheduler{
-			Running:        messagelayer.Tangle().Scheduler.Running(),
-			Rate:           messagelayer.Tangle().Scheduler.Rate().String(),
+			Running:        deps.Tangle.Scheduler.Running(),
+			Rate:           deps.Tangle.Scheduler.Rate().String(),
 			NodeQueueSizes: nodeQueueSizes,
 		},
 	})

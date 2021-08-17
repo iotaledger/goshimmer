@@ -4,17 +4,17 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"sync"
 
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
@@ -22,20 +22,27 @@ const PluginName = "WebAPI autopeering Endpoint"
 
 var (
 	// plugin is the plugin instance of the web API autopeering endpoint plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	Plugin *node.Plugin
+	deps   dependencies
 )
 
-func configure(plugin *node.Plugin) {
-	webapi.Server().GET("autopeering/neighbors", getNeighbors)
+type dependencies struct {
+	dig.In
+
+	Server    *echo.Echo
+	Selection *selection.Protocol
+	Discover  *discover.Protocol
 }
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+}
+
+func configure(plugin *node.Plugin) {
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
 	})
-	return plugin
+	deps.Server.GET("autopeering/neighbors", getNeighbors)
 }
 
 // getNeighbors returns the chosen and accepted neighbors of the node
@@ -45,15 +52,15 @@ func getNeighbors(c echo.Context) error {
 	var knownPeers []jsonmodels.Neighbor
 
 	if c.QueryParam("known") == "1" {
-		for _, p := range discovery.Discovery().GetVerifiedPeers() {
+		for _, p := range deps.Discover.GetVerifiedPeers() {
 			knownPeers = append(knownPeers, createNeighborFromPeer(p))
 		}
 	}
 
-	for _, p := range autopeering.Selection().GetOutgoingNeighbors() {
+	for _, p := range deps.Selection.GetOutgoingNeighbors() {
 		chosen = append(chosen, createNeighborFromPeer(p))
 	}
-	for _, p := range autopeering.Selection().GetIncomingNeighbors() {
+	for _, p := range deps.Selection.GetIncomingNeighbors() {
 		accepted = append(accepted, createNeighborFromPeer(p))
 	}
 

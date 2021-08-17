@@ -48,7 +48,7 @@ func registerNetworkMetrics() {
 		Help: "traffic_Analysis client TX network traffic [bytes].",
 	})
 
-	if !node.IsSkipped(autopeering.Plugin()) {
+	if !node.IsSkipped(deps.autopeeringPlugin) {
 		registry.MustRegister(autopeeringInboundBytes)
 		registry.MustRegister(autopeeringOutboundBytes)
 	}
@@ -62,7 +62,7 @@ func registerNetworkMetrics() {
 }
 
 func collectNetworkMetrics() {
-	if !node.IsSkipped(autopeering.Plugin()) {
+	if !node.IsSkipped(deps.autopeeringPlugin) {
 		autopeeringInboundBytes.Set(float64(autopeering.Conn.RXBytes()))
 		autopeeringOutboundBytes.Set(float64(autopeering.Conn.TXBytes()))
 	}

@@ -2,8 +2,6 @@ package prometheus
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 var workerpools *prometheus.GaugeVec
@@ -25,12 +23,12 @@ func registerWorkerpoolMetrics() {
 }
 
 func collectWorkerpoolMetrics() {
-	name, load := gossip.Manager().MessageWorkerPoolStatus()
+	name, load := deps.GossipMgr.MessageWorkerPoolStatus()
 	workerpools.WithLabelValues(
 		name,
 	).Set(float64(load))
 
-	name, load = gossip.Manager().MessageRequestWorkerPoolStatus()
+	name, load = deps.GossipMgr.MessageRequestWorkerPoolStatus()
 	workerpools.WithLabelValues(
 		name,
 	).Set(float64(load))

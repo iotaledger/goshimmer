@@ -2,18 +2,20 @@ package portcheck
 
 import (
 	"net"
-	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/discover"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the port check plugin.
@@ -21,21 +23,28 @@ const PluginName = "PortCheck"
 
 var (
 	// plugin is the plugin instance of the port check plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	Plugin *node.Plugin
 	log    *logger.Logger
+
+	deps dependencies
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Local     *peer.Local
+	Discovery *discover.Protocol
+}
+
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 }
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
 }
 
 func run(*node.Plugin) {
@@ -46,7 +55,7 @@ func run(*node.Plugin) {
 
 // check that discovery is working and the port is open
 func checkAutopeeringConnection() {
-	peering := local.GetInstance().Services().Get(service.PeeringKey)
+	peering := deps.Local.Services().Get(service.PeeringKey)
 
 	// resolve the bind address
 	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.BindAddress())
@@ -61,14 +70,14 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), discovery.ProtocolVersion, discovery.NetworkVersion(), discover.Logger(log))
-	srv := server.Serve(local.GetInstance(), conn, log, disc)
+	disc := discover.New(deps.Local, discovery.ProtocolVersion, discovery.NetworkVersion(), discover.Logger(log))
+	srv := server.Serve(deps.Local, conn, log, disc)
 	defer srv.Close()
 
 	disc.Start(srv)
 	defer disc.Close()
 
-	for _, entryNode := range discovery.Discovery().GetMasterPeers() {
+	for _, entryNode := range deps.Discovery.GetMasterPeers() {
 		err = disc.Ping(entryNode)
 		if err == nil {
 			log.Infof("Pong received from %s", entryNode.IP())

@@ -4,19 +4,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 func onRandomnessReceived(state *drng.State) {
-	if !messagelayer.Tangle().Synced() {
+	if !deps.Tangle.Synced() {
 		return
 	}
 
 	var nodeID string
-	if local.GetInstance() != nil {
-		nodeID = local.GetInstance().ID().String()
+	if deps.Local != nil {
+		nodeID = deps.Local.ID().String()
 	}
 
 	record := &remotelogmetrics.DRNGMetrics{
@@ -29,7 +26,7 @@ func onRandomnessReceived(state *drng.State) {
 		DeltaReceived:     clock.Since(state.Randomness().Timestamp).Nanoseconds(),
 	}
 
-	if err := remotelog.RemoteLogger().Send(record); err != nil {
-		plugin.Logger().Errorw("Failed to send Randomness record", "err", err)
+	if err := deps.RemoteLogger.Send(record); err != nil {
+		Plugin.Logger().Errorw("Failed to send Randomness record", "err", err)
 	}
 }

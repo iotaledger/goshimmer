@@ -5,9 +5,11 @@ import (
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 const (
@@ -19,7 +21,15 @@ var (
 	// App is the "plugin" instance of the chat application.
 	app  *node.Plugin
 	once sync.Once
+
+	deps dependencies
 )
+
+type dependencies struct {
+	dig.In
+	Tangle *tangle.Tangle
+	Server *echo.Echo
+}
 
 // App gets the plugin instance.
 func App() *node.Plugin {
@@ -30,13 +40,17 @@ func App() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+
+	deps.Tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 	configureWebAPI()
 }
 
 func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 	var chatEvent *ChatEvent
-	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		if message.Payload().Type() != Type {
 			return
 		}

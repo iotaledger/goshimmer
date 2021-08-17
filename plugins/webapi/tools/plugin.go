@@ -1,11 +1,11 @@
 package tools
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/drng"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/message"
 )
@@ -39,34 +39,42 @@ const (
 	RouteDiagnosticsDRNG = routeDiagnostics + "/drng"
 )
 
+type dependencies struct {
+	dig.In
+
+	Server *echo.Echo
+}
+
 var (
-	// plugin is the plugin instance of the web API tools endpoint plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the web API tools endpoint plugin.
+	Plugin *node.Plugin
+	deps   dependencies
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Disabled, configure)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Disabled, configure)
 }
 
 func configure(_ *node.Plugin) {
-	webapi.Server().GET("tools/message/pastcone", message.PastconeHandler)
-	webapi.Server().GET("tools/message/missing", message.MissingHandler)
-	webapi.Server().GET("tools/message/approval", message.ApprovalHandler)
-	webapi.Server().GET("tools/message/orphanage", message.OrphanageHandler)
-	webapi.Server().GET(RouteDiagnosticMessages, message.DiagnosticMessagesHandler)
-	webapi.Server().GET(RouteDiagnosticsFirstWeakMessageReferences, message.DiagnosticMessagesOnlyFirstWeakReferencesHandler)
-	webapi.Server().GET(RouteDiagnosticsMessageRank, message.DiagnosticMessagesRankHandler)
-	webapi.Server().GET(RouteDiagnosticsUtxoDag, message.DiagnosticUTXODAGHandler)
-	webapi.Server().GET(RouteDiagnosticsBranches, message.DiagnosticBranchesHandler)
-	webapi.Server().GET(RouteDiagnosticsLazyBookedBranches, message.DiagnosticLazyBookedBranchesHandler)
-	webapi.Server().GET(RouteDiagnosticsInvalidBranches, message.DiagnosticInvalidBranchesHandler)
-	webapi.Server().GET(RouteDiagnosticsTips, message.TipsDiagnosticHandler)
-	webapi.Server().GET(RouteDiagnosticsStrongTips, message.StrongTipsDiagnosticHandler)
-	webapi.Server().GET(RouteDiagnosticsWeakTips, message.WeakTipsDiagnosticHandler)
-	webapi.Server().GET(RouteDiagnosticsDRNG, drng.DiagnosticDRNGMessagesHandler)
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+	dependencyinjection.Container.Invoke(message.Invoke)
+	dependencyinjection.Container.Invoke(drng.Invoke)
+
+	deps.Server.GET("tools/message/pastcone", message.PastconeHandler)
+	deps.Server.GET("tools/message/missing", message.MissingHandler)
+	deps.Server.GET("tools/message/approval", message.ApprovalHandler)
+	deps.Server.GET("tools/message/orphanage", message.OrphanageHandler)
+	deps.Server.GET(RouteDiagnosticMessages, message.DiagnosticMessagesHandler)
+	deps.Server.GET(RouteDiagnosticsFirstWeakMessageReferences, message.DiagnosticMessagesOnlyFirstWeakReferencesHandler)
+	deps.Server.GET(RouteDiagnosticsMessageRank, message.DiagnosticMessagesRankHandler)
+	deps.Server.GET(RouteDiagnosticsUtxoDag, message.DiagnosticUTXODAGHandler)
+	deps.Server.GET(RouteDiagnosticsBranches, message.DiagnosticBranchesHandler)
+	deps.Server.GET(RouteDiagnosticsLazyBookedBranches, message.DiagnosticLazyBookedBranchesHandler)
+	deps.Server.GET(RouteDiagnosticsInvalidBranches, message.DiagnosticInvalidBranchesHandler)
+	deps.Server.GET(RouteDiagnosticsTips, message.TipsDiagnosticHandler)
+	deps.Server.GET(RouteDiagnosticsStrongTips, message.StrongTipsDiagnosticHandler)
+	deps.Server.GET(RouteDiagnosticsWeakTips, message.WeakTipsDiagnosticHandler)
+	deps.Server.GET(RouteDiagnosticsDRNG, drng.DiagnosticDRNGMessagesHandler)
 }

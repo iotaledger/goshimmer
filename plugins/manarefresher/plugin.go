@@ -2,40 +2,48 @@ package manarefresher
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 var (
-	// plugin is the plugin instance of the activity plugin.
-	plugin    *node.Plugin
-	once      sync.Once
+	// Plugin is the plugin instance of the activity plugin.
+	Plugin    *node.Plugin
+	deps      dependencies
 	refresher *Refresher
 )
+
+type dependencies struct {
+	dig.In
+	Local  *peer.Local
+	Tangle *tangle.Tangle
+}
 
 // minRefreshInterval is the minimum refresh interval allowed for delegated outputs.
 const minRefreshInterval = 1 // minutes
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin("ManaRefresher", node.Enabled, configure, run)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin("ManaRefresher", node.Enabled, configure, run)
 }
 
 // configure events
 func configure(_ *node.Plugin) {
-	plugin.LogInfof("starting node with manarefresher plugin")
-	nodeIDPrivateKey, err := local.GetInstance().Database().LocalPrivateKey()
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+
+	Plugin.LogInfof("starting node with manarefresher plugin")
+	nodeIDPrivateKey, err := deps.Local.Database().LocalPrivateKey()
 	if err != nil {
 		panic(errors.Wrap(err, "couldn't load private key of node identity"))
 	}
@@ -59,12 +67,12 @@ func run(_ *node.Plugin) {
 			case <-ticker.C:
 				err := refresher.Refresh()
 				if err != nil {
-					plugin.LogErrorf("couldn't refresh mana: %w", err)
+					Plugin.LogErrorf("couldn't refresh mana: %w", err)
 				}
 			}
 		}
 	}, shutdown.PriorityManaRefresher); err != nil {
-		plugin.Panicf("Failed to start as daemon: %s", err)
+		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

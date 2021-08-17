@@ -22,7 +22,7 @@ var (
 	once     sync.Once
 )
 
-func configureLocal() *peer.Local {
+func ConfigureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 
 	var peeringIP net.IP
@@ -70,6 +70,9 @@ func configureLocal() *peer.Local {
 		seed = append(seed, bytes)
 	}
 	peerDB, err := peer.NewDB(database.StoreRealm([]byte{databasePkg.PrefixAutoPeering}))
+	if peerDB == nil {
+		log.Warnf("nil peerDB")
+	}
 	if err != nil {
 		log.Fatalf("Error creating peer DB: %s", err)
 	}
@@ -85,10 +88,4 @@ func configureLocal() *peer.Local {
 	log.Infof("Initialized local: %v", local)
 
 	return local
-}
-
-// GetInstance returns the instance of the local peer.
-func GetInstance() *peer.Local {
-	once.Do(func() { instance = configureLocal() })
-	return instance
 }

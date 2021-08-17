@@ -19,10 +19,14 @@ const PluginName = "Graceful Shutdown"
 
 var (
 	// plugin is the plugin instance of the graceful shutdown plugin.
-	plugin       *node.Plugin
+	Plugin       *node.Plugin
 	once         sync.Once
 	gracefulStop chan os.Signal
 )
+
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+}
 
 func configure(*node.Plugin) {
 	gracefulStop = make(chan os.Signal)
@@ -33,7 +37,7 @@ func configure(*node.Plugin) {
 	go func() {
 		<-gracefulStop
 
-		Plugin().LogWarnf("Received shutdown request - waiting (max %d) to finish processing ...", Parameters.WaitToKillTime)
+		Plugin.LogWarnf("Received shutdown request - waiting (max %d) to finish processing ...", Parameters.WaitToKillTime)
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
@@ -50,9 +54,9 @@ func configure(*node.Plugin) {
 						sort.Strings(runningBackgroundWorkers)
 						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
 					}
-					Plugin().LogWarnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", Parameters.WaitToKillTime-int(secondsSinceStart), processList)
+					Plugin.LogWarnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", Parameters.WaitToKillTime-int(secondsSinceStart), processList)
 				} else {
-					Plugin().LogError("Background processes did not terminate in time! Forcing shutdown ...")
+					Plugin.LogError("Background processes did not terminate in time! Forcing shutdown ...")
 					pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
 					os.Exit(1)
 				}
@@ -63,16 +67,8 @@ func configure(*node.Plugin) {
 	}()
 }
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
-	})
-	return plugin
-}
-
 // ShutdownWithError prints out an error message and shuts down the default daemon instance.
 func ShutdownWithError(err error) {
-	Plugin().LogError(err)
+	Plugin.LogError(err)
 	gracefulStop <- syscall.SIGINT
 }

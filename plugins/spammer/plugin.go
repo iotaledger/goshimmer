@@ -1,16 +1,16 @@
 package spammer
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/spammer"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 var messageSpammer *spammer.Spammer
@@ -19,24 +19,31 @@ var messageSpammer *spammer.Spammer
 const PluginName = "Spammer"
 
 var (
-	// plugin is the plugin instance of the spammer plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the spammer plugin.
+	Plugin *node.Plugin
+	deps   dependencies
 	log    *logger.Logger
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Tangle *tangle.Tangle
+	Server *echo.Echo
+}
+
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 }
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	messageSpammer = spammer.New(messagelayer.Tangle().IssuePayload, log)
-	webapi.Server().GET("spammer", handleRequest)
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+
+	messageSpammer = spammer.New(deps.Tangle.IssuePayload, log)
+	deps.Server.GET("spammer", handleRequest)
 }
 
 func run(*node.Plugin) {

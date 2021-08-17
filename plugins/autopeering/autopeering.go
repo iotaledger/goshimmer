@@ -3,8 +3,8 @@ package autopeering
 import (
 	"net"
 	"strconv"
-	"sync"
 
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -22,30 +21,18 @@ var (
 	Conn *NetConnMetric
 )
 
-var (
-	// the peer selection protocol
-	peerSel     *selection.Protocol
-	peerSelOnce sync.Once
-)
-
-// Selection returns the neighbor selection instance.
-func Selection() *selection.Protocol {
-	peerSelOnce.Do(createPeerSel)
-	return peerSel
-}
-
 // BindAddress returns the string form of the autopeering bind address.
 func BindAddress() string {
-	peering := local.GetInstance().Services().Get(service.PeeringKey)
+	peering := deps.Local.Services().Get(service.PeeringKey)
 	port := strconv.Itoa(peering.Port())
 	return net.JoinHostPort(local.ParametersNetwork.BindAddress, port)
 }
 
-func createPeerSel() {
+func createPeerSel(localID *peer.Local, nbrDiscover *discover.Protocol) *selection.Protocol {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName).Named("sel")
 
-	peerSel = selection.New(local.GetInstance(), discovery.Discovery(),
+	return selection.New(localID, nbrDiscover,
 		selection.Logger(log),
 		selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
 		selection.UseMana(Parameters.Mana),
@@ -72,7 +59,7 @@ func isValidNeighbor(p *peer.Peer) bool {
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + PluginName + " ... done")
 
-	lPeer := local.GetInstance()
+	lPeer := deps.Local
 	peering := lPeer.Services().Get(service.PeeringKey)
 
 	// resolve the bind address
@@ -90,23 +77,23 @@ func start(shutdownSignal <-chan struct{}) {
 	Conn = &NetConnMetric{UDPConn: conn}
 
 	// start a server doing peerDisc and peering
-	srv := server.Serve(lPeer, Conn, log.Named("srv"), discovery.Discovery(), Selection())
+	srv := server.Serve(lPeer, Conn, log.Named("srv"), deps.Discovery, deps.Selection)
 	defer srv.Close()
 
 	// start the peer discovery on that connection
-	discovery.Discovery().Start(srv)
+	deps.Discovery.Start(srv)
 
 	// start the neighbor selection process.
-	Selection().Start(srv)
+	deps.Selection.Start(srv)
 
 	log.Infof("%s started: ID=%s Address=%s/%s", PluginName, lPeer.ID(), localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
 
 	log.Infof("Stopping %s ...", PluginName)
-	Selection().Close()
+	deps.Selection.Close()
 
-	discovery.Discovery().Close()
+	deps.Discovery.Close()
 
 	lPeer.Database().Close()
 }

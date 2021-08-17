@@ -4,16 +4,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	clockPlugin "github.com/iotaledger/goshimmer/plugins/clock"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -28,6 +29,7 @@ var (
 	// App is the "plugin" instance of the network delay application.
 	app  *node.Plugin
 	once sync.Once
+	deps dependencies
 
 	remoteLogger *remotelog.RemoteLoggerConn
 
@@ -39,6 +41,16 @@ var (
 	clockEnabled bool
 )
 
+type dependencies struct {
+	dig.In
+
+	Tangle       *tangle.Tangle
+	Local        *peer.Local
+	RemoteLogger *remotelog.RemoteLoggerConn
+	Server       *echo.Echo
+	ClockPlugin  *node.Plugin
+}
+
 // App gets the plugin instance.
 func App() *node.Plugin {
 	once.Do(func() {
@@ -48,11 +60,14 @@ func App() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	remoteLogger = remotelog.RemoteLogger()
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+	remoteLogger = deps.RemoteLogger
 
-	if local.GetInstance() != nil {
-		myID = local.GetInstance().ID().String()
-		myPublicKey = local.GetInstance().PublicKey()
+	if deps.Local != nil {
+		myID = deps.Local.ID().String()
+		myPublicKey = deps.Local.PublicKey()
 	}
 
 	// get origin public key from config
@@ -68,13 +83,13 @@ func configure(_ *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
-	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
+	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }
 
 func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
-	messagelayer.Tangle().Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
+	deps.Tangle.Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
 		messagePayload := solidMessage.Payload()
 		if messagePayload.Type() != Type {
 			return
@@ -114,7 +129,7 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
 		Clock:       clockEnabled,
-		Sync:        messagelayer.Tangle().Synced(),
+		Sync:        deps.Tangle.Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)
@@ -128,7 +143,7 @@ func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),
 		Clock:       clockEnabled,
-		Sync:        messagelayer.Tangle().Synced(),
+		Sync:        deps.Tangle.Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)

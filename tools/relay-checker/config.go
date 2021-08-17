@@ -1,7 +1,5 @@
 package main
 
-import "github.com/iotaledger/goshimmer/plugins/config"
-
 var (
 	nodes        []string
 	target       = ""
@@ -11,24 +9,24 @@ var (
 )
 
 func initConfig() {
-	if config.Node().String(CfgTargetNode) == "" {
+	if deps.Config.String(CfgTargetNode) == "" {
 		panic("Set the target node address\n")
 	}
-	target = config.Node().String(CfgTargetNode)
+	target = deps.Config.String(CfgTargetNode)
 
-	if len(config.Node().Strings(CfgTestNodes)) == 0 {
+	if len(deps.Config.Strings(CfgTestNodes)) == 0 {
 		panic("Set node addresses\n")
 	}
-	nodes = append(nodes, config.Node().Strings(CfgTestNodes)...)
+	nodes = append(nodes, deps.Config.Strings(CfgTestNodes)...)
 
 	// optional settings
-	if config.Node().String(CfgData) != "" {
-		msgData = config.Node().String(CfgData)
+	if deps.Config.String(CfgData) != "" {
+		msgData = deps.Config.String(CfgData)
 	}
-	if config.Node().Int(CfgCooldownTime) > 0 {
-		cooldownTime = config.Node().Int(CfgCooldownTime)
+	if deps.Config.Int(CfgCooldownTime) > 0 {
+		cooldownTime = deps.Config.Int(CfgCooldownTime)
 	}
-	if config.Node().Int(CfgRepeat) > 0 {
-		repeat = config.Node().Int(CfgRepeat)
+	if deps.Config.Int(CfgRepeat) > 0 {
+		repeat = deps.Config.Int(CfgRepeat)
 	}
 }

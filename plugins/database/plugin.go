@@ -2,18 +2,21 @@
 package database
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the database plugin.
@@ -21,29 +24,26 @@ const PluginName = "Database"
 
 var (
 	// plugin is the plugin instance of the database plugin.
-	plugin     *node.Plugin
-	pluginOnce sync.Once
-	log        *logger.Logger
+	Plugin *node.Plugin
+	log    *logger.Logger
 
 	db                database.DB
 	store             kvstore.KVStore
 	cacheTimeProvider *database.CacheTimeProvider
-	storeOnce         sync.Once
 	cacheProviderOnce sync.Once
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
-}
-
-// Store returns the KVStore instance.
-func Store() kvstore.KVStore {
-	storeOnce.Do(createStore)
-	return store
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+		store = createStore()
+		fmt.Println("store provided")
+		if err := dependencyinjection.Container.Provide(func() kvstore.KVStore {
+			return store
+		}); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
 }
 
 // CacheTimeProvider  returns the cacheTimeProvider instance
@@ -58,10 +58,10 @@ func createCacheTimeProvider() {
 
 // StoreRealm is a factory method for a different realm backed by the KVStore instance.
 func StoreRealm(realm kvstore.Realm) kvstore.KVStore {
-	return Store().WithRealm(realm)
+	return store.WithRealm(realm)
 }
 
-func createStore() {
+func createStore() kvstore.KVStore {
 	log = logger.NewLogger(PluginName)
 
 	var err error
@@ -74,12 +74,10 @@ func createStore() {
 		log.Fatal("Unable to open the database, please delete the database folder. Error: %s", err)
 	}
 
-	store = db.NewStore()
+	return db.NewStore()
 }
 
 func configure(_ *node.Plugin) {
-	// assure that the store is initialized
-	store := Store()
 	configureHealthStore(store)
 
 	if err := checkDatabaseVersion(healthStore); err != nil {

@@ -6,8 +6,19 @@ import (
 
 	client "github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/logger"
+	"github.com/iotaledger/hive.go/configuration"
+	"go.uber.org/dig"
 )
+
+type dependencies struct {
+	dig.In
+
+	Config *configuration.Configuration
+}
+
+var deps dependencies
 
 func testBroadcastData(api *client.GoShimmerAPI) (string, error) {
 	msgID, err := api.Data([]byte(msgData))
@@ -38,6 +49,10 @@ func testNodesGetMessages(msgID string) error {
 }
 
 func main() {
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+
 	config.Init()
 	logger.Init()
 

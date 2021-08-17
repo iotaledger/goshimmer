@@ -6,34 +6,40 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the dashboard plugin.
 const PluginName = "Analysis-Dashboard"
 
 var (
-	// plugin is the plugin instance of the dashboard plugin.
-	plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
-
+	// Plugin is the plugin instance of the dashboard plugin.
+	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	deps   dependencies
 	log    *logger.Logger
 	server *echo.Echo
 )
 
-// Plugin gets the plugin instance
-func Plugin() *node.Plugin {
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Config *configuration.Configuration
 }
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
 	configureFPCLiveFeed()
 	configureAutopeeringWorkerPool()
 	configureServer()
@@ -45,10 +51,10 @@ func configureServer() {
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if config.Node().Bool(CfgBasicAuthEnabled) {
+	if deps.Config.Bool(CfgBasicAuthEnabled) {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.Node().String(CfgBasicAuthUsername) &&
-				password == config.Node().String(CfgBasicAuthPassword) {
+			if username == deps.Config.String(CfgBasicAuthUsername) &&
+				password == deps.Config.String(CfgBasicAuthPassword) {
 				return true, nil
 			}
 			return false, nil
@@ -74,7 +80,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node().String(CfgBindAddress)
+	bindAddr := deps.Config.String(CfgBindAddress)
 	go func() {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		if err := server.Start(bindAddr); err != nil {

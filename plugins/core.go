@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
@@ -27,26 +28,27 @@ import (
 
 // Core contains the core plugins of a GoShimmer node.
 var Core = node.Plugins(
+	dependencyinjection.Plugin,
 	banner.Plugin(),
-	config.Plugin(),
-	logger.Plugin(),
-	cli.Plugin(),
-	gracefulshutdown.Plugin(),
-	portcheck.Plugin(),
-	profiling.Plugin(),
-	database.Plugin(),
-	pow.Plugin(),
-	clock.Plugin(),
-	messagelayer.Plugin(),
-	messagelayer.ManaPlugin(),
-	manarefresher.Plugin(),
-	gossip.Plugin(),
-	autopeering.Plugin(),
-	manualpeering.Plugin(),
-	drng.Plugin(),
-	faucet.Plugin(),
-	messagelayer.ConsensusPlugin(),
-	metrics.Plugin(),
-	spammer.Plugin(),
-	manaeventlogger.Plugin(),
+	config.Plugin,
+	logger.Plugin,
+	cli.Plugin,
+	gracefulshutdown.Plugin,
+	database.Plugin,
+	portcheck.Plugin,
+	autopeering.Plugin,
+	manualpeering.Plugin,
+	profiling.Plugin,
+	pow.Plugin,
+	clock.Plugin,
+	messagelayer.Plugin,
+	gossip.Plugin,
+	messagelayer.ManaPlugin,
+	manarefresher.Plugin,
+	drng.Plugin,
+	faucet.Plugin,
+	messagelayer.ConsensusPlugin,
+	metrics.Plugin,
+	spammer.Plugin,
+	manaeventlogger.Plugin,
 )

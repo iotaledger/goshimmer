@@ -1,43 +1,50 @@
 package mana
 
 import (
-	"sync"
-
+	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/node"
-
-	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/labstack/echo"
+	"go.uber.org/dig"
 )
 
 // PluginName is the name of the web API mana endpoint plugin.
 const PluginName = "WebAPI Mana Endpoint"
 
+type dependencies struct {
+	dig.In
+
+	Server *echo.Echo
+	Local  *peer.Local
+}
+
 var (
 	// plugin is the plugin instance of the web API mana endpoint plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	Plugin *node.Plugin
+	deps   dependencies
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 }
 
 func configure(_ *node.Plugin) {
-	webapi.Server().GET("mana", getManaHandler)
-	webapi.Server().GET("mana/all", getAllManaHandler)
-	webapi.Server().GET("/mana/access/nhighest", getNHighestAccessHandler)
-	webapi.Server().GET("/mana/consensus/nhighest", getNHighestConsensusHandler)
-	webapi.Server().GET("/mana/percentile", getPercentileHandler)
-	webapi.Server().GET("/mana/access/online", getOnlineAccessHandler)
-	webapi.Server().GET("/mana/consensus/online", getOnlineConsensusHandler)
-	webapi.Server().GET("/mana/pending", GetPendingMana)
-	webapi.Server().GET("mana/allowedManaPledge", allowedManaPledgeHandler)
-	webapi.Server().GET("mana/delegated", GetDelegatedMana)
-	webapi.Server().GET("mana/delegated/outputs", GetDelegatedOutputs)
-	// webapi.Server().GET("/mana/consensus/past", getPastConsensusManaVectorHandler)
-	// webapi.Server().GET("/mana/consensus/logs", getEventLogsHandler)
-	// webapi.Server().GET("/mana/consensus/metadata", getPastConsensusVectorMetadataHandler)
+	dependencyinjection.Container.Invoke(func(dep dependencies) {
+		deps = dep
+	})
+
+	deps.Server.GET("mana", getManaHandler)
+	deps.Server.GET("mana/all", getAllManaHandler)
+	deps.Server.GET("/mana/access/nhighest", getNHighestAccessHandler)
+	deps.Server.GET("/mana/consensus/nhighest", getNHighestConsensusHandler)
+	deps.Server.GET("/mana/percentile", getPercentileHandler)
+	deps.Server.GET("/mana/access/online", getOnlineAccessHandler)
+	deps.Server.GET("/mana/consensus/online", getOnlineConsensusHandler)
+	deps.Server.GET("/mana/pending", GetPendingMana)
+	deps.Server.GET("mana/allowedManaPledge", allowedManaPledgeHandler)
+	deps.Server.GET("mana/delegated", GetDelegatedMana)
+	deps.Server.GET("mana/delegated/outputs", GetDelegatedOutputs)
+	// deps.Server.GET("/mana/consensus/past", getPastConsensusManaVectorHandler)
+	// deps.Server.GET("/mana/consensus/logs", getEventLogsHandler)
+	// deps.Server.GET("/mana/consensus/metadata", getPastConsensusVectorMetadataHandler)
 }
