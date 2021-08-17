@@ -2,6 +2,8 @@ package faucet
 
 import (
 	"container/list"
+	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/workerpool"
 	"sync"
 	"time"
 
@@ -42,6 +44,9 @@ const (
 
 	// totalPercentage constant used to calculate percentage of funds left in the faucet
 	totalPercentage = 100
+
+	// preparationWorkerCount defines number of workers dedicated to preparing faucet funds
+	preparationWorkerCount = 2
 )
 
 // region FaucetOutput
@@ -96,6 +101,9 @@ type StateManager struct {
 
 	// wg is used when fulfilling request for waiting for more funds in case they were not prepared on time
 	wg sync.WaitGroup
+
+	// preparationStruct keeps all variables necessary to prepare more faucet funds
+	preparationStruct *preparationStruct
 }
 
 // NewStateManager creates a new state manager for the faucet.
@@ -191,6 +199,11 @@ func (s *StateManager) DeriveStateFromTangle() (err error) {
 	return err
 }
 
+func (s *StateManager) printFaucetInternalState(msg string) {
+	Plugin().LogInfof("State: %s is preparing funds %d, reminder index %d,\n funding len %d, supply len %d, last addr  used %d",
+		msg, s.isPreparingFunds.IsSet(), s.remainderOutput.AddressIndex, s.FundingOutputsCount(), s.supplyOutputs.Len(), s.lastFundingOutputAddressIndex)
+}
+
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
 func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tangle.Message, txID string, err error) {
@@ -229,6 +242,7 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 		return
 	}
 	txID = tx.ID().Base58()
+	s.printFaucetInternalState("FulFillFundingRequest DONE")
 
 	return
 }
@@ -507,37 +521,48 @@ func (s *StateManager) prepareSupplyFunding() (err error) {
 	}
 	supplyMap := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
 	supplyMap[tx.ID()] = tx
-	err = s.waitUntilAndProcessAfterConfirmation(supplyMap)
+	err = s.listenOnConfirmationAndUpdateState(1)
+	return
+}
+
+// prepareTransactionTask function for preparationWorkerPool
+func (s *StateManager) prepareTransactionTask(workerpool.Task) {
+	tx, err := s.createSplittingTx(s.splittingTransactionElements)
+	if err != nil {
+		return
+	}
+	_, issueErr := s.issueTX(tx)
+	if issueErr != nil {
+		return
+	}
+	s.preparationStruct.preparationMutex.Lock()
+	defer s.preparationStruct.preparationMutex.Unlock()
+	s.preparationStruct.issuedTxIDs[tx.ID()] = types.Void
+
 	return
 }
 
 // splitSupplyTransaction splits further outputs from supply transaction to create fundingReminders.
+// It listens for transaction confirmation and submits transaction preparation and issuance to the worker pool.
 func (s *StateManager) splitSupplyTransaction() (err error) {
-	s.preparingMutex.Lock()
-	defer s.preparingMutex.Unlock()
-
-	splittingMap := make(map[ledgerstate.TransactionID]*ledgerstate.Transaction)
-	var tx *ledgerstate.Transaction
 	supplyToProcess := uint64(s.SupplyOutputsCount())
-	for i := uint64(0); i < supplyToProcess; i++ {
-		tx, err = s.createSplittingTx(s.splittingTransactionElements)
-		if err != nil {
-			return
-		}
-		splittingMap[tx.ID()] = tx
-	}
-	err = s.waitUntilAndProcessAfterConfirmation(splittingMap)
+	s.preparationStruct = newPreparationStruct(s.prepareTransactionTask, int(supplyToProcess))
+
+	err = s.listenOnConfirmationAndUpdateState(supplyToProcess)
+
 	return
 }
 
-// waitUntilAndProcessAfterConfirmation issues all transactions provided in preparedTxIDs,
-// monitors them until confirmation and updates the faucet internal state
-func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[ledgerstate.TransactionID]*ledgerstate.Transaction) error {
+// listenOnConfirmationAndUpdateState submits splitting transactions to the worker pool,
+// listen for the confirmation and updates the faucet internal state
+func (s *StateManager) listenOnConfirmationAndUpdateState(supplyToProcess uint64) error {
 	// buffered channel will store all confirmed transactions
-	txConfirmed := make(chan ledgerstate.TransactionID, len(preparedTxIDs)) // length is s.preparedOutputsCount or 1
+	txConfirmed := make(chan ledgerstate.TransactionID, supplyToProcess) // length is s.preparedOutputsCount or 1
+	// channel to signal that all tx has been issued
+	allIssued := make(chan types.Empty)
 
 	monitorTxConfirmation := events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		if _, ok := preparedTxIDs[transactionID]; ok {
+		if s.preparationStruct.wasIssuedInThisPreparation(transactionID) {
 			txConfirmed <- transactionID
 		}
 	})
@@ -546,15 +571,7 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
 	defer messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
-	// issue all transactions from the map
-	for txID, tx := range preparedTxIDs {
-		// issue the tx
-		_, issueErr := s.issueTX(tx)
-		// remove tx from the map in case of issuing failure
-		if issueErr != nil {
-			delete(preparedTxIDs, txID)
-		}
-	}
+	s.preparationStruct.prepareAndIssueTransactions(supplyToProcess, allIssued)
 
 	// waiting for transactions to be confirmed
 	ticker := time.NewTicker(WaitForConfirmation)
@@ -562,7 +579,9 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 	timeoutCounter := 0
 	maxWaitAttempts := 50 // 500 s max timeout (if fpc voting is in place)
 
-	issuedCount := uint64(len(preparedTxIDs))
+	// issuedCount if all transactions issued without any errors
+	issuedCount := s.preparedOutputsCount
+
 	var confirmedCount uint64
 	var stateUpdatedCount uint64
 	for {
@@ -585,6 +604,9 @@ func (s *StateManager) waitUntilAndProcessAfterConfirmation(preparedTxIDs map[le
 				return errors.Errorf("confirmed %d and saved %d out of %d issued transactions: %w", confirmedCount, stateUpdatedCount, issuedCount, ErrConfirmationTimeoutExpired)
 			}
 			timeoutCounter++
+		case <-allIssued:
+			// update count after all transaction were issued
+			issuedCount = s.preparationStruct.issuedTransactionsCount()
 		}
 	}
 }
@@ -634,11 +656,11 @@ func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err
 	return err
 }
 
-// createSplittingTx takes the current remainder output and creates a first splitting transaction into s.preparedOutputsCount
-// funding outputs and one remainder output if supplyTx is true. It uses address indices 1-126 because each address
-// in transaction output has to be unique and can prepare at most MaxFaucetOutputsCount supply outputs at once.
-// If supplyTx is false it uses lastFundingOutputAddressIndex to derive address.
+// createSplittingTx creates splitting transaction based on provided callback function.
 func (s *StateManager) createSplittingTx(transactionElementsCallback func() (ledgerstate.Inputs, ledgerstate.Outputs, wallet, error)) (*ledgerstate.Transaction, error) {
+	s.preparingMutex.Lock()
+	defer s.preparingMutex.Unlock()
+
 	// prepare inputs and outputs for supply transaction
 	inputs, outputs, w, err := transactionElementsCallback()
 	if err != nil {
@@ -663,7 +685,10 @@ func (s *StateManager) createSplittingTx(transactionElementsCallback func() (led
 	return tx, nil
 }
 
-// supplyTransactionElements is a callback function used during supply transaction creation
+// supplyTransactionElements is a callback function used during supply transaction creation.
+// It takes the current remainder output and creates a first splitting transaction into preparedOutputsCount
+// funding outputs and one remainder output. It uses address indices 1 - preparedOutputsCount because each address in
+// transaction output has to be unique and can prepare at most MaxFaucetOutputsCount supply outputs at once.
 func (s *StateManager) supplyTransactionElements() (inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, w wallet, err error) {
 	inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(s.remainderOutput.ID))
 	// prepare s.preparedOutputsCount number of supply outputs for further splitting.
@@ -682,7 +707,8 @@ func (s *StateManager) supplyTransactionElements() (inputs ledgerstate.Inputs, o
 	return
 }
 
-// splittingTransactionElements is a callback function used during creation of splitting transactions
+// splittingTransactionElements is a callback function used during creation of splitting transactions.
+// It splits each supply output into funding remainders and uses lastFundingOutputAddressIndex to derive their address.
 func (s *StateManager) splittingTransactionElements() (inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, w wallet, err error) {
 	reminder, err := s.nextSupplyReminder()
 	if err != nil {
@@ -734,6 +760,53 @@ func (s *StateManager) issueTX(tx *ledgerstate.Transaction) (msg *tangle.Message
 		return nil, errors.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 	return
+}
+
+// endregion
+
+// region preparationStruct
+
+type preparationStruct struct {
+	// workerPool for funds preparation
+	workerPool *workerpool.NonBlockingQueuedWorkerPool
+
+	// preparedTxID is a map that stores prepared and issued transaction IDs
+	issuedTxIDs map[ledgerstate.TransactionID]types.Empty
+
+	// RWMutex for preparedTxID map
+	preparationMutex sync.RWMutex
+}
+
+func newPreparationStruct(workerPoolTask func(task workerpool.Task), preparationWorkerQueueSize int) *preparationStruct {
+	return &preparationStruct{
+		workerPool:  workerpool.NewNonBlockingQueuedWorkerPool(workerPoolTask, workerpool.WorkerCount(preparationWorkerCount), workerpool.QueueSize(preparationWorkerQueueSize)),
+		issuedTxIDs: make(map[ledgerstate.TransactionID]types.Empty),
+	}
+}
+
+func (p *preparationStruct) wasIssuedInThisPreparation(transactionID ledgerstate.TransactionID) bool {
+	p.preparationMutex.RLock()
+	defer p.preparationMutex.RUnlock()
+	_, ok := p.issuedTxIDs[transactionID]
+	return ok
+}
+
+func (p *preparationStruct) issuedTransactionsCount() uint64 {
+	p.preparationMutex.RLock()
+	defer p.preparationMutex.RUnlock()
+
+	return uint64(len(p.issuedTxIDs))
+}
+
+func (p *preparationStruct) prepareAndIssueTransactions(txToProcess uint64, finished chan<- types.Empty) {
+	go func() {
+		for i := uint64(0); i < txToProcess; i++ {
+			p.workerPool.TrySubmit()
+		}
+		p.workerPool.StopAndWait()
+		finished <- types.Void
+		close(finished)
+	}()
 }
 
 // endregion
