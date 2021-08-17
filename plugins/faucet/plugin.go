@@ -1,6 +1,7 @@
 package faucet
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"time"
@@ -127,8 +128,16 @@ func run(*node.Plugin) {
 		Plugin().LogInfo("Waiting for node to have sufficient access mana... done")
 
 		Plugin().LogInfof("Deriving faucet state from the ledger...")
+
+		// TODO: refactor
+		ctx, ctxCancel := context.WithCancel(context.Background())
+		go func() {
+			defer ctxCancel()
+			<-shutdownSignal
+		}()
+
 		// determine state, prepare more outputs if needed
-		if err := Faucet().DeriveStateFromTangle(startIndex); err != nil {
+		if err := Faucet().DeriveStateFromTangle(startIndex, ctx); err != nil {
 			Plugin().LogErrorf("failed to derive state: %s", err)
 			return
 		}
