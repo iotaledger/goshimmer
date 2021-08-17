@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -132,7 +133,7 @@ type Consensus struct {
 type FPC struct {
 	Enabled bool
 
-	messagelayer.FPCParametersDefinition
+	consensus.FPCParametersDefinition
 }
 
 // Activity defines the parameters of the activity plugin.
