@@ -39,6 +39,8 @@ func TestValueTransactionPersistence(t *testing.T) {
 
 	addrBalance := make(map[string]map[ledgerstate.Color]uint64)
 
+	time.Sleep(5 * time.Second)
+
 	// request funds from faucet
 	for _, peer := range peers {
 		addr := peer.Address(0)
