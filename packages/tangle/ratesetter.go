@@ -188,7 +188,7 @@ loop:
 
 		// add a new message to the local issuer queue
 		case msg := <-r.issueChan:
-			if r.issuingQueue.Size()+len(msg.Payload().Bytes()) > MaxLocalQueueSize {
+			if r.issuingQueue.Size()+msg.Size() > MaxLocalQueueSize {
 				r.Events.MessageDiscarded.Trigger(msg.ID())
 				continue
 			}
@@ -218,7 +218,7 @@ loop:
 }
 
 func (r *RateSetter) issueInterval(msg *Message) time.Duration {
-	wait := time.Duration(math.Ceil(float64(len(msg.Payload().Bytes())) / r.ownRate.Load() * float64(time.Second)))
+	wait := time.Duration(math.Ceil(float64(msg.Size()) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 
