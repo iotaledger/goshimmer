@@ -2,6 +2,7 @@ package prometheus
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -37,7 +38,7 @@ var (
 
 type dependencies struct {
 	dig.In
-	autopeeringPlugin *node.Plugin `name:"autopeering"`
+	AutopeeringPlugin *node.Plugin `name:"autopeering"`
 	Local             *peer.Local
 	GossipMgr         *gossip.Manager
 }
@@ -48,9 +49,12 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
 	})
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	if Parameters.WorkerpoolMetrics {
 		registerWorkerpoolMetrics()
@@ -64,7 +68,7 @@ func configure(plugin *node.Plugin) {
 	}
 
 	if metrics.Parameters.Local {
-		if !node.IsSkipped(deps.autopeeringPlugin) {
+		if !node.IsSkipped(deps.AutopeeringPlugin) {
 			registerAutopeeringMetrics()
 		}
 		registerDBMetrics()
