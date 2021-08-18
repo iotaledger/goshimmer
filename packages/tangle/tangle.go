@@ -74,9 +74,8 @@ type ConfirmationEvents struct {
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
-			MessageEligible: events.NewEvent(MessageIDCaller),
-			MessageInvalid:  events.NewEvent(MessageIDCaller),
-			Error:           events.NewEvent(events.ErrorCaller),
+			MessageInvalid: events.NewEvent(MessageIDCaller),
+			Error:          events.NewEvent(events.ErrorCaller),
 		},
 	}
 
@@ -201,9 +200,6 @@ func (t *Tangle) Shutdown() {
 type Events struct {
 	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
 	MessageInvalid *events.Event
-
-	// Fired when a message has been eligible.
-	MessageEligible *events.Event
 
 	// Error is triggered when the Tangle faces an error from which it can not recover.
 	Error *events.Event
