@@ -774,8 +774,7 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 }
 
 // MockWeightProvider is a mock of a WeightProvider.
-type MockWeightProvider struct {
-}
+type MockWeightProvider struct{}
 
 // Update mocks its interface function.
 func (m *MockWeightProvider) Update(t time.Time, nodeID identity.ID) {
