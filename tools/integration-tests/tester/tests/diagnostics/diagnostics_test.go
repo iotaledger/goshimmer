@@ -29,7 +29,8 @@ var (
 
 	utxoDagHeader = []string{
 		"ID", "IssuanceTime", "SolidTime", "AccessManaPledgeID",
-		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "Conflicting", "LazyBooked", "GradeOfFinality",
+		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "Conflicting", "LazyBooked",
+		"GradeOfFinality", "GradeOfFinalityTime",
 	}
 
 	drngHeader = []string{

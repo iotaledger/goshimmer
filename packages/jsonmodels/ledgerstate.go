@@ -747,23 +747,25 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 
 // TransactionMetadata represents the JSON model of the ledgerstate.TransactionMetadata.
 type TransactionMetadata struct {
-	TransactionID      string              `json:"transactionID"`
-	BranchID           string              `json:"branchID"`
-	Solid              bool                `json:"solid"`
-	SolidificationTime int64               `json:"solidificationTime"`
-	LazyBooked         bool                `json:"lazyBooked"`
-	GradeOfFinality    gof.GradeOfFinality `json:"gradeOfFinality"`
+	TransactionID       string              `json:"transactionID"`
+	BranchID            string              `json:"branchID"`
+	Solid               bool                `json:"solid"`
+	SolidificationTime  int64               `json:"solidificationTime"`
+	LazyBooked          bool                `json:"lazyBooked"`
+	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
 
 // NewTransactionMetadata returns the TransactionMetadata from the given ledgerstate.TransactionMetadata.
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
-		TransactionID:      transactionMetadata.ID().Base58(),
-		BranchID:           transactionMetadata.BranchID().Base58(),
-		Solid:              transactionMetadata.Solid(),
-		SolidificationTime: transactionMetadata.SolidificationTime().Unix(),
-		LazyBooked:         transactionMetadata.LazyBooked(),
-		GradeOfFinality:    transactionMetadata.GradeOfFinality(),
+		TransactionID:       transactionMetadata.ID().Base58(),
+		BranchID:            transactionMetadata.BranchID().Base58(),
+		Solid:               transactionMetadata.Solid(),
+		SolidificationTime:  transactionMetadata.SolidificationTime().Unix(),
+		LazyBooked:          transactionMetadata.LazyBooked(),
+		GradeOfFinality:     transactionMetadata.GradeOfFinality(),
+		GradeOfFinalityTime: transactionMetadata.GradeOfFinalityTime().Unix(),
 	}
 }
 
