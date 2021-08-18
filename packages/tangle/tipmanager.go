@@ -146,7 +146,7 @@ func (t *TipManager) Set(tips ...MessageID) {
 	}
 }
 
-// AddTip adds the message to the tip pool if its issuing time is withing the tipLifeGracePeriod.
+// AddTip adds the message to the tip pool if its issuing time is within the tipLifeGracePeriod.
 // Parents of a message that are currently tip lose the tip status and are removed.
 func (t *TipManager) AddTip(message *Message) {
 	messageID := message.ID()
