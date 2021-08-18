@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/protocol/message"

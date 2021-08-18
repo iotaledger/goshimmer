@@ -82,7 +82,7 @@ func writeEventsToCSV(evs []mana.Event) error {
 	if len(evs) == 0 {
 		return nil
 	}
-	f, err := os.OpenFile(csvPath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660)
+	f, err := os.OpenFile(csvPath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0o660)
 	if err != nil {
 		return err
 	}

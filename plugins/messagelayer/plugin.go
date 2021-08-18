@@ -177,9 +177,7 @@ func run(*node.Plugin) {
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var (
-	tangleInstance *tangle.Tangle
-)
+var tangleInstance *tangle.Tangle
 
 // newTangle gets the tangle instance.
 func newTangle(deps tangledeps) *tangle.Tangle {

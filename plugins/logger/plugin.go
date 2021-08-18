@@ -13,10 +13,8 @@ import (
 // PluginName is the name of the logger plugin.
 const PluginName = "Logger"
 
-var (
-	// plugin is the plugin instance of the logger plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled)
-)
+// plugin is the plugin instance of the logger plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled)
 
 // Init triggers the Init event.
 func Init() {

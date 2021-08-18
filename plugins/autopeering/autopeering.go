@@ -16,10 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var (
-	// Conn contains the network connection.
-	Conn *NetConnMetric
-)
+// Conn contains the network connection.
+var Conn *NetConnMetric
 
 // BindAddress returns the string form of the autopeering bind address.
 func BindAddress() string {
