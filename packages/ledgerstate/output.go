@@ -21,6 +21,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
@@ -2335,6 +2336,7 @@ type OutputMetadata struct {
 	confirmedConsumer       TransactionID // not nil if the spending transaction of the output is finalized
 	confirmedConsumerMutex  sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -2398,7 +2400,10 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-
+	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
 	return
 }
 
@@ -2528,9 +2533,17 @@ func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality)
 	}
 
 	o.gradeOfFinality = gradeOfFinality
+	o.gradeOfFinalityTime = clock.SyncedTime()
 	o.SetModified()
 	modified = true
 	return
+}
+
+// GradeOfFinalityTime returns the time the Output's gradeOfFinality was set.
+func (o *OutputMetadata) GradeOfFinalityTime() time.Time {
+	o.gradeOfFinalityMutex.RLock()
+	defer o.gradeOfFinalityMutex.RUnlock()
+	return o.gradeOfFinalityTime
 }
 
 // ConfirmedConsumer returns the consumer that spent the transaction if the consumer is confirmed already
@@ -2573,6 +2586,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
 		stringify.StructField("confirmedConsumer", o.ConfirmedConsumer()),
 		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
+		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
 	)
 }
 
@@ -2598,6 +2612,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		Write(o.FirstConsumer()).
 		Write(o.ConfirmedConsumer()).
 		WriteUint8(uint8(o.GradeOfFinality())).
+		WriteTime(o.GradeOfFinalityTime()).
 		Bytes()
 }
 
