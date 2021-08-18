@@ -8,7 +8,8 @@ import (
 
 var (
 	// Plugin is the plugin instance of the dependency injection plugin.
-	Plugin    *node.Plugin
+	Plugin *node.Plugin
+	// Container is a dependency injection container.
 	Container *dig.Container
 )
 

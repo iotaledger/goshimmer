@@ -149,7 +149,7 @@ func configure(plugin *node.Plugin) {
 		if _, err := snapshot.ReadFrom(f); err != nil {
 			plugin.Panic("could not read snapshot file in message layer plugin:", err)
 		}
-		if err := deps.Tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
+		if err = deps.Tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
 			plugin.Panic("fail to load snapshot file in message layer plugin:", err)
 		}
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
