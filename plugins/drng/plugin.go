@@ -18,10 +18,9 @@ import (
 const PluginName = "DRNG"
 
 var (
-	// Plugin is the plugin instance of the DRNG plugin.
-	Plugin   *node.Plugin
-	deps     dependencies
-	instance *drng.DRNG
+	// Plugin is the plugin deps.DrngInstance of the DRNG plugin.
+	Plugin *node.Plugin
+	deps   dependencies
 
 	inbox     chan tangle.MessageID
 	inboxSize = 100
@@ -84,12 +83,12 @@ func run(*node.Plugin) {
 						Plugin.LogDebug(err)
 						return
 					}
-					if err := instance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
+					if err := deps.DrngInstance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
 						// TODO: handle error
 						Plugin.LogDebug(err)
 						return
 					}
-					Plugin.LogDebug("New randomness: ", instance.State[parsedPayload.InstanceID].Randomness())
+					Plugin.LogDebug("New randomness: ", deps.DrngInstance.State[parsedPayload.InstanceID].Randomness())
 				})
 			}
 		}
