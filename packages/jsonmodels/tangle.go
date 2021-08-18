@@ -28,19 +28,19 @@ type Message struct {
 
 // MessageMetadata represents the JSON model of the tangle.MessageMetadata.
 type MessageMetadata struct {
-	ID                 string              `json:"id"`
-	ReceivedTime       int64               `json:"receivedTime"`
-	Solid              bool                `json:"solid"`
-	SolidificationTime int64               `json:"solidificationTime"`
-	StructureDetails   *StructureDetails   `json:"structureDetails,omitempty"`
-	BranchID           string              `json:"branchID"`
-	Scheduled          bool                `json:"scheduled"`
-	ScheduledTime      int64               `json:"scheduledTime"`
-	Booked             bool                `json:"booked"`
-	BookedTime         int64               `json:"bookedTime"`
-	Eligible           bool                `json:"eligible"`
-	Invalid            bool                `json:"invalid"`
-	GradeOfFinality    gof.GradeOfFinality `json:"gradeOfFinality"`
+	ID                  string              `json:"id"`
+	ReceivedTime        int64               `json:"receivedTime"`
+	Solid               bool                `json:"solid"`
+	SolidificationTime  int64               `json:"solidificationTime"`
+	StructureDetails    *StructureDetails   `json:"structureDetails,omitempty"`
+	BranchID            string              `json:"branchID"`
+	Scheduled           bool                `json:"scheduled"`
+	ScheduledTime       int64               `json:"scheduledTime"`
+	Booked              bool                `json:"booked"`
+	BookedTime          int64               `json:"bookedTime"`
+	Invalid             bool                `json:"invalid"`
+	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

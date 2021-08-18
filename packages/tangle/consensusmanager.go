@@ -76,10 +76,6 @@ func (o *ConsensusManager) MessageEligible(messageID MessageID) (eligible bool) 
 		return true
 	}
 
-	o.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		eligible = messageMetadata.IsEligible()
-	})
-
 	return
 }
 

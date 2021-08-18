@@ -45,7 +45,6 @@ type ExplorerMessage struct {
 	BranchID        string              `json:"branchID"`
 	Scheduled       bool                `json:"scheduled"`
 	Booked          bool                `json:"booked"`
-	Eligible        bool                `json:"eligible"`
 	Invalid         bool                `json:"invalid"`
 	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
 	// PayloadType defines the type of the payload.
@@ -88,7 +87,6 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
-		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
 		GradeOfFinality:         messageMetadata.GradeOfFinality(),
 		PayloadType:             uint32(msg.Payload().Type()),

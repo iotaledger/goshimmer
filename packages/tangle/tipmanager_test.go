@@ -56,7 +56,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 1
 	{
-		messages["1"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
 		tipManager.AddTip(messages["1"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -65,7 +65,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 2
 	{
-		messages["2"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
 		tipManager.AddTip(messages["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -74,7 +74,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID, messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID, messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -108,7 +108,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 1
 	{
-		messages["1"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
 		tipManager.AddTip(messages["1"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -122,7 +122,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 2
 	{
-		messages["2"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
 		tipManager.AddTip(messages["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -136,7 +136,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -154,7 +154,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		tips = append(tips, messages["3"].ID())
 		for count, n := range []int{4, 5, 6, 7, 8} {
 			nString := strconv.Itoa(n)
-			messages[nString] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID()}, []MessageID{})
+			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID()}, []MessageID{})
 			tipManager.AddTip(messages[nString])
 			tips = append(tips, messages[nString].ID())
 
@@ -307,7 +307,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		issueTime := time.Now().Add(-maxParentsTimeDifference - 5*time.Minute)
 		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil, issueTime)
 
-		storeBookLikeMessage(t, tangle, messages["1"])
+		storeAndBookMessage(t, tangle, messages["1"])
 
 		tipManager.AddTip(messages["1"])
 		assert.Equal(t, 0, tipManager.TipCount())
@@ -323,7 +323,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["G2"]), ledgerstate.NewOutputs(outputs["D"], outputs["E"], outputs["F"]), outputsByID, walletsByAddress, wallets["G2"])
 		messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
 
-		storeBookLikeMessage(t, tangle, messages["2"])
+		storeAndBookMessage(t, tangle, messages["2"])
 
 		tipManager.AddTip(messages["2"])
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -340,7 +340,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["H"], outputs["I"], outputs["J"]), outputsByID, walletsByAddress)
 		messages["3"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
 
-		storeBookLikeMessage(t, tangle, messages["3"])
+		storeAndBookMessage(t, tangle, messages["3"])
 
 		tipManager.AddTip(messages["3"])
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -372,7 +372,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		messages["4"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["2"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
 
-		storeBookLikeMessage(t, tangle, messages["4"])
+		storeAndBookMessage(t, tangle, messages["4"])
 
 		tipManager.AddTip(messages["4"])
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -382,7 +382,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	{
 		messages["5"] = newTestParentsDataMessage("data", []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
 
-		storeBookLikeMessage(t, tangle, messages["5"])
+		storeAndBookMessage(t, tangle, messages["5"])
 
 		tipManager.AddTip(messages["5"])
 		assert.Equal(t, 3, tipManager.TipCount())
@@ -396,7 +396,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		transactions[transactionStringID] = makeTransaction(ledgerstate.NewInputs(inputs[inputStringID]), ledgerstate.NewOutputs(outputs[outputStringID]), outputsByID, walletsByAddress)
 		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], strongParents, []MessageID{}, nil, nil)
 
-		storeBookLikeMessage(t, tangle, messages[messageStringID])
+		storeAndBookMessage(t, tangle, messages[messageStringID])
 	}
 
 	// Message 6
@@ -466,7 +466,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	{
 		messages["15"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID()}, []MessageID{}, nil, nil)
 
-		storeBookLikeMessage(t, tangle, messages["15"])
+		storeAndBookMessage(t, tangle, messages["15"])
 
 		tipManager.AddTip(messages["15"])
 		assert.Equal(t, 8, tipManager.TipCount())
@@ -476,7 +476,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	{
 		messages["16"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}, []MessageID{}, nil, nil)
 
-		storeBookLikeMessage(t, tangle, messages["16"])
+		storeAndBookMessage(t, tangle, messages["16"])
 
 		tipManager.AddTip(messages["16"])
 		assert.Equal(t, 8, tipManager.TipCount())
@@ -641,7 +641,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	}
 }
 
-func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
+func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// we need to store and book transactions so that we also have attachments of transactions available
 	tangle.Storage.StoreMessage(message)
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
@@ -658,24 +658,18 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 		messageBranchID, err := tangle.Booker.MessageBranchID(message.ID())
 		assert.NoError(t, err)
 		require.Equal(t, ledgerstate.MasterBranchID, messageBranchID)
-
-		messageMetadata.SetEligible(true)
 	})
 }
 
-func createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
+func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
 	message = newTestParentsDataMessage("testmessage", strongParents, weakParents, nil, nil)
 	tangle.Storage.StoreMessage(message)
-	message.setMessageMetadata(tangle, true, ledgerstate.MasterBranchID)
+
+	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		messageMetadata.SetBranchID(ledgerstate.MasterBranchID)
+	})
 
 	return
-}
-
-func (m *Message) setMessageMetadata(tangle *Tangle, eligible bool, branchID ledgerstate.BranchID) {
-	tangle.Storage.MessageMetadata(m.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		messageMetadata.SetEligible(eligible)
-		messageMetadata.SetBranchID(branchID)
-	})
 }
 
 type mockConsensusProvider struct {
