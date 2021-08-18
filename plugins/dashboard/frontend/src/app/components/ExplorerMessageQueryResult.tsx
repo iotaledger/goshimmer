@@ -140,13 +140,13 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Booked: {msg.booked ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Eligible: {msg.eligible ? 'Yes' : 'No'}
-                                    </ListGroup.Item>
-                                    <ListGroup.Item>
                                         Invalid: {msg.invalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Grade of Finality: {msg.gradeOfFinality}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Grade of Finality Time: {dateformat(new Date(msg.gradeOfFinalityTime * 1000), "dd.mm.yyyy HH:MM:ss")}
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>
