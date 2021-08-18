@@ -29,10 +29,12 @@ func init() {
 	Plugin = node.NewPlugin("WebAPI WeightProvider Endpoint", node.Enabled, configure)
 }
 
-func configure(_ *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 
 	deps.Server.GET("weightprovider/activenodes", getNodesHandler)
 	deps.Server.GET("weightprovider/weights", getWeightsHandler)

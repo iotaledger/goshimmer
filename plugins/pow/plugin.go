@@ -29,12 +29,14 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 }
 
-func configure(*node.Plugin) {
+func configure(plugin *node.Plugin) {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName)
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 
 	if node.IsSkipped(deps.MessagelayerPlugin) {
 		log.Infof("%s is disabled; skipping %s\n", deps.MessagelayerPlugin.Name, PluginName)

@@ -39,9 +39,11 @@ func init() {
 }
 
 func configure(plugin *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		Plugin.LogError(err)
+	}
 	deps.Server.GET("autopeering/neighbors", getNeighbors)
 }
 

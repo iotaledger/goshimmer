@@ -37,9 +37,11 @@ func init() {
 }
 
 func configure(plugin *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 
 	deps.Server.GET("messages/:messageID", GetMessage)
 	deps.Server.GET("messages/:messageID/metadata", GetMessageMetadata)

@@ -34,10 +34,12 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 }
 
-func configure(_ *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 	deps.Server.GET("healthz", getHealthz)
 }
 

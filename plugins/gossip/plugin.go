@@ -51,12 +51,11 @@ func init() {
 	}))
 }
 
-func configure(*node.Plugin) {
-	err := dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
-	if err != nil {
-		fmt.Println(err)
+	}); err != nil {
+		plugin.LogError(err)
 	}
 	configureLogging()
 	configureMessageLayer()

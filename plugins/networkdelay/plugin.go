@@ -59,10 +59,12 @@ func App() *node.Plugin {
 	return app
 }
 
-func configure(_ *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 	remoteLogger = deps.RemoteLogger
 
 	if deps.Local != nil {
@@ -73,11 +75,11 @@ func configure(_ *node.Plugin) {
 	// get origin public key from config
 	bytes, err := base58.Decode(Parameters.OriginPublicKey)
 	if err != nil {
-		app.LogFatalf("could not parse originPublicKey config entry as base58. %v", err)
+		plugin.LogFatalf("could not parse originPublicKey config entry as base58. %v", err)
 	}
 	originPublicKey, _, err = ed25519.PublicKeyFromBytes(bytes)
 	if err != nil {
-		app.LogFatalf("could not parse originPublicKey config entry as public key. %v", err)
+		plugin.LogFatalf("could not parse originPublicKey config entry as public key. %v", err)
 	}
 
 	configureWebAPI()

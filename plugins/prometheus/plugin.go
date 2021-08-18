@@ -2,7 +2,6 @@ package prometheus
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -49,11 +48,10 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-	err := dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
-	if err != nil {
-		fmt.Println(err)
+	}); err != nil {
+		plugin.LogError(err)
 	}
 
 	if Parameters.WorkerpoolMetrics {

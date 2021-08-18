@@ -71,10 +71,12 @@ func Filter() *DoubleSpendFilter {
 	return doubleSpendFilter
 }
 
-func configure(*node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 
 	doubleSpendFilter = Filter()
 	onTransactionConfirmedClosure = events.NewClosure(func(transactionID ledgerstate.TransactionID) {

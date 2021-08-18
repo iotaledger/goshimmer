@@ -91,25 +91,27 @@ func newFaucet() *StateManager {
 	)
 }
 
-func configure(*node.Plugin) {
+func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
 	startIndex = Parameters.StartIndex
 	blacklist = orderedmap.New()
 	blacklistCapacity = Parameters.BlacklistCapacity
 	_faucet = newFaucet()
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 
 	fundingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		msg := task.Param(0).(*tangle.Message)
 		addr := msg.Payload().(*faucet.Request).Address()
 		msg, txID, err := _faucet.FulFillFundingRequest(msg)
 		if err != nil {
-			Plugin.LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
+			plugin.LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			return
 		}
-		Plugin.LogInfof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
+		plugin.LogInfof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()

@@ -109,9 +109,11 @@ func newServer() *echo.Echo {
 }
 
 func configure(*node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		Plugin.LogError(err)
+	}
 
 	log = logger.NewLogger(PluginName)
 	// configure the server

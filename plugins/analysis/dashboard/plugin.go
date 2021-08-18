@@ -37,9 +37,12 @@ type dependencies struct {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
+
 	configureFPCLiveFeed()
 	configureAutopeeringWorkerPool()
 	configureServer()

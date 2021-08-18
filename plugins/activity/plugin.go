@@ -32,12 +32,14 @@ func init() {
 }
 
 // configure events
-func configure(_ *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 
-	Plugin.LogInfof("starting node with activity plugin")
+	plugin.LogInfof("starting node with activity plugin")
 }
 
 // broadcastActivityMessage broadcasts a sync beacon via communication layer.

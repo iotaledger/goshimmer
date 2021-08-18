@@ -2,6 +2,7 @@ package logger
 
 import (
 	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
+
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -25,12 +26,14 @@ func Init() {
 func init() {
 	configuration.BindParameters(Parameters, "logger")
 
-	Plugin.Events.Init.AttachBefore(events.NewClosure(func(*node.Plugin) {
-		dependencyinjection.Container.Invoke(func(config *configuration.Configuration) {
+	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+		if err := dependencyinjection.Container.Invoke(func(config *configuration.Configuration) {
 			if err := logger.InitGlobalLogger(config); err != nil {
 				panic(err)
 			}
-		})
+		}); err != nil {
+			Plugin.LogError(err)
+		}
 
 		// enable logging for the daemon
 		daemon.DebugEnabled(true)

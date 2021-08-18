@@ -24,7 +24,7 @@ import (
 const PluginName = "Manualpeering"
 
 var (
-	// plugin is the plugin instance of the manualpeering plugin.
+	// Plugin is the plugin instance of the manualpeering plugin.
 	Plugin      *node.Plugin
 	deps        dependencies
 	manager     *manualpeering.Manager
@@ -52,10 +52,12 @@ func Manager() *manualpeering.Manager {
 	return manager
 }
 
-func configurePlugin(*node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configurePlugin(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 	configureWebAPI()
 }
 

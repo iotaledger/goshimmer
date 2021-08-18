@@ -71,13 +71,12 @@ func init() {
 	}))
 }
 
-func configure(*node.Plugin) {
+func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	err := dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
-	if err != nil {
-		Plugin.LogError(err)
+	}); err != nil {
+		plugin.LogError(err)
 	}
 
 	if Parameters.EnableGossipIntegration {

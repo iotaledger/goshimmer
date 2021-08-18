@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 	"go.uber.org/dig"
 
-	gossippkg "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -48,11 +47,13 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 }
 
-func configure(_ *node.Plugin) {
+func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 }
 
 func run(_ *node.Plugin) {
@@ -221,8 +222,8 @@ func registerLocalMetrics() {
 		isTangleTimeSynced.Store(synced)
 	}))
 
-	deps.GossipMgr.NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
-	deps.GossipMgr.NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
+	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
+	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
 	deps.Selection.Events().IncomingPeering.Attach(onAutopeeringSelection)
 	deps.Selection.Events().OutgoingPeering.Attach(onAutopeeringSelection)

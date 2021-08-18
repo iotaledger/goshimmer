@@ -55,11 +55,13 @@ var (
 	log    *logger.Logger
 )
 
-func configure(_ *node.Plugin) {
+func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 	server = tcp.NewServer()
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))

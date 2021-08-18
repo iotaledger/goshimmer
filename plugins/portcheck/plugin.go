@@ -40,11 +40,13 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 }
 
-func configure(*node.Plugin) {
+func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 }
 
 func run(*node.Plugin) {

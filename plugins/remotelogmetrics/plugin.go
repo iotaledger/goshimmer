@@ -48,10 +48,12 @@ func init() {
 	Plugin = node.NewPlugin("RemoteLogMetrics", node.Enabled, configure, run)
 }
 
-func configure(_ *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 	configureSyncMetrics()
 	configureFPCConflictsMetrics()
 	configureDRNGMetrics()
@@ -59,7 +61,7 @@ func configure(_ *node.Plugin) {
 	configureStatementMetrics()
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Node State Logger Updater", func(shutdownSignal <-chan struct{}) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
@@ -71,7 +73,7 @@ func run(_ *node.Plugin) {
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-shutdownSignal
 	}, shutdown.PriorityRemoteLog); err != nil {
-		Plugin.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

@@ -55,12 +55,18 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Disabled, configure)
 }
 
-func configure(_ *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
-	dependencyinjection.Container.Invoke(message.Invoke)
-	dependencyinjection.Container.Invoke(drng.Invoke)
+	}); err != nil {
+		plugin.LogError(err)
+	}
+	if err := dependencyinjection.Container.Invoke(message.Invoke); err != nil {
+		plugin.LogError(err)
+	}
+	if err := dependencyinjection.Container.Invoke(drng.Invoke); err != nil {
+		plugin.LogError(err)
+	}
 
 	deps.Server.GET("tools/message/pastcone", message.PastconeHandler)
 	deps.Server.GET("tools/message/missing", message.MissingHandler)

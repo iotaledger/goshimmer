@@ -39,10 +39,12 @@ func init() {
 	Plugin = node.NewPlugin("snapshot", node.Disabled, configure)
 }
 
-func configure(Plugin *node.Plugin) {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+func configure(plugin *node.Plugin) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		plugin.LogError(err)
+	}
 	deps.Server.GET("snapshot", DumpCurrentLedger)
 }
 
