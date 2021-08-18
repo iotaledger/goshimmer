@@ -21,6 +21,7 @@ const (
 )
 
 var (
+	// Plugin is the plugin instance of the manaeventlogger plugin.
 	Plugin               *node.Plugin
 	log                  *logger.Logger
 	onPledgeEventClosure *events.Closure

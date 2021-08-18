@@ -22,6 +22,7 @@ const (
 )
 
 var (
+	// Plugin is the plugin instance of the clock plugin.
 	Plugin     *node.Plugin
 	pluginOnce sync.Once
 )

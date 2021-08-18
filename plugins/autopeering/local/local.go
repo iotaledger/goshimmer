@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -19,9 +18,9 @@ import (
 
 var (
 	instance *peer.Local
-	once     sync.Once
 )
 
+// ConfigureLocal initiates a local instance.
 func ConfigureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 

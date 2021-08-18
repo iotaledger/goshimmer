@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -38,9 +37,8 @@ import (
 const PluginName = "Dashboard"
 
 var (
-	// plugin is the plugin instance of the dashboard plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the dashboard plugin.
+	Plugin *node.Plugin
 	deps   dependencies
 
 	log    *logger.Logger
@@ -61,12 +59,8 @@ type dependencies struct {
 	DrngInstance *drng.DRNG
 }
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 }
 
 func configure(plugin *node.Plugin) {

@@ -26,6 +26,7 @@ const PluginName = "Prometheus"
 
 // Plugin Prometheus
 var (
+	// Plugin is the plugin instance of the prometheus plugin.
 	Plugin *node.Plugin
 	deps   dependencies
 	log    *logger.Logger

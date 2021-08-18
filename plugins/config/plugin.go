@@ -34,7 +34,6 @@ func Init() {
 
 func init() {
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		fmt.Println("config provided")
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present

@@ -40,6 +40,7 @@ var (
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
+	// Plugin is the plugin instance of the messagelayer plugin.
 	Plugin *node.Plugin
 	deps   dependencies
 )

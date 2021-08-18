@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	// Plugin is the plugin instance of the activity plugin.
+	// Plugin is the plugin instance of the manarefresher plugin.
 	Plugin    *node.Plugin
 	deps      dependencies
 	refresher *Refresher

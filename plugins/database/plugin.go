@@ -34,6 +34,7 @@ var (
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		store = createStore()
 

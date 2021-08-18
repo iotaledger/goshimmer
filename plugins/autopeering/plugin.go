@@ -24,7 +24,7 @@ import (
 const PluginName = "Autopeering"
 
 var (
-	// plugin is the plugin instance of the autopeering plugin.
+	// Plugin is the plugin instance of the autopeering plugin.
 	Plugin *node.Plugin
 	deps   dependencies
 

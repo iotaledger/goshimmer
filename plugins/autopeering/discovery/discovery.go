@@ -32,6 +32,7 @@ var (
 	networkVersion uint32
 )
 
+// CreatePeerDisc creates a discover protocol instance.
 func CreatePeerDisc(localID *peer.Local) *discover.Protocol {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName).Named("disc")

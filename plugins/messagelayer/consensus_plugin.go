@@ -38,7 +38,7 @@ import (
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	// plugin is the plugin instance of the statement plugin.
+	// ConsensusPlugin is the plugin instance of the statement plugin.
 	ConsensusPlugin *node.Plugin
 	voter           *fpc.FPC
 	voterServer     *votenet.VoterServer
