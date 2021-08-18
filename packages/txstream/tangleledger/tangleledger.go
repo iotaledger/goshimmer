@@ -38,9 +38,11 @@ var deps dependencies
 
 // New returns an implementation for txstream.Ledger
 func New() *TangleLedger {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	t := &TangleLedger{
 		txConfirmedEvent: events.NewEvent(txEventHandler),

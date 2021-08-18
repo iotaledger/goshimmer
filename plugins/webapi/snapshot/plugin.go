@@ -3,12 +3,13 @@ package snapshot
 import (
 	"os"
 
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"

@@ -7,6 +7,7 @@ import (
 )
 
 var (
+	// Plugin is the plugin instance of the dependency injection plugin.
 	Plugin    *node.Plugin
 	Container *dig.Container
 )

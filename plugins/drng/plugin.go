@@ -1,8 +1,6 @@
 package drng
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -24,7 +22,6 @@ var (
 	Plugin   *node.Plugin
 	deps     dependencies
 	instance *drng.DRNG
-	once     sync.Once
 
 	inbox     chan tangle.MessageID
 	inboxSize = 100

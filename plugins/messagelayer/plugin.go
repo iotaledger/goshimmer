@@ -149,7 +149,9 @@ func configure(plugin *node.Plugin) {
 		if _, err := snapshot.ReadFrom(f); err != nil {
 			plugin.Panic("could not read snapshot file in message layer plugin:", err)
 		}
-		deps.Tangle.LedgerState.LoadSnapshot(snapshot)
+		if err := deps.Tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
+			plugin.Panic("fail to load snapshot file in message layer plugin:", err)
+		}
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
 
 		// Set flag that we read the snapshot already, so we don't have to do it again after a restart.

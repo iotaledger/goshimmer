@@ -49,9 +49,11 @@ func testNodesGetMessages(msgID string) error {
 }
 
 func main() {
-	dependencyinjection.Container.Invoke(func(dep dependencies) {
+	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
 		deps = dep
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	config.Init()
 	logger.Init()

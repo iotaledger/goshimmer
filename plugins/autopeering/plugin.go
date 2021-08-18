@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
@@ -17,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
-	"github.com/iotaledger/hive.go/autopeering/discover"
 )
 
 // PluginName is the name of the autopeering plugin.

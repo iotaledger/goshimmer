@@ -102,7 +102,10 @@ func newServer() *echo.Echo {
 		}
 
 		message = fmt.Sprintf("%s, error: %+v", message, err)
-		c.String(statusCode, message)
+		resErr := c.String(statusCode, message)
+		if resErr != nil {
+			log.Warnf("Failed to send error response: %s", resErr)
+		}
 	}
 	return server
 }

@@ -3,9 +3,10 @@ package message
 import (
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/configuration"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 var deps dependencies
@@ -19,6 +20,7 @@ type dependencies struct {
 	Config             *configuration.Configuration
 }
 
+// Invoke invokes dependencies for tools/message apis.
 func Invoke(dep dependencies) {
 	deps = dep
 }

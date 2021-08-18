@@ -15,6 +15,7 @@ type dependencies struct {
 	ConsensusMechanism tangle.ConsensusMechanism
 }
 
+// Invoke invokes dependencies for tools/drng apis.
 func Invoke(dep dependencies) {
 	deps = dep
 }
