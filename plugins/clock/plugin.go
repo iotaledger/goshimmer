@@ -1,7 +1,6 @@
 package clock
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -31,7 +30,6 @@ func init() {
 	Plugin = node.NewPlugin("Clock", node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		fmt.Println("clock provided")
 		if err := dependencyinjection.Container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("clock")); err != nil {

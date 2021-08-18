@@ -2,7 +2,6 @@ package autopeering
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -46,23 +45,24 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		fmt.Println("provide peer local")
-
 		if err := dependencyinjection.Container.Provide(func() *peer.Local {
 			return local.ConfigureLocal()
 		}); err != nil {
 			Plugin.Panic(err)
 		}
+
 		if err := dependencyinjection.Container.Provide(func(localID *peer.Local) *discover.Protocol {
 			return discovery.CreatePeerDisc(localID)
 		}); err != nil {
 			Plugin.Panic(err)
 		}
+
 		if err := dependencyinjection.Container.Provide(func(localID *peer.Local, nbrDiscover *discover.Protocol) *selection.Protocol {
 			return createPeerSel(localID, nbrDiscover)
 		}); err != nil {
 			Plugin.Panic(err)
 		}
+
 		if err := dependencyinjection.Container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("autopeering")); err != nil {

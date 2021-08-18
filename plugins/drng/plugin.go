@@ -1,7 +1,6 @@
 package drng
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -42,7 +41,6 @@ func init() {
 	inbox = make(chan tangle.MessageID, inboxSize)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		fmt.Println("drng provided")
 		if err := dependencyinjection.Container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("drng")); err != nil {

@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -41,7 +40,6 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		fmt.Println("gossip provided")
 		if err := dependencyinjection.Container.Provide(func(peerLocal *peer.Local, t *tangle.Tangle) *gossip.Manager {
 			mgr := createManager(peerLocal, t)
 			return mgr

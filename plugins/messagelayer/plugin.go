@@ -1,7 +1,6 @@
 package messagelayer
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -68,18 +67,18 @@ func init() {
 	Plugin = node.NewPlugin("MessageLayer", node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		fmt.Println("messagelayer provided")
-
 		if err := dependencyinjection.Container.Provide(func() tangle.ConsensusMechanism {
 			return fcob.NewConsensusMechanism()
 		}); err != nil {
 			panic(err)
 		}
+
 		if err := dependencyinjection.Container.Provide(func(deps tangledeps) *tangle.Tangle {
 			return newTangle(deps)
 		}); err != nil {
 			panic(err)
 		}
+
 		if err := dependencyinjection.Container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("messagelayer")); err != nil {

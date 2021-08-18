@@ -5,7 +5,6 @@
 package remotelog
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -59,7 +58,6 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		fmt.Println("remote logger provided")
 		if err := dependencyinjection.Container.Provide(func() *RemoteLoggerConn {
 			remoteLogger, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
 			if err != nil {

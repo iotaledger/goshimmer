@@ -35,10 +35,6 @@ var (
 func CreatePeerDisc(localID *peer.Local) *discover.Protocol {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName).Named("disc")
-	if localID == nil {
-		log.Error("nil localID in discover")
-	}
-
 	networkVersion = uint32(Parameters.NetworkVersion)
 
 	entryNodes, err := parseEntryNodes()

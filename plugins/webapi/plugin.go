@@ -40,7 +40,6 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		fmt.Println("webapi provided")
 		if err := dependencyinjection.Container.Provide(func() *echo.Echo {
 			server := newServer()
 			return server

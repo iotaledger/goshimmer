@@ -2,7 +2,6 @@
 package database
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -37,7 +36,7 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		store = createStore()
-		fmt.Println("store provided")
+
 		if err := dependencyinjection.Container.Provide(func() kvstore.KVStore {
 			return store
 		}); err != nil {
