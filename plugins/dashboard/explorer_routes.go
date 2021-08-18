@@ -254,7 +254,6 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID()).Consume(func(consumer *ledgerstate.Consumer) {
 			jsonMetadata.ConfirmedConsumer = consumer.String()
 		})
-		messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID()).Release()
 
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),
