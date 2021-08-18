@@ -484,32 +484,21 @@ type OutputMetadata struct {
 	Solid              bool                `json:"solid"`
 	SolidificationTime int64               `json:"solidificationTime"`
 	ConsumerCount      int                 `json:"consumerCount"`
-	FirstConsumer      string              `json:"firstConsumer,omitempty"`
 	ConfirmedConsumer  string              `json:"confirmedConsumer,omitempty"`
 	GradeOfFinality    gof.GradeOfFinality `json:"gradeOfFinality"`
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
-	firstConsumer := ""
-	// omit firstConsumer field if it hasn't been consumed yet
-	if outputMetadata.FirstConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
-		firstConsumer = outputMetadata.FirstConsumer().Base58()
-	}
-	confirmedConsumer := ""
-	// omit confirmedConsumer field if it hasn't been consumed yet by a confirmed transaction
-	if outputMetadata.ConfirmedConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
-		confirmedConsumer = outputMetadata.ConfirmedConsumer().Base58()
-	}
 	return &OutputMetadata{
 		OutputID:           NewOutputID(outputMetadata.ID()),
 		BranchID:           outputMetadata.BranchID().Base58(),
 		Solid:              outputMetadata.Solid(),
 		SolidificationTime: outputMetadata.SolidificationTime().Unix(),
 		ConsumerCount:      outputMetadata.ConsumerCount(),
-		FirstConsumer:      firstConsumer,
-		ConfirmedConsumer:  confirmedConsumer,
-		GradeOfFinality:    outputMetadata.GradeOfFinality(),
+		// ConfirmedConsumer needs to be queried using LedgerState.ConfirmedConsumer
+		ConfirmedConsumer: "",
+		GradeOfFinality:   outputMetadata.GradeOfFinality(),
 	}
 }
 

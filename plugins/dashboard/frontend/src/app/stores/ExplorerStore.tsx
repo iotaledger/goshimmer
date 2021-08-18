@@ -78,7 +78,6 @@ export class OutputMetadata {
     solid: boolean;
     solidificationTime: number;
     consumerCount: number;
-    firstConsumer: string; // tx id of first consumer (can be unconfirmed)
     confirmedConsumer: string // tx id of confirmed consumer
     gradeOfFinality: number
 }

@@ -194,17 +194,15 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 		unspentOutputs := make([]bool, len(transaction.Essence().Outputs()))
 		includeTransaction := false
 		for i, output := range transaction.Essence().Outputs() {
-			l.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-				if outputMetadata.ConfirmedConsumer() == ledgerstate.GenesisTransactionID { // no consumer yet
-					unspentOutputs[i] = true
-					includeTransaction = true
-				} else {
-					tx, exist := copyLedgerState[outputMetadata.ConfirmedConsumer()]
-					// ignore consumers that are not confirmed long enough or even in the future.
-					if !exist || startSnapshot.Sub(tx.Essence().Timestamp()) < minAge {
-						unspentOutputs[i] = true
-						includeTransaction = true
-					}
+			unspentOutputs[i] = true
+			includeTransaction = true
+
+			l.ConfirmedConsumer(output.ID()).Consume(func(consumer *ledgerstate.Consumer) {
+				tx := copyLedgerState[consumer.TransactionID()]
+				// If the Confirmed Consumer is old enough we consider the output spent
+				if startSnapshot.Sub(tx.Essence().Timestamp()) >= minAge {
+					unspentOutputs[i] = false
+					includeTransaction = false
 				}
 			})
 		}
@@ -243,6 +241,11 @@ func (l *LedgerState) CachedOutputMetadata(outputID ledgerstate.OutputID) *ledge
 	return l.UTXODAG.CachedOutputMetadata(outputID)
 }
 
+// CachedTransactionMetadata returns the TransactionMetadata with the given ID.
+func (l *LedgerState) CachedTransactionMetadata(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransactionMetadata {
+	return l.UTXODAG.CachedTransactionMetadata(transactionID)
+}
+
 // CachedOutputsOnAddress retrieves all the Outputs that are associated with an address.
 func (l *LedgerState) CachedOutputsOnAddress(address ledgerstate.Address) (cachedOutputs ledgerstate.CachedOutputs) {
 	l.UTXODAG.CachedAddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
@@ -264,6 +267,26 @@ func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cac
 // Consumers returns the (cached) consumers of the given outputID.
 func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
 	return l.UTXODAG.CachedConsumers(outputID)
+}
+
+// ConfirmedConsumer returns the (cached) confirmed consumer of the given outputID.
+func (l *LedgerState) ConfirmedConsumer(outputID ledgerstate.OutputID) (confirmedConsumer *ledgerstate.CachedConsumer) {
+	found := false
+	for _, cachedConsumer := range l.Consumers(outputID) {
+		cachedConsumer.Consume(func(consumer *ledgerstate.Consumer) {
+			// We already identified a confirmed Consumer
+			l.CachedTransactionMetadata(consumer.TransactionID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+				if l.tangle.ConfirmationOracle.IsBranchConfirmed(transactionMetadata.BranchID()) {
+					found = true
+					confirmedConsumer = cachedConsumer
+				}
+			})
+		})
+		if found {
+			break
+		}
+	}
+	return
 }
 
 // TotalSupply returns the total supply.
