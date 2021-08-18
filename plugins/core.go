@@ -29,7 +29,7 @@ import (
 // Core contains the core plugins of a GoShimmer node.
 var Core = node.Plugins(
 	dependencyinjection.Plugin,
-	banner.Plugin(),
+	banner.Plugin,
 	config.Plugin,
 	logger.Plugin,
 	cli.Plugin,
