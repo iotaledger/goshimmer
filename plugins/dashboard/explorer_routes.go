@@ -256,7 +256,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),
 			Output:          jsonmodels.NewOutput(output),
-			Metadata:        jsonmodels.NewOutputMetadata(metaData),
+			Metadata:        jsonMetadata,
 			TxTimestamp:     int(timestamp),
 			PendingMana:     pendingMana,
 			GradeOfFinality: metaData.GradeOfFinality(),
