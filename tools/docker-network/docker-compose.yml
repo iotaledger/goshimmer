@@ -21,12 +21,12 @@ services:
       - ""
     command: >
       /run/entrypoint.sh /go/bin/goshimmer
-      --analysis.dashboard.BindAddress=0.0.0.0:9000
-      --analysis.dashboard.Dev=false
-      --analysis.dashboard.MongoDBEnabled=${MONGO_DB_ENABLED:-false}
-      --analysis.dashboard.MongoDBHostAddress=mongodb:27017
+      --analysis.dashboard.bindAddress=0.0.0.0:9000
+      --analysis.dashboard.dev=false
+      --analysis.dashboard.mongoDBEnabled=${MONGO_DB_ENABLED:-false}
+      --analysis.dashboard.mongoDBHostAddress=mongodb:27017
       --analysis.server.bindAddress=0.0.0.0:1888
-      --autopeering.discovery.EntryNodes=
+      --autopeering.discovery.entryNodes=
       --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb

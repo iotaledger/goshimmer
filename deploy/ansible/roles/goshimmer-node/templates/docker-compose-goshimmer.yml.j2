@@ -22,8 +22,8 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --autopeering.discovery.EntryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.pre-devnet.shimmer.iota.cafe:15626
-      --autopeering.discovery.NetworkVersion={{ networkVersion }}
+      --autopeering.discovery.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.pre-devnet.shimmer.iota.cafe:15626
+      --autopeering.discovery.networkVersion={{ networkVersion }}
       --config.disablePlugins=
       --config.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,"WebAPI tools Endpoint"
       --prometheus.bindAddress=0.0.0.0:9312
