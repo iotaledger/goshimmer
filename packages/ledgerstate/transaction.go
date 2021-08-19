@@ -20,6 +20,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -697,6 +698,7 @@ type TransactionMetadata struct {
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -750,6 +752,10 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		return
 	}
 	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if transactionMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
 
 	return
 }
@@ -874,9 +880,18 @@ func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFina
 	}
 
 	t.gradeOfFinality = gradeOfFinality
+	t.gradeOfFinalityTime = clock.SyncedTime()
 	t.SetModified()
 	modified = true
 	return
+}
+
+// GradeOfFinalityTime returns the time when the Transaction's gradeOfFinality was set.
+func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
+	t.gradeOfFinalityMutex.RLock()
+	defer t.gradeOfFinalityMutex.RUnlock()
+
+	return t.gradeOfFinalityTime
 }
 
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
@@ -893,6 +908,7 @@ func (t *TransactionMetadata) String() string {
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
+		stringify.StructField("gradeOfFinalityTime", t.GradeOfFinalityTime()),
 	)
 }
 
@@ -916,6 +932,7 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.LazyBooked()).
 		WriteUint8(uint8(t.GradeOfFinality())).
+		WriteTime(t.GradeOfFinalityTime()).
 		Bytes()
 }
 

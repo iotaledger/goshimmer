@@ -41,13 +41,13 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid           bool                `json:"solid"`
-	BranchID        string              `json:"branchID"`
-	Scheduled       bool                `json:"scheduled"`
-	Booked          bool                `json:"booked"`
-	Eligible        bool                `json:"eligible"`
-	Invalid         bool                `json:"invalid"`
-	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
+	Solid               bool                `json:"solid"`
+	BranchID            string              `json:"branchID"`
+	Scheduled           bool                `json:"scheduled"`
+	Booked              bool                `json:"booked"`
+	Invalid             bool                `json:"invalid"`
+	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -88,9 +88,9 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
-		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
 		GradeOfFinality:         messageMetadata.GradeOfFinality(),
+		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}

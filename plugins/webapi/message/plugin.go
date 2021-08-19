@@ -106,19 +106,19 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 	}
 
 	return jsonmodels.MessageMetadata{
-		ID:                 metadata.ID().Base58(),
-		ReceivedTime:       metadata.ReceivedTime().Unix(),
-		Solid:              metadata.IsSolid(),
-		SolidificationTime: metadata.SolidificationTime().Unix(),
-		StructureDetails:   jsonmodels.NewStructureDetails(metadata.StructureDetails()),
-		BranchID:           branchID.String(),
-		Scheduled:          metadata.Scheduled(),
-		ScheduledTime:      metadata.ScheduledTime().Unix(),
-		Booked:             metadata.IsBooked(),
-		BookedTime:         metadata.BookedTime().Unix(),
-		Eligible:           metadata.IsEligible(),
-		Invalid:            metadata.IsInvalid(),
-		GradeOfFinality:    metadata.GradeOfFinality(),
+		ID:                  metadata.ID().Base58(),
+		ReceivedTime:        metadata.ReceivedTime().Unix(),
+		Solid:               metadata.IsSolid(),
+		SolidificationTime:  metadata.SolidificationTime().Unix(),
+		StructureDetails:    jsonmodels.NewStructureDetails(metadata.StructureDetails()),
+		BranchID:            branchID.String(),
+		Scheduled:           metadata.Scheduled(),
+		ScheduledTime:       metadata.ScheduledTime().Unix(),
+		Booked:              metadata.IsBooked(),
+		BookedTime:          metadata.BookedTime().Unix(),
+		Invalid:             metadata.IsInvalid(),
+		GradeOfFinality:     metadata.GradeOfFinality(),
+		GradeOfFinalityTime: metadata.GradeOfFinalityTime().Unix(),
 	}
 }
 

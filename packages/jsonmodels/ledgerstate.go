@@ -479,14 +479,15 @@ func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
 
 // OutputMetadata represents the JSON model of the ledgerstate.OutputMetadata.
 type OutputMetadata struct {
-	OutputID           *OutputID           `json:"outputID"`
-	BranchID           string              `json:"branchID"`
-	Solid              bool                `json:"solid"`
-	SolidificationTime int64               `json:"solidificationTime"`
-	ConsumerCount      int                 `json:"consumerCount"`
-	FirstConsumer      string              `json:"firstConsumer,omitempty"`
-	ConfirmedConsumer  string              `json:"confirmedConsumer,omitempty"`
-	GradeOfFinality    gof.GradeOfFinality `json:"gradeOfFinality"`
+	OutputID            *OutputID           `json:"outputID"`
+	BranchID            string              `json:"branchID"`
+	Solid               bool                `json:"solid"`
+	SolidificationTime  int64               `json:"solidificationTime"`
+	ConsumerCount       int                 `json:"consumerCount"`
+	FirstConsumer       string              `json:"firstConsumer,omitempty"`
+	ConfirmedConsumer   string              `json:"confirmedConsumer,omitempty"`
+	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
@@ -502,14 +503,15 @@ func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetada
 		confirmedConsumer = outputMetadata.ConfirmedConsumer().Base58()
 	}
 	return &OutputMetadata{
-		OutputID:           NewOutputID(outputMetadata.ID()),
-		BranchID:           outputMetadata.BranchID().Base58(),
-		Solid:              outputMetadata.Solid(),
-		SolidificationTime: outputMetadata.SolidificationTime().Unix(),
-		ConsumerCount:      outputMetadata.ConsumerCount(),
-		FirstConsumer:      firstConsumer,
-		ConfirmedConsumer:  confirmedConsumer,
-		GradeOfFinality:    outputMetadata.GradeOfFinality(),
+		OutputID:            NewOutputID(outputMetadata.ID()),
+		BranchID:            outputMetadata.BranchID().Base58(),
+		Solid:               outputMetadata.Solid(),
+		SolidificationTime:  outputMetadata.SolidificationTime().Unix(),
+		ConsumerCount:       outputMetadata.ConsumerCount(),
+		FirstConsumer:       firstConsumer,
+		ConfirmedConsumer:   confirmedConsumer,
+		GradeOfFinality:     outputMetadata.GradeOfFinality(),
+		GradeOfFinalityTime: outputMetadata.GradeOfFinalityTime().Unix(),
 	}
 }
 
@@ -747,23 +749,25 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 
 // TransactionMetadata represents the JSON model of the ledgerstate.TransactionMetadata.
 type TransactionMetadata struct {
-	TransactionID      string              `json:"transactionID"`
-	BranchID           string              `json:"branchID"`
-	Solid              bool                `json:"solid"`
-	SolidificationTime int64               `json:"solidificationTime"`
-	LazyBooked         bool                `json:"lazyBooked"`
-	GradeOfFinality    gof.GradeOfFinality `json:"gradeOfFinality"`
+	TransactionID       string              `json:"transactionID"`
+	BranchID            string              `json:"branchID"`
+	Solid               bool                `json:"solid"`
+	SolidificationTime  int64               `json:"solidificationTime"`
+	LazyBooked          bool                `json:"lazyBooked"`
+	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
 
 // NewTransactionMetadata returns the TransactionMetadata from the given ledgerstate.TransactionMetadata.
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
-		TransactionID:      transactionMetadata.ID().Base58(),
-		BranchID:           transactionMetadata.BranchID().Base58(),
-		Solid:              transactionMetadata.Solid(),
-		SolidificationTime: transactionMetadata.SolidificationTime().Unix(),
-		LazyBooked:         transactionMetadata.LazyBooked(),
-		GradeOfFinality:    transactionMetadata.GradeOfFinality(),
+		TransactionID:       transactionMetadata.ID().Base58(),
+		BranchID:            transactionMetadata.BranchID().Base58(),
+		Solid:               transactionMetadata.Solid(),
+		SolidificationTime:  transactionMetadata.SolidificationTime().Unix(),
+		LazyBooked:          transactionMetadata.LazyBooked(),
+		GradeOfFinality:     transactionMetadata.GradeOfFinality(),
+		GradeOfFinalityTime: transactionMetadata.GradeOfFinalityTime().Unix(),
 	}
 }
 

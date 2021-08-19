@@ -40,7 +40,6 @@ type Tangle struct {
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
-	ConsensusManager      *ConsensusManager
 	OTVConsensusManager   *OTVConsensusManager
 	TipManager            *TipManager
 	Requester             *Requester
@@ -74,9 +73,8 @@ type ConfirmationEvents struct {
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
-			MessageEligible: events.NewEvent(MessageIDCaller),
-			MessageInvalid:  events.NewEvent(MessageIDCaller),
-			Error:           events.NewEvent(events.ErrorCaller),
+			MessageInvalid: events.NewEvent(MessageIDCaller),
+			Error:          events.NewEvent(events.ErrorCaller),
 		},
 	}
 
@@ -90,7 +88,6 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
-	tangle.ConsensusManager = NewConsensusManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
@@ -115,10 +112,6 @@ func (t *Tangle) Configure(options ...Option) {
 	for _, option := range options {
 		option(t.Options)
 	}
-
-	if t.Options.ConsensusMechanism != nil {
-		t.Options.ConsensusMechanism.Init(t)
-	}
 }
 
 // Setup sets up the data flow by connecting the different components (by calling their corresponding Setup method).
@@ -131,7 +124,6 @@ func (t *Tangle) Setup() {
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
-	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
@@ -180,7 +172,6 @@ func (t *Tangle) Shutdown() {
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()
 	t.Booker.Shutdown()
-	t.ConsensusManager.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
 	t.LedgerState.Shutdown()
@@ -201,9 +192,6 @@ func (t *Tangle) Shutdown() {
 type Events struct {
 	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
 	MessageInvalid *events.Event
-
-	// Fired when a message has been eligible.
-	MessageEligible *events.Event
 
 	// Error is triggered when the Tangle faces an error from which it can not recover.
 	Error *events.Event
@@ -233,7 +221,6 @@ type Options struct {
 	Identity                     *identity.LocalIdentity
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
-	ConsensusMechanism           ConsensusMechanism
 	GenesisNode                  *ed25519.PublicKey
 	SchedulerParams              SchedulerParams
 	RateSetterParams             RateSetterParams
@@ -254,13 +241,6 @@ func Store(store kvstore.KVStore) Option {
 func Identity(identity *identity.LocalIdentity) Option {
 	return func(options *Options) {
 		options.Identity = identity
-	}
-}
-
-// Consensus is an Option for the Tangle that allows to define the consensus mechanism that is used by the Tangle.
-func Consensus(consensusMechanism ConsensusMechanism) Option {
-	return func(options *Options) {
-		options.ConsensusMechanism = consensusMechanism
 	}
 }
 
