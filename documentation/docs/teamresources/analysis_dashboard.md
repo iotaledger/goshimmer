@@ -4,7 +4,7 @@ Programmed using modern web technologies.
 
 ### Dashboard in dev mode
 
-1. Make sure to set `analysis.dashboard.Dev` to true, to enable GoShimmer to serve assets
+1. Make sure to set `analysis.dashboard.dev` to true, to enable GoShimmer to serve assets
    from the webpack-dev-server.
 2. Install all needed npm modules via `yarn install`.
 3. Run a webpack-dev-server instance by running `yarn start` within the `frontend` directory.
