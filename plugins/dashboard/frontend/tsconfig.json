@@ -14,11 +14,21 @@
     "removeComments": true,
     "strictNullChecks": false,
     "outDir": "build",
-    "lib": ["es6", "es7", "dom"],
+    "lib": [
+      "es6",
+      "es7",
+      "dom"
+    ],
     "baseUrl": "src",
     "paths": {
-      "app/*": ["./app/*"]
+      "app/*": [
+        "./app/*"
+      ]
     }
   },
-  "exclude": ["dist", "build", "node_modules"]
+  "exclude": [
+    "dist",
+    "build",
+    "node_modules"
+  ]
 }
