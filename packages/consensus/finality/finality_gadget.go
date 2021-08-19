@@ -171,7 +171,7 @@ func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confi
 // IsBranchConfirmed returns whether the given branch is confirmed.
 func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
 	s.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		if branch.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
+		if branch.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
 			confirmed = true
 		}
 	})
@@ -181,7 +181,7 @@ func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) 
 // IsOutputConfirmed returns whether the given output is confirmed.
 func (s *SimpleFinalityGadget) IsOutputConfirmed(outputID ledgerstate.OutputID) (confirmed bool) {
 	s.tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		if outputMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
+		if outputMetadata.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
 			confirmed = true
 		}
 	})
