@@ -2,6 +2,7 @@ package dashboard
 
 import "github.com/iotaledger/hive.go/configuration"
 
+// ParametersDefinition contains the definition of the parameters used by the dasbhoard plugin.
 type ParametersDefinition struct {
 	// BindAddress defines the analysis dashboard binding address.
 	BindAddress string `default:"0.0.0.0:8000" usage:"the bind address of the analysis dashboard"`
