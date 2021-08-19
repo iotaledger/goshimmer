@@ -279,20 +279,6 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	outputs := make(map[string]*ledgerstate.SigLockedSingleOutput)
 	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
 
-	// mock the Tangle's PayloadOpinionProvider so that we can add transaction payloads without actually building opinions
-	tangle.Options.ConsensusMechanism = &mockConsensusProvider{
-		func(transactionID ledgerstate.TransactionID) bool {
-			for _, msg := range messages {
-				if msg.Payload().Type() == ledgerstate.TransactionType {
-					if transactionID == msg.Payload().(*ledgerstate.Transaction).ID() {
-						return true
-					}
-				}
-			}
-			return false
-		},
-	}
-
 	// region prepare scenario /////////////////////////////////////////////////////////////////////////////////////////
 
 	// Message 1
@@ -671,21 +657,3 @@ func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParent
 
 	return
 }
-
-type mockConsensusProvider struct {
-	opinionLikedFnc func(transactionID ledgerstate.TransactionID) bool
-}
-
-func (m *mockConsensusProvider) Init(*Tangle) {}
-
-func (m *mockConsensusProvider) Setup() {}
-
-func (m *mockConsensusProvider) TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool) {
-	return m.opinionLikedFnc(transactionID)
-}
-
-func (m *mockConsensusProvider) SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool) {
-	return
-}
-
-func (m *mockConsensusProvider) Shutdown() {}
