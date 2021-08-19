@@ -569,9 +569,9 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 }
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
-// strong parents.
+// strong and like parents.
 func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongAndLikeParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
 	if structureDetails.IsPastMarker {
 		m.SetMessageID(structureDetails.PastMarkers.Marker(), message.ID())
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
@@ -683,11 +683,19 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 	}
 }
 
-// structureDetailsOfStrongParents is an internal utility function that returns a list of StructureDetails of all the
+// structureDetailsOfStrongAndLikeParents is an internal utility function that returns a list of StructureDetails of all the
 // strong parents.
-func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (structureDetails []*markers.StructureDetails) {
+func (m *MarkersManager) structureDetailsOfStrongAndLikeParents(message *Message) (structureDetails []*markers.StructureDetails) {
 	structureDetails = make([]*markers.StructureDetails, 0)
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
+		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
+		}) {
+			panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", parentMessageID))
+		}
+	})
+
+	message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
 		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
 		}) {
