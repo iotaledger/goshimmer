@@ -22,6 +22,7 @@ type ParametersDefinition struct {
 // Parameters contains the configuration parameters of the config plugin.
 var Parameters = &ParametersDefinition{}
 
+// do not change "node" to "config" since this name is used already otherwise
 func init() {
 	configuration.BindParameters(Parameters, "node")
 }
