@@ -37,7 +37,7 @@ var (
 		case aw >= lowLowerBound && aw < middleLowerBound:
 			return gof.Low
 		case aw >= middleLowerBound && aw < highLowerBound:
-			return gof.Middle
+			return gof.Medium
 		case aw >= highLowerBound:
 			return gof.High
 		default:
@@ -51,7 +51,7 @@ var (
 		case aw >= lowLowerBound && aw < middleLowerBound:
 			return gof.Low
 		case aw >= middleLowerBound && aw < highLowerBound:
-			return gof.Middle
+			return gof.Medium
 		case aw >= highLowerBound:
 			return gof.High
 		default:
