@@ -6,8 +6,8 @@ import (
 
 // The following flags are only for text support
 const (
-	CfgDisablePlugins = "config.disablePlugins"
-	CfgEnablePlugins  = "config.enablePlugins"
+	CfgDisablePlugins = "node.disablePlugins"
+	CfgEnablePlugins  = "node.enablePlugins"
 )
 
 // ParametersDefinition contains the definition of configuration parameters used by the config plugin.
@@ -23,5 +23,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "config")
+	configuration.BindParameters(Parameters, "node")
 }
