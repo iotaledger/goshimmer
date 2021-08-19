@@ -18,8 +18,8 @@ services:
     command: >
       --skip-config=true
       --autopeering.port=15626
-      --autopeering.discovery.networkVersion={{ networkVersion }}
-      --autopeering.discovery.entryNodes=
+      --autopeering.networkVersion={{ networkVersion }}
+      --autopeering.entryNodes=
       --analysis.client.serverAddress=
       --config.disablePlugins=portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,metrics,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
       --logger.level=debug

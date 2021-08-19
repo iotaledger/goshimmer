@@ -15,5 +15,5 @@ type ParametersDefinitionDiscovery struct {
 var Parameters = &ParametersDefinitionDiscovery{}
 
 func init() {
-	configuration.BindParameters(Parameters, "autopeering.discovery")
+	configuration.BindParameters(Parameters, "autopeering")
 }

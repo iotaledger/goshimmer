@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/configuration"
 )
 
+// The following flags are only for text support
 const (
 	CfgDisablePlugins = "config.disablePlugins"
 	CfgEnablePlugins  = "config.enablePlugins"
