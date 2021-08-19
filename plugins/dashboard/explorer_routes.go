@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
@@ -253,12 +252,11 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 
 		// obtain information about the consumer of the output being considered
 		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID())
-		confirmedConsumer := ledgerstate.NewConsumer(output.ID(), confirmedConsumerID, types.True)
 
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),
 			Output:          jsonmodels.NewOutput(output),
-			Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumer),
+			Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
 			TxTimestamp:     int(timestamp),
 			PendingMana:     pendingMana,
 			GradeOfFinality: metaData.GradeOfFinality(),

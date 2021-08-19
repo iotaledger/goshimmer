@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/types"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -335,11 +334,9 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	}
 
 	if !messagelayer.Tangle().LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-
 		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(outputID)
-		confirmedConsumer := ledgerstate.NewConsumer(outputID, confirmedConsumerID, types.True)
 
-		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumer)
+		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
 
 		err = c.JSON(http.StatusOK, jsonOutputMetadata)
 	}) {

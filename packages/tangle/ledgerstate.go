@@ -270,17 +270,15 @@ func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactio
 	return l.UTXODAG.CachedConsumers(outputID)
 }
 
-// ConfirmedConsumer returns the (cached) confirmed consumer of the given outputID.
+// ConfirmedConsumer returns the confirmed transactionID consuming the given outputID.
 func (l *LedgerState) ConfirmedConsumer(outputID ledgerstate.OutputID) (consumerID ledgerstate.TransactionID) {
-	found := false
 	// default to no consumer, i.e. Genesis
 	consumerID = ledgerstate.GenesisTransactionID
 	l.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
-		if found {
+		if consumerID != ledgerstate.GenesisTransactionID {
 			return
 		}
 		if l.tangle.ConfirmationOracle.IsTransactionConfirmed(consumer.TransactionID()) {
-			found = true
 			consumerID = consumer.TransactionID()
 		}
 	})

@@ -490,14 +490,14 @@ type OutputMetadata struct {
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
-func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedConsumer *ledgerstate.Consumer) *OutputMetadata {
+func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedConsumerID ledgerstate.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
 		OutputID:            NewOutputID(outputMetadata.ID()),
 		BranchID:            outputMetadata.BranchID().Base58(),
 		Solid:               outputMetadata.Solid(),
 		SolidificationTime:  outputMetadata.SolidificationTime().Unix(),
 		ConsumerCount:       outputMetadata.ConsumerCount(),
-		ConfirmedConsumer:   confirmedConsumer.String(),
+		ConfirmedConsumer:   confirmedConsumerID.Base58(),
 		GradeOfFinality:     outputMetadata.GradeOfFinality(),
 		GradeOfFinalityTime: outputMetadata.GradeOfFinalityTime().Unix(),
 	}
