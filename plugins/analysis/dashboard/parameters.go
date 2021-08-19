@@ -6,7 +6,7 @@ type ParametersDefinition struct {
 	// BindAddress defines the analysis dashboard binding address.
 	BindAddress string `default:"0.0.0.0:8000" usage:"the bind address of the analysis dashboard"`
 	// Dev defines the analysis dashboard dev mode.
-	Dev bool `default:"false" usage:""whether the analysis dashboard runs in dev mode""`
+	Dev bool `default:"false" usage:"whether the analysis dashboard runs in dev mode"`
 	// BasicAuthEnabled defines  the analysis dashboard basic auth enabler.
 	BasicAuthEnabled bool `default:"false" usage:"whether to enable HTTP basic auth"`
 	// BasicAuthUsername defines the analysis dashboard basic auth username.
