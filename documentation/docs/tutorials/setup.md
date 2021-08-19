@@ -192,8 +192,8 @@ services:
     command: >
       --skip-config=true
       --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
-      --config.disablePlugins=
-      --config.enablePlugins=remotelog,networkdelay,spammer,prometheus
+      --node.disablePlugins=
+      --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
       --logger.level=info
       --logger.disableEvents=false
       --logger.remotelog.serverAddress=ressims.iota.cafe:5213

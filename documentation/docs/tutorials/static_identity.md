@@ -31,7 +31,7 @@ goshimmer:
       dockerfile: Dockerfile
     container_name: iota_goshimmer
     command: >
-      --config.enablePlugins=prometheus
+      --node.enablePlugins=prometheus
       --autopeering.seed="base64:gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSyY="
     # Mount volumes:
     # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)

@@ -62,7 +62,7 @@
     "bindAddress": "0.0.0.0",
     "externalAddress": "auto"
   },
-  "config": {
+  "node": {
     "disablePlugins": "portcheck",
     "enablePlugins": []
   },
