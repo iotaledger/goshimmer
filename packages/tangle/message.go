@@ -41,10 +41,10 @@ const (
 	// MaxParentsCount defines the maximum number of parents each parents block must have.
 	MaxParentsCount = 8
 
-	// defines the minimum number of parents each parents block must have.
+	// MinParentsBlocksCount defines the minimum number of parents each parents block must have.
 	MinParentsBlocksCount = 1
 
-	// defines the maximum number of parents each parents block must have.
+	// MaxParentsBlocksCount defines the maximum number of parents each parents block must have.
 	MaxParentsBlocksCount = 4
 
 	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
@@ -715,21 +715,19 @@ func (c *CachedMessage) Unwrap() *Message {
 type MessageMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	messageID          MessageID
-	receivedTime       time.Time
-	solid              bool
-	solidificationTime time.Time
-	structureDetails   *markers.StructureDetails
-	branchID           ledgerstate.BranchID
-	scheduled          bool
-	scheduledTime      time.Time
-	booked             bool
-	bookedTime         time.Time
-	eligible           bool
-	invalid            bool
-	finalized          bool
-	finalizedTime      time.Time
-	gradeOfFinality    gof.GradeOfFinality
+	messageID           MessageID
+	receivedTime        time.Time
+	solid               bool
+	solidificationTime  time.Time
+	structureDetails    *markers.StructureDetails
+	branchID            ledgerstate.BranchID
+	scheduled           bool
+	scheduledTime       time.Time
+	booked              bool
+	bookedTime          time.Time
+	invalid             bool
+	gradeOfFinality     gof.GradeOfFinality
+	gradeOfFinalityTime time.Time
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
@@ -739,10 +737,7 @@ type MessageMetadata struct {
 	scheduledTimeMutex      sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
-	eligibleMutex           sync.RWMutex
 	invalidMutex            sync.RWMutex
-	finalizedMutex          sync.RWMutex
-	finalizedTimeMutex      sync.RWMutex
 	gradeOfFinalityMutex    sync.RWMutex
 }
 
@@ -807,20 +802,8 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
 		return
 	}
-	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
-		return
-	}
 	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
-		return
-	}
-	if result.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse finalizedApprovalWeight flag of message metadata: %w", err)
-		return
-	}
-	if result.finalizedTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse finalized time of message metadata: %w", err)
 		return
 	}
 	gradeOfFinality, err := marshalUtil.ReadUint8()
@@ -829,6 +812,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		return
 	}
 	result.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if result.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse gradeOfFinality time of message metadata: %w", err)
+		return
+	}
 
 	return
 }
@@ -941,15 +928,6 @@ func (m *MessageMetadata) BranchID() ledgerstate.BranchID {
 	return m.branchID
 }
 
-// IsEligible returns true if the message represented by this metadata is eligible. False otherwise.
-func (m *MessageMetadata) IsEligible() (result bool) {
-	m.eligibleMutex.RLock()
-	defer m.eligibleMutex.RUnlock()
-	result = m.eligible
-
-	return
-}
-
 // SetScheduled sets the message associated with this metadata as scheduled.
 // It returns true if the scheduled status is modified. False otherwise.
 func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
@@ -1023,23 +1001,6 @@ func (m *MessageMetadata) BookedTime() time.Time {
 	return m.bookedTime
 }
 
-// SetEligible sets the message associated with this metadata as eligible.
-// It returns true if the eligible status is modified. False otherwise.
-func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
-	m.eligibleMutex.Lock()
-	defer m.eligibleMutex.Unlock()
-
-	if m.eligible == eligible {
-		return false
-	}
-
-	m.eligible = eligible
-	m.SetModified()
-	modified = true
-
-	return
-}
-
 // IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
 func (m *MessageMetadata) IsInvalid() (result bool) {
 	m.invalidMutex.RLock()
@@ -1066,43 +1027,6 @@ func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
 	return
 }
 
-// SetFinalized sets the message associated with this metadata as finalized by approval weight.
-// It returns true if the finalized status is modified. False otherwise.
-func (m *MessageMetadata) SetFinalized(finalized bool) (modified bool) {
-	m.finalizedMutex.Lock()
-	m.finalizedTimeMutex.Lock()
-	defer m.finalizedMutex.Unlock()
-	defer m.finalizedTimeMutex.Unlock()
-
-	if m.finalized == finalized {
-		return false
-	}
-
-	m.finalized = finalized
-	m.finalizedTime = clock.SyncedTime()
-	m.SetModified()
-	modified = true
-
-	return
-}
-
-// IsFinalized returns true if the message represented by this metadata is finalized by approval weight.
-// False otherwise.
-func (m *MessageMetadata) IsFinalized() (result bool) {
-	m.finalizedMutex.RLock()
-	defer m.finalizedMutex.RUnlock()
-
-	return m.finalized
-}
-
-// FinalizedTime returns the time when the message represented by this metadata was finalized.
-func (m *MessageMetadata) FinalizedTime() time.Time {
-	m.finalizedTimeMutex.RLock()
-	defer m.finalizedTimeMutex.RUnlock()
-
-	return m.finalizedTime
-}
-
 // SetGradeOfFinality sets the grade of finality associated with this metadata.
 // It returns true if the grade of finality is modified. False otherwise.
 func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
@@ -1114,6 +1038,7 @@ func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality
 	}
 
 	m.gradeOfFinality = gradeOfFinality
+	m.gradeOfFinalityTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -1126,6 +1051,14 @@ func (m *MessageMetadata) GradeOfFinality() (result gof.GradeOfFinality) {
 	defer m.gradeOfFinalityMutex.RUnlock()
 
 	return m.gradeOfFinality
+}
+
+// GradeOfFinalityTime returns the time the grade of finality was set.
+func (m *MessageMetadata) GradeOfFinalityTime() time.Time {
+	m.gradeOfFinalityMutex.RLock()
+	defer m.gradeOfFinalityMutex.RUnlock()
+
+	return m.gradeOfFinalityTime
 }
 
 // Bytes returns a marshaled version of the whole MessageMetadata object.
@@ -1152,11 +1085,9 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.ScheduledTime()).
 		WriteBool(m.IsBooked()).
 		WriteTime(m.BookedTime()).
-		WriteBool(m.IsEligible()).
 		WriteBool(m.IsInvalid()).
-		WriteBool(m.IsFinalized()).
-		WriteTime(m.FinalizedTime()).
 		WriteUint8(uint8(m.GradeOfFinality())).
+		WriteTime(m.GradeOfFinalityTime()).
 		Bytes()
 }
 
@@ -1179,11 +1110,9 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("scheduledTime", m.ScheduledTime()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
-		stringify.StructField("eligible", m.IsEligible()),
 		stringify.StructField("invalid", m.IsInvalid()),
-		stringify.StructField("finalized", m.IsFinalized()),
-		stringify.StructField("finalizedTime", m.FinalizedTime()),
 		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
+		stringify.StructField("gradeOfFinalityTime", m.GradeOfFinalityTime()),
 	)
 }
 

@@ -392,7 +392,6 @@ func (s *Storage) storeGenesis() {
 			},
 			scheduled: true,
 			booked:    true,
-			eligible:  true,
 		}
 
 		genesisMetadata.Persist()

@@ -40,9 +40,9 @@ export class Message {
     branchID: string;
     scheduled: boolean;
     booked: boolean;
-    eligible: boolean;
     invalid: boolean;
     gradeOfFinality: number;
+    gradeOfFinalityTime: number;
     payload_type: number;
     payload: any;
     rank: number;
@@ -80,6 +80,7 @@ export class OutputMetadata {
     consumerCount: number;
     confirmedConsumer: string // tx id of confirmed consumer
     gradeOfFinality: number
+    gradeOfFinalityTime: number
 }
 
 class OutputConsumer {
