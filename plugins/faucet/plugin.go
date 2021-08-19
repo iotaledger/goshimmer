@@ -31,15 +31,18 @@ const (
 
 var (
 	// Plugin is the "plugin" instance of the faucet application.
-	plugin                 *node.Plugin
-	pluginOnce             sync.Once
-	_faucet                *StateManager
-	faucetOnce             sync.Once
-	powVerifier            = pow.New()
-	fundingWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	fundingWorkerCount     = runtime.GOMAXPROCS(0)
-	fundingWorkerQueueSize = 500
-	targetPoWDifficulty    int
+	plugin                   *node.Plugin
+	pluginOnce               sync.Once
+	_faucet                  *StateManager
+	faucetOnce               sync.Once
+	powVerifier              = pow.New()
+	fundingWorkerPool        *workerpool.NonBlockingQueuedWorkerPool
+	fundingWorkerCount       = runtime.GOMAXPROCS(0)
+	fundingWorkerQueueSize   = 500
+	preparingWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
+	preparingWorkerCount     = runtime.GOMAXPROCS(0)
+	preparingWorkerQueueSize = MaxFaucetOutputsCount + 1
+	targetPoWDifficulty      int
 	// blacklist makes sure that an address might only request tokens once.
 	blacklist         *orderedmap.OrderedMap
 	blacklistCapacity int
@@ -108,6 +111,9 @@ func configure(*node.Plugin) {
 		Plugin().LogInfof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
+	preparingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(Faucet().prepareTransactionTask,
+		workerpool.WorkerCount(preparingWorkerCount), workerpool.QueueSize(preparingWorkerQueueSize))
+
 	configureEvents()
 }
 
@@ -137,6 +143,8 @@ func run(*node.Plugin) {
 		Plugin().LogInfo("Deriving faucet state from the ledger... done")
 
 		defer fundingWorkerPool.Stop()
+		defer preparingWorkerPool.Stop()
+
 		initDone.Store(true)
 
 		<-shutdownSignal
