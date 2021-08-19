@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"container/list"
+	"context"
 	"sort"
 	"sync"
 	"time"
@@ -118,7 +119,7 @@ func (s *StateManager) FundingOutputsCount() int {
 //  - startIndex defines from which address index to start look for prepared outputs.
 //  - remainder output should always sit on address 0.
 //   - if no funding outputs are found, the faucet creates them from the remainder output.
-func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
+func (s *StateManager) DeriveStateFromTangle(ctx context.Context, startIndex int) (err error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -169,7 +170,7 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 
 	if len(foundPreparedOutputs) == 0 {
 		// prepare more funding outputs if we did not find any
-		err = s.prepareMoreFundingOutputs()
+		err = s.prepareMoreFundingOutputs(ctx)
 		if err != nil {
 			return errors.Errorf("Found no prepared outputs, failed to create them: %w", err)
 		}
@@ -196,7 +197,7 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	if errors.Is(fErr, ErrNotEnoughFundingOutputs) {
 		// try preparing them
 		Plugin().LogInfof("Preparing more outputs...")
-		pErr := s.prepareMoreFundingOutputs()
+		pErr := s.prepareMoreFundingOutputs(context.TODO())
 		if pErr != nil {
 			err = errors.Errorf("failed to prepare more outputs: %w", pErr)
 			return
@@ -305,7 +306,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
 		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
-				outputMetadata.Finalized() {
+				messagelayer.Tangle().ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
 				if !ok || iotaBalance < MinimumFaucetBalance {
 					return
@@ -332,7 +333,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 
 // prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output, submits the transaction
 // to the Tangle, waits for its confirmation, and then updates the internal state of the faucet.
-func (s *StateManager) prepareMoreFundingOutputs() (err error) {
+func (s *StateManager) prepareMoreFundingOutputs(ctx context.Context) (err error) {
 	// no remainder output present
 	if s.remainderOutput == nil {
 		err = s.findUnspentRemainderOutput()
@@ -376,8 +377,8 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	})
 
 	// listen on confirmation
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
+	messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer messagelayer.FinalityGadget().Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	// issue the tx
 	issuedMsg, issueErr := s.issueTX(tx)
@@ -395,6 +396,8 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 		case confirmedTx := <-txConfirmed:
 			err = s.updateState(confirmedTx)
 			return err
+		case <-ctx.Done():
+			return errors.Errorf("Message %s: %w", issuedMsg.ID(), ErrFundingCanceled)
 		case <-ticker.C:
 			if timeoutCounter >= maxWaitAttempts {
 				return errors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)

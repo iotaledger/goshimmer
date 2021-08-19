@@ -51,7 +51,7 @@ func handleUnspentAliasOutputReceived(handler interface{}, params ...interface{}
 }
 
 func handleInclusionStateReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*txstream.MsgTxInclusionState))(params[0].(*txstream.MsgTxInclusionState))
+	handler.(func(*txstream.MsgTxGoF))(params[0].(*txstream.MsgTxGoF))
 }
 
 func handleConnected(handler interface{}, params ...interface{}) {

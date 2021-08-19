@@ -86,11 +86,7 @@ func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) 
 	isConfirmed := false
 	messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		isUnspent = outputMetadata.ConsumerCount() == 0
-		incState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(output.ID().TransactionID())
-		if err != nil {
-			return
-		}
-		isConfirmed = incState == ledgerstate.Confirmed
+		isConfirmed = messagelayer.Tangle().ConfirmationOracle.IsOutputConfirmed(output.ID())
 	})
 	if !isUnspent || !isConfirmed {
 		return false

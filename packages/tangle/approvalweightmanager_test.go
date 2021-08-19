@@ -224,11 +224,6 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
-	// We do not use the optimization via map for the test. Thus, in the test it always needs to start checking from the
-	// beginning of the sequence for all markers.
-	tangle.IsMarkerConfirmed = func(marker *markers.Marker) (confirmed bool) {
-		return false
-	}
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 	supporters := map[string]*identity.Identity{
@@ -368,11 +363,6 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
-	// We do not use the optimization via map for the test. Thus, in the test it always needs to start checking from the
-	// beginning of the sequence for all markers.
-	tangle.IsMarkerConfirmed = func(marker *markers.Marker) (confirmed bool) {
-		return false
-	}
 	defer tangle.Shutdown()
 	tangle.Setup()
 
@@ -914,10 +904,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			fmt.Println(branch)
 		})
 	}
-}
-
-func setMarkerConfirmed(confirmedMarkers map[markers.Marker]types.Empty, sequenceID markers.SequenceID, index markers.Index) {
-	confirmedMarkers[*markers.NewMarker(sequenceID, index)] = types.Void
 }
 
 func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *eventMock, testFramework *MessageTestFramework, expectedBranchWeights map[string]float64, expectedMarkerWeights map[markers.Marker]float64) {

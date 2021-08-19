@@ -1,11 +1,11 @@
 package tangle
 
 import (
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -49,10 +48,26 @@ type Tangle struct {
 	LedgerState           *LedgerState
 	Utils                 *Utils
 	WeightProvider        WeightProvider
-	IsMarkerConfirmed     MarkerConfirmed
 	Events                *Events
+	ConfirmationOracle    ConfirmationOracle
 
 	setupParserOnce sync.Once
+}
+
+// ConfirmationOracle answers questions about entities' confirmation.
+type ConfirmationOracle interface {
+	IsMarkerConfirmed(marker *markers.Marker) bool
+	IsMessageConfirmed(msgID MessageID) bool
+	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
+	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
+	Events() *ConfirmationEvents
+}
+
+// ConfirmationEvents are events entailing confirmation.
+type ConfirmationEvents struct {
+	MessageConfirmed     *events.Event
+	BranchConfirmed      *events.Event
+	TransactionConfirmed *events.Event
 }
 
 // New is the constructor for the Tangle.
@@ -143,25 +158,6 @@ func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *
 	if !t.Synced() {
 		err = errors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
-	}
-
-	if p.Type() == ledgerstate.TransactionType {
-		var invalidInputs []string
-		transaction := p.(*ledgerstate.Transaction)
-		for _, input := range transaction.Essence().Inputs() {
-			if input.Type() == ledgerstate.UTXOInputType {
-				t.LedgerState.CachedOutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-					t.LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
-						if branch.InclusionState() == ledgerstate.Rejected || !branch.MonotonicallyLiked() {
-							invalidInputs = append(invalidInputs, input.Base58())
-						}
-					})
-				})
-			}
-		}
-		if len(invalidInputs) > 0 {
-			return nil, errors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
-		}
 	}
 
 	return t.MessageFactory.IssuePayload(p, parentsCount...)

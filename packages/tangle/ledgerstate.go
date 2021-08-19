@@ -45,11 +45,6 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 		return
 	}
 
-	branchIDsContainRejectedBranch, inheritedBranch := l.BranchDAG.BranchIDsContainRejectedBranch(referencedBranchIDs)
-	if branchIDsContainRejectedBranch {
-		return
-	}
-
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
 		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
@@ -132,21 +127,6 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	return
 }
 
-// TransactionInclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
-// Pending, Confirmed or Rejected.
-func (l *LedgerState) TransactionInclusionState(transactionID ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
-	return l.UTXODAG.InclusionState(transactionID)
-}
-
-// BranchInclusionState returns the InclusionState of the Branch with the given BranchID which can either be
-// Pending, Confirmed or Rejected.
-func (l *LedgerState) BranchInclusionState(branchID ledgerstate.BranchID) (inclusionState ledgerstate.InclusionState) {
-	l.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		inclusionState = branch.InclusionState()
-	})
-	return
-}
-
 // BranchID returns the branchID of the given transactionID.
 func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID) {
 	l.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
@@ -194,11 +174,19 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	copyLedgerState := l.Transactions() // consider that this may take quite some time
 
 	for _, transaction := range copyLedgerState {
-		// skip unconfirmed transactions
-		inclusionState, err := l.TransactionInclusionState(transaction.ID())
-		if err != nil || inclusionState != ledgerstate.Confirmed {
+
+		// skip transactions that are not confirmed
+		var isUnconfirmed bool
+		l.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			if !l.tangle.ConfirmationOracle.IsBranchConfirmed(transactionMetadata.BranchID()) {
+				isUnconfirmed = true
+			}
+		})
+
+		if isUnconfirmed {
 			continue
 		}
+
 		// skip transactions that are too recent before startSnapshot
 		if startSnapshot.Sub(transaction.Essence().Timestamp()) < minAge {
 			continue

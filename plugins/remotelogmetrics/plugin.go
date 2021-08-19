@@ -79,7 +79,7 @@ func configureDRNGMetrics() {
 }
 
 func configureTransactionMetrics() {
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+	messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }
 
 func configureStatementMetrics() {

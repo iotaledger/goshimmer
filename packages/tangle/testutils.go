@@ -673,19 +673,6 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 	}
 }
 
-func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	return tangle.Booker.MessageBranchID(messageID)
-}
-
-func transactionBranchID(tangle *Tangle, transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID, err error) {
-	if !tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(metadata *ledgerstate.TransactionMetadata) {
-		branchID = metadata.BranchID()
-	}) {
-		return branchID, fmt.Errorf("missing transaction metadata")
-	}
-	return
-}
-
 func makeTransaction(inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, outputsByID map[ledgerstate.OutputID]ledgerstate.Output, walletsByAddress map[ledgerstate.Address]wallet, genesisWallet ...wallet) *ledgerstate.Transaction {
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
@@ -742,7 +729,45 @@ func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
-	return New(options...)
+
+	t := New(options...)
+	t.ConfirmationOracle = &MockConfirmationOracle{}
+
+	return t
+}
+
+// MockConfirmationOracle is a mock of a ConfirmationOracle.
+type MockConfirmationOracle struct{}
+
+// IsMarkerConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
+	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
+	// beginning of the sequence for all markers.
+	return false
+}
+
+// IsMessageConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsMessageConfirmed(msgID MessageID) bool {
+	return false
+}
+
+// IsBranchConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID) bool {
+	return false
+}
+
+// IsOutputConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsOutputConfirmed(outputID ledgerstate.OutputID) bool {
+	return false
+}
+
+// Events mocks its interface function.
+func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
+	return &ConfirmationEvents{
+		MessageConfirmed:     events.NewEvent(nil),
+		TransactionConfirmed: events.NewEvent(nil),
+		BranchConfirmed:      events.NewEvent(nil),
+	}
 }
 
 // SimpleMockOnTangleVoting is mock of OTV mechanism.

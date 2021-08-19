@@ -59,7 +59,9 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 
 // Update updates the underlying data structure and keeps track of active nodes.
 func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
-	if c.timeRetrieverFunc().Before(t) {
+	// We don't want to add nodes as active if their message is in the future of the TangleTime so that we get a sliding
+	// window of how the tangle emerged.
+	if t.After(c.timeRetrieverFunc()) {
 		return
 	}
 

@@ -102,7 +102,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	FinalityGadget().Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	// mana.Events().Pledged.Attach(onPledgeEventClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -214,6 +214,13 @@ func runManaPlugin(_ *node.Plugin) {
 					plugin.Panic("could not read snapshot file in Mana Plugin:", err)
 				}
 				loadSnapshot(snapshot)
+
+				// initialize cMana WeightProvider with snapshot
+				t := time.Unix(tangle.DefaultGenesisTime, 0)
+				for nodeID := range GetCMana() {
+					Tangle().WeightProvider.Update(t, nodeID)
+				}
+
 				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)
 			}
 		}
@@ -224,7 +231,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				FinalityGadget().Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return

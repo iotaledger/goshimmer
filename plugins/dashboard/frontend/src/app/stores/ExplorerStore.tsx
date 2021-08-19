@@ -18,6 +18,13 @@ import {RouterStore} from "mobx-react-router";
 export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
 export const GenesisTransactionID = "11111111111111111111111111111111";
 
+export enum GoF {
+    None = 0,
+    Low,
+    Medium,
+    High,
+}
+
 export class Message {
     id: string;
     solidification_timestamp: number;
@@ -35,7 +42,7 @@ export class Message {
     booked: boolean;
     eligible: boolean;
     invalid: boolean;
-    finalized: boolean;
+    gradeOfFinality: number;
     payload_type: number;
     payload: any;
     rank: number;
@@ -55,7 +62,6 @@ export class ExplorerOutput {
     id: OutputID;
     output: Output;
     metadata: OutputMetadata
-    inclusionState: InclusionState;
     txTimestamp: number;
     pendingMana: number;
 }
@@ -74,7 +80,7 @@ export class OutputMetadata {
     consumerCount: number;
     firstConsumer: string; // tx id of first consumer (can be unconfirmed)
     confirmedConsumer: string // tx id of confirmed consumer
-    finalized: boolean;
+    gradeOfFinality: number
 }
 
 class OutputConsumer {
@@ -99,10 +105,7 @@ class Branch {
     type: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
-    liked: boolean;
-    monotonicallyLiked: boolean;
-    finalized: boolean;
-    inclusionState: string;
+    gradeOfFinality: number
 }
 
 class BranchChildren {
@@ -123,14 +126,6 @@ class BranchConflict {
 class BranchConflicts {
     branchID: string;
     conflicts: Array<BranchConflict>
-}
-
-export class InclusionState {
-	liked: boolean;
-	rejected: boolean;
-	finalized: boolean;
-	conflicting: boolean;
-	confirmed: boolean;
 }
 
 class SearchResult {
