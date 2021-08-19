@@ -1,15 +1,16 @@
 package dashboard
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -22,10 +23,12 @@ import (
 )
 
 var (
-	mu                          sync.RWMutex
-	conflicts                   map[ledgerstate.ConflictID]*conflict
-	branches                    map[ledgerstate.BranchID]*branch
-	conflictsLiveFeedWorkerPool *workerpool.NonBlockingQueuedWorkerPool
+	mu                               sync.RWMutex
+	conflicts                        map[ledgerstate.ConflictID]*conflict
+	branches                         map[ledgerstate.BranchID]*branch
+	conflictsLiveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
+	conflictsLiveFeedWorkerCount     = 1
+	conflictsLiveFeedWorkerQueueSize = 50
 )
 
 type conflict struct {
@@ -35,17 +38,20 @@ type conflict struct {
 	TimeToResolve time.Duration          `json:"timeToResolve"`
 }
 
-func (c *conflict) MarshalJSON() ([]byte, error) {
-	type Alias conflict
-	return json.Marshal(&struct {
-		ConflictID  string `json:"conflictID"`
-		ArrivalTime int64  `json:"arrivalTime"`
-		*Alias
-	}{
-		ConflictID:  c.ConflictID.Base58(),
-		ArrivalTime: c.ArrivalTime.Unix(),
-		Alias:       (*Alias)(c),
-	})
+type conflictJSON struct {
+	ConflictID    string        `json:"conflictID"`
+	ArrivalTime   string        `json:"arrivalTime"`
+	Resolved      bool          `json:"resolved"`
+	TimeToResolve time.Duration `json:"timeToResolve"`
+}
+
+func (c *conflict) ToJSON() *conflictJSON {
+	return &conflictJSON{
+		ConflictID:    c.ConflictID.Base58(),
+		ArrivalTime:   c.ArrivalTime.Format("2 Jan 2006 15:04:05"),
+		Resolved:      c.Resolved,
+		TimeToResolve: c.TimeToResolve,
+	}
 }
 
 type branch struct {
@@ -57,15 +63,17 @@ type branch struct {
 	IssuerNodeID identity.ID             `json:"issuerNodeID"`
 }
 
-func (b *branch) MarshalJSON() ([]byte, error) {
-	type Alias branch
-	return json.Marshal(&struct {
-		BranchID     string   `json:"branchID"`
-		ConflictIDs  []string `json:"conflictIDs"`
-		IssuingTime  int64    `json:"issuingTime"`
-		IssuerNodeID string   `json:"issuerNodeID"`
-		*Alias
-	}{
+type branchJSON struct {
+	BranchID     string              `json:"branchID"`
+	ConflictIDs  []string            `json:"conflictIDs"`
+	AW           float64             `json:"aw"`
+	GoF          gof.GradeOfFinality `json:"gof"`
+	IssuingTime  string              `json:"issuingTime"`
+	IssuerNodeID string              `json:"issuerNodeID"`
+}
+
+func (b *branch) ToJSON() *branchJSON {
+	return &branchJSON{
 		BranchID: b.BranchID.Base58(),
 		ConflictIDs: func() (conflictIDsStr []string) {
 			for conflictID := range b.ConflictIDs {
@@ -73,18 +81,43 @@ func (b *branch) MarshalJSON() ([]byte, error) {
 			}
 			return
 		}(),
-		IssuingTime:  b.IssuingTime.Unix(),
+		IssuingTime:  b.IssuingTime.Format("2 Jan 2006 15:04:05"),
 		IssuerNodeID: b.IssuerNodeID.String(),
-		Alias:        (*Alias)(b),
-	})
+		AW:           b.AW,
+		GoF:          b.GoF,
+	}
 }
+
+// func (b *branch) MarshalJSON() ([]byte, error) {
+// 	type Alias branch
+// 	return json.Marshal(&struct {
+// 		BranchID     string   `json:"branchID"`
+// 		ConflictIDs  []string `json:"conflictIDs"`
+// 		IssuingTime  string   `json:"issuingTime"`
+// 		IssuerNodeID string   `json:"issuerNodeID"`
+// 		*Alias
+// 	}{
+// 		BranchID: b.BranchID.Base58(),
+// 		ConflictIDs: func() (conflictIDsStr []string) {
+// 			for conflictID := range b.ConflictIDs {
+// 				conflictIDsStr = append(conflictIDsStr, conflictID.Base58())
+// 			}
+// 			return
+// 		}(),
+// 		IssuingTime:  b.IssuingTime.Format("2 Jan 2006 15:04:05"),
+// 		IssuerNodeID: b.IssuerNodeID.String(),
+// 		Alias:        (*Alias)(b),
+// 	})
+// }
 
 func sendConflictUpdate(c *conflict) {
 	fmt.Println(c)
+	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsConflict, c.ToJSON())
 }
 
 func sendBranchUpdate(b *branch) {
 	fmt.Println(b)
+	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsBranch, b.ToJSON())
 }
 
 func configureConflictLiveFeed() {
@@ -170,35 +203,21 @@ func configureConflictLiveFeed() {
 		}
 	}))
 
-	//conflictsLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-	//	newMessage := task.Param(0).(*chat.ChatEvent)
-	//
-	//	broadcastWsMessage(&wsmsg{MsgTypeChat, &chatMsg{
-	//		From:      newMessage.From,
-	//		To:        newMessage.To,
-	//		Message:   newMessage.Message,
-	//		MessageID: newMessage.MessageID,
-	//		Timestamp: newMessage.Timestamp.Format("2 Jan 2006 15:04:05"),
-	//	}})
-	//
-	//	task.Return(nil)
-	//}, workerpool.WorkerCount(chatLiveFeedWorkerCount), workerpool.QueueSize(chatLiveFeedWorkerQueueSize))
+	conflictsLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
+		broadcastWsMessage(&wsmsg{task.Param(0).(byte), task.Param(1)})
+		task.Return(nil)
+	}, workerpool.WorkerCount(conflictsLiveFeedWorkerCount), workerpool.QueueSize(conflictsLiveFeedWorkerQueueSize))
 }
 
 func runConflictLiveFeed() {
-	//if err := daemon.BackgroundWorker("Dashboard[ChatUpdater]", func(shutdownSignal <-chan struct{}) {
-	//	notifyNewMessages := events.NewClosure(func(chatEvent *chat.ChatEvent) {
-	//		chatLiveFeedWorkerPool.TrySubmit(chatEvent)
-	//	})
-	//	chat.Events.MessageReceived.Attach(notifyNewMessages)
-	//
-	//	defer chatLiveFeedWorkerPool.Stop()
-	//
-	//	<-shutdownSignal
-	//	log.Info("Stopping Dashboard[ChatUpdater] ...")
-	//	chat.Events.MessageReceived.Detach(notifyNewMessages)
-	//	log.Info("Stopping Dashboard[ChatUpdater] ... done")
-	//}, shutdown.PriorityDashboard); err != nil {
-	//	log.Panicf("Failed to start as daemon: %s", err)
-	//}
+	if err := daemon.BackgroundWorker("Dashboard[ConflictsLiveFeed]", func(shutdownSignal <-chan struct{}) {
+		defer conflictsLiveFeedWorkerPool.Stop()
+
+		<-shutdownSignal
+
+		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
+		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
+	}, shutdown.PriorityDashboard); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
 }
