@@ -13,24 +13,24 @@ var (
 )
 
 func initConfig() {
-	if Parameters.TargetNode == "" {
+	if len(Parameters.TargetNode) == 0 {
 		panic("Set the target node address\n")
 	}
-	target = Parameters.CfgTargetNode
+	target = Parameters.TargetNode[0]
 
-	if len(Parameters.CfgTestNodes) == 0 {
+	if Parameters.TestNodes == "" {
 		panic("Set node addresses\n")
 	}
-	nodes = append(nodes, Parameters.CfgTestNodes...)
+	nodes = append(nodes, Parameters.TestNodes)
 
 	// optional settings
-	if Parameters.CfgData != "" {
-		msgData = Parameters.CfgData
+	if Parameters.Data != "" {
+		msgData = Parameters.Data
 	}
-	if Parameters.CfgCooldownTime > 0 {
-		cooldownTime = time.Duration(Parameters.CfgCooldownTime) * time.Second
+	if Parameters.CooldownTime > 0 {
+		cooldownTime = time.Duration(Parameters.CooldownTime) * time.Second
 	}
-	if Parameters.CfgRepeat > 0 {
-		repeat = Parameters.CfgRepeat
+	if Parameters.Repeat > 0 {
+		repeat = Parameters.Repeat
 	}
 }
