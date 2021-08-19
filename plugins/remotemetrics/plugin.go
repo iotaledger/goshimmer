@@ -93,7 +93,7 @@ func configureBranchConfirmationMetrics() {
 		return
 	}
 	messagelayer.Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(onBranchConfirmed))
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(cachedBranch *ledgerstate.BranchDAGEvent) {
 		sendBranchMetrics()
 	}))
 }

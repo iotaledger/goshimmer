@@ -426,7 +426,6 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 
 	// now the network decides that branch 5 is liked (via FPC), thus branch 4 should lose its
 	// liked and monotonically liked state and branch 5 should instead become liked and monotonically liked
-
 	event.Expect("BranchLiked", branch5.ID())
 	event.Expect("BranchMonotonicallyLiked", branch5.ID())
 	event.Expect("BranchDisliked", branch4.ID())
@@ -1269,6 +1268,7 @@ func newEventMock(t *testing.T, mgr *BranchDAG) *eventMock {
 	e.Test(t)
 
 	// attach all events
+	e.attach(mgr.Events.BranchCreated, e.BranchCreated)
 	e.attach(mgr.Events.BranchLiked, e.BranchLiked)
 	e.attach(mgr.Events.BranchDisliked, e.BranchDisliked)
 	e.attach(mgr.Events.BranchMonotonicallyLiked, e.BranchMonotonicallyLiked)
@@ -1416,4 +1416,14 @@ func (e *eventMock) BranchPending(cachedBranch *BranchDAGEvent) {
 	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
+}
+
+func (e *eventMock) BranchCreated(cachedBranch *BranchDAGEvent) {
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		e.test.Logf("EVENT TRIGGERED:\tBranchCreated(%s)", debugAlias)
+	}
+
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap().ID())
+	// DO NOT NOTIFY MOCK THAT EVENT HAS BEEN CALLED
 }

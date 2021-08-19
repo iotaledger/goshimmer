@@ -59,7 +59,7 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	}
 	cachedConflictBranch, newBranchCreated, err = b.createConflictBranchFromNormalizedParentBranchIDs(branchID, normalizedParentBranchIDs, conflictIDs)
 	if newBranchCreated {
-		b.Events.BranchCreated.Trigger(branchID)
+		b.Events.BranchCreated.Trigger(NewBranchDAGEvent(cachedConflictBranch))
 	}
 	return
 }

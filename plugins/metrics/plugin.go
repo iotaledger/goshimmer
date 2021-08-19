@@ -204,7 +204,7 @@ func registerLocalMetrics() {
 		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
 	}))
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(cachedBranch *ledgerstate.BranchDAGEvent) {
 		branchTotalCountDB.Inc()
 	}))
 
