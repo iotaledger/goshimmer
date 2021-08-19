@@ -204,8 +204,7 @@ func (bp ParentsType) String() string {
 
 type ParentsBlock struct {
 	ParentsType
-	ParentsCount uint8
-	References   MessageIDs
+	References MessageIDs
 }
 
 // Message represents the core message for the base layer Tangle.
@@ -214,15 +213,14 @@ type Message struct {
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	version            uint8
-	parentsBlocksCount uint8
-	parentsBlocks      []ParentsBlock
-	issuerPublicKey    ed25519.PublicKey
-	issuingTime        time.Time
-	sequenceNumber     uint64
-	payload            payload.Payload
-	nonce              uint64
-	signature          ed25519.Signature
+	version         uint8
+	parentsBlocks   []ParentsBlock
+	issuerPublicKey ed25519.PublicKey
+	issuingTime     time.Time
+	sequenceNumber  uint64
+	payload         payload.Payload
+	nonce           uint64
+	signature       ed25519.Signature
 
 	// derived properties
 	id         *MessageID
@@ -240,7 +238,6 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	sortedDislikeParents := sortParents(dislikeParents)
 	sortedLikeParents := sortParents(likeParents)
 
-	strongParentsCount := len(sortedStrongParents)
 	weakParentsCount := len(sortedWeakParents)
 	dislikeParentsCount := len(sortedDislikeParents)
 	likeParentsCount := len(sortedLikeParents)
@@ -248,32 +245,28 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	var parentsBlocks []ParentsBlock
 
 	parentsBlocks = append(parentsBlocks, ParentsBlock{
-		ParentsType:  StrongParentType,
-		ParentsCount: uint8(strongParentsCount),
-		References:   sortedStrongParents,
+		ParentsType: StrongParentType,
+		References:  sortedStrongParents,
 	})
 
 	if weakParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType:  WeakParentType,
-			ParentsCount: uint8(weakParentsCount),
-			References:   sortedWeakParents,
+			ParentsType: WeakParentType,
+			References:  sortedWeakParents,
 		})
 	}
 
 	if dislikeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType:  DislikeParentType,
-			ParentsCount: uint8(dislikeParentsCount),
-			References:   sortedDislikeParents,
+			ParentsType: DislikeParentType,
+			References:  sortedDislikeParents,
 		})
 	}
 
 	if likeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(likeParentsCount),
-			References:   sortedLikeParents,
+			ParentsType: LikeParentType,
+			References:  sortedLikeParents,
 		})
 	}
 
@@ -287,9 +280,8 @@ newMessageWithValidation creates a new message while performing ths following sy
 3. Parent count per block 1 <= x <= 8.
 4. Parents unique within block.
 5. Parents lexicographically sorted within block.
-6. ParentsCount within each block must match the parents actually parsed within the block.
-7. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
-8. Blocks should be ordered by type in ascending order.
+6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
+7. Blocks should be ordered by type in ascending order.
 **/
 func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
 	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
@@ -318,10 +310,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	// 2. Number of parents in eac block is in range
 	// 3. Parents are lexicographically ordered with no repetitions
 	for _, block := range parentsBlocks {
-		if int(block.ParentsCount) != len(block.References) {
-			return nil, ErrParentsCountMismatch
-		}
-		if block.ParentsCount > MaxParentsCount || block.ParentsCount < MinParentsCount {
+		if len(block.References) > MaxParentsCount || len(block.References) < MinParentsCount {
 			return nil, ErrParentsOutOfRange
 		}
 		// The lexicographical order check also makes sure there are no duplicates
@@ -340,15 +329,14 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	}
 
 	return &Message{
-		version:            version,
-		parentsBlocksCount: uint8(len(parentsBlocks)),
-		parentsBlocks:      parentsBlocks,
-		issuerPublicKey:    issuerPublicKey,
-		issuingTime:        issuingTime,
-		sequenceNumber:     sequenceNumber,
-		payload:            msgPayload,
-		nonce:              nonce,
-		signature:          signature,
+		version:         version,
+		parentsBlocks:   parentsBlocks,
+		issuerPublicKey: issuerPublicKey,
+		issuingTime:     issuingTime,
+		sequenceNumber:  sequenceNumber,
+		payload:         msgPayload,
+		nonce:           nonce,
+		signature:       signature,
 	}, nil
 }
 
@@ -450,9 +438,8 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 			}
 		}
 		parentsBlocks[i] = ParentsBlock{
-			ParentsType:  ParentsType(parentType),
-			ParentsCount: parentsCount,
-			References:   references,
+			ParentsType: ParentsType(parentType),
+			References:  references,
 		}
 	}
 
@@ -650,12 +637,12 @@ func (m *Message) Bytes() []byte {
 	// marshal result
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(m.version)
-	marshalUtil.WriteByte(m.parentsBlocksCount)
+	marshalUtil.WriteByte(byte(len(m.parentsBlocks)))
 
-	for x := 0; x < int(m.parentsBlocksCount); x++ {
+	for x := 0; x < len(m.parentsBlocks); x++ {
 		parentBlock := m.parentsBlocks[x]
 		marshalUtil.WriteByte(byte(parentBlock.ParentsType))
-		marshalUtil.WriteByte(parentBlock.ParentsCount)
+		marshalUtil.WriteByte(byte(len(parentBlock.References)))
 		sortedParents := sortParents(parentBlock.References)
 		for _, parent := range sortedParents {
 			marshalUtil.Write(parent)
@@ -1310,7 +1297,6 @@ var (
 	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
 	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
 	ErrBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
-	ErrParentsCountMismatch               = errors.New("number of parents in a message doesn't match parent count")
 	ErrParentsOutOfRange                  = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
 	ErrParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
 	ErrRepeatingBlockTypes                = errors.New("block types within a message must not repeat")
