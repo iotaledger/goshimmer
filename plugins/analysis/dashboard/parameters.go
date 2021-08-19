@@ -25,7 +25,7 @@ type ParametersDefinition struct {
 	ManaDashboardAddress string `default:"http://127.0.0.1:8081" usage:"dashboard host address"`
 }
 
-// Parameters contains the configuration parameters of the logger plugin.
+// Parameters contains the configuration parameters of the dashboard plugin.
 var Parameters = &ParametersDefinition{}
 
 func init() {
