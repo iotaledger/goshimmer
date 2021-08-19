@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -334,10 +335,12 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	}
 
 	if !messagelayer.Tangle().LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata)
-		messagelayer.Tangle().LedgerState.ConfirmedConsumer(outputID).Consume(func(consumer *ledgerstate.Consumer) {
-			jsonOutputMetadata.ConfirmedConsumer = consumer.String()
-		})
+
+		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(outputID)
+		confirmedConsumer := ledgerstate.NewConsumer(outputID, confirmedConsumerID, types.True)
+
+		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumer)
+
 		err = c.JSON(http.StatusOK, jsonOutputMetadata)
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))

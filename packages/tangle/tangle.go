@@ -59,6 +59,7 @@ type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker *markers.Marker) bool
 	IsMessageConfirmed(msgID MessageID) bool
 	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
+	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
 	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
 	Events() *ConfirmationEvents
 }

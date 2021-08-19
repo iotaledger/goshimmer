@@ -121,6 +121,16 @@ func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) 
 	return
 }
 
+// IsTransactionConfirmed returns whether the given transaction is confirmed.
+func (s *SimpleFinalityGadget) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) (confirmed bool) {
+	s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		if transactionMetadata.GradeOfFinality() >= s.messageGoFReachedLevel {
+			confirmed = true
+		}
+	})
+	return
+}
+
 // IsOutputConfirmed returns whether the given output is confirmed.
 func (s *SimpleFinalityGadget) IsOutputConfirmed(outputID ledgerstate.OutputID) (confirmed bool) {
 	s.tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {

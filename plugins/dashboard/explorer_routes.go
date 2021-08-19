@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
@@ -250,15 +251,14 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		// how much pending mana the output has?
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
-		jsonMetadata := jsonmodels.NewOutputMetadata(metaData)
-		messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID()).Consume(func(consumer *ledgerstate.Consumer) {
-			jsonMetadata.ConfirmedConsumer = consumer.String()
-		})
+		// obtain information about the consumer of the output being considered
+		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID())
+		confirmedConsumer := ledgerstate.NewConsumer(output.ID(), confirmedConsumerID, types.True)
 
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),
 			Output:          jsonmodels.NewOutput(output),
-			Metadata:        jsonMetadata,
+			Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumer),
 			TxTimestamp:     int(timestamp),
 			PendingMana:     pendingMana,
 			GradeOfFinality: metaData.GradeOfFinality(),

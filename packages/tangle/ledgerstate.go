@@ -197,14 +197,15 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 			unspentOutputs[i] = true
 			includeTransaction = true
 
-			l.ConfirmedConsumer(output.ID()).Consume(func(consumer *ledgerstate.Consumer) {
-				tx := copyLedgerState[consumer.TransactionID()]
+			confirmedConsumerID := l.ConfirmedConsumer(output.ID())
+			if confirmedConsumerID != ledgerstate.GenesisTransactionID {
+				tx := copyLedgerState[confirmedConsumerID]
 				// If the Confirmed Consumer is old enough we consider the output spent
 				if startSnapshot.Sub(tx.Essence().Timestamp()) >= minAge {
 					unspentOutputs[i] = false
 					includeTransaction = false
 				}
-			})
+			}
 		}
 		// include only transactions with at least one unspent output
 		if includeTransaction {
@@ -270,22 +271,19 @@ func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactio
 }
 
 // ConfirmedConsumer returns the (cached) confirmed consumer of the given outputID.
-func (l *LedgerState) ConfirmedConsumer(outputID ledgerstate.OutputID) (confirmedConsumer *ledgerstate.CachedConsumer) {
+func (l *LedgerState) ConfirmedConsumer(outputID ledgerstate.OutputID) (consumerID ledgerstate.TransactionID) {
 	found := false
-	for _, cachedConsumer := range l.Consumers(outputID) {
-		cachedConsumer.Consume(func(consumer *ledgerstate.Consumer) {
-			// We already identified a confirmed Consumer
-			l.CachedTransactionMetadata(consumer.TransactionID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-				if l.tangle.ConfirmationOracle.IsBranchConfirmed(transactionMetadata.BranchID()) {
-					found = true
-					confirmedConsumer = cachedConsumer
-				}
-			})
-		})
+	// default to no consumer, i.e. Genesis
+	consumerID = ledgerstate.GenesisTransactionID
+	l.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
 		if found {
-			break
+			return
 		}
-	}
+		if l.tangle.ConfirmationOracle.IsTransactionConfirmed(consumer.TransactionID()) {
+			found = true
+			consumerID = consumer.TransactionID()
+		}
+	})
 	return
 }
 
