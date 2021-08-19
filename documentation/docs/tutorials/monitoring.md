@@ -65,7 +65,7 @@ If you run the [released binaries](https://github.com/iotaledger/goshimmer/relea
 2. Make sure, that the `prometheus` plugin is enabled in your `config.json`:
    ```json
    {
-     "node": {
+     "config": {
        "disablePlugins": [
          
        ],
