@@ -62,6 +62,7 @@ func configure(plugin *node.Plugin) {
 	configureVisualizer()
 	configureManaFeed()
 	configureServer()
+	configureConflictLiveFeed()
 }
 
 func configureServer() {
@@ -96,6 +97,7 @@ func run(*node.Plugin) {
 	// run the visualizer vertex feed
 	runVisualizer()
 	runManaFeed()
+	runConflictLiveFeed()
 	// run dRNG live feed if dRNG plugin is enabled
 	if !node.IsSkipped(drng.Plugin()) {
 		runDrngLiveFeed()
@@ -189,6 +191,10 @@ const (
 	MsgTypeMsgOpinionFormed
 	// MsgTypeChat defines a chat message.
 	MsgTypeChat
+	// MsgTypeConflictsConflict defines a message that contains a conflict update for the conflict tab.
+	MsgTypeConflictsConflict
+	// MsgTypeConflictsBranch defines a message that contains a branch update for the conflict tab.
+	MsgTypeConflictsBranch
 )
 
 type wsmsg struct {
