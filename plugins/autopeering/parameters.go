@@ -7,7 +7,7 @@ type ParametersDefinition struct {
 	// Mana defines the config flag of mana in the autopeering.
 	Mana bool `default:"true" usage:"enable/disable mana in the autopeering"`
 
-	// R defines the config flag of R.
+	// R stores the config flag of R.
 	R int `default:"40" usage:"R parameter"`
 
 	// Ro defines the config flag of Ro.
