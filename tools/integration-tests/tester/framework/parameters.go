@@ -62,7 +62,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock"}
 
 	c.Network.Enabled = true
 

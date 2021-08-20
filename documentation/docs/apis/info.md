@@ -58,7 +58,7 @@ fmt.Println(string(info))
   "totalMessageCount": 74088,
   "enabledPlugins": [
     "Activity",
-    "Analysis-Client",
+    "AnalysisClient",
     "Autopeering",
     "Banner",
     "CLI",

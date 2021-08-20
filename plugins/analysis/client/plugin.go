@@ -18,7 +18,7 @@ import (
 
 const (
 	// PluginName is the name of  the analysis client plugin.
-	PluginName = "Analysis-Client"
+	PluginName = "AnalysisClient"
 	// CfgServerAddress defines the config flag of the analysis server address.
 	CfgServerAddress = "analysis.client.serverAddress"
 	// defines the report interval of the reporting in seconds.
