@@ -9,12 +9,12 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
@@ -62,7 +62,7 @@ func NewGoShimmer() (config GoShimmer) {
 type Network struct {
 	Enabled bool
 
-	local.ParametersDefinitionNetwork
+	peer.ParametersDefinitionNetwork
 }
 
 // Database defines the parameters of the database plugin.
@@ -99,7 +99,7 @@ type Autopeering struct {
 
 	autopeering.ParametersDefinition
 	discovery.ParametersDefinitionDiscovery
-	local.ParametersDefinitionLocal
+	peer.ParametersDefinitionLocal
 }
 
 // Faucet defines the parameters of the faucet plugin.

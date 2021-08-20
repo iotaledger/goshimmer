@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the metrics plugin.
@@ -28,7 +27,7 @@ const PluginName = "Metrics"
 var (
 	// Plugin is the plugin instance of the metrics plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 	log    *logger.Logger
 )
 
@@ -36,23 +35,18 @@ type dependencies struct {
 	dig.In
 
 	Tangle    *tangle.Tangle
-	GossipMgr *gossip.Manager
-	Selection *selection.Protocol
-	Voter     vote.DRNGRoundBasedVoter
+	GossipMgr *gossip.Manager          `optional:"true"`
+	Selection *selection.Protocol      `optional:"true"`
+	Voter     vote.DRNGRoundBasedVoter `optional:"true"`
 	Local     *peer.Local
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
 }
 
 func run(_ *node.Plugin) {
@@ -98,6 +92,9 @@ func run(_ *node.Plugin) {
 
 	// create a background worker that updates the mana metrics
 	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(shutdownSignal <-chan struct{}) {
+		if deps.GossipMgr == nil {
+			return
+		}
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
 		timeutil.NewTicker(func() {
 			measureMana()
@@ -185,20 +182,22 @@ func registerLocalMetrics() {
 	// 	valueTransactionCounter.Inc()
 	// }))
 
-	// FPC round executed
-	deps.Voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		processRoundStats(roundStats)
-	}))
+	if deps.Voter != nil {
+		// FPC round executed
+		deps.Voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+			processRoundStats(roundStats)
+		}))
 
-	// a conflict has been finalized
-	deps.Voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		processFinalized(ev.Ctx)
-	}))
+		// a conflict has been finalized
+		deps.Voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+			processFinalized(ev.Ctx)
+		}))
 
-	// consensus failure in conflict resolution
-	deps.Voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		processFailed(ev.Ctx)
-	}))
+		// consensus failure in conflict resolution
+		deps.Voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+			processFailed(ev.Ctx)
+		}))
+	}
 
 	//// Events coming from metrics package ////
 
@@ -224,8 +223,10 @@ func registerLocalMetrics() {
 	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
 	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
-	deps.Selection.Events().IncomingPeering.Attach(onAutopeeringSelection)
-	deps.Selection.Events().OutgoingPeering.Attach(onAutopeeringSelection)
+	if deps.Selection != nil {
+		deps.Selection.Events().IncomingPeering.Attach(onAutopeeringSelection)
+		deps.Selection.Events().OutgoingPeering.Attach(onAutopeeringSelection)
+	}
 
 	metrics.Events().MessageTips.Attach(events.NewClosure(func(tipsCount uint64) {
 		messageTips.Store(tipsCount)

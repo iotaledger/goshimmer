@@ -18,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -29,7 +28,7 @@ const (
 var (
 	// Plugin is the plugin instance of the remote plugin instance.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
@@ -37,26 +36,25 @@ type dependencies struct {
 
 	Local              *peer.Local
 	Tangle             *tangle.Tangle
-	Voter              vote.DRNGRoundBasedVoter
-	RemoteLogger       *remotelog.RemoteLoggerConn
-	DrngInstance       *drng.DRNG
-	ClockPlugin        *node.Plugin `name:"clock" optional:"true"`
+	Voter              vote.DRNGRoundBasedVoter    `optional:"true"`
+	RemoteLogger       *remotelog.RemoteLoggerConn `optional:"true"`
+	DrngInstance       *drng.DRNG                  `optional:"true"`
+	ClockPlugin        *node.Plugin                `name:"clock" optional:"true"`
 	ConsensusMechanism tangle.ConsensusMechanism
 }
 
 func init() {
-	Plugin = node.NewPlugin("RemoteLogMetrics", node.Enabled, configure, run)
+	Plugin = node.NewPlugin("RemoteLogMetrics", deps, node.Disabled, configure, run)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
+func configure(_ *node.Plugin) {
 	configureSyncMetrics()
-	configureFPCConflictsMetrics()
-	configureDRNGMetrics()
+	if deps.Voter != nil {
+		configureFPCConflictsMetrics()
+	}
+	if deps.DrngInstance != nil {
+		configureDRNGMetrics()
+	}
 	configureTransactionMetrics()
 	configureStatementMetrics()
 }

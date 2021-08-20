@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -27,12 +26,9 @@ const (
 
 var (
 	// App is the "plugin" instance of the network delay application.
-	app  *node.Plugin
-	once sync.Once
-	deps dependencies
-
-	remoteLogger *remotelog.RemoteLoggerConn
-
+	app             *node.Plugin
+	once            sync.Once
+	deps            = new(dependencies)
 	myID            string
 	myPublicKey     ed25519.PublicKey
 	originPublicKey ed25519.PublicKey
@@ -46,7 +42,7 @@ type dependencies struct {
 
 	Tangle       *tangle.Tangle
 	Local        *peer.Local
-	RemoteLogger *remotelog.RemoteLoggerConn
+	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
 	Server       *echo.Echo
 	ClockPlugin  *node.Plugin
 }
@@ -54,18 +50,16 @@ type dependencies struct {
 // App gets the plugin instance.
 func App() *node.Plugin {
 	once.Do(func() {
-		app = node.NewPlugin(PluginName, node.Disabled, configure)
+		app = node.NewPlugin(PluginName, deps, node.Disabled, configure)
 	})
 	return app
 }
 
 func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
+	if deps.RemoteLogger == nil {
+		plugin.LogInfo("Plugin is inactive since RemoteLogger is disabled")
+		return
 	}
-	remoteLogger = deps.RemoteLogger
 
 	if deps.Local != nil {
 		myID = deps.Local.ID().String()
@@ -134,7 +128,7 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 		Sync:        deps.Tangle.Synced(),
 		Type:        remoteLogType,
 	}
-	_ = remoteLogger.Send(m)
+	_ = deps.RemoteLogger.Send(m)
 }
 
 func sendPoWInfo(payload *Payload, powDelta time.Duration) {
@@ -148,7 +142,7 @@ func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 		Sync:        deps.Tangle.Synced(),
 		Type:        remoteLogType,
 	}
-	_ = remoteLogger.Send(m)
+	_ = deps.RemoteLogger.Send(m)
 }
 
 type networkDelay struct {

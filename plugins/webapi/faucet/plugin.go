@@ -14,13 +14,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 var (
 	// Plugin is the plugin instance of the web API info endpoint plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
@@ -32,15 +31,10 @@ type dependencies struct {
 
 // Plugin gets the plugin instance.
 func init() {
-	Plugin = node.NewPlugin("WebAPI faucet Endpoint", node.Enabled, configure)
+	Plugin = node.NewPlugin("WebAPI faucet Endpoint", deps, node.Enabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
+func configure(_ *node.Plugin) {
 	deps.Server.POST("faucet", requestFunds)
 }
 

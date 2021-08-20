@@ -8,8 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
-
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
+	"go.uber.org/dig"
 )
 
 // PluginName is the name of the config plugin.
@@ -17,7 +16,7 @@ const PluginName = "Config"
 
 var (
 	// plugin is the plugin instance of the config plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled)
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
 
 	// flags
 	defaultConfigName   = "config.json"
@@ -29,12 +28,12 @@ var (
 )
 
 // Init triggers the Init event.
-func Init() {
-	Plugin.Events.Init.Trigger(Plugin)
+func Init(container *dig.Container) {
+	Plugin.Events.Init.Trigger(Plugin, container)
 }
 
 func init() {
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present
@@ -47,7 +46,7 @@ func init() {
 			panic(err)
 		}
 
-		if err := dependencyinjection.Container.Provide(func() *configuration.Configuration {
+		if err := container.Provide(func() *configuration.Configuration {
 			return _node
 		}); err != nil {
 			panic(err)

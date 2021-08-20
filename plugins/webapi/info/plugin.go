@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -36,19 +35,14 @@ type dependencies struct {
 var (
 	// Plugin is the plugin instance of the web API info endpoint plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
+func configure(_ *node.Plugin) {
 	deps.Server.GET("info", getInfo)
 }
 

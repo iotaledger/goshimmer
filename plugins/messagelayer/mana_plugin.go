@@ -33,7 +33,7 @@ const (
 
 var (
 	// ManaPlugin is the plugin instance of the mana plugin.
-	ManaPlugin         = node.NewPlugin(PluginName, node.Enabled, configureManaPlugin, runManaPlugin)
+	ManaPlugin         = node.NewPlugin(PluginName, nil, node.Enabled, configureManaPlugin, runManaPlugin)
 	manaLogger         *logger.Logger
 	baseManaVectors    map[mana.Type]mana.BaseManaVector
 	osFactory          *objectstorage.Factory
@@ -375,6 +375,9 @@ func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
 func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Time, err error) {
 	if !QueryAllowed() {
 		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
+	}
+	if deps.Discover == nil {
+		return
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
 	// consider ourselves as a peer in the network too

@@ -35,7 +35,7 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, nil, node.Disabled, configure, run)
 }
 
 func configure(*node.Plugin) {

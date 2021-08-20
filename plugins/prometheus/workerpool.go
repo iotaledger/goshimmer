@@ -19,7 +19,9 @@ func registerWorkerpoolMetrics() {
 
 	registry.MustRegister(workerpools)
 
-	addCollect(collectWorkerpoolMetrics)
+	if deps.GossipMgr != nil {
+		addCollect(collectWorkerpoolMetrics)
+	}
 }
 
 func collectWorkerpoolMetrics() {

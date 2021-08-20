@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -20,7 +19,7 @@ const PluginName = "DRNG"
 var (
 	// Plugin is the plugin deps.DrngInstance of the DRNG plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 
 	inbox     chan tangle.MessageID
 	inboxSize = 100
@@ -33,30 +32,25 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 	inbox = make(chan tangle.MessageID, inboxSize)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := dependencyinjection.Container.Provide(func() *node.Plugin {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("drng")); err != nil {
-			panic(err)
+			Plugin.Panic(err)
 		}
-		if err := dependencyinjection.Container.Provide(func() *drng.DRNG {
+		if err := container.Provide(func() *drng.DRNG {
 			drngInstance := configureDRNG()
 			return drngInstance
 		}); err != nil {
-			panic(err)
+			Plugin.Panic(err)
 		}
 	}))
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
+func configure(_ *node.Plugin) {
 	configureEvents()
 }
 

@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -44,7 +43,7 @@ var (
 	// Plugin holds the singleton instance of the plugin.
 	Plugin *node.Plugin
 
-	deps dependencies
+	deps = new(dependencies)
 
 	// doubleSpendFilter helps to filter out double spends locally.
 	doubleSpendFilter *DoubleSpendFilter
@@ -60,7 +59,7 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
 // Filter returns the double spend filter singleton.
@@ -71,13 +70,7 @@ func Filter() *DoubleSpendFilter {
 	return doubleSpendFilter
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
+func configure(_ *node.Plugin) {
 	doubleSpendFilter = Filter()
 	onTransactionConfirmedClosure = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		doubleSpendFilter.Remove(transactionID)

@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,7 +21,7 @@ var (
 	// plugin holds the singleton instance of the plugin.
 	Plugin *node.Plugin
 
-	deps dependencies
+	deps = new(dependencies)
 )
 
 type dependencies struct {
@@ -33,16 +32,10 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin("WebAPI message Endpoint", node.Enabled, configure)
+	Plugin = node.NewPlugin("WebAPI message Endpoint", deps, node.Enabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
+func configure(_ *node.Plugin) {
 	deps.Server.GET("messages/:messageID", GetMessage)
 	deps.Server.GET("messages/:messageID/metadata", GetMessageMetadata)
 	deps.Server.GET("messages/:messageID/consensus", GetMessageConsensusMetadata)

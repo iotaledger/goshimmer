@@ -10,6 +10,13 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/kvstore"
 
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/node"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -17,14 +24,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
-
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
 )
 
 var (
@@ -42,7 +41,7 @@ var (
 var (
 	// Plugin is the plugin instance of the messagelayer plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
@@ -50,9 +49,9 @@ type dependencies struct {
 
 	Tangle             *tangle.Tangle
 	Local              *peer.Local
-	Discover           *discover.Protocol
+	Discover           *discover.Protocol `optional:"true"`
 	Storage            kvstore.KVStore
-	Voter              vote.DRNGRoundBasedVoter
+	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
 	ConsensusMechanism tangle.ConsensusMechanism
 }
 
@@ -65,36 +64,26 @@ type tangledeps struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin("MessageLayer", node.Enabled, configure, run)
+	Plugin = node.NewPlugin("MessageLayer", deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := dependencyinjection.Container.Provide(func() tangle.ConsensusMechanism {
-			return fcob.NewConsensusMechanism()
-		}); err != nil {
-			panic(err)
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(fcob.NewConsensusMechanism); err != nil {
+			Plugin.Panic(err)
 		}
 
-		if err := dependencyinjection.Container.Provide(func(deps tangledeps) *tangle.Tangle {
-			return newTangle(deps)
-		}); err != nil {
-			panic(err)
+		if err := container.Provide(newTangle); err != nil {
+			Plugin.Panic(err)
 		}
 
-		if err := dependencyinjection.Container.Provide(func() *node.Plugin {
+		if err := container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("messagelayer")); err != nil {
-			panic(err)
+			Plugin.Panic(err)
 		}
 	}))
 }
 
 func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
 	deps.Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
 		plugin.LogError(err)
 	}))

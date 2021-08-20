@@ -2,10 +2,9 @@ package profiling
 
 import (
 	"net/http"
-	"runtime"
-
 	// import required to profile
 	_ "net/http/pprof"
+	"runtime"
 
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -21,7 +20,7 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {

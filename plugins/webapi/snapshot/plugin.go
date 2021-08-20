@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/iotaledger/hive.go/identity"
@@ -33,19 +32,14 @@ var (
 	// Plugin holds the singleton instance of the Plugin.
 	Plugin *node.Plugin
 
-	deps dependencies
+	deps = new(dependencies)
 )
 
 func init() {
-	Plugin = node.NewPlugin("snapshot", node.Disabled, configure)
+	Plugin = node.NewPlugin("snapshot", deps, node.Disabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
+func configure(_ *node.Plugin) {
 	deps.Server.GET("snapshot", DumpCurrentLedger)
 }
 

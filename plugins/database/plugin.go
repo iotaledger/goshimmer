@@ -12,35 +12,36 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the database plugin.
 const PluginName = "Database"
 
 var (
-	// plugin is the plugin instance of the database plugin.
+	// Plugin is the plugin instance of the database plugin.
 	Plugin *node.Plugin
+	deps   = new(dependencies)
 	log    *logger.Logger
 
 	db                database.DB
-	store             kvstore.KVStore
 	cacheTimeProvider *database.CacheTimeProvider
 	cacheProviderOnce sync.Once
 )
 
+type dependencies struct {
+	dig.In
+	Store kvstore.KVStore
+}
+
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		store = createStore()
-
-		if err := dependencyinjection.Container.Provide(func() kvstore.KVStore {
-			return store
-		}); err != nil {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(createStore); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -54,11 +55,6 @@ func CacheTimeProvider() *database.CacheTimeProvider {
 
 func createCacheTimeProvider() {
 	cacheTimeProvider = database.NewCacheTimeProvider(Parameters.ForceCacheTime)
-}
-
-// StoreRealm is a factory method for a different realm backed by the KVStore instance.
-func StoreRealm(realm kvstore.Realm) kvstore.KVStore {
-	return store.WithRealm(realm)
 }
 
 func createStore() kvstore.KVStore {
@@ -78,7 +74,7 @@ func createStore() kvstore.KVStore {
 }
 
 func configure(_ *node.Plugin) {
-	configureHealthStore(store)
+	configureHealthStore(deps.Store)
 
 	if err := checkDatabaseVersion(healthStore); err != nil {
 		if errors.Is(err, ErrDBVersionIncompatible) {

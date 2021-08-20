@@ -3,7 +3,6 @@ package banner
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/iotaledger/hive.go/node"
 )
@@ -13,8 +12,7 @@ const PluginName = "Banner"
 
 var (
 	// Plugin is the plugin instance of the banner plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	once   sync.Once
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled, configure, run)
 
 	// AppVersion version number
 	AppVersion = "v0.7.5"

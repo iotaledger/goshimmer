@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 const (
@@ -35,13 +34,13 @@ type dependencies struct {
 
 	Local     *peer.Local
 	Config    *configuration.Configuration
-	Voter     vote.DRNGRoundBasedVoter
-	Selection *selection.Protocol
+	Voter     vote.DRNGRoundBasedVoter `optional:"true"`
+	Selection *selection.Protocol      `optional:"true"`
 }
 
 func init() {
 	flag.String(CfgServerAddress, "ressims.iota.cafe:21888", "tcp server for collecting analysis information")
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 }
 
 var (
@@ -49,16 +48,8 @@ var (
 	Plugin *node.Plugin
 	log    *logger.Logger
 	conn   *Connector
-	deps   dependencies
+	deps   = new(dependencies)
 )
-
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-}
 
 func run(_ *node.Plugin) {
 	finalized = make(map[string]opinion.Opinion)
@@ -69,13 +60,15 @@ func run(_ *node.Plugin) {
 		conn.Start()
 		defer conn.Stop()
 
-		onFinalizedClosure := events.NewClosure(onFinalized)
-		deps.Voter.Events().Finalized.Attach(onFinalizedClosure)
-		defer deps.Voter.Events().Finalized.Detach(onFinalizedClosure)
+		if deps.Voter != nil {
+			onFinalizedClosure := events.NewClosure(onFinalized)
+			deps.Voter.Events().Finalized.Attach(onFinalizedClosure)
+			defer deps.Voter.Events().Finalized.Detach(onFinalizedClosure)
 
-		onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
-		deps.Voter.Events().RoundExecuted.Attach(onRoundExecutedClosure)
-		defer deps.Voter.Events().RoundExecuted.Detach(onRoundExecutedClosure)
+			onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
+			deps.Voter.Events().RoundExecuted.Attach(onRoundExecutedClosure)
+			defer deps.Voter.Events().RoundExecuted.Detach(onRoundExecutedClosure)
+		}
 
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()
@@ -85,7 +78,9 @@ func run(_ *node.Plugin) {
 				return
 
 			case <-ticker.C:
-				sendHeartbeat(conn, createHeartbeat())
+				if deps.Selection != nil {
+					sendHeartbeat(conn, createHeartbeat())
+				}
 				sendMetricHeartbeat(conn, createMetricHeartbeat())
 			}
 		}

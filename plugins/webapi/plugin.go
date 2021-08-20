@@ -16,7 +16,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the web API plugin.
@@ -25,7 +24,7 @@ const PluginName = "WebAPI"
 var (
 	// Plugin is the plugin instance of the web API plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 
 	log *logger.Logger
 )
@@ -37,14 +36,14 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := dependencyinjection.Container.Provide(func() *echo.Echo {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() *echo.Echo {
 			server := newServer()
 			return server
 		}); err != nil {
-			panic(err)
+			Plugin.Panic(err)
 		}
 	}))
 }
@@ -111,12 +110,6 @@ func newServer() *echo.Echo {
 }
 
 func configure(*node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		Plugin.LogError(err)
-	}
-
 	log = logger.NewLogger(PluginName)
 	// configure the server
 	deps.Server.HideBanner = true

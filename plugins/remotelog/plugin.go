@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
 )
 
@@ -40,7 +39,7 @@ const (
 var (
 	// Plugin is the plugin instance of the remote plugin instance.
 	Plugin      *node.Plugin
-	deps        dependencies
+	deps        = new(dependencies)
 	myID        string
 	myGitHead   string
 	myGitBranch string
@@ -55,10 +54,10 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := dependencyinjection.Container.Provide(func() *RemoteLoggerConn {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() *RemoteLoggerConn {
 			remoteLogger, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
 			if err != nil {
 				Plugin.LogFatal(err)
@@ -66,18 +65,12 @@ func init() {
 			}
 			return remoteLogger
 		}); err != nil {
-			panic(err)
+			Plugin.Panic(err)
 		}
 	}))
 }
 
 func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
 	if logger_plugin.Parameters.DisableEvents {
 		return
 	}

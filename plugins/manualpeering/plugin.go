@@ -15,8 +15,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
-
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 
@@ -26,7 +24,7 @@ const PluginName = "Manualpeering"
 var (
 	// Plugin is the plugin instance of the manualpeering plugin.
 	Plugin      *node.Plugin
-	deps        dependencies
+	deps        = new(dependencies)
 	manager     *manualpeering.Manager
 	managerOnce sync.Once
 )
@@ -40,7 +38,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configurePlugin, runPlugin)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
 // Manager is a singleton for manualpeering Manager.
@@ -52,16 +50,11 @@ func Manager() *manualpeering.Manager {
 	return manager
 }
 
-func configurePlugin(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
+func configure(_ *node.Plugin) {
 	configureWebAPI()
 }
 
-func runPlugin(*node.Plugin) {
+func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, startManager, shutdown.PriorityManualpeering); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}

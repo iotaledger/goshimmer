@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	client "github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
-	"github.com/iotaledger/goshimmer/plugins/logger"
 	"github.com/iotaledger/hive.go/configuration"
 	"go.uber.org/dig"
+
+	client "github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/logger"
 )
 
 type dependencies struct {
@@ -49,14 +49,15 @@ func testNodesGetMessages(msgID string) error {
 }
 
 func main() {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
+	container := dig.New()
+	config.Init(container)
+	logger.Init()
+
+	if err := container.Invoke(func(dep dependencies) {
 		deps = dep
 	}); err != nil {
 		panic(err)
 	}
-
-	config.Init()
-	logger.Init()
 
 	initConfig()
 

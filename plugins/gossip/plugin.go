@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -24,7 +23,7 @@ var (
 	Plugin *node.Plugin
 	once   sync.Once
 
-	deps dependencies
+	deps = new(dependencies)
 )
 
 type dependencies struct {
@@ -37,24 +36,19 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := dependencyinjection.Container.Provide(func(peerLocal *peer.Local, t *tangle.Tangle) *gossip.Manager {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func(peerLocal *peer.Local, t *tangle.Tangle) *gossip.Manager {
 			mgr := createManager(peerLocal, t)
 			return mgr
 		}); err != nil {
-			panic(err)
+			Plugin.Panic(err)
 		}
 	}))
 }
 
 func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
 	configureLogging()
 	configureMessageLayer()
 }

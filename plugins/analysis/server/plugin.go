@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 const (
@@ -42,14 +41,14 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
 	flag.String(CfgAnalysisServerBindAddress, "0.0.0.0:16178", "the bind address of the analysis server")
 }
 
 var (
 	// Plugin is the plugin instance of the analysis server plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 	server *tcp.TCPServer
 	prot   *protocol.Protocol
 	log    *logger.Logger
@@ -57,11 +56,6 @@ var (
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
 	server = tcp.NewServer()
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))

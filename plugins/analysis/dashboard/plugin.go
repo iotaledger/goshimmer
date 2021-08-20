@@ -15,7 +15,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the dashboard plugin.
@@ -23,8 +22,8 @@ const PluginName = "Analysis-Dashboard"
 
 var (
 	// Plugin is the plugin instance of the dashboard plugin.
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
-	deps   dependencies
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
+	deps   = new(dependencies)
 	log    *logger.Logger
 	server *echo.Echo
 )
@@ -37,12 +36,6 @@ type dependencies struct {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
 	configureFPCLiveFeed()
 	configureAutopeeringWorkerPool()
 	configureServer()

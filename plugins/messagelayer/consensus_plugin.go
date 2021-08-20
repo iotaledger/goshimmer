@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
@@ -32,7 +33,6 @@ import (
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -40,7 +40,7 @@ import (
 var (
 	// ConsensusPlugin is the plugin instance of the statement plugin.
 	ConsensusPlugin *node.Plugin
-	voter           *fpc.FPC
+	voter           vote.DRNGRoundBasedVoter
 	voterServer     *votenet.VoterServer
 	registry        *statement.Registry
 	registryOnce    sync.Once
@@ -51,14 +51,14 @@ var (
 )
 
 func init() {
-	ConsensusPlugin = node.NewPlugin("Consensus", node.Enabled, configureConsensusPlugin, runConsensusPlugin)
+	ConsensusPlugin = node.NewPlugin("Consensus", nil, node.Enabled, configureConsensusPlugin, runConsensusPlugin)
 
-	ConsensusPlugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := dependencyinjection.Container.Provide(func() vote.DRNGRoundBasedVoter {
+	ConsensusPlugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() vote.DRNGRoundBasedVoter {
 			voter = fpc.New(OpinionGiverFunc, OwnManaRetriever)
 			return voter
 		}); err != nil {
-			panic(err)
+			ConsensusPlugin.Panic(err)
 		}
 	}))
 }
@@ -76,8 +76,10 @@ func configureConsensusPlugin(plugin *node.Plugin) {
 	// subscribe to FCOB events
 	consensusMechanism := deps.ConsensusMechanism.(*fcob.ConsensusMechanism)
 	consensusMechanism.Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
-		if err := deps.Voter.Vote(id, vote.ConflictType, initOpn); err != nil {
-			plugin.LogWarnf("FPC vote: %s", err)
+		if deps.Voter != nil {
+			if err := deps.Voter.Vote(id, vote.ConflictType, initOpn); err != nil {
+				plugin.LogWarnf("FPC vote: %s", err)
+			}
 		}
 	}))
 	consensusMechanism.Events.Error.Attach(events.NewClosure(func(err error) {
@@ -117,28 +119,30 @@ func configureFPC(plugin *node.Plugin) {
 		}
 	}
 
-	deps.Voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		if StatementParameters.WriteStatement && checkEnoughMana(deps.Local.ID(), StatementParameters.WriteManaThreshold) {
-			makeStatement(roundStats, broadcastStatement)
-		}
-		peersQueried := len(roundStats.QueriedOpinions)
-		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		plugin.LogDebugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
-	}))
+	if deps.Voter != nil {
+		deps.Voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+			if StatementParameters.WriteStatement && checkEnoughMana(deps.Local.ID(), StatementParameters.WriteManaThreshold) {
+				makeStatement(roundStats, broadcastStatement)
+			}
+			peersQueried := len(roundStats.QueriedOpinions)
+			voteContextsCount := len(roundStats.ActiveVoteContexts)
+			plugin.LogDebugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
+		}))
 
-	consensusMechanism := deps.ConsensusMechanism.(*fcob.ConsensusMechanism)
-	deps.Voter.Events().Finalized.Attach(events.NewClosure(consensusMechanism.ProcessVote))
-	deps.Voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		if ev.Ctx.Type == vote.ConflictType {
-			plugin.LogInfof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
-		}
-	}))
+		consensusMechanism := deps.ConsensusMechanism.(*fcob.ConsensusMechanism)
+		deps.Voter.Events().Finalized.Attach(events.NewClosure(consensusMechanism.ProcessVote))
+		deps.Voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+			if ev.Ctx.Type == vote.ConflictType {
+				plugin.LogInfof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+			}
+		}))
 
-	deps.Voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		if ev.Ctx.Type == vote.ConflictType {
-			plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
-		}
-	}))
+		deps.Voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+			if ev.Ctx.Type == vote.ConflictType {
+				plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
+			}
+		}))
+	}
 }
 
 func runFPC(plugin *node.Plugin) {
@@ -300,7 +304,9 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 			mana: manaValue,
 		}
 	}
-
+	if deps.Discover == nil {
+		return
+	}
 	for _, p := range deps.Discover.GetVerifiedPeers() {
 		fpcService := p.Services().Get(service.FPCKey)
 		if fpcService == nil {

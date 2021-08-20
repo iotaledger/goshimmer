@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/spammer"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 var messageSpammer *spammer.Spammer
@@ -21,7 +20,7 @@ const PluginName = "Spammer"
 var (
 	// Plugin is the plugin instance of the spammer plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 	log    *logger.Logger
 )
 
@@ -33,16 +32,11 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
 
 	messageSpammer = spammer.New(deps.Tangle.IssuePayload, log)
 	deps.Server.GET("spammer", handleRequest)

@@ -12,14 +12,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 var (
 	// Plugin is the plugin instance of the activity plugin.
 	Plugin *node.Plugin
-
-	deps dependencies
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
@@ -28,17 +26,11 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin("Activity", node.Disabled, configure, run)
+	Plugin = node.NewPlugin("Activity", deps, node.Disabled, configure, run)
 }
 
 // configure events
 func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
 	plugin.LogInfof("starting node with activity plugin")
 }
 

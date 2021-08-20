@@ -13,7 +13,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 const (
@@ -28,13 +27,13 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin("Clock", node.Enabled, configure, run)
+	Plugin = node.NewPlugin("Clock", nil, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := dependencyinjection.Container.Provide(func() *node.Plugin {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("clock")); err != nil {
-			panic(err)
+			Plugin.Panic(err)
 		}
 	}))
 }

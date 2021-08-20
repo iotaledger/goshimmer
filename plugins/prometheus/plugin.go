@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -27,8 +26,8 @@ const PluginName = "Prometheus"
 // Plugin Prometheus
 var (
 	// Plugin is the plugin instance of the prometheus plugin.
-	Plugin *node.Plugin
-	deps   dependencies
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
+	deps   = new(dependencies)
 	log    *logger.Logger
 
 	server   *http.Server
@@ -40,20 +39,11 @@ type dependencies struct {
 	dig.In
 	AutopeeringPlugin *node.Plugin `name:"autopeering"`
 	Local             *peer.Local
-	GossipMgr         *gossip.Manager
-}
-
-func init() {
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	GossipMgr         *gossip.Manager `optional:"true"`
 }
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
 
 	if Parameters.WorkerpoolMetrics {
 		registerWorkerpoolMetrics()

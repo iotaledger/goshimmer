@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	peer2 "github.com/iotaledger/goshimmer/plugins/peer"
 )
 
 // ErrMessageNotFound is returned when a message could not be found in the Tangle.
@@ -52,7 +52,7 @@ func start(shutdownSignal <-chan struct{}) {
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
 	// resolve the bind address
-	address := net.JoinHostPort(deps.Node.String(local.ParametersNetwork.BindAddress), strconv.Itoa(gossipEndpoint.Port()))
+	address := net.JoinHostPort(deps.Node.String(peer2.ParametersNetwork.BindAddress), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
 		Plugin.LogFatalf("Error resolving: %v", err)

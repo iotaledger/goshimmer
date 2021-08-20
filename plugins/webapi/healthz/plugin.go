@@ -10,7 +10,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the web API healthz endpoint plugin.
@@ -25,21 +24,16 @@ type dependencies struct {
 var (
 	// Plugin is the plugin instance of the web API info endpoint plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 
 	healthy typeutils.AtomicBool
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
+func configure(_ *node.Plugin) {
 	deps.Server.GET("healthz", getHealthz)
 }
 

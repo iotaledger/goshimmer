@@ -24,7 +24,7 @@ var Research = node.Plugins(
 	prometheus.Plugin,
 	remotelogmetrics.Plugin,
 	networkdelay.App(),
-	txstream.Plugin(),
+	txstream.Plugin,
 	activity.Plugin,
-	chat.App(),
+	chat.Plugin,
 )

@@ -13,13 +13,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 var (
 	// Plugin is the plugin instance of the manarefresher plugin.
 	Plugin    *node.Plugin
-	deps      dependencies
+	deps      = new(dependencies)
 	refresher *Refresher
 )
 
@@ -33,17 +32,11 @@ type dependencies struct {
 const minRefreshInterval = 1 // minutes
 
 func init() {
-	Plugin = node.NewPlugin("ManaRefresher", node.Enabled, configure, run)
+	Plugin = node.NewPlugin("ManaRefresher", deps, node.Enabled, configure, run)
 }
 
 // configure events
 func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
 	plugin.LogInfof("starting node with manarefresher plugin")
 	nodeIDPrivateKey, err := deps.Local.Database().LocalPrivateKey()
 	if err != nil {

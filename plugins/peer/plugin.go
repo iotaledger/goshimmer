@@ -1,4 +1,4 @@
-package local
+package peer
 
 import (
 	"encoding/base64"
@@ -9,19 +9,36 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
+	"go.uber.org/dig"
 
 	databasePkg "github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/plugins/database"
 )
+
+// PluginName is the name of the Peer plugin.
+const PluginName = "Peer"
 
 var (
-	instance *peer.Local
+	// Plugin is the plugin instance of the Peer plugin.
+	Plugin *node.Plugin
 )
 
-// ConfigureLocal initiates a local instance.
-func ConfigureLocal() *peer.Local {
+func init() {
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
+
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(configureLocal); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
+}
+
+// instantiates a local instance.
+func configureLocal(kvStore kvstore.KVStore) *peer.Local {
 	log := logger.NewLogger("Local")
 
 	var peeringIP net.IP
@@ -68,12 +85,12 @@ func ConfigureLocal() *peer.Local {
 		}
 		seed = append(seed, bytes)
 	}
-	peerDB, err := peer.NewDB(database.StoreRealm([]byte{databasePkg.PrefixAutoPeering}))
-	if peerDB == nil {
-		log.Warnf("nil peerDB")
-	}
+	peerDB, err := peer.NewDB(kvStore.WithRealm([]byte{databasePkg.PrefixAutoPeering}))
 	if err != nil {
 		log.Fatalf("Error creating peer DB: %s", err)
+	}
+	if peerDB == nil {
+		log.Warnf("nil peerDB")
 	}
 
 	// the private key seed of the current local can be returned the following way:

@@ -16,8 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the autopeering plugin.
@@ -26,7 +24,7 @@ const PluginName = "Autopeering"
 var (
 	// Plugin is the plugin instance of the autopeering plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 
 	log         *logger.Logger
 	manaEnabled bool
@@ -38,32 +36,22 @@ type dependencies struct {
 	Discovery *discover.Protocol
 	Selection *selection.Protocol
 	Local     *peer.Local
-	GossipMgr *gossip.Manager
+	GossipMgr *gossip.Manager `optional:"true"`
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := dependencyinjection.Container.Provide(func() *peer.Local {
-			return local.ConfigureLocal()
-		}); err != nil {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(discovery.CreatePeerDisc); err != nil {
 			Plugin.Panic(err)
 		}
 
-		if err := dependencyinjection.Container.Provide(func(localID *peer.Local) *discover.Protocol {
-			return discovery.CreatePeerDisc(localID)
-		}); err != nil {
+		if err := container.Provide(createPeerSel); err != nil {
 			Plugin.Panic(err)
 		}
 
-		if err := dependencyinjection.Container.Provide(func(localID *peer.Local, nbrDiscover *discover.Protocol) *selection.Protocol {
-			return createPeerSel(localID, nbrDiscover)
-		}); err != nil {
-			Plugin.Panic(err)
-		}
-
-		if err := dependencyinjection.Container.Provide(func() *node.Plugin {
+		if err := container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("autopeering")); err != nil {
 			Plugin.Panic(err)
@@ -73,13 +61,7 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
-	if Parameters.EnableGossipIntegration {
+	if Parameters.EnableGossipIntegration && deps.GossipMgr != nil {
 		configureGossipIntegration()
 	}
 	configureEvents()

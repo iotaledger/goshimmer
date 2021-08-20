@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 const (
@@ -112,8 +113,13 @@ func PeerConfig() config.GoShimmer {
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
-
-	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
+	disable := []string{
+		"manarefresher", "chat", "webapi data endpoint", "webapi drng endpoint",
+		"webapi faucet endpoint", "webapi message endpoint", "webapi info endpoint",
+		"webapi tools endpoint drng", "webapi tools endpoint messages", "webapi ledgerstate endpoint",
+		"webapi weightprovider endpoint", "issuer", "metrics", "valuetransfers", "consensus", "manualpeering"}
+	c.DisabledPlugins = append(c.DisabledPlugins, disable...)
+	c.POW.Enabled = false
 	c.Gossip.Enabled = false
 	c.Autopeering.Enabled = true
 	c.MessageLayer.Enabled = false

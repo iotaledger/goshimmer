@@ -59,6 +59,9 @@ func configureDrngLiveFeed() {
 }
 
 func runDrngLiveFeed() {
+	if deps.DrngInstance == nil {
+		return
+	}
 	if err := daemon.BackgroundWorker("Dashboard[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
 		newMsgRateLimiter := time.NewTicker(time.Second / 10)
 		defer newMsgRateLimiter.Stop()

@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -31,21 +30,16 @@ type dependencies struct {
 var (
 	// Plugin is the plugin instance of the web API data endpoint plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 	log    *logger.Logger
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
 	deps.Server.POST("data", broadcastData)
 }
 

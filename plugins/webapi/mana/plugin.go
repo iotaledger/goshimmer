@@ -5,8 +5,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the web API mana endpoint plugin.
@@ -22,20 +20,14 @@ type dependencies struct {
 var (
 	// plugin is the plugin instance of the web API mana endpoint plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
+func configure(_ *node.Plugin) {
 	deps.Server.GET("mana", getManaHandler)
 	deps.Server.GET("mana/all", getAllManaHandler)
 	deps.Server.GET("/mana/access/nhighest", getNHighestAccessHandler)

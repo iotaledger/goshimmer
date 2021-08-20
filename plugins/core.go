@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
@@ -20,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
@@ -28,13 +28,13 @@ import (
 
 // Core contains the core plugins of a GoShimmer node.
 var Core = node.Plugins(
-	dependencyinjection.Plugin,
 	banner.Plugin,
 	config.Plugin,
 	logger.Plugin,
 	cli.Plugin,
 	gracefulshutdown.Plugin,
 	database.Plugin,
+	peer.Plugin,
 	portcheck.Plugin,
 	autopeering.Plugin,
 	manualpeering.Plugin,

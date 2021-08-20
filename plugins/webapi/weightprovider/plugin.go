@@ -9,13 +9,12 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 var (
 	// Plugin is the plugin instance of the web API mana endpoint plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
@@ -26,16 +25,10 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin("WebAPI WeightProvider Endpoint", node.Enabled, configure)
+	Plugin = node.NewPlugin("WebAPI WeightProvider Endpoint", deps, node.Enabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
+func configure(_ *node.Plugin) {
 	deps.Server.GET("weightprovider/activenodes", getNodesHandler)
 	deps.Server.GET("weightprovider/weights", getWeightsHandler)
 }

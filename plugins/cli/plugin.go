@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
@@ -21,7 +22,7 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled)
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
 
 	for name, plugin := range node.GetPlugins() {
 		onAddPlugin(name, plugin.Status)
@@ -38,7 +39,7 @@ func onAddPlugin(name string, status int) {
 	AddPluginStatus(node.GetPluginIdentifier(name), status)
 }
 
-func onInit(*node.Plugin) {
+func onInit(_ *node.Plugin, _ *dig.Container) {
 	if *version {
 		fmt.Println(banner.AppName + " " + banner.AppVersion)
 		os.Exit(0)

@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	peerPlugin "github.com/iotaledger/goshimmer/plugins/peer"
 )
 
 // Conn contains the network connection.
@@ -23,7 +23,7 @@ var Conn *NetConnMetric
 func BindAddress() string {
 	peering := deps.Local.Services().Get(service.PeeringKey)
 	port := strconv.Itoa(peering.Port())
-	return net.JoinHostPort(local.ParametersNetwork.BindAddress, port)
+	return net.JoinHostPort(peerPlugin.ParametersNetwork.BindAddress, port)
 }
 
 func createPeerSel(localID *peer.Local, nbrDiscover *discover.Protocol) *selection.Protocol {

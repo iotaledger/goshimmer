@@ -6,7 +6,6 @@ import (
 	"runtime/pprof"
 	"sort"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -18,14 +17,13 @@ import (
 const PluginName = "Graceful Shutdown"
 
 var (
-	// plugin is the plugin instance of the graceful shutdown plugin.
+	// Plugin is the plugin instance of the graceful shutdown plugin.
 	Plugin       *node.Plugin
-	once         sync.Once
 	gracefulStop chan os.Signal
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled, configure)
 }
 
 func configure(*node.Plugin) {

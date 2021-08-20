@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the web API DRNG endpoint plugin.
@@ -17,25 +16,23 @@ type dependencies struct {
 	dig.In
 
 	Server       *echo.Echo
-	DrngInstance *drng.DRNG
+	DrngInstance *drng.DRNG `optional:"true"`
 	Tangle       *tangle.Tangle
 }
 
 var (
 	// Plugin is the plugin instance of the web API DRNG endpoint plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
+func configure(_ *node.Plugin) {
+	if deps.DrngInstance == nil {
+		return
 	}
 	deps.Server.POST("drng/collectiveBeacon", collectiveBeaconHandler)
 	deps.Server.GET("drng/info/committee", committeeHandler)

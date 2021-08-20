@@ -27,7 +27,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/chat"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -39,7 +38,7 @@ const PluginName = "Dashboard"
 var (
 	// Plugin is the plugin instance of the dashboard plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 
 	log    *logger.Logger
 	server *echo.Echo
@@ -52,24 +51,18 @@ type dependencies struct {
 
 	Node         *configuration.Configuration
 	Local        *peer.Local
-	Selection    *selection.Protocol
-	GossipMgr    *gossip.Manager
+	Selection    *selection.Protocol `optional:"true"`
+	GossipMgr    *gossip.Manager     `optional:"true"`
 	Tangle       *tangle.Tangle
 	DrngPlugin   *node.Plugin `name:"drng"`
-	DrngInstance *drng.DRNG
+	DrngInstance *drng.DRNG   `optional:"true"`
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
 func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
-
 	log = logger.NewLogger(plugin.Name)
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
@@ -117,7 +110,7 @@ func run(*node.Plugin) {
 		runDrngLiveFeed()
 	}
 	// run chat live feed if chat app is enabled
-	if !node.IsSkipped(chat.App()) {
+	if !node.IsSkipped(chat.Plugin) {
 		runChatLiveFeed()
 	}
 
@@ -264,6 +257,9 @@ type componentsmetric struct {
 
 func neighborMetrics() []neighbormetric {
 	var stats []neighbormetric
+	if deps.GossipMgr == nil {
+		return stats
+	}
 
 	// gossip plugin might be disabled
 	neighbors := deps.GossipMgr.AllNeighbors()
@@ -273,11 +269,14 @@ func neighborMetrics() []neighbormetric {
 
 	for _, neighbor := range neighbors {
 		// unfortunately the neighbor manager doesn't keep track of the origin of the connection
+		// TODO: kinda a hack, the manager should keep track of the direction of the connection
 		origin := "Inbound"
-		for _, peer := range deps.Selection.GetOutgoingNeighbors() {
-			if neighbor.Peer == peer {
-				origin = "Outbound"
-				break
+		if deps.Selection != nil {
+			for _, peer := range deps.Selection.GetOutgoingNeighbors() {
+				if neighbor.Peer == peer {
+					origin = "Outbound"
+					break
+				}
 			}
 		}
 

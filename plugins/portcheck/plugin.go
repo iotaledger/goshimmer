@@ -13,9 +13,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
+	peer2 "github.com/iotaledger/goshimmer/plugins/peer"
 )
 
 // PluginName is the name of the port check plugin.
@@ -26,30 +25,29 @@ var (
 	Plugin *node.Plugin
 	log    *logger.Logger
 
-	deps dependencies
+	deps = new(dependencies)
 )
 
 type dependencies struct {
 	dig.In
 
 	Local     *peer.Local
-	Discovery *discover.Protocol
+	Discovery *discover.Protocol `optional:"true"`
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
 }
 
 func run(*node.Plugin) {
+	if deps.Discovery == nil {
+		log.Infof("Skipping port check since autopeering plugin is disabled")
+		return
+	}
 	log.Info("Testing autopeering service ...")
 	checkAutopeeringConnection()
 	log.Info("Testing autopeering service ... done")
@@ -62,7 +60,7 @@ func checkAutopeeringConnection() {
 	// resolve the bind address
 	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.BindAddress())
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.ParametersNetwork.BindAddress, err)
+		log.Fatalf("Error resolving %s: %v", peer2.ParametersNetwork.BindAddress, err)
 	}
 	// open a connection
 	conn, err := net.ListenUDP(peering.Network(), localAddr)

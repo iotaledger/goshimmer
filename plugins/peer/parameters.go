@@ -1,4 +1,4 @@
-package local
+package peer
 
 import (
 	"github.com/iotaledger/hive.go/configuration"

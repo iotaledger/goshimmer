@@ -23,7 +23,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -51,7 +50,7 @@ var (
 	initDone atomic.Bool
 
 	waitForManaWindow = 5 * time.Second
-	deps              dependencies
+	deps              = new(dependencies)
 )
 
 type dependencies struct {
@@ -62,7 +61,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
 }
 
 // newFaucet gets the faucet component instance the faucet plugin has initialized.
@@ -97,11 +96,6 @@ func configure(plugin *node.Plugin) {
 	blacklist = orderedmap.New()
 	blacklistCapacity = Parameters.BlacklistCapacity
 	_faucet = newFaucet()
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		plugin.LogError(err)
-	}
 
 	fundingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		msg := task.Param(0).(*tangle.Message)

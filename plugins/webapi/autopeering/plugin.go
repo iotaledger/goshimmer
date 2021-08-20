@@ -14,7 +14,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/dependencyinjection"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
@@ -23,27 +22,22 @@ const PluginName = "WebAPI autopeering Endpoint"
 var (
 	// plugin is the plugin instance of the web API autopeering endpoint plugin.
 	Plugin *node.Plugin
-	deps   dependencies
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
 	dig.In
 
 	Server    *echo.Echo
-	Selection *selection.Protocol
-	Discover  *discover.Protocol
+	Selection *selection.Protocol `optional:"true"`
+	Discover  *discover.Protocol  `optional:"true"`
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 }
 
-func configure(plugin *node.Plugin) {
-	if err := dependencyinjection.Container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		Plugin.LogError(err)
-	}
+func configure(_ *node.Plugin) {
 	deps.Server.GET("autopeering/neighbors", getNeighbors)
 }
 
@@ -54,16 +48,20 @@ func getNeighbors(c echo.Context) error {
 	var knownPeers []jsonmodels.Neighbor
 
 	if c.QueryParam("known") == "1" {
-		for _, p := range deps.Discover.GetVerifiedPeers() {
-			knownPeers = append(knownPeers, createNeighborFromPeer(p))
+		if deps.Discover != nil {
+			for _, p := range deps.Discover.GetVerifiedPeers() {
+				knownPeers = append(knownPeers, createNeighborFromPeer(p))
+			}
 		}
 	}
 
-	for _, p := range deps.Selection.GetOutgoingNeighbors() {
-		chosen = append(chosen, createNeighborFromPeer(p))
-	}
-	for _, p := range deps.Selection.GetIncomingNeighbors() {
-		accepted = append(accepted, createNeighborFromPeer(p))
+	if deps.Selection != nil {
+		for _, p := range deps.Selection.GetOutgoingNeighbors() {
+			chosen = append(chosen, createNeighborFromPeer(p))
+		}
+		for _, p := range deps.Selection.GetIncomingNeighbors() {
+			accepted = append(accepted, createNeighborFromPeer(p))
+		}
 	}
 
 	return c.JSON(http.StatusOK, jsonmodels.GetNeighborsResponse{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
