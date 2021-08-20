@@ -8,8 +8,8 @@ import (
 type ParametersDefinition struct {
 	// Pollen contains the configuration parameters of GoShimmer dRNG committee.
 	Pollen struct {
-		// InstanceID defines the config flag of the DRNG instanceId.
-		InstanceID int `name:"instanceId" default:"1" usage:"instance ID of the GoShimmer drng instance"`
+		// InstanceID defines the config flag of the DRNG instanceID.
+		InstanceID int `name:"instanceID" default:"1" usage:"instance ID of the GoShimmer drng instance"`
 
 		// Threshold defines the config flag of the DRNG threshold.
 		Threshold int `default:"3" usage:"BLS threshold of the GoShimmer drng"`
@@ -23,8 +23,8 @@ type ParametersDefinition struct {
 
 	// XTeam contains the configuration parameters of the X-Team dRNG committee.
 	XTeam struct {
-		// InstanceID defines the config flag of the DRNG instanceId.
-		InstanceID int `name:"instanceId" default:"1339" usage:"instance ID of the x-team drng instance"`
+		// InstanceID defines the config flag of the DRNG instanceID.
+		InstanceID int `name:"instanceID" default:"1339" usage:"instance ID of the x-team drng instance"`
 
 		// Threshold defines the config flag of the DRNG threshold.
 		Threshold int `default:"3" usage:"BLS threshold of the x-team drng"`
@@ -38,8 +38,8 @@ type ParametersDefinition struct {
 
 	// Custom contains the configuration parameters of the custom dRNG committee.
 	Custom struct {
-		// InstanceID defines the config flag of the DRNG instanceId.
-		InstanceID int `name:"instanceId" default:"9999" usage:"instance ID of the custom drng instance"`
+		// InstanceID defines the config flag of the DRNG instanceID.
+		InstanceID int `name:"instanceID" default:"9999" usage:"instance ID of the custom drng instance"`
 
 		// Threshold defines the config flag of the DRNG threshold.
 		Threshold int `default:"3" usage:"BLS threshold of the custom drng"`
