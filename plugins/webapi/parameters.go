@@ -17,7 +17,7 @@ type ParametersDefinition struct {
 		Username string `default:"goshimmer" usage:"HTTP basic auth username"`
 		// Password defines the password used by the basic HTTP authentication.
 		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
-	} `name:"basic_auth"`
+	} `name:"basicAuth"`
 }
 
 // Parameters contains the configuration used by the webapi plugin.

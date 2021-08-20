@@ -21,7 +21,7 @@
   "dashboard": {
     "bindAddress": "127.0.0.1:8081",
     "dev": false,
-    "basic_auth": {
+    "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"
@@ -119,7 +119,7 @@
   },
   "webapi": {
     "bindAddress": "127.0.0.1:8080",
-    "basic_auth": {
+    "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"

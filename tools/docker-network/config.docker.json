@@ -20,7 +20,7 @@
   "dashboard": {
     "bindAddress": "0.0.0.0:8081",
     "dev": false,
-    "basic_auth": {
+    "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"
@@ -73,7 +73,7 @@
     "parentsRefreshInterval": "300ms"
   },
   "webapi": {
-    "basic_auth": {
+    "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"
