@@ -19,16 +19,16 @@ export class Conflicts extends React.Component<Props, any> {
         return (
             <Container>
                 <h3>Conflicts</h3>
-                <Table>
+                <Table bordered>
                     <thead>
                     <tr>
-                        <td>ConflictID</td>
-                        <td>ArrivalTime</td>
-                        <td>Resolved</td>
-                        <td>TimeToResolve - ms</td>
+                        <th>ConflictID</th>
+                        <th>ArrivalTime</th>
+                        <th>Resolved</th>
+                        <th>TimeToResolve - ms</th>
                     </tr>
                     </thead>
-                    <tbody >
+                    <tbody>
                     {conflictsLiveFeed}
                     </tbody>
                 </Table>

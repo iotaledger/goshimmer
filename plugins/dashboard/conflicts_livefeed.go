@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -36,7 +37,7 @@ type conflict struct {
 
 type conflictJSON struct {
 	ConflictID    string        `json:"conflictID"`
-	ArrivalTime   string        `json:"arrivalTime"`
+	ArrivalTime   int64         `json:"arrivalTime"`
 	Resolved      bool          `json:"resolved"`
 	TimeToResolve time.Duration `json:"timeToResolve"`
 }
@@ -44,7 +45,7 @@ type conflictJSON struct {
 func (c *conflict) ToJSON() *conflictJSON {
 	return &conflictJSON{
 		ConflictID:    c.ConflictID.Base58(),
-		ArrivalTime:   c.ArrivalTime.Format("2 Jan 2006 15:04:05"),
+		ArrivalTime:   c.ArrivalTime.Unix(),
 		Resolved:      c.Resolved,
 		TimeToResolve: c.TimeToResolve,
 	}
@@ -64,7 +65,7 @@ type branchJSON struct {
 	ConflictIDs  []string            `json:"conflictIDs"`
 	AW           float64             `json:"aw"`
 	GoF          gof.GradeOfFinality `json:"gof"`
-	IssuingTime  string              `json:"issuingTime"`
+	IssuingTime  int64               `json:"issuingTime"`
 	IssuerNodeID string              `json:"issuerNodeID"`
 }
 
@@ -77,7 +78,7 @@ func (b *branch) ToJSON() *branchJSON {
 			}
 			return
 		}(),
-		IssuingTime:  b.IssuingTime.Format("2 Jan 2006 15:04:05"),
+		IssuingTime:  b.IssuingTime.Unix(),
 		IssuerNodeID: b.IssuerNodeID.String(),
 		AW:           b.AW,
 		GoF:          b.GoF,
@@ -108,96 +109,104 @@ func runConflictLiveFeed() {
 		conflicts = make(map[ledgerstate.ConflictID]*conflict)
 		branches = make(map[ledgerstate.BranchID]*branch)
 
-		onBranchCreated := events.NewClosure(func(branchID ledgerstate.BranchID) {
-			b := &branch{
-				BranchID: branchID,
-			}
-
-			messagelayer.Tangle().LedgerState.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
-				b.IssuingTime = transaction.Essence().Timestamp()
-			})
-
-			oldestAttachmentTime := time.Unix(0, 0)
-			// get the oldest attachment of transaction that introduced the conflict
-			messagelayer.Tangle().Storage.Attachments(ledgerstate.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
-				messagelayer.Tangle().Storage.Message(attachment.MessageID()).Consume(func(message *tangle.Message) {
-					if oldestAttachmentTime.Unix() == 0 || message.IssuingTime().Before(oldestAttachmentTime) {
-						oldestAttachmentTime = message.IssuingTime()
-						b.IssuerNodeID = identity.New(message.IssuerPublicKey()).ID()
-					}
-				})
-			})
-
-			// now we update the shared data structure
-			mu.Lock()
-			defer mu.Unlock()
-
-			messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-				b.ConflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
-
-				for conflictID := range b.ConflictIDs {
-					c, exists := conflicts[conflictID]
-					// if this is the first conflict of this conflict set we add it to the map
-					if !exists {
-						c = &conflict{
-							ConflictID:  conflictID,
-							ArrivalTime: clock.SyncedTime(),
-						}
-						conflicts[conflictID] = c
-						sendConflictUpdate(c)
-					}
-
-					// update all existing branches with a possible new conflict membership
-					messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-						if cm, exists := branches[conflictMember.BranchID()]; exists {
-							cm.ConflictIDs.Add(conflictID)
-							sendBranchUpdate(cm)
-						}
-					})
-				}
-			})
-
-			branches[b.BranchID] = b
-			sendBranchUpdate(b)
-		})
-
-		messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(onBranchCreated)
-
-		onBranchWeightChanged := events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-			mu.Lock()
-			defer mu.Unlock()
-
-			b, exists := branches[e.BranchID]
-			if !exists {
-				plugin.LogWarnf("branch %s did not yet exist", e.BranchID)
-				return
-			}
-
-			b.AW = e.Weight
-			messagelayer.Tangle().LedgerState.BranchDAG.Branch(b.BranchID).Consume(func(branch ledgerstate.Branch) {
-				b.GoF = branch.GradeOfFinality()
-			})
-			sendBranchUpdate(b)
-
-			if messagelayer.FinalityGadget().IsBranchConfirmed(b.BranchID) {
-				for conflictID := range b.ConflictIDs {
-					c := conflicts[conflictID]
-					c.Resolved = true
-					c.TimeToResolve = clock.Since(c.ArrivalTime)
-					sendConflictUpdate(c)
-				}
-			}
-		})
-
-		messagelayer.Tangle().ApprovalWeightManager.Events.BranchWeightChanged.AttachAfter(onBranchWeightChanged)
+		onBranchCreatedClosure := events.NewClosure(onBranchCreated)
+		onBranchWeightChangedClosure := events.NewClosure(onBranchWeightChanged)
+		messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
+		messagelayer.Tangle().ApprovalWeightManager.Events.BranchWeightChanged.AttachAfter(onBranchWeightChangedClosure)
 
 		<-shutdownSignal
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Detach(onBranchCreated)
-		messagelayer.Tangle().ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChanged)
+		messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
+		messagelayer.Tangle().ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChangedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
+	}
+}
+
+func onBranchCreated(branchID ledgerstate.BranchID) {
+	b := &branch{
+		BranchID: branchID,
+	}
+
+	messagelayer.Tangle().LedgerState.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
+		b.IssuingTime = transaction.Essence().Timestamp()
+	})
+
+	var oldestAttachmentTime time.Time
+	// get the oldest attachment of transaction that introduced the conflict
+	if !messagelayer.Tangle().Storage.Attachments(ledgerstate.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
+		if !messagelayer.Tangle().Storage.Message(attachment.MessageID()).Consume(func(message *tangle.Message) {
+			if oldestAttachmentTime.IsZero() || message.IssuingTime().Before(oldestAttachmentTime) {
+				oldestAttachmentTime = message.IssuingTime()
+				b.IssuerNodeID = identity.New(message.IssuerPublicKey()).ID()
+			}
+		}) {
+			fmt.Printf("no message found for %s\n", attachment.MessageID())
+		}
+	}) {
+		// TODO: figure out why there's no attachment found
+		fmt.Printf("no attachments found for %s\n", ledgerstate.TransactionID(branchID))
+	}
+
+	// now we update the shared data structure
+	mu.Lock()
+	defer mu.Unlock()
+
+	messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		b.ConflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
+
+		for conflictID := range b.ConflictIDs {
+			c, exists := conflicts[conflictID]
+			// if this is the first conflict of this conflict set we add it to the map
+			if !exists {
+				c = &conflict{
+					ConflictID:  conflictID,
+					ArrivalTime: clock.SyncedTime(),
+				}
+				conflicts[conflictID] = c
+				sendConflictUpdate(c)
+			}
+
+			// update all existing branches with a possible new conflict membership
+			messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+				if cm, exists := branches[conflictMember.BranchID()]; exists {
+					cm.ConflictIDs.Add(conflictID)
+					sendBranchUpdate(cm)
+				}
+			})
+		}
+	})
+
+	branches[b.BranchID] = b
+	sendBranchUpdate(b)
+}
+
+func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	b, exists := branches[e.BranchID]
+	if !exists {
+		plugin.LogWarnf("branch %s did not yet exist", e.BranchID)
+		return
+	}
+
+	b.AW = math.Round(e.Weight*1000) / 1000
+	messagelayer.Tangle().LedgerState.BranchDAG.Branch(b.BranchID).Consume(func(branch ledgerstate.Branch) {
+		b.GoF = branch.GradeOfFinality()
+	})
+	sendBranchUpdate(b)
+
+	if messagelayer.FinalityGadget().IsBranchConfirmed(b.BranchID) {
+		for conflictID := range b.ConflictIDs {
+			c := conflicts[conflictID]
+			if !c.Resolved {
+				c.Resolved = true
+				c.TimeToResolve = clock.Since(c.ArrivalTime)
+				sendConflictUpdate(c)
+			}
+		}
 	}
 }

@@ -410,14 +410,18 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 		switch isAggregatedBranch := len(conflictBranchIDs) != 1; isAggregatedBranch {
 		case false:
 			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
-				branchWeight.SetWeight(newBranchWeight)
+				if !branchWeight.SetWeight(newBranchWeight) {
+					return
+				}
 
 				a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
 			})
 		default:
 			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
 				if newBranchWeight > branchWeight.Weight() {
-					branchWeight.SetWeight(newBranchWeight)
+					if !branchWeight.SetWeight(newBranchWeight) {
+						return
+					}
 
 					a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
 				}
