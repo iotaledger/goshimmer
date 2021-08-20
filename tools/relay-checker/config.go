@@ -13,15 +13,15 @@ var (
 )
 
 func initConfig() {
-	if len(Parameters.TargetNode) == 0 {
+	if Parameters.TargetNode == "" {
 		panic("Set the target node address\n")
 	}
-	target = Parameters.TargetNode[0]
+	target = Parameters.TargetNode
 
-	if Parameters.TestNodes == "" {
+	if len(Parameters.TestNodes) == 0 {
 		panic("Set node addresses\n")
 	}
-	nodes = append(nodes, Parameters.TestNodes)
+	nodes = append(nodes, Parameters.TestNodes...)
 
 	// optional settings
 	if Parameters.Data != "" {
