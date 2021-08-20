@@ -31,7 +31,7 @@
   },
   "drng": {
     "custom": {
-      "instanceID": 111,
+      "instanceId": 111,
       "threshold": 3,
       "distributedPubKey": "",
       "committeeMembers": [
@@ -72,7 +72,7 @@
     "timeout": "10s",
     "parentsRefreshInterval": "300ms"
   },
-  "webAPI": {
+  "webapi": {
     "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
