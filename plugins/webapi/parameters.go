@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/configuration"
 )
 
-// ParametersDefinition contains the definition of the parameters used by the webAPI plugin.
+// ParametersDefinition contains the definition of the parameters used by the webapi plugin.
 type ParametersDefinition struct {
 	// BindAddress defines the bind address for the web API.
 	BindAddress string `default:"127.0.0.1:8080" usage:"the bind address for the web API"`
@@ -20,9 +20,9 @@ type ParametersDefinition struct {
 	} `name:"basicAuth"`
 }
 
-// Parameters contains the configuration used by the webAPI plugin.
+// Parameters contains the configuration used by the webapi plugin.
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "webAPI")
+	configuration.BindParameters(Parameters, "webapi")
 }

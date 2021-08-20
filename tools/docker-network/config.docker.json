@@ -72,7 +72,7 @@
     "timeout": "10s",
     "parentsRefreshInterval": "300ms"
   },
-  "webAPI": {
+  "webapi": {
     "basicAuth": {
       "enabled": false,
       "username": "goshimmer",

@@ -38,12 +38,12 @@ services:
       --metrics.local=false
       --metrics.manaResearch=false
       --node.disablePlugins=clock
-      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,"webAPIToolsEndpoint",activity,snapshot
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,"webapiToolsEndpoint",activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --statement.writeManaThreshold=1.0
       --statement.writeStatement=true
-      --webAPI.exportPath=/tmp/
+      --webapi.exportPath=/tmp/
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
@@ -72,14 +72,14 @@ services:
       /run/entrypoint.sh /go/bin/goshimmer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
+      --node.enablePlugins=bootstrap,"webapiToolsEndpoint"
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
-      --webAPI.exportPath=/tmp/
+      --webapi.exportPath=/tmp/
     deploy:
       replicas: ${SHIMMER_PEER_REPLICAS:-1}
       restart_policy:
@@ -114,7 +114,7 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
-      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
+      --node.enablePlugins=bootstrap,"webapiToolsEndpoint",faucet,activity
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
@@ -123,7 +123,7 @@ services:
       --mana.snapshotResetTime=true
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
-      --webAPI.exportPath=/tmp/
+      --webapi.exportPath=/tmp/
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
