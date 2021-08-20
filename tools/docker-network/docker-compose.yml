@@ -38,7 +38,7 @@ services:
       --metrics.local=false
       --metrics.manaResearch=false
       --node.disablePlugins=clock
-      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus,spammer,"webapi tools endpoint",activity,snapshot
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,"webapi tools endpoint",activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --statement.writeManaThreshold=1.0

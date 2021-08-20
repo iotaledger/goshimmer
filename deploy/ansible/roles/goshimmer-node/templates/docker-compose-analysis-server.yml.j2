@@ -4,7 +4,7 @@ version: "3"
 services:
   analysis_server:
     image: iotaledger/goshimmer:develop
-    container_name: analysis-server
+    container_name: analysisServer
     restart: unless-stopped
     network_mode: "host"
     volumes:
@@ -28,6 +28,6 @@ services:
       --prometheus.bindAddress=0.0.0.0:9312
       --metrics.local=false
       --metrics.global=true
-      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus
       --node.disablePlugins=autopeering,portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
       --logger.level=debug

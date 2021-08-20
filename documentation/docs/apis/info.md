@@ -99,7 +99,7 @@ fmt.Println(string(info))
   ],
   "disabledPlugins": [
     "AnalysisDashboard",
-    "Analysis-Server",
+    "AnalysisServer",
     "Faucet",
     "ManaEventLogger",
     "Spammer",

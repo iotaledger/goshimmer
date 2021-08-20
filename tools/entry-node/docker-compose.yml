@@ -19,7 +19,7 @@ services:
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:8080
-      --node.enablePlugins=analysis-server,analysis-dashboard
+      --node.enablePlugins=analysisServer,analysisDashboard
       --node.disablePlugins=analysis-client,gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
 
 volumes:
