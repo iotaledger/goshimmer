@@ -24,5 +24,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "webapi")
+	configuration.BindParameters(Parameters, "webAPI")
 }
