@@ -15,7 +15,7 @@ import (
 )
 
 // PluginName is the name of the graceful shutdown plugin.
-const PluginName = "Graceful Shutdown"
+const PluginName = "GracefulShutdown"
 
 var (
 	// plugin is the plugin instance of the graceful shutdown plugin.

@@ -127,7 +127,7 @@ func runAutopeeringFeed() {
 		autopeeringWorkerPool.Submit("c", eventStruct)
 	})
 
-	if err := daemon.BackgroundWorker("Analysis-Dashboard[AutopeeringVisualizer]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("AnalysisDashboard[AutopeeringVisualizer]", func(shutdownSignal <-chan struct{}) {
 		// connect closures (submitting tasks) to events of the analysis server
 		analysisserver.Events.AddNode.Attach(notifyAddNode)
 		defer analysisserver.Events.AddNode.Detach(notifyAddNode)
@@ -138,9 +138,9 @@ func runAutopeeringFeed() {
 		analysisserver.Events.DisconnectNodes.Attach(notifyDisconnectNodes)
 		defer analysisserver.Events.DisconnectNodes.Detach(notifyDisconnectNodes)
 		<-shutdownSignal
-		log.Info("Stopping Analysis-Dashboard[AutopeeringVisualizer] ...")
+		log.Info("Stopping AnalysisDashboard[AutopeeringVisualizer] ...")
 		autopeeringWorkerPool.Stop()
-		log.Info("Stopping Analysis-Dashboard[AutopeeringVisualizer] ... done")
+		log.Info("Stopping AnalysisDashboard[AutopeeringVisualizer] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

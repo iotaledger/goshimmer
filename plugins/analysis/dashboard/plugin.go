@@ -16,7 +16,7 @@ import (
 )
 
 // PluginName is the name of the dashboard plugin.
-const PluginName = "Analysis-Dashboard"
+const PluginName = "AnalysisDashboard"
 
 var (
 	// plugin is the plugin instance of the dashboard plugin.

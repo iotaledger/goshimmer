@@ -22,7 +22,7 @@ import (
 )
 
 // PluginName is the name of the web API info endpoint plugin.
-const PluginName = "WebAPI info Endpoint"
+const PluginName = "WebAPIInfoEndpoint"
 
 var (
 	// plugin is the plugin instance of the web API info endpoint plugin.
@@ -57,22 +57,22 @@ func configure(_ *node.Plugin) {
 // 		"Config",
 // 		"Autopeering",
 // 		"Analysis",
-// 		"WebAPI data Endpoint",
+// 		"WebAPIDataEndpoint",
 // 		"WebAPI dRNG Endpoint",
 // 		"MessageLayer",
 // 		"CLI",
 // 		"Database",
 // 		"DRNG",
-// 		"WebAPI autopeering Endpoint",
+// 		"WebAPIAutopeeringEndpoint",
 // 		"Metrics",
 // 		"PortCheck",
 // 		"Dashboard",
 // 		"WebAPI",
-// 		"WebAPI info Endpoint",
+// 		"WebAPIInfoEndpoint",
 // 		"WebAPI message Endpoint",
 // 		"Banner",
 // 		"Gossip",
-// 		"Graceful Shutdown",
+// 		"GracefulShutdown",
 // 		"Logger"
 // 	],
 // 	"disabledplugins":[

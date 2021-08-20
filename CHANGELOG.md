@@ -522,7 +522,7 @@
 * Fixes bind address prints to not be normalized
 * Fixes usage of WebSocket message rate limiter
 * Fixes disabled/enabled plugins list in info response
-* Fixes the `Graceful Shutdown` plugin not showing the actual background workers during shutdown. The node operator is now
+* Fixes the `GracefulShutdown` plugin not showing the actual background workers during shutdown. The node operator is now
 able to see pending background workers in the order in which they are supposed to be terminated
 * Refactors display of IDs to use Base58 throughout the entire codebase
 * Increases network and database versions
