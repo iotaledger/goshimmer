@@ -117,7 +117,7 @@
   "prometheus": {
     "bindAddress": "127.0.0.1:9311"
   },
-  "webAPI": {
+  "webapi": {
     "bindAddress": "127.0.0.1:8080",
     "basicAuth": {
       "enabled": false,
