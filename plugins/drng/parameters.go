@@ -34,7 +34,7 @@ type ParametersDefinition struct {
 
 		// CommitteeMembers defines the config flag of the DRNG committee members identities.
 		CommitteeMembers []string `usage:"list of committee members of the x-team drng"`
-	} `name:"xteam"`
+	} `name:"xTeam"`
 
 	// Custom contains the configuration parameters of the custom dRNG committee.
 	Custom struct {
