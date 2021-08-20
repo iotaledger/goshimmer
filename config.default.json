@@ -33,7 +33,7 @@
   },
   "drng": {
     "pollen": {
-      "intanceID": 1,
+      "instanceId": 1,
       "threshold": 3,
       "distributedPubKey": "",
       "committeeMembers": [
@@ -45,7 +45,7 @@
       ]
     },
     "xteam": {
-      "intanceID": 1339,
+      "instanceId": 1339,
       "threshold": 4,
       "distributedPubKey": "",
       "committeeMembers": [
@@ -59,7 +59,7 @@
       ]
     },
     "custom": {
-      "intanceID": 9999,
+      "instanceId": 9999,
       "threshold": 3,
       "distributedPubKey": "",
       "committeeMembers": []
