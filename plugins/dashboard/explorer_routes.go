@@ -250,10 +250,13 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		// how much pending mana the output has?
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
+		// obtain information about the consumer of the output being considered
+		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID())
+
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),
 			Output:          jsonmodels.NewOutput(output),
-			Metadata:        jsonmodels.NewOutputMetadata(metaData),
+			Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
 			TxTimestamp:     int(timestamp),
 			PendingMana:     pendingMana,
 			GradeOfFinality: metaData.GradeOfFinality(),

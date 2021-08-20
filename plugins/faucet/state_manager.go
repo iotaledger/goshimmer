@@ -305,7 +305,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	// remainder output should sit on address 0
 	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
 		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
+			if messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
 				messagelayer.Tangle().ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
 				if !ok || iotaBalance < MinimumFaucetBalance {
@@ -347,7 +347,7 @@ func (s *StateManager) prepareMoreFundingOutputs(ctx context.Context) (err error
 	// is the remainder output still unspent?
 	messagelayer.Tangle().LedgerState.CachedOutputMetadata(s.remainderOutput.ID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		// GenesisTransactionID is the empty id
-		if outputMetadata.ConfirmedConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
+		if messagelayer.Tangle().LedgerState.ConfirmedConsumer(outputMetadata.ID()) != ledgerstate.GenesisTransactionID {
 			remainderSpent = true
 		}
 	})
