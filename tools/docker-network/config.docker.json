@@ -31,7 +31,7 @@
   },
   "drng": {
     "custom": {
-      "instanceId": 111,
+      "intanceID": 111,
       "threshold": 3,
       "distributedPubKey": "",
       "committeeMembers": [
