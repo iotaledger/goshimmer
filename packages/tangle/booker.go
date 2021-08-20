@@ -684,7 +684,7 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 }
 
 // structureDetailsOfStrongAndLikeParents is an internal utility function that returns a list of StructureDetails of all the
-// strong parents.
+// like and strong parents.
 func (m *MarkersManager) structureDetailsOfStrongAndLikeParents(message *Message) (structureDetails []*markers.StructureDetails) {
 	structureDetails = make([]*markers.StructureDetails, 0)
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
