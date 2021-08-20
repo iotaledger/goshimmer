@@ -58,7 +58,7 @@ func configure(_ *node.Plugin) {
 // 		"Autopeering",
 // 		"Analysis",
 // 		"WebAPIDataEndpoint",
-// 		"WebAPI dRNG Endpoint",
+// 		"WebAPIDRNGEndpoint",
 // 		"MessageLayer",
 // 		"CLI",
 // 		"Database",
@@ -69,7 +69,7 @@ func configure(_ *node.Plugin) {
 // 		"Dashboard",
 // 		"WebAPI",
 // 		"WebAPIInfoEndpoint",
-// 		"WebAPI message Endpoint",
+// 		"WebAPIMessageEndpoint",
 // 		"Banner",
 // 		"Gossip",
 // 		"GracefulShutdown",
@@ -78,7 +78,7 @@ func configure(_ *node.Plugin) {
 // 	"disabledplugins":[
 // 		"RemoteLog",
 // 		"Spammer",
-// 		"WebAPI Auth"
+// 		"WebAPIAuth"
 // 	]
 // }
 func getInfo(c echo.Context) error {

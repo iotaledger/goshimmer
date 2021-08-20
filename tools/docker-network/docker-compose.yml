@@ -38,7 +38,7 @@ services:
       --metrics.local=false
       --metrics.manaResearch=false
       --node.disablePlugins=clock
-      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,"webapi tools endpoint",activity,snapshot
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,"webapiToolsEndpoint",activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --statement.writeManaThreshold=1.0
@@ -72,7 +72,7 @@ services:
       /run/entrypoint.sh /go/bin/goshimmer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap,"webapi tools endpoint"
+      --node.enablePlugins=bootstrap,"webapiToolsEndpoint"
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
@@ -114,7 +114,7 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
-      --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity
+      --node.enablePlugins=bootstrap,"webapiToolsEndpoint",faucet,activity
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
