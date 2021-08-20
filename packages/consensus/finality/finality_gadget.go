@@ -220,7 +220,7 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 
 	propagateGoF := func(message *tangle.Message, messageMetadata *tangle.MessageMetadata, w *walker.Walker) {
 		// stop walking to past cone if reach a marker with a higher grade of finality
-		if messageMetadata.StructureDetails().IsPastMarker && messageMetadata.GradeOfFinality() > gradeOfFinality {
+		if messageMetadata.StructureDetails().IsPastMarker && messageMetadata.GradeOfFinality() >= gradeOfFinality {
 			return
 		}
 
