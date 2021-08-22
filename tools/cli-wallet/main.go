@@ -15,6 +15,13 @@ func main() {
 		}
 	}()
 
+	// Make sure only one instance of the wallet runs
+	file, err := os.OpenFile("wallet.LOCK", os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(file.Name())
+
 	// print banner + initialize framework
 	printBanner()
 	loadConfig()
