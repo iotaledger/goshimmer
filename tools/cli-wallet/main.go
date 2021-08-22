@@ -11,6 +11,9 @@ import (
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
+			if exit, ok := r.(Exit); ok == true {
+				os.Exit(exit.Code)
+			}
 			_, _ = fmt.Fprintf(os.Stderr, "\nFATAL ERROR: "+r.(error).Error())
 			os.Exit(1)
 		}
@@ -122,16 +125,15 @@ func main() {
 }
 
 // ensures the cwd is where the actual go executable
+// currently doesn't work well with symlinks (or shortcuts)
 func setCWD() {
 	var dirAbsPath string
 	ex, err := os.Executable()
 	if err != nil {
-		fmt.Println(err)
-		fmt.Println(ex)
+		panic(err)
 	}
 	dirAbsPath = filepath.Dir(ex)
 	if err := os.Chdir(dirAbsPath); err != nil {
 		panic(err)
 	}
-	return
 }
