@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // entry point for the program
@@ -15,12 +16,18 @@ func main() {
 		}
 	}()
 
+	setCWD()
+
 	// Make sure only one instance of the wallet runs
-	file, err := os.OpenFile("wallet.LOCK", os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := os.OpenFile("wallet.LOCK", os.O_CREATE|os.O_EXCL|os.O_RDONLY, 0o644)
 	if err != nil {
 		panic(err)
 	}
-	defer os.Remove(file.Name())
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			panic(err)
+		}
+	}()
 
 	// print banner + initialize framework
 	printBanner()
@@ -112,4 +119,19 @@ func main() {
 	default:
 		printUsage(nil, "unknown [COMMAND]: "+os.Args[1])
 	}
+}
+
+// ensures the cwd is where the actual go executable
+func setCWD() {
+	var dirAbsPath string
+	ex, err := os.Executable()
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println(ex)
+	}
+	dirAbsPath = filepath.Dir(ex)
+	if err := os.Chdir(dirAbsPath); err != nil {
+		panic(err)
+	}
+	return
 }
