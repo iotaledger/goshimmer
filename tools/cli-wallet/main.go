@@ -15,7 +15,7 @@ const (
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			if exit, ok := r.(Exit); ok == true {
+			if exit, ok := r.(Exit); ok {
 				os.Exit(exit.Code)
 			}
 			_, _ = fmt.Fprintf(os.Stderr, "\nFATAL ERROR: "+r.(error).Error())
