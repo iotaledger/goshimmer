@@ -131,12 +131,11 @@ func main() {
 // ensures the cwd is where the actual go executable
 // currently doesn't work well with symlinks (or shortcuts)
 func setCWD() {
-	var dirAbsPath string
 	ex, err := os.Executable()
 	if err != nil {
 		panic(err)
 	}
-	dirAbsPath = filepath.Dir(ex)
+	dirAbsPath := filepath.Dir(ex)
 	if err := os.Chdir(dirAbsPath); err != nil {
 		panic(err)
 	}
