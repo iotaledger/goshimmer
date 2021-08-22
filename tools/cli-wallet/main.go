@@ -26,7 +26,7 @@ func main() {
 	setCWD()
 
 	// Make sure only one instance of the wallet runs
-	file, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_RDONLY, 0o644)
+	file, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_RDONLY, 0o600)
 	if err != nil {
 		panic(err)
 	}
