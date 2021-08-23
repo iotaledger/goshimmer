@@ -74,7 +74,7 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
 			messagemetadata.SetInvalid(true)
 		})
-		l.tangle.Events.MessageInvalid.Trigger(messageID)
+		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 
 		return errors.Errorf("invalid transaction in message with %s: %w", messageID, err)
 	}
@@ -110,7 +110,7 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
 			messagemetadata.SetInvalid(true)
 		})
-		l.tangle.Events.MessageInvalid.Trigger(messageID)
+		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 
 		// non-fatal errors should not bubble up - we trigger a MessageInvalid event instead
 		err = nil
