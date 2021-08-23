@@ -128,13 +128,19 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, nil, nil, time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+		message, err := NewMessage(strongParents, []MessageID{}, nil, nil, time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+		assert.NoError(t, err)
+		return message
 	}
 	newYoungParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, nil, nil, time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+		message, err := NewMessage(strongParents, []MessageID{}, nil, nil, time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+		assert.NoError(t, err)
+		return message
 	}
 	newValidMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, nil, nil, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
+		message, err := NewMessage(strongParents, []MessageID{}, nil, nil, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
+		assert.NoError(t, err)
+		return message
 	}
 
 	var wg sync.WaitGroup
@@ -478,9 +484,9 @@ func TestTangle_Flow(t *testing.T) {
 	)
 
 	// filter rejected events
-	tangle.Parser.Events.MessageRejected.AttachAfter(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
+	tangle.Parser.Events.MessageRejected.AttachAfter(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, err error) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
-		t.Logf("rejected by message filter messages %d/%d - %s", n, totalMsgCount, msgRejectedEvent.Message.ID())
+		t.Logf("rejected by message filter messages %d/%d - %s %s", n, totalMsgCount, msgRejectedEvent.Message.ID(), err)
 	}))
 
 	tangle.Parser.Events.MessageParsed.AttachAfter(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
@@ -605,9 +611,14 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	}
 
 	// create the signature
-	signature := f.sign(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.sign(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	if err != nil {
+		err = fmt.Errorf("signing failed failed: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
 
-	msg := NewMessage(
+	msg, err := NewMessage(
 		parents,
 		nil,
 		nil,
@@ -619,5 +630,10 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		nonce,
 		signature,
 	)
+	if err != nil {
+		err = fmt.Errorf("problem with message syntax: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
 	return msg, nil
 }

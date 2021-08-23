@@ -614,43 +614,58 @@ func nextSequenceNumber() uint64 {
 }
 
 func newTestNonceMessage(nonce uint64) *Message {
-	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
+	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
+	return message
 }
 
 func newTestDataMessage(payloadString string) *Message {
-	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
 func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
-	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
 func newTestParentsDataMessage(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
 func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
 func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
+}
+
+func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
 func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return message
 }
 
 func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return message
 }
 
 func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return message
 }
 
 func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return message
 }
 
 type wallet struct {
