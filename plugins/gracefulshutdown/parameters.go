@@ -14,5 +14,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "gracefulshutdown")
+	configuration.BindParameters(Parameters, "gracefulShutdown")
 }
