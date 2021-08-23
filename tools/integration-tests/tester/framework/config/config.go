@@ -39,7 +39,7 @@ type GoShimmer struct {
 	Database
 	Gossip
 	POW
-	Webapi
+	WebAPI
 	Autopeering
 	MessageLayer
 	Faucet
@@ -86,8 +86,8 @@ type POW struct {
 	pow.ParametersDefinition
 }
 
-// Webapi defines the parameters of the Web API plugin.
-type Webapi struct {
+// WebAPI defines the parameters of the Web API plugin.
+type WebAPI struct {
 	Enabled bool
 
 	webapi.ParametersDefinition

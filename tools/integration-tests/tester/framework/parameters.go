@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 const (
@@ -75,8 +76,8 @@ func PeerConfig() config.GoShimmer {
 	c.POW.Enabled = true
 	c.POW.Difficulty = 2
 
-	c.Webapi.Enabled = true
-	c.Webapi.BindAddress = fmt.Sprintf(":%d", apiPort)
+	c.WebAPI.Enabled = true
+	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
 
 	c.Autopeering.Enabled = false
 	c.Autopeering.Port = peeringPort

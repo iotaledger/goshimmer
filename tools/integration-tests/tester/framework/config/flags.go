@@ -48,7 +48,7 @@ func (s GoShimmer) CreateFlags() []string {
 
 	flags = append(
 		[]string{
-			"--node.enablePlugins=WebapiToolsEndpoint",
+			"--node.enablePlugins=WebAPIToolsEndpoint",
 			fmt.Sprintf("--node.enablePlugins=%s", setToString(enabledPlugins)),
 			fmt.Sprintf("--node.disablePlugins=%s", setToString(disabledPlugins)),
 		},
