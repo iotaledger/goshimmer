@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"time"
 
 	"github.com/iotaledger/hive.go/syncutils"
@@ -399,7 +400,7 @@ func measureInitialDBStats() {
 			return
 		default:
 			initialBranchTotalCountDB++
-			if !branch.Finalized() {
+			if branch.GradeOfFinality() == gof.High {
 				initialFinalizedBranchCountDB++
 			}
 		}

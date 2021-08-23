@@ -243,9 +243,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 		// too many strong parents
 		strongParents := testSortParents(randomParents(MaxParentsCount + 1))
 		block := ParentsBlock{
-			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(strongParents)),
-			References:   strongParents,
+			ParentsType: StrongParentType,
+			References:  strongParents,
 		}
 
 		_, err := newMessageWithValidation(
@@ -295,24 +294,20 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parents := testSortParents(randomParents(MaxParentsCount))
 
 		strongBlock := ParentsBlock{
-			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: StrongParentType,
+			References:  parents,
 		}
 		weakBlock := ParentsBlock{
-			ParentsType:  WeakParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: WeakParentType,
+			References:  parents,
 		}
 		dislikeBlock := ParentsBlock{
-			ParentsType:  DislikeParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: DislikeParentType,
+			References:  parents,
 		}
 		likeBlock := ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: LikeParentType,
+			References:  parents,
 		}
 
 		_, err := newMessageWithValidation(
@@ -369,24 +364,20 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parents := testSortParents(randomParents(MaxParentsCount))
 
 		strongBlock := ParentsBlock{
-			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: StrongParentType,
+			References:  parents,
 		}
 		strongBlock2 := ParentsBlock{
-			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: StrongParentType,
+			References:  parents,
 		}
 		likeBlock := ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: LikeParentType,
+			References:  parents,
 		}
 		likeBlock2 := ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: LikeParentType,
+			References:  parents,
 		}
 
 		_, err := newMessageWithValidation(
@@ -420,19 +411,16 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parents := testSortParents(randomParents(MaxParentsCount))
 
 		strongBlock := ParentsBlock{
-			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: StrongParentType,
+			References:  parents,
 		}
 		likeBlock := ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: LikeParentType,
+			References:  parents,
 		}
 		unknownBlock := ParentsBlock{
-			ParentsType:  NumberOfBlockTypes, // this should always be out of range
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: NumberOfBlockTypes, // this should always be out of range
+			References:  parents,
 		}
 
 		_, err := newMessageWithValidation(
@@ -449,89 +437,13 @@ func TestNewMessageWithValidation(t *testing.T) {
 		assert.ErrorIs(t, err, ErrBlockTypeIsUnknown)
 	})
 
-	t.Run("CASE: Parent count doesn't fit length of references", func(t *testing.T) {
-		parents := testSortParents(randomParents(4))
-		strongBlock := ParentsBlock{
-			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(parents)) - 1,
-			References:   parents,
-		}
-		weakBlock := ParentsBlock{
-			ParentsType:  WeakParentType,
-			ParentsCount: uint8(len(parents)) - 1,
-			References:   parents,
-		}
-		dislikeBlock := ParentsBlock{
-			ParentsType:  DislikeParentType,
-			ParentsCount: uint8(len(parents)) - 1,
-			References:   parents,
-		}
-		likeBlock := ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(len(parents)) - 1,
-			References:   parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-
-		assert.ErrorIs(t, err, ErrParentsCountMismatch, "strong block has a mismatch")
-
-		strongBlock.ParentsCount = uint8(len(parents))
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrParentsCountMismatch, "weak block has a mismatch")
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, dislikeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrParentsCountMismatch, "dislike block has a mismatch")
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrParentsCountMismatch, "like block has a mismatch")
-	})
-
 	t.Run("Case: Duplicate references", func(t *testing.T) {
 		parents := testSortParents(randomParents(4))
 		parents = append(parents, parents[3])
 
 		strongBlock := ParentsBlock{
-			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: StrongParentType,
+			References:  parents,
 		}
 
 		_, err := newMessageWithValidation(
@@ -568,15 +480,13 @@ func TestNewMessageWithValidation(t *testing.T) {
 	t.Run("Parents Repeating across blocks", func(t *testing.T) {
 		parents := testSortParents(randomParents(4))
 		strongBlock := ParentsBlock{
-			ParentsType:  StrongParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: StrongParentType,
+			References:  parents,
 		}
 
 		likeBlock := ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: LikeParentType,
+			References:  parents,
 		}
 
 		_, err := newMessageWithValidation(
@@ -593,9 +503,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 		assert.NoError(t, err, "strong and like parents may have duplicate parents")
 
 		weakBlock := ParentsBlock{
-			ParentsType:  WeakParentType,
-			ParentsCount: uint8(len(parents)),
-			References:   parents,
+			ParentsType: WeakParentType,
+			References:  parents,
 		}
 
 		_, err = newMessageWithValidation(
@@ -619,15 +528,13 @@ func TestNewMessageWithValidation(t *testing.T) {
 		dislikeParents = testSortParents(dislikeParents)
 
 		weakBlock = ParentsBlock{
-			ParentsType:  WeakParentType,
-			ParentsCount: uint8(len(weakParents)),
-			References:   weakParents,
+			ParentsType: WeakParentType,
+			References:  weakParents,
 		}
 
 		dislikeBlock := ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(len(dislikeParents)),
-			References:   dislikeParents,
+			ParentsType: LikeParentType,
+			References:  dislikeParents,
 		}
 
 		_, err = newMessageWithValidation(

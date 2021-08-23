@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
@@ -37,6 +38,7 @@ func TestManaPersistence(t *testing.T) {
 
 	peer := n.Peers()[1]
 
+	time.Sleep(5 * time.Second)
 	tests.SendFaucetRequest(t, peer, peer.Address(0))
 
 	log.Println("Waiting for peer to get mana...")

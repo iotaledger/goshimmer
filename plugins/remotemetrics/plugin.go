@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/drng"
@@ -92,18 +91,18 @@ func configureBranchConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	messagelayer.Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(onBranchConfirmed))
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(cachedBranch *ledgerstate.BranchDAGEvent) {
-		sendBranchMetrics()
-	}))
+	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
+	//messagelayer.FinalityGadget().Events().BranchCreated.Attach(events.NewClosure(func(cachedBranch *ledgerstate.BranchDAGEvent) {
+	//	sendBranchMetrics()
+	//}))
 }
 
 func configureMessageFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+		messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 	} else {
-		messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(events.NewClosure(onMessageFinalized))
+		messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
 	}
 }

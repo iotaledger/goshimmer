@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -40,13 +41,13 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid     bool   `json:"solid"`
-	BranchID  string `json:"branchID"`
-	Scheduled bool   `json:"scheduled"`
-	Booked    bool   `json:"booked"`
-	Eligible  bool   `json:"eligible"`
-	Invalid   bool   `json:"invalid"`
-	Finalized bool   `json:"finalized"`
+	Solid               bool                `json:"solid"`
+	BranchID            string              `json:"branchID"`
+	Scheduled           bool                `json:"scheduled"`
+	Booked              bool                `json:"booked"`
+	Invalid             bool                `json:"invalid"`
+	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -87,9 +88,9 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
-		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
-		Finalized:               messageMetadata.IsFinalized(),
+		GradeOfFinality:         messageMetadata.GradeOfFinality(),
+		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
@@ -125,21 +126,12 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID             *jsonmodels.OutputID       `json:"id"`
-	Output         *jsonmodels.Output         `json:"output"`
-	Metadata       *jsonmodels.OutputMetadata `json:"metadata"`
-	InclusionState ExplorerInclusionState     `json:"inclusionState"`
-	TxTimestamp    int                        `json:"txTimestamp"`
-	PendingMana    float64                    `json:"pendingMana"`
-}
-
-// ExplorerInclusionState defines the struct for storing inclusion states for ExplorerOutput
-type ExplorerInclusionState struct {
-	Confirmed   bool `json:"confirmed,omitempty"`
-	Rejected    bool `json:"rejected,omitempty"`
-	Liked       bool `json:"liked,omitempty"`
-	Conflicting bool `json:"conflicting,omitempty"`
-	Finalized   bool `json:"finalized,omitempty"`
+	ID              *jsonmodels.OutputID       `json:"id"`
+	Output          *jsonmodels.Output         `json:"output"`
+	Metadata        *jsonmodels.OutputMetadata `json:"metadata"`
+	TxTimestamp     int                        `json:"txTimestamp"`
+	PendingMana     float64                    `json:"pendingMana"`
+	GradeOfFinality gof.GradeOfFinality        `json:"gradeOfFinality"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -241,27 +233,15 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	// get outputids by address
 	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
-		inclusionState := ExplorerInclusionState{}
 		var timestamp int64
 
-		// get output metadata + liked status from branch of the output
+		// get output metadata + grade of finality status from branch of the output
 		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
-			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
-				inclusionState.Liked = branch.Liked()
-			})
 		})
 
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
-		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
-
-		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
-			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
-			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
-			inclusionState.Finalized = txMeta.Finalized()
-			inclusionState.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
-		})
 
 		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			timestamp = transaction.Essence().Timestamp().Unix()
@@ -270,13 +250,16 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		// how much pending mana the output has?
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
+		// obtain information about the consumer of the output being considered
+		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID())
+
 		outputs = append(outputs, ExplorerOutput{
-			ID:             jsonmodels.NewOutputID(output.ID()),
-			Output:         jsonmodels.NewOutput(output),
-			Metadata:       jsonmodels.NewOutputMetadata(metaData),
-			InclusionState: inclusionState,
-			TxTimestamp:    int(timestamp),
-			PendingMana:    pendingMana,
+			ID:              jsonmodels.NewOutputID(output.ID()),
+			Output:          jsonmodels.NewOutput(output),
+			Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
+			TxTimestamp:     int(timestamp),
+			PendingMana:     pendingMana,
+			GradeOfFinality: metaData.GradeOfFinality(),
 		})
 	})
 

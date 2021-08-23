@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil/buffconn"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
@@ -27,8 +28,7 @@ type Connection struct {
 }
 
 type (
-	wrapConfirmedTx *ledgerstate.Transaction
-	wrapBookedTx    *ledgerstate.Transaction
+	wrapBookedTx *ledgerstate.Transaction
 )
 
 const rcvClientIDTimeout = 5 * time.Second
@@ -103,15 +103,6 @@ func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSign
 
 	{
 		cl := events.NewClosure(func(tx *ledgerstate.Transaction) {
-			c.log.Debugf("on transaction confirmed: %s", tx.ID().Base58())
-			txFromLedgerQueue <- wrapConfirmedTx(tx)
-		})
-		c.ledger.EventTransactionConfirmed().Attach(cl)
-		defer c.ledger.EventTransactionConfirmed().Detach(cl)
-	}
-
-	{
-		cl := events.NewClosure(func(tx *ledgerstate.Transaction) {
 			c.log.Debugf("on transaction booked: %s", tx.ID().Base58())
 			txFromLedgerQueue <- wrapBookedTx(tx)
 		})
@@ -127,8 +118,6 @@ func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSign
 		select {
 		case tx := <-txFromLedgerQueue:
 			switch tx := tx.(type) {
-			case wrapConfirmedTx:
-				c.processConfirmedTransaction(tx)
 			case wrapBookedTx:
 				c.processBookedTransaction(tx)
 			default:
@@ -221,17 +210,8 @@ func (c *Connection) processConfirmedTransaction(tx *ledgerstate.Transaction) {
 func (c *Connection) processBookedTransaction(tx *ledgerstate.Transaction) {
 	for _, addr := range c.txSubscribedAddresses(tx) {
 		c.log.Debugf("booked tx -> client -- addr: %s. txid: %s", addr.Base58(), tx.ID().Base58())
-		c.sendTxInclusionState(tx.ID(), addr, ledgerstate.Pending)
+		c.sendTxInclusionState(tx.ID(), addr, gof.Low)
 	}
-}
-
-func (c *Connection) getTxInclusionState(txid ledgerstate.TransactionID, addr ledgerstate.Address) {
-	state, err := c.ledger.GetTxInclusionState(txid)
-	if err != nil {
-		c.log.Warnf("getTxInclusionState: %v", err)
-		return
-	}
-	c.sendTxInclusionState(txid, addr, state)
 }
 
 func (c *Connection) getBacklog(addr ledgerstate.Address) {

@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/magiconair/properties/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -48,7 +48,7 @@ func TestLoadSnapshot(t *testing.T) {
 	}
 
 	ledgerState.LoadSnapshot(snapshot)
-	inclusionState, err := ledgerState.TransactionInclusionState(genesisTransaction.ID())
-	require.NoError(t, err)
-	assert.Equal(t, ledgerstate.Confirmed, inclusionState)
+	assert.True(t, ledgerState.TransactionMetadata(genesisTransaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		assert.Equal(t, transactionMetadata.GradeOfFinality(), gof.High)
+	}))
 }

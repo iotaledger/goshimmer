@@ -3,8 +3,6 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -60,15 +58,14 @@ type MessageFinalizedMetrics struct {
 
 // BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.
 type BranchConfirmationMetrics struct {
-	Type               string                     `json:"type" bson:"type"`
-	NodeID             string                     `json:"nodeID" bson:"nodeID"`
-	MetricsLevel       uint8                      `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID          string                     `json:"messageID" bson:"messageID"`
-	BranchID           string                     `json:"transactionID" bson:"transactionID"`
-	CreatedTimestamp   time.Time                  `json:"createdTimestamp" bson:"createdTimestamp"`
-	ConfirmedTimestamp time.Time                  `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
-	DeltaConfirmed     int64                      `json:"deltaConfirmed" bson:"deltaConfirmed"`
-	InclusionState     ledgerstate.InclusionState `json:"inclusionState" bson:"inclusionState"`
+	Type               string    `json:"type" bson:"type"`
+	NodeID             string    `json:"nodeID" bson:"nodeID"`
+	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID          string    `json:"messageID" bson:"messageID"`
+	BranchID           string    `json:"transactionID" bson:"transactionID"`
+	CreatedTimestamp   time.Time `json:"createdTimestamp" bson:"createdTimestamp"`
+	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
+	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
 }
 
 // BranchCountUpdate defines the branch confirmation metrics record that is sent to remote logger.

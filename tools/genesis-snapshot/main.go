@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -70,10 +71,6 @@ func main() {
 			Object: ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				ledgerstate.ColorIOTA: genesisTokenAmount,
 			}), &ledgerstate.ED25519Address{}).SetID(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)),
-			InclusionState: wallet.InclusionState{
-				Liked:     true,
-				Confirmed: true,
-			},
 		},
 	)
 
@@ -216,7 +213,8 @@ func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (ou
 	outputs = make(wallet.OutputsByAddressAndOutputID)
 	for _, addr := range addresses {
 		for outputID, output := range connector.outputs[addr] {
-			if !output.InclusionState.Spent {
+			// If the GoF is not reached we consider the output unspent
+			if !output.GradeOfFinalityReached {
 				if _, outputsExist := outputs[addr]; !outputsExist {
 					outputs[addr] = make(map[ledgerstate.OutputID]*wallet.Output)
 				}
@@ -259,10 +257,10 @@ func (connector *mockConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type
 	return
 }
 
-func (connector *mockConnector) GetTransactionInclusionState(txID ledgerstate.TransactionID) (inc ledgerstate.InclusionState, err error) {
+func (connector *mockConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
 	return
 }
 
-func (connector *mockConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
+func (connector *mockConnector) GetTransactionGoF(txID ledgerstate.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	return
 }

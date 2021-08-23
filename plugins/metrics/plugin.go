@@ -168,27 +168,25 @@ func registerLocalMetrics() {
 		increasePerComponentCounter(Booker)
 	}))
 
-	messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messageType := DataMessage
 		messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
 			messageType = Transaction
 		})
 
-		var issuingTime time.Time
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			message.ForEachParent(func(parent tangle.Parent) {
 				increasePerParentType(parent.Type)
 			})
-			issuingTime = message.IssuingTime()
 		})
 		if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			messageFinalizationTotalTime[messageType] += uint64(messageMetadata.FinalizedTime().Sub(issuingTime).Milliseconds())
+			messageFinalizationTotalTime[messageType] += uint64(clock.Since(messageMetadata.ReceivedTime()).Milliseconds())
 		}) {
 			finalizedMessageCount[messageType]++
 		}
 	}))
 
-	messagelayer.Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		oldestAttachmentTime, _, err := messagelayer.Tangle().Utils.FirstAttachment(branchID.TransactionID())
 		if err != nil {
 			return
@@ -201,12 +199,14 @@ func registerLocalMetrics() {
 		})
 		finalizedBranchCountDB.Inc()
 		confirmedBranchCount.Inc()
+		branchTotalCountDB.Inc() // temporarily
+
 		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
 	}))
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(cachedBranch *ledgerstate.BranchDAGEvent) {
-		branchTotalCountDB.Inc()
-	}))
+	//messagelayer.FinalityGadget().Events().BranchCreated.Attach(events.NewClosure(func(cachedBranch *ledgerstate.BranchDAGEvent) {
+	//	branchTotalCountDB.Inc()
+	//}))
 
 	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
 		analysisOutboundBytes.Add(amountBytes)

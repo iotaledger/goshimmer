@@ -41,6 +41,12 @@ const (
 	// MaxParentsCount defines the maximum number of parents each parents block must have.
 	MaxParentsCount = 8
 
+	// MinParentsBlocksCount defines the minimum number of parents each parents block must have.
+	MinParentsBlocksCount = 1
+
+	// MaxParentsBlocksCount defines the maximum number of parents each parents block must have.
+	MaxParentsBlocksCount = 4
+
 	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
 	MinStrongParentsCount = 1
 )
@@ -204,8 +210,7 @@ func (bp ParentsType) String() string {
 
 type ParentsBlock struct {
 	ParentsType
-	ParentsCount uint8
-	References   MessageIDs
+	References MessageIDs
 }
 
 // Message represents the core message for the base layer Tangle.
@@ -214,15 +219,14 @@ type Message struct {
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	version            uint8
-	parentsBlocksCount uint8
-	parentsBlocks      []ParentsBlock
-	issuerPublicKey    ed25519.PublicKey
-	issuingTime        time.Time
-	sequenceNumber     uint64
-	payload            payload.Payload
-	nonce              uint64
-	signature          ed25519.Signature
+	version         uint8
+	parentsBlocks   []ParentsBlock
+	issuerPublicKey ed25519.PublicKey
+	issuingTime     time.Time
+	sequenceNumber  uint64
+	payload         payload.Payload
+	nonce           uint64
+	signature       ed25519.Signature
 
 	// derived properties
 	id         *MessageID
@@ -240,7 +244,6 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	sortedDislikeParents := sortParents(dislikeParents)
 	sortedLikeParents := sortParents(likeParents)
 
-	strongParentsCount := len(sortedStrongParents)
 	weakParentsCount := len(sortedWeakParents)
 	dislikeParentsCount := len(sortedDislikeParents)
 	likeParentsCount := len(sortedLikeParents)
@@ -248,32 +251,28 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	var parentsBlocks []ParentsBlock
 
 	parentsBlocks = append(parentsBlocks, ParentsBlock{
-		ParentsType:  StrongParentType,
-		ParentsCount: uint8(strongParentsCount),
-		References:   sortedStrongParents,
+		ParentsType: StrongParentType,
+		References:  sortedStrongParents,
 	})
 
 	if weakParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType:  WeakParentType,
-			ParentsCount: uint8(weakParentsCount),
-			References:   sortedWeakParents,
+			ParentsType: WeakParentType,
+			References:  sortedWeakParents,
 		})
 	}
 
 	if dislikeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType:  DislikeParentType,
-			ParentsCount: uint8(dislikeParentsCount),
-			References:   sortedDislikeParents,
+			ParentsType: DislikeParentType,
+			References:  sortedDislikeParents,
 		})
 	}
 
 	if likeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType:  LikeParentType,
-			ParentsCount: uint8(likeParentsCount),
-			References:   sortedLikeParents,
+			ParentsType: LikeParentType,
+			References:  sortedLikeParents,
 		})
 	}
 
@@ -287,9 +286,8 @@ newMessageWithValidation creates a new message while performing ths following sy
 3. Parent count per block 1 <= x <= 8.
 4. Parents unique within block.
 5. Parents lexicographically sorted within block.
-6. ParentsCount within each block must match the parents actually parsed within the block.
-7. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
-8. Blocks should be ordered by type in ascending order.
+6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
+7. Blocks should be ordered by type in ascending order.
 **/
 func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
 	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
@@ -318,10 +316,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	// 2. Number of parents in eac block is in range
 	// 3. Parents are lexicographically ordered with no repetitions
 	for _, block := range parentsBlocks {
-		if int(block.ParentsCount) != len(block.References) {
-			return nil, ErrParentsCountMismatch
-		}
-		if block.ParentsCount > MaxParentsCount || block.ParentsCount < MinParentsCount {
+		if len(block.References) > MaxParentsCount || len(block.References) < MinParentsCount {
 			return nil, ErrParentsOutOfRange
 		}
 		// The lexicographical order check also makes sure there are no duplicates
@@ -340,15 +335,14 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	}
 
 	return &Message{
-		version:            version,
-		parentsBlocksCount: uint8(len(parentsBlocks)),
-		parentsBlocks:      parentsBlocks,
-		issuerPublicKey:    issuerPublicKey,
-		issuingTime:        issuingTime,
-		sequenceNumber:     sequenceNumber,
-		payload:            msgPayload,
-		nonce:              nonce,
-		signature:          signature,
+		version:         version,
+		parentsBlocks:   parentsBlocks,
+		issuerPublicKey: issuerPublicKey,
+		issuingTime:     issuingTime,
+		sequenceNumber:  sequenceNumber,
+		payload:         msgPayload,
+		nonce:           nonce,
+		signature:       signature,
 	}, nil
 }
 
@@ -450,9 +444,8 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 			}
 		}
 		parentsBlocks[i] = ParentsBlock{
-			ParentsType:  ParentsType(parentType),
-			ParentsCount: parentsCount,
-			References:   references,
+			ParentsType: ParentsType(parentType),
+			References:  references,
 		}
 	}
 
@@ -650,12 +643,12 @@ func (m *Message) Bytes() []byte {
 	// marshal result
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(m.version)
-	marshalUtil.WriteByte(m.parentsBlocksCount)
+	marshalUtil.WriteByte(byte(len(m.parentsBlocks)))
 
-	for x := 0; x < int(m.parentsBlocksCount); x++ {
+	for x := 0; x < len(m.parentsBlocks); x++ {
 		parentBlock := m.parentsBlocks[x]
 		marshalUtil.WriteByte(byte(parentBlock.ParentsType))
-		marshalUtil.WriteByte(parentBlock.ParentsCount)
+		marshalUtil.WriteByte(byte(len(parentBlock.References)))
 		sortedParents := sortParents(parentBlock.References)
 		for _, parent := range sortedParents {
 			marshalUtil.Write(parent)
@@ -787,21 +780,19 @@ func (c *CachedMessage) Unwrap() *Message {
 type MessageMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	messageID          MessageID
-	receivedTime       time.Time
-	solid              bool
-	solidificationTime time.Time
-	structureDetails   *markers.StructureDetails
-	branchID           ledgerstate.BranchID
-	scheduled          bool
-	scheduledTime      time.Time
-	booked             bool
-	bookedTime         time.Time
-	eligible           bool
-	invalid            bool
-	finalized          bool
-	finalizedTime      time.Time
-	gradeOfFinality    gof.GradeOfFinality
+	messageID           MessageID
+	receivedTime        time.Time
+	solid               bool
+	solidificationTime  time.Time
+	structureDetails    *markers.StructureDetails
+	branchID            ledgerstate.BranchID
+	scheduled           bool
+	scheduledTime       time.Time
+	booked              bool
+	bookedTime          time.Time
+	invalid             bool
+	gradeOfFinality     gof.GradeOfFinality
+	gradeOfFinalityTime time.Time
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
@@ -811,10 +802,7 @@ type MessageMetadata struct {
 	scheduledTimeMutex      sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
-	eligibleMutex           sync.RWMutex
 	invalidMutex            sync.RWMutex
-	finalizedMutex          sync.RWMutex
-	finalizedTimeMutex      sync.RWMutex
 	gradeOfFinalityMutex    sync.RWMutex
 }
 
@@ -879,20 +867,8 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
 		return
 	}
-	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
-		return
-	}
 	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
-		return
-	}
-	if result.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse finalizedApprovalWeight flag of message metadata: %w", err)
-		return
-	}
-	if result.finalizedTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse finalized time of message metadata: %w", err)
 		return
 	}
 	gradeOfFinality, err := marshalUtil.ReadUint8()
@@ -901,6 +877,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		return
 	}
 	result.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if result.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse gradeOfFinality time of message metadata: %w", err)
+		return
+	}
 
 	return
 }
@@ -1013,15 +993,6 @@ func (m *MessageMetadata) BranchID() ledgerstate.BranchID {
 	return m.branchID
 }
 
-// IsEligible returns true if the message represented by this metadata is eligible. False otherwise.
-func (m *MessageMetadata) IsEligible() (result bool) {
-	m.eligibleMutex.RLock()
-	defer m.eligibleMutex.RUnlock()
-	result = m.eligible
-
-	return
-}
-
 // SetScheduled sets the message associated with this metadata as scheduled.
 // It returns true if the scheduled status is modified. False otherwise.
 func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
@@ -1095,23 +1066,6 @@ func (m *MessageMetadata) BookedTime() time.Time {
 	return m.bookedTime
 }
 
-// SetEligible sets the message associated with this metadata as eligible.
-// It returns true if the eligible status is modified. False otherwise.
-func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
-	m.eligibleMutex.Lock()
-	defer m.eligibleMutex.Unlock()
-
-	if m.eligible == eligible {
-		return false
-	}
-
-	m.eligible = eligible
-	m.SetModified()
-	modified = true
-
-	return
-}
-
 // IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
 func (m *MessageMetadata) IsInvalid() (result bool) {
 	m.invalidMutex.RLock()
@@ -1138,43 +1092,6 @@ func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
 	return
 }
 
-// SetFinalized sets the message associated with this metadata as finalized by approval weight.
-// It returns true if the finalized status is modified. False otherwise.
-func (m *MessageMetadata) SetFinalized(finalized bool) (modified bool) {
-	m.finalizedMutex.Lock()
-	m.finalizedTimeMutex.Lock()
-	defer m.finalizedMutex.Unlock()
-	defer m.finalizedTimeMutex.Unlock()
-
-	if m.finalized == finalized {
-		return false
-	}
-
-	m.finalized = finalized
-	m.finalizedTime = clock.SyncedTime()
-	m.SetModified()
-	modified = true
-
-	return
-}
-
-// IsFinalized returns true if the message represented by this metadata is finalized by approval weight.
-// False otherwise.
-func (m *MessageMetadata) IsFinalized() (result bool) {
-	m.finalizedMutex.RLock()
-	defer m.finalizedMutex.RUnlock()
-
-	return m.finalized
-}
-
-// FinalizedTime returns the time when the message represented by this metadata was finalized.
-func (m *MessageMetadata) FinalizedTime() time.Time {
-	m.finalizedTimeMutex.RLock()
-	defer m.finalizedTimeMutex.RUnlock()
-
-	return m.finalizedTime
-}
-
 // SetGradeOfFinality sets the grade of finality associated with this metadata.
 // It returns true if the grade of finality is modified. False otherwise.
 func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
@@ -1186,6 +1103,7 @@ func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality
 	}
 
 	m.gradeOfFinality = gradeOfFinality
+	m.gradeOfFinalityTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -1198,6 +1116,14 @@ func (m *MessageMetadata) GradeOfFinality() (result gof.GradeOfFinality) {
 	defer m.gradeOfFinalityMutex.RUnlock()
 
 	return m.gradeOfFinality
+}
+
+// GradeOfFinalityTime returns the time the grade of finality was set.
+func (m *MessageMetadata) GradeOfFinalityTime() time.Time {
+	m.gradeOfFinalityMutex.RLock()
+	defer m.gradeOfFinalityMutex.RUnlock()
+
+	return m.gradeOfFinalityTime
 }
 
 // Bytes returns a marshaled version of the whole MessageMetadata object.
@@ -1224,11 +1150,9 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.ScheduledTime()).
 		WriteBool(m.IsBooked()).
 		WriteTime(m.BookedTime()).
-		WriteBool(m.IsEligible()).
 		WriteBool(m.IsInvalid()).
-		WriteBool(m.IsFinalized()).
-		WriteTime(m.FinalizedTime()).
 		WriteUint8(uint8(m.GradeOfFinality())).
+		WriteTime(m.GradeOfFinalityTime()).
 		Bytes()
 }
 
@@ -1251,11 +1175,9 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("scheduledTime", m.ScheduledTime()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
-		stringify.StructField("eligible", m.IsEligible()),
 		stringify.StructField("invalid", m.IsInvalid()),
-		stringify.StructField("finalized", m.IsFinalized()),
-		stringify.StructField("finalizedTime", m.FinalizedTime()),
 		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
+		stringify.StructField("gradeOfFinalityTime", m.GradeOfFinalityTime()),
 	)
 }
 
@@ -1310,7 +1232,6 @@ var (
 	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
 	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
 	ErrBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
-	ErrParentsCountMismatch               = errors.New("number of parents in a message doesn't match parent count")
 	ErrParentsOutOfRange                  = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
 	ErrParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
 	ErrRepeatingBlockTypes                = errors.New("block types within a message must not repeat")

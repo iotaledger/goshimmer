@@ -63,12 +63,10 @@ var DiagnosticUTXODAGTableDescription = []string{
 	"Outputs",
 	"Attachments",
 	"BranchID",
-	"BranchLiked",
-	"BranchMonotonicallyLiked",
 	"Conflicting",
-	"InclusionState",
-	"Finalized",
 	"LazyBooked",
+	"GradeOfFinality",
+	"GradeOfFinalityTime",
 }
 
 // DiagnosticUTXODAGInfo holds the information of a UTXO.
@@ -84,14 +82,11 @@ type DiagnosticUTXODAGInfo struct {
 	// attachments
 	Attachments []string
 	// transaction metadata
-	BranchID                 string
-	BranchLiked              bool
-	BranchMonotonicallyLiked bool
-	Conflicting              bool
-	InclusionState           string
-	Finalized                bool
-	LazyBooked               bool
-	GradeOfFinality          gof.GradeOfFinality
+	BranchID            string
+	Conflicting         bool
+	LazyBooked          bool
+	GradeOfFinality     gof.GradeOfFinality
+	GradeOfFinalityTime time.Time
 }
 
 func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) DiagnosticUTXODAGInfo {
@@ -115,16 +110,10 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		txInfo.SolidTime = transactionMetadata.SolidificationTime()
 		txInfo.BranchID = transactionMetadata.BranchID().String()
 
-		messagelayer.Tangle().LedgerState.BranchDAG.Branch(transactionMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
-			txInfo.BranchLiked = branch.Liked()
-			txInfo.BranchMonotonicallyLiked = branch.MonotonicallyLiked()
-		})
-
 		txInfo.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
-		txInfo.Finalized = transactionMetadata.Finalized()
 		txInfo.LazyBooked = transactionMetadata.LazyBooked()
-		txInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(transactionMetadata.BranchID()).String()
 		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()
+		txInfo.GradeOfFinalityTime = transactionMetadata.GradeOfFinalityTime()
 	})
 
 	return txInfo
@@ -141,12 +130,10 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 		strings.Join(d.Outputs.Strings(), ";"),
 		strings.Join(d.Attachments, ";"),
 		d.BranchID,
-		fmt.Sprint(d.BranchLiked),
-		fmt.Sprint(d.BranchMonotonicallyLiked),
 		fmt.Sprint(d.Conflicting),
-		d.InclusionState,
-		fmt.Sprint(d.Finalized),
 		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.GradeOfFinality),
+		fmt.Sprint(d.GradeOfFinalityTime.UnixNano()),
 	}
 
 	result = strings.Join(row, ",")

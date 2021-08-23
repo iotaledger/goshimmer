@@ -3,46 +3,24 @@ package wallet
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/stringify"
-
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // Output is a wallet specific representation of an output in the IOTA network.
 type Output struct {
-	Address        address.Address
-	Object         ledgerstate.Output
-	InclusionState InclusionState
-	Metadata       OutputMetadata
-}
-
-// region InclusionState ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// InclusionState is a container for the different flags of an output that define if it was accepted in the network.
-type InclusionState struct {
-	Liked       bool
-	Confirmed   bool
-	Rejected    bool
-	Conflicting bool
-	Spent       bool
+	Address                address.Address
+	Object                 ledgerstate.Output
+	Metadata               OutputMetadata
+	GradeOfFinalityReached bool
+	// Spent is a local wallet-only property that gets set once an output is spent from within the same wallet.
+	Spent bool
 }
 
 // OutputMetadata is metadata about the output.
 type OutputMetadata struct {
 	// Timestamp is the timestamp of the tx that created the output.
 	Timestamp time.Time
-}
-
-// String returns a human-readable representation of the InclusionState.
-func (i InclusionState) String() string {
-	return stringify.Struct("InclusionState",
-		stringify.StructField("Liked", i.Liked),
-		stringify.StructField("Confirmed", i.Confirmed),
-		stringify.StructField("Rejected", i.Rejected),
-		stringify.StructField("Conflicting", i.Conflicting),
-		stringify.StructField("Spent", i.Spent),
-	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

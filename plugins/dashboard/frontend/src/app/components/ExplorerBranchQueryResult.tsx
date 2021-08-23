@@ -1,10 +1,9 @@
 import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import NodeStore from "app/stores/NodeStore";
-import { inject, observer } from "mobx-react";
+import {inject, observer} from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import ListGroup from "react-bootstrap/ListGroup";
-import Badge from "react-bootstrap/Badge";
 import {resolveBase58BranchID} from "app/utils/branch";
 
 
@@ -43,25 +42,6 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                 </Container>
             );
         }
-        let renderInclusionState = (inclusionState: string) => {
-            let variant = "secondary";
-            let value = ""
-            switch(inclusionState) {
-                case "InclusionState(Confirmed)":
-                    variant = "success";
-                    value = "confirmed"
-                    break;
-                case "InclusionState(Rejected)":
-                    variant = "danger";
-                    value = "rejected"
-                    break;
-                case "InclusionState(Pending)":
-                    variant = "warning";
-                    value = "pending"
-                    break;
-            }
-            return <Badge variant={variant}>{value}</Badge>
-        }
         return (
             <Container>
                 <h4>Branch</h4>
@@ -79,13 +59,12 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                             {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
                         </ListGroup>}
                     </ListGroup.Item>}
-                    <ListGroup.Item>Finalized: {branch.finalized.toString()}</ListGroup.Item>
-                    <ListGroup.Item>Monotonically Liked: {branch.monotonicallyLiked.toString()}</ListGroup.Item>
-                    <ListGroup.Item>Inclusion State: {renderInclusionState(branch.inclusionState)}</ListGroup.Item>
+                    <ListGroup.Item>Grade of Finality: {branch.gradeOfFinality}</ListGroup.Item>
                     <ListGroup.Item> Children:
                         {branchChildren && <ListGroup>
-                            {branchChildren.childBranches.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}
-                        </ListGroup> }
+                            {branchChildren.childBranches.map((c, i) => <ListGroup.Item key={i}><a
+                                href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}
+                        </ListGroup>}
                     </ListGroup.Item>
                     {branch.type !== "AggregatedBranchType" &&
                         <ListGroup.Item> Conflicts:

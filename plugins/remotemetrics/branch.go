@@ -8,14 +8,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/hive.go/events"
 )
 
-func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
+func onBranchConfirmed(branchID ledgerstate.BranchID) {
 	if !messagelayer.Tangle().Synced() {
-		return
-	}
-	if transition != events.ThresholdLevelIncreased {
 		return
 	}
 	var nodeID string
@@ -38,7 +34,6 @@ func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition e
 		CreatedTimestamp:   oldestAttachmentTime,
 		ConfirmedTimestamp: clock.SyncedTime(),
 		DeltaConfirmed:     clock.Since(oldestAttachmentTime).Nanoseconds(),
-		InclusionState:     messagelayer.Tangle().LedgerState.BranchDAG.InclusionState(branchID),
 	}
 
 	if err = remotelog.RemoteLogger().Send(record); err != nil {

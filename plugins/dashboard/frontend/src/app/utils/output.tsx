@@ -5,12 +5,12 @@ import {
     SigLockedColoredOutput,
     SigLockedSingleOutput
 } from "app/misc/Payload";
-import { SigLockedSingleOutputComponent} from "app/components/SigLockedSingleOutputComponent";
+import {SigLockedSingleOutputComponent} from "app/components/SigLockedSingleOutputComponent";
 import * as React from "react";
 import {SigLockedColoredOutputComponent} from "app/components/SigLockedColoredOutputComponent";
 import {AliasOutputComponent} from "app/components/AliasOutputComponent.tsx";
 import {ExtendedLockedOutputComponent} from "app/components/ExtendedLockedOutput";
-import {ExplorerOutput} from "app/stores/ExplorerStore";
+import {ExplorerOutput, GoF} from "app/stores/ExplorerStore";
 import {Base58EncodedColorIOTA, resolveColor} from "app/utils/color";
 
 export function outputToComponent(output: Output) {
@@ -33,7 +33,7 @@ export function totalBalanceFromExplorerOutputs(outputs: Array<ExplorerOutput>, 
     if (outputs.length === 0) {return totalBalance;}
     for (let i = 0; i < outputs.length; i++) {
         let o = outputs[i];
-        if (o.inclusionState.finalized !== true) {
+        if (o.metadata.gradeOfFinality !== GoF.High) {
             // ignore all unconfirmed balances
             continue
         }
