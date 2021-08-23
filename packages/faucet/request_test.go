@@ -24,7 +24,7 @@ func ExampleRequest() {
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
 	// 2. build actual message
-	tx := tangle.NewMessage(
+	tx, _ := tangle.NewMessage(
 		tangle.MessageIDs{tangle.EmptyMessageID},
 		tangle.MessageIDs{},
 		tangle.MessageIDs{},
@@ -72,7 +72,7 @@ func TestIsFaucetReq(t *testing.T) {
 
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
-	faucetMsg := tangle.NewMessage(
+	faucetMsg, _ := tangle.NewMessage(
 		tangle.MessageIDs{tangle.EmptyMessageID},
 		tangle.MessageIDs{},
 		tangle.MessageIDs{},
@@ -85,7 +85,7 @@ func TestIsFaucetReq(t *testing.T) {
 		ed25519.EmptySignature,
 	)
 
-	dataMsg := tangle.NewMessage(
+	dataMsg, _ := tangle.NewMessage(
 		tangle.MessageIDs{tangle.EmptyMessageID},
 		tangle.MessageIDs{},
 		tangle.MessageIDs{},
