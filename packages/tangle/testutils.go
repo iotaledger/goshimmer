@@ -2,14 +2,18 @@ package tangle
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -204,6 +208,32 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.Tr
 	return messagePayload.(*ledgerstate.Transaction).ID()
 }
 
+// TransactionMetadata returns the transaction metadata of the transaction contained within the given message.
+// Panics if the message's payload isn't a transaction.
+func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta *ledgerstate.TransactionMetadata) {
+	m.tangle.LedgerState.TransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		txMeta = transactionMetadata
+	})
+	return
+}
+
+// Transaction returns the transaction contained within the given message.
+// Panics if the message's payload isn't a transaction.
+func (m *MessageTestFramework) Transaction(messageAlias string) (tx *ledgerstate.Transaction) {
+	m.tangle.LedgerState.Transaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledgerstate.Transaction) {
+		tx = transaction
+	})
+	return
+}
+
+// OutputMetadata returns the given output metadata.
+func (m *MessageTestFramework) OutputMetadata(outputID ledgerstate.OutputID) (outMeta *ledgerstate.OutputMetadata) {
+	m.tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		outMeta = outputMetadata
+	})
+	return
+}
+
 // BranchIDFromMessage returns the BranchID of the Transaction contained in the Message associated with the given alias.
 func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerstate.BranchID {
 	messagePayload := m.messagesByAlias[messageAlias].Payload()
@@ -212,6 +242,16 @@ func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerst
 	}
 
 	return ledgerstate.NewBranchID(messagePayload.(*ledgerstate.Transaction).ID())
+}
+
+// Branch returns the branch emerging from the transaction contained within the given message.
+// This function thus only works on the message creating ledgerstate.ConflictBranch.
+// Panics if the message's payload isn't a transaction.
+func (m *MessageTestFramework) Branch(messageAlias string) (b ledgerstate.Branch) {
+	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch ledgerstate.Branch) {
+		b = branch
+	})
+	return
 }
 
 // createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
@@ -593,10 +633,6 @@ func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakPa
 	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
-func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-}
-
 func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
 	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
@@ -759,6 +795,11 @@ func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID
 	return false
 }
 
+// IsTransactionConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool {
+	return false
+}
+
 // IsOutputConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsOutputConfirmed(outputID ledgerstate.OutputID) bool {
 	return false
@@ -822,4 +863,99 @@ func (o *SimpleMockOnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (
 
 func emptyLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
 	return []MessageID{}, nil
+}
+
+// EventMock acts as a container for event mocks.
+type EventMock struct {
+	mock.Mock
+	expectedEvents uint64
+	calledEvents   uint64
+	test           *testing.T
+
+	attached []struct {
+		*events.Event
+		*events.Closure
+	}
+}
+
+// NewEventMock creates a new EventMock.
+func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *EventMock {
+	e := &EventMock{
+		test: t,
+	}
+	e.Test(t)
+
+	approvalWeightManager.Events.BranchWeightChanged.Attach(events.NewClosure(e.BranchWeightChanged))
+	approvalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(e.MarkerWeightChanged))
+
+	// attach all events
+	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
+
+	// assure that all available events are mocked
+	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
+	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
+
+	return e
+}
+
+// DetachAll detaches all event handlers.
+func (e *EventMock) DetachAll() {
+	for _, a := range e.attached {
+		a.Event.Detach(a.Closure)
+	}
+}
+
+// Expect is a proxy for Mock.On() but keeping track of num of calls.
+func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
+	e.On(eventName, arguments...)
+	atomic.AddUint64(&e.expectedEvents, 1)
+}
+
+func (e *EventMock) attach(event *events.Event, f interface{}) {
+	closure := events.NewClosure(f)
+	event.Attach(closure)
+	e.attached = append(e.attached, struct {
+		*events.Event
+		*events.Closure
+	}{event, closure})
+}
+
+// AssertExpectations assets expectations.
+func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
+	calledEvents := atomic.LoadUint64(&e.calledEvents)
+	expectedEvents := atomic.LoadUint64(&e.expectedEvents)
+	if calledEvents != expectedEvents {
+		t.Errorf("number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
+		return false
+	}
+
+	defer func() {
+		e.Calls = make([]mock.Call, 0)
+		e.ExpectedCalls = make([]*mock.Call, 0)
+		e.expectedEvents = 0
+		e.calledEvents = 0
+	}()
+
+	return e.Mock.AssertExpectations(t)
+}
+
+// BranchWeightChanged is the mocked BranchWeightChanged function.
+func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
+	e.Called(event.BranchID, event.Weight)
+
+	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// MarkerWeightChanged is the mocked MarkerWeightChanged function.
+func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
+	e.Called(event.Marker, event.Weight)
+
+	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// MessageProcessed is the mocked MessageProcessed function.
+func (e *EventMock) MessageProcessed(messageID MessageID) {
+	e.Called(messageID)
+
+	atomic.AddUint64(&e.calledEvents, 1)
 }

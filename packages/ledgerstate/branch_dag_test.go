@@ -27,7 +27,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.True(t, newBranchCreated)
 	assert.Equal(t, NewBranchIDs(MasterBranchID), conflictBranch2.Parents())
 	assert.Equal(t, ConflictBranchType, conflictBranch2.Type())
-	assert.Less(t, conflictBranch2.GradeOfFinality(), gof.Middle)
+	assert.Less(t, conflictBranch2.GradeOfFinality(), gof.Medium)
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}), conflictBranch2.Conflicts())
 
 	cachedConflictBranch3, _, err := branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(conflictBranch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
@@ -38,7 +38,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.True(t, newBranchCreated)
 	assert.Equal(t, NewBranchIDs(conflictBranch2.ID()), conflictBranch3.Parents())
 	assert.Equal(t, ConflictBranchType, conflictBranch3.Type())
-	assert.Less(t, conflictBranch2.GradeOfFinality(), gof.Middle)
+	assert.Less(t, conflictBranch2.GradeOfFinality(), gof.Medium)
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), conflictBranch3.Conflicts())
 
 	cachedConflictBranch2, newBranchCreated, err = branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
@@ -569,7 +569,7 @@ func (t *testBranchDAG) AssertInitialState(testingT *testing.T) {
 		t.branch15,
 		t.branch16,
 	} {
-		assert.Less(testingT, branch.GradeOfFinality(), gof.Middle)
+		assert.Less(testingT, branch.GradeOfFinality(), gof.Medium)
 	}
 }
 

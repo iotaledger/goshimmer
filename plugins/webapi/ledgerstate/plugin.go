@@ -334,7 +334,11 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	}
 
 	if !messagelayer.Tangle().LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewOutputMetadata(outputMetadata))
+		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(outputID)
+
+		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
+
+		err = c.JSON(http.StatusOK, jsonOutputMetadata)
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
 	}
