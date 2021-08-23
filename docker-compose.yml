@@ -18,7 +18,7 @@ services:
       - "./db:/tmp/mainnetdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
-      # Autopeering
+      # AutoPeering
       - "0.0.0.0:14626:14626/udp"
       # Gossip
       - "0.0.0.0:14666:14666/tcp"

@@ -29,6 +29,6 @@ var ParametersLocal = &ParametersDefinitionLocal{}
 var ParametersNetwork = &ParametersDefinitionNetwork{}
 
 func init() {
-	configuration.BindParameters(ParametersLocal, "autopeering")
+	configuration.BindParameters(ParametersLocal, "autoPeering")
 	configuration.BindParameters(ParametersNetwork, "network")
 }

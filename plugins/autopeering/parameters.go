@@ -20,5 +20,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "autopeering")
+	configuration.BindParameters(Parameters, "autoPeering")
 }
