@@ -39,10 +39,7 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(func(peerLocal *peer.Local, t *tangle.Tangle) *gossip.Manager {
-			mgr := createManager(peerLocal, t)
-			return mgr
-		}); err != nil {
+		if err := container.Provide(createManager); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -53,9 +50,9 @@ func configure(plugin *node.Plugin) {
 	configureMessageLayer()
 }
 
-func run(*node.Plugin) {
+func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
-		Plugin.Logger().Panicf("Failed to start as daemon: %s", err)
+		plugin.Logger().Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
