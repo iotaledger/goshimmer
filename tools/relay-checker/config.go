@@ -28,7 +28,7 @@ func initConfig() {
 		msgData = Parameters.Data
 	}
 	if Parameters.CooldownTime > 0 {
-		cooldownTime = time.Duration(Parameters.CooldownTime) * time.Second
+		cooldownTime = Parameters.CooldownTime
 	}
 	if Parameters.Repeat > 0 {
 		repeat = Parameters.Repeat

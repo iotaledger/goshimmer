@@ -1,6 +1,10 @@
 package main
 
-import "github.com/iotaledger/hive.go/configuration"
+import (
+	"time"
+
+	"github.com/iotaledger/hive.go/configuration"
+)
 
 // ParametersDefinition contains the definition of configuration parameters used by the relaychecker.
 type ParametersDefinition struct {
@@ -11,7 +15,7 @@ type ParametersDefinition struct {
 	// CfgData defines the data.
 	Data string `default:"TEST99BROADCAST99DATA" usage:"data to broadcast"`
 	// CooldownTime defines the cooldown time.
-	CooldownTime int `default:"10" usage:"the cooldown time after broadcasting the data on the specified target node"`
+	CooldownTime time.Duration `default:"10s" usage:"the cooldown time after broadcasting the data on the specified target node"`
 	// CfgRepeat defines the repeat.
 	Repeat int `default:"1" usage:"the amount of times to repeat the relay-checker queries"`
 }
