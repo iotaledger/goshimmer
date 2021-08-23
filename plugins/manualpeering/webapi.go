@@ -39,7 +39,7 @@ func addPeersHandler(c echo.Context) error {
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid add peers request")),
 		)
 	}
-	if err := Manager().AddPeer(peers...); err != nil {
+	if err := deps.ManualPeeringMgr.AddPeer(peers...); err != nil {
 		Plugin.Logger().Errorw(
 			"Can't add some of the peers from the HTTP request to manualpeering manager",
 			"err", err,
@@ -81,7 +81,7 @@ func removePeers(peers []*jsonmodels.PeerToRemove) error {
 	for i, p := range peers {
 		keys[i] = p.PublicKey
 	}
-	if err := Manager().RemovePeer(keys...); err != nil {
+	if err := deps.ManualPeeringMgr.RemovePeer(keys...); err != nil {
 		return errors.Wrap(err, "manualpeering manager failed to remove some peers")
 	}
 	return nil
@@ -96,6 +96,6 @@ func getPeersHandler(c echo.Context) error {
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid get peers request")),
 		)
 	}
-	peers := Manager().GetPeers(conf.ToOptions()...)
+	peers := deps.ManualPeeringMgr.GetPeers(conf.ToOptions()...)
 	return c.JSON(http.StatusOK, peers)
 }

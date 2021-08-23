@@ -2,7 +2,6 @@ package manualpeering
 
 import (
 	"encoding/json"
-	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
@@ -23,31 +23,30 @@ const PluginName = "Manualpeering"
 
 var (
 	// Plugin is the plugin instance of the manualpeering plugin.
-	Plugin      *node.Plugin
-	deps        = new(dependencies)
-	manager     *manualpeering.Manager
-	managerOnce sync.Once
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
 	dig.In
 
-	Local     *peer.Local
-	GossipMgr *gossip.Manager
-	Server    *echo.Echo
+	Local            *peer.Local
+	GossipMgr        *gossip.Manager
+	Server           *echo.Echo
+	ManualPeeringMgr *manualpeering.Manager
 }
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(newManager); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
 }
 
-// Manager is a singleton for manualpeering Manager.
-func Manager() *manualpeering.Manager {
-	managerOnce.Do(func() {
-		lPeer := deps.Local
-		manager = manualpeering.NewManager(deps.GossipMgr, lPeer, logger.NewLogger(PluginName))
-	})
-	return manager
+func newManager(lPeer *peer.Local, gossipMgr *gossip.Manager) *manualpeering.Manager {
+	return manualpeering.NewManager(gossipMgr, lPeer, logger.NewLogger(PluginName))
 }
 
 func configure(_ *node.Plugin) {
@@ -61,7 +60,7 @@ func run(*node.Plugin) {
 }
 
 func startManager(shutdownSignal <-chan struct{}) {
-	mgr := Manager()
+	mgr := deps.ManualPeeringMgr
 	mgr.Start()
 	defer func() {
 		if err := mgr.Stop(); err != nil {
