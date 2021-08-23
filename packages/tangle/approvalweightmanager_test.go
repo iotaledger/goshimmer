@@ -523,7 +523,7 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		supporters := approvalWeightManager.supportersOfBranch(branchIDs[branchIDString])
+		supporters := approvalWeightManager.SupportersOfBranch(branchIDs[branchIDString])
 		if supporters != nil {
 			actualResult = supporters.Has(supporter)
 		}
