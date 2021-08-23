@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -54,7 +55,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Middle: {"Message1"},
+					gof.Medium: {"Message1"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -63,7 +64,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Middle: {"Message1"},
+					gof.Medium: {"Message1"},
 					gof.None:   {"Message2"},
 				})
 				eventHandlerMock.AssertExpectations(t)
@@ -77,7 +78,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1"},
-					gof.Middle: {"Message2"},
+					gof.Medium: {"Message2"},
 					gof.Low:    {"Message3"},
 				})
 				eventHandlerMock.AssertExpectations(t)
@@ -91,7 +92,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2"},
-					gof.Middle: {"Message3"},
+					gof.Medium: {"Message3"},
 					gof.Low:    {"Message4"},
 				})
 				eventHandlerMock.AssertExpectations(t)
@@ -106,7 +107,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4"},
-					gof.Middle: {"Message5"},
+					gof.Medium: {"Message5"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -116,15 +117,15 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4"},
-					gof.Middle: {"Message5"},
+					gof.Medium: {"Message5"},
 					gof.None:   {"Message6"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Middle: {"Message5"},
+					gof.Medium: {"Message5"},
 					gof.None:   {"Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Middle: {"Message5"},
+					gof.Medium: {"Message5"},
 					gof.None:   {"Message6"},
 				})
 			},
@@ -182,17 +183,17 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Middle: {"Message6"},
+					gof.Medium: {"Message6"},
 					gof.Low:    {"Message8"},
 					gof.None:   {"Message7.1"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message5"},
-					gof.Middle: {"Message6"},
+					gof.Medium: {"Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message5", "Message7"},
-					gof.Middle: {"Message6"},
+					gof.Medium: {"Message6"},
 				})
 			},
 		},
@@ -207,7 +208,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7", "Message8"},
-					gof.Middle: {"Message9"},
+					gof.Medium: {"Message9"},
 					gof.None:   {"Message7.1"},
 				})
 				// AW swaps between msg5/6
@@ -227,7 +228,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7", "Message8"},
-					gof.Middle: {"Message9"},
+					gof.Medium: {"Message9"},
 					gof.None:   {"Message7.1", "Message10"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
@@ -245,18 +246,18 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7", "Message8"},
-					gof.Middle: {"Message9", "Message11"},
+					gof.Medium: {"Message9", "Message11"},
 					gof.None:   {"Message7.1", "Message10"},
 				})
 				// AW swaps back from msg6's branch to 5's, msg 7/11 (pun intended) new conflict set
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message5"},
-					gof.Middle: {"Message6", "Message11"},
+					gof.Medium: {"Message6", "Message11"},
 					gof.Low:    {"Message7"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message5"},
-					gof.Middle: {"Message11", "Message6"},
+					gof.Medium: {"Message11", "Message6"},
 					gof.Low:    {"Message7"},
 				})
 			},
@@ -271,7 +272,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7", "Message8", "Message11"},
-					gof.Middle: {"Message9"},
+					gof.Medium: {"Message9"},
 					gof.None:   {"Message7.1", "Message10"},
 					gof.Low:    {"Message12"},
 				})
@@ -291,7 +292,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7", "Message8", "Message11"},
-					gof.Middle: {"Message9", "Message12"},
+					gof.Medium: {"Message9", "Message12"},
 					gof.None:   {"Message7.1", "Message10", "Message13"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
@@ -311,7 +312,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7", "Message8", "Message11"},
-					gof.Middle: {"Message9", "Message12"},
+					gof.Medium: {"Message9", "Message12"},
 					gof.None:   {"Message7.1", "Message10", "Message14"},
 					gof.Low:    {"Message13"},
 				})
