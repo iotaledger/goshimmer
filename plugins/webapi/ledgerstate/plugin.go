@@ -293,7 +293,6 @@ func GetBranchConflicts(c echo.Context) (err error) {
 // GetBranchSupporters is the handler for the /ledgerstate/branches/:branchID/supporters endpoint.
 func GetBranchSupporters(c echo.Context) (err error) {
 	branchID, err := branchIDFromContext(c)
-	fmt.Println(branchID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}

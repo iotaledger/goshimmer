@@ -18,6 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
+const precision float64 = 1000
+
 var (
 	mu                               sync.RWMutex
 	conflicts                        map[ledgerstate.ConflictID]*conflict
@@ -142,10 +144,10 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 		b.ConflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 
 		for conflictID := range b.ConflictIDs {
-			c, exists := conflicts[conflictID]
+			_, exists := conflicts[conflictID]
 			// if this is the first conflict of this conflict set we add it to the map
 			if !exists {
-				c = &conflict{
+				c := &conflict{
 					ConflictID:  conflictID,
 					ArrivalTime: clock.SyncedTime(),
 				}
@@ -183,7 +185,7 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 		b.IssuerNodeID = issuerOfOldestAttachment(b.BranchID)
 	}
 
-	b.AW = math.Round(e.Weight*1000) / 1000
+	b.AW = math.Round(e.Weight*precision) / precision
 	messagelayer.Tangle().LedgerState.BranchDAG.Branch(b.BranchID).Consume(func(branch ledgerstate.Branch) {
 		b.GoF = branch.GradeOfFinality()
 	})
