@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -86,12 +85,10 @@ func (b *branch) ToJSON() *branchJSON {
 }
 
 func sendConflictUpdate(c *conflict) {
-	fmt.Println(c)
 	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsConflict, c.ToJSON())
 }
 
 func sendBranchUpdate(b *branch) {
-	fmt.Println(b)
 	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsBranch, b.ToJSON())
 }
 
@@ -134,21 +131,8 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 		b.IssuingTime = transaction.Essence().Timestamp()
 	})
 
-	var oldestAttachmentTime time.Time
-	// get the oldest attachment of transaction that introduced the conflict
-	if !messagelayer.Tangle().Storage.Attachments(ledgerstate.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
-		if !messagelayer.Tangle().Storage.Message(attachment.MessageID()).Consume(func(message *tangle.Message) {
-			if oldestAttachmentTime.IsZero() || message.IssuingTime().Before(oldestAttachmentTime) {
-				oldestAttachmentTime = message.IssuingTime()
-				b.IssuerNodeID = identity.New(message.IssuerPublicKey()).ID()
-			}
-		}) {
-			fmt.Printf("no message found for %s\n", attachment.MessageID())
-		}
-	}) {
-		// TODO: figure out why there's no attachment found
-		fmt.Printf("no attachments found for %s\n", ledgerstate.TransactionID(branchID))
-	}
+	// get the issuer of the oldest attachment of transaction that introduced the conflict
+	b.IssuerNodeID = issuerOfOldestAttachment(branchID)
 
 	// now we update the shared data structure
 	mu.Lock()
@@ -193,6 +177,12 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 		return
 	}
 
+	var id identity.ID
+	// if issuer is not yet set, set it now
+	if b.IssuerNodeID == id {
+		b.IssuerNodeID = issuerOfOldestAttachment(b.BranchID)
+	}
+
 	b.AW = math.Round(e.Weight*1000) / 1000
 	messagelayer.Tangle().LedgerState.BranchDAG.Branch(b.BranchID).Consume(func(branch ledgerstate.Branch) {
 		b.GoF = branch.GradeOfFinality()
@@ -209,4 +199,30 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 			}
 		}
 	}
+}
+
+// sendAllConflicts sends all conflicts and branches to the websocket.
+func sendAllConflicts() {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	for _, c := range conflicts {
+		sendConflictUpdate(c)
+	}
+	for _, b := range branches {
+		sendBranchUpdate(b)
+	}
+}
+
+func issuerOfOldestAttachment(branchID ledgerstate.BranchID) (id identity.ID) {
+	var oldestAttachmentTime time.Time
+	messagelayer.Tangle().Storage.Attachments(ledgerstate.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
+		messagelayer.Tangle().Storage.Message(attachment.MessageID()).Consume(func(message *tangle.Message) {
+			if oldestAttachmentTime.IsZero() || message.IssuingTime().Before(oldestAttachmentTime) {
+				oldestAttachmentTime = message.IssuingTime()
+				id = identity.New(message.IssuerPublicKey()).ID()
+			}
+		})
+	})
+	return
 }

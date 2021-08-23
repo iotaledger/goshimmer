@@ -4,7 +4,7 @@ import * as React from "react";
 import {RouterStore,} from "mobx-react-router";
 import {Link} from "react-router-dom";
 import NodeStore from './NodeStore';
-import {Collapse, Table} from "react-bootstrap";
+import {Table} from "react-bootstrap";
 import {GoF} from "app/stores/ExplorerStore";
 
 export class ConflictMessage {
@@ -12,6 +12,7 @@ export class ConflictMessage {
     arrivalTime: number;
     resolved: boolean;
     timeToResolve: number;
+    shown: boolean;
 }
 
 export class BranchMessage {
@@ -56,10 +57,8 @@ export class ConflictsStore {
     get conflictsLiveFeed() {
         let feed = [];
         for (let [key, conflict] of this.conflicts) {
-            console.log(key, conflict);
-
             feed.push(
-                <tr key={conflict.conflictID} >
+                <tr key={conflict.conflictID} onClick={() => conflict.shown = !conflict.shown} style={{cursor:"pointer"}}>
                     <td>
                         <Link to={`/explorer/output/${conflict.conflictID}`}>
                             {conflict.conflictID}
@@ -77,18 +76,27 @@ export class ConflictsStore {
                 </tr>
             );
 
-            // TODO: this might be inefficient with many branches. might be better to keep a list of branches with each conflict.
-            //   would also be great to sort this deterministically.
+            // only render and show branches if it has been clicked
+            if (!conflict.shown) {
+                continue
+            }
+
+            // sort branches by time and ID to prevent "jumping"
+            let branchesArr = Array.from(this.branches.values());
+            branchesArr.sort((x: BranchMessage, y: BranchMessage): number => {
+                   return x.issuingTime - y.issuingTime || x.branchID.localeCompare(y.branchID)
+                }
+            )
+
             let branches = [];
-            for (let [branchID, branch] of this.branches) {
+            for (let branch of branchesArr) {
                 for(let conflictID of branch.conflictIDs){
                     if (conflictID === key) {
-                        console.log("match:", branchID);
                         branches.push(
                                     <tr className={branch.gof == GoF.High ? "table-success" : ""}>
                                         <td>
-                                            <Link to={`/explorer/branch/${branchID}`}>
-                                                {branchID}
+                                            <Link to={`/explorer/branch/${branch.branchID}`}>
+                                                {branch.branchID}
                                             </Link>
                                         </td>
                                         <td>{branch.aw}</td>
@@ -101,7 +109,6 @@ export class ConflictsStore {
                 }
             }
             feed.push(
-                <Collapse in={open}>
                 <tr>
                     <td colSpan={4}>
                         <Table size="sm">
@@ -120,7 +127,6 @@ export class ConflictsStore {
                         </Table>
                     </td>
                 </tr>
-                </Collapse>
             );
         }
 
