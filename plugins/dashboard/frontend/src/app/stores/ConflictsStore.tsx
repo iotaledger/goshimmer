@@ -93,7 +93,7 @@ export class ConflictsStore {
                 for(let conflictID of branch.conflictIDs){
                     if (conflictID === key) {
                         branches.push(
-                                    <tr className={branch.gof == GoF.High ? "table-success" : ""}>
+                                    <tr key={branch.branchID} className={branch.gof == GoF.High ? "table-success" : ""}>
                                         <td>
                                             <Link to={`/explorer/branch/${branch.branchID}`}>
                                                 {branch.branchID}
@@ -109,7 +109,7 @@ export class ConflictsStore {
                 }
             }
             feed.push(
-                <tr>
+                <tr key={conflict.conflictID+"_branches"}>
                     <td colSpan={4}>
                         <Table size="sm">
                             <thead>
