@@ -23,7 +23,7 @@ const (
 	ProtocolVersion = 0 // update on protocol changes
 
 	// PluginName is the name of the autopeering plugin.
-	PluginName = "Autopeering"
+	PluginName = "AutoPeering"
 
 	entryNodeParts = 2
 )

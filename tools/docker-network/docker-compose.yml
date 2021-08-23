@@ -26,8 +26,8 @@ services:
       --analysis.dashboard.mongoDBEnabled=${MONGO_DB_ENABLED:-false}
       --analysis.dashboard.mongoDBHostAddress=mongodb:27017
       --analysis.server.bindAddress=0.0.0.0:1888
-      --autopeering.entryNodes=
-      --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
+      --autoPeering.entryNodes=
+      --autoPeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --mana.enableResearchVectors=false
@@ -113,7 +113,7 @@ services:
       /run/entrypoint.sh /go/bin/goshimmer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
-      --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
+      --autoPeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true

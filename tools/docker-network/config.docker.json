@@ -11,7 +11,7 @@
       "dev": false
     }
   },
-  "autopeering": {
+  "autoPeering": {
     "entryNodes": [
       "DLoMdp3nJ7jnFT1K13R2m5nZN7ijLcmaZhCdTPJs2duo@peer_master:14626"
     ],

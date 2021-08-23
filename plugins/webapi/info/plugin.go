@@ -55,7 +55,7 @@ func configure(_ *node.Plugin) {
 // 	"publickey":"CjUsn86jpFHWnSCx3NhWfU4Lk16mDdy1Hr7ERSTv3xn9",
 // 	"enabledplugins":[
 // 		"Config",
-// 		"Autopeering",
+// 		"AutoPeering",
 // 		"Analysis",
 // 		"WebAPIDataEndpoint",
 // 		"WebAPIDRNGEndpoint",
@@ -63,7 +63,7 @@ func configure(_ *node.Plugin) {
 // 		"CLI",
 // 		"Database",
 // 		"DRNG",
-// 		"WebAPIAutopeeringEndpoint",
+// 		"WebAPIAutoPeeringEndpoint",
 // 		"Metrics",
 // 		"PortCheck",
 // 		"Dashboard",

@@ -59,7 +59,7 @@ fmt.Println(string(info))
   "enabledPlugins": [
     "Activity",
     "AnalysisClient",
-    "Autopeering",
+    "AutoPeering",
     "Banner",
     "CLI",
     "Clock",
@@ -87,7 +87,7 @@ fmt.Println(string(info))
     "WebAPIDRNGEndpoint",
     "WebAPIManaEndpoint",
     "WebAPIWeightProviderEndpoint",
-    "WebAPIAutopeeringEndpoint",
+    "WebAPIAutoPeeringEndpoint",
     "WebAPIDataEndpoint",
     "WebAPIFaucetEndpoint",
     "WebAPIHealthzEndpoint",

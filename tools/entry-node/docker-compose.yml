@@ -14,8 +14,8 @@ services:
       - "8080:80/tcp"     # analysis dashboard
       - "14626:14626/udp" # autopeering discovery
     command: >
-      --autopeering.seed=${SEED}
-      --autopeering.entryNodes=
+      --autoPeering.seed=${SEED}
+      --autoPeering.entryNodes=
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:8080

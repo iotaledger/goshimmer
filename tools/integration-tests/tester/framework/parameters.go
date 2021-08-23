@@ -47,8 +47,8 @@ var (
 type CreateNetworkConfig struct {
 	// StartSynced specifies whether all node in the network start synced.
 	StartSynced bool
-	// Autopeering specifies whether autopeering or manual peering is used.
-	Autopeering bool
+	// AutoPeering specifies whether autopeering or manual peering is used.
+	AutoPeering bool
 	// Faucet specifies whether the first peer should have the faucet enabled.
 	Faucet bool
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
@@ -79,9 +79,9 @@ func PeerConfig() config.GoShimmer {
 	c.WebAPI.Enabled = true
 	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
 
-	c.Autopeering.Enabled = false
-	c.Autopeering.Port = peeringPort
-	c.Autopeering.EntryNodes = nil
+	c.AutoPeering.Enabled = false
+	c.AutoPeering.Port = peeringPort
+	c.AutoPeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
 	c.MessageLayer.FCOB.QuarantineTime = 2 * time.Second
@@ -116,7 +116,7 @@ func EntryNodeConfig() config.GoShimmer {
 
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
 	c.Gossip.Enabled = false
-	c.Autopeering.Enabled = true
+	c.AutoPeering.Enabled = true
 	c.MessageLayer.Enabled = false
 	c.Faucet.Enabled = false
 	c.Mana.Enabled = false
