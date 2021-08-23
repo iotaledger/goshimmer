@@ -73,7 +73,7 @@ fmt.Println(string(info))
     "Logger",
     "Mana",
     "ManaRefresher",
-    "Manualpeering",
+    "ManualPeering",
     "MessageLayer",
     "Metrics",
     "NetworkDelay",
