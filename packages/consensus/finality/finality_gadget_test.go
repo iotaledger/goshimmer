@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -382,12 +382,5 @@ func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, fg Gadget) {
 		if err := fg.HandleBranch(e.BranchID, e.Weight); err != nil {
 			t.Log(err)
 		}
-	}))
-
-	// we need to update the WeightProvider on confirmation
-	fg.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		testTangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			testTangle.WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
-		})
 	}))
 }

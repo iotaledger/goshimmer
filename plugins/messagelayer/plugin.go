@@ -142,7 +142,6 @@ func Tangle() *tangle.Tangle {
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 			tangle.Width(Parameters.TangleWidth),
-			// tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			tangle.SchedulerConfig(tangle.SchedulerParams{
 				MaxBufferSize:               SchedulerParameters.MaxBufferSize,

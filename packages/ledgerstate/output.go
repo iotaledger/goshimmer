@@ -21,6 +21,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
@@ -2330,11 +2331,9 @@ type OutputMetadata struct {
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
 	consumerCount           int
-	firstConsumer           TransactionID
 	consumerMutex           sync.RWMutex
-	confirmedConsumer       TransactionID // not nil if the spending transaction of the output is finalized
-	confirmedConsumerMutex  sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -2384,21 +2383,16 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	outputMetadata.consumerCount = int(consumerCount)
-	if outputMetadata.firstConsumer, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse first consumer: %w", err)
-		return
-	}
-	if outputMetadata.confirmedConsumer, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse confirmed consumer: %w", err)
-		return
-	}
 	gradeOfFinality, err := marshalUtil.ReadUint8()
 	if err != nil {
 		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-
+	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
 	return
 }
 
@@ -2494,21 +2488,10 @@ func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsu
 	o.consumerMutex.Lock()
 	defer o.consumerMutex.Unlock()
 
-	if previousConsumerCount = o.consumerCount; previousConsumerCount == 0 {
-		o.firstConsumer = consumer
-	}
 	o.consumerCount++
 	o.SetModified()
 
 	return
-}
-
-// FirstConsumer returns the first TransactionID that ever spent the Output.
-func (o *OutputMetadata) FirstConsumer() TransactionID {
-	o.consumerMutex.RLock()
-	defer o.consumerMutex.RUnlock()
-
-	return o.firstConsumer
 }
 
 // GradeOfFinality returns the grade of finality.
@@ -2528,33 +2511,17 @@ func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality)
 	}
 
 	o.gradeOfFinality = gradeOfFinality
+	o.gradeOfFinalityTime = clock.SyncedTime()
 	o.SetModified()
 	modified = true
 	return
 }
 
-// ConfirmedConsumer returns the consumer that spent the transaction if the consumer is confirmed already
-func (o *OutputMetadata) ConfirmedConsumer() TransactionID {
-	o.confirmedConsumerMutex.RLock()
-	defer o.confirmedConsumerMutex.RUnlock()
-
-	return o.confirmedConsumer
-}
-
-// SetConfirmedConsumer updates the confirmedConsumer of the output.
-func (o *OutputMetadata) SetConfirmedConsumer(confirmedConsumer TransactionID) (modified bool) {
-	o.confirmedConsumerMutex.Lock()
-	defer o.confirmedConsumerMutex.Unlock()
-
-	if o.confirmedConsumer == confirmedConsumer {
-		return
-	}
-
-	o.confirmedConsumer = confirmedConsumer
-	o.SetModified()
-	modified = true
-
-	return
+// GradeOfFinalityTime returns the time the Output's gradeOfFinality was set.
+func (o *OutputMetadata) GradeOfFinalityTime() time.Time {
+	o.gradeOfFinalityMutex.RLock()
+	defer o.gradeOfFinalityMutex.RUnlock()
+	return o.gradeOfFinalityTime
 }
 
 // Bytes marshals the OutputMetadata into a sequence of bytes.
@@ -2570,9 +2537,8 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("solid", o.Solid()),
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("consumerCount", o.ConsumerCount()),
-		stringify.StructField("firstConsumer", o.FirstConsumer()),
-		stringify.StructField("confirmedConsumer", o.ConfirmedConsumer()),
 		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
+		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
 	)
 }
 
@@ -2595,9 +2561,8 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		WriteBool(o.Solid()).
 		WriteTime(o.SolidificationTime()).
 		WriteUint64(uint64(o.ConsumerCount())).
-		Write(o.FirstConsumer()).
-		Write(o.ConfirmedConsumer()).
 		WriteUint8(uint8(o.GradeOfFinality())).
+		WriteTime(o.GradeOfFinalityTime()).
 		Bytes()
 }
 

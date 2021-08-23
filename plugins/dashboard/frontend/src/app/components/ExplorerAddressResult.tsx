@@ -243,7 +243,6 @@ class OutputMeta extends React.Component<omProps, any> {
                 <ListGroup.Item>Timestamp: {new Date(timestamp * 1000).toLocaleString()}</ListGroup.Item>
                 <ListGroup.Item>Solidification Time: {new Date(metadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                 <ListGroup.Item>Consumer Count: {metadata.consumerCount}</ListGroup.Item>
-                { metadata.firstConsumer && <ListGroup.Item>First Consumer: <a href={`/explorer/transaction/${metadata.firstConsumer}`}>{metadata.firstConsumer}</a> </ListGroup.Item>}
                 { metadata.confirmedConsumer && <ListGroup.Item>Confirmed Consumer: <a href={`/explorer/transaction/${metadata.confirmedConsumer}`}>{metadata.confirmedConsumer}</a> </ListGroup.Item>}
             </ListGroup>
         );

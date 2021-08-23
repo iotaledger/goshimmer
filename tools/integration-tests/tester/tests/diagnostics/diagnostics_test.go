@@ -15,9 +15,9 @@ import (
 var (
 	messageHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
-		"ScheduledTime", "BookedTime", "GradeOfFinality", "StrongParents", "WeakParents",
+		"ScheduledTime", "BookedTime", "GradeOfFinality", "GradeOfFinalityTime", "StrongParents", "WeakParents",
 		"DislikeParents", "LikeParents", "StrongApprovers", "WeakApprovers", "BranchID", "Scheduled", "Booked",
-		"Eligible", "Invalid", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI",
+		"Invalid", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI",
 		"PayloadType", "TransactionID",
 	}
 
@@ -29,7 +29,8 @@ var (
 
 	utxoDagHeader = []string{
 		"ID", "IssuanceTime", "SolidTime", "AccessManaPledgeID",
-		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "Conflicting", "LazyBooked", "GradeOfFinality",
+		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "Conflicting", "LazyBooked",
+		"GradeOfFinality", "GradeOfFinalityTime",
 	}
 
 	drngHeader = []string{

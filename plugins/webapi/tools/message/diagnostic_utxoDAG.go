@@ -66,6 +66,7 @@ var DiagnosticUTXODAGTableDescription = []string{
 	"Conflicting",
 	"LazyBooked",
 	"GradeOfFinality",
+	"GradeOfFinalityTime",
 }
 
 // DiagnosticUTXODAGInfo holds the information of a UTXO.
@@ -81,10 +82,11 @@ type DiagnosticUTXODAGInfo struct {
 	// attachments
 	Attachments []string
 	// transaction metadata
-	BranchID        string
-	Conflicting     bool
-	LazyBooked      bool
-	GradeOfFinality gof.GradeOfFinality
+	BranchID            string
+	Conflicting         bool
+	LazyBooked          bool
+	GradeOfFinality     gof.GradeOfFinality
+	GradeOfFinalityTime time.Time
 }
 
 func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) DiagnosticUTXODAGInfo {
@@ -111,6 +113,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		txInfo.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
 		txInfo.LazyBooked = transactionMetadata.LazyBooked()
 		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()
+		txInfo.GradeOfFinalityTime = transactionMetadata.GradeOfFinalityTime()
 	})
 
 	return txInfo
@@ -129,6 +132,8 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 		d.BranchID,
 		fmt.Sprint(d.Conflicting),
 		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.GradeOfFinality),
+		fmt.Sprint(d.GradeOfFinalityTime.UnixNano()),
 	}
 
 	result = strings.Join(row, ",")

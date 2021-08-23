@@ -633,10 +633,6 @@ func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakPa
 	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
-func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-}
-
 func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
 	return NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
@@ -772,6 +768,9 @@ func NewTestTangle(options ...Option) *Tangle {
 
 	t := New(options...)
 	t.ConfirmationOracle = &MockConfirmationOracle{}
+	if t.WeightProvider == nil {
+		t.WeightProvider = &MockWeightProvider{}
+	}
 
 	return t
 }
@@ -796,6 +795,11 @@ func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID
 	return false
 }
 
+// IsTransactionConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool {
+	return false
+}
+
 // IsOutputConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsOutputConfirmed(outputID ledgerstate.OutputID) bool {
 	return false
@@ -808,6 +812,27 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 		TransactionConfirmed: events.NewEvent(nil),
 		BranchConfirmed:      events.NewEvent(nil),
 	}
+}
+
+// MockWeightProvider is a mock of a WeightProvider.
+type MockWeightProvider struct{}
+
+// Update mocks its interface function.
+func (m *MockWeightProvider) Update(t time.Time, nodeID identity.ID) {
+}
+
+// Weight mocks its interface function.
+func (m *MockWeightProvider) Weight(message *Message) (weight, totalWeight float64) {
+	return 1, 1
+}
+
+// WeightsOfRelevantSupporters mocks its interface function.
+func (m *MockWeightProvider) WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64) {
+	return
+}
+
+// Shutdown mocks its interface function.
+func (m *MockWeightProvider) Shutdown() {
 }
 
 // SimpleMockOnTangleVoting is mock of OTV mechanism.
