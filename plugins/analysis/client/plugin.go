@@ -21,8 +21,8 @@ const (
 	PluginName = "AnalysisClient"
 	// CfgServerAddress defines the config flag of the analysis server address.
 	CfgServerAddress = "analysis.client.serverAddress"
-	// defines the report interval of the reporting in seconds.
-	reportIntervalSec = 5
+	// defines the report interval of the reporting.
+	reportInterval = 5 * time.Second
 	// voteContextChunkThreshold defines the maximum number of vote context to fit into an FPC update.
 	voteContextChunkThreshold = 50
 )
@@ -64,7 +64,7 @@ func run(_ *node.Plugin) {
 		messagelayer.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
 		defer messagelayer.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
 
-		ticker := time.NewTicker(reportIntervalSec * time.Second)
+		ticker := time.NewTicker(reportInterval)
 		defer ticker.Stop()
 		for {
 			select {
