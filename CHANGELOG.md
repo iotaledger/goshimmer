@@ -433,7 +433,7 @@
     * Improves solidification process;
     * Refactors worker pool management;
     * Replaces bootstrap plugin with the more secure and reliable beacon plugin.
-* Improves analysisServer dashboard:
+* Improves analysis-server dashboard:
     * Adds the ability to distinguish between different GoShimmer node versions;
     * Refactors the interaction between server side and dashboard;
     * Improves consensus visualization;
@@ -467,7 +467,7 @@
 * Adds the DRNG dApp which is used to propagate random numbers produced by a dRand committee (this dApp is inactive)
 * Adds the base communication layer
 * Adds improved analysis server:
-    * Splits it into 3 separate plugins `analysisClient`/`analysisDashboard`/`analysisServer`
+    * Splits it into 3 separate plugins `analysis-client`/`analysis-dashboard`/`analysis-server`
     * Applies heartbeat pattern for robustness on both client and server side
     * Uses TLV denoted messages for communication
     * Complete new dashboard with live visualisations of the network graph and ongoing conflicts
@@ -522,7 +522,7 @@
 * Fixes bind address prints to not be normalized
 * Fixes usage of WebSocket message rate limiter
 * Fixes disabled/enabled plugins list in info response
-* Fixes the `GracefulShutdown` plugin not showing the actual background workers during shutdown. The node operator is now
+* Fixes the `Graceful Shutdown` plugin not showing the actual background workers during shutdown. The node operator is now
 able to see pending background workers in the order in which they are supposed to be terminated
 * Refactors display of IDs to use Base58 throughout the entire codebase
 * Increases network and database versions
