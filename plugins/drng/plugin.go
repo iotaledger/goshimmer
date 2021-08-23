@@ -54,13 +54,13 @@ func configure(_ *node.Plugin) {
 	configureEvents()
 }
 
-func run(*node.Plugin) {
+func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("dRNG-plugin", func(shutdownSignal <-chan struct{}) {
 	loop:
 		for {
 			select {
 			case <-shutdownSignal:
-				Plugin.LogInfof("Stopping %s ...", "dRNG-plugin")
+				plugin.LogInfof("Stopping %s ...", "dRNG-plugin")
 				break loop
 			case messageID := <-inbox:
 				deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
@@ -74,15 +74,15 @@ func run(*node.Plugin) {
 					parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
 					if err != nil {
 						// TODO: handle error
-						Plugin.LogDebug(err)
+						plugin.LogDebug(err)
 						return
 					}
 					if err := deps.DrngInstance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
 						// TODO: handle error
-						Plugin.LogDebug(err)
+						plugin.LogDebug(err)
 						return
 					}
-					Plugin.LogDebug("New randomness: ", deps.DrngInstance.State[parsedPayload.InstanceID].Randomness())
+					plugin.LogDebug("New randomness: ", deps.DrngInstance.State[parsedPayload.InstanceID].Randomness())
 				})
 			}
 		}

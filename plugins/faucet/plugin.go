@@ -111,38 +111,38 @@ func configure(plugin *node.Plugin) {
 	configureEvents()
 }
 
-func run(*node.Plugin) {
+func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
-		defer Plugin.LogInfof("Stopping %s ... done", PluginName)
+		defer plugin.LogInfof("Stopping %s ... done", PluginName)
 
-		Plugin.LogInfo("Waiting for node to become synced...")
+		plugin.LogInfo("Waiting for node to become synced...")
 		if !waitUntilSynced(shutdownSignal) {
 			return
 		}
-		Plugin.LogInfo("Waiting for node to become synced... done")
+		plugin.LogInfo("Waiting for node to become synced... done")
 
-		Plugin.LogInfo("Waiting for node to have sufficient access mana")
+		plugin.LogInfo("Waiting for node to have sufficient access mana")
 		if err := waitForMana(shutdownSignal); err != nil {
-			Plugin.LogErrorf("failed to get sufficient access mana: %s", err)
+			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
-		Plugin.LogInfo("Waiting for node to have sufficient access mana... done")
+		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
 
-		Plugin.LogInfof("Deriving faucet state from the ledger...")
+		plugin.LogInfof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
 		if err := _faucet.DeriveStateFromTangle(startIndex); err != nil {
-			Plugin.LogErrorf("failed to derive state: %s", err)
+			plugin.LogErrorf("failed to derive state: %s", err)
 			return
 		}
-		Plugin.LogInfo("Deriving faucet state from the ledger... done")
+		plugin.LogInfo("Deriving faucet state from the ledger... done")
 
 		defer fundingWorkerPool.Stop()
 		initDone.Store(true)
 
 		<-shutdownSignal
-		Plugin.LogInfof("Stopping %s ...", PluginName)
+		plugin.LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
-		Plugin.Logger().Panicf("Failed to start daemon: %s", err)
+		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
 }
 

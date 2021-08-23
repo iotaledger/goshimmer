@@ -50,7 +50,7 @@ func configure(plugin *node.Plugin) {
 	}
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("ManaRefresher-plugin", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(time.Duration(Parameters.RefreshInterval) * time.Minute)
 		defer ticker.Stop()
@@ -62,12 +62,12 @@ func run(_ *node.Plugin) {
 			case <-ticker.C:
 				err := refresher.Refresh()
 				if err != nil {
-					Plugin.LogErrorf("couldn't refresh mana: %w", err)
+					plugin.LogErrorf("couldn't refresh mana: %w", err)
 				}
 			}
 		}
 	}, shutdown.PriorityManaRefresher); err != nil {
-		Plugin.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
