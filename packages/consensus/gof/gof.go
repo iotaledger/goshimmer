@@ -8,8 +8,8 @@ const (
 	None GradeOfFinality = iota
 	// Low defines a low GradeOfFinality.
 	Low
-	// Middle defines a medium GradeOfFinality.
-	Middle
+	// Medium defines a medium GradeOfFinality.
+	Medium
 	// High defines a high GradeOfFinality.
 	High
 )
@@ -18,7 +18,7 @@ func (gof GradeOfFinality) String() string {
 	return []string{
 		"GoF(None)",
 		"GoF(Low)",
-		"GoF(Middle)",
+		"GoF(Medium)",
 		"GoF(High)",
 	}[gof]
 }

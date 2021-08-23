@@ -301,7 +301,7 @@ func TestBookInvalidTransaction(t *testing.T) {
 
 	assert.Equal(t, InvalidBranchID, txMetadata.branchID)
 	assert.True(t, txMetadata.Solid())
-	assert.Greater(t, txMetadata.GradeOfFinality(), gof.Middle)
+	assert.Greater(t, txMetadata.GradeOfFinality(), gof.Medium)
 
 	// check that the inputs are still marked as unspent
 	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
@@ -335,7 +335,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	finality, err := utxoDAG.GradeOfFinality(tx.ID())
 	require.NoError(t, err)
-	assert.Greater(t, finality, gof.Middle)
+	assert.Greater(t, finality, gof.Medium)
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
@@ -390,11 +390,11 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	finality, err := utxoDAG.GradeOfFinality(tx1.ID())
 	require.NoError(t, err)
-	assert.Greater(t, finality, gof.Middle)
+	assert.Greater(t, finality, gof.Medium)
 
 	finality, err = utxoDAG.GradeOfFinality(tx2.ID())
 	require.NoError(t, err)
-	assert.Less(t, finality, gof.Middle)
+	assert.Less(t, finality, gof.Medium)
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))

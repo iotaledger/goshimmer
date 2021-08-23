@@ -26,7 +26,7 @@ type BranchThresholdTranslation func(branchID ledgerstate.BranchID, aw float64) 
 
 const (
 	lowLowerBound    = 0.2
-	middleLowerBound = 0.3
+	mediumLowerBound = 0.3
 	highLowerBound   = 0.5
 )
 
@@ -34,10 +34,10 @@ var (
 	// DefaultBranchGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a branch.
 	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality {
 		switch {
-		case aw >= lowLowerBound && aw < middleLowerBound:
+		case aw >= lowLowerBound && aw < mediumLowerBound:
 			return gof.Low
-		case aw >= middleLowerBound && aw < highLowerBound:
-			return gof.Middle
+		case aw >= mediumLowerBound && aw < highLowerBound:
+			return gof.Medium
 		case aw >= highLowerBound:
 			return gof.High
 		default:
@@ -48,10 +48,10 @@ var (
 	// DefaultMessageGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a message.
 	DefaultMessageGoFTranslation MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
 		switch {
-		case aw >= lowLowerBound && aw < middleLowerBound:
+		case aw >= lowLowerBound && aw < mediumLowerBound:
 			return gof.Low
-		case aw >= middleLowerBound && aw < highLowerBound:
-			return gof.Middle
+		case aw >= mediumLowerBound && aw < highLowerBound:
+			return gof.Medium
 		case aw >= highLowerBound:
 			return gof.High
 		default:
