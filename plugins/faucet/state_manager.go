@@ -2,11 +2,12 @@ package faucet
 
 import (
 	"container/list"
+	"sync"
+	"time"
+
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/workerpool"
 	"go.uber.org/atomic"
-	"sync"
-	"time"
 
 	"github.com/iotaledger/hive.go/typeutils"
 
@@ -43,7 +44,7 @@ const (
 	// WaitForConfirmation defines the wait time before considering a transaction confirmed.
 	WaitForConfirmation = 10 * time.Second
 
-	// maxWaitAttempts defines the number of attempts taken while waiting for confirmation during funds preparation.
+	// MaxWaitAttempts defines the number of attempts taken while waiting for confirmation during funds preparation.
 	MaxWaitAttempts = 50
 
 	// TotalPercentage constant used to calculate percentage of funds left in the faucet
@@ -170,7 +171,7 @@ func (s *StateManager) DeriveStateFromTangle() (err error) {
 
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
-func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tangle.Message, txID string, err error) {
+func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (*tangle.Message, string, error) {
 	faucetReq := requestMsg.Payload().(*faucet.Request)
 
 	if s.notEnoughFundsInTheFaucet() {
@@ -183,8 +184,8 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	fundingOutput, fErr := s.fundingState.GetFundingOutput()
 	// we don't have funding outputs
 	if errors.Is(fErr, ErrNotEnoughFundingOutputs) {
-		err = errors.Errorf("failed to gather funding outputs: %w", fErr)
-		return
+		err := errors.Errorf("failed to gather funding outputs: %w", fErr)
+		return nil, "", err
 	}
 
 	// prepare funding tx, pledge mana to requester
@@ -201,13 +202,13 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	tx := s.prepareFaucetTransaction(faucetReq.Address(), fundingOutput, accessManaPledgeID, consensusManaPledgeID)
 
 	// issue funding request
-	m, err = s.issueTx(tx)
+	m, err := s.issueTx(tx)
 	if err != nil {
-		return
+		return nil, "", err
 	}
-	txID = tx.ID().Base58()
+	txID := tx.ID().Base58()
 
-	return
+	return m, txID, nil
 }
 
 // notEnoughFundsInTheFaucet checks if number of funding outputs is lower than MinimumFaucetRemindersPercentageLeft of total funds prepared at once
@@ -425,8 +426,8 @@ func (s *StateManager) handlePrepareErrors(err error) error {
 		if errors.Is(err, ErrConfirmationTimeoutExpired) {
 			Plugin().LogInfof("Preparing more outputs partially successful: %w", err)
 		}
-		Plugin().LogInfof("Preparing more outputs... DONE")
 	}
+	Plugin().LogInfof("Preparing more outputs... DONE")
 	return err
 }
 
@@ -439,9 +440,8 @@ func (s *StateManager) notEnoughFunds() bool {
 func (s *StateManager) prepareAndProcessSupplyTransaction() (err error) {
 	preparationFailure := make(chan types.Empty)
 	s.splittingEnv = newSplittingEnv()
-	Plugin().LogInfof("Created new preparation environment for supply")
 
-	go s.splittingEnv.listenOnConfirmationAndUpdateState(s, 1, preparationFailure)
+	go s.listenOnConfirmationAndUpdateState(1, preparationFailure)
 	_, ok := preparingWorkerPool.TrySubmit(s.supplyTransactionElements, preparationFailure)
 	if !ok {
 		Plugin().LogWarn("supply funding task not submitted, queue is full")
@@ -465,12 +465,11 @@ func (s *StateManager) prepareTransactionTask(task workerpool.Task) {
 		return
 	}
 	s.splittingEnv.AddIssuedTxID(tx.ID())
-	_, err = messagelayer.Tangle().IssuePayload(tx)
+	_, err = s.issueTx(tx)
 	if err != nil {
 		preparationFailed <- types.Void
 		return
 	}
-	return
 }
 
 // splitSupplyTxAndPrepareFundingReminders splits outputs from supply transaction to create fundingReminders.
@@ -480,7 +479,7 @@ func (s *StateManager) splitSupplyTxAndPrepareFundingReminders() (err error) {
 
 	supplyToProcess := uint64(s.preparingState.SupplyOutputsCount())
 	s.splittingEnv = newSplittingEnv()
-	go s.splittingEnv.listenOnConfirmationAndUpdateState(s, supplyToProcess, preparationFailure)
+	go s.listenOnConfirmationAndUpdateState(supplyToProcess, preparationFailure)
 
 	for i := uint64(0); i < supplyToProcess; i++ {
 		preparingWorkerPool.TrySubmit(s.splittingTransactionElements, preparationFailure)
@@ -493,13 +492,13 @@ func (s *StateManager) splitSupplyTxAndPrepareFundingReminders() (err error) {
 
 // listenOnConfirmationAndUpdateState listens for the confirmation and updates the faucet internal state.
 // Listening is finished when all issued transactions are confirmed or when the awaiting time is up.
-func (s *splittingEnv) listenOnConfirmationAndUpdateState(manager *StateManager, txNumToProcess uint64, preparationFailure <-chan types.Empty) {
+func (s *StateManager) listenOnConfirmationAndUpdateState(txNumToProcess uint64, preparationFailure <-chan types.Empty) {
 	Plugin().LogInfof("Start listening for confirmation")
 	// buffered channel will store all confirmed transactions
 	txConfirmed := make(chan ledgerstate.TransactionID, txNumToProcess) // length is s.preparedOutputsCount or 1
 
 	monitorTxConfirmation := events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		if s.WasIssuedInThisPreparation(transactionID) {
+		if s.splittingEnv.WasIssuedInThisPreparation(transactionID) {
 			txConfirmed <- transactionID
 		}
 	})
@@ -510,8 +509,6 @@ func (s *splittingEnv) listenOnConfirmationAndUpdateState(manager *StateManager,
 
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
-	timeoutCounter := 0
-	maxWaitAttempts := MaxWaitAttempts
 
 	// issuedCount indicates number of  transactions issued without any errors, declared with max value,
 	// decremented whenever failure is signaled through the preparationFailure channel
@@ -521,15 +518,15 @@ func (s *splittingEnv) listenOnConfirmationAndUpdateState(manager *StateManager,
 	for {
 		select {
 		case confirmedTx := <-txConfirmed:
-			finished := s.onConfirmation(manager, confirmedTx, issuedCount)
+			finished := s.onConfirmation(confirmedTx, issuedCount)
 			if finished {
-				s.listeningFinished <- nil
+				s.splittingEnv.listeningFinished <- nil
 				return
 			}
 		case <-ticker.C:
-			err, finished := s.onTickerCheckMaxAttempts(timeoutCounter, maxWaitAttempts, issuedCount)
+			finished, err := s.onTickerCheckMaxAttempts(issuedCount)
 			if finished {
-				s.listeningFinished <- err
+				s.splittingEnv.listeningFinished <- err
 				return
 			}
 		case <-preparationFailure:
@@ -538,26 +535,26 @@ func (s *splittingEnv) listenOnConfirmationAndUpdateState(manager *StateManager,
 	}
 }
 
-func (s *splittingEnv) onTickerCheckMaxAttempts(timeoutCounter int, maxWaitAttempts int, issuedCount uint64) (err error, finished bool) {
-	if timeoutCounter >= maxWaitAttempts {
-		if s.confirmedCount.Load() == 0 {
+func (s *StateManager) onTickerCheckMaxAttempts(issuedCount uint64) (finished bool, err error) {
+	if s.splittingEnv.timeoutCount.Load() >= MaxWaitAttempts {
+		if s.splittingEnv.confirmedCount.Load() == 0 {
 			err = ErrSplittingFundsFailed
-			return err, true
+			return true, err
 		}
-		return errors.Errorf("confirmed %d and saved %d out of %d issued transactions: %w", s.confirmedCount.Load(), s.updateStateCount.Load(), issuedCount, ErrConfirmationTimeoutExpired), true
+		return true, errors.Errorf("confirmed %d and saved %d out of %d issued transactions: %w", s.splittingEnv.confirmedCount.Load(), s.splittingEnv.updateStateCount.Load(), issuedCount, ErrConfirmationTimeoutExpired)
 	}
-	timeoutCounter++
-	return nil, false
+	s.splittingEnv.timeoutCount.Add(1)
+	return false, err
 }
 
-func (s *splittingEnv) onConfirmation(manager *StateManager, confirmedTx ledgerstate.TransactionID, issuedCount uint64) (finished bool) {
-	s.confirmedCount.Add(1)
-	err := manager.updateState(confirmedTx)
+func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, issuedCount uint64) (finished bool) {
+	s.splittingEnv.confirmedCount.Add(1)
+	err := s.updateState(confirmedTx)
 	if err == nil {
-		s.updateStateCount.Add(1)
+		s.splittingEnv.updateStateCount.Add(1)
 	}
 	// all issued transactions has been confirmed
-	if s.confirmedCount.Load() == issuedCount {
+	if s.splittingEnv.confirmedCount.Load() == issuedCount {
 		return true
 	}
 	return false
@@ -728,6 +725,9 @@ type splittingEnv struct {
 
 	// counts successful splits
 	updateStateCount *atomic.Uint64
+
+	// counts max attempts while listening for confirmation
+	timeoutCount *atomic.Uint64
 }
 
 func newSplittingEnv() *splittingEnv {
@@ -736,6 +736,7 @@ func newSplittingEnv() *splittingEnv {
 		listeningFinished: make(chan error),
 		confirmedCount:    atomic.NewUint64(0),
 		updateStateCount:  atomic.NewUint64(0),
+		timeoutCount:      atomic.NewUint64(0),
 	}
 }
 

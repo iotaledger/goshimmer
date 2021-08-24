@@ -242,7 +242,7 @@ func configureEvents() {
 			_, added := fundingWorkerPool.TrySubmit(message)
 			if !added {
 				RemoveAddressFromBlacklist(addr)
-				Plugin().LogInfo("dropped funding request for address %s as queue is full", addr.Base58())
+				Plugin().LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
 				return
 			}
 			Plugin().LogInfof("enqueued funding request for address %s", addr.Base58())
