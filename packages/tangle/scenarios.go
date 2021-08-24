@@ -194,7 +194,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			})
 		},
 		// ISSUE Message7
-
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
 
@@ -230,8 +229,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.55)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.55)
-
-			testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.55)
 
 			testFramework.PreventNewMarkers(true)
 			IssueAndValidateMessageApproval(t, "Message7.1", testEventMock, testFramework, map[string]float64{

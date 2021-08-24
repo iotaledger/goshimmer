@@ -152,6 +152,8 @@ func sendInitialData(ws *websocket.Conn) error {
 	if err := ManaBufferInstance().SendMapOnline(ws); err != nil {
 		return err
 	}
+	sendAllConflicts()
+
 	return nil
 }
 

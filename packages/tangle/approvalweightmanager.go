@@ -164,8 +164,8 @@ func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
 	return supporterWeight/totalWeight >= minSupporterWeight
 }
 
-// supportersOfBranch returns the Supporters of the given ledgerstate.BranchID.
-func (a *ApprovalWeightManager) supportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
+// SupportersOfBranch returns the Supporters of the given ledgerstate.BranchID.
+func (a *ApprovalWeightManager) SupportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
 	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
 		panic(err)
@@ -343,7 +343,7 @@ func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *marke
 				return
 			}
 
-			a.supportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
+			a.SupportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
 				if supportersOfMarker.Has(supporter) {
 					branchSupporters.AddSupporter(supporter)
 				}
@@ -395,7 +395,7 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
 	var supporterWeight float64
-	a.supportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+	a.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
 		supporterWeight += activeWeights[supporter]
 	})
 
@@ -410,14 +410,18 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 		switch isAggregatedBranch := len(conflictBranchIDs) != 1; isAggregatedBranch {
 		case false:
 			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
-				branchWeight.SetWeight(newBranchWeight)
+				if !branchWeight.SetWeight(newBranchWeight) {
+					return
+				}
 
 				a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
 			})
 		default:
 			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
 				if newBranchWeight > branchWeight.Weight() {
-					branchWeight.SetWeight(newBranchWeight)
+					if !branchWeight.SetWeight(newBranchWeight) {
+						return
+					}
 
 					a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
 				}
@@ -439,7 +443,7 @@ func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Mark
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 		branchWeight := float64(0)
-		a.supportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
+		a.SupportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
