@@ -88,6 +88,10 @@ func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (w
 		})
 	}
 
+	// We don't have any information stored about this branch, thus we default to weight=0.
+	if weight == math.MaxFloat64 {
+		return 0
+	}
 	return
 }
 
