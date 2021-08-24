@@ -689,23 +689,23 @@ func (s *StateManager) createOutput(addr ledgerstate.Address, balance uint64) le
 // issueTx issues a transaction to the Tangle and waits for it to become booked.
 func (s *StateManager) issueTx(tx *ledgerstate.Transaction) (msg *tangle.Message, err error) {
 	// attach to message layer
-	//issueTransaction := func() (*tangle.Message, error) {
-	message, e := messagelayer.Tangle().IssuePayload(tx)
-	if e != nil {
-		return nil, e
+	issueTransaction := func() (*tangle.Message, error) {
+		message, e := messagelayer.Tangle().IssuePayload(tx)
+		if e != nil {
+			return nil, e
+		}
+		return message, nil
 	}
-	return message, nil
-}
 
-// block for a certain amount of time until we know that the transaction
-// actually got booked by this node itself
-// TODO: replace with an actual more reactive way
-//msg, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), s.maxTxBookedAwaitTime)
-//if err != nil {
-//	return nil, errors.Errorf("%w: tx %s", err, tx.ID().String())
-//}
-//return msg, nil
-//}
+	// block for a certain amount of time until we know that the transaction
+	// actually got booked by this node itself
+	// TODO: replace with an actual more reactive way
+	msg, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), s.maxTxBookedAwaitTime)
+	if err != nil {
+		return nil, errors.Errorf("%w: tx %s", err, tx.ID().String())
+	}
+	return msg, nil
+}
 
 // endregion
 
