@@ -788,7 +788,7 @@ type MessageMetadata struct {
 	branchID            ledgerstate.BranchID
 	scheduled           bool
 	scheduledTime       time.Time
-	scheduledBypass    bool
+	scheduledBypass     bool
 	booked              bool
 	bookedTime          time.Time
 	invalid             bool

@@ -189,7 +189,7 @@ type DiagnosticMessagesInfo struct {
 	WeakApprovers       tangle.MessageIDs
 	BranchID            string
 	Scheduled           bool
-	ScheduledBypass   bool
+	ScheduledBypass     bool
 	Booked              bool
 	Invalid             bool
 	Rank                uint64

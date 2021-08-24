@@ -41,12 +41,12 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid     bool   `json:"solid"`
-	BranchID  string `json:"branchID"`
-	Scheduled bool   `json:"scheduled"`
-	ScheduledBypass bool   `json:"scheduledBypass"`
-	Booked    bool   `json:"booked"`
-	Invalid   bool   `json:"invalid"`
+	Solid               bool                `json:"solid"`
+	BranchID            string              `json:"branchID"`
+	Scheduled           bool                `json:"scheduled"`
+	ScheduledBypass     bool                `json:"scheduledBypass"`
+	Booked              bool                `json:"booked"`
+	Invalid             bool                `json:"invalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 	// PayloadType defines the type of the payload.

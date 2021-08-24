@@ -1,113 +1,235 @@
-version: "3.5"
-
+version: "3.9"
+# Create a custom build that can be re-used by peer_master, peer_replica, and faucet
+x-build-goshimmer: &goshimmer_build
+  context: ../../
+  dockerfile: tools/docker-network/builder/Dockerfile
+  args:
+    GOLANG_IMAGE_TAG: 1.16.7-alpine
+    BUILD_TAGS: rocksdb,builtin_static,netgo
+    BINARY_NAME: goshimmer
+    WORK_DIR: /go/src/goshimmer
 services:
-
-  entry_node:
-    container_name: entry_node
-    image: golang:1.16.2
+  peer_master:
+    build: *goshimmer_build
     stop_grace_period: 1m
-    entrypoint: /go/bin/main
+    # Restart the container if it fails
+    # It can fail if MongoDB is enabled but peer_master tries to connect before Mongo is available
+    restart: unless-stopped
+    # Force waiting to give mongo time to start
+    # Can't add it as a dependency because mongo may not be activated
+    entrypoint:
+      - ""
     command: >
-      --config=/tmp/config.json
-      --database.directory=/tmp/mainnetdb
-      --autopeering.seed=base58:8kPPCqaJFAt8BJtx6qw5PN8bKEM2XKXor6PxkmHf6bcr
-      --autopeering.entryNodes=
-      --analysis.server.bindAddress=0.0.0.0:1888
+      /run/entrypoint.sh /go/bin/goshimmer
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
-      --analysis.dashboard.mongodb.enabled=${MONGO_DB_ENABLED}
-      --analysis.dashboard.mongodb.hostAddress=mongodb_container:27017
-      --metrics.local=false
-      --metrics.global=true
-      --prometheus.bindAddress=0.0.0.0:9312
-      --prometheus.processMetrics=false
-      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,messagelayer,mana,pow,webapi
-    volumes:
-      - ./config.docker.json:/tmp/config.json:ro
-      - goshimmer-cache:/go
-    ports:
-      - "127.0.0.1:9000:9000/tcp" # analysis dashboard
-      - "127.0.0.1:9312:9312/tcp" # prometheus
-    expose:
-      - "1888/tcp" # analysis server (within Docker network)
-
-  peer_master:
-    container_name: peer_master
-    image: golang:1.16.2
-    stop_grace_period: 1m
-    entrypoint: /go/bin/main
-    command: >
-      --config=/tmp/config.json
-      --database.directory=/tmp/mainnetdb
+      --analysis.dashboard.mongodb.enabled=${MONGO_DB_ENABLED:-false}
+      --analysis.dashboard.mongodb.hostAddress=mongodb:27017
+      --analysis.server.bindAddress=0.0.0.0:1888
+      --autopeering.entryNodes=
       --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
-      --node.enablePlugins=prometheus,spammer,"webapi tools endpoint",activity,snapshot
-      --node.disablePlugins=clock
-      --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
-      --messageLayer.snapshot.genesisNode=
-      --metrics.manaResearch=false
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/tmp/mainnetdb
       --mana.enableResearchVectors=false
       --mana.snapshotResetTime=true
+      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
+      --messageLayer.snapshot.genesisNode=
+      --metrics.global=true
+      --metrics.local=false
+      --metrics.manaResearch=false
+      --node.disablePlugins=clock
+      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus,spammer,"webapi tools endpoint",activity,snapshot
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=false
       --webapi.exportPath=/tmp/
+    secrets:
+      - goshimmer.config.json
+      - goshimmer.message.snapshot.bin
     volumes:
-      - ./config.docker.json:/tmp/config.json:ro
-      - goshimmer-cache:/go
-      - ../integration-tests/assets:/tmp/assets
+      - shimmerdb:/tmp/mainnetdb
+      - ./builder/wait-for.sh:/run/wait-for.sh:ro
+      - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
     ports:
-      - "127.0.0.1:8080:8080/tcp" # web API
-      - "127.0.0.1:8081:8081/tcp" # dashboard
-      - "127.0.0.1:9311:9311/tcp" # prometheus
-    depends_on:
-      - entry_node
-
-  faucet:
-    image: golang:1.16.2
+      - "8080:8080/tcp" # web API
+      - "9000:9000/tcp" # analysis dashboard
+    expose:
+      - 10895/tcp # FPC
+      - 14626/tcp # Autopeering
+      - 14666/tcp # Gossip
+      - 1888/tcp # analysis server
+      - 6061/tcp # Pprof Profiling
+      - 9311/tcp # prometheus
+    networks:
+      - shimmer
+  peer_replica:
+    build: *goshimmer_build
     stop_grace_period: 1m
-    entrypoint: /go/bin/main
+    entrypoint:
+      - ""
     command: >
-      --config=/tmp/config.json
+      /run/entrypoint.sh /go/bin/goshimmer
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/tmp/mainnetdb
+      --node.enablePlugins=bootstrap,"webapi tools endpoint"
+      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
+      --messageLayer.snapshot.genesisNode=
+      --node.disablePlugins=portcheck,clock
+      --mana.snapshotResetTime=true
+      --webapi.exportPath=/tmp/
+    deploy:
+      replicas: ${SHIMMER_PEER_REPLICAS:-1}
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+    secrets:
+      - goshimmer.config.json
+      - goshimmer.message.snapshot.bin
+    volumes:
+      - ./builder/wait-for.sh:/run/wait-for.sh:ro
+      - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
+    expose:
+      - 10895/tcp # FPC
+      - 14626/tcp # Autopeering
+      - 14666/tcp # Gossip
+      - 1888/tcp # analysis server
+      - 6061/tcp # Pprof Profiling
+      - 8080/tcp # web API
+      - 8081/tcp # web API
+      - 9311/tcp # prometheus
+    networks:
+      - shimmer
+    depends_on:
+      - peer_master
+  faucet:
+    build: *goshimmer_build
+    stop_grace_period: 1m
+    entrypoint:
+      - ""
+    command: >
+      /run/entrypoint.sh /go/bin/goshimmer
+      --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity,spammer
-      --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
+      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
       --webapi.exportPath=/tmp/
+    secrets:
+      - goshimmer.config.json
+      - goshimmer.message.snapshot.bin
     volumes:
-      - ./config.docker.json:/tmp/config.json:ro
-      - goshimmer-cache:/go
-      - ../integration-tests/assets:/tmp/assets
+      - ./builder/wait-for.sh:/run/wait-for.sh:ro
+      - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
     ports:
-      - "127.0.0.1:8090:8080/tcp" # web API
-      - "127.0.0.1:8091:8081/tcp" # dashboard
-    depends_on:
-      - entry_node
-
-  peer_replica:
-    image: golang:1.16.2
-    stop_grace_period: 1m
-    entrypoint: /go/bin/main
-    command: >
-      --config=/tmp/config.json
-      --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap,"webapi tools endpoint"
-      --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
-      --messageLayer.snapshot.genesisNode=
-      --node.disablePlugins=portcheck,clock
-      --mana.snapshotResetTime=true
-      --webapi.exportPath=/tmp/
-    volumes:
-      - ./config.docker.json:/tmp/config.json:ro
-      - goshimmer-cache:/go
-      - ../integration-tests/assets:/tmp/assets
+      - "8081:8081/tcp" # dashboard
     expose:
-      - "8080/tcp" # web API (within Docker network)
+      - 10895/tcp # FPC
+      - 14626/tcp # Autopeering
+      - 14666/tcp # Gossip
+      - 1888/tcp # analysis server
+      - 6061/tcp # Pprof Profiling
+      - 8080/tcp # web API
+      - 8081/tcp # dashboard
+      - 9311/tcp # prometheus
+    networks:
+      - shimmer
     depends_on:
-      - entry_node
-
+      - peer_master
+  mongodb:
+    image: mongo:latest
+    profiles:
+      - grafana
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - 27017:27017
+    networks:
+      - shimmer
+    volumes:
+      - mongodb_data_container:/data/db
+  prometheus:
+    image: prom/prometheus:latest
+    profiles:
+      - grafana
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/run/secrets/prometheus.yml
+    secrets:
+      - prometheus.yml
+    networks:
+      - shimmer
+    depends_on:
+      - peer_master
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    profiles:
+      - grafana
+    environment:
+      # path to provisioning definitions can only be defined as
+      # environment variables for grafana within docker
+      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+    networks:
+      - shimmer
+    ports:
+      - 3000:3000
+    user: "104"
+    volumes:
+      - ./grafana:/var/lib/grafana:rw
+  drand-leader:
+    image: angelocapossele/drand:v1.1.4
+    entrypoint: /data/client-script.sh
+    profiles:
+      - drng
+    ports:
+      - "8000:8000/tcp"
+      - "8800:8081/tcp"
+    networks:
+      - shimmer
+    environment:
+      LEADER: 1
+      GOSHIMMER: http://peer_master:8080
+    depends_on:
+      - peer_master
+  drand-client:
+    image: angelocapossele/drand:v1.1.4
+    entrypoint: /data/client-script.sh
+    profiles:
+      - drng
+    ports:
+      - "8000/tcp"
+      - "8081/tcp"
+    deploy:
+      replicas: ${DRNG_REPLICAS:-2}
+    external_links:
+      # Manually set the container name for the leader to what the container expects
+      - drand-leader:testdrng-drand_0
+    networks:
+      - shimmer
+    environment:
+      GOSHIMMER: http://peer_master:8080
+    depends_on:
+      - drand-leader
+# Create our own network
+networks:
+  shimmer:
+    driver: bridge
+# Named Docker volumes for data persistence
+# ./run.sh removes these on exit
 volumes:
-  goshimmer-cache:
-    name: goshimmer-cache
+  shimmerdb:
+  mongodb_data_container:
+# read only files to load in the containers that may be shared across containers
+secrets:
+  goshimmer.message.snapshot.bin:
+    file: ${SNAPSHOT_FILE:-../integration-tests/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin}
+  goshimmer.config.json:
+    file: ${GOSHIMMER_CONFIG:-./config.docker.json}
+  prometheus.yml:
+    file: ${PROMETHEUS_CONFIG:-./prometheus.yml}
