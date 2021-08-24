@@ -20,6 +20,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -694,11 +695,10 @@ type TransactionMetadata struct {
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	finalized               bool
-	finalizedMutex          sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -742,10 +742,6 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
 	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
 		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -756,6 +752,10 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		return
 	}
 	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if transactionMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
 
 	return
 }
@@ -838,31 +838,6 @@ func (t *TransactionMetadata) SolidificationTime() time.Time {
 	return t.solidificationTime
 }
 
-// Finalized returns a boolean flag that indicates if the Transaction has been finalized regarding its decision of being
-// included in the ledger state.
-func (t *TransactionMetadata) Finalized() (finalized bool) {
-	t.finalizedMutex.RLock()
-	defer t.finalizedMutex.RUnlock()
-
-	return t.finalized
-}
-
-// SetFinalized updates the finalized flag of the Transaction. It returns true if the value was modified.
-func (t *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
-	t.finalizedMutex.Lock()
-	defer t.finalizedMutex.Unlock()
-
-	if t.finalized == finalized {
-		return
-	}
-
-	t.finalized = finalized
-	t.SetModified()
-	modified = true
-
-	return
-}
-
 // LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
 // status of its consumed Branches.
 func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
@@ -905,9 +880,18 @@ func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFina
 	}
 
 	t.gradeOfFinality = gradeOfFinality
+	t.gradeOfFinalityTime = clock.SyncedTime()
 	t.SetModified()
 	modified = true
 	return
+}
+
+// GradeOfFinalityTime returns the time when the Transaction's gradeOfFinality was set.
+func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
+	t.gradeOfFinalityMutex.RLock()
+	defer t.gradeOfFinalityMutex.RUnlock()
+
+	return t.gradeOfFinalityTime
 }
 
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
@@ -922,9 +906,9 @@ func (t *TransactionMetadata) String() string {
 		stringify.StructField("branchID", t.BranchID()),
 		stringify.StructField("solid", t.Solid()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
-		stringify.StructField("finalized", t.Finalized()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
+		stringify.StructField("gradeOfFinalityTime", t.GradeOfFinalityTime()),
 	)
 }
 
@@ -946,9 +930,9 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		Write(t.BranchID()).
 		WriteBool(t.Solid()).
 		WriteTime(t.SolidificationTime()).
-		WriteBool(t.Finalized()).
 		WriteBool(t.LazyBooked()).
 		WriteUint8(uint8(t.GradeOfFinality())).
+		WriteTime(t.GradeOfFinalityTime()).
 		Bytes()
 }
 

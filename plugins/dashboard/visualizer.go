@@ -83,11 +83,9 @@ func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 func runVisualizer() {
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-				finalized := messageMetadata.IsFinalized()
-				addToHistory(message, finalized)
-				visualizerWorkerPool.TrySubmit(message, finalized)
-			})
+			finalized := messagelayer.Tangle().ConfirmationOracle.IsMessageConfirmed(messageID)
+			addToHistory(message, finalized)
+			visualizerWorkerPool.TrySubmit(message, finalized)
 		})
 	})
 
@@ -102,8 +100,8 @@ func runVisualizer() {
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
 		defer messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)
-		messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(notifyNewMsg)
-		defer messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Detach(notifyNewMsg)
+		messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(notifyNewMsg)
+		defer messagelayer.FinalityGadget().Events().MessageConfirmed.Detach(notifyNewMsg)
 		messagelayer.Tangle().TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer messagelayer.Tangle().TipManager.Events.TipAdded.Detach(notifyNewTip)
 		messagelayer.Tangle().TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
@@ -139,11 +137,11 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func addToHistory(msg *tangle.Message, opinionFormed bool) {
+func addToHistory(msg *tangle.Message, finalized bool) {
 	msgHistoryMutex.Lock()
 	defer msgHistoryMutex.Unlock()
 	if _, exist := msgFinalized[msg.ID().Base58()]; exist {
-		msgFinalized[msg.ID().Base58()] = opinionFormed
+		msgFinalized[msg.ID().Base58()] = finalized
 		return
 	}
 
@@ -156,5 +154,5 @@ func addToHistory(msg *tangle.Message, opinionFormed bool) {
 	}
 	// add new msg
 	msgHistory = append(msgHistory, msg)
-	msgFinalized[msg.ID().Base58()] = opinionFormed
+	msgFinalized[msg.ID().Base58()] = finalized
 }

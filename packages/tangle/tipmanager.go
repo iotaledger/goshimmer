@@ -130,7 +130,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	t.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
 	}))
 
@@ -146,7 +146,7 @@ func (t *TipManager) Set(tips ...MessageID) {
 	}
 }
 
-// AddTip first checks whether the message is eligible and its payload liked. If yes, then the given message is added to the tip pool.
+// AddTip adds the message to the tip pool if its issuing time is within the tipLifeGracePeriod.
 // Parents of a message that are currently tip lose the tip status and are removed.
 func (t *TipManager) AddTip(message *Message) {
 	messageID := message.ID()

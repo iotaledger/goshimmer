@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -340,7 +339,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(MessageID) {
+	messageTangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(MessageID) {
 		wg.Done()
 	}))
 
@@ -472,16 +471,16 @@ func TestTangle_Flow(t *testing.T) {
 
 	// counter for the different stages
 	var (
-		parsedMessages            int32
-		storedMessages            int32
-		missingMessages           int32
-		solidMessages             int32
-		scheduledMessages         int32
-		bookedMessages            int32
-		opinionFormedMessages     int32
-		opinionFormedTransactions int32
-		invalidMessages           int32
-		rejectedMessages          int32
+		parsedMessages    int32
+		storedMessages    int32
+		missingMessages   int32
+		solidMessages     int32
+		scheduledMessages int32
+		bookedMessages    int32
+		orderedMessages   int32
+		awMessages        int32
+		invalidMessages   int32
+		rejectedMessages  int32
 	)
 
 	// filter rejected events
@@ -535,15 +534,13 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.ConsensusManager.Events.MessageOpinionFormed.AttachAfter(events.NewClosure(func(messageID MessageID) {
-		n := atomic.AddInt32(&opinionFormedMessages, 1)
-		t.Logf("opinion formed messages %d/%d", n, totalMsgCount)
+	tangle.Orderer.Events.MessageOrdered.AttachAfter(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&orderedMessages, 1)
+		t.Logf("ordered messages %d/%d", n, totalMsgCount)
 	}))
-
-	// data messages should not trigger this event
-	tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		n := atomic.AddInt32(&opinionFormedTransactions, 1)
-		t.Logf("opinion formed transaction %d/%d - %s", n, totalMsgCount, transactionID)
+	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&awMessages, 1)
+		t.Logf("approval weight processed messages %d/%d", n, totalMsgCount)
 	}))
 
 	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
@@ -569,11 +566,11 @@ func TestTangle_Flow(t *testing.T) {
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&opinionFormedMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&orderedMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&awMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
 	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
-	assert.EqualValues(t, 0, atomic.LoadInt32(&opinionFormedTransactions))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 

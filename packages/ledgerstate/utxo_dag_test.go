@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -300,72 +301,10 @@ func TestBookInvalidTransaction(t *testing.T) {
 
 	assert.Equal(t, InvalidBranchID, txMetadata.branchID)
 	assert.True(t, txMetadata.Solid())
-	assert.True(t, txMetadata.Finalized())
+	assert.Greater(t, txMetadata.GradeOfFinality(), gof.Medium)
 
 	// check that the inputs are still marked as unspent
 	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
-}
-
-func TestBookRejectedTransaction(t *testing.T) {
-	branchDAG, utxoDAG := setupDependencies(t)
-	defer branchDAG.Shutdown()
-
-	wallets := createWallets(1)
-	input := generateOutput(utxoDAG, wallets[0].address, 0)
-	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
-
-	rejectedBranch := NewConflictBranch(BranchID(tx.ID()), nil, nil)
-	rejectedBranch.setFinalized(true)
-	utxoDAG.branchDAG.branchStorage.Store(rejectedBranch).Release()
-
-	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
-	defer cachedTxMetadata.Release()
-	txMetadata := cachedTxMetadata.Unwrap()
-
-	inputsMetadata := OutputsMetadata{}
-	utxoDAG.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
-		inputsMetadata = append(inputsMetadata, metadata)
-	})
-
-	utxoDAG.bookRejectedTransaction(tx, txMetadata, inputsMetadata, rejectedBranch.ID())
-
-	assert.Equal(t, rejectedBranch.ID(), txMetadata.branchID)
-	assert.True(t, txMetadata.Solid())
-	assert.True(t, txMetadata.LazyBooked())
-
-	// check that the inputs are still marked as unspent
-	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
-}
-
-func TestBookRejectedConflictingTransaction(t *testing.T) {
-	branchDAG, utxoDAG := setupDependencies(t)
-	defer branchDAG.Shutdown()
-
-	wallets := createWallets(2)
-	input := generateOutput(utxoDAG, wallets[0].address, 0)
-	singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, true)
-
-	// double spend
-	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
-
-	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
-	defer cachedTxMetadata.Release()
-	txMetadata := cachedTxMetadata.Unwrap()
-
-	inputsMetadata := OutputsMetadata{}
-	utxoDAG.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
-		inputsMetadata = append(inputsMetadata, metadata)
-	})
-
-	_, err := utxoDAG.bookRejectedConflictingTransaction(tx, txMetadata, inputsMetadata)
-	require.NoError(t, err)
-
-	utxoDAG.branchDAG.Branch(txMetadata.BranchID()).Consume(func(branch Branch) {
-		assert.False(t, branch.Liked())
-		assert.True(t, branch.Finalized())
-		assert.True(t, txMetadata.Solid())
-		assert.True(t, txMetadata.LazyBooked())
-	})
 }
 
 func TestBookNonConflictingTransaction(t *testing.T) {
@@ -394,9 +333,9 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 		assert.True(t, txMetadata.Solid())
 	})
 
-	inclusionState, err := utxoDAG.InclusionState(tx.ID())
+	finality, err := utxoDAG.GradeOfFinality(tx.ID())
 	require.NoError(t, err)
-	assert.Equal(t, Pending, inclusionState)
+	assert.Greater(t, finality, gof.Medium)
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
@@ -449,58 +388,17 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	assert.NotEqual(t, MasterBranchID, txMetadata.BranchID())
 
-	inclusionState, err := utxoDAG.InclusionState(tx1.ID())
+	finality, err := utxoDAG.GradeOfFinality(tx1.ID())
 	require.NoError(t, err)
-	assert.Equal(t, Pending, inclusionState)
+	assert.Greater(t, finality, gof.Medium)
 
-	inclusionState, err = utxoDAG.InclusionState(tx2.ID())
+	finality, err = utxoDAG.GradeOfFinality(tx2.ID())
 	require.NoError(t, err)
-	assert.Equal(t, Pending, inclusionState)
+	assert.Less(t, finality, gof.Medium)
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata2))
-}
-
-func TestInclusionState(t *testing.T) {
-	{
-		branchDAG, utxoDAG := setupDependencies(t)
-		defer branchDAG.Shutdown()
-
-		wallets := createWallets(1)
-		input := generateOutput(utxoDAG, wallets[0].address, 0)
-		tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, true)
-
-		inclusionState, err := utxoDAG.InclusionState(tx.ID())
-		require.NoError(t, err)
-		assert.Equal(t, Confirmed, inclusionState)
-	}
-
-	{
-		branchDAG, utxoDAG := setupDependencies(t)
-		defer branchDAG.Shutdown()
-
-		wallets := createWallets(1)
-		input := generateOutput(utxoDAG, wallets[0].address, 0)
-		tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
-
-		inclusionState, err := utxoDAG.InclusionState(tx.ID())
-		require.NoError(t, err)
-		assert.Equal(t, Pending, inclusionState)
-	}
-
-	{
-		branchDAG, utxoDAG := setupDependencies(t)
-		defer branchDAG.Shutdown()
-
-		wallets := createWallets(1)
-		inputs := generateOutputs(utxoDAG, wallets[0].address, BranchIDs{InvalidBranchID: types.Void})
-		tx := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, false)
-
-		inclusionState, err := utxoDAG.InclusionState(tx.ID())
-		require.NoError(t, err)
-		assert.Equal(t, Rejected, inclusionState)
-	}
 }
 
 func TestConsumedBranchIDs(t *testing.T) {
@@ -537,31 +435,6 @@ func TestConsumedOutputIDsOfTransaction(t *testing.T) {
 	assert.Equal(t, []OutputID{input.ID()}, utxoDAG.consumedOutputIDsOfTransaction(tx.ID()))
 }
 
-func TestInputsSpentByConfirmedTransaction(t *testing.T) {
-	branchDAG, utxoDAG := setupDependencies(t)
-	defer branchDAG.Shutdown()
-
-	wallets := createWallets(1)
-	input := generateOutput(utxoDAG, wallets[0].address, 0)
-	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, true)
-
-	outputsMetadata := OutputsMetadata{}
-	utxoDAG.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
-		outputsMetadata = append(outputsMetadata, metadata)
-	})
-
-	// testing before booking consumers.
-	spent, err := utxoDAG.inputsSpentByConfirmedTransaction(outputsMetadata)
-	assert.NoError(t, err)
-	assert.False(t, spent)
-
-	// testing after booking consumers.
-	utxoDAG.bookConsumers(outputsMetadata, tx.ID(), types.True)
-	spent, err = utxoDAG.inputsSpentByConfirmedTransaction(outputsMetadata)
-	assert.NoError(t, err)
-	assert.True(t, spent)
-}
-
 func TestOutputsUnspent(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
@@ -577,39 +450,6 @@ func TestOutputsUnspent(t *testing.T) {
 
 	assert.False(t, utxoDAG.outputsUnspent(outputsMetadata))
 	assert.True(t, utxoDAG.outputsUnspent(outputsMetadata[:1]))
-}
-
-func TestInputsInRejectedBranch(t *testing.T) {
-	branchDAG, utxoDAG := setupDependencies(t)
-	defer branchDAG.Shutdown()
-	wallets := createWallets(2)
-	input := generateOutput(utxoDAG, wallets[0].address, 0)
-	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, true)
-	cachedRejectedBranch, _ := branchDAG.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(tx.ID()), nil, nil))
-
-	(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-		branch.setLiked(false)
-		branch.setMonotonicallyLiked(false)
-		branch.setFinalized(true)
-		branch.setInclusionState(Rejected)
-	})
-
-	outputsMetadata := []*OutputMetadata{
-		{
-			branchID: MasterBranchID,
-		},
-		{
-			branchID: NewBranchID(tx.ID()),
-		},
-	}
-
-	rejected, rejectedBranch := utxoDAG.inputsInRejectedBranch(outputsMetadata)
-	assert.True(t, rejected)
-	assert.Equal(t, NewBranchID(tx.ID()), rejectedBranch)
-
-	rejected, rejectedBranch = utxoDAG.inputsInRejectedBranch(outputsMetadata[:1])
-	assert.False(t, rejected)
-	assert.Equal(t, MasterBranchID, rejectedBranch)
 }
 
 func TestInputsInInvalidBranch(t *testing.T) {
@@ -985,7 +825,7 @@ func generateOutputs(utxoDAG *UTXODAG, address Address, branchIDs BranchIDs) (ou
 	return
 }
 
-func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLockedSingleOutput, finalized bool) (*Transaction, *SigLockedSingleOutput) {
+func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLockedSingleOutput, highgof bool) (*Transaction, *SigLockedSingleOutput) {
 	input := NewUTXOInput(outputToSpend.ID())
 	output := NewSigLockedSingleOutput(100, b.address)
 
@@ -998,8 +838,8 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetBranchID(MasterBranchID)
 
-	if finalized {
-		transactionMetadata.SetFinalized(true)
+	if highgof {
+		transactionMetadata.SetGradeOfFinality(gof.High)
 	}
 
 	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
@@ -1014,7 +854,7 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 	return tx, output
 }
 
-func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput, finalized bool) *Transaction {
+func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput, highgof bool) *Transaction {
 	inputs := make(Inputs, len(outputsToSpend))
 	branchIDs := make(BranchIDs, len(outputsToSpend))
 	for i, outputToSpend := range outputsToSpend {
@@ -1042,8 +882,8 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 	transactionMetadata := NewTransactionMetadata(tx.ID())
 	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetBranchID(branchID)
-	if finalized {
-		transactionMetadata.SetFinalized(true)
+	if highgof {
+		transactionMetadata.SetGradeOfFinality(gof.High)
 	}
 
 	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) objectstorage.StorableObject {

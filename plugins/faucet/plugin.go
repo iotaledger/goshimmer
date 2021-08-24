@@ -1,6 +1,7 @@
 package faucet
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"time"
@@ -127,8 +128,16 @@ func run(*node.Plugin) {
 		Plugin().LogInfo("Waiting for node to have sufficient access mana... done")
 
 		Plugin().LogInfof("Deriving faucet state from the ledger...")
+
+		// TODO: refactor
+		ctx, ctxCancel := context.WithCancel(context.Background())
+		go func() {
+			defer ctxCancel()
+			<-shutdownSignal
+		}()
+
 		// determine state, prepare more outputs if needed
-		if err := Faucet().DeriveStateFromTangle(startIndex); err != nil {
+		if err := Faucet().DeriveStateFromTangle(ctx, startIndex); err != nil {
 			Plugin().LogErrorf("failed to derive state: %s", err)
 			return
 		}
@@ -196,7 +205,7 @@ func waitForMana(shutdownSignal <-chan struct{}) error {
 }
 
 func configureEvents() {
-	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.Tangle().ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		// Do not start picking up request while waiting for initialization.
 		// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
 		// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in

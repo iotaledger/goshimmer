@@ -48,7 +48,6 @@ func (u *UtxoDB) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgersta
 	if consumed {
 		meta.RegisterConsumer(txID)
 	}
-	meta.SetFinalized(true)
 	meta.SetSolid(true)
 	f(meta)
 	return true

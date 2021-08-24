@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
@@ -78,14 +79,10 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 			}
 			// build output
 			walletOutput := &Output{
-				Address: addr,
-				Object:  lOutput,
-				InclusionState: InclusionState{
-					Confirmed:   output.InclusionState.Confirmed,
-					Rejected:    output.InclusionState.Rejected,
-					Conflicting: output.InclusionState.Conflicting,
-					Spent:       false,
-				},
+				Address:                addr,
+				Object:                 lOutput,
+				GradeOfFinalityReached: output.GradeOfFinality == gof.High,
+				Spent:                  false,
 				Metadata: OutputMetadata{
 					Timestamp: output.Metadata.Timestamp,
 				},
@@ -109,26 +106,13 @@ func (webConnector WebConnector) SendTransaction(tx *ledgerstate.Transaction) (e
 	return
 }
 
-// GetTransactionInclusionState fetches the inlcusion state of the transaction.
-func (webConnector WebConnector) GetTransactionInclusionState(txID ledgerstate.TransactionID) (inc ledgerstate.InclusionState, err error) {
-	inclusionState, err := webConnector.client.GetTransactionInclusionState(txID.Base58())
+// GetTransactionGoF fetches the GoF of the transaction.
+func (webConnector WebConnector) GetTransactionGoF(txID ledgerstate.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	txmeta, err := webConnector.client.GetTransactionMetadata(txID.Base58())
 	if err != nil {
 		return
 	}
-	if inclusionState != nil {
-		if inclusionState.Pending && !inclusionState.Confirmed && !inclusionState.Rejected {
-			inc = ledgerstate.Pending
-			return
-		}
-		if !inclusionState.Pending && inclusionState.Confirmed && !inclusionState.Rejected {
-			inc = ledgerstate.Confirmed
-			return
-		}
-		if !inclusionState.Pending && !inclusionState.Confirmed && inclusionState.Rejected {
-			inc = ledgerstate.Rejected
-			return
-		}
-	}
+	gradeOfFinality = txmeta.GradeOfFinality
 	return
 }
 

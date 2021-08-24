@@ -41,7 +41,6 @@ func configure(_ *node.Plugin) {
 	configureSyncMetrics()
 	configureDRNGMetrics()
 	configureTransactionMetrics()
-	configureStatementMetrics()
 }
 
 func run(_ *node.Plugin) {
@@ -79,9 +78,5 @@ func configureDRNGMetrics() {
 }
 
 func configureTransactionMetrics() {
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
-}
-
-func configureStatementMetrics() {
-	messagelayer.Tangle().ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
+	messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }
