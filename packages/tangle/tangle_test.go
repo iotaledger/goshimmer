@@ -361,7 +361,7 @@ func TestTangle_Flow(t *testing.T) {
 		testPort    = 8000
 		targetPOW   = 2
 
-		solidMsgCount   = 2000
+		solidMsgCount   = 0
 		invalidMsgCount = 10
 		tangleWidth     = 250
 		networkDelay    = 5 * time.Millisecond
@@ -485,6 +485,10 @@ func TestTangle_Flow(t *testing.T) {
 		rejectedMessages  int32
 	)
 
+	tangle.Parser.Events.BytesRejected.AttachAfter(events.NewClosure(func(e *BytesRejectedEvent) {
+		t.Logf("rejected bytes %v", e.Bytes)
+	}))
+
 	// filter rejected events
 	tangle.Parser.Events.MessageRejected.AttachAfter(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, err error) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
@@ -564,17 +568,21 @@ func TestTangle_Flow(t *testing.T) {
 		inboxWP.TrySubmit(msg.Bytes(), localPeer)
 	}
 
-	// wait for all messages to have a formed opinion
+	// wait for all messages to be scheduled
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
+	assert.EqualValuesf(t, solidMsgCount, atomic.LoadInt32(&parsedMessages), "parsed messages does not match")
+	assert.EqualValuesf(t, solidMsgCount, atomic.LoadInt32(&storedMessages), "stored messages does not match")
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&bookedMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&orderedMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&awMessages))
-	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
-	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
-	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
+	// messages with invalid timestamp are not forwarded from the timestamp filter, thus there are 0.
+	assert.EqualValues(t, 0, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&rejectedMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
+
 }
 
 // IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
