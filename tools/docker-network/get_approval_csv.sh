@@ -22,7 +22,7 @@ now=$(date +"%y%m%d_%H_%M_%S")
 mkdir -p csv
 
 echo "Copying csv files from peer_master and $NUM_REPLICAS replicas..."
-docker cp peer_master:/tmp/approval-analysis.csv ./csv/$now-peer_master.csv
+docker cp docker-network_peer_master_1:/tmp/approval-analysis.csv ./csv/$now-peer_master.csv
 for (( i=1; i<=NUM_REPLICAS; i++ ))
 do
   docker cp docker-network_peer_replica_$i:/tmp/approval-analysis.csv ./csv/$now-docker-network_peer_replica_$i.csv

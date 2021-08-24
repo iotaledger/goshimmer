@@ -42,6 +42,11 @@ func NewBuilder(inputs ...ledgerstate.Output) *Builder {
 	return ret
 }
 
+// AddConsumable adds a new consumable output to the builder
+func (b *Builder) AddConsumable(input ledgerstate.Output) {
+	b.consumables = append(b.consumables, NewConsumable(input))
+}
+
 // Clone creates deep copy of the builder
 func (b *Builder) Clone() *Builder {
 	ret := *b
