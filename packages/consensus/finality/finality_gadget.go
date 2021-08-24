@@ -219,15 +219,12 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 	}
 
 	propagateGoF := func(message *tangle.Message, messageMetadata *tangle.MessageMetadata, w *walker.Walker) {
-		// stop walking to past cone if reach a marker with a higher grade of finality
-		if messageMetadata.StructureDetails().IsPastMarker && messageMetadata.GradeOfFinality() >= gradeOfFinality {
+		// stop walking to past cone if reach a message with a higher or equal grade of finality
+		if messageMetadata.GradeOfFinality() >= gradeOfFinality {
 			return
 		}
 
-		// abort if message has GoF already set
-		if !s.setMessageGoF(messageMetadata, gradeOfFinality) {
-			return
-		}
+		s.setMessageGoF(messageMetadata, gradeOfFinality)
 
 		// TODO: revisit weak parents
 		// mark weak parents as finalized but not propagate finalized flag to its past cone
@@ -237,8 +234,11 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 		//	})
 		//})
 
-		// propagate GoF to strong parents
+		// propagate GoF to strong and like parents
 		message.ForEachParentByType(tangle.StrongParentType, func(parentID tangle.MessageID) {
+			w.Push(parentID)
+		})
+		message.ForEachParentByType(tangle.LikeParentType, func(parentID tangle.MessageID) {
 			w.Push(parentID)
 		})
 	}
