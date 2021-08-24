@@ -18,6 +18,9 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 )
 
+// Exit should be used inside panic intead of os.Exit(). This will allow to call deferred statements.
+type Exit struct{ Code int }
+
 func printBanner() {
 	fmt.Println("IOTA 2.0 DevNet CLI-Wallet 0.2")
 }
@@ -200,10 +203,10 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		flag.PrintDefaults()
 
 		if len(optionalErrorMessage) >= 1 {
-			os.Exit(1)
+			panic(Exit{1})
 		}
 
-		os.Exit(0)
+		panic(Exit{0})
 	}
 
 	fmt.Println()
@@ -214,8 +217,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 	command.PrintDefaults()
 
 	if len(optionalErrorMessage) >= 1 {
-		os.Exit(1)
+		panic(Exit{1})
 	}
 
-	os.Exit(0)
+	panic(Exit{0})
 }
