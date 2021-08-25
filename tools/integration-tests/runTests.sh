@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TEST_NAMES='autopeering common drng value consensus faucet mana diagnostics'
+TEST_NAMES='autopeering common drng value faucet mana diagnostics'
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
