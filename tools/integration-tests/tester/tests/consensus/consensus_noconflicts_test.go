@@ -36,7 +36,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	faucet := n.Peers()[0]
 	// this is necessary as otherwise we are creating a tx spending from genesis concurrently
 	// to the faucet creating a tx for the prepared outputs it does per default
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers(), gof.High)
 
 	genesisSeed := seed.NewSeed(framework.GenesisSeed)
 	genesisAddr := genesisSeed.Address(0).Address()

@@ -71,19 +71,23 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 }
 
 // AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
-func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node) {
+func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node, wantedGoF ...gof.GradeOfFinality) {
 	addrToCheck := faucet.Address(faucet.Config().Faucet.PreparedOutputsCount).Base58()
 	require.Eventually(t, func() bool {
-		availEverywhere := true
+		avail := true
 		for _, p := range peers {
 			resp, err := p.PostAddressUnspentOutputs([]string{addrToCheck})
 			require.NoError(t, err)
 			if len(resp.UnspentOutputs[0].Outputs) == 0 {
-				availEverywhere = false
+				avail = false
+				break
+			}
+			if len(wantedGoF) > 0 && resp.UnspentOutputs[0].Outputs[0].GradeOfFinality != wantedGoF[0] {
+				avail = false
 				break
 			}
 		}
-		return availEverywhere
+		return avail
 	}, time.Minute, Tick)
 }
 
