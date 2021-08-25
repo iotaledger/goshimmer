@@ -31,12 +31,12 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// issue data messages
+	// 1. issue data messages
 	log.Printf("Issuing %d messages to sync...", numMessages)
 	ids := tests.SendDataMessages(t, n.Peers(), numMessages)
 	log.Println("Issuing messages... done")
 
-	// spawn peer without knowledge of previous messages
+	// 2. spawn peer without knowledge of previous messages
 	log.Println("Spawning new node to sync...")
 	newPeer, err := n.CreatePeer(ctx, createNewPeerConfig())
 	require.NoError(t, err)
@@ -44,17 +44,17 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	log.Println("Spawning new node... done")
 
-	// issue some messages on old peers so that new peer can solidify
+	// 3. issue some messages on old peers so that new peer can solidify
 	log.Printf("Issuing %d messages on the %d initial peers...", numSyncMessages, initialPeers)
 	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncMessages, ids)
 	log.Println("Issuing messages... done")
 
-	// check whether all issued messages are available on to the new peer
+	// 4. check whether all issued messages are available on to the new peer
 	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
 	require.True(t, tests.Synced(t, newPeer))
 
-	// shut down newly added peer
+	// 5. shut down newly added peer
 	log.Println("Stopping new node...")
 	require.NoError(t, newPeer.Stop(ctx))
 	log.Println("Stopping new node... done")
@@ -65,7 +65,7 @@ func TestCommonSynchronization(t *testing.T) {
 	time.Sleep(newPeer.Config().MessageLayer.TangleTimeWindow)
 	log.Println("Issuing messages... done")
 
-	// let it startup again
+	// 6. let it startup again
 	log.Println("Restarting new node to sync again...")
 	err = newPeer.Start(ctx)
 	require.NoError(t, err)
@@ -76,12 +76,12 @@ func TestCommonSynchronization(t *testing.T) {
 	// the node should not be in sync as all the message are outside its sync time window
 	require.False(t, tests.Synced(t, newPeer))
 
-	// issue some messages on old peers so that new peer can sync again
+	// 7. issue some messages on old peers so that new peer can sync again
 	log.Printf("Issuing %d messages on the %d initial peers...", numSyncMessages, initialPeers)
 	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncMessages, ids)
 	log.Println("Issuing messages... done")
 
-	// check whether all issued messages are available on to the new peer
+	// 9. check whether all issued messages are available on to the new peer
 	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
 
