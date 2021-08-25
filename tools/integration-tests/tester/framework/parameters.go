@@ -64,9 +64,6 @@ func PeerConfig() config.GoShimmer {
 
 	c.Network.Enabled = true
 
-	c.Activity.BroadcastIntervalSec = 1
-	c.Activity.DelayOffset = 1
-
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
 
@@ -98,6 +95,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Activity.Enabled = false
 	c.BroadcastIntervalSec = 1 // increase frequency to speedup tests
+	c.DelayOffset = 1
 
 	c.DRNG.Enabled = false
 
