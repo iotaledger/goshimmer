@@ -25,7 +25,7 @@ var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
 
 const (
 	// Timeout denotes the default condition polling timout duration.
-	Timeout = 3 * time.Minute
+	Timeout = 30 * time.Second
 	// Tick denotes the default condition polling tick time.
 	Tick = 500 * time.Millisecond
 
