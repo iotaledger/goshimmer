@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 const (
@@ -62,6 +63,9 @@ func PeerConfig() config.GoShimmer {
 	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
 
 	c.Network.Enabled = true
+
+	c.Activity.BroadcastIntervalSec = 1
+	c.Activity.DelayOffset = 1
 
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
