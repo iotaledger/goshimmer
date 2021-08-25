@@ -19,8 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-const UpperBoundNetworkDelay = 5 * time.Second
-
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
@@ -36,6 +34,9 @@ func TestConsensusNoConflicts(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	faucet := n.Peers()[0]
+	// this is necessary as otherwise we are creating a tx spending from genesis concurrently
+	// to the faucet creating a tx for the prepared outputs it does per default
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	genesisSeed := seed.NewSeed(framework.GenesisSeed)
 	genesisAddr := genesisSeed.Address(0).Address()
@@ -77,18 +78,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	require.NoError(t, err)
 	txID := resp.TransactionID
 
-	// wait for the transaction to be propagated through the network
-	// and it becoming preferred, finalized and confirmed
-	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(UpperBoundNetworkDelay*2 + UpperBoundNetworkDelay/2)
-
-	// since we just issued a transaction spending the genesis output, there
-	// shouldn't be any UTXOs on the genesis address anymore
-	log.Println("checking that genesis has no UTXOs")
-	tests.RequireNoUnspentOutputs(t, n.Peers(), genesisAddr)
-
 	// Wait for the approval weight to build up via the sync beacon.
-	time.Sleep(20 * time.Second)
 	log.Println("check that the transaction is finalized/confirmed by all peers")
 	tests.RequireGradeOfFinalityEqual(t, n.Peers(), map[string]tests.ExpectedState{
 		txID: {
@@ -98,6 +88,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.RequireTransactionsEqual(t, n.Peers(), map[string]*tests.ExpectedTransaction{
 		txID: {Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks},
 	})
+
+	// since we just issued a transaction spending the genesis output, there
+	// shouldn't be any UTXOs on the genesis address anymore
+	log.Println("checking that genesis has no UTXOs")
+	tests.RequireNoUnspentOutputs(t, n.Peers(), genesisAddr)
 
 	// check balances on peers
 	log.Println("ensure that all the peers have the same ledger state")
@@ -136,17 +131,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 		}
 	}
 
-	// wait again some network delays for the transactions to materialize
-	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(UpperBoundNetworkDelay*2 + UpperBoundNetworkDelay/2)
-	log.Println("checking that first set of addresses contain no UTXOs")
-	tests.RequireNoUnspentOutputs(t, n.Peers(), firstReceiverDepositAddrs...)
-
-	// Wait for the approval weigth to build up via the sync beacon.
-	time.Sleep(20 * time.Second)
 	log.Println("checking that the 2nd batch transactions are finalized/confirmed")
 	tests.RequireGradeOfFinalityEqual(t, n.Peers(), secondReceiverExpectedStates, tests.Timeout, tests.Tick)
 	tests.RequireTransactionsEqual(t, n.Peers(), secondReceiverExpectedTransactions)
+	log.Println("checking that first set of addresses contain no UTXOs")
+	tests.RequireNoUnspentOutputs(t, n.Peers(), firstReceiverDepositAddrs...)
 
 	log.Println("check that the 2nd batch of receive addresses is the same on all peers")
 	tests.RequireBalancesEqual(t, n.Peers(), secondReceiverExpectedBalances)
