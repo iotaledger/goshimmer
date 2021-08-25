@@ -201,6 +201,7 @@ func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, numMembe
 	}
 
 	conf := PeerConfig()
+	conf.Activity.Enabled = true
 	conf.DRNG.Enabled = true
 	conf.DRNG.Custom.InstanceID = 111
 	conf.DRNG.Custom.Threshold = 3
