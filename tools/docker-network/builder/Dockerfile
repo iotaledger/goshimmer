@@ -1,3 +1,4 @@
+# syntax = docker/dockerfile:1-experimental
 ARG GOLANG_IMAGE_TAG=1.16.7-alpine
 
 FROM golang:${GOLANG_IMAGE_TAG} as build
@@ -10,11 +11,12 @@ ENV GO111MODULE=on
 
 WORKDIR ${WORK_DIR}
 
-COPY . .
+COPY go.* .
+RUN go mod download
+RUN	go mod verify
 RUN apk update && apk add build-base
-RUN go mod download 
-RUN	go mod verify 
-RUN go build -tags ${BUILD_TAGS} -ldflags '-w -s' -o ${BINARY_NAME} main.go pkged.go
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/go-build go build -tags ${BUILD_TAGS} -ldflags '-w -s' -o ${BINARY_NAME} main.go pkged.go
 
 FROM golang:${GOLANG_IMAGE_TAG} as final
 
