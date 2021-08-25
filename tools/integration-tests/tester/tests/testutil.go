@@ -70,6 +70,23 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 	return info.Mana
 }
 
+// AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
+func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node) {
+	addrToCheck := faucet.Address(faucet.Config().Faucet.PreparedOutputsCount).Base58()
+	require.Eventually(t, func() bool {
+		availEverywhere := true
+		for _, p := range peers {
+			resp, err := p.PostAddressUnspentOutputs([]string{addrToCheck})
+			require.NoError(t, err)
+			if len(resp.UnspentOutputs[0].Outputs) == 0 {
+				availEverywhere = false
+				break
+			}
+		}
+		return availEverywhere
+	}, time.Minute, Tick)
+}
+
 // AddressUnspentOutputs returns the unspent outputs on address.
 func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address) []jsonmodels.WalletOutput {
 	resp, err := node.PostAddressUnspentOutputs([]string{address.Base58()})

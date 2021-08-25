@@ -34,20 +34,21 @@ func TestValueTransactionPersistence(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	faucet, peers := n.Peers()[0], n.Peers()[1:]
+	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
 	tokensPerRequest := uint64(faucet.Config().Faucet.TokensPerRequest)
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	addrBalance := make(map[string]map[ledgerstate.Color]uint64)
 
 	// request funds from faucet
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		addr := peer.Address(0)
 		tests.SendFaucetRequest(t, peer, addr)
 		addrBalance[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: tokensPerRequest}
 	}
 
 	// wait for messages to be gossiped
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		require.Eventually(t, func() bool {
 			return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) == tokensPerRequest
 		}, tests.Timeout, tests.Tick)
@@ -55,7 +56,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 
 	// send IOTA tokens from every peer
 	expectedStates := make(map[string]tests.ExpectedState)
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
 		require.NoError(t, err)
 		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
@@ -66,7 +67,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	// send colored tokens from every peer
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
 		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
@@ -75,8 +76,8 @@ func TestValueTransactionPersistence(t *testing.T) {
 	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
-	log.Printf("Restarting %d peers...", len(peers))
-	for _, peer := range peers {
+	log.Printf("Restarting %d peers...", len(nonFaucetPeers))
+	for _, peer := range nonFaucetPeers {
 		require.NoError(t, peer.Restart(ctx))
 	}
 	log.Println("Restarting peers... done")
@@ -101,6 +102,7 @@ func TestValueAliasPersistence(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
@@ -167,6 +169,7 @@ func TestValueAliasDelegation(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))

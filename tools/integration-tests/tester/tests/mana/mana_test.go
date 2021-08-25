@@ -37,7 +37,10 @@ func TestManaPersistence(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	peer := n.Peers()[1]
+	faucet, peer := n.Peers()[0], n.Peers()[1]
+
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+	tests.SendFaucetRequest(t, peer, peer.Address(0))
 
 	log.Println("Waiting for peer to get access mana...")
 	require.Eventually(t, func() bool {

@@ -31,12 +31,7 @@ func TestFaucetPrepare(t *testing.T) {
 		tokensPerRequest     = faucet.Config().TokensPerRequest
 	)
 
-	// wait for the faucet to prepare all outputs
-	require.Eventually(t, func() bool {
-		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCount).Base58()})
-		require.NoError(t, err)
-		return len(resp.UnspentOutputs[0].Outputs) > 0
-	}, time.Minute, tests.Tick)
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// check that each of the preparedOutputsCount addresses holds the correct balance
 	remainderBalance := uint64(framework.GenesisTokenAmount - preparedOutputsCount*tokensPerRequest)
