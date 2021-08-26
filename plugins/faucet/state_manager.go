@@ -137,22 +137,24 @@ func (s *StateManager) DeriveStateFromTangle() (err error) {
 		return
 	}
 
-	// check for any unfinished funds preparation and use all remaining supply outputs
-	err = s.findSupplyOutputs()
-	if err == nil {
-		err = s.prepareAndProcessSupplyTransaction()
-		if err != nil {
-			Plugin().LogInfof("Found and complete unfinished funds preparation")
-		}
-	}
-
 	endIndex := (GenesisTokenAmount-s.preparingState.RemainderOutputBalance())/s.tokensPerRequest + 1
 	Plugin().LogInfof("%d indices have already been used based on found remainder output", endIndex)
 
-	foundPreparedOutputs := s.findFundingOutputs(endIndex)
+	s.preparingState.SetLastFundingOutputAddressIndex(endIndex)
+
+	// check for any unfinished funds preparation and use all remaining supply outputs
+	supplyFound := s.findSupplyOutputs()
+	if supplyFound > 0 {
+		err = s.splitSupplyTxAndPrepareFundingReminders()
+		if err != nil {
+			Plugin().LogInfof("Found and complete %d unfinished funds preparation", s.preparingState.SupplyOutputsCount())
+		}
+	}
+	foundPreparedOutputs := s.findFundingOutputs()
 
 	if len(foundPreparedOutputs) != 0 {
 		// save all already prepared outputs into the state manager
+		Plugin().LogInfof("Found and restored %d ready funding remainders", len(foundPreparedOutputs))
 		s.saveFundingOutputs(foundPreparedOutputs)
 	}
 
@@ -274,12 +276,12 @@ func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 }
 
 // findFundingOutputs looks for prepared outputs in the tangle while deriving Faucet state.
-func (s *StateManager) findFundingOutputs(endIndex uint64) []*FaucetOutput {
+func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	foundPreparedOutputs := make([]*FaucetOutput, 0)
 
 	Plugin().LogInfof("Looking for prepared outputs in the Tangle...")
 
-	for i := MaxFaucetOutputsCount + 1; uint64(i) <= endIndex; i++ {
+	for i := MaxFaucetOutputsCount + 1; uint64(i) <= s.preparingState.GetLastFundingOutputAddressIndex(); i++ {
 		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(s.preparingState.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
 			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() < 1 {
@@ -342,7 +344,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 }
 
 // findSupplyOutputs looks for preparedOutputsCount number of reminders of supply transaction and updates the StateManager
-func (s *StateManager) findSupplyOutputs() (err error) {
+func (s *StateManager) findSupplyOutputs() uint64 {
 	var foundSupplyCount uint64
 	var foundOnCurrentAddress bool
 
@@ -378,10 +380,7 @@ func (s *StateManager) findSupplyOutputs() (err error) {
 		})
 	}
 
-	if foundSupplyCount == 0 {
-		return errors.Errorf("can't find any supply output that has %d tokens", int(s.tokensPerRequest))
-	}
-	return nil
+	return foundSupplyCount
 }
 
 // prepareMoreFundingOutputs prepares more funding outputs by splitting up the remainder output on preparedOutputsCount outputs plus new reminder
@@ -859,8 +858,7 @@ func newPreparingState(seed *walletseed.Seed) *preparingState {
 func (p *preparingState) RemainderOutputBalance() uint64 {
 	p.RLock()
 	defer p.RUnlock()
-	b := p.remainderOutput.Balance
-	return b
+	return p.remainderOutput.Balance
 }
 
 // RemainderOutputID returns the OutputID of remainderOutput.
@@ -881,10 +879,14 @@ func (p *preparingState) SetRemainderOutput(output *FaucetOutput) {
 
 // nextSupplyOutput returns the first supply address in the list.
 func (p *preparingState) NextSupplyOutput() (supplyOutput *FaucetOutput, err error) {
+	p.Lock()
+	defer p.Unlock()
+
 	if p.supplyOutputsCount() < 1 {
 		return nil, ErrNotEnoughSupplyOutputs
 	}
-	supplyOutput = p.supplyOutputs.Remove(p.supplyOutputs.Front()).(*FaucetOutput)
+	element := p.supplyOutputs.Front()
+	supplyOutput = p.supplyOutputs.Remove(element).(*FaucetOutput)
 	return
 }
 
@@ -923,6 +925,14 @@ func (p *preparingState) GetLastFundingOutputAddressIndex() uint64 {
 	defer p.RUnlock()
 
 	return p.lastFundingOutputAddressIndex
+}
+
+// GetLastFundingOutputAddressIndex sets new lastFundingOutputAddressIndex.
+func (p *preparingState) SetLastFundingOutputAddressIndex(index uint64) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.lastFundingOutputAddressIndex = index
 }
 
 // UpdateLastFundingOutputAddressIndex sets index as new lastFundingOutputAddressIndex if provided index is greater than the current one.
