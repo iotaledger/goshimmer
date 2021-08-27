@@ -33,4 +33,5 @@ var WebAPI = node.Plugins(
 	ledgerstate.Plugin(),
 	snapshot.Plugin(),
 	weightprovider.Plugin(),
+	broadcast.Plugin(),
 )
