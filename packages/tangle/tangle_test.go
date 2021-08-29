@@ -410,9 +410,11 @@ func TestTangle_Flow(t *testing.T) {
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
-		if tips.Size() >= tangleWidth {
-			index := rand.Intn(len(msg.StrongParents()))
-			tips.Delete(msg.StrongParents()[index])
+		if !invalidTS {
+			if tips.Size() >= tangleWidth {
+				index := rand.Intn(len(msg.StrongParents()))
+				tips.Delete(msg.StrongParents()[index])
+			}
 		}
 
 		// add current message as a tip
@@ -510,11 +512,6 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.FIFOScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		n := atomic.AddInt32(&scheduledMessages, 1)
-		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
-	}))
-
 	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&bookedMessages, 1)
 		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, messageID)
@@ -526,7 +523,7 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// data messages should not trigger this event
-	tangle.LedgerState.UTXODAG.Events.TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
 		t.Logf("opinion formed transaction %d/%d - %s", n, totalMsgCount, transactionID)
 	}))
@@ -551,13 +548,13 @@ func TestTangle_Flow(t *testing.T) {
 	}
 
 	// wait for all messages to have a formed opinion
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&opinionFormedMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
-	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
-	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
-	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&storedMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&parsedMessages))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&invalidMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&opinionFormedTransactions))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }

@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the database plugin.
@@ -66,11 +65,10 @@ func createStore() {
 	log = logger.NewLogger(PluginName)
 
 	var err error
-	if config.Node().Bool(CfgDatabaseInMemory) {
+	if Parameters.InMemory {
 		db, err = database.NewMemDB()
 	} else {
-		dbDir := config.Node().String(CfgDatabaseDir)
-		db, err = database.NewDB(dbDir)
+		db, err = database.NewDB(Parameters.Directory)
 	}
 	if err != nil {
 		log.Fatal("Unable to open the database, please delete the database folder. Error: %s", err)
@@ -91,10 +89,10 @@ func configure(_ *node.Plugin) {
 		log.Fatalf("Failed to check database version: %s", err)
 	}
 
-	if str := config.Node().String(CfgDatabaseDirty); str != "" {
-		val, err := strconv.ParseBool(str)
+	if Parameters.Directory != "" {
+		val, err := strconv.ParseBool(Parameters.Dirty)
 		if err != nil {
-			log.Warnf("Invalid %s: %s", CfgDatabaseDirty, err)
+			log.Warnf("Invalid database.dirty flag: %s", err)
 		} else if val {
 			MarkDatabaseUnhealthy()
 		} else {

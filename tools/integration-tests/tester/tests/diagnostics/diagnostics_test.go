@@ -1,21 +1,22 @@
 package diagnostics
 
 import (
+	"context"
 	"fmt"
 	"testing"
-	"time"
+
+	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/require"
 )
 
 var (
 	messageHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
 		"ScheduledTime", "BookedTime", "OpinionFormedTime", "FinalizedTime", "StrongParents", "WeakParents",
-		"StrongApprovers", "WeakApprovers", "BranchID", "InclusionState", "Scheduled", "Booked", "Eligible", "Invalid",
+		"StrongApprovers", "WeakApprovers", "BranchID", "InclusionState", "Scheduled", "ScheduledBypass", "Booked", "Eligible", "Invalid",
 		"Finalized", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI", "PayloadType",
 		"TransactionID", "PayloadOpinionFormed", "TimestampOpinionFormed", "MessageOpinionFormed",
 		"MessageOpinionTriggered", "TimestampOpinion", "TimestampLoK",
@@ -42,10 +43,12 @@ var (
 )
 
 func TestDiagnosticApis(t *testing.T) {
-	n, err := f.CreateNetwork("diagnostics_TestAPI", 1, framework.CreateNetworkConfig{Faucet: false})
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 1, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
-	defer tests.ShutdownNetwork(t, n)
-	time.Sleep(10 * time.Second)
+	defer tests.ShutdownNetwork(ctx, t, n)
+
 	peers := n.Peers()
 	for _, p := range peers {
 		fmt.Printf("peer id: %s, short id: %s\n", base58.Encode(p.ID().Bytes()), p.ID().String())

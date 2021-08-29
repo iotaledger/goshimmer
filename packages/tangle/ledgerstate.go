@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -17,7 +16,7 @@ import (
 type LedgerState struct {
 	tangle    *Tangle
 	BranchDAG *ledgerstate.BranchDAG
-	UTXODAG   *ledgerstate.UTXODAG
+	UTXODAG   ledgerstate.IUTXODAG
 
 	totalSupply uint64
 }
@@ -66,21 +65,6 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 
 	inheritedBranch = cachedAggregatedBranch.ID()
 	return
-}
-
-// TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
-// not pass.
-func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
-	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
-		})
-		l.tangle.Events.MessageInvalid.Trigger(messageID)
-
-		return errors.Errorf("invalid transaction in message with %s: %w", messageID, err)
-	}
-
-	return nil
 }
 
 // TransactionConflicting returns whether the given transaction is part of a conflict.
@@ -144,7 +128,6 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 	l.UTXODAG.LoadSnapshot(snapshot)
 	// add attachment link between txs from snapshot and the genesis message (EmptyMessageID).
 	for txID, record := range snapshot.Transactions {
-		fmt.Println("... Loading snapshot transaction: ", txID, "#outputs=", len(record.Essence.Outputs()), record.UnspentOutputs)
 		attachment, _ := l.tangle.Storage.StoreAttachment(txID, EmptyMessageID)
 		if attachment != nil {
 			attachment.Release()

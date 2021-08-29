@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types"
 )
 
 // TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
@@ -80,6 +81,72 @@ func UnlockBlocksValidWithError(inputs Outputs, transaction *Transaction) (bool,
 	}
 
 	return true, nil
+}
+
+// AliasInitialStateValid is an internal utility function that checks if aliases are created by the transaction with
+// valid initial states.
+// Initial state of an alias is valid, if and only if:
+//  - there is no "chained" alias with the same ID on the input side
+//  - the alias itself has the origin flag set, and state index is 0.
+func AliasInitialStateValid(inputs Outputs, transaction *Transaction) bool {
+	// are there any aliases present on the output side?
+	outputAliases := make(map[AliasAddress]*AliasOutput)
+	for _, output := range transaction.Essence().Outputs() {
+		if output.Type() != AliasOutputType {
+			continue
+		}
+		alias, ok := output.(*AliasOutput)
+		if !ok {
+			// alias output can't be casted to its type, fail the validation
+			return false
+		}
+		if _, exists := outputAliases[*alias.GetAliasAddress()]; exists {
+			// duplicated alias found on output side, not valid, there can only ever be one output with a given AliasAddress
+			return false
+		}
+		outputAliases[*alias.GetAliasAddress()] = alias
+	}
+	if len(outputAliases) == 0 {
+		// there are no aliases on the output side, check is valid
+		return true
+	}
+	// gather what aliases are present on the input side
+	inputAliases := make(map[AliasAddress]types.Empty)
+	for _, input := range inputs {
+		if input.Type() != AliasOutputType {
+			continue
+		}
+		alias, ok := input.(*AliasOutput)
+		if !ok {
+			// alias output can't be casted to its type, fail the validation
+			return false
+		}
+		if _, exists := inputAliases[*alias.GetAliasAddress()]; exists {
+			// duplicated alias found on input side (this should never happen tough!)
+			return false
+		}
+		inputAliases[*alias.GetAliasAddress()] = types.Empty{}
+	}
+
+	// now comes the initial state validation
+	for addy, output := range outputAliases {
+		if _, exists := inputAliases[addy]; exists {
+			// output alias is present on input side, transition rules enforced by the unlocked input alias
+			// pair found, remove from "usable" input aliases
+			delete(inputAliases, addy)
+			continue
+		}
+		// alias output has no pair on the input side, so it must be an origin alias
+		// an origin alias must have the alias address bytes zeroed out and state index must be 0, furthermore the
+		// origin flag must be set.
+		// note, that we have to access the raw bytes, because GetAliasAddress() automatically returns the calculated
+		// address bytes, which will be set after booking, when storing the output.
+		if !output.IsOrigin() || !output.aliasAddress.IsNil() || output.GetStateIndex() != 0 {
+			// either the alias address bytes are not zero, or state index
+			return false
+		}
+	}
+	return true
 }
 
 // SafeAddUint64 adds two uint64 values. It returns the result and a valid flag that indicates whether the addition is

@@ -17,15 +17,21 @@ type ConsumableOutput struct {
 func NewConsumables(out ...ledgerstate.Output) []*ConsumableOutput {
 	ret := make([]*ConsumableOutput, len(out))
 	for i, o := range out {
-		ret[i] = &ConsumableOutput{
-			output:    o,
-			remaining: make(map[ledgerstate.Color]uint64),
-		}
-		o.Balances().ForEach(func(col ledgerstate.Color, bal uint64) bool {
-			ret[i].remaining[col] = bal
-			return true
-		})
+		ret[i] = NewConsumable(o)
 	}
+	return ret
+}
+
+// NewConsumable creates a consumable out of an output object
+func NewConsumable(output ledgerstate.Output) *ConsumableOutput {
+	ret := &ConsumableOutput{
+		output:    output,
+		remaining: make(map[ledgerstate.Color]uint64),
+	}
+	output.Balances().ForEach(func(col ledgerstate.Color, bal uint64) bool {
+		ret.remaining[col] = bal
+		return true
+	})
 	return ret
 }
 

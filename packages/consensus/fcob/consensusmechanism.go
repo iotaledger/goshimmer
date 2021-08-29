@@ -308,12 +308,6 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 				if err != nil {
 					panic(err)
 				}
-				if !liked {
-					_, err := f.tangle.LedgerState.BranchDAG.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
-					if err != nil {
-						panic(err)
-					}
-				}
 			}
 		})
 	})

@@ -13,7 +13,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
@@ -45,9 +44,9 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	eventsBufferSize = config.Node().Int(CfgBufferSize)
-	csvPath = config.Node().String(CfgCSV)
-	checkBufferInterval = config.Node().Duration(CfgCheckBufferIntervalSec) * time.Second
+	eventsBufferSize = Parameters.BufferSize
+	csvPath = Parameters.CSV
+	checkBufferInterval = time.Duration(Parameters.CheckBufferIntervalSec) * time.Second
 	onPledgeEventClosure = events.NewClosure(logPledge)
 	onRevokeEventClosure = events.NewClosure(logRevoke)
 	configureEvents()

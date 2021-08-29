@@ -41,4 +41,6 @@ const (
 	PriorityBootstrap
 	// PriorityTXStream defines the shutdown priority for realtime.
 	PriorityTXStream
+	// PriorityHealthz defines the shutdown priority of the healthz endpoint. It should always be last.
+	PriorityHealthz
 )
