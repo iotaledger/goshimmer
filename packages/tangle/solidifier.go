@@ -35,8 +35,10 @@ type Solidifier struct {
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
 		Events: &SolidifierEvents{
-			MessageSolid:   events.NewEvent(MessageIDCaller),
-			MessageMissing: events.NewEvent(MessageIDCaller),
+			Error:              events.NewEvent(events.ErrorCaller),
+			MessageWeaklySolid: events.NewEvent(MessageIDCaller),
+			MessageSolid:       events.NewEvent(MessageIDCaller),
+			MessageMissing:     events.NewEvent(MessageIDCaller),
 		},
 
 		tangle: tangle,
@@ -50,47 +52,132 @@ func (s *Solidifier) Setup() {
 	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
 }
 
-// Solidify solidifies the given Message.
-func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, MessageIDs{messageID}, true)
+// TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
+func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
+	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
 }
 
-// checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
-func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-	if !s.isMessageSolid(message, messageMetadata) {
-		return
-	}
-
-	if !s.areParentMessagesValid(message) {
-		if !messageMetadata.SetInvalid(true) {
+// Solidify solidifies the given Message.
+func (s *Solidifier) Solidify(messageID MessageID) {
+	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		solidificationType := messageMetadata.Source().SolidificationType()
+		if solidificationType == UndefinedSolidificationType {
 			return
 		}
-		s.tangle.Events.MessageInvalid.Trigger(message.ID())
-		return
-	}
 
-	lockBuilder := syncutils.MultiMutexLockBuilder{}
-	lockBuilder.AddLock(messageMetadata.ID())
-	for _, parentMessageID := range message.Parents() {
-		lockBuilder.AddLock(parentMessageID)
-	}
-	lock := lockBuilder.Build()
-
-	s.triggerMutex.Lock(lock...)
-	defer s.triggerMutex.Unlock(lock...)
-
-	if !messageMetadata.SetSolid(true) {
-		return
-	}
-	s.Events.MessageSolid.Trigger(message.ID())
-
-	s.tangle.Storage.Approvers(message.ID()).Consume(func(approver *Approver) {
-		walker.Push(approver.ApproverMessageID())
+		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			s.solidify(message, messageMetadata, solidificationType)
+		})
 	})
 }
 
+func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (approversToPropagate MessageIDs) {
+	approversToPropagate = make(MessageIDs, 0)
+
+	if !s.isMessageWeaklySolid(message, messageMetadata, requestMissingMessages) {
+		return
+	}
+
+	if s.isMessageSolid(message, messageMetadata, false) {
+		if s.triggerSolidUpdate(messageMetadata) {
+			for _, messageID := range s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID()) {
+				approversToPropagate = append(approversToPropagate, messageID)
+			}
+		}
+
+		return
+	}
+
+	if s.triggerWeaklySolidUpdate(messageMetadata) {
+		for _, messageID := range s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID()) {
+			approversToPropagate = append(approversToPropagate, messageID)
+		}
+	}
+
+	return
+}
+
+func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *MessageMetadata) (approversToPropagate MessageIDs) {
+	approversToPropagate = make(MessageIDs, 0)
+
+	if s.isMessageSolid(message, messageMetadata, true) {
+		if s.triggerSolidUpdate(messageMetadata) {
+			for _, messageID := range s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID()) {
+				approversToPropagate = append(approversToPropagate, messageID)
+			}
+		}
+
+		return
+	}
+
+	if s.isMessageWeaklySolid(message, messageMetadata, false) {
+		if s.triggerWeaklySolidUpdate(messageMetadata) {
+			for _, messageID := range s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID()) {
+				approversToPropagate = append(approversToPropagate, messageID)
+			}
+		}
+	}
+
+	return
+}
+
+// solidify performs the solidity checks and triggers the corresponding updates.
+func (s *Solidifier) solidify(message *Message, messageMetadata *MessageMetadata, solidificationType SolidificationType) {
+	if !messageMetadata.SetSolidificationType(solidificationType) {
+		return
+	}
+
+	switch solidificationType {
+	case WeakSolidification:
+		s.propagateSolidity(s.solidifyWeakly(message, messageMetadata, true)...)
+	case StrongSolidification:
+		s.propagateSolidity(s.solidifyStrongly(message, messageMetadata)...)
+	}
+}
+
+// isMessageWeaklySolid checks if the given Message is weakly solid.
+//
+// Note: A message is weakly solid if it is either not containing a transaction payload or if its weak parents are at
+//       least weakly solid (and pass the parents age check - otherwise the message is invalid).
+func (s *Solidifier) isMessageWeaklySolid(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (weaklySolid bool) {
+	if message == nil || message.IsDeleted() || messageMetadata == nil || messageMetadata.IsDeleted() {
+		return false
+	}
+
+	if messageMetadata.IsWeaklySolid() || messageMetadata.IsSolid() {
+		return true
+	}
+
+	if message.Payload().Type() != ledgerstate.TransactionType {
+		return true
+	}
+
+	weaklySolid = true
+	message.ForEachWeakParent(func(parentMessageID MessageID) {
+		if weaklySolid || requestMissingMessages {
+			weaklySolid = s.isMessageMarkedAsWeaklySolid(parentMessageID, requestMissingMessages) && weaklySolid
+		}
+	})
+	if !weaklySolid {
+		return false
+	}
+
+	if !s.parentsAgeValid(message.IssuingTime(), message.WeakParents()) {
+		if messageMetadata.SetInvalid(true) {
+			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		}
+
+		return false
+	}
+
+	return s.solidifyPayload(message)
+}
+
 // isMessageSolid checks if the given Message is solid.
-func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMetadata) (solid bool) {
+//
+// Note: A message is solid if its strong parents are solid and its weak parents are at least weakly solid. If any of
+//       the parents doesn't pass the parents age check then the Message is invalid.
+func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (solid bool) {
 	if message == nil || message.IsDeleted() || messageMetadata == nil || messageMetadata.IsDeleted() {
 		return false
 	}
@@ -100,30 +187,80 @@ func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 	}
 
 	solid = true
-	message.ForEachParent(func(parent Parent) {
-		// as missing messages are requested in isMessageMarkedAsSolid, we need to be aware of short-circuit evaluation
-		// rules, thus we need to evaluate isMessageMarkedAsSolid !!first!!
-		solid = s.isMessageMarkedAsSolid(parent.ID) && solid
+	message.ForEachStrongParent(func(parentMessageID MessageID) {
+		if solid || requestMissingMessages {
+			solid = s.isMessageMarkedAsSolid(parentMessageID, requestMissingMessages) && solid
+		}
 	})
+	if !solid {
+		return false
+	}
 
-	return
+	if !s.parentsAgeValid(message.IssuingTime(), message.StrongParents()) {
+		if len(message.WeakParents()) == 0 && messageMetadata.SetInvalid(true) {
+			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		}
+
+		return false
+	}
+
+	message.ForEachWeakParent(func(parentMessageID MessageID) {
+		if solid || requestMissingMessages {
+			solid = s.isMessageMarkedAsWeaklySolid(parentMessageID, requestMissingMessages) && solid
+		}
+	})
+	if !solid {
+		return false
+	}
+
+	if !s.parentsAgeValid(message.IssuingTime(), message.WeakParents()) {
+		if messageMetadata.SetInvalid(true) {
+			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		}
+
+		return false
+	}
+
+	return s.solidifyPayload(message)
 }
 
-// isMessageMarkedAsSolid checks whether the given message is solid and marks it as missing if it isn't known.
-func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
+// parentsAgeValid checks if the given MessageIDs belong to Messages that are within the allowed
+// maxParentsTimeDifference from the issuing time.
+func (s *Solidifier) parentsAgeValid(issuingTime time.Time, parentMessageIDs MessageIDs) (valid bool) {
+	for _, parentMessageID := range parentMessageIDs {
+		if parentMessageID == EmptyMessageID {
+			continue
+		}
+
+		if !s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
+			timeDifference := issuingTime.Sub(parentMessage.IssuingTime())
+
+			valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
+		}) || !valid {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isMessageMarkedAsSolid checks if the Message is already marked as solid (it requests missing messages).
+func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingMessages bool) (solid bool) {
 	if messageID == EmptyMessageID {
 		return true
 	}
 
 	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
+		if !requestMissingMessages {
+			return nil
+		}
+
 		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, StrongSolidificationSource)); stored {
 			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
 				s.Events.MessageMissing.Trigger(messageID)
 			})
 		}
 
-		// do not initialize the metadata here, we execute this in the optional ComputeIfAbsent callback to be secure
-		// from race conditions
 		return nil
 	}).Consume(func(messageMetadata *MessageMetadata) {
 		solid = messageMetadata.IsSolid()
@@ -132,41 +269,102 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 	return
 }
 
-// areParentMessagesValid checks whether the parents of the given Message are valid.
-func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
-	valid = true
-	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isParentMessageValid(parent.ID, message)
+// isMessageMarkedAsSolid checks if the Message is already marked as weakly solid (it requests missing messages).
+func (s *Solidifier) isMessageMarkedAsWeaklySolid(messageID MessageID, requestMissingMessages bool) (solid bool) {
+	if messageID == EmptyMessageID {
+		return true
+	}
+
+	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
+		if !requestMissingMessages {
+			return nil
+		}
+
+		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, WeakSolidificationSource)); stored {
+			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
+				s.Events.MessageMissing.Trigger(messageID)
+			})
+		}
+
+		return nil
+	}).Consume(func(messageMetadata *MessageMetadata) {
+		solid = messageMetadata.IsSolid() || messageMetadata.IsWeaklySolid()
 	})
 
 	return
 }
 
-// isParentMessageValid checks whether the given parent Message is valid.
-func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessage *Message) (valid bool) {
-	if parentMessageID == EmptyMessageID {
-		if s.tangle.Options.GenesisNode != nil {
-			return *s.tangle.Options.GenesisNode == childMessage.IssuerPublicKey()
-		}
-
-		s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-			timeDifference := childMessage.IssuingTime().Sub(messageMetadata.SolidificationTime())
-			valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
-		})
-		return
+// solidifyPayload creates the Attachment reference between the Message and its contained Transaction and then
+// solidifies the Transaction by handing it over to the UTXODAG.
+func (s *Solidifier) solidifyPayload(message *Message) (solid bool) {
+	transaction, typeCastOkay := message.Payload().(*ledgerstate.Transaction)
+	if !typeCastOkay {
+		return true
 	}
 
-	s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
-		timeDifference := childMessage.IssuingTime().Sub(parentMessage.IssuingTime())
+	isNew := false
+	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
+		isNew = true
 
-		valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
+		attachment := NewAttachment(transactionID, messageID)
+		attachment.SetModified()
+		attachment.Persist()
+
+		_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
+		if err != nil {
+			s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
+
+			return nil
+		}
+		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
+
+		return attachment
+	}).Release()
+	if isNew {
+		return solid
+	}
+
+	s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		solidityType := transactionMetadata.SolidityType()
+
+		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
 	})
 
-	s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-		valid = valid && !messageMetadata.IsInvalid()
-	})
+	return solid
+}
 
-	return
+// propagateSolidity executes the solidity checks for the given MessageIDs and propagates possible updates to their
+// approvers.
+func (s *Solidifier) propagateSolidity(messageIDs ...MessageID) {
+	s.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
+		for _, messageID := range s.solidifyWeakly(message, messageMetadata, false) {
+			walker.Push(messageID)
+		}
+	}, messageIDs, true)
+}
+
+// triggerWeaklySolidUpdate triggers the update of the MessageMetadata and the corresponding Event. It returns true if
+// the Event was fired and false if the corresponding Message was already marked as weaklySolid, before.
+func (s *Solidifier) triggerWeaklySolidUpdate(messageMetadata *MessageMetadata) (triggered bool) {
+	if !messageMetadata.SetWeaklySolid(true) {
+		return false
+	}
+
+	s.Events.MessageWeaklySolid.Trigger(messageMetadata.ID())
+
+	return true
+}
+
+// triggerSolidUpdate triggers the update of the MessageMetadata and the corresponding Event. It returns true if
+// the Event was fired and false if the corresponding Message was already marked as solid, before.
+func (s *Solidifier) triggerSolidUpdate(messageMetadata *MessageMetadata) (triggered bool) {
+	if !messageMetadata.SetSolid(true) {
+		return false
+	}
+
+	s.Events.MessageSolid.Trigger(messageMetadata.ID())
+
+	return true
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -236,7 +434,7 @@ func (s SolidificationType) Bytes() (marshaledSolidificationType []byte) {
 	return []byte{uint8(s)}
 }
 
-// String returns a human readable version of the SolidificationType.
+// String returns a human-readable version of the SolidificationType.
 func (s SolidificationType) String() (humanReadableSolidificationType string) {
 	switch s {
 	case UndefinedSolidificationType:
@@ -248,321 +446,6 @@ func (s SolidificationType) String() (humanReadableSolidificationType string) {
 	default:
 		return "SolidificationType(" + strconv.Itoa(int(s)) + ")"
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region S0lidifier ////////////////////////////////////////////////////////////////////////////////////////////////
-
-type S0lidifier struct {
-	// Events contains the Solidifier related events.
-	Events *SolidifierEvents
-
-	triggerMutex syncutils.MultiMutex
-	tangle       *Tangle
-}
-
-// NewS0lidifier is the constructor of the S0lidifier.
-func NewS0lidifier(tangle *Tangle) (solidifier *S0lidifier) {
-	solidifier = &S0lidifier{
-		Events: &SolidifierEvents{
-			Error:              events.NewEvent(events.ErrorCaller),
-			MessageWeaklySolid: events.NewEvent(MessageIDCaller),
-			MessageSolid:       events.NewEvent(MessageIDCaller),
-			MessageMissing:     events.NewEvent(MessageIDCaller),
-		},
-
-		tangle: tangle,
-	}
-
-	return
-}
-
-// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
-func (s *S0lidifier) Setup() {
-	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
-}
-
-func (s *S0lidifier) OnTransactionSolid(transactionID ledgerstate.TransactionID) {
-	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
-}
-
-func (s *S0lidifier) Solidify(messageID MessageID) {
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		solidificationType := messageMetadata.Source().SolidificationType()
-		if solidificationType == UndefinedSolidificationType {
-			return
-		}
-
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			s.solidify(message, messageMetadata, solidificationType)
-		})
-	})
-}
-
-func (s *S0lidifier) solidify(message *Message, messageMetadata *MessageMetadata, solidificationType SolidificationType) {
-	if !messageMetadata.SetSolidificationType(solidificationType) {
-		return
-	}
-
-	switch solidificationType {
-	case WeakSolidification:
-		if !s.isMessageWeaklySolid(message, messageMetadata, true) {
-			return
-		}
-
-		switch s.isMessageSolid(message, messageMetadata, false) {
-		case false:
-			s.triggerWeaklySolidUpdate(messageMetadata)
-		case true:
-			s.triggerSolidUpdate(messageMetadata)
-		}
-	case StrongSolidification:
-		if s.isMessageSolid(message, messageMetadata, true) {
-			s.triggerSolidUpdate(messageMetadata)
-			return
-		}
-
-		if s.isMessageWeaklySolid(message, messageMetadata, false) {
-			s.triggerWeaklySolidUpdate(messageMetadata)
-		}
-	}
-}
-
-func (s *S0lidifier) isMessageWeaklySolid(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (weaklySolid bool) {
-	if message == nil || message.IsDeleted() || messageMetadata == nil || messageMetadata.IsDeleted() {
-		return false
-	}
-
-	if messageMetadata.IsWeaklySolid() || messageMetadata.IsSolid() {
-		return true
-	}
-
-	if message.Payload().Type() != ledgerstate.TransactionType {
-		return true
-	}
-
-	weaklySolid = true
-	message.ForEachWeakParent(func(parentMessageID MessageID) {
-		if weaklySolid || requestMissingMessages {
-			weaklySolid = s.isMessageMarkedAsWeaklySolid(parentMessageID, requestMissingMessages) && weaklySolid
-		}
-	})
-	if !weaklySolid {
-		return false
-	}
-
-	if !s.parentsAgeValid(message.IssuingTime(), message.WeakParents()) {
-		if messageMetadata.SetInvalid(true) {
-			s.tangle.Events.MessageInvalid.Trigger(message.ID())
-		}
-
-		return false
-	}
-
-	return s.isPayloadSolid(message)
-}
-
-func (s *S0lidifier) isMessageSolid(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (solid bool) {
-	if message == nil || message.IsDeleted() || messageMetadata == nil || messageMetadata.IsDeleted() {
-		return false
-	}
-
-	if messageMetadata.IsSolid() {
-		return true
-	}
-
-	solid = true
-	message.ForEachStrongParent(func(parentMessageID MessageID) {
-		if solid || requestMissingMessages {
-			solid = s.isMessageMarkedAsSolid(parentMessageID, requestMissingMessages) && solid
-		}
-	})
-	if !solid {
-		return false
-	}
-
-	if !s.parentsAgeValid(message.IssuingTime(), message.StrongParents()) {
-		if len(message.WeakParents()) == 0 && messageMetadata.SetInvalid(true) {
-			s.tangle.Events.MessageInvalid.Trigger(message.ID())
-		}
-
-		return false
-	}
-
-	message.ForEachWeakParent(func(parentMessageID MessageID) {
-		if solid || requestMissingMessages {
-			solid = s.isMessageMarkedAsWeaklySolid(parentMessageID, requestMissingMessages) && solid
-		}
-	})
-	if !solid {
-		return false
-	}
-
-	if !s.parentsAgeValid(message.IssuingTime(), message.WeakParents()) {
-		if messageMetadata.SetInvalid(true) {
-			s.tangle.Events.MessageInvalid.Trigger(message.ID())
-		}
-
-		return false
-	}
-
-	return s.isPayloadSolid(message)
-}
-
-func (s *S0lidifier) parentsAgeValid(issuingTime time.Time, parentMessageIDs MessageIDs) (valid bool) {
-	for _, parentMessageID := range parentMessageIDs {
-		if parentMessageID == EmptyMessageID {
-			continue
-		}
-
-		if !s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
-			timeDifference := issuingTime.Sub(parentMessage.IssuingTime())
-
-			valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
-		}) || !valid {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (s *S0lidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingMessages bool) (solid bool) {
-	if messageID == EmptyMessageID {
-		return true
-	}
-
-	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
-		if !requestMissingMessages {
-			return nil
-		}
-
-		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, StrongSolidificationSource)); stored {
-			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
-				s.Events.MessageMissing.Trigger(messageID)
-			})
-		}
-
-		return nil
-	}).Consume(func(messageMetadata *MessageMetadata) {
-		solid = messageMetadata.IsSolid()
-	})
-
-	return
-}
-
-func (s *S0lidifier) isMessageMarkedAsWeaklySolid(messageID MessageID, requestMissingMessages bool) (solid bool) {
-	if messageID == EmptyMessageID {
-		return true
-	}
-
-	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
-		if !requestMissingMessages {
-			return nil
-		}
-
-		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, WeakSolidificationSource)); stored {
-			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
-				s.Events.MessageMissing.Trigger(messageID)
-			})
-		}
-
-		return nil
-	}).Consume(func(messageMetadata *MessageMetadata) {
-		solid = messageMetadata.IsSolid() || messageMetadata.IsWeaklySolid()
-	})
-
-	return
-}
-
-func (s *S0lidifier) isPayloadSolid(message *Message) (solid bool) {
-	transaction, typeCastOkay := message.Payload().(*ledgerstate.Transaction)
-	if !typeCastOkay {
-		return true
-	}
-
-	isNew := false
-	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
-		isNew = true
-
-		attachment := NewAttachment(transactionID, messageID)
-		attachment.SetModified()
-		attachment.Persist()
-
-		_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
-		if err != nil {
-			s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
-
-			return nil
-		}
-		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
-
-		return attachment
-	}).Release()
-	if isNew {
-		return solid
-	}
-
-	s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		solidityType := transactionMetadata.SolidityType()
-
-		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
-	})
-
-	return solid
-}
-
-func (s *S0lidifier) propagateSolidity(messageIDs ...MessageID) {
-	s.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-		if !s.isMessageWeaklySolid(message, messageMetadata, false) {
-			return
-		}
-
-		var eventToTrigger *events.Event
-		var approvingMessageIDs MessageIDs
-		if s.isMessageSolid(message, messageMetadata, false) {
-			if !messageMetadata.SetSolid(true) {
-				return
-			}
-
-			eventToTrigger = s.Events.MessageSolid
-			approvingMessageIDs = s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())
-		} else {
-			if !messageMetadata.SetWeaklySolid(true) {
-				return
-			}
-
-			eventToTrigger = s.Events.MessageWeaklySolid
-			approvingMessageIDs = s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), WeakApprover)
-		}
-
-		eventToTrigger.Trigger(messageMetadata.ID())
-
-		for _, messageID := range approvingMessageIDs {
-			walker.Push(messageID)
-		}
-	}, messageIDs, true)
-}
-
-func (s *S0lidifier) triggerWeaklySolidUpdate(messageMetadata *MessageMetadata) {
-	if !messageMetadata.SetWeaklySolid(true) {
-		return
-	}
-
-	s.Events.MessageWeaklySolid.Trigger(messageMetadata.ID())
-
-	s.propagateSolidity(s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), WeakApprover)...)
-}
-
-func (s *S0lidifier) triggerSolidUpdate(messageMetadata *MessageMetadata) {
-	if !messageMetadata.SetSolid(true) {
-		return
-	}
-
-	s.Events.MessageSolid.Trigger(messageMetadata.ID())
-
-	s.propagateSolidity(s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
