@@ -136,7 +136,6 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 		transactionMetadata := NewTransactionMetadata(transactionID)
 
 		err = u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
-
 		stored = true
 
 		return transactionMetadata

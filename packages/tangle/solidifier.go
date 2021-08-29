@@ -50,11 +50,12 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Solidifier) Setup() {
 	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
+	s.tangle.LedgerState.UTXODAG.Events().TransactionSolid.Attach(events.NewClosure(s.TriggerTransactionSolid))
 }
 
 // TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
 func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
-	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
+	go s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
 }
 
 // Solidify solidifies the given Message.
@@ -302,33 +303,15 @@ func (s *Solidifier) solidifyPayload(message *Message) (solid bool) {
 		return true
 	}
 
-	isNew := false
-	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
-		isNew = true
+	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), NewAttachment).Release()
 
-		attachment := NewAttachment(transactionID, messageID)
-		attachment.SetModified()
-		attachment.Persist()
+	_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
+	if err != nil {
+		s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
 
-		_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
-		if err != nil {
-			s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
-
-			return nil
-		}
-		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
-
-		return attachment
-	}).Release()
-	if isNew {
-		return solid
+		return false
 	}
-
-	s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		solidityType := transactionMetadata.SolidityType()
-
-		solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
-	})
+	solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
 
 	return solid
 }

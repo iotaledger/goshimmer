@@ -822,11 +822,15 @@ type Attachment struct {
 }
 
 // NewAttachment creates an attachment object with the given information.
-func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
-	return &Attachment{
+func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (attachment *Attachment) {
+	attachment = &Attachment{
 		transactionID: transactionID,
 		messageID:     messageID,
 	}
+	attachment.SetModified()
+	attachment.Persist()
+
+	return
 }
 
 // AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
