@@ -4,7 +4,7 @@ x-build-goshimmer: &goshimmer_build
   context: ../../
   dockerfile: tools/docker-network/builder/Dockerfile
   args:
-    GOLANG_IMAGE_TAG: 1.16.7-alpine
+    GOLANG_IMAGE_TAG: 1.17-alpine
     BUILD_TAGS: rocksdb,builtin_static,netgo
     BINARY_NAME: goshimmer
     WORK_DIR: /go/src/goshimmer

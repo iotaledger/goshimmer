@@ -1,5 +1,4 @@
-# syntax = docker/dockerfile:1-experimental
-ARG GOLANG_IMAGE_TAG=1.16.7-alpine
+ARG GOLANG_IMAGE_TAG=1.17-alpine
 
 FROM golang:${GOLANG_IMAGE_TAG} as build
 
