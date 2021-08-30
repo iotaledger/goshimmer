@@ -35,8 +35,9 @@ services:
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --metrics.global=true
-      --metrics.local=false
+      --metrics.local=true
       --metrics.manaResearch=false
+      --dashboard.bindAddress=0.0.0.0:8082
       --node.disablePlugins=clock
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus,spammer,"webapi tools endpoint",activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
@@ -53,6 +54,7 @@ services:
       - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
     ports:
       - "8080:8080/tcp" # web API
+      - "8082:8082/tcp" # dashboard
       - "9000:9000/tcp" # analysis dashboard
     expose:
       - 10895/tcp # FPC
