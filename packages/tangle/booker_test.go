@@ -85,10 +85,6 @@ func TestScenario_1(t *testing.T) {
 	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["1"])
 
-	err := tangle.Booker.BookMessage(messages["1"].ID())
-
-	require.NoError(t, err)
-
 	msgBranchID, err := messageBranchID(tangle, messages["1"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -107,9 +103,6 @@ func TestScenario_1(t *testing.T) {
 	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["2"])
 
-	err = tangle.Booker.BookMessage(messages["2"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["2"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -121,9 +114,6 @@ func TestScenario_1(t *testing.T) {
 	// Message 3 (Reattachemnt of transaction 2)
 	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["3"])
-
-	err = tangle.Booker.BookMessage(messages["3"].ID())
-	require.NoError(t, err)
 
 	msgBranchID, err = messageBranchID(tangle, messages["3"].ID())
 	require.NoError(t, err)
@@ -140,9 +130,6 @@ func TestScenario_1(t *testing.T) {
 	transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["D"]), outputsByID, walletsByAddress)
 	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["4"])
-
-	err = tangle.Booker.BookMessage(messages["4"].ID())
-	require.NoError(t, err)
 
 	msgBranchID, err = messageBranchID(tangle, messages["4"].ID())
 	require.NoError(t, err)
@@ -162,9 +149,6 @@ func TestScenario_1(t *testing.T) {
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
 	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["5"])
-
-	err = tangle.Booker.BookMessage(messages["5"].ID())
-	require.NoError(t, err)
 
 	branches["yellow"] = ledgerstate.NewBranchID(transactions["4"].ID())
 
@@ -208,9 +192,6 @@ func TestScenario_1(t *testing.T) {
 	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["6"])
 
-	err = tangle.Booker.BookMessage(messages["6"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["6"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["yellow"], msgBranchID)
@@ -222,9 +203,6 @@ func TestScenario_1(t *testing.T) {
 	// Message 7
 	messages["7"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["7"])
-
-	err = tangle.Booker.BookMessage(messages["7"].ID())
-	require.NoError(t, err)
 
 	msgBranchID, err = messageBranchID(tangle, messages["7"].ID())
 	require.NoError(t, err)
@@ -242,9 +220,6 @@ func TestScenario_1(t *testing.T) {
 	messages["8"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["8"])
 
-	err = tangle.Booker.BookMessage(messages["8"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["8"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["grey"], msgBranchID)
@@ -260,9 +235,6 @@ func TestScenario_1(t *testing.T) {
 	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["H"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
 	messages["9"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["6"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["9"])
-
-	err = tangle.Booker.BookMessage(messages["9"].ID())
-	require.NoError(t, err)
 
 	msgBranchID, err = messageBranchID(tangle, messages["9"].ID())
 	require.NoError(t, err)
@@ -345,10 +317,6 @@ func TestScenario_2(t *testing.T) {
 	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["1"])
 
-	err := tangle.Booker.BookMessage(messages["1"].ID())
-
-	require.NoError(t, err)
-
 	msgBranchID, err := messageBranchID(tangle, messages["1"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -367,9 +335,6 @@ func TestScenario_2(t *testing.T) {
 	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["2"])
 
-	err = tangle.Booker.BookMessage(messages["2"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["2"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -381,9 +346,6 @@ func TestScenario_2(t *testing.T) {
 	// Message 3 (Reattachemnt of transaction 2)
 	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["3"])
-
-	err = tangle.Booker.BookMessage(messages["3"].ID())
-	require.NoError(t, err)
 
 	msgBranchID, err = messageBranchID(tangle, messages["3"].ID())
 	require.NoError(t, err)
@@ -401,9 +363,6 @@ func TestScenario_2(t *testing.T) {
 	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["4"])
 
-	err = tangle.Booker.BookMessage(messages["4"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["4"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -417,9 +376,6 @@ func TestScenario_2(t *testing.T) {
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
 	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["5"])
-
-	err = tangle.Booker.BookMessage(messages["5"].ID())
-	require.NoError(t, err)
 
 	branches["yellow"] = ledgerstate.NewBranchID(transactions["4"].ID())
 
@@ -451,9 +407,6 @@ func TestScenario_2(t *testing.T) {
 	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["6"])
 
-	err = tangle.Booker.BookMessage(messages["6"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["6"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["yellow"], msgBranchID)
@@ -467,9 +420,6 @@ func TestScenario_2(t *testing.T) {
 	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["C"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
 	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["7"])
-
-	err = tangle.Booker.BookMessage(messages["7"].ID())
-	require.NoError(t, err)
 
 	branches["orange"] = ledgerstate.NewBranchID(transactions["6"].ID())
 	branches["purple"] = ledgerstate.NewBranchID(transactions["2"].ID())
@@ -522,9 +472,6 @@ func TestScenario_2(t *testing.T) {
 	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["8"])
 
-	err = tangle.Booker.BookMessage(messages["8"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["8"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["red+orange"], msgBranchID)
@@ -538,9 +485,6 @@ func TestScenario_2(t *testing.T) {
 	transactions["8"] = makeTransaction(ledgerstate.NewInputs(inputs["B"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
 	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["9"])
-
-	err = tangle.Booker.BookMessage(messages["9"].ID())
-	require.NoError(t, err)
 
 	branches["blue"] = ledgerstate.NewBranchID(transactions["8"].ID())
 	branches["red+orange+blue"] = ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(branches["red"], branches["orange"], branches["blue"])).ID()
@@ -710,10 +654,6 @@ func TestScenario_3(t *testing.T) {
 	messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["1"])
 
-	err := tangle.Booker.BookMessage(messages["1"].ID())
-
-	require.NoError(t, err)
-
 	msgBranchID, err := messageBranchID(tangle, messages["1"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -732,9 +672,6 @@ func TestScenario_3(t *testing.T) {
 	messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["2"])
 
-	err = tangle.Booker.BookMessage(messages["2"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["2"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -746,9 +683,6 @@ func TestScenario_3(t *testing.T) {
 	// Message 3 (Reattachment of transaction 2)
 	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["3"])
-
-	err = tangle.Booker.BookMessage(messages["3"].ID())
-	require.NoError(t, err)
 
 	msgBranchID, err = messageBranchID(tangle, messages["3"].ID())
 	require.NoError(t, err)
@@ -766,9 +700,6 @@ func TestScenario_3(t *testing.T) {
 	messages["4"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{EmptyMessageID, messages["1"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["4"])
 
-	err = tangle.Booker.BookMessage(messages["4"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["4"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -782,9 +713,6 @@ func TestScenario_3(t *testing.T) {
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
 	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID()}, []MessageID{messages["2"].ID()})
 	tangle.Storage.StoreMessage(messages["5"])
-
-	err = tangle.Booker.BookMessage(messages["5"].ID())
-	require.NoError(t, err)
 
 	branches["yellow"] = ledgerstate.NewBranchID(transactions["4"].ID())
 
@@ -816,9 +744,6 @@ func TestScenario_3(t *testing.T) {
 	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["6"])
 
-	err = tangle.Booker.BookMessage(messages["6"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["6"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["yellow"], msgBranchID)
@@ -832,9 +757,6 @@ func TestScenario_3(t *testing.T) {
 	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["C"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
 	messages["7"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["1"].ID(), messages["4"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["7"])
-
-	err = tangle.Booker.BookMessage(messages["7"].ID())
-	require.NoError(t, err)
 
 	branches["orange"] = ledgerstate.NewBranchID(transactions["6"].ID())
 	branches["purple"] = ledgerstate.NewBranchID(transactions["2"].ID())
@@ -887,9 +809,6 @@ func TestScenario_3(t *testing.T) {
 	messages["8"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["8"])
 
-	err = tangle.Booker.BookMessage(messages["8"].ID())
-	require.NoError(t, err)
-
 	msgBranchID, err = messageBranchID(tangle, messages["8"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["red+orange"], msgBranchID)
@@ -903,9 +822,6 @@ func TestScenario_3(t *testing.T) {
 	transactions["8"] = makeTransaction(ledgerstate.NewInputs(inputs["B"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
 	messages["9"] = newTestParentsPayloadMessage(transactions["8"], []MessageID{messages["4"].ID(), messages["7"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["9"])
-
-	err = tangle.Booker.BookMessage(messages["9"].ID())
-	require.NoError(t, err)
 
 	branches["blue"] = ledgerstate.NewBranchID(transactions["8"].ID())
 	branches["red+orange+blue"] = ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(branches["red"], branches["orange"], branches["blue"])).ID()
