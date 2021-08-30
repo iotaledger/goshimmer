@@ -49,8 +49,8 @@ func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Activity-plugin", func(shutdownSignal <-chan struct{}) {
 		// start with initial delay
 		rand.NewSource(time.Now().UnixNano())
-		initialDelaySec := rand.Intn(Parameters.DelayOffset)
-		time.Sleep(time.Duration(initialDelaySec) * time.Second)
+		initialDelay := time.Duration(rand.Intn(int(Parameters.DelayOffset)))
+		time.Sleep(initialDelay)
 
 		if Parameters.BroadcastInterval > 0 {
 			timeutil.NewTicker(broadcastActivityMessage, Parameters.BroadcastInterval, shutdownSignal)

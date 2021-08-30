@@ -1,14 +1,11 @@
 package autopeering
 
 import (
-	"net"
-	"strconv"
 	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
-	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
@@ -32,13 +29,6 @@ var (
 func Selection() *selection.Protocol {
 	peerSelOnce.Do(createPeerSel)
 	return peerSel
-}
-
-// BindAddress returns the string form of the autopeering bind address.
-func BindAddress() string {
-	peering := local.GetInstance().Services().Get(service.PeeringKey)
-	port := strconv.Itoa(peering.Port())
-	return net.JoinHostPort(local.ParametersNetwork.BindAddress, port)
 }
 
 func createPeerSel() {
@@ -67,48 +57,6 @@ func isValidNeighbor(p *peer.Peer) bool {
 		return false
 	}
 	return true
-}
-
-func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + PluginName + " ... done")
-
-	lPeer := local.GetInstance()
-	peering := lPeer.Services().Get(service.PeeringKey)
-
-	// resolve the bind address
-	localAddr, err := net.ResolveUDPAddr(peering.Network(), BindAddress())
-	if err != nil {
-		log.Fatalf("Error resolving: %v", err)
-	}
-
-	conn, err := net.ListenUDP(peering.Network(), localAddr)
-	if err != nil {
-		log.Fatalf("Error listening: %v", err)
-	}
-	defer conn.Close()
-
-	Conn = &NetConnMetric{UDPConn: conn}
-
-	// start a server doing peerDisc and peering
-	srv := server.Serve(lPeer, Conn, log.Named("srv"), discovery.Discovery(), Selection())
-	defer srv.Close()
-
-	// start the peer discovery on that connection
-	discovery.Discovery().Start(srv)
-
-	// start the neighbor selection process.
-	Selection().Start(srv)
-
-	log.Infof("%s started: ID=%s Address=%s/%s", PluginName, lPeer.ID(), localAddr.String(), localAddr.Network())
-
-	<-shutdownSignal
-
-	log.Infof("Stopping %s ...", PluginName)
-	Selection().Close()
-
-	discovery.Discovery().Close()
-
-	lPeer.Database().Close()
 }
 
 func evalMana(nodeIdentity *identity.Identity) uint64 {

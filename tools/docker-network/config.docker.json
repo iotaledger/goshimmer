@@ -11,7 +11,7 @@
       "dev": false
     }
   },
-  "autopeering": {
+  "autoPeering": {
     "entryNodes": [
       "DLoMdp3nJ7jnFT1K13R2m5nZN7ijLcmaZhCdTPJs2duo@peer_master:14626"
     ],
@@ -20,7 +20,7 @@
   "dashboard": {
     "bindAddress": "0.0.0.0:8081",
     "dev": false,
-    "basic_auth": {
+    "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"
@@ -31,7 +31,7 @@
   },
   "drng": {
     "custom": {
-      "instanceId": 111,
+      "instanceID": 111,
       "threshold": 3,
       "distributedPubKey": "",
       "committeeMembers": [
@@ -56,7 +56,7 @@
     "disableEvents": true
   },
   "metrics": {
-    "manaUpdateIntervalSec": 5
+    "manaUpdateInterval": "5s"
   },
   "network": {
     "bindAddress": "0.0.0.0",
@@ -72,8 +72,8 @@
     "timeout": "10s",
     "parentsRefreshInterval": "300ms"
   },
-  "webapi": {
-    "basic_auth": {
+  "webAPI": {
+    "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"

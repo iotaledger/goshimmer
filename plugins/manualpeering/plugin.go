@@ -17,11 +17,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 
-// PluginName is the name of the manualpeering plugin.
-const PluginName = "Manualpeering"
+// PluginName is the name of the manual peering plugin.
+const PluginName = "ManualPeering"
 
 var (
-	// plugin is the plugin instance of the manualpeering plugin.
+	// plugin is the plugin instance of the manual peering plugin.
 	plugin      *node.Plugin
 	pluginOnce  sync.Once
 	manager     *manualpeering.Manager
@@ -36,7 +36,7 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-// Manager is a singleton for manualpeering Manager.
+// Manager is a singleton for manual peering Manager.
 func Manager() *manualpeering.Manager {
 	managerOnce.Do(func() {
 		lPeer := local.GetInstance()

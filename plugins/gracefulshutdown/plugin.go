@@ -15,7 +15,7 @@ import (
 )
 
 // PluginName is the name of the graceful shutdown plugin.
-const PluginName = "Graceful Shutdown"
+const PluginName = "GracefulShutdown"
 
 var (
 	// plugin is the plugin instance of the graceful shutdown plugin.
@@ -33,7 +33,7 @@ func configure(*node.Plugin) {
 	go func() {
 		<-gracefulStop
 
-		Plugin().LogWarnf("Received shutdown request - waiting (max %d) to finish processing ...", Parameters.WaitToKillTime)
+		Plugin().LogWarnf("Received shutdown request - waiting (max %d) to finish processing ...", int(Parameters.WaitToKillTime/time.Second))
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
@@ -41,16 +41,16 @@ func configure(*node.Plugin) {
 
 			start := time.Now()
 			for x := range ticker.C {
-				secondsSinceStart := x.Sub(start).Seconds()
+				timeSinceStart := x.Sub(start)
 
-				if secondsSinceStart <= float64(Parameters.WaitToKillTime) {
+				if timeSinceStart <= Parameters.WaitToKillTime {
 					processList := ""
 					runningBackgroundWorkers := daemon.GetRunningBackgroundWorkers()
 					if len(runningBackgroundWorkers) >= 1 {
 						sort.Strings(runningBackgroundWorkers)
 						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
 					}
-					Plugin().LogWarnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", Parameters.WaitToKillTime-int(secondsSinceStart), processList)
+					Plugin().LogWarnf("Received shutdown request - waiting (max %d ) to finish processing %s...", Parameters.WaitToKillTime-timeSinceStart, processList)
 				} else {
 					Plugin().LogError("Background processes did not terminate in time! Forcing shutdown ...")
 					pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)

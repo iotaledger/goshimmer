@@ -12,7 +12,7 @@
     - role: goshimmer-node
       nodeType: entrynode
     - role: goshimmer-node
-      nodeType: analysis-server
+      nodeType: analysisServer
 
 - hosts: goshimmers
   vars:

@@ -43,7 +43,7 @@ FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5d
 
 # Gossip
 EXPOSE 14666/tcp
-# Autopeering
+# AutoPeering
 EXPOSE 14626/udp
 # FPC
 EXPOSE 10895/tcp

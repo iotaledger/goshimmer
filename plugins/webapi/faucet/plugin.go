@@ -26,7 +26,7 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin("WebAPI faucet Endpoint", node.Enabled, configure)
+		plugin = node.NewPlugin("WebAPIFaucetEndpoint", node.Enabled, configure)
 	})
 	return plugin
 }

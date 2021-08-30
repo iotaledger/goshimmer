@@ -22,7 +22,7 @@ import (
 )
 
 // PluginName is the name of the web API info endpoint plugin.
-const PluginName = "WebAPI info Endpoint"
+const PluginName = "WebAPIInfoEndpoint"
 
 var (
 	// plugin is the plugin instance of the web API info endpoint plugin.
@@ -55,30 +55,30 @@ func configure(_ *node.Plugin) {
 // 	"publickey":"CjUsn86jpFHWnSCx3NhWfU4Lk16mDdy1Hr7ERSTv3xn9",
 // 	"enabledplugins":[
 // 		"Config",
-// 		"Autopeering",
+// 		"AutoPeering",
 // 		"Analysis",
-// 		"WebAPI data Endpoint",
-// 		"WebAPI dRNG Endpoint",
+// 		"WebAPIDataEndpoint",
+// 		"WebAPIDRNGEndpoint",
 // 		"MessageLayer",
 // 		"CLI",
 // 		"Database",
 // 		"DRNG",
-// 		"WebAPI autopeering Endpoint",
+// 		"WebAPIAutoPeeringEndpoint",
 // 		"Metrics",
 // 		"PortCheck",
 // 		"Dashboard",
 // 		"WebAPI",
-// 		"WebAPI info Endpoint",
-// 		"WebAPI message Endpoint",
+// 		"WebAPIInfoEndpoint",
+// 		"WebAPIMessageEndpoint",
 // 		"Banner",
 // 		"Gossip",
-// 		"Graceful Shutdown",
+// 		"GracefulShutdown",
 // 		"Logger"
 // 	],
 // 	"disabledplugins":[
 // 		"RemoteLog",
 // 		"Spammer",
-// 		"WebAPI Auth"
+// 		"WebAPIAuth"
 // 	]
 // }
 func getInfo(c echo.Context) error {
@@ -126,7 +126,7 @@ func getInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
-		NetworkVersion:          discovery.NetworkVersion(),
+		NetworkVersion:          discovery.Parameters.NetworkVersion,
 		TangleTime:              tangleTime,
 		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),
 		IdentityIDShort:         local.GetInstance().Identity.ID().String(),

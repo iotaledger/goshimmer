@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 const (
@@ -46,8 +47,8 @@ var (
 type CreateNetworkConfig struct {
 	// StartSynced specifies whether all node in the network start synced.
 	StartSynced bool
-	// Autopeering specifies whether autopeering or manual peering is used.
-	Autopeering bool
+	// AutoPeering specifies whether autopeering or manual peering is used.
+	AutoPeering bool
 	// Faucet specifies whether the first peer should have the faucet enabled.
 	Faucet bool
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
@@ -62,25 +63,23 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
-
-	c.Network.Enabled = true
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock"}
 
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
 
 	c.Gossip.Enabled = true
-	c.Gossip.Port = gossipPort
+	c.Gossip.BindAddress = fmt.Sprintf(":%d", gossipPort)
 
 	c.POW.Enabled = true
 	c.POW.Difficulty = 2
 
-	c.Webapi.Enabled = true
-	c.Webapi.BindAddress = fmt.Sprintf(":%d", apiPort)
+	c.WebAPI.Enabled = true
+	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
 
-	c.Autopeering.Enabled = false
-	c.Autopeering.Port = peeringPort
-	c.Autopeering.EntryNodes = nil
+	c.AutoPeering.Enabled = false
+	c.AutoPeering.BindAddress = fmt.Sprintf(":%d", peeringPort)
+	c.AutoPeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
 	c.MessageLayer.FCOB.QuarantineTime = 2 * time.Second
@@ -115,7 +114,7 @@ func EntryNodeConfig() config.GoShimmer {
 
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
 	c.Gossip.Enabled = false
-	c.Autopeering.Enabled = true
+	c.AutoPeering.Enabled = true
 	c.MessageLayer.Enabled = false
 	c.Faucet.Enabled = false
 	c.Mana.Enabled = false

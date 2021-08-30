@@ -11,14 +11,15 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
-const PluginName = "WebAPI autopeering Endpoint"
+const PluginName = "WebAPIAutopeeringEndpoint"
 
 var (
 	// plugin is the plugin instance of the web API autopeering endpoint plugin.

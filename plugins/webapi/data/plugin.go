@@ -19,7 +19,7 @@ import (
 const maxIssuedAwaitTime = 5 * time.Second
 
 // PluginName is the name of the web API data endpoint plugin.
-const PluginName = "WebAPI data Endpoint"
+const PluginName = "WebAPIDataEndpoint"
 
 var (
 	// plugin is the plugin instance of the web API data endpoint plugin.

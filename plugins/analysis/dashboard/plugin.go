@@ -13,11 +13,10 @@ import (
 	"github.com/labstack/echo/middleware"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the dashboard plugin.
-const PluginName = "Analysis-Dashboard"
+const PluginName = "AnalysisDashboard"
 
 var (
 	// plugin is the plugin instance of the dashboard plugin.
@@ -45,10 +44,10 @@ func configureServer() {
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if config.Node().Bool(CfgBasicAuthEnabled) {
+	if Parameters.BasicAuthEnabled {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.Node().String(CfgBasicAuthUsername) &&
-				password == config.Node().String(CfgBasicAuthPassword) {
+			if username == Parameters.BasicAuthUsername &&
+				password == Parameters.BasicAuthPassword {
 				return true, nil
 			}
 			return false, nil
@@ -74,7 +73,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node().String(CfgBindAddress)
+	bindAddr := Parameters.BindAddress
 	go func() {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		if err := server.Start(bindAddr); err != nil {

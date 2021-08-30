@@ -3,7 +3,6 @@ package logger
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -36,8 +35,6 @@ func Init() {
 
 func init() {
 	plugin = Plugin()
-
-	configuration.BindParameters(Parameters, "logger")
 
 	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := logger.InitGlobalLogger(config.Node()); err != nil {

@@ -13,7 +13,7 @@ type ParametersDefinition struct {
 	// ParentsCount is the number of parents that node will choose for its activity messages.
 	ParentsCount int `default:"8" usage:"the number of parents that node will choose for its activity messages"`
 	// DelayOffset is the maximum for random initial time delay before sending the activity message.
-	DelayOffset int `default:"10" usage:"the maximum for random initial time delay before sending the activity message"`
+	DelayOffset time.Duration `default:"10s" usage:"the maximum for random initial time delay before sending the activity message"`
 }
 
 // Parameters contains the configuration parameters of the activity plugin.
