@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -10,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -27,8 +29,10 @@ type Solidifier struct {
 	// Events contains the Solidifier related events.
 	Events *SolidifierEvents
 
-	triggerMutex syncutils.MultiMutex
-	tangle       *Tangle
+	payloadsSolidTriggered      map[ledgerstate.TransactionID]types.Empty
+	payloadsSolidTriggeredMutex sync.RWMutex
+	triggerMutex                syncutils.MultiMutex
+	tangle                      *Tangle
 }
 
 // NewSolidifier is the constructor of the Solidifier.
@@ -41,7 +45,8 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 			MessageMissing:     events.NewEvent(MessageIDCaller),
 		},
 
-		tangle: tangle,
+		payloadsSolidTriggered: make(map[ledgerstate.TransactionID]types.Empty),
+		tangle:                 tangle,
 	}
 
 	return
@@ -53,9 +58,34 @@ func (s *Solidifier) Setup() {
 	s.tangle.LedgerState.UTXODAG.Events().TransactionSolid.Attach(events.NewClosure(s.TriggerTransactionSolid))
 }
 
+func (s *Solidifier) setPayloadSolidTriggered(transactionID ledgerstate.TransactionID) {
+	s.payloadsSolidTriggeredMutex.Lock()
+	defer s.payloadsSolidTriggeredMutex.Unlock()
+
+	s.payloadsSolidTriggered[transactionID] = types.Void
+}
+
+func (s *Solidifier) unsetPayloadSolidTriggered(transactionID ledgerstate.TransactionID) {
+	s.payloadsSolidTriggeredMutex.Lock()
+	defer s.payloadsSolidTriggeredMutex.Unlock()
+
+	delete(s.payloadsSolidTriggered, transactionID)
+}
+
+func (s *Solidifier) hasPayloadSolidTriggered(transactionID ledgerstate.TransactionID) (hasPayloadSolidTriggered bool) {
+	s.payloadsSolidTriggeredMutex.RLock()
+	defer s.payloadsSolidTriggeredMutex.RUnlock()
+
+	_, hasPayloadSolidTriggered = s.payloadsSolidTriggered[transactionID]
+
+	return
+}
+
 // TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
 func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
-	go s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
+	s.setPayloadSolidTriggered(transactionID)
+	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
+	s.unsetPayloadSolidTriggered(transactionID)
 }
 
 // Solidify solidifies the given Message.
@@ -300,6 +330,10 @@ func (s *Solidifier) isMessageMarkedAsWeaklySolid(messageID MessageID, requestMi
 func (s *Solidifier) solidifyPayload(message *Message) (solid bool) {
 	transaction, typeCastOkay := message.Payload().(*ledgerstate.Transaction)
 	if !typeCastOkay {
+		return true
+	}
+
+	if s.hasPayloadSolidTriggered(transaction.ID()) {
 		return true
 	}
 
