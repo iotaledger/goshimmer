@@ -20,7 +20,7 @@ services:
     entrypoint:
       - ""
     command: >
-      /run/entrypoint.sh /go/bin/goshimmer
+      /run/entrypoint.sh exec /go/bin/goshimmer
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
       --analysis.dashboard.mongodb.enabled=${MONGO_DB_ENABLED:-false}
@@ -69,7 +69,7 @@ services:
     entrypoint:
       - ""
     command: >
-      /run/entrypoint.sh /go/bin/goshimmer
+      /run/entrypoint.sh exec /go/bin/goshimmer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap,"webapi tools endpoint"
@@ -110,7 +110,7 @@ services:
     entrypoint:
       - ""
     command: >
-      /run/entrypoint.sh /go/bin/goshimmer
+      /run/entrypoint.sh exec /go/bin/goshimmer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
