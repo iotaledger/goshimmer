@@ -69,10 +69,7 @@
     "bindAddress": "0.0.0.0:10895"
   },
   "gossip": {
-    "port": 14666,
-    "tipsBroadcaster": {
-      "interval": "10s"
-    }
+    "bindAddress": "0.0.0.0:14666"
   },
   "logger": {
     "level": "info",

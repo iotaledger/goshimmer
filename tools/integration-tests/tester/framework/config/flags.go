@@ -17,8 +17,6 @@ func (s GoShimmer) CreateFlags() []string {
 		flags           []string
 	)
 
-	s.AutoPeering.Seed = "base58:" + base58.Encode(s.Seed)
-
 	for _, name := range s.DisabledPlugins {
 		name = strings.ToLower(name)
 		disabledPlugins[name] = struct{}{}
@@ -49,22 +47,11 @@ func (s GoShimmer) CreateFlags() []string {
 	flags = append(
 		[]string{
 			"--node.enablePlugins=WebAPIToolsEndpoint",
+			fmt.Sprintf("--node.seed=base58:%s", base58.Encode(s.Seed)),
 			fmt.Sprintf("--node.enablePlugins=%s", setToString(enabledPlugins)),
 			fmt.Sprintf("--node.disablePlugins=%s", setToString(disabledPlugins)),
 		},
 		flags...)
-
-	// manually add seed to flags if autopeering is disabled
-	// this is necessary due to the fact that the seed is currently still part of the autopeering configuration
-	var seedProvided bool
-	for _, f := range flags {
-		if strings.Contains(f, "autoPeering.seed") {
-			seedProvided = true
-		}
-	}
-	if !seedProvided {
-		flags = append(flags, fmt.Sprintf("--autoPeering.seed=base58:%s", base58.Encode(s.Seed)))
-	}
 
 	return flags
 }

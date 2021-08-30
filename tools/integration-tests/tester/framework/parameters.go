@@ -65,13 +65,11 @@ func PeerConfig() config.GoShimmer {
 
 	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock"}
 
-	c.Network.Enabled = true
-
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
 
 	c.Gossip.Enabled = true
-	c.Gossip.Port = gossipPort
+	c.Gossip.BindAddress = fmt.Sprintf(":%d", gossipPort)
 
 	c.POW.Enabled = true
 	c.POW.Difficulty = 2
@@ -80,7 +78,7 @@ func PeerConfig() config.GoShimmer {
 	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
 
 	c.AutoPeering.Enabled = false
-	c.AutoPeering.Port = peeringPort
+	c.AutoPeering.BindAddress = fmt.Sprintf(":%d", peeringPort)
 	c.AutoPeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true

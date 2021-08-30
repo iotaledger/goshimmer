@@ -22,9 +22,6 @@ import (
 const (
 	ProtocolVersion = 0 // update on protocol changes
 
-	// PluginName is the name of the autopeering plugin.
-	PluginName = "AutoPeering"
-
 	entryNodeParts = 2
 )
 
@@ -35,8 +32,6 @@ var (
 	// the peer discovery protocol
 	peerDisc     *discover.Protocol
 	peerDiscOnce sync.Once
-
-	networkVersion uint32
 )
 
 // Discovery returns the peer discovery instance.
@@ -47,9 +42,7 @@ func Discovery() *discover.Protocol {
 
 func createPeerDisc() {
 	// assure that the logger is available
-	log := logger.NewLogger(PluginName).Named("disc")
-
-	networkVersion = uint32(Parameters.NetworkVersion)
+	log := logger.NewLogger("discovery")
 
 	entryNodes, err := parseEntryNodes()
 	if err != nil {
@@ -57,7 +50,9 @@ func createPeerDisc() {
 	}
 	log.Debugf("Entry nodes: %v", entryNodes)
 
-	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion(),
+	peerDisc = discover.New(
+		local.GetInstance(),
+		ProtocolVersion, Parameters.NetworkVersion,
 		discover.Logger(log),
 		discover.MasterPeers(entryNodes),
 	)
@@ -93,9 +88,4 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	}
 
 	return result, nil
-}
-
-// NetworkVersion returns the network version of the autopeering.
-func NetworkVersion() uint32 {
-	return networkVersion
 }

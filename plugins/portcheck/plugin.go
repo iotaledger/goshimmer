@@ -49,9 +49,9 @@ func checkAutopeeringConnection() {
 	peering := local.GetInstance().Services().Get(service.PeeringKey)
 
 	// resolve the bind address
-	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.BindAddress())
+	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.Parameters.BindAddress)
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.ParametersNetwork.BindAddress, err)
+		log.Fatalf("Error resolving %s: %v", autopeering.Parameters.BindAddress, err)
 	}
 	// open a connection
 	conn, err := net.ListenUDP(peering.Network(), localAddr)
@@ -61,7 +61,7 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), discovery.ProtocolVersion, discovery.NetworkVersion(), discover.Logger(log))
+	disc := discover.New(local.GetInstance(), discovery.ProtocolVersion, discovery.Parameters.NetworkVersion, discover.Logger(log))
 	srv := server.Serve(local.GetInstance(), conn, log, disc)
 	defer srv.Close()
 

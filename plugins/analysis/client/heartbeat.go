@@ -7,9 +7,10 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )

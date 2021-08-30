@@ -11,14 +11,12 @@ base58:BZx5tDLymckUV5wiswXJtajgQrBEzTBBRR4uGfr1YNGS
 
 You can now copy one of that strings (together with the encoding type prefix) and paste it into the GoShimmer `config.json` under the `autoPeering` section:
 
-```
-"autoPeering": {
-    "entryNodes": [
-      "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626"
-    ],
-    "port": 14626,
-    "seed":"base64:gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSyY="
-  },
+```json
+"node": {
+  "seed":"base64:gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSyY=",
+  "disablePlugins": [],
+  "enablePlugins": []
+},
 ``` 
 
 Or if you are using docker and prefer to set this with a command, you can define the same by changing the GoShimmer docker-compose.yml:

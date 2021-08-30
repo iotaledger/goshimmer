@@ -11,8 +11,9 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )

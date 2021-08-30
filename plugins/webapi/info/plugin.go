@@ -126,7 +126,7 @@ func getInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
-		NetworkVersion:          discovery.NetworkVersion(),
+		NetworkVersion:          discovery.Parameters.NetworkVersion,
 		TangleTime:              tangleTime,
 		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),
 		IdentityIDShort:         local.GetInstance().Identity.ID().String(),
