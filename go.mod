@@ -9,14 +9,13 @@ require (
 	github.com/beevik/ntp v0.3.0
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
 	github.com/cockroachdb/errors v1.8.4
-	github.com/cockroachdb/pebble v0.0.0-20210817201821-5e4468e97817 // indirect
-	github.com/dgraph-io/badger/v2 v2.2007.3 // indirect
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/golang/protobuf v1.5.2
+	github.com/golang/snappy v0.0.3 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/iotaledger/hive.go v0.0.0-20210808094628-91e3bbe1eac1
 	github.com/knadh/koanf v1.2.1 // indirect
@@ -37,10 +36,8 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0
 	go.dedis.ch/kyber/v3 v3.0.13
-	go.etcd.io/bbolt v1.3.6 // indirect
 	go.mongodb.org/mongo-driver v1.5.1
 	go.uber.org/atomic v1.9.0
-	go.uber.org/dig v1.12.0 // indirect
 	go.uber.org/zap v1.19.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
