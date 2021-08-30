@@ -37,8 +37,7 @@ services:
       --metrics.global=true
       --metrics.local=true
       --metrics.manaResearch=false
-      --dashboard.bindAddress=0.0.0.0:8082
-      --node.disablePlugins=clock
+      --node.disablePlugins=portcheck,clock
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus,spammer,"webapi tools endpoint",activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
@@ -54,15 +53,10 @@ services:
       - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
     ports:
       - "8080:8080/tcp" # web API
-      - "8082:8082/tcp" # dashboard
+      - "8081:8081/tcp" # dashboard
       - "9000:9000/tcp" # analysis dashboard
     expose:
-      - 10895/tcp # FPC
-      - 14626/tcp # Autopeering
-      - 14666/tcp # Gossip
       - 1888/tcp # analysis server
-      - 6061/tcp # Pprof Profiling
-      - 9311/tcp # prometheus
     networks:
       - shimmer
   peer_replica:
@@ -93,15 +87,6 @@ services:
     volumes:
       - ./builder/wait-for.sh:/run/wait-for.sh:ro
       - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
-    expose:
-      - 10895/tcp # FPC
-      - 14626/tcp # Autopeering
-      - 14666/tcp # Gossip
-      - 1888/tcp # analysis server
-      - 6061/tcp # Pprof Profiling
-      - 8080/tcp # web API
-      - 8081/tcp # web API
-      - 9311/tcp # prometheus
     networks:
       - shimmer
     depends_on:
@@ -133,16 +118,8 @@ services:
       - ./builder/wait-for.sh:/run/wait-for.sh:ro
       - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
     ports:
-      - "8081:8081/tcp" # dashboard
-    expose:
-      - 10895/tcp # FPC
-      - 14626/tcp # Autopeering
-      - 14666/tcp # Gossip
-      - 1888/tcp # analysis server
-      - 6061/tcp # Pprof Profiling
-      - 8080/tcp # web API
-      - 8081/tcp # web API
-      - 9311/tcp # prometheus
+      - "8090:8080/tcp" # web API
+      - "8091:8081/tcp" # dashboard
     networks:
       - shimmer
     depends_on:
