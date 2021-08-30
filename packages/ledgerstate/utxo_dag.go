@@ -130,14 +130,14 @@ func (u *UTXODAG) Shutdown() {
 func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error) {
 	propagationWalker := walker.New(true)
 
-	eventsQueue := events.NewQueue()
+	eventQueue := eventsNewQueue()
 
 	u.LockEntity(transaction)
 	u.CachedTransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
 		u.transactionStorage.Store(transaction).Release()
 		transactionMetadata := NewTransactionMetadata(transactionID)
 
-		err = u.solidifyTransaction(transaction, transactionMetadata, eventsQueue, propagationWalker)
+		err = u.solidifyTransaction(transaction, transactionMetadata, eventQueue, propagationWalker)
 		stored = true
 
 		return transactionMetadata
@@ -146,19 +146,19 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 	})
 	u.UnlockEntity(transaction)
 
-	eventsQueue.Trigger()
+	eventQueue.Trigger()
 
 	for propagationWalker.HasNext() {
 		transactionID := propagationWalker.Next().(TransactionID)
 
 		u.CachedTransaction(transactionID).Consume(func(transaction *Transaction) {
-			defer eventsQueue.Trigger()
+			defer eventQueue.Trigger()
 
 			u.LockEntity(transaction)
 			defer u.UnlockEntity(transaction)
 
 			u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-				_ = u.solidifyTransaction(transaction, transactionMetadata, eventsQueue, propagationWalker)
+				_ = u.solidifyTransaction(transaction, transactionMetadata, eventQueue, propagationWalker)
 			})
 		})
 	}
@@ -413,7 +413,7 @@ func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmed
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
 
-func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, eventsQueue *events.Queue, propagationWalker *walker.Walker) (err error) {
+func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, eventsQueue *eventsQueue, propagationWalker *walker.Walker) (err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
