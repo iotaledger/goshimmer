@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
@@ -32,15 +31,12 @@ type GoShimmer struct {
 	// Seed specifies identity.
 	Seed []byte
 
-	// Network specifies network-level configurations
-	Network
-
 	// individual plugin configurations
 	Database
 	Gossip
 	POW
-	Webapi
-	Autopeering
+	WebAPI
+	AutoPeering
 	MessageLayer
 	Faucet
 	Mana
@@ -57,12 +53,6 @@ func NewGoShimmer() (config GoShimmer) {
 	config = GoShimmer{}
 	fillStructFromDefaultTag(reflect.ValueOf(&config).Elem())
 	return
-}
-
-type Network struct {
-	Enabled bool
-
-	peer.ParametersDefinitionNetwork
 }
 
 // Database defines the parameters of the database plugin.
@@ -86,20 +76,19 @@ type POW struct {
 	pow.ParametersDefinition
 }
 
-// Webapi defines the parameters of the Web API plugin.
-type Webapi struct {
+// WebAPI defines the parameters of the Web API plugin.
+type WebAPI struct {
 	Enabled bool
 
 	webapi.ParametersDefinition
 }
 
-// Autopeering defines the parameters of the autopeering plugin.
-type Autopeering struct {
+// AutoPeering defines the parameters of the autopeering plugin.
+type AutoPeering struct {
 	Enabled bool
 
 	autopeering.ParametersDefinition
 	discovery.ParametersDefinitionDiscovery
-	peer.ParametersDefinitionLocal
 }
 
 // Faucet defines the parameters of the faucet plugin.

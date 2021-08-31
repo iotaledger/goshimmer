@@ -4,18 +4,16 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/dig"
-
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/kvstore"
-
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -150,8 +148,8 @@ func configure(plugin *node.Plugin) {
 		}
 	}
 
-	fcob.LikedThreshold = time.Duration(Parameters.FCOB.QuarantineTime) * time.Second
-	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.QuarantineTime+Parameters.FCOB.QuarantineTime) * time.Second
+	fcob.LikedThreshold = Parameters.FCOB.QuarantineTime
+	fcob.LocallyFinalizedThreshold = 2 * Parameters.FCOB.QuarantineTime
 
 	configureApprovalWeight()
 }

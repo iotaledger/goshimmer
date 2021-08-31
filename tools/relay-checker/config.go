@@ -1,32 +1,36 @@
 package main
 
+import (
+	"time"
+)
+
 var (
 	nodes        []string
 	target       = ""
 	msgData      = "TEST99BROADCAST99DATA"
-	cooldownTime = 2
+	cooldownTime = 2 * time.Second
 	repeat       = 1
 )
 
 func initConfig() {
-	if deps.Config.String(CfgTargetNode) == "" {
+	if Parameters.TargetNode == "" {
 		panic("Set the target node address\n")
 	}
-	target = deps.Config.String(CfgTargetNode)
+	target = Parameters.TargetNode
 
-	if len(deps.Config.Strings(CfgTestNodes)) == 0 {
+	if len(Parameters.TestNodes) == 0 {
 		panic("Set node addresses\n")
 	}
-	nodes = append(nodes, deps.Config.Strings(CfgTestNodes)...)
+	nodes = append(nodes, Parameters.TestNodes...)
 
 	// optional settings
-	if deps.Config.String(CfgData) != "" {
-		msgData = deps.Config.String(CfgData)
+	if Parameters.Data != "" {
+		msgData = Parameters.Data
 	}
-	if deps.Config.Int(CfgCooldownTime) > 0 {
-		cooldownTime = deps.Config.Int(CfgCooldownTime)
+	if Parameters.CooldownTime > 0 {
+		cooldownTime = Parameters.CooldownTime
 	}
-	if deps.Config.Int(CfgRepeat) > 0 {
-		repeat = deps.Config.Int(CfgRepeat)
+	if Parameters.Repeat > 0 {
+		repeat = Parameters.Repeat
 	}
 }

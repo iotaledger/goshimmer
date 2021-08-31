@@ -13,7 +13,7 @@ import (
 )
 
 // PluginName is the name of the web API healthz endpoint plugin.
-const PluginName = "WebAPI healthz Endpoint"
+const PluginName = "WebAPIHealthzEndpoint"
 
 type dependencies struct {
 	dig.In

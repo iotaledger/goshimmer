@@ -9,7 +9,7 @@ import (
 )
 
 // PluginName is the name of the PoW plugin.
-const PluginName = "PoW"
+const PluginName = "POW"
 
 var (
 	// Plugin is the plugin instance of the PoW plugin.

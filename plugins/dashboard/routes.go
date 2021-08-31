@@ -60,7 +60,7 @@ func indexRoute(e echo.Context) error {
 }
 
 func setupRoutes(e *echo.Echo) {
-	if deps.Node.Bool("dashboard.dev") {
+	if Parameters.Dev {
 		e.Static("/assets", "./plugins/dashboard/frontend/src/assets")
 	} else {
 		// load assets from pkger: either from within the binary or actual disk

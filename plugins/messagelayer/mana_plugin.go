@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"go.uber.org/dig"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -48,6 +49,16 @@ var (
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool
 )
+
+func init() {
+	ManaPlugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() mana.ManaRetrievalFunc {
+			return GetConsensusMana
+		}, dig.Name("manaFunc")); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
+}
 
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)

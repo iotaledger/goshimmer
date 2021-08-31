@@ -14,14 +14,13 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	peer2 "github.com/iotaledger/goshimmer/plugins/peer"
 )
 
 // PluginName is the name of the port check plugin.
 const PluginName = "PortCheck"
 
 var (
-	// plugin is the plugin instance of the port check plugin.
+	// Plugin is the plugin instance of the port check plugin.
 	Plugin *node.Plugin
 	log    *logger.Logger
 
@@ -58,9 +57,9 @@ func checkAutopeeringConnection() {
 	peering := deps.Local.Services().Get(service.PeeringKey)
 
 	// resolve the bind address
-	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.BindAddress())
+	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.Parameters.BindAddress)
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", peer2.ParametersNetwork.BindAddress, err)
+		log.Fatalf("Error resolving %s: %v", autopeering.Parameters.BindAddress, err)
 	}
 	// open a connection
 	conn, err := net.ListenUDP(peering.Network(), localAddr)
@@ -70,7 +69,7 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(deps.Local, discovery.ProtocolVersion, discovery.NetworkVersion(), discover.Logger(log))
+	disc := discover.New(deps.Local, discovery.ProtocolVersion, discovery.Parameters.NetworkVersion, discover.Logger(log))
 	srv := server.Serve(deps.Local, conn, log, disc)
 	defer srv.Close()
 

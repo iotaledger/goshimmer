@@ -8,7 +8,7 @@ import (
 )
 
 // PluginName is the name of the web API mana endpoint plugin.
-const PluginName = "WebAPI Mana Endpoint"
+const PluginName = "WebAPIManaEndpoint"
 
 type dependencies struct {
 	dig.In
@@ -18,7 +18,7 @@ type dependencies struct {
 }
 
 var (
-	// plugin is the plugin instance of the web API mana endpoint plugin.
+	// Plugin is the plugin instance of the web API mana endpoint plugin.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 )

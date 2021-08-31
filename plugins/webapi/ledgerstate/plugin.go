@@ -28,7 +28,7 @@ import (
 
 // PluginName is the name of the web API plugin.
 const (
-	PluginName                       = "WebAPI ledgerstate Endpoint"
+	PluginName                       = "WebAPILedgerstateEndpoint"
 	DoubleSpendFilterCleanupInterval = 10 * time.Second
 )
 
@@ -80,7 +80,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("WebAPI Double Spend Filter", worker, shutdown.PriorityWebAPI); err != nil {
+	if err := daemon.BackgroundWorker("WebAPIDoubleSpendFilter", worker, shutdown.PriorityWebAPI); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 

@@ -30,7 +30,7 @@ const (
 )
 
 func indexRoute(e echo.Context) error {
-	if deps.Config.Bool(CfgDev) {
+	if Parameters.Dev {
 		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://127.0.0.1:9090/", nil /* body */)
 		if err != nil {
 			return err
@@ -60,7 +60,7 @@ func indexRoute(e echo.Context) error {
 }
 
 func setupRoutes(e *echo.Echo) {
-	if deps.Config.Bool("analysis.dashboard.dev") {
+	if Parameters.Dev {
 		e.Static("/assets", "./plugins/analysis/dashboard/frontend/src/assets")
 	} else {
 		// load assets from packr: either from within the binary or actual disk

@@ -33,10 +33,9 @@ import (
 
 const (
 	// DefaultPollingInterval is the polling interval of the wallet when waiting for confirmation. (in ms)
-	DefaultPollingInterval = 500 // in ms
+	DefaultPollingInterval = 500 * time.Millisecond
 	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms)
-	DefaultConfirmationTimeout = 150000 // in ms
-	milliSeconds               = 1000   // miliseconds in a second
+	DefaultConfirmationTimeout = 150000 * time.Millisecond
 	// DefaultAssetRegistryNetwork is the default asset registry network.
 	DefaultAssetRegistryNetwork = "nectar"
 )
@@ -54,8 +53,8 @@ type Wallet struct {
 	faucetPowDifficulty int
 	// if this option is enabled the wallet will use a single reusable address instead of changing addresses.
 	reusableAddress          bool
-	ConfirmationPollInterval int // in milliseconds
-	ConfirmationTimeout      int // in ms
+	ConfirmationPollInterval time.Duration
+	ConfirmationTimeout      time.Duration
 }
 
 // New is the factory method of the wallet. It either creates a new wallet or restores the wallet backup that is handed
@@ -1937,9 +1936,9 @@ func (wallet *Wallet) ExportState() []byte {
 
 // WaitForTxConfirmation waits for the given tx to confirm. If the transaction is rejected, an error is returned.
 func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err error) {
-	timeoutCounter := 0
+	timeoutCounter := time.Duration(0)
 	for {
-		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
+		time.Sleep(wallet.ConfirmationPollInterval)
 		timeoutCounter += wallet.ConfirmationPollInterval
 		state, fetchErr := wallet.connector.GetTransactionInclusionState(txID)
 		if fetchErr != nil {
@@ -1952,7 +1951,7 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 			return errors.Errorf("transaction %s has been rejected", txID.Base58())
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {
-			return errors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/milliSeconds)
+			return errors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/time.Second)
 		}
 	}
 }
@@ -1964,9 +1963,9 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 // waitForBalanceConfirmation waits until the balance of the wallet changes compared to the provided argument.
 // (a transaction modifying the wallet balance got confirmed)
 func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledgerstate.Color]uint64) (err error) {
-	timeoutCounter := 0
+	timeoutCounter := time.Duration(0)
 	for {
-		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
+		time.Sleep(wallet.ConfirmationPollInterval)
 		timeoutCounter += wallet.ConfirmationPollInterval
 		if err = wallet.Refresh(); err != nil {
 			return
@@ -1980,7 +1979,7 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledger
 			return
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {
-			return errors.Errorf("confirmed balance did not change within timeout limit (%d)", wallet.ConfirmationTimeout/milliSeconds)
+			return errors.Errorf("confirmed balance did not change within timeout limit (%d)", wallet.ConfirmationTimeout/time.Second)
 		}
 	}
 }
@@ -1989,7 +1988,7 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledger
 // (a tx submitting an alias governance transition is confirmed)
 func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput) (err error) {
 	for {
-		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
+		time.Sleep(wallet.ConfirmationPollInterval)
 		if err = wallet.Refresh(); err != nil {
 			return
 		}
@@ -2008,7 +2007,7 @@ func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[
 // (a tx submitting an alias state transition is confirmed)
 func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput) (err error) {
 	for {
-		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
+		time.Sleep(wallet.ConfirmationPollInterval)
 
 		if err = wallet.Refresh(); err != nil {
 			return

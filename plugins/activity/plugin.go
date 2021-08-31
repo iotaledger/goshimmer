@@ -50,11 +50,11 @@ func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Activity-plugin", func(shutdownSignal <-chan struct{}) {
 		// start with initial delay
 		rand.NewSource(time.Now().UnixNano())
-		initialDelay := rand.Intn(Parameters.DelayOffset)
-		time.Sleep(time.Duration(initialDelay) * time.Second)
+		initialDelay := time.Duration(rand.Intn(int(Parameters.DelayOffset)))
+		time.Sleep(initialDelay)
 
-		if Parameters.BroadcastIntervalSec > 0 {
-			timeutil.NewTicker(broadcastActivityMessage, time.Duration(Parameters.BroadcastIntervalSec)*time.Second, shutdownSignal)
+		if Parameters.BroadcastInterval > 0 {
+			timeutil.NewTicker(broadcastActivityMessage, Parameters.BroadcastInterval, shutdownSignal)
 		}
 
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.

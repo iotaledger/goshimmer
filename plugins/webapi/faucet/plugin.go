@@ -31,7 +31,7 @@ type dependencies struct {
 
 // Plugin gets the plugin instance.
 func init() {
-	Plugin = node.NewPlugin("WebAPI faucet Endpoint", deps, node.Enabled, configure)
+	Plugin = node.NewPlugin("WebAPIFaucetEndpoint", deps, node.Enabled, configure)
 }
 
 func configure(_ *node.Plugin) {

@@ -1,8 +1,6 @@
 package gossip
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
@@ -19,9 +17,8 @@ import (
 const PluginName = "Gossip"
 
 var (
-	// plugin is the plugin instance of the gossip plugin.
+	// Plugin is the plugin instance of the gossip plugin.
 	Plugin *node.Plugin
-	once   sync.Once
 
 	deps = new(dependencies)
 )
@@ -45,7 +42,7 @@ func init() {
 	}))
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	configureLogging()
 	configureMessageLayer()
 }

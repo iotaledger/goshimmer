@@ -9,7 +9,7 @@ import (
 )
 
 // PluginName is the name of the web API tools DRNG endpoint plugin.
-const PluginName = "WebAPI tools Endpoint DRNG"
+const PluginName = "WebAPIToolsDRNGEndpoint"
 
 var (
 	// Plugin is the plugin instance of the web API tools messages endpoint plugin.

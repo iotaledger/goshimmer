@@ -19,24 +19,17 @@ import (
 const (
 	ProtocolVersion = 0 // update on protocol changes
 
-	// PluginName is the name of the autopeering plugin.
-	PluginName = "Autopeering"
-
 	entryNodeParts = 2
 )
 
 var (
 	// ErrParsingEntryNode is returned for an invalid entry node.
 	ErrParsingEntryNode = errors.New("cannot parse entry node")
-
-	networkVersion uint32
 )
 
 // CreatePeerDisc creates a discover protocol instance.
 func CreatePeerDisc(localID *peer.Local) *discover.Protocol {
-	// assure that the logger is available
-	log := logger.NewLogger(PluginName).Named("disc")
-	networkVersion = uint32(Parameters.NetworkVersion)
+	log := logger.NewLogger("Autopeering").Named("disc")
 
 	entryNodes, err := parseEntryNodes()
 	if err != nil {
@@ -44,7 +37,7 @@ func CreatePeerDisc(localID *peer.Local) *discover.Protocol {
 	}
 	log.Debugf("Entry nodes: %v", entryNodes)
 
-	return discover.New(localID, ProtocolVersion, NetworkVersion(),
+	return discover.New(localID, ProtocolVersion, Parameters.NetworkVersion,
 		discover.Logger(log),
 		discover.MasterPeers(entryNodes),
 	)
@@ -80,9 +73,4 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	}
 
 	return result, nil
-}
-
-// NetworkVersion returns the network version of the autopeering.
-func NetworkVersion() uint32 {
-	return networkVersion
 }

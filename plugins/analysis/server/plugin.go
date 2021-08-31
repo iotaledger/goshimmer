@@ -25,7 +25,7 @@ import (
 
 const (
 	// PluginName is the name of the analysis server plugin.
-	PluginName = "Analysis-Server"
+	PluginName = "AnalysisServer"
 
 	// CfgAnalysisServerBindAddress defines the bind address of the analysis server.
 	CfgAnalysisServerBindAddress = "analysis.server.bindAddress"

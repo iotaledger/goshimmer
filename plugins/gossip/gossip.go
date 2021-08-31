@@ -2,30 +2,34 @@ package gossip
 
 import (
 	"net"
-	"strconv"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/netutil"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	peer2 "github.com/iotaledger/goshimmer/plugins/peer"
 )
 
 // ErrMessageNotFound is returned when a message could not be found in the Tangle.
 var ErrMessageNotFound = errors.New("message not found")
 
+var (
+	localAddr *net.TCPAddr
+)
+
 func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
-	// announce the gossip service
-	gossipPort := Parameters.Port
-	if !netutil.IsValidPort(gossipPort) {
-		Plugin.LogFatalf("Invalid port number: %d", gossipPort)
+	var err error
+
+	// resolve the bind address
+	localAddr, err = net.ResolveTCPAddr("tcp", Parameters.BindAddress)
+	if err != nil {
+		Plugin.LogFatalf("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
 	}
 
-	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
+	// announce the gossip service
+	if err := lPeer.UpdateService(service.GossipKey, localAddr.Network(), localAddr.Port); err != nil {
 		Plugin.LogFatalf("could not update services: %s", err)
 	}
 
@@ -48,17 +52,7 @@ func start(shutdownSignal <-chan struct{}) {
 
 	lPeer := deps.Local
 
-	// use the port of the gossip service
-	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
-
-	// resolve the bind address
-	address := net.JoinHostPort(deps.Node.String(peer2.ParametersNetwork.BindAddress), strconv.Itoa(gossipEndpoint.Port()))
-	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
-	if err != nil {
-		Plugin.LogFatalf("Error resolving: %v", err)
-	}
-
-	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
+	listener, err := net.ListenTCP(localAddr.Network(), localAddr)
 	if err != nil {
 		Plugin.LogFatalf("Error listening: %v", err)
 	}

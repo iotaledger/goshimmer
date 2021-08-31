@@ -134,7 +134,7 @@ func TestManaApis(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		Autopeering: true, // we need to discover online peers
+		AutoPeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)

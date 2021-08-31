@@ -18,7 +18,7 @@ import (
 )
 
 // PluginName is the name of the dashboard plugin.
-const PluginName = "Analysis-Dashboard"
+const PluginName = "AnalysisDashboard"
 
 var (
 	// Plugin is the plugin instance of the dashboard plugin.
@@ -47,10 +47,10 @@ func configureServer() {
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if deps.Config.Bool(CfgBasicAuthEnabled) {
+	if Parameters.BasicAuthEnabled {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == deps.Config.String(CfgBasicAuthUsername) &&
-				password == deps.Config.String(CfgBasicAuthPassword) {
+			if username == Parameters.BasicAuthUsername &&
+				password == Parameters.BasicAuthPassword {
 				return true, nil
 			}
 			return false, nil
@@ -76,7 +76,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := deps.Config.String(CfgBindAddress)
+	bindAddr := Parameters.BindAddress
 	go func() {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		if err := server.Start(bindAddr); err != nil {

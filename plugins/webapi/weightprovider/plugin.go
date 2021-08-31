@@ -25,7 +25,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin("WebAPI WeightProvider Endpoint", deps, node.Enabled, configure)
+	Plugin = node.NewPlugin("WebAPIWeightProviderEndpoint", deps, node.Enabled, configure)
 }
 
 func configure(_ *node.Plugin) {

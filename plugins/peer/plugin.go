@@ -42,37 +42,29 @@ func configureLocal(kvStore kvstore.KVStore) *peer.Local {
 	log := logger.NewLogger("Local")
 
 	var peeringIP net.IP
-	if strings.ToLower(ParametersNetwork.ExternalAddress) == "auto" {
+	if strings.ToLower(Parameters.ExternalAddress) == "auto" {
 		// let the autopeering discover the IP
 		peeringIP = net.IPv4zero
 	} else {
-		peeringIP = net.ParseIP(ParametersNetwork.ExternalAddress)
+		peeringIP = net.ParseIP(Parameters.ExternalAddress)
 		if peeringIP == nil {
-			log.Fatalf("Invalid IP address: %s", ParametersNetwork.ExternalAddress)
+			log.Fatalf("Invalid IP address: %s", Parameters.ExternalAddress)
 		}
 		if !peeringIP.IsGlobalUnicast() {
 			log.Warnf("IP is not a global unicast address: %s", peeringIP.String())
 		}
 	}
 
-	if ParametersLocal.Port < 0 || ParametersLocal.Port > 65535 {
-		log.Fatalf("Invalid port number: %d", ParametersLocal.Port)
-	}
-
-	// announce the peering service
-	services := service.New()
-	services.Update(service.PeeringKey, "udp", ParametersLocal.Port)
-
 	// set the private key from the seed provided in the config
 	var seed [][]byte
-	if ParametersLocal.Seed != "" {
+	if Parameters.Seed != "" {
 		var bytes []byte
 		var err error
 
-		if strings.HasPrefix(ParametersLocal.Seed, "base58:") {
-			bytes, err = base58.Decode(ParametersLocal.Seed[7:])
-		} else if strings.HasPrefix(ParametersLocal.Seed, "base64:") {
-			bytes, err = base64.StdEncoding.DecodeString(ParametersLocal.Seed[7:])
+		if strings.HasPrefix(Parameters.Seed, "base58:") {
+			bytes, err = base58.Decode(Parameters.Seed[7:])
+		} else if strings.HasPrefix(Parameters.Seed, "base64:") {
+			bytes, err = base64.StdEncoding.DecodeString(Parameters.Seed[7:])
 		} else {
 			err = fmt.Errorf("neither base58 nor base64 prefix provided")
 		}
@@ -96,6 +88,10 @@ func configureLocal(kvStore kvstore.KVStore) *peer.Local {
 	// the private key seed of the current local can be returned the following way:
 	// key, _ := peerDB.LocalPrivateKey()
 	// fmt.Printf("Seed: base58:%s\n", key.Seed().String())
+
+	// TODO: remove requirement for PeeringKey in hive.go
+	services := service.New()
+	services.Update(service.PeeringKey, "dummy", 0)
 
 	local, err := peer.NewLocal(peeringIP, services, peerDB, seed...)
 	if err != nil {

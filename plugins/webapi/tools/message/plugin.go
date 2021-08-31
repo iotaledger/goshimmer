@@ -12,7 +12,7 @@ import (
 )
 
 // PluginName is the name of the web API tools messages endpoint plugin.
-const PluginName = "WebAPI tools Endpoint Messages"
+const PluginName = "WebAPIToolsMessageEndpoint"
 
 var (
 	// Plugin is the plugin instance of the web API tools messages endpoint plugin.

@@ -32,10 +32,9 @@ const (
 )
 
 var (
-	// Plugin is the "plugin" instance of the faucet application.
+	// Plugin is the plugin instance of the faucet application.
 	Plugin                 *node.Plugin
 	_faucet                *StateManager
-	faucetOnce             sync.Once
 	powVerifier            = pow.New()
 	fundingWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
@@ -76,7 +75,7 @@ func newFaucet() *StateManager {
 	if Parameters.TokensPerRequest <= 0 {
 		Plugin.LogFatalf("the amount of tokens to fulfill per request must be above zero")
 	}
-	if Parameters.MaxTransactionBookedAwaitTimeSeconds <= 0 {
+	if Parameters.MaxTransactionBookedAwaitTime <= 0 {
 		Plugin.LogFatalf("the max transaction booked await time must be more than 0")
 	}
 	if Parameters.PreparedOutputsCount <= 0 {
@@ -86,7 +85,7 @@ func newFaucet() *StateManager {
 		uint64(Parameters.TokensPerRequest),
 		walletseed.NewSeed(seedBytes),
 		uint64(Parameters.PreparedOutputsCount),
-		time.Duration(Parameters.MaxTransactionBookedAwaitTimeSeconds)*time.Second,
+		Parameters.MaxTransactionBookedAwaitTime,
 	)
 }
 

@@ -19,7 +19,7 @@ var fileName = "approval-analysis.csv"
 
 // ApprovalHandler runs the approval analysis.
 func ApprovalHandler(c echo.Context) error {
-	path := deps.Config.String(CfgExportPath)
+	path := Parameters.ExportPath
 	res := &ApprovalResponse{}
 	res.Err = firstApprovalAnalysis(deps.Local.Identity.ID().String(), path+fileName)
 	if res.Err != nil {

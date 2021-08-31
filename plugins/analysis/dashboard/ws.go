@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	webSocketWriteTimeout = time.Duration(3) * time.Second
+	webSocketWriteTimeout = 3 * time.Second
 
 	// clients
 	wsClientsMu    sync.Mutex
@@ -103,7 +103,7 @@ func websocketRoute(c echo.Context) error {
 	defer removeWsClient(clientID)
 
 	// send mana dashboard address info
-	manaDashboardHostAddress := deps.Config.String(CfgManaDashboardAddress)
+	manaDashboardHostAddress := Parameters.ManaDashboardAddress
 	err = sendJSON(ws, &wsmsg{
 		Type: dashboard.MsgManaDashboardAddress,
 		Data: manaDashboardHostAddress,

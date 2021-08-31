@@ -22,8 +22,6 @@ func Init() {
 }
 
 func init() {
-	configuration.BindParameters(Parameters, "logger")
-
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
 		if err := container.Invoke(func(config *configuration.Configuration) {
 			if err := logger.InitGlobalLogger(config); err != nil {

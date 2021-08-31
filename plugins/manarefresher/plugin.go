@@ -29,7 +29,7 @@ type dependencies struct {
 }
 
 // minRefreshInterval is the minimum refresh interval allowed for delegated outputs.
-const minRefreshInterval = 1 // minutes
+const minRefreshInterval = 1 * time.Minute
 
 func init() {
 	Plugin = node.NewPlugin("ManaRefresher", deps, node.Enabled, configure, run)
@@ -46,13 +46,13 @@ func configure(plugin *node.Plugin) {
 	refresher = NewRefresher(localWallet, &DelegationReceiver{wallet: localWallet})
 
 	if Parameters.RefreshInterval < minRefreshInterval {
-		panic(fmt.Sprintf("manarefresh interval of %d minutes is too small, minimum is %d minutes", Parameters.RefreshInterval, minRefreshInterval))
+		panic(fmt.Sprintf("manarefresh interval of %d is too small, minimum is %d ", Parameters.RefreshInterval, minRefreshInterval))
 	}
 }
 
 func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("ManaRefresher-plugin", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(time.Duration(Parameters.RefreshInterval) * time.Minute)
+		ticker := time.NewTicker(Parameters.RefreshInterval)
 		defer ticker.Stop()
 		for {
 			select {

@@ -18,11 +18,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 
-// PluginName is the name of the manualpeering plugin.
-const PluginName = "Manualpeering"
+// PluginName is the name of the manual peering plugin.
+const PluginName = "ManualPeering"
 
 var (
-	// Plugin is the plugin instance of the manualpeering plugin.
+	// Plugin is the plugin instance of the manual peering plugin.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 )

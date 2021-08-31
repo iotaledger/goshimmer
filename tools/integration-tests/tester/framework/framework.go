@@ -68,7 +68,7 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 	}
 
 	// an entry node is only required for autopeering
-	if conf.Autopeering {
+	if conf.AutoPeering {
 		err = network.createEntryNode(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create entry node")
@@ -81,7 +81,7 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 	}
 
 	// wait for peering to complete
-	if conf.Autopeering {
+	if conf.AutoPeering {
 		err = network.WaitForAutopeering(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "autopeering failed")
@@ -109,7 +109,7 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	}
 
 	// make sure that autopeering is on
-	conf.Autopeering = true
+	conf.AutoPeering = true
 
 	// create an entry node with blocked traffic
 	log.Println("Starting entry node...")

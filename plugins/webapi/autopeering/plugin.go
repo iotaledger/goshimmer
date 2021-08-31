@@ -17,10 +17,10 @@ import (
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
-const PluginName = "WebAPI autopeering Endpoint"
+const PluginName = "WebAPIAutopeeringEndpoint"
 
 var (
-	// plugin is the plugin instance of the web API autopeering endpoint plugin.
+	// Plugin is the plugin instance of the web API autopeering endpoint plugin.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 )

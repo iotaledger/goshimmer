@@ -98,7 +98,7 @@ func run(_ *node.Plugin) {
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
 		timeutil.NewTicker(func() {
 			measureMana()
-		}, time.Second*time.Duration(Parameters.ManaUpdateInterval), shutdownSignal)
+		}, Parameters.ManaUpdateInterval, shutdownSignal)
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-shutdownSignal
 		log.Infof("Stopping Metrics Mana Updater ...")
@@ -113,7 +113,7 @@ func run(_ *node.Plugin) {
 			timeutil.NewTicker(func() {
 				measureAccessResearchMana()
 				measureConsensusResearchMana()
-			}, time.Second*time.Duration(Parameters.ManaUpdateInterval), shutdownSignal)
+			}, Parameters.ManaUpdateInterval, shutdownSignal)
 			// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 			<-shutdownSignal
 			log.Infof("Stopping Metrics Research Mana Updater ...")
