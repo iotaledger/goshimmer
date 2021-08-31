@@ -231,6 +231,9 @@ func (u *UTXODAG) GradeOfFinality(transactionID TransactionID) (gradeOfFinality 
 	}
 
 	gradeOfFinality = branch.GradeOfFinality()
+	if transactionGoF := transactionMetadata.GradeOfFinality(); transactionGoF < gradeOfFinality {
+		gradeOfFinality = transactionGoF
+	}
 
 	return
 }
