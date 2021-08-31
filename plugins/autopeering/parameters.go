@@ -4,7 +4,7 @@ import "github.com/iotaledger/hive.go/configuration"
 
 // ParametersDefinition contains the definition of configuration parameters used by the autopeering plugin.
 type ParametersDefinition struct {
-	// BindAddress defines the config flag of the network bind address.
+	// BindAddress defines the config flag of the autopeering bind address.
 	BindAddress string `default:"0.0.0.0:14626" usage:"bind address for the autopeering"`
 
 	// Mana defines the config flag of mana in the autopeering.
