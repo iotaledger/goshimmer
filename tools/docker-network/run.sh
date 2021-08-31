@@ -34,7 +34,6 @@ export SHIMMER_PEER_REPLICAS=$REPLICAS
 PROFILES=()
 if [ $GRAFANA -ne 0 ]
 then
-  export MONGO_DB_ENABLED=true
   PROFILES+=("grafana")
 fi
 
