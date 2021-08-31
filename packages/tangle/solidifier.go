@@ -103,6 +103,9 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 }
 
 func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (approversToPropagate MessageIDs) {
+	s.triggerMutex.LockEntity(message)
+	defer s.triggerMutex.UnlockEntity(message)
+
 	approversToPropagate = make(MessageIDs, 0)
 
 	if !s.isMessageWeaklySolid(message, messageMetadata, requestMissingMessages) {
@@ -129,6 +132,9 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 }
 
 func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *MessageMetadata) (approversToPropagate MessageIDs) {
+	s.triggerMutex.LockEntity(message)
+	defer s.triggerMutex.UnlockEntity(message)
+
 	approversToPropagate = make(MessageIDs, 0)
 
 	if s.isMessageSolid(message, messageMetadata, true) {

@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -197,11 +198,30 @@ type Message struct {
 	nonce           uint64
 	signature       ed25519.Signature
 
+	lock      []interface{}
+	lockMutex sync.Mutex
+
 	// derived properties
 	id         *MessageID
 	idMutex    sync.RWMutex
 	bytes      []byte
 	bytesMutex sync.RWMutex
+}
+
+func (m *Message) Locks() (locks []interface{}) {
+	m.lockMutex.Lock()
+	defer m.lockMutex.Unlock()
+
+	if m.lock == nil {
+		lockBuilder := (&syncutils.MultiMutexLockBuilder{}).AddLock(m.ID())
+		m.ForEachParent(func(parent Parent) {
+			lockBuilder = lockBuilder.AddLock(parent.ID)
+		})
+
+		m.lock = lockBuilder.Build()
+	}
+
+	return m.lock
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
