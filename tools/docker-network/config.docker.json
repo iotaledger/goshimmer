@@ -15,7 +15,7 @@
     "entryNodes": [
       "DLoMdp3nJ7jnFT1K13R2m5nZN7ijLcmaZhCdTPJs2duo@peer_master:14626"
     ],
-    "port": 14626
+    "bindAddress": "0.0.0.0:14626"
   },
   "dashboard": {
     "bindAddress": "0.0.0.0:8081",
