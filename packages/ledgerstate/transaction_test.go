@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 var sampleColor = Color{2}
@@ -18,7 +20,7 @@ func TestTransaction_Bytes(t *testing.T) {
 
 	wallets := createWallets(2)
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
-	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, gof.Low)
 	bytes := tx.Bytes()
 	_tx, _, err := TransactionFromBytes(bytes)
 	assert.NoError(t, err)

@@ -405,9 +405,10 @@ func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata 
 
 		return InvalidBranchID, nil
 	}
-
+	fmt.Println("WUSE")
 	// check if transaction is attaching to something rejected
 	if rejected, rejectedBranch := u.inputsInRejectedBranch(inputsMetadata); rejected {
+		fmt.Println("WASE")
 		u.bookRejectedTransaction(transaction, transactionMetadata, rejectedBranch)
 
 		return rejectedBranch, nil
@@ -417,6 +418,7 @@ func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata 
 	if inputsSpentByConfirmedTransaction, tmpErr := u.inputsSpentByConfirmedTransaction(inputsMetadata); tmpErr != nil {
 		return BranchID{}, errors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
 	} else if inputsSpentByConfirmedTransaction {
+		fmt.Println("DRUSE")
 		return u.bookRejectedConflictingTransaction(transaction, transactionMetadata)
 	}
 
@@ -840,6 +842,7 @@ func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata OutputsMetada
 					err = errors.Errorf("failed to determine InclusionState of Transaction with %s: %w", consumer.TransactionID(), inclusionStateErr)
 					return
 				}
+				fmt.Println(inclusionState)
 				if inclusionState == gof.High {
 					cachedConsumers.Release()
 					inputsSpentByConfirmedTransaction = true
