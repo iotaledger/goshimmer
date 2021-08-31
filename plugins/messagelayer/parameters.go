@@ -21,8 +21,8 @@ type ParametersDefinition struct {
 
 	// FCOB contains parameters related to the transaction quarantine time before applying (if necessary) FPC.
 	FCOB struct {
-		// QuarantineTime determines the duration of the the first half of the quarantime time of the FCoB rule, in seconds.
-		QuarantineTime int `default:"2" usage:"the duration for the first half of the quarantine time of the FCoB rule in sec"`
+		// QuarantineTime determines the duration of the the first half of the quarantime time of the FCoB rule.
+		QuarantineTime time.Duration `default:"2s" usage:"the duration for the first half of the quarantine time of the FCoB rule"`
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
@@ -40,8 +40,8 @@ type FPCParametersDefinition struct {
 	// Listen defines if the FPC service should listen.
 	Listen bool `default:"true" usage:"if the FPC service should listen"`
 
-	// RoundInterval defines how long a round lasts (in seconds).
-	RoundInterval int64 `default:"10" usage:"FPC round interval [s]"`
+	// RoundInterval defines how long a round lasts.
+	RoundInterval time.Duration `default:"10s" usage:"FPC round interval"`
 
 	// QuerySampleSize defines how many nodes will be queried each round.
 	QuerySampleSize int `default:"21" usage:"Size of the voting quorum (k)"`
@@ -52,8 +52,8 @@ type FPCParametersDefinition struct {
 	// DRNGInstanceID the instanceID of the dRNG to be used with FPC.
 	DRNGInstanceID uint32 `default:"1339" usage:"The instanceID of the dRNG to be used with FPC"`
 
-	// AwaitOffset defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
-	AwaitOffset int64 `default:"3" usage:"The max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed"`
+	// AwaitOffset defines the max amount of time to wait for the next dRNG round after the expected time has elapsed.
+	AwaitOffset time.Duration `default:"3s" usage:"The max amount of time to wait for the next dRNG round after the expected time has elapsed"`
 
 	// DefaultRandomness defines default randomness used by FPC when no random is received from the dRNG.
 	DefaultRandomness float64 `default:"0.5" usage:"The default randomness used by FPC when no random is received from the dRNG"`
@@ -62,7 +62,7 @@ type FPCParametersDefinition struct {
 // StatementParametersDefinition contains the definition of the parameters used by the FPC statements in the tangle.
 type StatementParametersDefinition struct {
 	// WaitForStatement is the time in seconds for which the node wait for receiving the new statement.
-	WaitForStatement int `default:"5" usage:"the time in seconds for which the node wait for receiving the new statement"`
+	WaitForStatement time.Duration `default:"5s" usage:"the time for which the node wait for receiving the new statement"`
 
 	// WriteStatement defines if the node should write statements.
 	WriteStatement bool `default:"true" usage:"if the node should make statements"`
@@ -74,10 +74,10 @@ type StatementParametersDefinition struct {
 	WriteManaThreshold float64 `default:"0.7" usage:"Value describing the percentage of top mana nodes that can write a statement"`
 
 	// CleanInterval defines the time interval [in minutes] for cleaning the statement registry.
-	CleanInterval int `default:"5" usage:"the time in minutes after which the node cleans the statement registry"`
+	CleanInterval time.Duration `default:"5m" usage:"the time after which the node cleans the statement registry"`
 
 	// DeleteAfter defines the time [in minutes] after which older statements are deleted from the registry.
-	DeleteAfter int `default:"5" usage:"the time in minutes after which older statements are deleted from the registry"`
+	DeleteAfter time.Duration `default:"5m" usage:"the time after which older statements are deleted from the registry"`
 }
 
 // ManaParametersDefinition contains the definition of the parameters used by the mana plugin.

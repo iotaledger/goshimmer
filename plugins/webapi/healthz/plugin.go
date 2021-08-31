@@ -14,7 +14,7 @@ import (
 )
 
 // PluginName is the name of the web API healthz endpoint plugin.
-const PluginName = "WebAPI healthz Endpoint"
+const PluginName = "WebAPIHealthzEndpoint"
 
 var (
 	// plugin is the plugin instance of the web API info endpoint plugin.

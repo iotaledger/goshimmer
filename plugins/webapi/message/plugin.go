@@ -30,7 +30,7 @@ var (
 // Plugin returns the plugin as a singleton.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin("WebAPI message Endpoint", node.Enabled, func(*node.Plugin) {
+		plugin = node.NewPlugin("WebAPIMessageEndpoint", node.Enabled, func(*node.Plugin) {
 			webapi.Server().GET("messages/:messageID", GetMessage)
 			webapi.Server().GET("messages/:messageID/metadata", GetMessageMetadata)
 			webapi.Server().GET("messages/:messageID/consensus", GetMessageConsensusMetadata)

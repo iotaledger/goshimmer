@@ -16,18 +16,18 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --autopeering.entryNodes=
+      --autoPeering.entryNodes=
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
-      --analysis.dashboard.mongodb.enabled=true
-      --analysis.dashboard.mongodb.hostAddress=metrics-01.pre-devnet.shimmer.iota.cafe:27117
-      --analysis.dashboard.mongodb.username="{{ mongoDBUser }}"
-      --analysis.dashboard.mongodb.password="{{ mongoDBPassword }}"
-      --analysis.dashboard.manaAddress="http://bootstrap-01.pre-devnet.shimmer.iota.cafe:9001"
+      --analysis.dashboard.mongoDBEnabled=true
+      --analysis.dashboard.mongoDBHostAddress=metrics-01.pre-devnet.shimmer.iota.cafe:27117
+      --analysis.dashboard.mongoDBUsername="{{ mongoDBUser }}"
+      --analysis.dashboard.mongoDBPassword="{{ mongoDBPassword }}"
+      --analysis.dashboard.manaDashboardAddress="http://bootstrap-01.pre-devnet.shimmer.iota.cafe:9001"
       --prometheus.bindAddress=0.0.0.0:9312
       --metrics.local=false
       --metrics.global=true
-      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=autopeering,portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus
+      --node.disablePlugins=autoPeering,portcheck,dashboard,analysisClient,gossip,consensus,drng,issuer,syncBeaconFollower,messageLayer,mana,webAPI,webAPIBroadcastDataEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint
       --logger.level=debug

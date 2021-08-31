@@ -11,7 +11,7 @@ import (
 )
 
 // PluginName is the name of the web API tools endpoint plugin.
-const PluginName = "WebAPI tools Endpoint"
+const PluginName = "WebAPIToolsEndpoint"
 
 const (
 	routeDiagnostics = "tools/diagnostic"

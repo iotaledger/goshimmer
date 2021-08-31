@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -22,7 +21,7 @@ var fileName = "approval-analysis.csv"
 
 // ApprovalHandler runs the approval analysis.
 func ApprovalHandler(c echo.Context) error {
-	path := config.Node().String(CfgExportPath)
+	path := Parameters.ExportPath
 	res := &ApprovalResponse{}
 	res.Err = firstApprovalAnalysis(local.GetInstance().Identity.ID().String(), path+fileName)
 	if res.Err != nil {

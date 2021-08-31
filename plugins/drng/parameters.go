@@ -6,12 +6,12 @@ import (
 
 // ParametersDefinition contains the definition of configuration parameters used by the drng plugin.
 type ParametersDefinition struct {
-	// Pollen contains the configuration parameters of GoShimmer dRNG committee.
+	// Pollen contains the configuration parameters of GoShimmer DRNG committee.
 	Pollen struct {
-		// InstanceID defines the config flag of the DRNG instanceId.
-		InstanceID int `name:"instanceId" default:"1" usage:"instance ID of the GoShimmer drng instance"`
+		// InstanceID defines the config flag of the DRNG instance ID.
+		InstanceID int `default:"1" usage:"instance ID of the GoShimmer drng instance"`
 
-		// Threshold defines the config flag of the DRNG threshold.
+		// Threshold defines the config flag of the DRNG BLS threshold.
 		Threshold int `default:"3" usage:"BLS threshold of the GoShimmer drng"`
 
 		// DistributedPubKey defines the config flag of the DRNG distributed Public Key.
@@ -19,14 +19,14 @@ type ParametersDefinition struct {
 
 		// CommitteeMembers defines the config flag of the DRNG committee members identities.
 		CommitteeMembers []string `usage:"list of committee members of the GoShimmer drng"`
-	} `name:"pollen"`
+	}
 
-	// XTeam contains the configuration parameters of the X-Team dRNG committee.
+	// XTeam contains the configuration parameters of the X-Team DRNG committee.
 	XTeam struct {
-		// InstanceID defines the config flag of the DRNG instanceId.
-		InstanceID int `name:"instanceId" default:"1339" usage:"instance ID of the x-team drng instance"`
+		// InstanceID defines the config flag of the DRNG instance ID.
+		InstanceID int `default:"1339" usage:"instance ID of the x-team drng instance"`
 
-		// Threshold defines the config flag of the DRNG threshold.
+		// Threshold defines the config flag of the DRNG BLS threshold.
 		Threshold int `default:"3" usage:"BLS threshold of the x-team drng"`
 
 		// DistributedPubKey defines the config flag of the DRNG distributed Public Key.
@@ -34,14 +34,14 @@ type ParametersDefinition struct {
 
 		// CommitteeMembers defines the config flag of the DRNG committee members identities.
 		CommitteeMembers []string `usage:"list of committee members of the x-team drng"`
-	} `name:"xteam"`
+	}
 
-	// Custom contains the configuration parameters of the custom dRNG committee.
+	// Custom contains the configuration parameters of the custom DRNG committee.
 	Custom struct {
-		// InstanceID defines the config flag of the DRNG instanceId.
-		InstanceID int `name:"instanceId" default:"9999" usage:"instance ID of the custom drng instance"`
+		// InstanceID defines the config flag of the DRNG instance ID.
+		InstanceID int `default:"9999" usage:"instance ID of the custom drng instance"`
 
-		// Threshold defines the config flag of the DRNG threshold.
+		// Threshold defines the config flag of the DRNG BLS threshold.
 		Threshold int `default:"3" usage:"BLS threshold of the custom drng"`
 
 		// DistributedPubKey defines the config flag of the DRNG distributed Public Key.
@@ -49,7 +49,7 @@ type ParametersDefinition struct {
 
 		// CommitteeMembers defines the config flag of the DRNG committee members identities.
 		CommitteeMembers []string `usage:"list of committee members of the custom drng"`
-	} `name:"custom"`
+	}
 }
 
 // Parameters contains the configuration parameters of the drng plugin.

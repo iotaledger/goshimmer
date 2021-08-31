@@ -1,34 +1,36 @@
 package main
 
-import "github.com/iotaledger/goshimmer/plugins/config"
+import (
+	"time"
+)
 
 var (
 	nodes        []string
 	target       = ""
 	msgData      = "TEST99BROADCAST99DATA"
-	cooldownTime = 2
+	cooldownTime = 2 * time.Second
 	repeat       = 1
 )
 
 func initConfig() {
-	if config.Node().String(CfgTargetNode) == "" {
+	if Parameters.TargetNode == "" {
 		panic("Set the target node address\n")
 	}
-	target = config.Node().String(CfgTargetNode)
+	target = Parameters.TargetNode
 
-	if len(config.Node().Strings(CfgTestNodes)) == 0 {
+	if len(Parameters.TestNodes) == 0 {
 		panic("Set node addresses\n")
 	}
-	nodes = append(nodes, config.Node().Strings(CfgTestNodes)...)
+	nodes = append(nodes, Parameters.TestNodes...)
 
 	// optional settings
-	if config.Node().String(CfgData) != "" {
-		msgData = config.Node().String(CfgData)
+	if Parameters.Data != "" {
+		msgData = Parameters.Data
 	}
-	if config.Node().Int(CfgCooldownTime) > 0 {
-		cooldownTime = config.Node().Int(CfgCooldownTime)
+	if Parameters.CooldownTime > 0 {
+		cooldownTime = Parameters.CooldownTime
 	}
-	if config.Node().Int(CfgRepeat) > 0 {
-		repeat = config.Node().Int(CfgRepeat)
+	if Parameters.Repeat > 0 {
+		repeat = Parameters.Repeat
 	}
 }

@@ -21,7 +21,7 @@ type ParametersDefinition struct {
 
 		// Password defines the config flag of the dashboard basic auth password.
 		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
-	} `name:"basic_auth"`
+	}
 }
 
 // Parameters contains the configuration parameters of the dashboard plugin.
