@@ -211,8 +211,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	return
 }
 
-// InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
-// Pending, Confirmed or Rejected.
+// GradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
 func (u *UTXODAG) GradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	cachedTransactionMetadata := u.CachedTransactionMetadata(transactionID)
 	defer cachedTransactionMetadata.Release()
