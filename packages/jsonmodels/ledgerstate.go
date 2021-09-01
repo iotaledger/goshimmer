@@ -527,11 +527,10 @@ func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 
 // Branch represents the JSON model of a ledgerstate.Branch.
 type Branch struct {
-	ID              string              `json:"id"`
-	Type            string              `json:"type"`
-	Parents         []string            `json:"parents"`
-	ConflictIDs     []string            `json:"conflictIDs,omitempty"`
-	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
+	ID          string   `json:"id"`
+	Type        string   `json:"type"`
+	Parents     []string `json:"parents"`
+	ConflictIDs []string `json:"conflictIDs,omitempty"`
 }
 
 // NewBranch returns a Branch from the given ledgerstate.Branch.
@@ -559,7 +558,6 @@ func NewBranch(branch ledgerstate.Branch) Branch {
 
 			return conflictIDs
 		}(),
-		GradeOfFinality: branch.GradeOfFinality(),
 	}
 }
 
