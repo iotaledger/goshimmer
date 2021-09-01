@@ -17,9 +17,9 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --autopeering.port=15626
-      --autopeering.networkVersion={{ networkVersion }}
-      --autopeering.entryNodes=
+      --autoPeering.port=15626
+      --autoPeering.networkVersion={{ networkVersion }}
+      --autoPeering.entryNodes=
       --analysis.client.serverAddress=
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,metrics,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,dashboard,analysisClient,gossip,consensus,drng,issuer,syncBeaconFollower,metrics,messageLayer,mana,webAPI,webAPIBroadcastDataEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint
       --logger.level=debug

@@ -1,6 +1,8 @@
 package faucet
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/configuration"
 )
 
@@ -12,9 +14,9 @@ type ParametersDefinition struct {
 	// TokensPerRequest defines the amount of tokens the faucet should send for each request.
 	TokensPerRequest int `default:"1000000" usage:"the amount of tokens the faucet should send for each request"`
 
-	// MaxTransactionBookedAwaitTimeSeconds defines the time to await for the transaction fulfilling a funding request
+	// MaxTransactionBookedAwaitTime defines the time to await for the transaction fulfilling a funding request
 	// to become booked in the value layer.
-	MaxTransactionBookedAwaitTimeSeconds int `default:"5" usage:"the max amount of time for a funding transaction to become booked in the value layer"`
+	MaxTransactionBookedAwaitTime time.Duration `default:"5s" usage:"the max amount of time for a funding transaction to become booked in the value layer"`
 
 	// PowDifficulty defines the PoW difficulty for faucet payloads.
 	PowDifficulty int `default:"22" usage:"defines the PoW difficulty for faucet payloads"`

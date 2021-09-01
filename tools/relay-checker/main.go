@@ -53,7 +53,7 @@ func main() {
 		fmt.Printf("msgID: %s\n", msgID)
 
 		// cooldown time
-		time.Sleep(time.Duration(cooldownTime) * time.Second)
+		time.Sleep(cooldownTime)
 
 		// query target node
 		err = testTargetGetMessages(api, msgID)

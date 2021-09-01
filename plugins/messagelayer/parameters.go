@@ -21,8 +21,8 @@ type ParametersDefinition struct {
 
 	// FCOB contains parameters related to the transaction quarantine time before applying (if necessary) FPC.
 	FCOB struct {
-		// QuarantineTime determines the duration of the the first half of the quarantime time of the FCoB rule, in seconds.
-		QuarantineTime int `default:"2" usage:"the duration for the first half of the quarantine time of the FCoB rule in sec"`
+		// QuarantineTime determines the duration of the the first half of the quarantime time of the FCoB rule.
+		QuarantineTime time.Duration `default:"2s" usage:"the duration for the first half of the quarantine time of the FCoB rule"`
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.

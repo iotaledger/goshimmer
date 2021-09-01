@@ -178,6 +178,7 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
+	t.Parser.Shutdown()
 	t.MessageFactory.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()

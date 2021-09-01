@@ -1,22 +1,24 @@
 package manaeventlogger
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/configuration"
 )
 
-// ParametersDefinition contains the definition of the parameters used by the manaeventlogger plugin.
+// ParametersDefinition contains the definition of the parameters used by the mana event logger plugin.
 type ParametersDefinition struct {
 	// CSV defines the file path to store mana events.
-	CSV string `name:"csv" default:"/tmp/consensusManaEvents.csv" usage:"file to store mana events"`
+	CSV string `default:"/tmp/consensusManaEvents.csv" usage:"file to store mana events"`
 	// Buffersize defines the events' buffer size.
 	BufferSize int `default:"100" usage:"event logs buffer size"`
-	// CheckBufferIntervalSec defines interval between buffer checks.
-	CheckBufferIntervalSec int `default:"5" usage:"check buffer interval secs"`
+	// CheckBufferInterval defines interval between buffer checks.
+	CheckBufferInterval time.Duration `default:"5s" usage:"check buffer interval"`
 }
 
-// Parameters contains the configuration used by the manaeventlogger plugin.
+// Parameters contains the configuration used by the mana event logger plugin.
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "manaeventlogger")
+	configuration.BindParameters(Parameters, "manaEventLogger")
 }
