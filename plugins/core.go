@@ -29,30 +29,6 @@ import (
 
 // Core contains the core plugins of a GoShimmer node.
 var Core = node.Plugins(
-<<<<<<< HEAD
-	banner.Plugin(),
-	config.Plugin(),
-	logger.Plugin(),
-	cli.Plugin(),
-	gracefulshutdown.Plugin(),
-	portcheck.Plugin(),
-	profiling.Plugin(),
-	database.Plugin(),
-	pow.Plugin(),
-	clock.Plugin(),
-	messagelayer.Plugin(),
-	messagelayer.ManaPlugin(),
-	manarefresher.Plugin(),
-	gossip.Plugin(),
-	autopeering.Plugin(),
-	manualpeering.Plugin(),
-	drng.Plugin(),
-	faucet.Plugin(),
-	consensus.Plugin(),
-	metrics.Plugin(),
-	spammer.Plugin(),
-	manaeventlogger.Plugin(),
-=======
 	banner.Plugin,
 	config.Plugin,
 	logger.Plugin,
@@ -72,9 +48,8 @@ var Core = node.Plugins(
 	manarefresher.Plugin,
 	drng.Plugin,
 	faucet.Plugin,
-	messagelayer.ConsensusPlugin,
+	consensus.Plugin,
 	metrics.Plugin,
 	spammer.Plugin,
 	manaeventlogger.Plugin,
->>>>>>> refactors
 )

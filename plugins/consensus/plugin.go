@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
@@ -33,15 +34,15 @@ import (
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	// ConsensusPlugin is the plugin instance of the statement plugin.
-	ConsensusPlugin *node.Plugin
+	// Plugin is the plugin instance of the consensus plugin.
+	Plugin          *node.Plugin
+	deps            = new(dependencies)
 	voter           vote.DRNGRoundBasedVoter
 	voterServer     *votenet.VoterServer
 	registry        *statement.Registry
@@ -52,15 +53,25 @@ var (
 	dRNGTickerMutex sync.RWMutex
 )
 
-func init() {
-	ConsensusPlugin = node.NewPlugin("Consensus", nil, node.Enabled, configureConsensusPlugin, runConsensusPlugin)
+type dependencies struct {
+	dig.In
 
-	ConsensusPlugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+	Tangle             *tangle.Tangle
+	Local              *peer.Local
+	Discover           *discover.Protocol       `optional:"true"`
+	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
+	ConsensusMechanism tangle.ConsensusMechanism
+}
+
+func init() {
+	Plugin = node.NewPlugin("Consensus", deps, node.Enabled, configureConsensusPlugin, runConsensusPlugin)
+
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
 		if err := container.Provide(func() vote.DRNGRoundBasedVoter {
 			voter = fpc.New(OpinionGiverFunc, OwnManaRetriever)
 			return voter
 		}); err != nil {
-			ConsensusPlugin.Panic(err)
+			Plugin.Panic(err)
 		}
 	}))
 }
@@ -411,7 +422,7 @@ func (pog *PeerOpinionGiver) Address() string {
 func OwnManaRetriever() (float64, error) {
 	var ownMana float64
 	consensusManaNodes, _, err := messagelayer.GetManaMap(mana.ConsensusMana)
-	if v, ok := consensusManaNodes[local.GetInstance().ID()]; ok {
+	if v, ok := consensusManaNodes[deps.Local.ID()]; ok {
 		ownMana = v
 	}
 	return ownMana, err
