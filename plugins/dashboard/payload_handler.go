@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/chat"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // BasicPayload contains content title and bytes
@@ -184,7 +183,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*ledgerstate.UTXOInput).ReferencedOutputID()
-		messagelayer.Tangle().LedgerState.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
+		deps.Tangle.LedgerState.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
 			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
 		})
 	}

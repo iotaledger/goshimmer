@@ -111,8 +111,13 @@ func PeerConfig() config.GoShimmer {
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
-
-	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
+	disable := []string{
+		"ManaRefresher", "Chat", "WebAPIDataEndpoint", "WebAPIDRNGEndpoint",
+		"WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "WebAPIInfoEndpoint",
+		"WebAPIToolsMessageEndpoint", "WebAPIToolsDRNGEndpoint", "WebAPILedgerstateEndpoint",
+		"WebAPIWeightProviderEndpoint", "Issuer", "Metrics", "Consensus", "ManualPeering"}
+	c.DisabledPlugins = append(c.DisabledPlugins, disable...)
+	c.POW.Enabled = false
 	c.Gossip.Enabled = false
 	c.AutoPeering.Enabled = true
 	c.MessageLayer.Enabled = false
