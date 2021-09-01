@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	minSupporterWeight float64 = 0.01
+	minSupporterWeight float64 = 0.000000000000001
 )
 
 // MarkerConfirmed is a function type that provides information whether a marker is confirmed.
@@ -305,7 +305,7 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 
 func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, message *Message, walk *walker.Walker) {
 	// Avoid tracking support of markers in sequence 0.
-	if marker.SequenceID() == 0 {
+	if marker.SequenceID() == 0 || !a.isRelevantSupporter(message) {
 		return
 	}
 
@@ -440,6 +440,7 @@ func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID
 	})
 }
 
+// take everything in future cone because it was not conflicting before and move to new branch
 func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
 	a.migrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
 
