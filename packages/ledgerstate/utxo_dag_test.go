@@ -333,7 +333,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 		assert.True(t, txMetadata.Solid())
 	})
 
-	finality, err := utxoDAG.GradeOfFinality(tx.ID())
+	finality, err := utxoDAG.TransactionGradeOfFinality(tx.ID())
 	require.NoError(t, err)
 	assert.Greater(t, finality, gof.Medium)
 
@@ -388,11 +388,11 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	assert.NotEqual(t, MasterBranchID, txMetadata.BranchID())
 
-	finality, err := utxoDAG.GradeOfFinality(tx1.ID())
+	finality, err := utxoDAG.TransactionGradeOfFinality(tx1.ID())
 	require.NoError(t, err)
 	assert.Greater(t, finality, gof.Medium)
 
-	finality, err = utxoDAG.GradeOfFinality(tx2.ID())
+	finality, err = utxoDAG.TransactionGradeOfFinality(tx2.ID())
 	require.NoError(t, err)
 	assert.Less(t, finality, gof.Medium)
 
