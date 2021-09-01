@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
@@ -19,16 +21,17 @@ import (
 const PluginName = "AnalysisDashboard"
 
 var (
-	// plugin is the plugin instance of the dashboard plugin.
-	plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
-
+	// Plugin is the plugin instance of the dashboard plugin.
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
+	deps   = new(dependencies)
 	log    *logger.Logger
 	server *echo.Echo
 )
 
-// Plugin gets the plugin instance
-func Plugin() *node.Plugin {
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Config *configuration.Configuration
 }
 
 func configure(plugin *node.Plugin) {

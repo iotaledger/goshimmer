@@ -15,7 +15,7 @@ type ParametersDefinition struct {
 	InMemory bool `default:"false" usage:"whether the database is only kept in memory and not persisted"`
 
 	// Dirty defines whether to override the database dirty flag.
-	Dirty string `usage:"set the dirty flag of the database"`
+	Dirty string `default:"false" usage:"set the dirty flag of the database"`
 
 	// ForceCacheTime is a new global cache time in seconds for object storage.
 	ForceCacheTime time.Duration `default:"-1s" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`

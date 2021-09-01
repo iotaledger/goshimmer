@@ -1,41 +1,22 @@
 package autopeering
 
 import (
-	"sync"
-
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var (
-	// Conn contains the network connection.
-	Conn *NetConnMetric
-)
+// Conn contains the network connection.
+var Conn *NetConnMetric
 
-var (
-	// the peer selection protocol
-	peerSel     *selection.Protocol
-	peerSelOnce sync.Once
-)
-
-// Selection returns the neighbor selection instance.
-func Selection() *selection.Protocol {
-	peerSelOnce.Do(createPeerSel)
-	return peerSel
-}
-
-func createPeerSel() {
+func createPeerSel(localID *peer.Local, nbrDiscover *discover.Protocol) *selection.Protocol {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName).Named("sel")
 
-	peerSel = selection.New(local.GetInstance(), discovery.Discovery(),
+	return selection.New(localID, nbrDiscover,
 		selection.Logger(log),
 		selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
 		selection.UseMana(Parameters.Mana),
@@ -60,10 +41,10 @@ func isValidNeighbor(p *peer.Peer) bool {
 }
 
 func evalMana(nodeIdentity *identity.Identity) uint64 {
-	if !manaEnabled {
+	if deps.ManaFunc == nil {
 		return 0
 	}
-	m, _, err := messagelayer.GetConsensusMana(nodeIdentity.ID())
+	m, _, err := deps.ManaFunc(nodeIdentity.ID())
 	if err != nil {
 		return 0
 	}

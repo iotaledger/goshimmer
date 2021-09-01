@@ -21,8 +21,8 @@ const (
 )
 
 var (
-	plugin               *node.Plugin
-	once                 sync.Once
+	// Plugin is the plugin instance of the manaeventlogger plugin.
+	Plugin               *node.Plugin
 	log                  *logger.Logger
 	onPledgeEventClosure *events.Closure
 	onRevokeEventClosure *events.Closure
@@ -34,12 +34,8 @@ var (
 	checkBufferInterval  time.Duration
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, nil, node.Disabled, configure, run)
 }
 
 func configure(*node.Plugin) {

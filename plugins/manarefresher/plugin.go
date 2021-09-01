@@ -2,40 +2,43 @@ package manarefresher
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 var (
-	// plugin is the plugin instance of the activity plugin.
-	plugin    *node.Plugin
-	once      sync.Once
+	// Plugin is the plugin instance of the manarefresher plugin.
+	Plugin    *node.Plugin
+	deps      = new(dependencies)
 	refresher *Refresher
 )
+
+type dependencies struct {
+	dig.In
+	Local  *peer.Local
+	Tangle *tangle.Tangle
+}
 
 // minRefreshInterval is the minimum refresh interval allowed for delegated outputs.
 const minRefreshInterval = 1 * time.Minute
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin("ManaRefresher", node.Enabled, configure, run)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin("ManaRefresher", deps, node.Enabled, configure, run)
 }
 
 // configure events
-func configure(_ *node.Plugin) {
+func configure(plugin *node.Plugin) {
 	plugin.LogInfof("starting node with manarefresher plugin")
-	nodeIDPrivateKey, err := local.GetInstance().Database().LocalPrivateKey()
+	nodeIDPrivateKey, err := deps.Local.Database().LocalPrivateKey()
 	if err != nil {
 		panic(errors.Wrap(err, "couldn't load private key of node identity"))
 	}
@@ -47,7 +50,7 @@ func configure(_ *node.Plugin) {
 	}
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("ManaRefresher-plugin", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(Parameters.RefreshInterval)
 		defer ticker.Stop()

@@ -9,13 +9,12 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/drng"
 )
 
 // committeeHandler returns the current DRNG committee used.
 func committeeHandler(c echo.Context) error {
 	committees := []jsonmodels.Committee{}
-	for _, state := range drng.Instance().State {
+	for _, state := range deps.DrngInstance.State {
 		committees = append(committees, jsonmodels.Committee{
 			InstanceID:    state.Committee().InstanceID,
 			Threshold:     state.Committee().Threshold,

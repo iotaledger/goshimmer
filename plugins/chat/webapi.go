@@ -6,8 +6,6 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 const (
@@ -16,7 +14,7 @@ const (
 )
 
 func configureWebAPI() {
-	webapi.Server().POST("chat", SendChatMessage)
+	deps.Server.POST("chat", SendChatMessage)
 }
 
 // SendChatMessage sends a chat message.
@@ -37,7 +35,7 @@ func SendChatMessage(c echo.Context) error {
 	}
 
 	chatPayload := NewPayload(req.From, req.To, req.Message)
-	msg, err := messagelayer.Tangle().IssuePayload(chatPayload)
+	msg, err := deps.Tangle.IssuePayload(chatPayload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

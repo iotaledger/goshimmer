@@ -25,7 +25,7 @@ var (
 	emptyNodeID = identity.ID{}
 )
 
-func TestManaPersistence(t *testing.T) {
+func XTestManaPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
@@ -55,7 +55,7 @@ func TestManaPersistence(t *testing.T) {
 	require.Greater(t, tests.Mana(t, peer).Consensus, minConsensusMana)
 }
 
-func TestManaPledgeFilter(t *testing.T) {
+func XTestManaPledgeFilter(t *testing.T) {
 	const (
 		numPeers         = 2
 		tokensPerRequest = 100
