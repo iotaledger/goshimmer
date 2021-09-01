@@ -170,11 +170,8 @@ func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confi
 
 // IsBranchConfirmed returns whether the given branch is confirmed.
 func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
-	branchGoF, err := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
-	if err != nil {
-		// TODO: HANDLE ERRORS INSTEAD?
-		return
-	}
+	// TODO: HANDLE ERRORS INSTEAD?
+	branchGoF, _ := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
 
 	return branchGoF >= s.opts.BranchGoFReachedLevel
 }
