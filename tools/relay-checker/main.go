@@ -4,21 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/configuration"
 	"go.uber.org/dig"
 
 	client "github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/logger"
 )
-
-type dependencies struct {
-	dig.In
-
-	Config *configuration.Configuration
-}
-
-var deps dependencies
 
 func testBroadcastData(api *client.GoShimmerAPI) (string, error) {
 	msgID, err := api.Data([]byte(msgData))
@@ -52,12 +43,6 @@ func main() {
 	container := dig.New()
 	config.Init(container)
 	logger.Init()
-
-	if err := container.Invoke(func(dep dependencies) {
-		deps = dep
-	}); err != nil {
-		panic(err)
-	}
 
 	initConfig()
 
