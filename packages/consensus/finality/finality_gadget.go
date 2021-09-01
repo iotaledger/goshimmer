@@ -284,7 +284,11 @@ func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledg
 			return
 		}
 
-		transactionMetadata.SetGradeOfFinality(newGradeOfFinality)
+		// abort if the grade of finality did not change
+		if !transactionMetadata.SetGradeOfFinality(newGradeOfFinality) {
+			return
+		}
+
 		s.tangle.LedgerState.UTXODAG.CachedTransaction(transactionMetadata.ID()).Consume(func(transaction *ledgerstate.Transaction) {
 			// we use a set of consumer txs as our candidate tx can consume multiple outputs from the same txs,
 			// but we want to add such tx only once to the walker
