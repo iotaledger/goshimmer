@@ -14,7 +14,7 @@ import (
 const PluginName = "Profiling"
 
 var (
-	// plugin is the profiling plugin.
+	// Plugin is the profiling plugin.
 	Plugin *node.Plugin
 	log    *logger.Logger
 )

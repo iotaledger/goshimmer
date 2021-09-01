@@ -16,7 +16,7 @@ import (
 const PluginName = "CLI"
 
 var (
-	// plugin is the plugin instance of the CLI plugin.
+	// Plugin is the plugin instance of the CLI plugin.
 	Plugin  *node.Plugin
 	version = flag.BoolP("version", "v", false, "Prints the GoShimmer version")
 )

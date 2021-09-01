@@ -112,10 +112,10 @@ func PeerConfig() config.GoShimmer {
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 	disable := []string{
-		"manarefresher", "chat", "webapi data endpoint", "webapi drng endpoint",
-		"webapi faucet endpoint", "webapi message endpoint", "webapi info endpoint",
-		"webapi tools endpoint drng", "webapi tools endpoint messages", "webapi ledgerstate endpoint",
-		"webapi weightprovider endpoint", "issuer", "metrics", "valuetransfers", "consensus", "manualpeering"}
+		"ManaRefresher", "Chat", "WebAPIDataEndpoint", "WebAPIDRNGEndpoint",
+		"WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "WebAPIInfoEndpoint",
+		"WebAPIToolsMessageEndpoint", "WebAPIToolsDRNGEndpoint", "WebAPILedgerstateEndpoint",
+		"WebAPIWeightProviderEndpoint", "Issuer", "Metrics", "Consensus", "ManualPeering"}
 	c.DisabledPlugins = append(c.DisabledPlugins, disable...)
 	c.POW.Enabled = false
 	c.Gossip.Enabled = false

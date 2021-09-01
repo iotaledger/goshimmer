@@ -18,7 +18,7 @@ import (
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	// plugin holds the singleton instance of the plugin.
+	// Plugin holds the singleton instance of the plugin.
 	Plugin *node.Plugin
 
 	deps = new(dependencies)
@@ -32,7 +32,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin("WebAPI message Endpoint", deps, node.Enabled, configure)
+	Plugin = node.NewPlugin("WebAPIMessageEndpoint", deps, node.Enabled, configure)
 }
 
 func configure(_ *node.Plugin) {

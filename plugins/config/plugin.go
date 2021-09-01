@@ -15,7 +15,7 @@ import (
 const PluginName = "Config"
 
 var (
-	// plugin is the plugin instance of the config plugin.
+	// Plugin is the plugin instance of the config plugin.
 	Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
 
 	// flags
