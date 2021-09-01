@@ -366,7 +366,7 @@ func assertBranchsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework,
 	for expectedGoF, msgAliases := range expected {
 		for _, msgAlias := range msgAliases {
 			branch := testFramework.Branch(msgAlias)
-			actualGradeOfFinality := branch.GradeOfFinality()
+			actualGradeOfFinality := testFramework.TransactionMetadata(msgAlias).GradeOfFinality()
 			assert.Equal(t, expectedGoF, actualGradeOfFinality, "expected branch %s (via msg %s) GoF to be %s but is %s", branch.ID(), msgAlias, expectedGoF, actualGradeOfFinality)
 		}
 	}
