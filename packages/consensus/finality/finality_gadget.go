@@ -249,6 +249,11 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error) {
 	newGradeOfFinality := s.opts.BranchTransFunc(branchID, aw)
 
+	// TODO: we probably need to set the GoF of the transaction regardless of the GoF of the containing message (attachments)
+	//   because it is at the same time the GoF for the branch. If we don't do this a message's attachment might not have a GoF set,
+	//   resulting in the fact that we can't update the GoF for the branch. Txs in the UTXO future cone can't be set because min(branchGoF,messageGoF)
+	//   will always default to gof.None in this case.
+
 	// update GoF of txs within the same branch
 	txGoFPropWalker := walker.New()
 	txGoFPropWalker.Push(branchID.TransactionID())
