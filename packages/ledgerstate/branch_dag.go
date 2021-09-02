@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 )
 
@@ -374,23 +373,17 @@ func (b *BranchDAG) Shutdown() {
 func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
 	if stored {
-		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch Branch) {
-			branch.SetGradeOfFinality(gof.High)
-		})
+		cachedMasterBranch.Release()
 	}
 
 	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
 	if stored {
-		(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-			branch.SetGradeOfFinality(gof.None)
-		})
+		cachedRejectedBranch.Release()
 	}
 
 	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
 	if stored {
-		(&CachedBranch{CachedObject: cachedLazyBookedConflictsBranch}).Consume(func(branch Branch) {
-			branch.SetGradeOfFinality(gof.None)
-		})
+		cachedLazyBookedConflictsBranch.Release()
 	}
 }
 

@@ -186,9 +186,7 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 	}
 
 	b.AW = math.Round(e.Weight*precision) / precision
-	messagelayer.Tangle().LedgerState.BranchDAG.Branch(b.BranchID).Consume(func(branch ledgerstate.Branch) {
-		b.GoF = branch.GradeOfFinality()
-	})
+	b.GoF, _ = messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(b.BranchID)
 	sendBranchUpdate(b)
 
 	if messagelayer.FinalityGadget().IsBranchConfirmed(b.BranchID) {
