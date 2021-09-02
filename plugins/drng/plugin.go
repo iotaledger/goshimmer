@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/consensus"
 )
 
 // PluginName is the name of the DRNG plugin.
@@ -41,10 +41,8 @@ func init() {
 		}, dig.Name("drng")); err != nil {
 			Plugin.Panic(err)
 		}
-		if err := container.Provide(func() *drng.DRNG {
-			drngInstance := configureDRNG()
-			return drngInstance
-		}); err != nil {
+
+		if err := container.Provide(configureDRNG); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -106,12 +104,12 @@ func configureEvents() {
 		}
 	}))
 
-	messagelayer.SetDRNGState(deps.DrngInstance.LoadState(messagelayer.FPCParameters.DRNGInstanceID))
+	consensus.SetDRNGState(deps.DrngInstance.LoadState(consensus.FPCParameters.DRNGInstanceID))
 
 	// Section to update the randomness for the dRNG ticker used by FPC.
 	deps.DrngInstance.Events.Randomness.Attach(events.NewClosure(func(state *drng.State) {
-		if state.Committee().InstanceID == messagelayer.FPCParameters.DRNGInstanceID {
-			if ticker := messagelayer.DRNGTicker(); ticker != nil {
+		if state.Committee().InstanceID == consensus.FPCParameters.DRNGInstanceID {
+			if ticker := consensus.DRNGTicker(); ticker != nil {
 				ticker.UpdateRandomness(state.Randomness())
 			}
 		}

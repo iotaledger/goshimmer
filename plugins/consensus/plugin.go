@@ -1,4 +1,4 @@
-package messagelayer
+package consensus
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
@@ -33,13 +34,13 @@ import (
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-// region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
 var (
-	// ConsensusPlugin is the plugin instance of the statement plugin.
-	ConsensusPlugin *node.Plugin
+	// Plugin is the plugin instance of the consensus plugin.
+	Plugin          *node.Plugin
+	deps            = new(dependencies)
 	voter           vote.DRNGRoundBasedVoter
 	voterServer     *votenet.VoterServer
 	registry        *statement.Registry
@@ -50,15 +51,25 @@ var (
 	dRNGTickerMutex sync.RWMutex
 )
 
-func init() {
-	ConsensusPlugin = node.NewPlugin("Consensus", nil, node.Enabled, configureConsensusPlugin, runConsensusPlugin)
+type dependencies struct {
+	dig.In
 
-	ConsensusPlugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+	Tangle             *tangle.Tangle
+	Local              *peer.Local
+	Discover           *discover.Protocol       `optional:"true"`
+	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
+	ConsensusMechanism tangle.ConsensusMechanism
+}
+
+func init() {
+	Plugin = node.NewPlugin("Consensus", deps, node.Enabled, configureConsensusPlugin, runConsensusPlugin)
+
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
 		if err := container.Provide(func() vote.DRNGRoundBasedVoter {
 			voter = fpc.New(OpinionGiverFunc, OwnManaRetriever)
 			return voter
 		}); err != nil {
-			ConsensusPlugin.Panic(err)
+			Plugin.Panic(err)
 		}
 	}))
 }
@@ -223,10 +234,6 @@ func runFPC(plugin *node.Plugin) {
 	}
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OpinionGivers ////////////////////////////////////////////////////////////////////////////////////////////////
-
 // OpinionGiver is a wrapper for both statements and peers.
 type OpinionGiver struct {
 	id   identity.ID
@@ -283,7 +290,7 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
-	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+	consensusManaNodes, _, err := messagelayer.GetManaMap(mana.ConsensusMana)
 	if err != nil {
 		Plugin.LogErrorf("Error retrieving consensus mana: %s", err)
 	}
@@ -336,10 +343,6 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 
 	return opinionGivers, nil
 }
-
-// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region PeerOpinionGiver /////////////////////////////////////////////////////////////////////////////////////////////
 
 // PeerOpinionGiver implements the OpinionGiver interface based on a peer.
 type PeerOpinionGiver struct {
@@ -401,23 +404,15 @@ func (pog *PeerOpinionGiver) Address() string {
 	return net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
 }
 
-// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OwnWeightsRetriever/////////////////////////////////////////////////////////////////////////////////////
-
 // OwnManaRetriever returns the current consensus mana of a vector
 func OwnManaRetriever() (float64, error) {
 	var ownMana float64
-	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+	consensusManaNodes, _, err := messagelayer.GetManaMap(mana.ConsensusMana)
 	if v, ok := consensusManaNodes[deps.Local.ID()]; ok {
 		ownMana = v
 	}
 	return ownMana, err
 }
-
-// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OpinionRetriever /////////////////////////////////////////////////////////////////////////////////////////////
 
 // OpinionRetriever returns the current opinion of the given id.
 func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
@@ -448,17 +443,13 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 	}
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
-
 const (
 	maxPayloadRatio = 0.9
 )
 
 // checkEnoughMana function check whether a node with id is among the top holders of p percent of consensus mana mana
 func checkEnoughMana(id identity.ID, threshold float64) bool {
-	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
+	highestManaNodes, _, err := messagelayer.GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
 	enoughMana := true
 	if err == nil && threshold < 1.0 && len(highestManaNodes) > 0 {
 		enoughMana = false
@@ -593,8 +584,6 @@ func readStatement(messageID tangle.MessageID) {
 		deps.Tangle.ConsensusManager.Events.StatementProcessed.Trigger(msg)
 	})
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SetDRNGState sets the dRNGState to the given state.
 func SetDRNGState(state *drng.State) {

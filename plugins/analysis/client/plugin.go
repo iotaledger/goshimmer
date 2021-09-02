@@ -69,7 +69,6 @@ func run(_ *node.Plugin) {
 			deps.Voter.Events().RoundExecuted.Attach(onRoundExecutedClosure)
 			defer deps.Voter.Events().RoundExecuted.Detach(onRoundExecutedClosure)
 		}
-
 		ticker := time.NewTicker(reportInterval)
 		defer ticker.Stop()
 		for {
