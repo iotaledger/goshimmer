@@ -60,6 +60,10 @@ type IUTXODAG interface {
 	ManageStoreAddressOutputMapping(output Output)
 	// StoreAddressOutputMapping stores the address-output mapping.
 	StoreAddressOutputMapping(address Address, outputID OutputID)
+	// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
+	TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error)
+	// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
+	BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error)
 }
 
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
@@ -211,28 +215,41 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	return
 }
 
-// InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
-// Pending, Confirmed or Rejected.
-func (u *UTXODAG) GradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	cachedTransactionMetadata := u.CachedTransactionMetadata(transactionID)
-	defer cachedTransactionMetadata.Release()
-	transactionMetadata := cachedTransactionMetadata.Unwrap()
-	if transactionMetadata == nil {
-		err = errors.Errorf("failed to load TransactionMetadata with %s: %w", transactionID, cerrors.ErrFatal)
-		return
+// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
+func (u *UTXODAG) TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		gradeOfFinality = transactionMetadata.GradeOfFinality()
+	}) {
+		return gof.None, errors.Errorf("failed to load TransactionMetadata with %s: %w", transactionID, cerrors.ErrFatal)
 	}
-
-	cachedBranch := u.branchDAG.Branch(transactionMetadata.BranchID())
-	defer cachedBranch.Release()
-	branch := cachedBranch.Unwrap()
-	if branch == nil {
-		err = errors.Errorf("failed to load Branch with %s: %w", transactionMetadata.BranchID(), cerrors.ErrFatal)
-		return
-	}
-
-	gradeOfFinality = branch.GradeOfFinality()
 
 	return
+}
+
+// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
+func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if branchID == MasterBranchID {
+		return gof.High, nil
+	}
+
+	normalizedBranches, err := u.branchDAG.normalizeBranches(NewBranchIDs(branchID))
+	if err != nil {
+		return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
+	}
+
+	gradeOfFinality = gof.High
+	for conflictBranchID := range normalizedBranches {
+		conflictBranchGoF, gofErr := u.TransactionGradeOfFinality(conflictBranchID.TransactionID())
+		if gofErr != nil {
+			return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
+		}
+
+		if conflictBranchGoF < gradeOfFinality {
+			gradeOfFinality = conflictBranchGoF
+		}
+	}
+
+	return gradeOfFinality, nil
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
@@ -421,19 +438,13 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		if err != nil {
 			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
 		}
+		cachedConsumingConflictBranch.Release()
+
 		// We don't need to propagate updates if the branch did already exist.
 		// Though CreateConflictBranch needs to be called so that conflict sets and conflict membership are properly updated.
 		if txMetadata.BranchID() == conflictBranchID {
-			cachedConsumingConflictBranch.Release()
 			return
 		}
-
-		cachedConsumingConflictBranch.Consume(func(newBranch Branch) {
-			// copying the branch metadata properties from the original branch to the newly created.
-			u.branchDAG.Branch(txMetadata.BranchID()).Consume(func(oldBranch Branch) {
-				newBranch.SetGradeOfFinality(oldBranch.GradeOfFinality())
-			})
-		})
 
 		txMetadata.SetBranchID(conflictBranchID)
 		u.Events().TransactionBranchIDUpdated.Trigger(transactionID)

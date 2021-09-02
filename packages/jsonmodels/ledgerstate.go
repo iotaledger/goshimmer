@@ -536,7 +536,7 @@ type Branch struct {
 }
 
 // NewBranch returns a Branch from the given ledgerstate.Branch.
-func NewBranch(branch ledgerstate.Branch, aw float64) Branch {
+func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
 	return Branch{
 		ID:   branch.ID().Base58(),
 		Type: branch.Type().String(),
@@ -560,7 +560,7 @@ func NewBranch(branch ledgerstate.Branch, aw float64) Branch {
 
 			return conflictIDs
 		}(),
-		GradeOfFinality: branch.GradeOfFinality(),
+		GradeOfFinality: gradeOfFinality,
 		ApprovalWeight:  aw,
 	}
 }
