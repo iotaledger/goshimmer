@@ -83,6 +83,8 @@ type UTXODAG struct {
 	branchDAG                   *BranchDAG
 	shutdownOnce                sync.Once
 
+	confirmationOracle ConfirmationOracle
+
 	syncutils.MultiMutex
 }
 
@@ -761,13 +763,7 @@ func (u *UTXODAG) inputsInRejectedBranch(inputsMetadata OutputsMetadata) (reject
 			continue
 		}
 
-		if !u.branchDAG.Branch(rejectedBranch).Consume(func(branch Branch) {
-			rejected = branch.InclusionState() == Rejected
-		}) {
-			panic(fmt.Sprintf("failed to load Branch with %s", rejectedBranch))
-		}
-
-		if rejected {
+		if rejected = u.confirmationOracle.IsBranchRejected(rejectedBranch); rejected {
 			return
 		}
 	}
@@ -847,17 +843,9 @@ func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata OutputsMetada
 			cachedConsumers := u.CachedConsumers(inputMetadata.ID())
 			consumers := cachedConsumers.Unwrap()
 			for _, consumer := range consumers {
-				inclusionState, inclusionStateErr := u.InclusionState(consumer.TransactionID())
-				if inclusionStateErr != nil {
+				if u.confirmationOracle.IsTransactionConfirmed(consumer.TransactionID()) {
 					cachedConsumers.Release()
-					err = errors.Errorf("failed to determine InclusionState of Transaction with %s: %w", consumer.TransactionID(), inclusionStateErr)
-					return
-				}
-
-				if inclusionState == Confirmed {
-					cachedConsumers.Release()
-					inputsSpentByConfirmedTransaction = true
-					return
+					return true, nil
 				}
 			}
 			cachedConsumers.Release()
