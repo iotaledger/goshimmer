@@ -249,14 +249,12 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error) {
 	newGradeOfFinality := s.opts.BranchTransFunc(branchID, aw)
 
-	// TODO: we probably need to set the GoF of the transaction regardless of the GoF of the containing message (attachments)
-	//   because it is at the same time the GoF for the branch. If we don't do this a message's attachment might not have a GoF set,
-	//   resulting in the fact that we can't update the GoF for the branch. Txs in the UTXO future cone can't be set because min(branchGoF,messageGoF)
-	//   will always default to gof.None in this case.
-
 	// update GoF of txs within the same branch
 	txGoFPropWalker := walker.New()
-	txGoFPropWalker.Push(branchID.TransactionID())
+	s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(branchID.TransactionID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		s.updateTransactionGoF(transactionMetadata, newGradeOfFinality, txGoFPropWalker)
+
+	})
 	for txGoFPropWalker.HasNext() {
 		s.forwardPropagateBranchGoFToTxs(txGoFPropWalker.Next().(ledgerstate.TransactionID), branchID, newGradeOfFinality, txGoFPropWalker)
 	}
@@ -289,25 +287,29 @@ func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledg
 			return
 		}
 
-		// abort if the grade of finality did not change
-		if !transactionMetadata.SetGradeOfFinality(newGradeOfFinality) {
-			return
-		}
+		s.updateTransactionGoF(transactionMetadata, newGradeOfFinality, txGoFPropWalker)
+	})
+}
 
-		s.tangle.LedgerState.UTXODAG.CachedTransaction(transactionMetadata.ID()).Consume(func(transaction *ledgerstate.Transaction) {
-			// we use a set of consumer txs as our candidate tx can consume multiple outputs from the same txs,
-			// but we want to add such tx only once to the walker
-			consumerTxs := make(ledgerstate.TransactionIDs)
+func (s *SimpleFinalityGadget) updateTransactionGoF(transactionMetadata *ledgerstate.TransactionMetadata, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *walker.Walker) {
+	// abort if the grade of finality did not change
+	if !transactionMetadata.SetGradeOfFinality(newGradeOfFinality) {
+		return
+	}
 
-			// adjust output GoF and add its consumer txs to the walker
-			for _, output := range transaction.Essence().Outputs() {
-				s.adjustOutputGoF(output, newGradeOfFinality, consumerTxs, txGoFPropWalker)
-			}
-		})
-		if transactionMetadata.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
-			s.events.TransactionConfirmed.Trigger(candidateTxID)
+	s.tangle.LedgerState.UTXODAG.CachedTransaction(transactionMetadata.ID()).Consume(func(transaction *ledgerstate.Transaction) {
+		// we use a set of consumer txs as our candidate tx can consume multiple outputs from the same txs,
+		// but we want to add such tx only once to the walker
+		consumerTxs := make(ledgerstate.TransactionIDs)
+
+		// adjust output GoF and add its consumer txs to the walker
+		for _, output := range transaction.Essence().Outputs() {
+			s.adjustOutputGoF(output, newGradeOfFinality, consumerTxs, txGoFPropWalker)
 		}
 	})
+	if transactionMetadata.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
+		s.events.TransactionConfirmed.Trigger(transactionMetadata.ID())
+	}
 }
 
 func (s *SimpleFinalityGadget) adjustOutputGoF(output ledgerstate.Output, newGradeOfFinality gof.GradeOfFinality, consumerTxs ledgerstate.TransactionIDs, txGoFPropWalker *walker.Walker) bool {

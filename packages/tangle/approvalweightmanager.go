@@ -65,10 +65,8 @@ func (a *ApprovalWeightManager) Setup() {
 // approval weights for branch and markers are reached.
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		// We need to update markers first because the GoF of a branch is indirectly stored via the conflicting transaction.
-		// However, the GoF of a transaction cannot be higher than any of its attachments, thus AW of markers needs to be updated first.
-		a.updateSequenceSupporters(message)
 		a.updateBranchSupporters(message)
+		a.updateSequenceSupporters(message)
 
 		a.Events.MessageProcessed.Trigger(messageID)
 	})
