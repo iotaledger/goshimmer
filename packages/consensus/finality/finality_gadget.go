@@ -336,10 +336,15 @@ func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMeta
 func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
 	s.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			// if the transaction is part of a conflicting branch then we need to evaluate based on branch AW
-			if s.tangle.LedgerState.TransactionConflicting(transactionID) {
-				branchID := ledgerstate.NewBranchID(transactionID)
-				gradeOfFinality = s.opts.BranchTransFunc(branchID, s.tangle.ApprovalWeightManager.WeightOfBranch(branchID))
+			// A transaction can't have a higher GoF than its branch, thus we need to evaluate based on min(branchGoF,messageGoF).
+			// This also works for transactions in MasterBranch since it has gof.High and we then use the messageGoF.
+			branchGoF, err := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(transactionMetadata.BranchID())
+			if err != nil {
+				// TODO: properly handle error
+				panic(err)
+			}
+			if branchGoF < gradeOfFinality {
+				gradeOfFinality = branchGoF
 			}
 
 			// abort if transaction has GoF already set
@@ -354,14 +359,6 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 						outputMetadata.SetGradeOfFinality(gradeOfFinality)
 					})
 				}
-
-				//for _, input := range transaction.Essence().Inputs() {
-				//	referencedOutputID := input.(*UTXOInput).ReferencedOutputID()
-				//	// TODO: do we still need this?
-				//	u.CachedOutputMetadata(referencedOutputID).Consume(func(outputMetadata *OutputMetadata) {
-				//		outputMetadata.SetConfirmedConsumer(*transaction.id)
-				//	})
-				//}
 			})
 
 			if gradeOfFinality >= s.opts.BranchGoFReachedLevel {
