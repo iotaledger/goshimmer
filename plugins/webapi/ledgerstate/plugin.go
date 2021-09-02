@@ -230,7 +230,7 @@ func GetBranch(c echo.Context) (err error) {
 	if messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		branchGoF, _ := messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 
-		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, messagelayer.Tangle().ApprovalWeightManager.WeightOfBranch(branchID))))
+		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, messagelayer.Tangle().ApprovalWeightManager.WeightOfBranch(branchID)))
 	}) {
 		return
 	}
