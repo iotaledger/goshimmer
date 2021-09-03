@@ -160,7 +160,7 @@ func TestExampleB(t *testing.T) {
 		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX5"], NewBranchID(transactions["TX5"].ID()))
 	}
 
-	// Checking that the BranchID of TX2 is correct and it is the parent of both TX3 and TX4.
+	// Checking that the BranchID of TX2 is correct, and it is the parent of both TX3 and TX4.
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
 		utxoDAG.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
@@ -267,10 +267,10 @@ func TestBookInvalidTransaction(t *testing.T) {
 		inputsMetadata = append(inputsMetadata, metadata)
 	})
 
-	utxoDAG.bookInvalidTransaction(tx, txMetadata, inputsMetadata)
+	utxoDAG.bookInvalidTransaction(tx, txMetadata)
 
 	assert.Equal(t, InvalidBranchID, txMetadata.branchID)
-	assert.True(t, txMetadata.Solid())
+	assert.Equal(t, Invalid, txMetadata.SolidityType())
 	assert.Greater(t, txMetadata.GradeOfFinality(), gof.Medium)
 
 	// check that the inputs are still marked as unspent
@@ -300,7 +300,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	utxoDAG.branchDAG.Branch(txMetadata.BranchID()).Consume(func(branch Branch) {
 		assert.Equal(t, MasterBranchID, txMetadata.BranchID())
-		assert.True(t, txMetadata.Solid())
+		assert.Equal(t, Solid, txMetadata.SolidityType())
 	})
 
 	finality, err := utxoDAG.TransactionGradeOfFinality(tx.ID())
@@ -353,7 +353,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	utxoDAG.branchDAG.Branch(txMetadata2.BranchID()).Consume(func(branch Branch) {
 		assert.Equal(t, targetBranch2, txMetadata2.BranchID())
-		assert.True(t, txMetadata2.Solid())
+		assert.Equal(t, Solid, txMetadata2.SolidityType())
 	})
 
 	assert.NotEqual(t, MasterBranchID, txMetadata.BranchID())
@@ -805,7 +805,6 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(tx.ID())
-	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetBranchID(MasterBranchID)
 
 	if len(optionalGradeOfFinality) >= 1 {
@@ -842,7 +841,7 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
-	// store aggreagated branch
+	// store aggregated branch
 	normalizedBranchIDs, _ := utxoDAG.branchDAG.normalizeBranches(branchIDs)
 	cachedAggregatedBranch, _, _ := utxoDAG.branchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
 	branchID := BranchID{}
@@ -852,7 +851,6 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(tx.ID())
-	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetBranchID(branchID)
 	if len(optionalGradeOfFinality) >= 1 {
 		transactionMetadata.SetGradeOfFinality(optionalGradeOfFinality[0])
