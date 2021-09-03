@@ -805,13 +805,23 @@ func (m *MockConfirmationOracle) IsMessageConfirmed(msgID MessageID) bool {
 	return false
 }
 
+// IsTransactionConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool {
+	return false
+}
+
+// IsTransactionRejected mocks its interface function.
+func (m *MockConfirmationOracle) IsTransactionRejected(transactionID ledgerstate.TransactionID) bool {
+	return false
+}
+
 // IsBranchConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID) bool {
 	return false
 }
 
-// IsTransactionConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool {
+// IsBranchRejected mocks its interface function.
+func (m *MockConfirmationOracle) IsBranchRejected(branchID ledgerstate.BranchID) bool {
 	return false
 }
 

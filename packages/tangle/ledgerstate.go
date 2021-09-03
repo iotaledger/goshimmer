@@ -61,21 +61,6 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	return
 }
 
-// TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
-// not pass.
-func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
-	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
-		})
-		l.tangle.Events.MessageInvalid.Trigger(messageID)
-
-		return errors.Errorf("invalid transaction in message with %s: %w", messageID, err)
-	}
-
-	return nil
-}
-
 // TransactionConflicting returns whether the given transaction is part of a conflict.
 func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
 	return l.BranchID(transactionID) == ledgerstate.NewBranchID(transactionID)
@@ -89,24 +74,6 @@ func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionI
 // Transaction retrieves the Transaction with the given TransactionID from the object storage.
 func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransaction {
 	return l.UTXODAG.CachedTransaction(transactionID)
-}
-
-// BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
-// eventual error.
-func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
-	targetBranch, err = l.UTXODAG.BookTransaction(transaction)
-	if err != nil {
-		err = errors.Errorf("failed to book Transaction: %w", err)
-
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
-		})
-		l.tangle.Events.MessageInvalid.Trigger(messageID)
-
-		return
-	}
-
-	return
 }
 
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
