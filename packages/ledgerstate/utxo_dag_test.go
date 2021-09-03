@@ -239,7 +239,7 @@ func TestExampleA(t *testing.T) {
 	}
 }
 
-func TestBookTransaction(t *testing.T) {
+func TestStoreTransaction(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
 
@@ -275,6 +275,51 @@ func TestBookInvalidTransaction(t *testing.T) {
 
 	// check that the inputs are still marked as unspent
 	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
+}
+
+func TestBookRejectedTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+	wallets := createWallets(1)
+	input := generateOutput(utxoDAG, wallets[0].address, 0)
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input)
+	rejectedBranch := NewConflictBranch(BranchID(tx.ID()), nil, nil)
+	utxoDAG.branchDAG.branchStorage.Store(rejectedBranch).Release()
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
+	defer cachedTxMetadata.Release()
+	txMetadata := cachedTxMetadata.Unwrap()
+	inputsMetadata := OutputsMetadata{}
+	utxoDAG.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
+		inputsMetadata = append(inputsMetadata, metadata)
+	})
+
+	utxoDAG.bookRejectedTransaction(tx, txMetadata, rejectedBranch.ID())
+
+	assert.Equal(t, rejectedBranch.ID(), txMetadata.branchID)
+	assert.Equal(t, LazySolid, txMetadata.SolidityType())
+
+	// check that the inputs are still marked as unspent
+	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
+}
+
+func TestBookRejectedConflictingTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+	wallets := createWallets(2)
+	input := generateOutput(utxoDAG, wallets[0].address, 0)
+	singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, gof.High)
+	// double spend
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input)
+	cachedTxMetadata := utxoDAG.CachedTransactionMetadata(tx.ID())
+	defer cachedTxMetadata.Release()
+	txMetadata := cachedTxMetadata.Unwrap()
+
+	_, err := utxoDAG.bookRejectedConflictingTransaction(tx, txMetadata)
+	require.NoError(t, err)
+
+	utxoDAG.branchDAG.Branch(txMetadata.BranchID()).Consume(func(branch Branch) {
+		assert.Equal(t, LazySolid, txMetadata.SolidityType())
+	})
 }
 
 func TestBookNonConflictingTransaction(t *testing.T) {
