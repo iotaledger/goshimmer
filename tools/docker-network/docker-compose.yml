@@ -99,6 +99,7 @@ services:
       - 6061/tcp # Pprof Profiling
       - 8080/tcp # web API
       - 8081/tcp # web API
+      - 8061/tcp # web API
       - 9311/tcp # prometheus
     networks:
       - shimmer
@@ -132,6 +133,7 @@ services:
       - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
     ports:
       - "8081:8081/tcp" # dashboard
+      - "8061:8061/tcp" # dashboard
     expose:
       - 10895/tcp # FPC
       - 14626/tcp # Autopeering
@@ -140,6 +142,7 @@ services:
       - 6061/tcp # Pprof Profiling
       - 8080/tcp # web API
       - 8081/tcp # web API
+      - 8061/tcp # web API
       - 9311/tcp # prometheus
     networks:
       - shimmer
