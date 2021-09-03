@@ -164,7 +164,8 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 		panic("tried to increase Index of wrong Sequence")
 	}
 
-	if increased = referencedSequenceIndex == s.highestIndex; increased {
+	// TODO: this is a quick'n'dirty solution and should be revisited.
+	if increased = referencedSequenceIndex >= s.highestIndex; increased {
 		s.highestIndex = referencedMarkers.HighestIndex() + 1
 
 		if referencedMarkers.Size() > 1 {
