@@ -34,18 +34,14 @@ func TestExampleC(t *testing.T) {
 	{
 		outputs["A"] = generateOutput(utxoDAG, wallets[0].address, 0)
 		transactions["TX1"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
-		targetBranch1, err := utxoDAG.BookTransaction(transactions["TX1"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX1"], MasterBranchID)
 	}
 
 	// Prepare and book TX2
 	{
 		outputs["B"] = generateOutput(utxoDAG, wallets[0].address, 1)
 		transactions["TX2"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch2, err := utxoDAG.BookTransaction(transactions["TX2"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX2"], MasterBranchID)
 	}
 
 	// Prepare and book TX3
@@ -54,25 +50,19 @@ func TestExampleC(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
-		targetBranch3, err := utxoDAG.BookTransaction(transactions["TX3"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX3"], MasterBranchID)
 	}
 
 	// Prepare and book Tx4 (double spending B)
 	{
 		transactions["TX4"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch4, err := utxoDAG.BookTransaction(transactions["TX4"])
-		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX4"], NewBranchID(transactions["TX4"].ID()))
 	}
 
 	// Prepare and book TX5 (double spending A)
 	{
 		transactions["TX5"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["A"]})
-		targetBranch5, err := utxoDAG.BookTransaction(transactions["TX5"])
-		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX5"].ID()), targetBranch5)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX5"], NewBranchID(transactions["TX5"].ID()))
 	}
 
 	// Checking TX3
@@ -112,18 +102,14 @@ func TestExampleB(t *testing.T) {
 	{
 		outputs["A"] = generateOutput(utxoDAG, wallets[0].address, 0)
 		transactions["TX1"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
-		targetBranch1, err := utxoDAG.BookTransaction(transactions["TX1"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX1"], MasterBranchID)
 	}
 
 	// Prepare and book TX2
 	{
 		outputs["B"] = generateOutput(utxoDAG, wallets[0].address, 1)
 		transactions["TX2"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch2, err := utxoDAG.BookTransaction(transactions["TX2"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX2"], MasterBranchID)
 	}
 
 	// Prepare and book TX3
@@ -132,17 +118,13 @@ func TestExampleB(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
-		targetBranch3, err := utxoDAG.BookTransaction(transactions["TX3"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX3"], MasterBranchID)
 	}
 
 	// Prepare and book Tx4
 	{
 		transactions["TX4"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["D"]})
-		targetBranch4, err := utxoDAG.BookTransaction(transactions["TX4"])
-		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX4"], NewBranchID(transactions["TX4"].ID()))
 	}
 
 	// Checking TX3
@@ -175,9 +157,7 @@ func TestExampleB(t *testing.T) {
 	// Prepare and book TX5
 	{
 		transactions["TX5"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch5, err := utxoDAG.BookTransaction(transactions["TX5"])
-		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX5"].ID()), targetBranch5)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX5"], NewBranchID(transactions["TX5"].ID()))
 	}
 
 	// Checking that the BranchID of TX2 is correct and it is the parent of both TX3 and TX4.
@@ -211,18 +191,14 @@ func TestExampleA(t *testing.T) {
 	{
 		outputs["A"] = generateOutput(utxoDAG, wallets[0].address, 0)
 		transactions["TX1"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
-		targetBranch1, err := utxoDAG.BookTransaction(transactions["TX1"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX1"], MasterBranchID)
 	}
 
 	// Prepare and book TX2
 	{
 		outputs["B"] = generateOutput(utxoDAG, wallets[0].address, 1)
 		transactions["TX2"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch2, err := utxoDAG.BookTransaction(transactions["TX2"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX2"], MasterBranchID)
 	}
 
 	// Prepare and book TX3
@@ -231,17 +207,13 @@ func TestExampleA(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
-		targetBranch3, err := utxoDAG.BookTransaction(transactions["TX3"])
-		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX3"], MasterBranchID)
 	}
 
 	// Prepare and book Tx4 (double spending B)
 	{
 		transactions["TX4"] = buildTransaction(utxoDAG, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
-		targetBranch4, err := utxoDAG.BookTransaction(transactions["TX4"])
-		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		assertTransactionStoredIntoBranch(t, utxoDAG, transactions["TX4"], NewBranchID(transactions["TX4"].ID()))
 	}
 
 	// Checking TX2
@@ -275,9 +247,7 @@ func TestBookTransaction(t *testing.T) {
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
 
 	tx := buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{input})
-	targetBranch, err := utxoDAG.BookTransaction(tx)
-	require.NoError(t, err)
-	assert.Equal(t, MasterBranchID, targetBranch)
+	assertTransactionStoredIntoBranch(t, utxoDAG, tx, MasterBranchID)
 }
 
 func TestBookInvalidTransaction(t *testing.T) {
@@ -923,4 +893,16 @@ func buildTransaction(_ *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingle
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
 	return tx
+}
+
+// assertTransactionStoredIntoBranch stores the Transaction in the UTXODAG and then validates its Branch.
+func assertTransactionStoredIntoBranch(t *testing.T, utxoDAG *UTXODAG, transaction *Transaction, branchID BranchID) {
+	stored, solidityType, err := utxoDAG.StoreTransaction(transaction)
+	require.NoError(t, err)
+	require.True(t, stored)
+	require.Equal(t, solidityType, Solid)
+	require.NoError(t, err)
+	require.True(t, utxoDAG.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+		assert.Equal(t, branchID, transactionMetadata.BranchID())
+	}))
 }
