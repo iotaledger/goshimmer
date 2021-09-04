@@ -766,7 +766,10 @@ func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 
-	return branchDAG, NewUTXODAG(store, cacheTimeProvider, nil, branchDAG)
+	utxoDAG := NewUTXODAG(store, cacheTimeProvider, nil, branchDAG)
+	utxoDAG.confirmationOracle = NewSimpleConfirmationOracle(utxoDAG, branchDAG)
+
+	return branchDAG, utxoDAG
 }
 
 type wallet struct {
