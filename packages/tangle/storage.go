@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -154,9 +155,13 @@ func (s *Storage) StoreMessage(message *Message) {
 	})
 
 	// trigger events
-	if s.missingMessageStorage.DeleteIfPresent(messageID[:]) {
+	messageSource := GossipSource
+	if untypedMissingMessage := s.missingMessageStorage.DeleteIfPresentAndReturn(messageID[:]); !typeutils.IsInterfaceNil(untypedMissingMessage) {
+		messageSource = untypedMissingMessage.(*MissingMessage).MessageSource()
+
 		s.tangle.Storage.Events.MissingMessageStored.Trigger(messageID)
 	}
+	cachedMsgMetadata.Unwrap().SetSource(messageSource)
 
 	// messages are stored, trigger MessageStored event to move on next check
 	s.Events.MessageStored.Trigger(message.ID())
@@ -225,6 +230,17 @@ func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messa
 	}
 	cachedAttachment = &CachedAttachment{CachedObject: attachment}
 	return
+}
+
+// Attachment retrieves the Attachment of a Transaction from the object storage.
+func (s *Storage) Attachment(transactionID ledgerstate.TransactionID, messageID MessageID, computeIfAbsentCallback ...func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment) (cachedAttachment *CachedAttachment) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedAttachment{s.attachmentStorage.ComputeIfAbsent(byteutils.ConcatBytes(transactionID.Bytes(), messageID.Bytes()), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](transactionID, messageID)
+		})}
+	}
+
+	return &CachedAttachment{CachedObject: s.attachmentStorage.Load(byteutils.ConcatBytes(transactionID.Bytes(), messageID.Bytes()))}
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
@@ -805,11 +821,15 @@ type Attachment struct {
 }
 
 // NewAttachment creates an attachment object with the given information.
-func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
-	return &Attachment{
+func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (attachment *Attachment) {
+	attachment = &Attachment{
 		transactionID: transactionID,
 		messageID:     messageID,
 	}
+	attachment.SetModified()
+	attachment.Persist()
+
+	return
 }
 
 // AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
@@ -956,15 +976,17 @@ func (cachedAttachments CachedAttachments) Consume(consumer func(attachment *Att
 type MissingMessage struct {
 	objectstorage.StorableObjectFlags
 
-	messageID    MessageID
-	missingSince time.Time
+	messageID     MessageID
+	messageSource MessageSource
+	missingSince  time.Time
 }
 
 // NewMissingMessage creates new missing message with the specified messageID.
-func NewMissingMessage(messageID MessageID) *MissingMessage {
+func NewMissingMessage(messageID MessageID, messageSource MessageSource) *MissingMessage {
 	return &MissingMessage{
-		messageID:    messageID,
-		missingSince: time.Now(),
+		messageID:     messageID,
+		messageSource: messageSource,
+		missingSince:  time.Now(),
 	}
 }
 
@@ -983,6 +1005,10 @@ func MissingMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result
 
 	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of missing message: %w", err)
+		return
+	}
+	if result.messageSource, err = MessageSourceFromMarshalUtil(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse MessageSource of MissingMessage: %w", err)
 		return
 	}
 	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
@@ -1009,6 +1035,11 @@ func (m *MissingMessage) MessageID() MessageID {
 	return m.messageID
 }
 
+// MessageSource returns the source of the MissingMessage.
+func (m *MissingMessage) MessageSource() MessageSource {
+	return m.messageSource
+}
+
 // MissingSince returns the time since when this message is missing.
 func (m *MissingMessage) MissingSince() time.Time {
 	return m.missingSince
@@ -1033,12 +1064,10 @@ func (m *MissingMessage) ObjectStorageKey() []byte {
 
 // ObjectStorageValue returns the value of the stored missing message.
 func (m *MissingMessage) ObjectStorageValue() (result []byte) {
-	result, err := m.missingSince.MarshalBinary()
-	if err != nil {
-		panic(err)
-	}
-
-	return
+	return marshalutil.New().
+		Write(m.messageSource).
+		WriteTime(m.missingSince).
+		Bytes()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

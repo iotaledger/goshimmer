@@ -997,6 +997,13 @@ func (m *MessageMetadata) SetSolidificationType(solidificationType Solidificatio
 	return true
 }
 
+func (m *MessageMetadata) SolidificationType() (solidificationType SolidificationType) {
+	m.solidificationTypeMutex.RLock()
+	defer m.solidificationTypeMutex.RUnlock()
+
+	return m.solidificationType
+}
+
 // SetWeaklySolid sets the message associated with this metadata as weakly solid.
 // It returns true if the solid status is modified. False otherwise.
 func (m *MessageMetadata) SetWeaklySolid(weaklySolid bool) (modified bool) {
