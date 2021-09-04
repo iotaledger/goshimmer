@@ -27,7 +27,7 @@ func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
 	return &LedgerState{
 		tangle:    tangle,
 		BranchDAG: branchDAG,
-		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, tangle.Options.CacheTimeProvider, branchDAG),
+		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, tangle.Options.CacheTimeProvider, tangle.ConfirmationOracle, branchDAG),
 	}
 }
 

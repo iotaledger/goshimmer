@@ -58,21 +58,19 @@ func (s *Solidifier) Setup() {
 	s.tangle.LedgerState.UTXODAG.Events().TransactionSolid.Attach(events.NewClosure(s.TriggerTransactionSolid))
 }
 
-func (s *Solidifier) setPayloadSolidTriggered(transactionID ledgerstate.TransactionID) {
+func (s *Solidifier) setPayloadSolidificationRunning(transactionID ledgerstate.TransactionID, running bool) {
 	s.payloadsSolidTriggeredMutex.Lock()
 	defer s.payloadsSolidTriggeredMutex.Unlock()
 
-	s.payloadsSolidTriggered[transactionID] = types.Void
+	if running {
+		s.payloadsSolidTriggered[transactionID] = types.Void
+	} else {
+		delete(s.payloadsSolidTriggered, transactionID)
+	}
+
 }
 
-func (s *Solidifier) unsetPayloadSolidTriggered(transactionID ledgerstate.TransactionID) {
-	s.payloadsSolidTriggeredMutex.Lock()
-	defer s.payloadsSolidTriggeredMutex.Unlock()
-
-	delete(s.payloadsSolidTriggered, transactionID)
-}
-
-func (s *Solidifier) hasPayloadSolidTriggered(transactionID ledgerstate.TransactionID) (hasPayloadSolidTriggered bool) {
+func (s *Solidifier) payloadSolidificationRunning(transactionID ledgerstate.TransactionID) (hasPayloadSolidTriggered bool) {
 	s.payloadsSolidTriggeredMutex.RLock()
 	defer s.payloadsSolidTriggeredMutex.RUnlock()
 
@@ -83,9 +81,11 @@ func (s *Solidifier) hasPayloadSolidTriggered(transactionID ledgerstate.Transact
 
 // TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
 func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
-	s.setPayloadSolidTriggered(transactionID)
+	if s.payloadSolidificationRunning(transactionID) {
+		return
+	}
+
 	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
-	s.unsetPayloadSolidTriggered(transactionID)
 }
 
 // Solidify solidifies the given Message.
@@ -339,13 +339,16 @@ func (s *Solidifier) solidifyPayload(message *Message) (solid bool) {
 		return true
 	}
 
-	if s.hasPayloadSolidTriggered(transaction.ID()) {
+	if s.payloadSolidificationRunning(transaction.ID()) {
 		return true
 	}
 
 	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), NewAttachment).Release()
 
+	s.setPayloadSolidificationRunning(transaction.ID(), true)
 	_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
+	s.setPayloadSolidificationRunning(transaction.ID(), false)
+
 	if err != nil {
 		s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
 

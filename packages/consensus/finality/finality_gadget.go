@@ -109,12 +109,26 @@ func WithMessageGoFReachedLevel(msgGradeOfFinality gof.GradeOfFinality) Option {
 	}
 }
 
+func SimpleFinalityGadgetFactory(opts ...Option) func(tangle *tangle.Tangle) tangle.ConfirmationOracle {
+	return func(tangle *tangle.Tangle) tangle.ConfirmationOracle {
+		return NewSimpleFinalityGadget(tangle, opts...)
+	}
+}
+
 // SimpleFinalityGadget is a Gadget which simply translates approval weight down to gof.GradeOfFinality
 // and then applies it to messages, branches, transactions and outputs.
 type SimpleFinalityGadget struct {
 	tangle *tangle.Tangle
 	opts   *Options
 	events *tangle.ConfirmationEvents
+}
+
+func (s *SimpleFinalityGadget) IsTransactionRejected(transactionID ledgerstate.TransactionID) bool {
+	return false
+}
+
+func (s *SimpleFinalityGadget) IsBranchRejected(branchID ledgerstate.BranchID) bool {
+	return false
 }
 
 // NewSimpleFinalityGadget creates a new SimpleFinalityGadget.
@@ -370,3 +384,5 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 		})
 	})
 }
+
+var _ Gadget = &SimpleFinalityGadget{}

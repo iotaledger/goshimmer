@@ -82,6 +82,8 @@ func New(options ...Option) (tangle *Tangle) {
 	}
 
 	tangle.Configure(options...)
+	tangle.WeightProvider = tangle.Options.WeightProvider
+	tangle.ConfirmationOracle = tangle.Options.ConfirmationOracleFactory(tangle)
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
@@ -96,8 +98,6 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Orderer = NewOrderer(tangle)
-
-	tangle.WeightProvider = tangle.Options.WeightProvider
 
 	return
 }
@@ -232,6 +232,7 @@ type Options struct {
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
 	CacheTimeProvider            *database.CacheTimeProvider
+	ConfirmationOracleFactory    func(tangle *Tangle) ConfirmationOracle
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -318,6 +319,12 @@ func StartSynced(startSynced bool) Option {
 func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
 		options.CacheTimeProvider = cacheTimeProvider
+	}
+}
+
+func ConfirmationOracleFactory(factory func(tangle *Tangle) ConfirmationOracle) Option {
+	return func(options *Options) {
+		options.ConfirmationOracleFactory = factory
 	}
 }
 
