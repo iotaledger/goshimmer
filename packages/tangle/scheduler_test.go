@@ -387,13 +387,18 @@ func BenchmarkScheduler(b *testing.B) {
 	b.StopTimer()
 }
 
+var timeOffset = time.Nanosecond
+
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
+	// necessary to create different messages on Windows as here the time precision is not good enough.
+	timeOffset += time.Nanosecond
+
 	message, _ := NewMessage(
 		[]MessageID{EmptyMessageID},
 		[]MessageID{},
 		[]MessageID{},
 		[]MessageID{},
-		time.Now(),
+		time.Now().Add(timeOffset),
 		issuerPublicKey,
 		0,
 		payload.NewGenericDataPayload([]byte("")),

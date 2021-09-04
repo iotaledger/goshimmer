@@ -807,8 +807,8 @@ type MessageMetadata struct {
 	receivedTime        time.Time
 	source              MessageSource
 	solidificationType  SolidificationType
-	weaklySolid         bool
 	solid               bool
+	weaklySolid         bool
 	solidificationTime  time.Time
 	structureDetails    *markers.StructureDetails
 	branchID            ledgerstate.BranchID
@@ -870,8 +870,20 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
 		return
 	}
+	if result.source, err = MessageSourceFromMarshalUtil(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse source flag of message metadata: %w", err)
+		return
+	}
+	if result.solidificationType, err = SolidificationTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse solidification type of message metadata: %w", err)
+		return
+	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
+		return
+	}
+	if result.weaklySolid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse weakly solid flag of message metadata: %w", err)
 		return
 	}
 	if result.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
@@ -1269,7 +1281,10 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
+		Write(m.Source()).
+		Write(m.SolidificationType()).
 		WriteBool(m.IsSolid()).
+		WriteBool(m.IsWeaklySolid()).
 		Write(m.StructureDetails()).
 		Write(m.BranchID()).
 		WriteBool(m.Scheduled()).
@@ -1294,7 +1309,10 @@ func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
 		stringify.StructField("ID", m.messageID),
 		stringify.StructField("receivedTime", m.ReceivedTime()),
+		stringify.StructField("source", m.Source()),
+		stringify.StructField("solidificationType", m.SolidificationType()),
 		stringify.StructField("solid", m.IsSolid()),
+		stringify.StructField("weaklySolid", m.IsWeaklySolid()),
 		stringify.StructField("solidificationTime", m.SolidificationTime()),
 		stringify.StructField("structureDetails", m.StructureDetails()),
 		stringify.StructField("branchID", m.BranchID()),
