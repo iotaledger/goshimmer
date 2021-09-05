@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -16,27 +15,25 @@ type ConfirmationOracle interface {
 }
 
 type SimpleConfirmationOracle struct {
-	utxoDAG   *UTXODAG
-	branchDAG *BranchDAG
+	ledgerstate *Ledgerstate
 }
 
 func (s *SimpleConfirmationOracle) IsTransactionConfirmed(transactionID TransactionID) (isConfirmed bool) {
-	s.utxoDAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+	s.ledgerstate.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		isConfirmed = transactionMetadata.GradeOfFinality() >= gof.Medium
 	})
 
 	return
 }
 
-func NewSimpleConfirmationOracle(utxoDAG *UTXODAG, branchDAG *BranchDAG) *SimpleConfirmationOracle {
+func NewSimpleConfirmationOracle(ledgerstate *Ledgerstate) *SimpleConfirmationOracle {
 	return &SimpleConfirmationOracle{
-		utxoDAG:   utxoDAG,
-		branchDAG: branchDAG,
+		ledgerstate: ledgerstate,
 	}
 }
 
 func (s *SimpleConfirmationOracle) IsTransactionRejected(transactionID TransactionID) (isRejected bool) {
-	s.utxoDAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+	s.ledgerstate.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		isRejected = s.IsBranchRejected(transactionMetadata.BranchID())
 	})
 
@@ -48,43 +45,43 @@ func (s *SimpleConfirmationOracle) IsBranchConfirmed(branchID BranchID) bool {
 }
 
 func (s *SimpleConfirmationOracle) IsBranchRejected(branchID BranchID) (isRejected bool) {
-	seenBranches := set.New()
-
 	branchWalker := walker.New(false)
 	branchWalker.Push(branchID)
-
 	for branchWalker.HasNext() {
 		currentBranchID := branchWalker.Next().(BranchID)
+		if isRejected = s.isConflictingBranchConfirmed(currentBranchID); isRejected {
+			return
+		}
 
-		s.branchDAG.ForEachConflictingBranchID(currentBranchID, func(conflictingBranchID BranchID) {
-			if isRejected {
-				return
+		s.queueIsBranchRejectedParents(currentBranchID, branchWalker)
+	}
+
+	return
+}
+
+func (s *SimpleConfirmationOracle) queueIsBranchRejectedParents(currentBranchID BranchID, branchWalker *walker.Walker) {
+	conflictingBranchIDs, err := s.ledgerstate.ResolveConflictBranchIDs(NewBranchIDs(currentBranchID))
+	if err != nil {
+		return
+	}
+
+	for conflictBranchID := range conflictingBranchIDs {
+		s.ledgerstate.Branch(conflictBranchID).Consume(func(branch Branch) {
+			for parentBranchID := range branch.Parents() {
+				branchWalker.Push(parentBranchID)
 			}
-
-			isRejected = s.IsTransactionConfirmed(conflictingBranchID.TransactionID())
 		})
+	}
+}
 
+func (s *SimpleConfirmationOracle) isConflictingBranchConfirmed(currentBranchID BranchID) (isRejected bool) {
+	s.ledgerstate.ForEachConflictingBranchID(currentBranchID, func(conflictingBranchID BranchID) {
 		if isRejected {
 			return
 		}
 
-		conflictingBranchIDs, err := s.branchDAG.ResolveConflictBranchIDs(NewBranchIDs(branchID))
-		if err != nil {
-			return
-		}
-
-		for conflictBranchID := range conflictingBranchIDs {
-			s.branchDAG.Branch(conflictBranchID).Consume(func(branch Branch) {
-				for parentBranchID := range branch.Parents() {
-					if !seenBranches.Add(parentBranchID) {
-						continue
-					}
-
-					branchWalker.Push(parentBranchID)
-				}
-			})
-		}
-	}
+		isRejected = s.IsTransactionConfirmed(conflictingBranchID.TransactionID())
+	})
 
 	return
 }

@@ -13,12 +13,12 @@ import (
 var sampleColor = Color{2}
 
 func TestTransaction_Bytes(t *testing.T) {
-	branchDAG, utxoDAG := setupDependencies(t)
-	defer branchDAG.Shutdown()
+	ledgerstate := setupDependencies(t)
+	defer ledgerstate.Shutdown()
 
 	wallets := createWallets(2)
-	input := generateOutput(utxoDAG, wallets[0].address, 0)
-	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input)
+	input := generateOutput(ledgerstate, wallets[0].address, 0)
+	tx, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[1], input)
 	bytes := tx.Bytes()
 	_tx, _, err := TransactionFromBytes(bytes)
 	assert.NoError(t, err)

@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/stack"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
@@ -20,6 +19,8 @@ import (
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
 // the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
 type BranchDAG struct {
+	ledgerstate *Ledgerstate
+
 	branchStorage         *objectstorage.ObjectStorage
 	childBranchStorage    *objectstorage.ObjectStorage
 	conflictStorage       *objectstorage.ObjectStorage
@@ -29,9 +30,9 @@ type BranchDAG struct {
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider) (newBranchDAG *BranchDAG) {
-	options := buildObjectStorageOptions(cacheProvider)
-	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
+func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
+	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
+	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
 		branchStorage:         osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, options.branchStorageOptions...),
 		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
@@ -596,8 +597,14 @@ func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID Branc
 	})
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchDAGEvents //////////////////////////////////////////////////////////////////////////////////////////////
+
 // BranchDAGEvents is a container for all BranchDAG related events.
 type BranchDAGEvents struct {
 	// BranchCreated gets triggered when a new Branch is created.
 	BranchCreated *events.Event
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

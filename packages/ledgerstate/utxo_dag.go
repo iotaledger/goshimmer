@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -26,53 +25,12 @@ import (
 
 // region UTXODAG //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// IUTXODAG is the interface for UTXODAG which is the core of the ledger state
-// that is formed by Transactions consuming Inputs and creating Outputs.  It represents all the methods
-// that helps to keep track of the balances and the different perceptions of potential conflicts.
-type IUTXODAG interface {
-	// Events returns all events of the UTXODAG
-	Events() *UTXODAGEvents
-	// Shutdown shuts down the UTXODAG and persists its state.
-	Shutdown()
-	// StoreTransaction adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
-	// Transaction was stored, its SolidityType and an error value that contains the cause for possibly exceptions.
-	StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error)
-	// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
-	CheckTransaction(transaction *Transaction) (err error)
-	// CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
-	CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction)
-	// Transaction returns a specific transaction, consumed.
-	Transaction(transactionID TransactionID) (transaction *Transaction)
-	// Transactions returns all the transactions, consumed.
-	Transactions() (transactions map[TransactionID]*Transaction)
-	// CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-	CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata)
-	// CachedOutput retrieves the Output with the given OutputID from the object storage.
-	CachedOutput(outputID OutputID) (cachedOutput *CachedOutput)
-	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
-	CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata)
-	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
-	CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers)
-	// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
-	LoadSnapshot(snapshot *Snapshot)
-	// CachedAddressOutputMapping retrieves the outputs for the given address.
-	CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings)
-	// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
-	ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs)
-	// ManageStoreAddressOutputMapping mangages how to store the address-output mapping dependent on which type of output it is.
-	ManageStoreAddressOutputMapping(output Output)
-	// StoreAddressOutputMapping stores the address-output mapping.
-	StoreAddressOutputMapping(address Address, outputID OutputID)
-	// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
-	TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error)
-	// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
-	BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error)
-}
-
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
 // the ledger state and keeps track of the balances and the different perceptions of potential conflicts.
 type UTXODAG struct {
 	events *UTXODAGEvents
+
+	ledgerstate *Ledgerstate
 
 	transactionStorage          *objectstorage.ObjectStorage
 	transactionMetadataStorage  *objectstorage.ObjectStorage
@@ -80,31 +38,27 @@ type UTXODAG struct {
 	outputMetadataStorage       *objectstorage.ObjectStorage
 	consumerStorage             *objectstorage.ObjectStorage
 	addressOutputMappingStorage *objectstorage.ObjectStorage
-	branchDAG                   *BranchDAG
 	shutdownOnce                sync.Once
-
-	confirmationOracle ConfirmationOracle
 
 	syncutils.MultiMutex
 }
 
 // NewUTXODAG create a new UTXODAG from the given details.
-func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider, confirmationOracle ConfirmationOracle, branchDAG *BranchDAG) (utxoDAG *UTXODAG) {
-	options := buildObjectStorageOptions(cacheProvider)
-	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
+func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
+	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
+	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
 			TransactionBranchIDUpdated: events.NewEvent(TransactionIDEventHandler),
 			TransactionSolid:           events.NewEvent(TransactionIDEventHandler),
 		},
+		ledgerstate:                 ledgerstate,
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, options.transactionMetadataStorageOptions...),
 		outputStorage:               osFactory.New(PrefixOutputStorage, OutputFromObjectStorage, options.outputStorageOptions...),
 		outputMetadataStorage:       osFactory.New(PrefixOutputMetadataStorage, OutputMetadataFromObjectStorage, options.outputMetadataStorageOptions...),
 		consumerStorage:             osFactory.New(PrefixConsumerStorage, ConsumerFromObjectStorage, options.consumerStorageOptions...),
 		addressOutputMappingStorage: osFactory.New(PrefixAddressOutputMappingStorage, AddressOutputMappingFromObjectStorage, options.addressOutputMappingStorageOptions...),
-		confirmationOracle:          confirmationOracle,
-		branchDAG:                   branchDAG,
 	}
 	return
 }
@@ -192,7 +146,7 @@ func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.
 		return gof.High, nil
 	}
 
-	normalizedBranches, err := u.branchDAG.normalizeBranches(NewBranchIDs(branchID))
+	normalizedBranches, err := u.ledgerstate.BranchDAG.normalizeBranches(NewBranchIDs(branchID))
 	if err != nil {
 		return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
 	}
@@ -496,7 +450,7 @@ func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionM
 // own ConflictBranch which is immediately rejected and only kept in the DAG for possible reorgs.
 func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata) (targetBranch BranchID, err error) {
 	targetBranch = NewBranchID(transaction.ID())
-	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(targetBranch, NewBranchIDs(LazyBookedConflictsBranchID), nil)
+	cachedConflictBranch, _, conflictBranchErr := u.ledgerstate.BranchDAG.CreateConflictBranch(targetBranch, NewBranchIDs(LazyBookedConflictsBranchID), nil)
 	if conflictBranchErr != nil {
 		err = errors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
 		return
@@ -511,7 +465,7 @@ func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, t
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
 // determined by aggregating the Branches of the consumed Inputs.
 func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs) (targetBranch BranchID) {
-	cachedAggregatedBranch, _, err := u.branchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
+	cachedAggregatedBranch, _, err := u.ledgerstate.BranchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
 	if err != nil {
 		panic(fmt.Errorf("failed to aggregate Branches when booking Transaction with %s: %w", transaction.ID(), err))
 	}
@@ -548,7 +502,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 
 	// create new ConflictBranch
 	targetBranch = NewBranchID(transaction.ID())
-	cachedConflictBranch, _, err := u.branchDAG.CreateConflictBranch(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
+	cachedConflictBranch, _, err := u.ledgerstate.BranchDAG.CreateConflictBranch(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
 		panic(fmt.Errorf("failed to create ConflictBranch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
@@ -579,7 +533,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
-		cachedConsumingConflictBranch, _, err := u.branchDAG.CreateConflictBranch(conflictBranchID, conflictBranchParents, conflictIDs)
+		cachedConsumingConflictBranch, _, err := u.ledgerstate.BranchDAG.CreateConflictBranch(conflictBranchID, conflictBranchParents, conflictIDs)
 		if err != nil {
 			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
 		}
@@ -615,13 +569,13 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		// if the BranchID is the TransactionID we have a ConflictBranch
 		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
-			if err := u.branchDAG.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
+			if err := u.ledgerstate.BranchDAG.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
 				panic(fmt.Errorf("failed to update ConflictBranch with %s: %w", transactionMetadata.BranchID(), err))
 			}
 			return
 		}
 
-		cachedAggregatedBranch, _, err := u.branchDAG.AggregateBranches(u.consumedBranchIDs(transactionID))
+		cachedAggregatedBranch, _, err := u.ledgerstate.BranchDAG.AggregateBranches(u.consumedBranchIDs(transactionID))
 		if err != nil {
 			panic(err)
 		}
@@ -688,7 +642,7 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (branc
 		}
 	}
 
-	normalizedBranchIDs, err = u.branchDAG.normalizeBranches(NewBranchIDs(consumedBranches...))
+	normalizedBranchIDs, err = u.ledgerstate.BranchDAG.normalizeBranches(NewBranchIDs(consumedBranches...))
 	if err != nil {
 		if errors.Is(err, ErrInvalidStateTransition) {
 			branchesOfInputsConflicting = true
@@ -758,7 +712,7 @@ func (u *UTXODAG) inputsInRejectedBranch(inputsMetadata OutputsMetadata) (reject
 			continue
 		}
 
-		if rejected = u.confirmationOracle.IsBranchRejected(rejectedBranch); rejected {
+		if rejected = u.ledgerstate.ConfirmationOracle.IsBranchRejected(rejectedBranch); rejected {
 			return
 		}
 	}
@@ -838,7 +792,7 @@ func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata OutputsMetada
 			cachedConsumers := u.CachedConsumers(inputMetadata.ID())
 			consumers := cachedConsumers.Unwrap()
 			for _, consumer := range consumers {
-				if u.confirmationOracle.IsTransactionConfirmed(consumer.TransactionID()) {
+				if u.ledgerstate.ConfirmationOracle.IsTransactionConfirmed(consumer.TransactionID()) {
 					cachedConsumers.Release()
 					return true, nil
 				}
@@ -972,6 +926,53 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 	mutex.Lock(lockBuilder.Build()...)
 }
 */
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region IUTXODAG /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// IUTXODAG is the interface for UTXODAG which is the core of the ledger state
+// that is formed by Transactions consuming Inputs and creating Outputs.  It represents all the methods
+// that helps to keep track of the balances and the different perceptions of potential conflicts.
+type IUTXODAG interface {
+	// Events returns all events of the UTXODAG
+	Events() *UTXODAGEvents
+	// Shutdown shuts down the UTXODAG and persists its state.
+	Shutdown()
+	// StoreTransaction adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
+	// Transaction was stored, its SolidityType and an error value that contains the cause for possibly exceptions.
+	StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error)
+	// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
+	CheckTransaction(transaction *Transaction) (err error)
+	// CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
+	CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction)
+	// Transaction returns a specific transaction, consumed.
+	Transaction(transactionID TransactionID) (transaction *Transaction)
+	// Transactions returns all the transactions, consumed.
+	Transactions() (transactions map[TransactionID]*Transaction)
+	// CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
+	CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata)
+	// CachedOutput retrieves the Output with the given OutputID from the object storage.
+	CachedOutput(outputID OutputID) (cachedOutput *CachedOutput)
+	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
+	CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata)
+	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
+	CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers)
+	// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
+	LoadSnapshot(snapshot *Snapshot)
+	// CachedAddressOutputMapping retrieves the outputs for the given address.
+	CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings)
+	// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
+	ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs)
+	// ManageStoreAddressOutputMapping mangages how to store the address-output mapping dependent on which type of output it is.
+	ManageStoreAddressOutputMapping(output Output)
+	// StoreAddressOutputMapping stores the address-output mapping.
+	StoreAddressOutputMapping(address Address, outputID OutputID)
+	// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
+	TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error)
+	// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
+	BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error)
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
