@@ -303,7 +303,7 @@ type ExpectedState struct {
 	// The optional grade of finality state to check against.
 	GradeOfFinality *gof.GradeOfFinality
 	// The optional solid state to check against.
-	Solid *bool
+	SolidityType *string
 }
 
 // True returns a pointer to a true bool.
@@ -404,7 +404,7 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 
 	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
-		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) {
+		(expInclState.SolidityType != nil && *expInclState.SolidityType != metadata.SolidityType) {
 		return false
 	}
 	return true
