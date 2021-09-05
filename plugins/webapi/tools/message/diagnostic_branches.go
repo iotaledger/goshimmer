@@ -92,7 +92,7 @@ var DiagnosticBranchesTableDescription = []string{
 	"ConflictSet",
 	"IssuanceTime",
 	"SolidTime",
-	"LazyBooked",
+	"SolidityType",
 	"GradeOfFinality",
 }
 
@@ -102,7 +102,7 @@ type DiagnosticBranchInfo struct {
 	ConflictSet       []string
 	IssuanceTimestamp time.Time
 	SolidTime         time.Time
-	LazyBooked        bool
+	SolidityType      string
 	GradeOfFinality   gof.GradeOfFinality
 }
 
@@ -128,7 +128,7 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
-			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
+			conflictInfo.SolidityType = transactionMetadata.SolidityType().String()
 		})
 	})
 
@@ -141,7 +141,7 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		strings.Join(d.ConflictSet, ";"),
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
-		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.SolidityType),
 	}
 
 	result = strings.Join(row, ",")
