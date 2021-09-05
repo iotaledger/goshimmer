@@ -84,7 +84,7 @@ type DiagnosticUTXODAGInfo struct {
 	// transaction metadata
 	BranchID            string
 	Conflicting         bool
-	LazyBooked          bool
+	SolidityType        string
 	GradeOfFinality     gof.GradeOfFinality
 	GradeOfFinalityTime time.Time
 }
@@ -111,7 +111,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		txInfo.BranchID = transactionMetadata.BranchID().String()
 
 		txInfo.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
-		txInfo.LazyBooked = transactionMetadata.LazyBooked()
+		txInfo.SolidityType = transactionMetadata.SolidityType().String()
 		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()
 		txInfo.GradeOfFinalityTime = transactionMetadata.GradeOfFinalityTime()
 	})
@@ -131,7 +131,7 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 		strings.Join(d.Attachments, ";"),
 		d.BranchID,
 		fmt.Sprint(d.Conflicting),
-		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.SolidityType),
 		fmt.Sprint(d.GradeOfFinality),
 		fmt.Sprint(d.GradeOfFinalityTime.UnixNano()),
 	}
