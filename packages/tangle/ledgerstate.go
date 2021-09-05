@@ -14,27 +14,21 @@ import (
 // LedgerState is a Tangle component that wraps the components of the ledgerstate package and makes them available at a
 // "single point of contact".
 type LedgerState struct {
-	tangle    *Tangle
-	BranchDAG *ledgerstate.BranchDAG
-	UTXODAG   ledgerstate.IUTXODAG
-
+	tangle      *Tangle
 	totalSupply uint64
+
+	*ledgerstate.Ledgerstate
 }
 
 // NewLedgerState is the constructor of the LedgerState component.
 func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
-	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store, tangle.Options.CacheTimeProvider)
 	return &LedgerState{
-		tangle:    tangle,
-		BranchDAG: branchDAG,
-		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, tangle.Options.CacheTimeProvider, tangle.ConfirmationOracle, branchDAG),
+		tangle: tangle,
+		Ledgerstate: ledgerstate.New(
+			ledgerstate.Store(tangle.Options.Store),
+			ledgerstate.CacheTimeProvider(tangle.Options.CacheTimeProvider),
+		),
 	}
-}
-
-// Shutdown shuts down the LedgerState and persists its state.
-func (l *LedgerState) Shutdown() {
-	l.UTXODAG.Shutdown()
-	l.BranchDAG.Shutdown()
 }
 
 // InheritBranch implements the inheritance rules for Branches in the Tangle. It returns a single inherited Branch
