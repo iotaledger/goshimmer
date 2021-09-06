@@ -17,8 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -119,7 +117,7 @@ func (b BranchID) Base58() string {
 	return base58.Encode(b.Bytes())
 }
 
-// String returns a human readable version of the BranchID.
+// String returns a human-readable version of the BranchID.
 func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
@@ -375,12 +373,6 @@ type Branch interface {
 	// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
 	Parents() BranchIDs
 
-	// GradeOfFinality returns the grade of finality of the branch.
-	GradeOfFinality() gof.GradeOfFinality
-
-	// SetGradeOfFinality sets the grade of finality of the branch. It returns true if the value has been updated.
-	SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool)
-
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
 
@@ -534,13 +526,11 @@ func (c *CachedBranch) String() string {
 // ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type ConflictBranch struct {
-	id                   BranchID
-	parents              BranchIDs
-	parentsMutex         sync.RWMutex
-	conflicts            ConflictIDs
-	conflictsMutex       sync.RWMutex
-	gradeOfFinality      gof.GradeOfFinality
-	gradeOfFinalityMutex sync.RWMutex
+	id             BranchID
+	parents        BranchIDs
+	parentsMutex   sync.RWMutex
+	conflicts      ConflictIDs
+	conflictsMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -591,12 +581,6 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = errors.Errorf("failed to parse conflicts: %w", err)
 		return
 	}
-	gradeOfFinality, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	conflictBranch.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -657,28 +641,6 @@ func (c *ConflictBranch) AddConflict(conflictID ConflictID) (added bool) {
 	return
 }
 
-// GradeOfFinality returns the grade of finality of the branch.
-func (c *ConflictBranch) GradeOfFinality() gof.GradeOfFinality {
-	c.gradeOfFinalityMutex.RLock()
-	defer c.gradeOfFinalityMutex.RUnlock()
-	return c.gradeOfFinality
-}
-
-// setGradeOfFinality sets the grade of finality.
-func (c *ConflictBranch) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
-	c.gradeOfFinalityMutex.Lock()
-	defer c.gradeOfFinalityMutex.Unlock()
-
-	if c.gradeOfFinality == gradeOfFinality {
-		return
-	}
-
-	c.gradeOfFinality = gradeOfFinality
-	c.SetModified()
-	modified = true
-	return
-}
-
 // Bytes returns a marshaled version of the Branch.
 func (c *ConflictBranch) Bytes() []byte {
 	return c.ObjectStorageValue()
@@ -690,7 +652,6 @@ func (c *ConflictBranch) String() string {
 		stringify.StructField("id", c.ID()),
 		stringify.StructField("parents", c.Parents()),
 		stringify.StructField("conflicts", c.Conflicts()),
-		stringify.StructField("gradeOfFinality", c.GradeOfFinality()),
 	)
 }
 
@@ -713,7 +674,6 @@ func (c *ConflictBranch) ObjectStorageValue() []byte {
 		WriteBytes(c.ID().Bytes()).
 		WriteBytes(c.Parents().Bytes()).
 		WriteBytes(c.Conflicts().Bytes()).
-		WriteUint8(uint8(c.GradeOfFinality())).
 		Bytes()
 }
 
@@ -727,11 +687,9 @@ var _ Branch = &ConflictBranch{}
 // AggregatedBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type AggregatedBranch struct {
-	id                   BranchID
-	parents              BranchIDs
-	parentsMutex         sync.RWMutex
-	gradeOfFinality      gof.GradeOfFinality
-	gradeOfFinalityMutex sync.RWMutex
+	id           BranchID
+	parents      BranchIDs
+	parentsMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -790,12 +748,6 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggr
 		err = errors.Errorf("failed to parse parents: %w", err)
 		return
 	}
-	gradeOfFinality, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	aggregatedBranch.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 
 	return
 }
@@ -818,28 +770,6 @@ func (a *AggregatedBranch) Parents() BranchIDs {
 	return a.parents
 }
 
-// GradeOfFinality returns the grade of finality of the branch.
-func (a *AggregatedBranch) GradeOfFinality() gof.GradeOfFinality {
-	a.gradeOfFinalityMutex.RLock()
-	defer a.gradeOfFinalityMutex.RUnlock()
-	return a.gradeOfFinality
-}
-
-// setGradeOfFinality sets the grade of finality.
-func (a *AggregatedBranch) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
-	a.gradeOfFinalityMutex.Lock()
-	defer a.gradeOfFinalityMutex.Unlock()
-
-	if a.gradeOfFinality == gradeOfFinality {
-		return
-	}
-
-	a.gradeOfFinality = gradeOfFinality
-	a.SetModified()
-	modified = true
-	return
-}
-
 // Bytes returns a marshaled version of the Branch.
 func (a *AggregatedBranch) Bytes() []byte {
 	return a.ObjectStorageValue()
@@ -850,7 +780,6 @@ func (a *AggregatedBranch) String() string {
 	return stringify.Struct("AggregatedBranch",
 		stringify.StructField("id", a.ID()),
 		stringify.StructField("parents", a.Parents()),
-		stringify.StructField("gradeOfFinality", a.GradeOfFinality()),
 	)
 }
 
@@ -872,7 +801,6 @@ func (a *AggregatedBranch) ObjectStorageValue() []byte {
 		WriteByte(byte(a.Type())).
 		WriteBytes(a.ID().Bytes()).
 		WriteBytes(a.Parents().Bytes()).
-		WriteUint8(uint8(a.GradeOfFinality())).
 		Bytes()
 }
 

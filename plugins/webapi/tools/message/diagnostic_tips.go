@@ -16,7 +16,7 @@ func TipsDiagnosticHandler(c echo.Context) error {
 	return runTipsDiagnostic(c)
 }
 
-var tipsDiagnosticTableDescription = append([]string{"tipType"}, DiagnosticMessagesTableDescription...)
+var tipsDiagnosticTableDescription = DiagnosticMessagesTableDescription
 
 type tipsDiagnosticInfo struct {
 	*DiagnosticMessagesInfo
