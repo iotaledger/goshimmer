@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/node"
 	"sync"
 
@@ -13,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 )
 
 type connection struct {
@@ -103,23 +103,23 @@ func (connection *connection) readLoop() (chan []byte, chan bool) {
 
 	go func() {
 		{
-			cl := events.NewClosure(func() { close(bufferedConnClosed) })
-			connection.bufferedConn.Events.Close.Attach(cl)
-			defer connection.bufferedConn.Events.Close.Detach(cl)
+			connectionClosedClosure := events.NewClosure(func() { close(bufferedConnClosed) })
+			connection.bufferedConn.Events.Close.Attach(connectionClosedClosure)
+			defer connection.bufferedConn.Events.Close.Detach(connectionClosedClosure)
 		}
 
 		{
-			cl := events.NewClosure(func(data []byte) {
+			connectionDataReceivedClosure := events.NewClosure(func(data []byte) {
 				d := make([]byte, len(data))
 				copy(d, data)
 				bufferedConnDataReceived <- d
 			})
-			connection.bufferedConn.Events.ReceiveMessage.Attach(cl)
-			defer connection.bufferedConn.Events.ReceiveMessage.Detach(cl)
+			connection.bufferedConn.Events.ReceiveMessage.Attach(connectionDataReceivedClosure)
+			defer connection.bufferedConn.Events.ReceiveMessage.Detach(connectionDataReceivedClosure)
 		}
 
 		if err := connection.bufferedConn.Read(); err != nil {
-			if err != io.EOF && !strings.Contains(err.Error(), "Use of closed network connection") {
+			if err != io.EOF && errors.Is(err, net.ErrClosed) {
 				connection.log.LogDebugf("Buffered connection read error", "err", err)
 				connection.active = false
 			}
