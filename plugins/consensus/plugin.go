@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -39,16 +38,8 @@ import (
 
 var (
 	// Plugin is the plugin instance of the consensus plugin.
-	Plugin          *node.Plugin
-	deps            = new(dependencies)
-	voter           vote.DRNGRoundBasedVoter
-	voterServer     *votenet.VoterServer
-	registry        *statement.Registry
-	registryOnce    sync.Once
-	dRNGState       *drng.State
-	dRNGStateMutex  sync.RWMutex
-	dRNGTicker      *drng.Ticker
-	dRNGTickerMutex sync.RWMutex
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
@@ -58,7 +49,10 @@ type dependencies struct {
 	Local              *peer.Local
 	Discover           *discover.Protocol       `optional:"true"`
 	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
+	VoterServer        *votenet.VoterServer
 	ConsensusMechanism tangle.ConsensusMechanism
+	Registry           *statement.Registry
+	DRNGTicker         *drng.Ticker
 }
 
 func init() {
@@ -66,19 +60,33 @@ func init() {
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
 		if err := container.Provide(func() vote.DRNGRoundBasedVoter {
-			voter = fpc.New(OpinionGiverFunc, OwnManaRetriever)
-			return voter
+			return fpc.New(OpinionGiverFunc, OwnManaRetriever)
+		}); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(func(voter vote.DRNGRoundBasedVoter) *votenet.VoterServer {
+			return votenet.New(voter, OpinionRetriever, FPCParameters.BindAddress,
+				metrics.Events().FPCInboundBytes,
+				metrics.Events().FPCOutboundBytes,
+				metrics.Events().QueryReceived,
+			)
+		}); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(func() *statement.Registry {
+			return statement.NewRegistry()
+		}); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(func(state *drng.State) *drng.Ticker {
+			return drng.NewTicker(func() *drng.State { return state }, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
 		}); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
-}
-
-// DRNGTicker returns the pointer to the dRNGTicker.
-func DRNGTicker() *drng.Ticker {
-	dRNGTickerMutex.RLock()
-	defer dRNGTickerMutex.RUnlock()
-	return dRNGTicker
 }
 
 func configureConsensusPlugin(plugin *node.Plugin) {
@@ -105,14 +113,6 @@ func runConsensusPlugin(plugin *node.Plugin) {
 	runFPC(plugin)
 }
 
-// Registry returns the registry.
-func Registry() *statement.Registry {
-	registryOnce.Do(func() {
-		registry = statement.NewRegistry()
-	})
-	return registry
-}
-
 func configureFPC(plugin *node.Plugin) {
 	if FPCParameters.Listen {
 		lPeer := deps.Local
@@ -125,7 +125,7 @@ func configureFPC(plugin *node.Plugin) {
 			plugin.LogFatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
 		}
 
-		if err := lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
+		if err = lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
 			plugin.LogFatalf("could not update services: %v", err)
 		}
 	}
@@ -163,15 +163,10 @@ func runFPC(plugin *node.Plugin) {
 		if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
 			stopped := make(chan struct{})
 			bindAddr := FPCParameters.BindAddress
-			voterServer = votenet.New(deps.Voter, OpinionRetriever, bindAddr,
-				metrics.Events().FPCInboundBytes,
-				metrics.Events().FPCOutboundBytes,
-				metrics.Events().QueryReceived,
-			)
 
 			go func() {
 				plugin.LogInfof("%s started, bind-address=%s", ServerWorkerName, bindAddr)
-				if err := voterServer.Run(); err != nil {
+				if err := deps.VoterServer.Run(); err != nil {
 					plugin.LogErrorf("Error serving: %s", err)
 				}
 				close(stopped)
@@ -184,7 +179,7 @@ func runFPC(plugin *node.Plugin) {
 			}
 
 			plugin.LogInfof("Stopping %s ...", ServerWorkerName)
-			voterServer.Shutdown()
+			deps.VoterServer.Shutdown()
 			plugin.LogInfof("Stopping %s ... done", ServerWorkerName)
 		}, shutdown.PriorityFPC); err != nil {
 			plugin.Panicf("Failed to start as daemon: %s", err)
@@ -195,19 +190,16 @@ func runFPC(plugin *node.Plugin) {
 		plugin.LogInfof("Started FPC round initiator")
 		defer plugin.LogInfof("Stopped FPC round initiator")
 
-		dRNGTickerMutex.Lock()
-		dRNGTicker = drng.NewTicker(DRNGState, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
-		dRNGTickerMutex.Unlock()
-		dRNGTicker.Start()
+		deps.DRNGTicker.Start()
 	exit:
 		for {
 			select {
-			case r := <-dRNGTicker.C():
-				if err := voter.Round(r, dRNGTicker.DelayedRoundStart()); err != nil {
+			case r := <-deps.DRNGTicker.C():
+				if err := deps.Voter.Round(r, deps.DRNGTicker.DelayedRoundStart()); err != nil {
 					plugin.LogWarnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
-				dRNGTicker.Stop()
+				deps.DRNGTicker.Stop()
 				break exit
 			}
 		}
@@ -224,7 +216,7 @@ func runFPC(plugin *node.Plugin) {
 		for {
 			select {
 			case <-ticker.C:
-				Registry().Clean(StatementParameters.DeleteAfter)
+				deps.Registry.Clean(StatementParameters.DeleteAfter)
 			case <-shutdownSignal:
 				break exit
 			}
@@ -294,7 +286,7 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	if err != nil {
 		Plugin.LogErrorf("Error retrieving consensus mana: %s", err)
 	}
-	for _, v := range Registry().NodesView() {
+	for _, v := range deps.Registry.NodesView() {
 		// double check to exclude self
 		if v.ID() == deps.Local.ID() {
 			continue
@@ -574,27 +566,11 @@ func readStatement(messageID tangle.MessageID) {
 			return
 		}
 
-		issuerRegistry := Registry().NodeView(issuerID)
-
+		issuerRegistry := deps.Registry.NodeView(issuerID)
 		issuerRegistry.AddConflicts(statementPayload.Conflicts)
-
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
-
 		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
+
 		deps.Tangle.ConsensusManager.Events.StatementProcessed.Trigger(msg)
 	})
-}
-
-// SetDRNGState sets the dRNGState to the given state.
-func SetDRNGState(state *drng.State) {
-	dRNGStateMutex.Lock()
-	defer dRNGStateMutex.Unlock()
-	dRNGState = state
-}
-
-// DRNGState returns the dRNGState.
-func DRNGState() *drng.State {
-	dRNGStateMutex.RLock()
-	defer dRNGStateMutex.RUnlock()
-	return dRNGState
 }

@@ -54,8 +54,7 @@ type dependencies struct {
 	Selection    *selection.Protocol `optional:"true"`
 	GossipMgr    *gossip.Manager     `optional:"true"`
 	Tangle       *tangle.Tangle
-	DrngPlugin   *node.Plugin `name:"drng"`
-	DrngInstance *drng.DRNG   `optional:"true"`
+	DRNGInstance *drng.DRNG `optional:"true"`
 }
 
 func init() {
@@ -105,11 +104,12 @@ func run(*node.Plugin) {
 	// run the visualizer vertex feed
 	runVisualizer()
 	runManaFeed()
-	// run dRNG live feed if dRNG plugin is enabled
-	if !node.IsSkipped(deps.DrngPlugin) {
+
+	if deps.DRNGInstance == nil {
 		runDrngLiveFeed()
+		return
 	}
-	// run chat live feed if chat app is enabled
+
 	if !node.IsSkipped(chat.Plugin) {
 		runChatLiveFeed()
 	}

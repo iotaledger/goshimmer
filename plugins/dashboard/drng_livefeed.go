@@ -59,9 +59,6 @@ func configureDrngLiveFeed() {
 }
 
 func runDrngLiveFeed() {
-	if deps.DrngInstance == nil {
-		return
-	}
 	if err := daemon.BackgroundWorker("Dashboard[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
 		newMsgRateLimiter := time.NewTicker(time.Second / 10)
 		defer newMsgRateLimiter.Stop()
@@ -73,13 +70,13 @@ func runDrngLiveFeed() {
 			default:
 			}
 		})
-		deps.DrngInstance.Events.Randomness.Attach(notifyNewRandomness)
+		deps.DRNGInstance.Events.Randomness.Attach(notifyNewRandomness)
 
 		defer drngLiveFeedWorkerPool.Stop()
 
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[DRNGUpdater] ...")
-		deps.DrngInstance.Events.Randomness.Detach(notifyNewRandomness)
+		deps.DRNGInstance.Events.Randomness.Detach(notifyNewRandomness)
 		log.Info("Stopping Dashboard[DRNGUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

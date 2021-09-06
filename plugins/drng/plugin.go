@@ -17,7 +17,7 @@ import (
 const PluginName = "DRNG"
 
 var (
-	// Plugin is the plugin deps.DrngInstance of the DRNG plugin.
+	// Plugin is the plugin instance of the DRNG plugin.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 
@@ -28,7 +28,8 @@ var (
 type dependencies struct {
 	dig.In
 	Tangle       *tangle.Tangle
-	DrngInstance *drng.DRNG
+	DRNGInstance *drng.DRNG
+	DRNGTTicker  *drng.Ticker `optional:"true"`
 }
 
 func init() {
@@ -36,13 +37,13 @@ func init() {
 	inbox = make(chan tangle.MessageID, inboxSize)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(func() *node.Plugin {
-			return Plugin
-		}, dig.Name("drng")); err != nil {
+		if err := container.Provide(configureDRNG); err != nil {
 			Plugin.Panic(err)
 		}
 
-		if err := container.Provide(configureDRNG); err != nil {
+		if err := container.Provide(func(drngInstance *drng.DRNG) *drng.State {
+			return deps.DRNGInstance.LoadState(consensus.FPCParameters.DRNGInstanceID)
+		}); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -75,12 +76,12 @@ func run(plugin *node.Plugin) {
 						plugin.LogDebug(err)
 						return
 					}
-					if err := deps.DrngInstance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
+					if err = deps.DRNGInstance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
 						// TODO: handle error
 						plugin.LogDebug(err)
 						return
 					}
-					plugin.LogDebug("New randomness: ", deps.DrngInstance.State[parsedPayload.InstanceID].Randomness())
+					plugin.LogDebug("New randomness: ", deps.DRNGInstance.State[parsedPayload.InstanceID].Randomness())
 				})
 			}
 		}
@@ -93,7 +94,7 @@ func run(plugin *node.Plugin) {
 
 func configureEvents() {
 	// skip the event configuration if no committee has been configured.
-	if len(deps.DrngInstance.State) == 0 {
+	if len(deps.DRNGInstance.State) == 0 {
 		return
 	}
 
@@ -104,13 +105,11 @@ func configureEvents() {
 		}
 	}))
 
-	consensus.SetDRNGState(deps.DrngInstance.LoadState(consensus.FPCParameters.DRNGInstanceID))
-
 	// Section to update the randomness for the dRNG ticker used by FPC.
-	deps.DrngInstance.Events.Randomness.Attach(events.NewClosure(func(state *drng.State) {
+	deps.DRNGInstance.Events.Randomness.Attach(events.NewClosure(func(state *drng.State) {
 		if state.Committee().InstanceID == consensus.FPCParameters.DRNGInstanceID {
-			if ticker := consensus.DRNGTicker(); ticker != nil {
-				ticker.UpdateRandomness(state.Randomness())
+			if deps.DRNGTTicker != nil {
+				deps.DRNGTTicker.UpdateRandomness(state.Randomness())
 			}
 		}
 	}))
