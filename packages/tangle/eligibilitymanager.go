@@ -131,11 +131,13 @@ func (e *EligibilityManager) updateEligibilityAfterDependencyConfirmation(depend
 		// tx that need to be checked for the eligibility after one of dependency has been confirmed
 		cachedDependencies.Consume(func(unconfirmedTxDependency *UnconfirmedTxDependency) {
 			// get tx from storage
-			for txID := range unconfirmedTxDependency.txDependentIDs {
+			unconfirmedTxDependency.txDependentIDs.ForEach(func(key, value interface{}) bool {
+				txID := key.(ledgerstate.TransactionID)
 				e.tangle.LedgerState.Transaction(txID).Consume(func(tx *ledgerstate.Transaction) {
 					dependentTxs = append(dependentTxs, tx)
 				})
-			}
+				return true
+			})
 		})
 		e.tangle.Storage.deleteUnconfirmedTxDependencies(*dependencyTxID)
 	}

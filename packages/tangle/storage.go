@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"strconv"
 	"sync"
 	"time"
@@ -1158,7 +1159,7 @@ type UnconfirmedTxDependency struct {
 	objectstorage.StorableObjectFlags
 
 	transactionID  ledgerstate.TransactionID
-	txDependentIDs ledgerstate.TransactionIDs
+	txDependentIDs *orderedmap.OrderedMap
 	mutex          sync.RWMutex
 }
 
@@ -1166,7 +1167,7 @@ type UnconfirmedTxDependency struct {
 func NewUnconfirmedTxDependency(txID ledgerstate.TransactionID) *UnconfirmedTxDependency {
 	return &UnconfirmedTxDependency{
 		transactionID:  txID,
-		txDependentIDs: make(ledgerstate.TransactionIDs),
+		txDependentIDs: orderedmap.New(),
 	}
 }
 
@@ -1175,7 +1176,7 @@ func (u *UnconfirmedTxDependency) AddDependency(txID ledgerstate.TransactionID) 
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	u.txDependentIDs[txID] = types.Void
+	u.txDependentIDs.Set(txID, types.Void)
 	u.SetModified()
 }
 
@@ -1184,7 +1185,7 @@ func (u *UnconfirmedTxDependency) DeleteDependency(txID ledgerstate.TransactionI
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	delete(u.txDependentIDs, txID)
+	u.txDependentIDs.Delete(txID)
 	u.SetModified()
 }
 
@@ -1208,10 +1209,12 @@ func (u *UnconfirmedTxDependency) ObjectStorageValue() []byte {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
-	marshalUtil := marshalutil.New(ledgerstate.TransactionIDLength * len(u.txDependentIDs))
-	for dependency := range u.txDependentIDs {
+	marshalUtil := marshalutil.New(ledgerstate.TransactionIDLength * u.txDependentIDs.Size())
+	u.txDependentIDs.ForEach(func(key, value interface{}) bool {
+		dependency := key.(ledgerstate.TransactionID)
 		marshalUtil.WriteBytes(dependency.Bytes())
-	}
+		return true
+	})
 	return marshalUtil.Bytes()
 }
 

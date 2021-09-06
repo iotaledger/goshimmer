@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"strconv"
 	"strings"
 	"sync"
@@ -97,8 +98,8 @@ func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transac
 }
 
 // TransactionIDsFromMarshalUtil unmarshals TransactionIDs using a MarshalUtil (for easier unmarshaling).
-func TransactionIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionIDs TransactionIDs, err error) {
-	transactionIDs = make(TransactionIDs)
+func TransactionIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionIDs *orderedmap.OrderedMap, err error) {
+	transactionIDs = orderedmap.New()
 	for {
 		doneReading, err := marshalUtil.DoneReading()
 		if err != nil {
@@ -114,7 +115,7 @@ func TransactionIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transa
 			err = errors.Errorf("failed to parse TransactionIDs: %w", err)
 			return nil, err
 		}
-		transactionIDs[transactionID] = types.Void
+		transactionIDs.Set(transactionID, types.Void)
 	}
 	return
 }
