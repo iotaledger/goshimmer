@@ -4,11 +4,9 @@ import (
 	"context"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -32,19 +30,21 @@ func TestManaPersistence(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
+		Activity:    true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	peer := n.Peers()[1]
+	faucet, peer := n.Peers()[0], n.Peers()[1]
 
-	time.Sleep(5 * time.Second)
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 	tests.SendFaucetRequest(t, peer, peer.Address(0))
 
-	log.Println("Waiting for peer to get mana...")
+	log.Println("Waiting for peer to get access mana...")
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peer).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
+	log.Println("Waiting for peer to get consensus mana...")
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peer).Consensus > 0
 	}, tests.Timeout, tests.Tick)
@@ -169,17 +169,17 @@ func TestManaApis(t *testing.T) {
 		resp, err := faucet.GetManaFullNodeID(fullID(faucet.ID()))
 		require.NoError(t, err)
 		t.Logf("/mana %+v", resp)
-		assert.Equal(t, fullID(faucet.ID()), resp.NodeID)
-		assert.Greater(t, resp.Access, minAccessMana)
-		assert.Greater(t, resp.Consensus, minConsensusMana)
+		require.Equal(t, fullID(faucet.ID()), resp.NodeID)
+		require.Greater(t, resp.Access, minAccessMana)
+		require.Greater(t, resp.Consensus, minConsensusMana)
 
 		// on startup, the faucet pledges consensus mana to the emptyNodeID
 		resp, err = faucet.GetManaFullNodeID(fullID(emptyNodeID))
 		require.NoError(t, err)
 		t.Logf("/mana %+v", resp)
-		assert.Equal(t, fullID(emptyNodeID), resp.NodeID)
-		assert.Equal(t, minAccessMana, resp.Access)
-		assert.Greater(t, resp.Consensus, minConsensusMana)
+		require.Equal(t, fullID(emptyNodeID), resp.NodeID)
+		require.Equal(t, minAccessMana, resp.Access)
+		require.Greater(t, resp.Consensus, minConsensusMana)
 	})
 
 	// Test /mana/all
@@ -187,10 +187,10 @@ func TestManaApis(t *testing.T) {
 		resp, err := faucet.GetAllMana()
 		require.NoError(t, err)
 		t.Logf("/mana/all %+v", resp)
-		assert.NotEmpty(t, resp.Access)
-		assert.Greater(t, resp.Access[0].Mana, minAccessMana)
-		assert.NotEmpty(t, resp.Consensus)
-		assert.Greater(t, resp.Consensus[0].Mana, minConsensusMana)
+		require.NotEmpty(t, resp.Access)
+		require.Greater(t, resp.Access[0].Mana, minAccessMana)
+		require.NotEmpty(t, resp.Consensus)
+		require.Greater(t, resp.Consensus[0].Mana, minConsensusMana)
 	})
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
@@ -219,14 +219,14 @@ func TestManaApis(t *testing.T) {
 		resp, err := faucet.GetManaPercentile(fullID(peers[0].ID()))
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", resp)
-		assert.Equal(t, fullID(peers[0].ID()), resp.NodeID)
-		assert.InDelta(t, 75.0, resp.Access, 0.01)
+		require.Equal(t, fullID(peers[0].ID()), resp.NodeID)
+		require.InDelta(t, 75.0, resp.Access, 0.01)
 
 		resp, err = faucet.GetManaPercentile(fullID(emptyNodeID))
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", resp)
-		assert.Equal(t, fullID(emptyNodeID), resp.NodeID)
-		assert.InDelta(t, 60., resp.Consensus, 0.01)
+		require.Equal(t, fullID(emptyNodeID), resp.NodeID)
+		require.InDelta(t, 60., resp.Consensus, 0.01)
 	})
 
 	// Test /mana/access/online and /mana/consensus/online
@@ -260,8 +260,8 @@ func TestManaApis(t *testing.T) {
 		resp, err := peers[1].GetPending(outputID)
 		require.NoError(t, err)
 		t.Logf("/mana/pending %+v", resp)
-		assert.Equal(t, outputID, resp.OutputID)
-		assert.Greater(t, resp.Mana, minConsensusMana)
+		require.Equal(t, outputID, resp.OutputID)
+		require.Greater(t, resp.Mana, minConsensusMana)
 	})
 
 	// Test /mana/allowedManaPledge
@@ -269,10 +269,10 @@ func TestManaApis(t *testing.T) {
 		resp, err := faucet.GetAllowedManaPledgeNodeIDs()
 		require.NoError(t, err)
 		t.Logf("/mana/allowedManaPledge %+v", resp)
-		assert.Equal(t, false, resp.Access.IsFilterEnabled)
-		assert.Equal(t, []string{fullID(faucet.ID())}, resp.Access.Allowed)
-		assert.Equal(t, false, resp.Consensus.IsFilterEnabled)
-		assert.Equal(t, []string{fullID(faucet.ID())}, resp.Consensus.Allowed)
+		require.Equal(t, false, resp.Access.IsFilterEnabled)
+		require.Equal(t, []string{fullID(faucet.ID())}, resp.Access.Allowed)
+		require.Equal(t, false, resp.Consensus.IsFilterEnabled)
+		require.Equal(t, []string{fullID(faucet.ID())}, resp.Consensus.Allowed)
 	})
 }
 

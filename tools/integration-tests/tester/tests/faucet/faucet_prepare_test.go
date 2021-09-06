@@ -19,6 +19,7 @@ func TestFaucetPrepare(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
+		Activity:    true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -30,12 +31,7 @@ func TestFaucetPrepare(t *testing.T) {
 		tokensPerRequest     = faucet.Config().TokensPerRequest
 	)
 
-	// wait for the faucet to prepare all outputs
-	require.Eventually(t, func() bool {
-		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(preparedOutputsCount).Base58()})
-		require.NoError(t, err)
-		return len(resp.UnspentOutputs[0].Outputs) > 0
-	}, time.Minute, tests.Tick)
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// check that each of the preparedOutputsCount addresses holds the correct balance
 	remainderBalance := uint64(framework.GenesisTokenAmount - preparedOutputsCount*tokensPerRequest)
@@ -66,6 +62,11 @@ func TestFaucetPrepare(t *testing.T) {
 		require.NoError(t, err)
 		return len(resp.UnspentOutputs[0].Outputs) > 0
 	}, tests.Timeout, tests.Tick)
+
+	// wait for the peer to register the balance change
+	require.Eventually(t, func() bool {
+		return tests.Balance(t, peer, peer.Address(preparedOutputsCount+1), ledgerstate.ColorIOTA) == uint64(tokensPerRequest)
+	}, time.Minute, tests.Tick)
 
 	// ensure that we have spent the balance associated to the request that triggered the split
 	require.EqualValues(t, 0, tests.Balance(t, faucet, faucet.Address(preparedOutputsCount+1), ledgerstate.ColorIOTA))
