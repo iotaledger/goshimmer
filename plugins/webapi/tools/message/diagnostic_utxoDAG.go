@@ -64,7 +64,7 @@ var DiagnosticUTXODAGTableDescription = []string{
 	"Attachments",
 	"BranchID",
 	"Conflicting",
-	"LazyBooked",
+	"SolidityType",
 	"GradeOfFinality",
 	"GradeOfFinalityTime",
 }
