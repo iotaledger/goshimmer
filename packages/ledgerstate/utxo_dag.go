@@ -49,6 +49,7 @@ func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
 	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
+			TransactionInvalid:         events.NewEvent(TransactionIDEventHandler),
 			TransactionBranchIDUpdated: events.NewEvent(TransactionIDEventHandler),
 			TransactionSolid:           events.NewEvent(TransactionIDEventHandler),
 		},
@@ -89,6 +90,9 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 	u.CachedTransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
 		u.transactionStorage.Store(transaction).Release()
 		transactionMetadata := NewTransactionMetadata(transactionID)
+
+		transactionMetadata.SetModified()
+		transactionMetadata.Persist()
 
 		err = u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
 		stored = true
@@ -308,7 +312,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 	if validErr := u.transactionObjectivelyValid(transaction, consumedOutputs); validErr != nil {
 		u.Events().TransactionInvalid.Trigger(transaction, validErr)
 
-		return
+		return validErr
 	}
 
 	if _, err = u.bookTransaction(transaction, transactionMetadata, consumedOutputs); err != nil {

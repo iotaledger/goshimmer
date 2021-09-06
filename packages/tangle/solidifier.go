@@ -207,7 +207,7 @@ func (s *Solidifier) isMessageWeaklySolid(message *Message, messageMetadata *Mes
 		return false
 	}
 
-	return s.solidifyPayload(message)
+	return s.solidifyPayload(message, messageMetadata)
 }
 
 // isMessageSolid checks if the given Message is solid.
@@ -258,7 +258,7 @@ func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 		return false
 	}
 
-	return s.solidifyPayload(message)
+	return s.solidifyPayload(message, messageMetadata)
 }
 
 // parentsAgeValid checks if the given MessageIDs belong to Messages that are within the allowed
@@ -333,7 +333,7 @@ func (s *Solidifier) isMessageMarkedAsWeaklySolid(messageID MessageID, requestMi
 
 // solidifyPayload creates the Attachment reference between the Message and its contained Transaction and then
 // solidifies the Transaction by handing it over to the UTXODAG.
-func (s *Solidifier) solidifyPayload(message *Message) (solid bool) {
+func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageMetadata) (solid bool) {
 	transaction, typeCastOkay := message.Payload().(*ledgerstate.Transaction)
 	if !typeCastOkay {
 		return true
@@ -348,9 +348,17 @@ func (s *Solidifier) solidifyPayload(message *Message) (solid bool) {
 	s.setPayloadSolidificationRunning(transaction.ID(), true)
 	_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
 	s.setPayloadSolidificationRunning(transaction.ID(), false)
-
 	if err != nil {
-		s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
+		switch {
+		case errors.Is(err, ledgerstate.ErrInvalidStateTransition):
+			messageMetadata.SetInvalid(true)
+			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		case errors.Is(err, ledgerstate.ErrTransactionInvalid):
+			messageMetadata.SetInvalid(true)
+			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		default:
+			s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
+		}
 
 		return false
 	}

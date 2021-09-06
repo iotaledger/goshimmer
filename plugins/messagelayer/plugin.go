@@ -162,9 +162,6 @@ func Tangle() *tangle.Tangle {
 		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
 		tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
-		finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
-		tangleInstance.ConfirmationOracle = finalityGadget
-
 		tangleInstance.Setup()
 	})
 	return tangleInstance

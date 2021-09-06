@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -34,13 +35,18 @@ func TestScenario_1(t *testing.T) {
 
 	testFramework.RegisterBranchID("red", "Message4")
 	testFramework.RegisterBranchID("yellow", "Message5")
-
 	testFramework.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6").WaitMessagesBooked()
 	testFramework.IssueMessages("Message7", "Message9").WaitMessagesBooked()
 	testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
-	for _, messageAlias := range []string{"Message7", "Message8", "Message9"} {
-		assert.Truef(t, testFramework.MessageMetadata(messageAlias).invalid, "%s not invalid", messageAlias)
+	for _, messageAlias := range []string{"Message7", "Message9"} {
+		assert.Truef(t, testFramework.MessageMetadata(messageAlias).IsInvalid(), "%s not invalid", messageAlias)
+	}
+
+	for _, messageAlias := range []string{"Message8"} {
+		branchID, err := testFramework.tangle.Booker.MessageBranchID(testFramework.Message(messageAlias).ID())
+		require.NoError(t, err)
+		assert.Equalf(t, ledgerstate.InvalidBranchID, branchID, "%s not invalid", messageAlias)
 	}
 
 	checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{

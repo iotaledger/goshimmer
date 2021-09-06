@@ -104,6 +104,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			if inheritErr != nil {
 				messageMetadata.SetInvalid(true)
 				b.tangle.Events.MessageInvalid.Trigger(messageID)
+
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 				return
 			}
