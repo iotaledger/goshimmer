@@ -44,6 +44,8 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		}
 	}(processMsgScenario, t)
 
+	processMsgScenario.Tangle.LedgerState.Configure(ledgerstate.LazyBookingEnabled(false))
+
 	sfg := NewSimpleFinalityGadget(processMsgScenario.Tangle)
 	wireUpEvents(t, processMsgScenario.Tangle, sfg)
 

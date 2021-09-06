@@ -379,18 +379,21 @@ func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata 
 		return InvalidBranchID, nil
 	}
 
-	// check if transaction is attaching to something rejected
-	if rejected, rejectedBranch := u.inputsInRejectedBranch(inputsMetadata); rejected {
-		u.bookRejectedTransaction(transaction, transactionMetadata, rejectedBranch)
+	// make lazy booking optional
+	if u.ledgerstate.Options.LazyBookingEnabled {
+		// check if transaction is attaching to something rejected
+		if rejected, rejectedBranch := u.inputsInRejectedBranch(inputsMetadata); rejected {
+			u.bookRejectedTransaction(transaction, transactionMetadata, rejectedBranch)
 
-		return rejectedBranch, nil
-	}
+			return rejectedBranch, nil
+		}
 
-	// check if any Input was spent by a confirmed Transaction already
-	if inputsSpentByConfirmedTransaction, tmpErr := u.inputsSpentByConfirmedTransaction(inputsMetadata); tmpErr != nil {
-		return BranchID{}, errors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
-	} else if inputsSpentByConfirmedTransaction {
-		return u.bookRejectedConflictingTransaction(transaction, transactionMetadata)
+		// check if any Input was spent by a confirmed Transaction already
+		if inputsSpentByConfirmedTransaction, tmpErr := u.inputsSpentByConfirmedTransaction(inputsMetadata); tmpErr != nil {
+			return BranchID{}, errors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
+		} else if inputsSpentByConfirmedTransaction {
+			return u.bookRejectedConflictingTransaction(transaction, transactionMetadata)
+		}
 	}
 
 	// mark transaction as "permanently rejected"

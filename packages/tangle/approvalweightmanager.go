@@ -76,7 +76,7 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (weight float64) {
 	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
-		panic(err)
+		panic(errors.Errorf("failed to retrieve conflict BranchIDs: %w", err))
 	}
 
 	weight = math.MaxFloat64

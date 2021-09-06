@@ -32,7 +32,8 @@ func New(options ...Option) (ledgerstate *Ledgerstate) {
 func (l *Ledgerstate) Configure(options ...Option) {
 	if l.Options == nil {
 		l.Options = &Options{
-			Store: mapdb.NewMapDB(),
+			Store:              mapdb.NewMapDB(),
+			LazyBookingEnabled: true,
 		}
 	}
 
@@ -57,8 +58,9 @@ type Option func(*Options)
 
 // Options is a container for all configurable parameters of the Ledgerstate.
 type Options struct {
-	Store             kvstore.KVStore
-	CacheTimeProvider *database.CacheTimeProvider
+	Store              kvstore.KVStore
+	CacheTimeProvider  *database.CacheTimeProvider
+	LazyBookingEnabled bool
 }
 
 // Store is an Option for the Ledgerstate that allows to specify which storage layer is supposed to be used to persist
@@ -73,6 +75,14 @@ func Store(store kvstore.KVStore) Option {
 func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
 		options.CacheTimeProvider = cacheTimeProvider
+	}
+}
+
+// LazyBookingEnabled is an Option for the Ledgerstate that allows to specify if the ledger state should lazy book
+// conflicts that look like they have been decided already.
+func LazyBookingEnabled(enabled bool) Option {
+	return func(options *Options) {
+		options.LazyBookingEnabled = enabled
 	}
 }
 
