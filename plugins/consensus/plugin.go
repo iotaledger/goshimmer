@@ -75,9 +75,7 @@ func init() {
 			Plugin.Panic(err)
 		}
 
-		if err := container.Provide(func() *statement.Registry {
-			return statement.NewRegistry()
-		}); err != nil {
+		if err := container.Provide(statement.NewRegistry); err != nil {
 			Plugin.Panic(err)
 		}
 
