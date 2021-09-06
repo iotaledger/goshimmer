@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -289,9 +288,6 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 }
 
 func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
-	start := time.Now()
-	defer fmt.Println("updateSequenceSupporters", time.Since(start))
-
 	a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// Do not revisit markers that have already been visited. With the like switch there can be cycles in the sequence DAG
 		// which results in endless walks.
@@ -303,12 +299,9 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 			return true
 		})
 
-		count := 0
 		for supportWalker.HasNext() {
-			count++
 			a.addSupportToMarker(supportWalker.Next().(markers.Marker), message, supportWalker)
 		}
-		fmt.Println("addSupportToMarker executed", count)
 	})
 }
 

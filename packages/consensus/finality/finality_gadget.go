@@ -253,7 +253,6 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw fl
 	txGoFPropWalker := walker.New()
 	s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(branchID.TransactionID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		s.updateTransactionGoF(transactionMetadata, newGradeOfFinality, txGoFPropWalker)
-
 	})
 	for txGoFPropWalker.HasNext() {
 		s.forwardPropagateBranchGoFToTxs(txGoFPropWalker.Next().(ledgerstate.TransactionID), branchID, newGradeOfFinality, txGoFPropWalker)
