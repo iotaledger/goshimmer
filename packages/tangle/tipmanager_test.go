@@ -189,6 +189,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	// set up scenario (images/tipmanager-TransactionTips-test.png)
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
+	tangle.Solidifier.Setup()
 	tipManager := tangle.TipManager
 
 	wallets := make(map[string]wallet)
