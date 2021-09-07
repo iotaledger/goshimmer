@@ -103,7 +103,10 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 	})
 }
 
-func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool, eventsQueue *eventsqueue.EventsQueue) (approversToPropagate MessageIDs) {
+func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (approversToPropagate MessageIDs) {
+	eventsQueue := eventsqueue.New()
+	defer eventsQueue.Trigger()
+
 	s.triggerMutex.LockEntity(message)
 	defer s.triggerMutex.UnlockEntity(message)
 
@@ -132,7 +135,10 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 	return
 }
 
-func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *MessageMetadata, eventsQueue *eventsqueue.EventsQueue) (approversToPropagate MessageIDs) {
+func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *MessageMetadata) (approversToPropagate MessageIDs) {
+	eventsQueue := eventsqueue.New()
+	defer eventsQueue.Trigger()
+
 	s.triggerMutex.LockEntity(message)
 	defer s.triggerMutex.UnlockEntity(message)
 
@@ -165,19 +171,11 @@ func (s *Solidifier) solidify(message *Message, messageMetadata *MessageMetadata
 		return
 	}
 
-	eventsQueue := eventsqueue.New()
-
 	switch solidificationType {
 	case WeakSolidification:
-		approversToPropagate := s.solidifyWeakly(message, messageMetadata, true, eventsQueue)
-		eventsQueue.Trigger()
-
-		s.propagateSolidity(approversToPropagate...)
+		s.propagateSolidity(s.solidifyWeakly(message, messageMetadata, true)...)
 	case StrongSolidification:
-		approversToPropagate := s.solidifyStrongly(message, messageMetadata, eventsQueue)
-		eventsQueue.Trigger()
-
-		s.propagateSolidity(approversToPropagate...)
+		s.propagateSolidity(s.solidifyStrongly(message, messageMetadata)...)
 	}
 }
 
@@ -379,14 +377,10 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 // propagateSolidity executes the solidity checks for the given MessageIDs and propagates possible updates to their
 // approvers.
 func (s *Solidifier) propagateSolidity(messageIDs ...MessageID) {
-	eventsQueue := eventsqueue.New()
-
 	s.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-		for _, messageID := range s.solidifyWeakly(message, messageMetadata, false, eventsQueue) {
+		for _, messageID := range s.solidifyWeakly(message, messageMetadata, false) {
 			walker.Push(messageID)
 		}
-
-		eventsQueue.Trigger()
 	}, messageIDs, true)
 }
 
