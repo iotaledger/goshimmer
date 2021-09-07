@@ -14,13 +14,13 @@
     - role: goshimmer-node
       nodeType: analysis-server
 
-- hosts: goshimmers:&internal-nodes
+- hosts: goshimmers:&internal_nodes
   vars:
     nodeType: goshimmer
   roles:
     - goshimmer-node
 
-- hosts: goshimmers:&public-nodes
+- hosts: goshimmers:&public_nodes
   vars:
     nodeType: public-node
   roles:
@@ -53,6 +53,6 @@
         - { drandNumber: 4 }
         - { drandNumber: 5 }
 
-- hosts: asset-registries
+- hosts: asset_registries
   roles:
     - asset-registry

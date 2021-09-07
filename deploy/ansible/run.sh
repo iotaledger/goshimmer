@@ -1,5 +1,5 @@
 eval "$GOSHIMMER_SEEDS"
-ansible-playbook -u root -i deploy/ansible/"${1}" --extra-vars \
+ansible-playbook -u root -i deploy/ansible/hosts/"${1}" --extra-vars \
   "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
 BOOTSTRAP_01_SEED=$BOOTSTRAP_01_SEED
 VANILLA_01_SEED=$VANILLA_01_SEED

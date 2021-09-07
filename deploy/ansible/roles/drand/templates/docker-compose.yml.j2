@@ -14,7 +14,7 @@ services:
     environment:
       - DRAND_PUBLIC_ADDRESS={{ inventory_hostname }}:{{ drandNumber }}234
     entrypoint: /usr/local/bin/entrypoint.sh
-    command: start --verbose --private-listen 0.0.0.0:8000 --public-listen 0.0.0.0:8081 --tls-disable --goshimmerAPIurl "http://{{ goshimmerHostTemplate | replace('{drandNumber}', drandNumber }}:9101" --instanceID 1 --metrics "0.0.0.0:1236"
+    command: start --verbose --private-listen 0.0.0.0:8000 --public-listen 0.0.0.0:8081 --tls-disable --goshimmerAPIurl "http://{{ goshimmerHostTemplate | replace('{drandNumber}', drandNumber) }}:9101" --instanceID 1 --metrics "0.0.0.0:1236"
     restart: unless-stopped
 
 volumes:
