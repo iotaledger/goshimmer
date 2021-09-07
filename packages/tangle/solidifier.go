@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -107,6 +108,9 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 	eventsQueue := eventsqueue.New()
 	defer eventsQueue.Trigger()
 
+	fmt.Println("LOCK", message.Locks())
+	defer fmt.Println("UNLOCK", message.Locks())
+
 	s.triggerMutex.LockEntity(message)
 	defer s.triggerMutex.UnlockEntity(message)
 
@@ -138,6 +142,9 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *MessageMetadata) (approversToPropagate MessageIDs) {
 	eventsQueue := eventsqueue.New()
 	defer eventsQueue.Trigger()
+
+	fmt.Println("LOCK", message.Locks())
+	defer fmt.Println("UNLOCK", message.Locks())
 
 	s.triggerMutex.LockEntity(message)
 	defer s.triggerMutex.UnlockEntity(message)
