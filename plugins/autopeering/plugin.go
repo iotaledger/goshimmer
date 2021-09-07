@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	net2 "github.com/iotaledger/goshimmer/packages/net"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -35,11 +36,12 @@ var (
 type dependencies struct {
 	dig.In
 
-	Discovery *discover.Protocol
-	Selection *selection.Protocol
-	Local     *peer.Local
-	GossipMgr *gossip.Manager        `optional:"true"`
-	ManaFunc  mana.ManaRetrievalFunc `optional:"true" name:"manaFunc"`
+	Discovery             *discover.Protocol
+	Selection             *selection.Protocol
+	Local                 *peer.Local
+	GossipMgr             *gossip.Manager        `optional:"true"`
+	ManaFunc              mana.ManaRetrievalFunc `optional:"true" name:"manaFunc"`
+	AutoPeeringConnMetric *net2.ConnMetric
 }
 
 func init() {
@@ -57,6 +59,12 @@ func init() {
 		if err := container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("autopeering")); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(func() *net2.ConnMetric {
+			return &net2.ConnMetric{}
+		}); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -167,11 +175,13 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 	defer conn.Close()
 
-	Conn = &NetConnMetric{UDPConn: conn}
+	// ideally this would happen during provide()
+	deps.AutoPeeringConnMetric.UDPConn = conn
+
 	lPeer := deps.Local
 
 	// start a server doing peerDisc and peering
-	srv := server.Serve(lPeer, Conn, Plugin.Logger().Named("srv"), deps.Discovery, deps.Selection)
+	srv := server.Serve(lPeer, deps.AutoPeeringConnMetric, Plugin.Logger().Named("srv"), deps.Discovery, deps.Selection)
 	defer srv.Close()
 
 	// start the peer discovery on that connection

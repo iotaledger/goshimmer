@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -22,12 +23,18 @@ var (
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(chat.NewChat); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
 }
 
 type dependencies struct {
 	dig.In
 	Tangle *tangle.Tangle
 	Server *echo.Echo
+	Chat   *chat.Chat
 }
 
 func configure(_ *node.Plugin) {
@@ -36,19 +43,19 @@ func configure(_ *node.Plugin) {
 }
 
 func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
-	var chatEvent *ChatEvent
+	var chatEvent *chat.Event
 	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		if message.Payload().Type() != Type {
+		if message.Payload().Type() != chat.Type {
 			return
 		}
 
-		chatPayload, _, err := FromBytes(message.Payload().Bytes())
+		chatPayload, _, err := chat.FromBytes(message.Payload().Bytes())
 		if err != nil {
 			Plugin.LogError(err)
 			return
 		}
 
-		chatEvent = &ChatEvent{
+		chatEvent = &chat.Event{
 			From:      chatPayload.From,
 			To:        chatPayload.To,
 			Message:   chatPayload.Message,
@@ -61,5 +68,5 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 		return
 	}
 
-	Events.MessageReceived.Trigger(chatEvent)
+	deps.Chat.Events.MessageReceived.Trigger(chatEvent)
 }

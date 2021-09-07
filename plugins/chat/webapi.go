@@ -3,6 +3,7 @@ package chat
 import (
 	"net/http"
 
+	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
@@ -34,7 +35,7 @@ func SendChatMessage(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "message is too long"})
 	}
 
-	chatPayload := NewPayload(req.From, req.To, req.Message)
+	chatPayload := chat.NewPayload(req.From, req.To, req.Message)
 	msg, err := deps.Tangle.IssuePayload(chatPayload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})

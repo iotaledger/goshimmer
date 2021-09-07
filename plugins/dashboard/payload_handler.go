@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	chat2 "github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
@@ -125,8 +126,8 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case drng.PayloadType:
 		// drng payload
 		return processDrngPayload(p)
-	case chat.Type:
-		chatPayload := p.(*chat.Payload)
+	case chat2.Type:
+		chatPayload := p.(*chat2.Payload)
 		return chat.Request{
 			From:    chatPayload.From,
 			To:      chatPayload.To,

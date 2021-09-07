@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
@@ -26,7 +27,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -55,6 +55,7 @@ type dependencies struct {
 	GossipMgr    *gossip.Manager     `optional:"true"`
 	Tangle       *tangle.Tangle
 	DRNGInstance *drng.DRNG `optional:"true"`
+	Chat         *chat.Chat `optional:"true"`
 }
 
 func init() {
@@ -110,7 +111,7 @@ func run(*node.Plugin) {
 		return
 	}
 
-	if !node.IsSkipped(chat.Plugin) {
+	if deps.Chat != nil {
 		runChatLiveFeed()
 	}
 

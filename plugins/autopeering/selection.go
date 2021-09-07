@@ -9,9 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 )
 
-// Conn contains the network connection.
-var Conn *NetConnMetric
-
 func createPeerSel(localID *peer.Local, nbrDiscover *discover.Protocol) *selection.Protocol {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName).Named("sel")

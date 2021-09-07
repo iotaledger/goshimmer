@@ -7,6 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/gin-gonic/gin"
+	"github.com/iotaledger/goshimmer/packages/net"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
@@ -37,9 +38,10 @@ var (
 
 type dependencies struct {
 	dig.In
-	AutopeeringPlugin *node.Plugin `name:"autopeering"`
-	Local             *peer.Local
-	GossipMgr         *gossip.Manager `optional:"true"`
+	AutopeeringPlugin     *node.Plugin `name:"autopeering"`
+	Local                 *peer.Local
+	GossipMgr             *gossip.Manager `optional:"true"`
+	AutoPeeringConnMetric *net.ConnMetric `optional:"true"`
 }
 
 func configure(plugin *node.Plugin) {

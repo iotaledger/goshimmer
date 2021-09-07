@@ -2,7 +2,6 @@ package clock
 
 import (
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -22,8 +21,7 @@ const (
 
 var (
 	// Plugin is the plugin instance of the clock plugin.
-	Plugin     *node.Plugin
-	pluginOnce sync.Once
+	Plugin *node.Plugin
 )
 
 func init() {
