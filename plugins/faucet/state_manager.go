@@ -137,7 +137,7 @@ func (s *StateManager) DeriveStateFromTangle() (err error) {
 		return
 	}
 
-	endIndex := (GenesisTokenAmount-s.preparingState.RemainderOutputBalance())/s.tokensPerRequest + 1
+	endIndex := (GenesisTokenAmount-s.preparingState.RemainderOutputBalance())/s.tokensPerRequest + MaxFaucetOutputsCount
 	Plugin().LogInfof("%d indices have already been used based on found remainder output", endIndex)
 
 	s.preparingState.SetLastFundingOutputAddressIndex(endIndex)
@@ -271,7 +271,6 @@ func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fu
 func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 	for _, fOutput := range fundingOutputs {
 		s.fundingState.FundingOutputsAdd(fOutput)
-		s.preparingState.UpdateLastFundingOutputAddressIndex(fOutput.AddressIndex)
 	}
 }
 
@@ -847,7 +846,7 @@ func newPreparingState(seed *walletseed.Seed) *preparingState {
 		addressToIndex: map[string]uint64{
 			seed.Address(RemainderAddressIndex).Address().Base58(): RemainderAddressIndex,
 		},
-		lastFundingOutputAddressIndex: MaxFaucetOutputsCount + 1,
+		lastFundingOutputAddressIndex: MaxFaucetOutputsCount,
 		supplyOutputs:                 list.New(),
 		remainderOutput:               nil,
 	}
@@ -933,15 +932,6 @@ func (p *preparingState) SetLastFundingOutputAddressIndex(index uint64) {
 	defer p.Unlock()
 
 	p.lastFundingOutputAddressIndex = index
-}
-
-// UpdateLastFundingOutputAddressIndex sets index as new lastFundingOutputAddressIndex if provided index is greater than the current one.
-func (p *preparingState) UpdateLastFundingOutputAddressIndex(index uint64) {
-	p.Lock()
-	defer p.Unlock()
-	if index > p.lastFundingOutputAddressIndex {
-		p.lastFundingOutputAddressIndex = index
-	}
 }
 
 // GetAddressToIndex returns index for provided address based on addressToIndex map
