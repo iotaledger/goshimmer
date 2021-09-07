@@ -14,3 +14,8 @@ tools/
 
 # Database directory
 mainnetdb/
+
+plugins/dashboard/frontend/node_modules/
+plugins/analysis/dashboard/frontend/node_modules/
+documentation/
+images/

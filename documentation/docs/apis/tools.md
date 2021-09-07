@@ -185,7 +185,7 @@ None
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/messages
+curl --location 'http://localhost:8080/tools/diagnostic/messages'
 ```
 
 #### Response examples
@@ -211,7 +211,7 @@ None
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/messages/firstweakreferences
+curl --location 'http://localhost:8080/tools/diagnostic/messages/firstweakreferences'
 ```
 
 #### Response examples
@@ -239,7 +239,7 @@ Returns a list of messages with rank >= of the given rank parameter.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/messages/rank/:rank
+curl --location 'http://localhost:8080/tools/diagnostic/messages/rank/:rank'
 ```
 where `:rank` is the uint64, e.g. 20.
 
@@ -264,7 +264,7 @@ None.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/utxodag
+curl --location 'http://localhost:8080/tools/diagnostic/utxodag'
 ```
 
 #### Response examples
@@ -289,7 +289,7 @@ None.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/branches
+curl --location 'http://localhost:8080/tools/diagnostic/branches'
 ```
 
 #### Response examples
@@ -314,7 +314,7 @@ None.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/branches/lazybooked
+curl --location 'http://localhost:8080/tools/diagnostic/branches/lazybooked'
 ```
 
 #### Response examples
@@ -338,7 +338,7 @@ None.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/branches/invalid
+curl --location 'http://localhost:8080/tools/diagnostic/branches/invalid'
 ```
 
 #### Response examples
@@ -362,7 +362,7 @@ None.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/tips
+curl --location 'http://localhost:8080/tools/diagnostic/tips'
 ```
 
 #### Response examples
@@ -386,7 +386,7 @@ None.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/tips/strong
+curl --location 'http://localhost:8080/tools/diagnostic/tips/strong'
 ```
 
 #### Response examples
@@ -410,7 +410,7 @@ None.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/tips/weak
+curl --location 'http://localhost:8080/tools/diagnostic/tips/weak'
 ```
 
 #### Response examples
@@ -434,7 +434,7 @@ None.
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/tools/diagnostic/drng
+curl --location 'http://localhost:8080/tools/diagnostic/drng'
 ```
 
 #### Response examples

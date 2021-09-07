@@ -17,21 +17,30 @@ func handleRequest(c echo.Context) error {
 
 	switch request.Cmd {
 	case "start":
-		if request.MPM == 0 {
-			request.MPM = 1
+		if request.Rate == 0 {
+			request.Rate = 1
 		}
 
 		// IMIF: Inter Message Issuing Function
 		switch request.IMIF {
-		case "exponential":
+		case "poisson":
 			break
 		default:
 			request.IMIF = "uniform"
 		}
 
+		var timeUnit time.Duration
+		switch request.Unit {
+		case "mpm":
+			timeUnit = time.Minute
+		default:
+			request.Unit = "mps"
+			timeUnit = time.Second
+		}
+
 		messageSpammer.Shutdown()
-		messageSpammer.Start(request.MPM, time.Minute, request.IMIF)
-		log.Infof("Started spamming messages with %d MPM and %s inter-message issuing function", request.MPM, request.IMIF)
+		messageSpammer.Start(request.Rate, timeUnit, request.IMIF)
+		log.Infof("Started spamming messages with %d %s and %s inter-message issuing function", request.Rate, request.Unit, request.IMIF)
 		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Message: "started spamming messages"})
 	case "stop":
 		messageSpammer.Shutdown()

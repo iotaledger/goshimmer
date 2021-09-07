@@ -151,6 +151,41 @@ func TestPowFilter_Filter(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
+func TestTimestampFilter(t *testing.T) {
+	filter := NewTimestampFilter()
+	// set callbacks
+	m := &messageCallbackMock{}
+	filter.OnAccept(m.Accept)
+	filter.OnReject(m.Reject)
+
+	t.Run("testing timestamps in the future", func(t *testing.T) {
+		msg := &Message{}
+		msg.issuingTime = time.Now().Add(1 * time.Second)
+		m.On("Accept", msg, testPeer)
+		filter.Filter(msg, testPeer)
+		assert.Equal(t, 1, filter.queue.Size())
+	})
+
+	t.Run("testing current timestamp", func(t *testing.T) {
+		msg := &Message{}
+		msg.issuingTime = time.Now()
+		m.On("Accept", msg, testPeer)
+		filter.Filter(msg, testPeer)
+	})
+
+	t.Run("testing timestamp in the past", func(t *testing.T) {
+		msg := &Message{}
+		msg.issuingTime = time.Now().Add(-1 * time.Second)
+		m.On("Accept", msg, testPeer)
+		filter.Filter(msg, testPeer)
+	})
+
+	time.Sleep(2 * time.Second)
+	assert.Equal(t, 0, filter.queue.Size())
+
+	m.AssertExpectations(t)
+}
+
 type bytesCallbackMock struct{ mock.Mock }
 
 func (m *bytesCallbackMock) Accept(msg []byte, p *peer.Peer)            { m.Called(msg, p) }

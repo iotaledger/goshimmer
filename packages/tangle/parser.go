@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -10,8 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/bytesfilter"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/typeutils"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 )
@@ -51,6 +54,7 @@ func NewParser() (result *Parser) {
 	result.AddBytesFilter(NewRecentlySeenBytesFilter())
 	result.AddMessageFilter(NewMessageSignatureFilter())
 	result.AddMessageFilter(NewTransactionFilter())
+	result.AddMessageFilter(NewTimestampFilter())
 	return
 }
 
@@ -154,6 +158,13 @@ func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
 	}
 }
 
+// Shutdown closes all the message filters.
+func (p *Parser) Shutdown() {
+	for _, messageFiler := range p.messageFilters {
+		messageFiler.Close()
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ParserEvents /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -246,6 +257,8 @@ type MessageFilter interface {
 	OnAccept(callback func(msg *Message, peer *peer.Peer))
 	// OnAccept registers the given callback as the rejection function of the filter.
 	OnReject(callback func(msg *Message, err error, peer *peer.Peer))
+	// Closer closes the filter.
+	io.Closer
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -303,6 +316,9 @@ func (f *MessageSignatureFilter) getRejectCallback() (result func(msg *Message, 
 	f.onRejectCallbackMutex.RUnlock()
 	return
 }
+
+// Close closes the filter.
+func (f *MessageSignatureFilter) Close() error { return nil }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -512,6 +528,81 @@ func (f *TransactionFilter) getRejectCallback() (result func(msg *Message, err e
 	result = f.onRejectCallback
 	f.onRejectCallbackMutex.RUnlock()
 	return
+}
+
+// Close closes the filter.
+func (f *TransactionFilter) Close() error { return nil }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Timestamp filter /////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	timestampFilterWorkerCount  = 1
+	maxTimestampFilterQueueSize = 1024
+)
+
+// TimestampFilter is the filter to not process messages with timestamp in the future.
+type TimestampFilter struct {
+	onAcceptCallback func(msg *Message, peer *peer.Peer)
+	onRejectCallback func(msg *Message, err error, peer *peer.Peer)
+
+	onAcceptCallbackMutex sync.RWMutex
+	onRejectCallbackMutex sync.RWMutex
+
+	queue *timedexecutor.TimedExecutor
+}
+
+// NewTimestampFilter creates a new message timestamp filter.
+func NewTimestampFilter() *TimestampFilter {
+	return &TimestampFilter{
+		queue: timedexecutor.New(
+			timestampFilterWorkerCount,
+			timedexecutor.WithMaxQueueSize(maxTimestampFilterQueueSize),
+		),
+	}
+}
+
+// Filter filters up on the given bytes and peer and calls the acceptance callback
+// if the input passes or the rejection callback if the input is rejected.
+func (f *TimestampFilter) Filter(msg *Message, p *peer.Peer) {
+	// if the message has a timestamp in the past or current
+	if clock.Since(msg.IssuingTime()) >= 0 {
+		// bypass the timed executor
+		f.getAcceptCallback()(msg, p)
+		return
+	}
+	// add the message with timestamp in the future to the timed executor
+	f.queue.ExecuteAt(func() {
+		f.getAcceptCallback()(msg, p)
+	}, msg.IssuingTime())
+}
+
+// OnAccept registers the given callback as the acceptance function of the filter.
+func (f *TimestampFilter) OnAccept(callback func(msg *Message, p *peer.Peer)) {
+	f.onAcceptCallbackMutex.Lock()
+	f.onAcceptCallback = callback
+	f.onAcceptCallbackMutex.Unlock()
+}
+
+// OnReject registers the given callback as the rejection function of the filter.
+func (f *TimestampFilter) OnReject(callback func(msg *Message, err error, p *peer.Peer)) {
+	f.onRejectCallbackMutex.Lock()
+	f.onRejectCallback = callback
+	f.onRejectCallbackMutex.Unlock()
+}
+
+func (f *TimestampFilter) getAcceptCallback() (result func(msg *Message, p *peer.Peer)) {
+	f.onAcceptCallbackMutex.RLock()
+	result = f.onAcceptCallback
+	f.onAcceptCallbackMutex.RUnlock()
+	return
+}
+
+// Close closes the filter.
+func (f *TimestampFilter) Close() error {
+	f.queue.Shutdown(timedexecutor.CancelPendingTasks)
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

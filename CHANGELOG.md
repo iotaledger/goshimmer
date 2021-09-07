@@ -1,3 +1,16 @@
+# v0.7.5 - 2021-08-09
+* Move the scheduler of the congestion control at the end of data flow
+* Add new metrics collection
+* Add alias initial state validation
+* Add creation of new marker sequence after maxVerticesWithoutFutureMarker threshold
+* Fix booking of transactions in multiple conflict sets
+* Fix manual peering parsing from config.json
+* Update JS dependencies
+* Update Dockerfile to explicitly expose used ports
+* Update docs to docusaurus
+* Update snapshot file with DevNet UTXO at 2021-08-09 13:33 UTC
+* **Breaking**: bumps network and database versions
+
 # v0.7.4 - 2021-07-08
 * Add ParametersDefinition structs in integration test framework
 * Add UTXO-DAG interface

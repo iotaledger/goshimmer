@@ -1,3 +1,6 @@
 *.txt
+csv
+grafana/csv
 grafana/grafana.db
+grafana/plugins
 grafana/png
