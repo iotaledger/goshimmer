@@ -21,6 +21,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/eventsqueue"
 )
 
 // region UTXODAG //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -86,6 +87,8 @@ func (u *UTXODAG) Shutdown() {
 func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error) {
 	propagationWalker := walker.New(true)
 
+	eventsQueue := eventsqueue.New()
+
 	u.LockEntity(transaction)
 	u.CachedTransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
 		u.transactionStorage.Store(transaction).Release()
@@ -94,7 +97,7 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 		transactionMetadata.SetModified()
 		transactionMetadata.Persist()
 
-		err = u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
+		err = u.solidifyTransaction(transaction, transactionMetadata, propagationWalker, eventsQueue)
 		stored = true
 
 		return transactionMetadata
@@ -103,15 +106,19 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 	})
 	u.UnlockEntity(transaction)
 
+	eventsQueue.Trigger()
+
 	for propagationWalker.HasNext() {
 		transactionID := propagationWalker.Next().(TransactionID)
 
 		u.CachedTransaction(transactionID).Consume(func(transaction *Transaction) {
+			defer eventsQueue.Trigger()
+
 			u.LockEntity(transaction)
 			defer u.UnlockEntity(transaction)
 
 			u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-				_ = u.solidifyTransaction(transaction, transactionMetadata, propagationWalker)
+				_ = u.solidifyTransaction(transaction, transactionMetadata, propagationWalker, eventsQueue)
 			})
 		})
 	}
@@ -293,7 +300,7 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
 
-func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, propagationWalker *walker.Walker) (err error) {
+func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, propagationWalker *walker.Walker, eventsQueue *eventsqueue.EventsQueue) (err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
@@ -310,7 +317,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 	}
 
 	if validErr := u.transactionObjectivelyValid(transaction, consumedOutputs); validErr != nil {
-		u.Events().TransactionInvalid.Trigger(transaction, validErr)
+		eventsQueue.Queue(u.Events().TransactionInvalid, transaction, validErr)
 
 		return validErr
 	}
@@ -318,7 +325,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 	if _, err = u.bookTransaction(transaction, transactionMetadata, consumedOutputs); err != nil {
 		err = errors.Errorf("failed to book Transaction with %s: %w", transaction.ID(), err)
 
-		u.Events().Error.Trigger(transaction, err)
+		eventsQueue.Queue(u.Events().Error, transaction, err)
 
 		return
 	}
@@ -327,7 +334,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 		u.ManageStoreAddressOutputMapping(output)
 	}
 
-	u.Events().TransactionSolid.Trigger(transaction.ID())
+	eventsQueue.Queue(u.Events().TransactionSolid, transaction.ID())
 
 	for transactionID := range u.consumingTransactionIDs(transaction, Unsolid) {
 		propagationWalker.Push(transactionID)
