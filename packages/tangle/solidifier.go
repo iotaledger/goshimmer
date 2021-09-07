@@ -143,11 +143,13 @@ func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *Message
 	eventsQueue := eventsqueue.New()
 	defer eventsQueue.Trigger()
 
-	fmt.Println("LOCK", message.Locks())
-	defer fmt.Println("UNLOCK", message.Locks())
+	fmt.Println("LOCKING", message.Locks())
+	defer fmt.Println("UNLOCKED", message.Locks())
 
 	s.triggerMutex.LockEntity(message)
 	defer s.triggerMutex.UnlockEntity(message)
+
+	fmt.Println("LOCKED", message.Locks())
 
 	approversToPropagate = make(MessageIDs, 0)
 
