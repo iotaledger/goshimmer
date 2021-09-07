@@ -641,6 +641,10 @@ func (m *Message) Locks() (locks []interface{}) {
 	if m.lock == nil {
 		lockBuilder := (&syncutils.MultiMutexLockBuilder{}).AddLock(m.ID())
 		m.ForEachParent(func(parent Parent) {
+			if parent.ID == EmptyMessageID {
+				return
+			}
+
 			lockBuilder = lockBuilder.AddLock(parent.ID)
 		})
 
