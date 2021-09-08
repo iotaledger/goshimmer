@@ -19,8 +19,6 @@ import (
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
 // the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
 type BranchDAG struct {
-	ledgerstate *Ledgerstate
-
 	branchStorage         *objectstorage.ObjectStorage
 	childBranchStorage    *objectstorage.ObjectStorage
 	conflictStorage       *objectstorage.ObjectStorage
