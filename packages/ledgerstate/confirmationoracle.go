@@ -6,18 +6,22 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
-// ConfirmationOracle answers questions about entities' confirmation.
-type ConfirmationOracle interface {
-	IsTransactionConfirmed(transactionID TransactionID) bool
-	IsTransactionRejected(transactionID TransactionID) bool
-	IsBranchConfirmed(branchID BranchID) bool
-	IsBranchRejected(branchID BranchID) bool
-}
+// region SimpleConfirmationOracle /////////////////////////////////////////////////////////////////////////////////////
 
+// SimpleConfirmationOracle is a very simple ConfirmationOracle that retrieves the confirmation status by analyzing the
+// gradeOfFinality of the different entities.
 type SimpleConfirmationOracle struct {
 	ledgerstate *Ledgerstate
 }
 
+// NewSimpleConfirmationOracle is the constructor of the SimpleConfirmationOracle.
+func NewSimpleConfirmationOracle(ledgerstate *Ledgerstate) *SimpleConfirmationOracle {
+	return &SimpleConfirmationOracle{
+		ledgerstate: ledgerstate,
+	}
+}
+
+// IsTransactionConfirmed returns true if the transaction has been accepted to stay in the ledger.
 func (s *SimpleConfirmationOracle) IsTransactionConfirmed(transactionID TransactionID) (isConfirmed bool) {
 	s.ledgerstate.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		isConfirmed = transactionMetadata.GradeOfFinality() >= gof.Medium
@@ -26,12 +30,7 @@ func (s *SimpleConfirmationOracle) IsTransactionConfirmed(transactionID Transact
 	return
 }
 
-func NewSimpleConfirmationOracle(ledgerstate *Ledgerstate) *SimpleConfirmationOracle {
-	return &SimpleConfirmationOracle{
-		ledgerstate: ledgerstate,
-	}
-}
-
+// IsTransactionRejected returns true if the transaction will not stay part of the ledger permanently.
 func (s *SimpleConfirmationOracle) IsTransactionRejected(transactionID TransactionID) (isRejected bool) {
 	s.ledgerstate.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		isRejected = s.IsBranchRejected(transactionMetadata.BranchID())
@@ -40,10 +39,12 @@ func (s *SimpleConfirmationOracle) IsTransactionRejected(transactionID Transacti
 	return
 }
 
+// IsBranchConfirmed returns true if the Branch has been accepted to stay in the ledger.
 func (s *SimpleConfirmationOracle) IsBranchConfirmed(branchID BranchID) bool {
 	return s.IsTransactionConfirmed(branchID.TransactionID())
 }
 
+// IsBranchRejected returns true if the Branch will not stay part of the ledger permanently.
 func (s *SimpleConfirmationOracle) IsBranchRejected(branchID BranchID) (isRejected bool) {
 	branchWalker := walker.New(false)
 	branchWalker.Push(branchID)
@@ -86,4 +87,27 @@ func (s *SimpleConfirmationOracle) isConflictingBranchConfirmed(currentBranchID 
 	return
 }
 
+// code contract (make sure the struct implements all required methods)
 var _ ConfirmationOracle = &SimpleConfirmationOracle{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ConfirmationOracle ///////////////////////////////////////////////////////////////////////////////////////////
+
+// ConfirmationOracle is an interface for the component that answers questions about the confirmation status of the
+// different entities of the ledger.
+type ConfirmationOracle interface {
+	// IsTransactionConfirmed returns true if the transaction has been accepted to stay in the ledger.
+	IsTransactionConfirmed(transactionID TransactionID) bool
+
+	// IsTransactionRejected returns true if the transaction will not stay part of the ledger permanently.
+	IsTransactionRejected(transactionID TransactionID) bool
+
+	// IsBranchConfirmed returns true if the Branch has been accepted to stay in the ledger.
+	IsBranchConfirmed(branchID BranchID) bool
+
+	// IsBranchRejected returns true if the Branch will not stay part of the ledger permanently.
+	IsBranchRejected(branchID BranchID) bool
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
