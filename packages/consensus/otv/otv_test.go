@@ -1025,9 +1025,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ledgerstate := New(
-				CacheTimeProvider(database.NewCacheTimeProvider(0)),
-			)
+			ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
 			defer ledgerstate.Shutdown()
 
 			tt.test.Scenario.CreateBranches(t, ledgerstate.BranchDAG)
@@ -1382,9 +1380,7 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ledgerstate := New(
-				CacheTimeProvider(database.NewCacheTimeProvider(0)),
-			)
+			ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
 			defer ledgerstate.Shutdown()
 
 			tt.test.Scenario.CreateBranches(t, ledgerstate.BranchDAG)
