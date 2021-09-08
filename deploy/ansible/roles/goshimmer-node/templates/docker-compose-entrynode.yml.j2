@@ -18,7 +18,7 @@ services:
     command: >
       --skip-config=true
       --autopeering.port=15626
-      {% if networkVersion %}
+      {% if networkVersion|default(None) %}
       --autopeering.networkVersion={{ networkVersion }}
       {% endif %}
       --autopeering.entryNodes=
