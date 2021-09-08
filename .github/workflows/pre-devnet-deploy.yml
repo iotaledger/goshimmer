@@ -6,6 +6,7 @@ on:
       - develop
     paths-ignore:
       - 'docs/**'
+  pull_request:
 jobs:
 
   deploy:
