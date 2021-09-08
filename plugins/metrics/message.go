@@ -400,7 +400,11 @@ func measureInitialDBStats() {
 			return
 		default:
 			initialBranchTotalCountDB++
-			if branch.GradeOfFinality() == gof.High {
+			branchGoF, err := messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+			if err != nil {
+				return
+			}
+			if branchGoF == gof.High {
 				initialFinalizedBranchCountDB++
 			}
 		}

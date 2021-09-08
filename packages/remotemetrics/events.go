@@ -75,6 +75,7 @@ type BranchCountUpdate struct {
 	MetricsLevel         uint8  `json:"metricsLevel" bson:"metricsLevel"`
 	TotalBranchCount     uint64 `json:"totalBranchCount" bson:"totalBranchCount"`
 	FinalizedBranchCount uint64 `json:"finalizedBranchCount" bson:"finalizedBranchCount"`
+	// TODO: add reorg count if easy
 }
 
 // DRNGMetrics defines the DRNG metrics record that is sent to remote logger.

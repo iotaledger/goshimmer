@@ -4,6 +4,7 @@
 package remotemetrics
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"time"
 
@@ -92,9 +93,10 @@ func configureBranchConfirmationMetrics() {
 		return
 	}
 	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
-	//messagelayer.FinalityGadget().Events().BranchCreated.Attach(events.NewClosure(func(cachedBranch *ledgerstate.BranchDAGEvent) {
-	//	sendBranchMetrics()
-	//}))
+
+	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		sendBranchMetrics()
+	}))
 }
 
 func configureMessageFinalizedMetrics() {
