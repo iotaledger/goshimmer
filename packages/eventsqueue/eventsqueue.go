@@ -30,6 +30,20 @@ func (e *EventsQueue) Queue(event *events.Event, params ...interface{}) {
 	})
 }
 
+// Add adds all the elements in other to the Queue.
+func (e *EventsQueue) Add(other *EventsQueue) {
+	e.queuedElementsMutex.Lock()
+	defer e.queuedElementsMutex.Unlock()
+
+	other.queuedElementsMutex.Lock()
+	defer other.queuedElementsMutex.Unlock()
+
+	for _, queuedElement := range other.queuedElements {
+		e.Queue(queuedElement.event, queuedElement.params...)
+	}
+	e.clear()
+}
+
 // Trigger triggers all queued Events and empties the EventsQueue.
 func (e *EventsQueue) Trigger() {
 	e.queuedElementsMutex.Lock()
