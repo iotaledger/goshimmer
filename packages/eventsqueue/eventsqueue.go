@@ -6,6 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// TODO: !!! THIS IS A TEMPORARY FILE THAT NEEDS TO BE REMOVED ONCE WE CAN MERGE THE LATEST HIVE UPGRADE !!!
+
 // region EventsQueue //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // EventsQueue represents an Event
