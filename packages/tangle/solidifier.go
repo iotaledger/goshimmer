@@ -87,6 +87,8 @@ func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.Transacti
 		return
 	}
 
+	fmt.Println("TRIGGER:TRANSACTION SOLID", transactionID)
+
 	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
 }
 
