@@ -57,10 +57,10 @@ type Tangle struct {
 type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker *markers.Marker) bool
 	IsMessageConfirmed(msgID MessageID) bool
-	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
-	IsTransactionRejected(transactionID ledgerstate.TransactionID) bool
 	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
 	IsBranchRejected(branchID ledgerstate.BranchID) bool
+	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
+	IsTransactionRejected(transactionID ledgerstate.TransactionID) bool
 	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
 	Events() *ConfirmationEvents
 }
@@ -82,7 +82,7 @@ func New(options ...Option) (tangle *Tangle) {
 	}
 
 	tangle.Configure(options...)
-	tangle.WeightProvider = tangle.Options.WeightProvider
+
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
@@ -97,6 +97,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Utils = NewUtils(tangle)
 	tangle.Orderer = NewOrderer(tangle)
 	tangle.ConfirmationOracle = tangle.Options.ConfirmationOracleFactory(tangle)
+	tangle.WeightProvider = tangle.Options.WeightProvider
 
 	return
 }
@@ -321,6 +322,7 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
+// ConfirmationOracleFactory is an Option for the Tangle that allows to define the used ConfirmationOracle.
 func ConfirmationOracleFactory(factory func(tangle *Tangle) ConfirmationOracle) Option {
 	return func(options *Options) {
 		options.ConfirmationOracleFactory = factory
