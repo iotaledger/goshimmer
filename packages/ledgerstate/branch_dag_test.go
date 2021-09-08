@@ -3,7 +3,6 @@ package ledgerstate
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 
 	"github.com/iotaledger/hive.go/events"
@@ -27,7 +26,6 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.True(t, newBranchCreated)
 	assert.Equal(t, NewBranchIDs(MasterBranchID), conflictBranch2.Parents())
 	assert.Equal(t, ConflictBranchType, conflictBranch2.Type())
-	assert.Less(t, conflictBranch2.GradeOfFinality(), gof.Middle)
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}), conflictBranch2.Conflicts())
 
 	cachedConflictBranch3, _, err := branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(conflictBranch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
@@ -38,7 +36,6 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.True(t, newBranchCreated)
 	assert.Equal(t, NewBranchIDs(conflictBranch2.ID()), conflictBranch3.Parents())
 	assert.Equal(t, ConflictBranchType, conflictBranch3.Type())
-	assert.Less(t, conflictBranch2.GradeOfFinality(), gof.Middle)
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), conflictBranch3.Conflicts())
 
 	cachedConflictBranch2, newBranchCreated, err = branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
@@ -549,28 +546,6 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	RegisterBranchIDAlias(result.branch16.ID(), "Branch16 = Branch5 + Branch7 + Branch12")
 
 	return
-}
-
-func (t *testBranchDAG) AssertInitialState(testingT *testing.T) {
-	for _, branch := range []Branch{
-		t.branch2,
-		t.branch3,
-		t.branch4,
-		t.branch5,
-		t.branch6,
-		t.branch7,
-		t.branch8,
-		t.branch9,
-		t.branch10,
-		t.branch11,
-		t.branch12,
-		t.branch13,
-		t.branch14,
-		t.branch15,
-		t.branch16,
-	} {
-		assert.Less(testingT, branch.GradeOfFinality(), gof.Middle)
-	}
 }
 
 func (t *testBranchDAG) Release(force ...bool) {

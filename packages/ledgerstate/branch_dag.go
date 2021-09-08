@@ -7,11 +7,11 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/stack"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 )
 
@@ -25,6 +25,7 @@ type BranchDAG struct {
 	conflictStorage       *objectstorage.ObjectStorage
 	conflictMemberStorage *objectstorage.ObjectStorage
 	shutdownOnce          sync.Once
+	Events                *BranchDAGEvents
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
@@ -36,6 +37,9 @@ func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvid
 		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
 		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, options.conflictStorageOptions...),
 		conflictMemberStorage: osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, options.conflictMemberStorageOptions...),
+		Events: &BranchDAGEvents{
+			BranchCreated: events.NewEvent(BranchIDEventHandler),
+		},
 	}
 	newBranchDAG.init()
 
@@ -52,6 +56,9 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	}
 
 	cachedConflictBranch, newBranchCreated, err = b.createConflictBranchFromNormalizedParentBranchIDs(branchID, normalizedParentBranchIDs, conflictIDs)
+	if newBranchCreated {
+		b.Events.BranchCreated.Trigger(branchID)
+	}
 	return
 }
 
@@ -366,23 +373,17 @@ func (b *BranchDAG) Shutdown() {
 func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
 	if stored {
-		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch Branch) {
-			branch.SetGradeOfFinality(gof.High)
-		})
+		cachedMasterBranch.Release()
 	}
 
 	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
 	if stored {
-		(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-			branch.SetGradeOfFinality(gof.None)
-		})
+		cachedRejectedBranch.Release()
 	}
 
 	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
 	if stored {
-		(&CachedBranch{CachedObject: cachedLazyBookedConflictsBranch}).Consume(func(branch Branch) {
-			branch.SetGradeOfFinality(gof.None)
-		})
+		cachedLazyBookedConflictsBranch.Release()
 	}
 }
 
@@ -593,4 +594,10 @@ func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID Branc
 			cachedConflictMember.Release()
 		}
 	})
+}
+
+// BranchDAGEvents is a container for all BranchDAG related events.
+type BranchDAGEvents struct {
+	// BranchCreated gets triggered when a new Branch is created.
+	BranchCreated *events.Event
 }

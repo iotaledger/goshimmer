@@ -25,6 +25,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
         this.props.explorerStore.getBranch(this.props.match.params.id);
         this.props.explorerStore.getBranchChildren(this.props.match.params.id);
         this.props.explorerStore.getBranchConflicts(this.props.match.params.id);
+        this.props.explorerStore.getBranchSupporters(this.props.match.params.id);
     }
 
     componentWillUnmount() {
@@ -32,7 +33,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
     }
     render() {
         let {id} = this.props.match.params;
-        let { query_err, branch, branchChildren, branchConflicts } = this.props.explorerStore;
+        let { query_err, branch, branchChildren, branchConflicts, branchSupporters } = this.props.explorerStore;
 
         if (query_err) {
             return (
@@ -79,6 +80,11 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                                 </div>)}
                             </ListGroup> }
                         </ListGroup.Item>}
+                    <ListGroup.Item> Supporters:
+                        {branchSupporters && <ListGroup>
+                            {branchSupporters.supporters.map((s,i) => <ListGroup.Item key={s+i}>{s}</ListGroup.Item>)}
+                        </ListGroup> }
+                    </ListGroup.Item>
                 </ListGroup>}
             </Container>
         )

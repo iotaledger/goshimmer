@@ -89,6 +89,7 @@ func run(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/branches/:branchID", GetBranch)
 	webapi.Server().GET("ledgerstate/branches/:branchID/children", GetBranchChildren)
 	webapi.Server().GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
+	webapi.Server().GET("ledgerstate/branches/:branchID/supporters", GetBranchSupporters)
 	webapi.Server().GET("ledgerstate/outputs/:outputID", GetOutput)
 	webapi.Server().GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
 	webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
@@ -227,7 +228,9 @@ func GetBranch(c echo.Context) (err error) {
 	}
 
 	if messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch))
+		branchGoF, _ := messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+
+		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF))
 	}) {
 		return
 	}
@@ -283,6 +286,22 @@ func GetBranchConflicts(c echo.Context) (err error) {
 	}
 
 	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetBranchSupporters ///////////////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchSupporters is the handler for the /ledgerstate/branches/:branchID/supporters endpoint.
+func GetBranchSupporters(c echo.Context) (err error) {
+	branchID, err := branchIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	supporters := messagelayer.Tangle().ApprovalWeightManager.SupportersOfBranch(branchID)
+
+	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchSupportersResponse(branchID, supporters))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

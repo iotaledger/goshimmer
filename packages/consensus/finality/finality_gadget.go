@@ -26,7 +26,7 @@ type BranchThresholdTranslation func(branchID ledgerstate.BranchID, aw float64) 
 
 const (
 	lowLowerBound    = 0.2
-	middleLowerBound = 0.3
+	mediumLowerBound = 0.3
 	highLowerBound   = 0.5
 )
 
@@ -34,10 +34,10 @@ var (
 	// DefaultBranchGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a branch.
 	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality {
 		switch {
-		case aw >= lowLowerBound && aw < middleLowerBound:
+		case aw >= lowLowerBound && aw < mediumLowerBound:
 			return gof.Low
-		case aw >= middleLowerBound && aw < highLowerBound:
-			return gof.Middle
+		case aw >= mediumLowerBound && aw < highLowerBound:
+			return gof.Medium
 		case aw >= highLowerBound:
 			return gof.High
 		default:
@@ -48,10 +48,10 @@ var (
 	// DefaultMessageGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a message.
 	DefaultMessageGoFTranslation MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
 		switch {
-		case aw >= lowLowerBound && aw < middleLowerBound:
+		case aw >= lowLowerBound && aw < mediumLowerBound:
 			return gof.Low
-		case aw >= middleLowerBound && aw < highLowerBound:
-			return gof.Middle
+		case aw >= mediumLowerBound && aw < highLowerBound:
+			return gof.Medium
 		case aw >= highLowerBound:
 			return gof.High
 		default:
@@ -170,12 +170,10 @@ func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confi
 
 // IsBranchConfirmed returns whether the given branch is confirmed.
 func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
-	s.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		if branch.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
-			confirmed = true
-		}
-	})
-	return
+	// TODO: HANDLE ERRORS INSTEAD?
+	branchGoF, _ := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
+
+	return branchGoF >= s.opts.BranchGoFReachedLevel
 }
 
 // IsTransactionConfirmed returns whether the given transaction is confirmed.
@@ -250,25 +248,6 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 
 func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error) {
 	newGradeOfFinality := s.opts.BranchTransFunc(branchID, aw)
-	var isAggrBranch bool
-	var gradeOfFinalityChanged bool
-	s.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		if branch.Type() == ledgerstate.AggregatedBranchType {
-			isAggrBranch = true
-			return
-		}
-		gradeOfFinalityChanged = branch.SetGradeOfFinality(newGradeOfFinality)
-	})
-
-	// we don't do anything if the branch is an aggr. one,
-	// as this function should be called with the parent branches at some point.
-	if isAggrBranch {
-		return errors.Errorf("%w: can not translate approval weight of an aggregated branch %s", ErrUnsupportedBranchType, branchID)
-	}
-
-	if !gradeOfFinalityChanged {
-		return
-	}
 
 	// update GoF of txs within the same branch
 	txGoFPropWalker := walker.New()
@@ -305,7 +284,11 @@ func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledg
 			return
 		}
 
-		transactionMetadata.SetGradeOfFinality(newGradeOfFinality)
+		// abort if the grade of finality did not change
+		if !transactionMetadata.SetGradeOfFinality(newGradeOfFinality) {
+			return
+		}
+
 		s.tangle.LedgerState.UTXODAG.CachedTransaction(transactionMetadata.ID()).Consume(func(transaction *ledgerstate.Transaction) {
 			// we use a set of consumer txs as our candidate tx can consume multiple outputs from the same txs,
 			// but we want to add such tx only once to the walker

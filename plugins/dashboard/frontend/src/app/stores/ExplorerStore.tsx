@@ -39,6 +39,7 @@ export class Message {
     solid: boolean;
     branchID: string;
     scheduled: boolean;
+    scheduledBypass: boolean;
     booked: boolean;
     invalid: boolean;
     gradeOfFinality: number;
@@ -128,6 +129,11 @@ class BranchConflicts {
     conflicts: Array<BranchConflict>
 }
 
+class BranchSupporters {
+    branchID: string;
+    supporters: Array<string>
+}
+
 class SearchResult {
     message: MessageRef;
     address: AddressResult;
@@ -162,6 +168,7 @@ export class ExplorerStore {
     @observable branch: Branch = null;
     @observable branchChildren: BranchChildren = null;
     @observable branchConflicts: BranchConflicts = null;
+    @observable branchSupporters: BranchSupporters = null;
 
     // loading
     @observable query_loading: boolean = false;
@@ -429,6 +436,19 @@ export class ExplorerStore {
         }
     }
 
+    getBranchSupporters = async (id: string) => {
+        try {
+            let res = await fetch(`/api/branch/${id}/supporters`)
+            if (res.status === 404) {
+                return;
+            }
+            let branchSupporters: BranchSupporters = await res.json()
+            this.updateBranchSupporters(branchSupporters)
+        } catch (err) {
+            // ignore
+        }
+    }
+
     @action
     reset = () => {
         this.msg = null;
@@ -501,6 +521,11 @@ export class ExplorerStore {
     @action
     updateBranchConflicts = (conflicts: BranchConflicts) => {
         this.branchConflicts = conflicts;
+    }
+
+    @action
+    updateBranchSupporters = (branchSupporters: BranchSupporters) => {
+        this.branchSupporters = branchSupporters;
     }
 
     @action

@@ -44,6 +44,7 @@ type ExplorerMessage struct {
 	Solid               bool                `json:"solid"`
 	BranchID            string              `json:"branchID"`
 	Scheduled           bool                `json:"scheduled"`
+	ScheduledBypass     bool                `json:"scheduledBypass"`
 	Booked              bool                `json:"booked"`
 	Invalid             bool                `json:"invalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
@@ -87,6 +88,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Solid:                   messageMetadata.IsSolid(),
 		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
+		ScheduledBypass:         messageMetadata.ScheduledBypass(),
 		Booked:                  messageMetadata.IsBooked(),
 		Invalid:                 messageMetadata.IsInvalid(),
 		GradeOfFinality:         messageMetadata.GradeOfFinality(),
@@ -175,6 +177,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
 	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
 	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
+	routeGroup.GET("/branch/:branchID/supporters", ledgerstateAPI.GetBranchSupporters)
 	routeGroup.POST("/chat", chat.SendChatMessage)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
