@@ -24,36 +24,36 @@ jobs:
           git tag ${{ github.event.inputs.tagName }}
           git push origin ${{ github.event.inputs.tagName }}
 
-#  goreleaser:
-#    environment: devnet
-#    needs: createTag
-#    name: GoReleaser
-#    runs-on:
-#      - ubuntu-latest
-#    container:
-#      image: gohornet/goreleaser-cgo-cross-compiler:1.16.3
-#      volumes: [/repo]
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v2
-#        with:
-#          ref: "refs/tags/${{github.event.inputs.tagName}}"
-#      - name: Set up Go
-#        uses: actions/setup-go@v2
-#        with:
-#          go-version: 1.16.3
-#
-#      - name: Copy config.default.json to config.json
-#        run: cp config.default.json config.json
-#
-#      - name: Download latest snapshot file
-#        run: wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
-#
-#      - name: Run GoReleaser
-#        run: goreleaser --rm-dist --release-notes <(echo "${{ github.event.inputs.releaseDescription }}")
-#        shell: bash
-#        env:
-#          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+  goreleaser:
+    environment: devnet
+    needs: createTag
+    name: GoReleaser
+    runs-on:
+      - ubuntu-latest
+    container:
+      image: gohornet/goreleaser-cgo-cross-compiler:1.16.3
+      volumes: [/repo]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: "refs/tags/${{github.event.inputs.tagName}}"
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16.3
+
+      - name: Copy config.default.json to config.json
+        run: cp config.default.json config.json
+
+      - name: Download latest snapshot file
+        run: wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
+
+      - name: Run GoReleaser
+        run: goreleaser --rm-dist --release-notes <(echo "${{ github.event.inputs.releaseDescription }}")
+        shell: bash
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
   docker:
     environment: devnet
@@ -74,7 +74,7 @@ jobs:
           repository: iotaledger/goshimmer
           username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
           password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
-          tags: test_devnet
+          tags: latest
           tag_with_ref: true
 
       - name: Install SSH Key
@@ -100,6 +100,6 @@ jobs:
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
           DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
           DRNG_XTEAM_01_SEED: '${{ secrets.DRNG_XTEAM_01_SEED }}'
-          GOSHIMMER_DOCKER_TAG: 'test_devnet'
+          GOSHIMMER_DOCKER_TAG: 'latest'
         run: |
           ./deploy/ansible/run.sh devnet.yml
