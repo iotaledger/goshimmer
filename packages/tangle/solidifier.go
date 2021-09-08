@@ -366,7 +366,7 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), NewAttachment).Release()
 
 	s.setPayloadSolidificationRunning(transaction.ID(), true)
-	_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction)
+	_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction, eventsQueue)
 	s.setPayloadSolidificationRunning(transaction.ID(), false)
 	if err != nil {
 		switch {

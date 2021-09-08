@@ -84,10 +84,13 @@ func (u *UTXODAG) Shutdown() {
 
 // StoreTransaction adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
 // Transaction was stored, its SolidityType and an error value that contains the cause for possibly exceptions.
-func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error) {
+func (u *UTXODAG) StoreTransaction(transaction *Transaction, optionalEventsQueue ...*eventsqueue.EventsQueue) (stored bool, solidityType SolidityType, err error) {
 	propagationWalker := walker.New(true)
 
 	eventsQueue := eventsqueue.New()
+	if len(optionalEventsQueue) >= 1 {
+		eventsQueue = optionalEventsQueue[0]
+	}
 
 	u.LockEntity(transaction)
 	u.CachedTransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
@@ -106,13 +109,17 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 	})
 	u.UnlockEntity(transaction)
 
-	eventsQueue.Trigger()
+	if len(optionalEventsQueue) == 0 {
+		eventsQueue.Trigger()
+	}
 
 	for propagationWalker.HasNext() {
 		transactionID := propagationWalker.Next().(TransactionID)
 
 		u.CachedTransaction(transactionID).Consume(func(transaction *Transaction) {
-			defer eventsQueue.Trigger()
+			if len(optionalEventsQueue) == 0 {
+				defer eventsQueue.Trigger()
+			}
 
 			u.LockEntity(transaction)
 			defer u.UnlockEntity(transaction)
