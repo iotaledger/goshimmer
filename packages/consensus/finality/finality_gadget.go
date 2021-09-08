@@ -109,6 +109,8 @@ func WithMessageGoFReachedLevel(msgGradeOfFinality gof.GradeOfFinality) Option {
 	}
 }
 
+// SimpleFinalityGadgetFactory returns a pre-configured factory function for the SimpleFinalityGadget.
+// It can be used to provide the SimpleFinalityGadget to the Tangle as an option.
 func SimpleFinalityGadgetFactory(opts ...Option) func(tangle *tangle.Tangle) tangle.ConfirmationOracle {
 	return func(tangle *tangle.Tangle) tangle.ConfirmationOracle {
 		return NewSimpleFinalityGadget(tangle, opts...)
@@ -363,4 +365,5 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 	})
 }
 
+// code contract (make sure the type implements all required methods)
 var _ Gadget = &SimpleFinalityGadget{}
