@@ -12,9 +12,7 @@ import (
 )
 
 func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
-	ledgerstate := New(
-		CacheTimeProvider(database.NewCacheTimeProvider(0)),
-	)
+	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
 	defer ledgerstate.Shutdown()
 
 	err := ledgerstate.Prune()
@@ -53,9 +51,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 }
 
 func TestBranchDAG_normalizeBranches(t *testing.T) {
-	ledgerstate := New(
-		CacheTimeProvider(database.NewCacheTimeProvider(0)),
-	)
+	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
 	defer ledgerstate.Shutdown()
 
 	err := ledgerstate.Prune()
@@ -352,9 +348,7 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 }
 
 func TestBranchDAG_ConflictMembers(t *testing.T) {
-	ledgerstate := New(
-		CacheTimeProvider(database.NewCacheTimeProvider(0)),
-	)
+	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
 	defer ledgerstate.Shutdown()
 
 	err := ledgerstate.Prune()
