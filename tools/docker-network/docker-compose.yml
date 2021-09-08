@@ -1,30 +1,16 @@
 version: "3.9"
-# Create a custom build that can be re-used by peer_master, peer_replica, and faucet
+# Create a custom build that can be re-used within Docker network
 x-build-goshimmer: &goshimmer_build
   context: ../../
-  dockerfile: tools/docker-network/builder/Dockerfile
   args:
-    GOLANG_IMAGE_TAG: 1.16.7-alpine
-    BUILD_TAGS: rocksdb,builtin_static,netgo
-    BINARY_NAME: goshimmer
-    WORK_DIR: /go/src/goshimmer
+    DOWNLOAD_SNAPSHOT: 0
 services:
   peer_master:
     build: *goshimmer_build
     stop_grace_period: 1m
-    # Restart the container if it fails
-    # It can fail if MongoDB is enabled but peer_master tries to connect before Mongo is available
-    restart: unless-stopped
-    # Force waiting to give mongo time to start
-    # Can't add it as a dependency because mongo may not be activated
-    entrypoint:
-      - ""
     command: >
-      /run/entrypoint.sh /go/bin/goshimmer
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
-      --analysis.dashboard.mongodb.enabled=${MONGO_DB_ENABLED:-false}
-      --analysis.dashboard.mongodb.hostAddress=mongodb:27017
       --analysis.server.bindAddress=0.0.0.0:1888
       --autopeering.entryNodes=
       --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
@@ -35,9 +21,9 @@ services:
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --metrics.global=true
-      --metrics.local=false
+      --metrics.local=true
       --metrics.manaResearch=false
-      --node.disablePlugins=clock
+      --node.disablePlugins=portcheck,clock
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus,spammer,"webapi tools endpoint",activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
@@ -49,27 +35,18 @@ services:
       - goshimmer.message.snapshot.bin
     volumes:
       - shimmerdb:/tmp/mainnetdb
-      - ./builder/wait-for.sh:/run/wait-for.sh:ro
-      - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
     ports:
       - "8080:8080/tcp" # web API
+      - "8081:8081/tcp" # dashboard
       - "9000:9000/tcp" # analysis dashboard
     expose:
-      - 10895/tcp # FPC
-      - 14626/tcp # Autopeering
-      - 14666/tcp # Gossip
       - 1888/tcp # analysis server
-      - 6061/tcp # Pprof Profiling
-      - 9311/tcp # prometheus
     networks:
       - shimmer
   peer_replica:
     build: *goshimmer_build
     stop_grace_period: 1m
-    entrypoint:
-      - ""
     command: >
-      /run/entrypoint.sh /go/bin/goshimmer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap,"webapi tools endpoint"
@@ -88,19 +65,6 @@ services:
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
-    volumes:
-      - ./builder/wait-for.sh:/run/wait-for.sh:ro
-      - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
-    expose:
-      - 10895/tcp # FPC
-      - 14626/tcp # Autopeering
-      - 14666/tcp # Gossip
-      - 1888/tcp # analysis server
-      - 6061/tcp # Pprof Profiling
-      - 8080/tcp # web API
-      - 8081/tcp # web API
-      - 8061/tcp # web API
-      - 9311/tcp # prometheus
     networks:
       - shimmer
     depends_on:
@@ -108,10 +72,7 @@ services:
   faucet:
     build: *goshimmer_build
     stop_grace_period: 1m
-    entrypoint:
-      - ""
     command: >
-      /run/entrypoint.sh /go/bin/goshimmer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
@@ -128,39 +89,14 @@ services:
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
-    volumes:
-      - ./builder/wait-for.sh:/run/wait-for.sh:ro
-      - ./builder/peer-entry.sh:/run/entrypoint.sh:ro
     ports:
-      - "8081:8081/tcp" # dashboard
-      - "8061:8061/tcp" # dashboard
-    expose:
-      - 10895/tcp # FPC
-      - 14626/tcp # Autopeering
-      - 14666/tcp # Gossip
-      - 1888/tcp # analysis server
-      - 6061/tcp # Pprof Profiling
-      - 8080/tcp # web API
-      - 8081/tcp # web API
-      - 8061/tcp # web API
-      - 9311/tcp # prometheus
+      - "8090:8080/tcp" # web API
+      - "8091:8081/tcp" # dashboard
+      - "8061:8061/tcp" # dags visualizer
     networks:
       - shimmer
     depends_on:
       - peer_master
-  mongodb:
-    image: mongo:latest
-    profiles:
-      - grafana
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
-    ports:
-      - 27017:27017
-    networks:
-      - shimmer
-    volumes:
-      - mongodb_data_container:/data/db
   prometheus:
     image: prom/prometheus:latest
     profiles:
@@ -233,7 +169,6 @@ networks:
 # ./run.sh removes these on exit
 volumes:
   shimmerdb:
-  mongodb_data_container:
 # read only files to load in the containers that may be shared across containers
 secrets:
   goshimmer.message.snapshot.bin:
