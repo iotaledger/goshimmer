@@ -342,8 +342,13 @@ func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMeta
 func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
 	s.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			// A transaction can't have a higher GoF than its branch, thus we need to evaluate based on min(branchGoF,messageGoF).
-			// This also works for transactions in MasterBranch since it has gof.High and we then use the messageGoF.
+			// A transaction can't have a higher GoF than its branch, thus we need to evaluate based on min(branchGoF,max(messageGoF,transactionGoF)).
+			// This also works for transactions in MasterBranch since it has gof.High and we then use max(messageGoF,transactionGoF).
+			// max(messageGoF,transactionGoF) gets the max GoF of any possible reattachment (which has set the transaction's GoF before).
+			if transactionMetadata.GradeOfFinality() > gradeOfFinality {
+				gradeOfFinality = transactionMetadata.GradeOfFinality()
+			}
+
 			branchGoF, err := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(transactionMetadata.BranchID())
 			if err != nil {
 				// TODO: properly handle error
