@@ -777,13 +777,10 @@ func totalAccessManaRetriever() float64 {
 
 // NewTestTangle returns a Tangle instance with a testing schedulerConfig
 func NewTestTangle(options ...Option) *Tangle {
-	cacheTimeProvider := database.NewCacheTimeProvider(0)
-	confirmationOracleFactory := func(tangle *Tangle) ConfirmationOracle {
+	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(database.NewCacheTimeProvider(0)))
+	options = append(options, SchedulerConfig(testSchedulerParams), ConfirmationOracleFactory(func(tangle *Tangle) ConfirmationOracle {
 		return &MockConfirmationOracle{}
-	}
-
-	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
-	options = append(options, SchedulerConfig(testSchedulerParams), ConfirmationOracleFactory(confirmationOracleFactory))
+	}))
 
 	t := New(options...)
 	if t.WeightProvider == nil {
