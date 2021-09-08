@@ -121,14 +121,8 @@ type SimpleFinalityGadget struct {
 	tangle *tangle.Tangle
 	opts   *Options
 	events *tangle.ConfirmationEvents
-}
 
-func (s *SimpleFinalityGadget) IsTransactionRejected(transactionID ledgerstate.TransactionID) bool {
-	return false
-}
-
-func (s *SimpleFinalityGadget) IsBranchRejected(branchID ledgerstate.BranchID) bool {
-	return false
+	ledgerstate.ConfirmationOracle
 }
 
 // NewSimpleFinalityGadget creates a new SimpleFinalityGadget.
@@ -141,6 +135,8 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGa
 			TransactionConfirmed: events.NewEvent(ledgerstate.TransactionIDEventHandler),
 			BranchConfirmed:      events.NewEvent(ledgerstate.BranchIDEventHandler),
 		},
+
+		ConfirmationOracle: t.LedgerState.ConfirmationOracle,
 	}
 
 	for _, defOpt := range defaultOpts {
@@ -176,24 +172,6 @@ func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker *markers.Marker) (confir
 func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confirmed bool) {
 	s.tangle.Storage.MessageMetadata(msgID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		if messageMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
-			confirmed = true
-		}
-	})
-	return
-}
-
-// IsBranchConfirmed returns whether the given branch is confirmed.
-func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
-	// TODO: HANDLE ERRORS INSTEAD?
-	branchGoF, _ := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
-
-	return branchGoF >= s.opts.BranchGoFReachedLevel
-}
-
-// IsTransactionConfirmed returns whether the given transaction is confirmed.
-func (s *SimpleFinalityGadget) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) (confirmed bool) {
-	s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		if transactionMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
 			confirmed = true
 		}
 	})

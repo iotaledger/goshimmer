@@ -83,8 +83,6 @@ func New(options ...Option) (tangle *Tangle) {
 
 	tangle.Configure(options...)
 	tangle.WeightProvider = tangle.Options.WeightProvider
-	tangle.ConfirmationOracle = tangle.Options.ConfirmationOracleFactory(tangle)
-
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
@@ -98,6 +96,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Orderer = NewOrderer(tangle)
+	tangle.ConfirmationOracle = tangle.Options.ConfirmationOracleFactory(tangle)
 
 	return
 }
