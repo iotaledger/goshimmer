@@ -317,9 +317,15 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 		return true
 	}
 
-	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), NewAttachment).Release()
+	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
+		attachment := NewAttachment(transactionID, messageID)
+		attachment.SetModified()
+		attachment.Persist()
 
-	_, solidityType, err := s.tangle.LedgerState.UTXODAG.StoreTransaction(transaction, ledgerstateEvents)
+		return attachment
+	}).Release()
+
+	_, solidityType, err := s.tangle.LedgerState.StoreTransaction(transaction, ledgerstateEvents)
 	if err != nil {
 		switch {
 		case errors.Is(err, ledgerstate.ErrInvalidStateTransition):
