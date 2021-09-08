@@ -74,7 +74,7 @@ jobs:
           repository: iotaledger/goshimmer
           username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
           password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
-          tags: latest
+          tags: test_devnet
           tag_with_ref: true
 
       - name: Install SSH Key
@@ -100,5 +100,6 @@ jobs:
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
           DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
           DRNG_XTEAM_01_SEED: '${{ secrets.DRNG_XTEAM_01_SEED }}'
+          GOSHIMMER_DOCKER_TAG: 'test_devnet'
         run: |
           ./deploy/ansible/run.sh devnet.yml
