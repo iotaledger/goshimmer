@@ -70,12 +70,18 @@ type BranchConfirmationMetrics struct {
 
 // BranchCountUpdate defines the branch confirmation metrics record that is sent to remote logger.
 type BranchCountUpdate struct {
-	Type                 string `json:"type" bson:"type"`
-	NodeID               string `json:"nodeID" bson:"nodeID"`
-	MetricsLevel         uint8  `json:"metricsLevel" bson:"metricsLevel"`
-	TotalBranchCount     uint64 `json:"totalBranchCount" bson:"totalBranchCount"`
-	FinalizedBranchCount uint64 `json:"finalizedBranchCount" bson:"finalizedBranchCount"`
-	// TODO: add reorg count if easy
+	Type                           string `json:"type" bson:"type"`
+	NodeID                         string `json:"nodeID" bson:"nodeID"`
+	MetricsLevel                   uint8  `json:"metricsLevel" bson:"metricsLevel"`
+	TotalBranchCount               uint64 `json:"totalBranchCount" bson:"totalBranchCount"`
+	FinalizedBranchCount           uint64 `json:"finalizedBranchCount" bson:"finalizedBranchCount"`
+	ConfirmedBranchCount           uint64 `json:"confirmedBranchCount" bson:"confirmedBranchCount"`
+	InitialTotalBranchCount        uint64 `json:"initialTotalBranchCount" bson:"initialTotalBranchCount"`
+	TotalBranchCountSinceStart     uint64 `json:"totalBranchCountSinceStart" bson:"totalBranchCountSinceStart"`
+	InitialConfirmedBranchCount    uint64 `json:"initialConfirmedBranchCount" bson:"initialConfirmedBranchCount"`
+	ConfirmedBranchCountSinceStart uint64 `json:"confirmedBranchCountSinceStart" bson:"confirmedBranchCountSinceStart"`
+	InitialFinalizedBranchCount    uint64 `json:"initialFinalizedBranchCount" bson:"initialFinalizedBranchCount"`
+	FinalizedBranchCountSinceStart uint64 `json:"finalizedBranchCountSinceStart" bson:"finalizedBranchCountSinceStart"`
 }
 
 // DRNGMetrics defines the DRNG metrics record that is sent to remote logger.

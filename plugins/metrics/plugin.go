@@ -191,7 +191,6 @@ func registerLocalMetrics() {
 		if err != nil {
 			return
 		}
-
 		messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
@@ -199,14 +198,13 @@ func registerLocalMetrics() {
 		})
 		finalizedBranchCountDB.Inc()
 		confirmedBranchCount.Inc()
-		branchTotalCountDB.Inc() // temporarily
 
 		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
 	}))
 
-	//messagelayer.FinalityGadget().Events().BranchCreated.Attach(events.NewClosure(func(cachedBranch *ledgerstate.BranchDAGEvent) {
-	//	branchTotalCountDB.Inc()
-	//}))
+	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		branchTotalCountDB.Inc()
+	}))
 
 	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
 		analysisOutboundBytes.Add(amountBytes)

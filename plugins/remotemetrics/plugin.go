@@ -49,6 +49,8 @@ func Plugin() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
+	measureInitialBranchCounts()
+
 	configureSyncMetrics()
 	configureDRNGMetrics()
 	configureBranchConfirmationMetrics()
@@ -95,6 +97,7 @@ func configureBranchConfirmationMetrics() {
 	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
 
 	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		branchTotalCountDB.Inc()
 		sendBranchMetrics()
 	}))
 }

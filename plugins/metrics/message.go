@@ -79,6 +79,9 @@ var (
 	// total number of finalized branches in the database at startup
 	initialFinalizedBranchCountDB uint64
 
+	// total number of confirmed branches in the database at startup
+	initialConfirmedBranchCountDB uint64
+
 	// number of branches created since the node started
 	branchTotalCountDB atomic.Uint64
 
@@ -288,7 +291,7 @@ func BranchConfirmationTotalTime() uint64 {
 
 // ConfirmedBranchCount returns the number of confirmed branches.
 func ConfirmedBranchCount() uint64 {
-	return confirmedBranchCount.Load()
+	return initialConfirmedBranchCountDB + confirmedBranchCount.Load()
 }
 
 // ParentCountPerType returns a map of parent counts per parent type.
@@ -405,7 +408,13 @@ func measureInitialDBStats() {
 				return
 			}
 			if branchGoF == gof.High {
+				messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
+					if conflictingBranchID != branch.ID() {
+						initialFinalizedBranchCountDB++
+					}
+				})
 				initialFinalizedBranchCountDB++
+				initialConfirmedBranchCountDB++
 			}
 		}
 	})
