@@ -89,18 +89,14 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 
 	if s.isMessageSolid(message, messageMetadata, false, eventsQueue) {
 		if s.triggerSolidUpdate(messageMetadata) {
-			for _, messageID := range s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID()) {
-				approversToPropagate = append(approversToPropagate, messageID)
-			}
+			approversToPropagate = append(approversToPropagate, s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 		}
 
 		return approversToPropagate
 	}
 
 	if s.triggerWeaklySolidUpdate(messageMetadata) {
-		for _, messageID := range s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID()) {
-			approversToPropagate = append(approversToPropagate, messageID)
-		}
+		approversToPropagate = append(approversToPropagate, s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 	}
 
 	return approversToPropagate
@@ -117,9 +113,7 @@ func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *Message
 
 	if s.isMessageSolid(message, messageMetadata, true, ledgerstateEvents) {
 		if s.triggerSolidUpdate(messageMetadata) {
-			for _, messageID := range s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID()) {
-				approversToPropagate = append(approversToPropagate, messageID)
-			}
+			approversToPropagate = append(approversToPropagate, s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 		}
 
 		return approversToPropagate
@@ -127,9 +121,7 @@ func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *Message
 
 	if s.isMessageWeaklySolid(message, messageMetadata, false, ledgerstateEvents) {
 		if s.triggerWeaklySolidUpdate(messageMetadata) {
-			for _, messageID := range s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID()) {
-				approversToPropagate = append(approversToPropagate, messageID)
-			}
+			approversToPropagate = append(approversToPropagate, s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 		}
 	}
 
