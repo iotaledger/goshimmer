@@ -211,7 +211,7 @@ func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.
 		return gof.High, nil
 	}
 
-	normalizedBranches, err := u.ledgerstate.BranchDAG.normalizeBranches(NewBranchIDs(branchID))
+	normalizedBranches, err := u.ledgerstate.normalizeBranches(NewBranchIDs(branchID))
 	if err != nil {
 		return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
 	}
@@ -518,7 +518,7 @@ func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionM
 // own ConflictBranch which is immediately rejected and only kept in the DAG for possible reorgs.
 func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata) (targetBranch BranchID, err error) {
 	targetBranch = NewBranchID(transaction.ID())
-	cachedConflictBranch, _, conflictBranchErr := u.ledgerstate.BranchDAG.CreateConflictBranch(targetBranch, NewBranchIDs(LazyBookedConflictsBranchID), nil)
+	cachedConflictBranch, _, conflictBranchErr := u.ledgerstate.CreateConflictBranch(targetBranch, NewBranchIDs(LazyBookedConflictsBranchID), nil)
 	if conflictBranchErr != nil {
 		err = errors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
 		return
@@ -533,7 +533,7 @@ func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, t
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
 // determined by aggregating the Branches of the consumed Inputs.
 func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs) (targetBranch BranchID) {
-	cachedAggregatedBranch, _, err := u.ledgerstate.BranchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
+	cachedAggregatedBranch, _, err := u.ledgerstate.aggregateNormalizedBranches(normalizedBranchIDs)
 	if err != nil {
 		panic(fmt.Errorf("failed to aggregate Branches when booking Transaction with %s: %w", transaction.ID(), err))
 	}
@@ -570,7 +570,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 
 	// create new ConflictBranch
 	targetBranch = NewBranchID(transaction.ID())
-	cachedConflictBranch, _, err := u.ledgerstate.BranchDAG.CreateConflictBranch(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
+	cachedConflictBranch, _, err := u.ledgerstate.CreateConflictBranch(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
 		panic(fmt.Errorf("failed to create ConflictBranch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
@@ -601,7 +601,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
-		cachedConsumingConflictBranch, _, err := u.ledgerstate.BranchDAG.CreateConflictBranch(conflictBranchID, conflictBranchParents, conflictIDs)
+		cachedConsumingConflictBranch, _, err := u.ledgerstate.CreateConflictBranch(conflictBranchID, conflictBranchParents, conflictIDs)
 		if err != nil {
 			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
 		}
@@ -637,13 +637,13 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		// if the BranchID is the TransactionID we have a ConflictBranch
 		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
-			if err := u.ledgerstate.BranchDAG.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
+			if err := u.ledgerstate.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
 				panic(fmt.Errorf("failed to update ConflictBranch with %s: %w", transactionMetadata.BranchID(), err))
 			}
 			return
 		}
 
-		cachedAggregatedBranch, _, err := u.ledgerstate.BranchDAG.AggregateBranches(u.consumedBranchIDs(transactionID))
+		cachedAggregatedBranch, _, err := u.ledgerstate.AggregateBranches(u.consumedBranchIDs(transactionID))
 		if err != nil {
 			panic(err)
 		}
@@ -710,7 +710,7 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (branc
 		}
 	}
 
-	normalizedBranchIDs, err = u.ledgerstate.BranchDAG.normalizeBranches(NewBranchIDs(consumedBranches...))
+	normalizedBranchIDs, err = u.ledgerstate.normalizeBranches(NewBranchIDs(consumedBranches...))
 	if err != nil {
 		if errors.Is(err, ErrInvalidStateTransition) {
 			branchesOfInputsConflicting = true
