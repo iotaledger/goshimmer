@@ -27,7 +27,6 @@ func TestCommonSynchronization(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
-		Activity:    true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -85,6 +84,8 @@ func TestCommonSynchronization(t *testing.T) {
 	// 9. check whether all issued messages are available on to the new peer
 	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
+
+	tests.SendDataMessages(t, n.Peers()[:initialPeers], 1)
 
 	// check that the new node is synced
 	require.Eventuallyf(t,
