@@ -1,6 +1,10 @@
 package remotemetrics
 
 import (
+	"time"
+
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -9,8 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"go.uber.org/atomic"
-	"time"
 )
 
 var (

@@ -1,8 +1,9 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 
 	"github.com/iotaledger/hive.go/syncutils"
 	"go.uber.org/atomic"

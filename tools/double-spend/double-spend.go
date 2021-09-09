@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 
 	"github.com/iotaledger/hive.go/identity"
 

@@ -4,9 +4,10 @@
 package remotemetrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
