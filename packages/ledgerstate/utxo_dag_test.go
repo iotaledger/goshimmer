@@ -759,9 +759,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 }
 
 func setupDependencies(t *testing.T) *Ledgerstate {
-	ledgerstate := New(
-		CacheTimeProvider(database.NewCacheTimeProvider(0)),
-	)
+	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
 	err := ledgerstate.Prune()
 	require.NoError(t, err)
 
