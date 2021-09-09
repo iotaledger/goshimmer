@@ -230,8 +230,8 @@ type Message struct {
 	nonce           uint64
 	signature       ed25519.Signature
 
-	lock      []interface{}
-	lockMutex sync.Mutex
+	locks      []interface{}
+	locksMutex sync.Mutex
 
 	// derived properties
 	id         *MessageID
@@ -635,10 +635,10 @@ func (m *Message) Signature() ed25519.Signature {
 // Locks returns a list of identifiers of the entities that this Message depends on and that should be locked before
 // modifying any of its properties.
 func (m *Message) Locks() (locks []interface{}) {
-	m.lockMutex.Lock()
-	defer m.lockMutex.Unlock()
+	m.locksMutex.Lock()
+	defer m.locksMutex.Unlock()
 
-	if m.lock == nil {
+	if m.locks == nil {
 		lockBuilder := (&syncutils.MultiMutexLockBuilder{}).AddLock(m.ID())
 		m.ForEachParent(func(parent Parent) {
 			if parent.ID == EmptyMessageID {
@@ -648,10 +648,10 @@ func (m *Message) Locks() (locks []interface{}) {
 			lockBuilder = lockBuilder.AddLock(parent.ID)
 		})
 
-		m.lock = lockBuilder.Build()
+		m.locks = lockBuilder.Build()
 	}
 
-	return m.lock
+	return m.locks
 }
 
 // calculates the message's MessageID.
@@ -979,14 +979,8 @@ func (m *MessageMetadata) SetSource(source MessageSource) (updated bool) {
 	return true
 }
 
-// IsWeaklySolid returns true if the message represented by this metadata is weakly solid. False otherwise.
-func (m *MessageMetadata) IsWeaklySolid() (result bool) {
-	m.weaklySolidMutex.RLock()
-	defer m.weaklySolidMutex.RUnlock()
-
-	return m.solid
-}
-
+// SetSolidificationType sets the SolidificationType of the Message. Tt can only be "upgraded" (go from a weaker form of
+// solidification to a stronger one).
 func (m *MessageMetadata) SetSolidificationType(solidificationType SolidificationType) (updated bool) {
 	m.solidificationTypeMutex.Lock()
 	defer m.solidificationTypeMutex.Unlock()
@@ -1001,11 +995,20 @@ func (m *MessageMetadata) SetSolidificationType(solidificationType Solidificatio
 	return true
 }
 
+// SolidificationType returns the SolidificationType of the Message.
 func (m *MessageMetadata) SolidificationType() (solidificationType SolidificationType) {
 	m.solidificationTypeMutex.RLock()
 	defer m.solidificationTypeMutex.RUnlock()
 
 	return m.solidificationType
+}
+
+// IsWeaklySolid returns true if the message represented by this metadata is weakly solid. False otherwise.
+func (m *MessageMetadata) IsWeaklySolid() (result bool) {
+	m.weaklySolidMutex.RLock()
+	defer m.weaklySolidMutex.RUnlock()
+
+	return m.solid
 }
 
 // SetWeaklySolid sets the message associated with this metadata as weakly solid.
