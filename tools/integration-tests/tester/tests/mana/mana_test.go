@@ -157,13 +157,11 @@ func TestManaApis(t *testing.T) {
 		return tests.Mana(t, peers[1]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
 	// request mana for peer #2
-	log.Println("PRE peers[2] MANA:", tests.Mana(t, peers[2]).Access)
 	peer2manaincrease := make(map[string]tests.DataMessageSent)
-	key, val := tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
-	peer2manaincrease[key] = val
+	id, messageSent := tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
+	peer2manaincrease[id] = messageSent
 	tests.RequireMessagesAvailable(t, []*framework.Node{peers[2]}, peer2manaincrease, tests.Timeout, tests.Tick)
 	require.Eventually(t, func() bool {
-		log.Println("POST peers[2] MANA:", tests.Mana(t, peers[2]).Access)
 		return tests.Mana(t, peers[2]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
 	log.Println("Request mana from faucet... done")
