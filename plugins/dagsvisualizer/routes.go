@@ -24,7 +24,8 @@ var ErrNotFound = errors.New("not found")
 var ErrForbidden = errors.New("forbidden")
 
 const (
-	app = "/plugins/dagsvisualizer/frontend/build"
+	app    = "/plugins/dagsvisualizer/frontend/build"
+	static = "/plugins/dagsvisualizer/frontend/build/static/js"
 )
 
 func indexRoute(e echo.Context) error {
@@ -65,6 +66,13 @@ func setupRoutes(e *echo.Echo) {
 			return err
 		}
 		e.GET("/app/"+info.Name(), echo.WrapHandler(http.StripPrefix("/app", http.FileServer(pkger.Dir(app)))))
+		return nil
+	})
+	pkger.Walk(static, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		e.GET("/static/js/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/js/", http.FileServer(pkger.Dir(static)))))
 		return nil
 	})
 
