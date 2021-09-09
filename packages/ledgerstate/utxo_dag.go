@@ -24,6 +24,53 @@ import (
 	"github.com/iotaledger/goshimmer/packages/eventsqueue"
 )
 
+// region IUTXODAG /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// IUTXODAG is the interface for UTXODAG which is the core of the ledger state
+// that is formed by Transactions consuming Inputs and creating Outputs.  It represents all the methods
+// that helps to keep track of the balances and the different perceptions of potential conflicts.
+type IUTXODAG interface {
+	// Events returns all events of the UTXODAG
+	Events() *UTXODAGEvents
+	// Shutdown shuts down the UTXODAG and persists its state.
+	Shutdown()
+	// StoreTransaction adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
+	// Transaction was stored, its SolidityType and an error value that contains the cause for possibly exceptions.
+	StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error)
+	// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
+	CheckTransaction(transaction *Transaction) (err error)
+	// CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
+	CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction)
+	// Transaction returns a specific transaction, consumed.
+	Transaction(transactionID TransactionID) (transaction *Transaction)
+	// Transactions returns all the transactions, consumed.
+	Transactions() (transactions map[TransactionID]*Transaction)
+	// CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
+	CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata)
+	// CachedOutput retrieves the Output with the given OutputID from the object storage.
+	CachedOutput(outputID OutputID) (cachedOutput *CachedOutput)
+	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
+	CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata)
+	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
+	CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers)
+	// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
+	LoadSnapshot(snapshot *Snapshot)
+	// CachedAddressOutputMapping retrieves the outputs for the given address.
+	CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings)
+	// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
+	ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs)
+	// ManageStoreAddressOutputMapping mangages how to store the address-output mapping dependent on which type of output it is.
+	ManageStoreAddressOutputMapping(output Output)
+	// StoreAddressOutputMapping stores the address-output mapping.
+	StoreAddressOutputMapping(address Address, outputID OutputID)
+	// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
+	TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error)
+	// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
+	BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region UTXODAG //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
@@ -947,53 +994,6 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 	mutex.Lock(lockBuilder.Build()...)
 }
 */
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region IUTXODAG /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// IUTXODAG is the interface for UTXODAG which is the core of the ledger state
-// that is formed by Transactions consuming Inputs and creating Outputs.  It represents all the methods
-// that helps to keep track of the balances and the different perceptions of potential conflicts.
-type IUTXODAG interface {
-	// Events returns all events of the UTXODAG
-	Events() *UTXODAGEvents
-	// Shutdown shuts down the UTXODAG and persists its state.
-	Shutdown()
-	// StoreTransaction adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
-	// Transaction was stored, its SolidityType and an error value that contains the cause for possibly exceptions.
-	StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error)
-	// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
-	CheckTransaction(transaction *Transaction) (err error)
-	// CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
-	CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction)
-	// Transaction returns a specific transaction, consumed.
-	Transaction(transactionID TransactionID) (transaction *Transaction)
-	// Transactions returns all the transactions, consumed.
-	Transactions() (transactions map[TransactionID]*Transaction)
-	// CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-	CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *CachedTransactionMetadata)
-	// CachedOutput retrieves the Output with the given OutputID from the object storage.
-	CachedOutput(outputID OutputID) (cachedOutput *CachedOutput)
-	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
-	CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata)
-	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
-	CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers)
-	// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
-	LoadSnapshot(snapshot *Snapshot)
-	// CachedAddressOutputMapping retrieves the outputs for the given address.
-	CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings)
-	// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
-	ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs)
-	// ManageStoreAddressOutputMapping mangages how to store the address-output mapping dependent on which type of output it is.
-	ManageStoreAddressOutputMapping(output Output)
-	// StoreAddressOutputMapping stores the address-output mapping.
-	StoreAddressOutputMapping(address Address, outputID OutputID)
-	// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
-	TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error)
-	// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
-	BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error)
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
