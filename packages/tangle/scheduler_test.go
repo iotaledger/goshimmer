@@ -387,10 +387,11 @@ func BenchmarkScheduler(b *testing.B) {
 	b.StopTimer()
 }
 
+// timeOffset represents an additional offset that we are manually increasing to create different perceptions of
+// time.Now() even on platforms with a bad time precision (e.g. Windows).
 var timeOffset = time.Nanosecond
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
-	// necessary to create different messages on Windows as here the time precision is not good enough.
 	timeOffset += time.Nanosecond
 
 	message, _ := NewMessage(
