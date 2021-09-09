@@ -85,6 +85,8 @@ func TestCommonSynchronization(t *testing.T) {
 	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
 
+	tests.SendDataMessages(t, n.Peers()[:initialPeers], 1)
+
 	// check that the new node is synced
 	require.Eventuallyf(t,
 		func() bool { return tests.Synced(t, newPeer) },
