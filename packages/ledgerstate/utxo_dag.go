@@ -354,6 +354,9 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
 
+// solidifyTransaction solidifies the Transaction - it performs semantic checks and stores the transaction in its
+// corresponding Branch if the inputs are known. If the Transaction is solid, then we also queue its Consumers to be
+// checked.
 func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, propagationWalker *walker.Walker, eventsQueue *eventsqueue.EventsQueue) (err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
@@ -397,6 +400,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 	return err
 }
 
+// updateConsumers updates the Consumers of the given Transaction to match the given SolidityType.
 func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType, newSolidityType SolidityType) {
 	if previousSolidityType == newSolidityType {
 		return
@@ -411,6 +415,7 @@ func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType
 	}
 }
 
+// transactionObjectivelyValid returns true if the Transaction passes the fast semantic checks.
 func (u *UTXODAG) transactionObjectivelyValid(transaction *Transaction, consumedOutputs Outputs) (err error) {
 	if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
 		return errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
@@ -427,6 +432,7 @@ func (u *UTXODAG) transactionObjectivelyValid(transaction *Transaction, consumed
 	return nil
 }
 
+// bookTransaction books the Transaction into it's corresponding Branch.
 func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, consumedOutputs Outputs) (targetBranch BranchID, err error) {
 	// retrieve the metadata of the Inputs
 	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
@@ -484,6 +490,7 @@ func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata 
 	return u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs), nil
 }
 
+// consumingTransactionIDs returns the Transactions that spend an Output that was created by the given Transaction.
 func (u *UTXODAG) consumingTransactionIDs(transaction *Transaction, optionalSolidityType ...SolidityType) (consumingTransactionIDs TransactionIDs) {
 	consumingTransactionIDs = make(TransactionIDs)
 	for _, output := range transaction.Essence().Outputs() {
@@ -979,21 +986,6 @@ func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) 
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TODO: IMPLEMENT A GOOD SYNCHRONIZATION MECHANISM FOR THE UTXODAG
-/*
-func (u *UTXODAG) lockTransaction(transaction *Transaction) {
-	var lockBuilder syncutils.MultiMutexLockBuilder
-	for _, input := range transaction.Essence().Inputs() {
-		lockBuilder.AddLock(input.(*UTXOInput).ReferencedOutputID())
-	}
-	for outputIndex := range transaction.Essence().Outputs() {
-		lockBuilder.AddLock(NewOutputID(transaction.ID(), uint16(outputIndex)))
-	}
-	var mutex syncutils.RWMultiMutex
-	mutex.Lock(lockBuilder.Build()...)
-}
-*/
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
