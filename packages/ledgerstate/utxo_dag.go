@@ -129,6 +129,20 @@ func (u *UTXODAG) Shutdown() {
 	})
 }
 
+// CheckTransaction checks if a Transaction is objectively valid.
+func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
+	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
+	defer cachedConsumedOutputs.Release()
+	consumedOutputs := cachedConsumedOutputs.Unwrap()
+
+	// perform cheap checks
+	if !u.allOutputsExist(consumedOutputs) {
+		return errors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
+	}
+
+	return u.transactionObjectivelyValid(transaction, consumedOutputs)
+}
+
 // StoreTransaction adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
 // Transaction was stored, its SolidityType and an error value that contains the cause for possibly exceptions.
 func (u *UTXODAG) StoreTransaction(transaction *Transaction, optionalEventsQueue ...*eventsqueue.EventsQueue) (stored bool, solidityType SolidityType, err error) {
@@ -178,20 +192,6 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction, optionalEventsQueue
 	}
 
 	return stored, solidityType, err
-}
-
-// CheckTransaction checks if a Transaction is objectively valid.
-func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
-	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
-	defer cachedConsumedOutputs.Release()
-	consumedOutputs := cachedConsumedOutputs.Unwrap()
-
-	// perform cheap checks
-	if !u.allOutputsExist(consumedOutputs) {
-		return errors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
-	}
-
-	return u.transactionObjectivelyValid(transaction, consumedOutputs)
 }
 
 // TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
