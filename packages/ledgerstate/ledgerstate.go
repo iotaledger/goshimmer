@@ -9,6 +9,7 @@ import (
 
 // region Ledgerstate //////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Ledgerstate is a data structure that follows the principles of the quadruple entry accounting.
 type Ledgerstate struct {
 	Options *Options
 
@@ -17,6 +18,7 @@ type Ledgerstate struct {
 	ConfirmationOracle
 }
 
+// New is the constructor for the Ledgerstate.
 func New(options ...Option) (ledgerstate *Ledgerstate) {
 	ledgerstate = &Ledgerstate{}
 	ledgerstate.Configure(options...)

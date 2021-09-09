@@ -14,7 +14,7 @@ type SimpleConfirmationOracle struct {
 	ledgerstate *Ledgerstate
 }
 
-// NewSimpleConfirmationOracle is the constructor of the SimpleConfirmationOracle.
+// NewSimpleConfirmationOracle is the constructor for the SimpleConfirmationOracle.
 func NewSimpleConfirmationOracle(ledgerstate *Ledgerstate) *SimpleConfirmationOracle {
 	return &SimpleConfirmationOracle{
 		ledgerstate: ledgerstate,
