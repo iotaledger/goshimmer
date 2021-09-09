@@ -309,13 +309,9 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 		return true
 	}
 
-	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
-		attachment := NewAttachment(transactionID, messageID)
-		attachment.SetModified()
-		attachment.Persist()
-
-		return attachment
-	}).Release()
+	if cachedAttachment, stored := s.tangle.Storage.StoreAttachment(transaction.ID(), message.ID()); stored {
+		cachedAttachment.Release()
+	}
 
 	_, solidityType, err := s.tangle.LedgerState.StoreTransaction(transaction, ledgerstateEvents)
 	if err != nil {
