@@ -35,6 +35,7 @@ func TestScenario_1(t *testing.T) {
 
 	testFramework.RegisterBranchID("red", "Message4")
 	testFramework.RegisterBranchID("yellow", "Message5")
+
 	testFramework.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6").WaitMessagesBooked()
 	testFramework.IssueMessages("Message7", "Message9").WaitMessagesBooked()
 	testFramework.IssueMessages("Message8").WaitMessagesBooked()
