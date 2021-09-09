@@ -14,7 +14,7 @@ var (
 	webSocketWriteTimeout = time.Duration(3) * time.Second
 
 	// ws clients
-	wsClients      map[uint64]*wsclient
+	wsClients      = make(map[uint64]*wsclient)
 	nextWsClientID uint64
 	wsClientsMu    sync.RWMutex
 	chanLen        = 1024
