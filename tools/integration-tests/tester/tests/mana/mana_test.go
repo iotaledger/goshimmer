@@ -157,8 +157,10 @@ func TestManaApis(t *testing.T) {
 		return tests.Mana(t, peers[1]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
 	// request mana for peer #2
+	log.Println("PRE peers[2] MANA:", tests.Mana(t, peers[2]).Access)
 	tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
 	require.Eventually(t, func() bool {
+		log.Println("POST peers[2] MANA:", tests.Mana(t, peers[2]).Access)
 		return tests.Mana(t, peers[2]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
 	log.Println("Request mana from faucet... done")
