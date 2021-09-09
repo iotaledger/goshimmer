@@ -94,6 +94,7 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:v1.1.4
+          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests
