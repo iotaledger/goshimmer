@@ -2,10 +2,8 @@ package faucet
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/require"
+	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -30,15 +28,11 @@ func TestFaucetPrepare(t *testing.T) {
 		preparedOutputsCount      = faucet.Config().PreparedOutputsCount
 		splittingMultiplayer      = faucet.Config().SplittingMultiplayer
 		tokensPerRequest          = faucet.Config().TokensPerRequest
-		faucetRemindersAddrStart  = 127 // the same as ledgerstate.MaxOutputCount
+		faucetRemindersAddrStart  = tests.FaucetRemindersAddrStart
 		lastFaucetReminderAddress = preparedOutputsCount*splittingMultiplayer + faucetRemindersAddrStart - 1
 	)
 	// wait for the faucet to split the supply tx and prepare all outputs
-	require.Eventually(t, func() bool {
-		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(lastFaucetReminderAddress).Base58()})
-		require.NoError(t, err)
-		return len(resp.UnspentOutputs[0].Outputs) > 0
-	}, time.Minute*4, tests.Tick)
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 	// check that each of the preparedOutputsCount addresses holds the correct balance
 	remainderBalance := uint64(framework.GenesisTokenAmount - preparedOutputsCount*splittingMultiplayer*tokensPerRequest)
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
@@ -52,7 +46,7 @@ func TestFaucetPrepare(t *testing.T) {
 	// wait for the peer to register a balance change
 	require.Eventually(t, func() bool {
 		return tests.Balance(t, peer, peer.Address(preparedOutputsCount*splittingMultiplayer-1), ledgerstate.ColorIOTA) > 0
-	}, time.Minute*2, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 
 	// one prepared output is left from the first prepared batch, index is not known because outputs are not sorted by the index.
 	var balanceLeft uint64 = 0

@@ -29,6 +29,9 @@ const (
 	Tick = 500 * time.Millisecond
 
 	shutdownGraceTime = time.Minute
+
+	FaucetRemindersAddrStart = 127 // the same as ledgerstate.MaxOutputCount
+
 )
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
@@ -67,6 +70,26 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 	info, err := node.Info()
 	require.NoError(t, err)
 	return info.Mana
+}
+
+// AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
+func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node) {
+	preparedOutputsCount := faucet.Config().PreparedOutputsCount
+	splittingMultiplayer := faucet.Config().SplittingMultiplayer
+	lastFaucetReminderAddress := preparedOutputsCount*splittingMultiplayer + FaucetRemindersAddrStart - 1
+	addrToCheck := faucet.Address(lastFaucetReminderAddress).Base58()
+	require.Eventually(t, func() bool {
+		avail := true
+		for _, p := range peers {
+			resp, err := p.PostAddressUnspentOutputs([]string{addrToCheck})
+			require.NoError(t, err)
+			if len(resp.UnspentOutputs[0].Outputs) == 0 {
+				avail = false
+				break
+			}
+		}
+		return avail
+	}, time.Minute*2, Tick)
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.

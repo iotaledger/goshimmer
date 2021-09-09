@@ -29,6 +29,10 @@ func TestFaucetRequest(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	faucet, peers := n.Peers()[0], n.Peers()[1:]
+
+	// wait for the faucet to prepare initial outputs
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+
 	// each non-faucet peer issues numRequests requests
 	for _, peer := range peers {
 		for idx := 0; idx < numRequests; idx++ {
