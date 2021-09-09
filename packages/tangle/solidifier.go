@@ -55,11 +55,6 @@ func (s *Solidifier) Setup() {
 	s.tangle.LedgerState.UTXODAG.Events().TransactionSolid.Attach(events.NewClosure(s.TriggerTransactionSolid))
 }
 
-// TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
-func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
-	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
-}
-
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
@@ -72,6 +67,11 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 			s.solidify(message, messageMetadata, solidificationType)
 		})
 	})
+}
+
+// TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
+func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
+	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
 }
 
 func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (approversToPropagate MessageIDs) {
