@@ -2,7 +2,7 @@ import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import ListGroup from "react-bootstrap/ListGroup";
 import NodeStore from "app/stores/NodeStore";
-import {inject, observer} from "mobx-react";
+import { inject, observer } from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import Badge from "react-bootstrap/Badge";
 import {displayManaUnit} from "app/utils";
@@ -73,22 +73,14 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                 <h4>Metadata</h4>
                 {outputMetadata && <div className={"mb-2"}>
                     <ListGroup>
-                        <ListGroup.Item>Transaction ID: <a
-                            href={`/explorer/transaction/${outputMetadata.outputID.transactionID}`}>{outputMetadata.outputID.transactionID}</a>
-                        </ListGroup.Item>
-                        <ListGroup.Item>Branch ID: <a
-                            href={`/explorer/branch/${outputMetadata.branchID}`}>{resolveBase58BranchID(outputMetadata.branchID)}</a>
-                        </ListGroup.Item>
+                        <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${outputMetadata.outputID.transactionID}`}>{outputMetadata.outputID.transactionID}</a> </ListGroup.Item>
+                        <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${outputMetadata.branchID}`}>{resolveBase58BranchID(outputMetadata.branchID)}</a> </ListGroup.Item>
                         <ListGroup.Item>Solid: {outputMetadata.solid.toString()}</ListGroup.Item>
-                        <ListGroup.Item>Solidification
-                            Time: {new Date(outputMetadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
+                        <ListGroup.Item>Solidification Time: {new Date(outputMetadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                         <ListGroup.Item>Consumer Count: {outputMetadata.consumerCount}</ListGroup.Item>
-                        <ListGroup.Item>Confirmed Consumer: <a
-                            href={`/explorer/transaction/${outputMetadata.confirmedConsumer}`}>{outputMetadata.confirmedConsumer}</a>
-                        </ListGroup.Item>
+                        <ListGroup.Item>Confirmed Consumer: <a href={`/explorer/transaction/${outputMetadata.confirmedConsumer}`}>{outputMetadata.confirmedConsumer}</a> </ListGroup.Item>
                         <ListGroup.Item>Grade of Finality: {outputMetadata.gradeOfFinality}</ListGroup.Item>
-                        <ListGroup.Item>Grade of Finality
-                            Time: {new Date(outputMetadata.gradeOfFinalityTime * 1000).toLocaleString()}</ListGroup.Item>
+                        <ListGroup.Item>Grade of Finality Time: {new Date(outputMetadata.gradeOfFinalityTime * 1000).toLocaleString()}</ListGroup.Item>
                     </ListGroup>
                 </div>}
 

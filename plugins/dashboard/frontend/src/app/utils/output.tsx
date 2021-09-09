@@ -5,7 +5,7 @@ import {
     SigLockedColoredOutput,
     SigLockedSingleOutput
 } from "app/misc/Payload";
-import {SigLockedSingleOutputComponent} from "app/components/SigLockedSingleOutputComponent";
+import { SigLockedSingleOutputComponent} from "app/components/SigLockedSingleOutputComponent";
 import * as React from "react";
 import {SigLockedColoredOutputComponent} from "app/components/SigLockedColoredOutputComponent";
 import {AliasOutputComponent} from "app/components/AliasOutputComponent.tsx";

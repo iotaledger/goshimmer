@@ -4,7 +4,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
-import {ExplorerOutput, ExplorerStore, OutputMetadata} from "app/stores/ExplorerStore";
+import {ExplorerStore, ExplorerOutput, OutputMetadata} from "app/stores/ExplorerStore";
 import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
@@ -238,9 +238,7 @@ class OutputMeta extends React.Component<omProps, any> {
         return (
             <ListGroup>
                 <ListGroup.Item>Grade of Finality: {deriveSolid(metadata)} {metadata.gradeOfFinality}</ListGroup.Item>
-                <ListGroup.Item>Branch ID: <a
-                    href={`/explorer/branch/${metadata.branchID}`}>{resolveBase58BranchID(metadata.branchID)}</a>
-                </ListGroup.Item>
+                <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${metadata.branchID}`}>{resolveBase58BranchID(metadata.branchID)}</a> </ListGroup.Item>
                 <ListGroup.Item>Pending mana: {displayManaUnit(pendingMana)}</ListGroup.Item>
                 <ListGroup.Item>Timestamp: {new Date(timestamp * 1000).toLocaleString()}</ListGroup.Item>
                 <ListGroup.Item>Solidification Time: {new Date(metadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>

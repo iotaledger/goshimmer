@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import NodeStore from "app/stores/NodeStore";
-import {inject, observer} from "mobx-react";
+import { inject, observer } from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import ListGroup from "react-bootstrap/ListGroup";
 import {resolveBase58BranchID} from "app/utils/branch";
@@ -63,9 +63,8 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                     <ListGroup.Item>Grade of Finality: {branch.gradeOfFinality}</ListGroup.Item>
                     <ListGroup.Item> Children:
                         {branchChildren && <ListGroup>
-                            {branchChildren.childBranches.map((c, i) => <ListGroup.Item key={i}><a
-                                href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}
-                        </ListGroup>}
+                            {branchChildren.childBranches.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}
+                        </ListGroup> }
                     </ListGroup.Item>
                     {branch.type !== "AggregatedBranchType" &&
                         <ListGroup.Item> Conflicts:
