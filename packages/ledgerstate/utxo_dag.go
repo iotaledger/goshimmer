@@ -379,7 +379,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 		return validErr
 	}
 
-	if _, err = u.bookTransaction(transaction, transactionMetadata, consumedOutputs); err != nil {
+	if _, err = u.bookTransaction(transaction, transactionMetadata, consumedOutputs, eventsQueue); err != nil {
 		err = errors.Errorf("failed to book Transaction with %s: %w", transaction.ID(), err)
 
 		eventsQueue.Queue(u.Events().Error, transaction, err)
@@ -433,7 +433,7 @@ func (u *UTXODAG) transactionObjectivelyValid(transaction *Transaction, consumed
 }
 
 // bookTransaction books the Transaction into it's corresponding Branch.
-func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, consumedOutputs Outputs) (targetBranch BranchID, err error) {
+func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, consumedOutputs Outputs, eventsQueue *eventsqueue.EventsQueue) (targetBranch BranchID, err error) {
 	// retrieve the metadata of the Inputs
 	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
 	defer cachedInputsMetadata.Release()
@@ -484,7 +484,7 @@ func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata 
 	}
 
 	if len(conflictingInputs) != 0 {
-		return u.bookConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs, conflictingInputs.ByID()), nil
+		return u.bookConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs, conflictingInputs.ByID(), eventsQueue), nil
 	}
 
 	return u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs), nil
@@ -567,10 +567,10 @@ func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transa
 // bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
 // already been spent by another Transaction. It create a new ConflictBranch for the new Transaction and "forks" the
 // existing consumers of the conflicting Inputs.
-func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs, conflictingInputs OutputsMetadataByID) (targetBranch BranchID) {
+func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs, conflictingInputs OutputsMetadataByID, eventsQueue *eventsqueue.EventsQueue) (targetBranch BranchID) {
 	// fork existing consumers
 	u.walkFutureCone(conflictingInputs.IDs(), func(transactionID TransactionID) (nextOutputsToVisit []OutputID) {
-		u.forkConsumer(transactionID, conflictingInputs)
+		u.forkConsumer(transactionID, conflictingInputs, eventsQueue)
 
 		return
 	}, Solid)
@@ -602,7 +602,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 
 // forkConsumer is an internal utility function that creates a ConflictBranch for a Transaction that has not been
 // conflicting first but now turned out to be conflicting because of a newly booked double spend.
-func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID) {
+func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID, eventsQueue *eventsqueue.EventsQueue) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(txMetadata *TransactionMetadata) {
 		conflictBranchID := NewBranchID(transactionID)
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
@@ -621,7 +621,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		}
 
 		txMetadata.SetBranchID(conflictBranchID)
-		u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
+		eventsQueue.Queue(u.Events().TransactionBranchIDUpdated, transactionID)
 
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
@@ -632,7 +632,9 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 			}
 		}
 
-		u.walkFutureCone(outputIds, u.propagateBranchUpdates, Solid)
+		u.walkFutureCone(outputIds, func(transactionID TransactionID) (nextOutputsToVisit []OutputID) {
+			return u.propagateBranchUpdates(transactionID, eventsQueue)
+		}, Solid)
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
@@ -640,7 +642,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 // propagateBranchUpdates is an internal utility function that propagates changes in the perception of the BranchDAG
 // after introducing a new ConflictBranch.
-func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, eventsQueue *eventsqueue.EventsQueue) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		// if the BranchID is the TransactionID we have a ConflictBranch
 		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
@@ -656,7 +658,7 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 		}
 		defer cachedAggregatedBranch.Release()
 
-		updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID())
+		updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID(), eventsQueue)
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
@@ -666,10 +668,10 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 
 // updateBranchOfTransaction is an internal utility function that updates the Branch that a Transaction and its Outputs
 // are booked into.
-func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID, eventsQueue *eventsqueue.EventsQueue) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.SetBranchID(branchID) {
-			u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
+			eventsQueue.Queue(u.Events().TransactionBranchIDUpdated, transactionID)
 
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {
