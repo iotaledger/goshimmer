@@ -103,7 +103,6 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	FinalityGadget().Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
-	// mana.Events().Pledged.Attach(onPledgeEventClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
@@ -139,6 +138,7 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 			},
 			InputInfos: inputInfos,
 		}
+
 		// book in all mana vectors.
 		for _, baseManaVector := range baseManaVectors {
 			baseManaVector.Book(txInfo)

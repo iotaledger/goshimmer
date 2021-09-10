@@ -119,14 +119,14 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return expectedCManaNode1AfterTxConf == tests.Mana(t, node1).Consensus
-	}, time.Minute, tests.Tick)
+	}, 1*time.Second, tests.Tick)
 }
 
 func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node, expectedGoF gof.GradeOfFinality) *ledgerstate.Transaction {
 	tx, err := wallet.SendFunds(
 		sendoptions.Destination(targetAddr, actualGenesisTokenAmount),
-		sendoptions.ConsensusManaPledgeID(node.ID().String()),
-		sendoptions.AccessManaPledgeID(node.ID().String()),
+		sendoptions.ConsensusManaPledgeID(base58.Encode(node.ID().Bytes())),
+		sendoptions.AccessManaPledgeID(base58.Encode(node.ID().Bytes())),
 	)
 	require.NoError(t, err)
 
