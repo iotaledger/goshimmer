@@ -133,7 +133,10 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.TransactionID) (err error) {
 	conflictBranchID := b.tangle.LedgerState.BranchID(transactionID)
 
-	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
+		b.tangle.Solidifier.LockEntity(message)
+		defer b.tangle.Solidifier.UnlockEntity(message)
+
 		if !messageMetadata.IsBooked() {
 			return
 		}
