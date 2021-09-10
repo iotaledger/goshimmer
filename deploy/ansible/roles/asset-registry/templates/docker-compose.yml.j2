@@ -2,7 +2,7 @@
 version: "3"
 services:
   mongodb:
-    image: mongo:latest
+    image: mongo:4.4
     container_name: mongodb
     restart: unless-stopped
     expose:
@@ -18,6 +18,8 @@ services:
   asset-registry:
     image: angelocapossele/asset-registry
     command: >
+      --username="{{ mongoDBUser }}"
+      --password="{{ mongoDBPassword }}"
       --basicAuthUser=IOTAisCool
       --basicAuthPassword=WeAreThereforeCool
     ports:
@@ -25,6 +27,7 @@ services:
     depends_on:
       - mongodb
     networks:
+      - back-tier
       - front-tier
 
 networks:
