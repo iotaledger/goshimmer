@@ -31,6 +31,8 @@ type GoShimmer struct {
 	DisabledPlugins []string
 	// Seed specifies identity.
 	Seed []byte
+	// Whether to use the same seed for the node's wallet.
+	UseNodeSeedAsWalletSeed bool
 
 	// Network specifies network-level configurations
 	Network

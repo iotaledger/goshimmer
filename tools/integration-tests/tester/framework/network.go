@@ -255,6 +255,9 @@ func (n *Network) createNode(ctx context.Context, name string, conf config.GoShi
 
 	// create wallet
 	nodeSeed := walletseed.NewSeed()
+	if conf.UseNodeSeedAsWalletSeed {
+		nodeSeed = walletseed.NewSeed(conf.Seed)
+	}
 	if conf.Faucet.Enabled {
 		nodeSeed = walletseed.NewSeed(GenesisSeed)
 	}

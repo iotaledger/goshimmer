@@ -20,42 +20,44 @@ import (
 )
 
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend.
-// We spawn a partitioned network of 2 nodes containing 40% and 20% of consensus mana respectively,
-// let them both issue conflicting transactions, merge the partitions, and assert that the transaction
+// We spawn a network of 2 nodes containing 40% and 20% of consensus mana respectively,
+// let them both issue conflicting transactions, and assert that the transaction
 // issued by the 40% node gains a high GoF while the other one gets "none" GoF over time as the 20% consensus mana
 // node puts its weight to the 40% issued tx making it reach 60% AW and hence high GoF.
 // The genesis seed contains 800000 tokens which we will use to issue conflicting transactions from both nodes.
 func TestSimpleDoubleSpend(t *testing.T) {
+	const (
+		peer1SeedBas58                       = "Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8" // peerID jnaC6ZyWuw
+		peer2SeedBas58                       = "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2" // peerID iNvPFvkfSDp
+		peer1Pledged                         = 800000.0                                       // 40%
+		peer2Pledged                         = 400000.0                                       // 20%
+		actualGenesisTokenAmount      uint64 = 800000                                         // 40%
+		expectedCManaNode1AfterTxConf        = peer1Pledged + float64(actualGenesisTokenAmount)
+	)
+
 	var (
-		// 40% - jnaC6ZyWuw - 800000 tokens pledged
-		peer1SeedBas58 = "Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8"
 		peer1IdentSeed = func() []byte {
 			seedBytes, err := base58.Decode(peer1SeedBas58)
 			require.NoError(t, err)
 			return seedBytes
 		}()
-		peer1Pledged = 800000.0
 
-		// 20% - iNvPFvkfSDp - 400000 tokens pledged
-		peer2SeedBas58 = "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2"
 		peer2IdentSeed = func() []byte {
 			seedBytes, err := base58.Decode(peer2SeedBas58)
 			require.NoError(t, err)
 			return seedBytes
 		}()
-		peer2Pledged = 400000.0
-
-		actualGenesisTokenAmount uint64 = 800000
 	)
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetworkWithPartitions(ctx, "test_simple_double_spend", 2, 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork(ctx, "test_simple_double_spend", 2, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      false,
 		Activity:    false,
 	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
 		cfg.MessageLayer.Snapshot.File = "/assets/consensus_intgr_snapshot.bin"
+		cfg.UseNodeSeedAsWalletSeed = true
 		switch peerIndex {
 		case 0:
 			cfg.Autopeering.Seed = "base58:" + peer1SeedBas58
@@ -73,10 +75,12 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		node1 = n.Peers()[0]
 		node2 = n.Peers()[1]
 
-		genesis1Wallet = createWallet(node1)
-		genesis2Wallet = createWallet(node2)
+		genesis1Wallet = createGenesisWallet(node1)
+		genesis2Wallet = createGenesisWallet(node2)
 
+		// 1G4a9TMsLE59BUbe76dacsFG63Ue2KN14orS5g4rPeNiK
 		node1TargetAddr = node1.Seed.Address(1)
+		// 1B64FizyBfUuycSKmAFADRiZo22SJj5pWrXoYvfY78q7L
 		node2TargetAddr = node2.Seed.Address(1)
 	)
 
@@ -87,8 +91,6 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	// send conflicting txs on both
 	tx1 := sendConflictingTx(t, genesis1Wallet, node1TargetAddr, actualGenesisTokenAmount, node1, gof.Medium)
 	tx2 := sendConflictingTx(t, genesis2Wallet, node2TargetAddr, actualGenesisTokenAmount, node2, gof.Low)
-
-	require.NoError(t, n.DeletePartitions(ctx))
 
 	// conflicting txs should have spawned branches
 	require.Eventually(t, func() bool {
@@ -102,9 +104,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	// we issue msgs on both nodes so the txs' GoF can change, given that they are dependent on their
 	// attachments' GoF. if msgs would only be issued on node 2 or 1, they weight would never surpass 50%.
-	tests.SendDataMessages(t, []*framework.Node{node1, node2}, 50)
+	tests.SendDataMessages(t, n.Peers(), 50)
 
-	tests.RequireGradeOfFinalityEqual(t, []*framework.Node{node1, node2}, map[string]tests.ExpectedState{
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), tests.ExpectedTxsStates{
 		tx1.ID().Base58(): {
 			GradeOfFinality: tests.GoFPointer(gof.High),
 			Solid:           tests.True(),
@@ -113,6 +115,10 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			GradeOfFinality: tests.GoFPointer(gof.None),
 			Solid:           tests.True(),
 		},
+	}, time.Minute, tests.Tick)
+
+	require.Eventually(t, func() bool {
+		return expectedCManaNode1AfterTxConf == tests.Mana(t, node1).Consensus
 	}, time.Minute, tests.Tick)
 }
 
@@ -129,7 +135,7 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 		return balance == actualGenesisTokenAmount
 	}, tests.Timeout, tests.Tick)
 
-	tests.RequireGradeOfFinalityEqual(t, []*framework.Node{node}, map[string]tests.ExpectedState{
+	tests.RequireGradeOfFinalityEqual(t, []*framework.Node{node}, tests.ExpectedTxsStates{
 		tx.ID().Base58(): {
 			GradeOfFinality: tests.GoFPointer(expectedGoF),
 			Solid:           tests.True(),
@@ -138,7 +144,7 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 	return tx
 }
 
-func createWallet(node *framework.Node) *wallet.Wallet {
+func createGenesisWallet(node *framework.Node) *wallet.Wallet {
 	webConn := wallet.GenericConnector(wallet.NewWebConnector(node.BaseURL()))
 	return wallet.New(wallet.Import(walletseed.NewSeed(framework.GenesisSeed), 0, []bitmask.BitMask{}, nil), webConn)
 }
