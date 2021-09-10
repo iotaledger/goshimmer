@@ -41,4 +41,4 @@ drands:
   hosts:
     drand-01.pre-devnet.shimmer.iota.cafe:
   vars:
-    goshimmerHostTemplate: "drng-0{drandNumber}.pre-devnet.shimmer.iota.cafe"
+    drngHostTemplate: "drng-0{drandNumber}.pre-devnet.shimmer.iota.cafe"
