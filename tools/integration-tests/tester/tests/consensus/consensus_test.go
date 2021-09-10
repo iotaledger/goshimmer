@@ -39,8 +39,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		// 20% - iNvPFvkfSDp - 400000 tokens pledged
 		peer2SeedBas58 = "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2"
 		peer2IdentSeed = func() []byte {
-			seedBase58 := "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2"
-			seedBytes, err := base58.Decode(seedBase58)
+			seedBytes, err := base58.Decode(peer2SeedBas58)
 			require.NoError(t, err)
 			return seedBytes
 		}()
