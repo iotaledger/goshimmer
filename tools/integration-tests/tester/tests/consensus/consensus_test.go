@@ -27,8 +27,8 @@ import (
 // The genesis seed contains 800000 tokens which we will use to issue conflicting transactions from both nodes.
 func TestSimpleDoubleSpend(t *testing.T) {
 	const (
-		peer1SeedBas58                       = "Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8" // peerID jnaC6ZyWuw
-		peer2SeedBas58                       = "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2" // peerID iNvPFvkfSDp
+		peer1SeedBase58                      = "Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8" // peerID jnaC6ZyWuw
+		peer2SeedBase58                      = "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2" // peerID iNvPFvkfSDp
 		peer1Pledged                         = 800000.0                                       // 40%
 		peer2Pledged                         = 400000.0                                       // 20%
 		actualGenesisTokenAmount      uint64 = 800000                                         // 40%
@@ -37,13 +37,13 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	var (
 		peer1IdentSeed = func() []byte {
-			seedBytes, err := base58.Decode(peer1SeedBas58)
+			seedBytes, err := base58.Decode(peer1SeedBase58)
 			require.NoError(t, err)
 			return seedBytes
 		}()
 
 		peer2IdentSeed = func() []byte {
-			seedBytes, err := base58.Decode(peer2SeedBas58)
+			seedBytes, err := base58.Decode(peer2SeedBase58)
 			require.NoError(t, err)
 			return seedBytes
 		}()
@@ -60,10 +60,10 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		cfg.UseNodeSeedAsWalletSeed = true
 		switch peerIndex {
 		case 0:
-			cfg.Autopeering.Seed = "base58:" + peer1SeedBas58
+			cfg.Autopeering.Seed = "base58:" + peer1SeedBase58
 			cfg.Seed = peer1IdentSeed
 		case 1:
-			cfg.Autopeering.Seed = "base58:" + peer2SeedBas58
+			cfg.Autopeering.Seed = "base58:" + peer2SeedBase58
 			cfg.Seed = peer2IdentSeed
 		}
 		return cfg
