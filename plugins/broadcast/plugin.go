@@ -74,7 +74,7 @@ func run(_ *node.Plugin) {
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			go func() {
-				server.Broadcast(message.Bytes())
+				server.Broadcast([]byte(message.String()))
 			}()
 		})
 	})
