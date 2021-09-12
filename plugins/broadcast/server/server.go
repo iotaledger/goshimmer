@@ -135,11 +135,12 @@ func Broadcast(data []byte) {
 
 	idx := int(index.Load())
 	for i := 0; i < idx; i++ {
-		if connectionList[i].active {
-			if _, err := connectionList[i].bufferedConn.Write(data); err != nil {
-				connectionList[i].log.LogInfof("Error writing on connection: %s", err)
-				connectionList[i].active = false
-			}
+		if !connectionList[i].active {
+			continue
+		}
+		if _, err := connectionList[i].bufferedConn.Write(data); err != nil {
+			connectionList[i].log.LogInfof("Error writing on connection: %s", err)
+			connectionList[i].active = false
 		}
 	}
 	//Tidy up array of unused connections
