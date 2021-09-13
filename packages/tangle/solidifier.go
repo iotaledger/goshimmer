@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -79,13 +78,7 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 	eventsQueue := eventsqueue.New()
 	defer eventsQueue.Trigger()
 
-	fmt.Println("wLOCKING: ", message.Locks())
-
 	s.LockEntity(message)
-
-	fmt.Println("LOCKED: ", message.Locks())
-
-	defer fmt.Println("UNLOCKED: ", message.Locks())
 	defer s.UnlockEntity(message)
 
 	approversToPropagate = make(MessageIDs, 0)
@@ -113,13 +106,7 @@ func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *Message
 	ledgerstateEvents := eventsqueue.New()
 	defer ledgerstateEvents.Trigger()
 
-	fmt.Println("sLOCKING: ", message.Locks())
-
 	s.LockEntity(message)
-
-	fmt.Println("LOCKED: ", message.Locks())
-
-	defer fmt.Println("UNLOCKED: ", message.Locks())
 	defer s.UnlockEntity(message)
 
 	approversToPropagate = make(MessageIDs, 0)
@@ -326,7 +313,7 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 		cachedAttachment.Release()
 	}
 
-	_, solidityType, err := s.tangle.LedgerState.StoreTransaction(transaction, ledgerstateEvents)
+	stored, solidityType, err := s.tangle.LedgerState.StoreTransaction(transaction, ledgerstateEvents)
 	if err != nil {
 		switch {
 		case errors.Is(err, ledgerstate.ErrInvalidStateTransition):
@@ -341,7 +328,7 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 
 		return false
 	}
-	solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
+	solid = !stored && (solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid)
 
 	return solid
 }
