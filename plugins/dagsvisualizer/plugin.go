@@ -2,7 +2,6 @@ package dagsvisualizer
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -43,9 +42,12 @@ func configureServer() {
 	server.Use(middleware.Recover())
 
 	setupRoutes(server)
+	setupVisualizer()
 }
 
 func run(plugin *node.Plugin) {
+	runVisualizer()
+
 	plugin.LogInfof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityDashboard); err != nil {
 		plugin.Panicf("Error starting as daemon: %s", err)
@@ -63,17 +65,6 @@ func worker(shutdownSignal <-chan struct{}) {
 				log.Errorf("Error serving: %s", err)
 			}
 			close(stopped)
-		}
-	}()
-
-	// TODO: delete this
-	go func() {
-		// feed data to websocket
-		log.Infof("start sending things to websocket")
-		for {
-			broadcastWsMessage("hello world")
-			fmt.Println("send to web socket")
-			time.Sleep(2 * time.Second)
 		}
 	}()
 

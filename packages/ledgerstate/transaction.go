@@ -695,6 +695,8 @@ type TransactionMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 	finalized               bool
 	finalizedMutex          sync.RWMutex
+	finalizedTime           time.Time
+	finalizedTimeMutex      sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
 
@@ -847,11 +849,25 @@ func (t *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
 		return
 	}
 
+	if finalized {
+		t.finalizedTimeMutex.Lock()
+		t.finalizedTime = time.Now()
+		t.finalizedTimeMutex.Unlock()
+	}
+
 	t.finalized = finalized
 	t.SetModified()
 	modified = true
 
 	return
+}
+
+// FinalizedTime returns the time when the Transaction was marked as finalized.
+func (t *TransactionMetadata) FinalizedTime() time.Time {
+	t.finalizedTimeMutex.RLock()
+	defer t.finalizedTimeMutex.RUnlock()
+
+	return t.finalizedTime
 }
 
 // LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
