@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strings"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -15,6 +16,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/goshimmer/plugins/database"
 
 	databasePkg "github.com/iotaledger/goshimmer/packages/database"
 )
@@ -77,11 +80,33 @@ func configureLocal(kvStore kvstore.KVStore) *peer.Local {
 		}
 		seed = append(seed, bytes)
 	}
-	peerDB, err := peer.NewDB(kvStore.WithRealm([]byte{databasePkg.PrefixAutoPeering}))
+
+	// checks that peer.Parameters.DbPath is not a subdirectory of database.Parameters.Directory
+	absMainDbPath, err := filepath.Abs(database.Parameters.Directory)
+	if err != nil {
+		log.Fatal("cannot resolve absolute path of %s: %s", database.Parameters.Directory, err)
+	}
+	absPeerDbPath, err := filepath.Abs(Parameters.DbPath)
+	if err != nil {
+		log.Fatal("cannot resolve absolute path of %s: %s", Parameters.DbPath, err)
+	}
+	if strings.Index(absPeerDbPath, absMainDbPath) == 0 {
+		log.Fatalf("peerDB: %s should not be a subdirectory of mainDB: %s", database.Parameters.Directory)
+	}
+
+	db, err := databasePkg.NewDB(Parameters.DbPath)
+	if err != nil {
+		log.Fatalf("Error creating DB: %s", err)
+	}
+	if db == nil {
+		log.Warnf("nil db")
+	}
+
+	peerDB, err := peer.NewDB(db.NewStore().WithRealm([]byte{databasePkg.PrefixPeer}))
 	if err != nil {
 		log.Fatalf("Error creating peer DB: %s", err)
 	}
-	if peerDB == nil {
+	if db == nil {
 		log.Warnf("nil peerDB")
 	}
 
