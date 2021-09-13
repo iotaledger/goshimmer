@@ -81,20 +81,20 @@ func configureLocal(kvStore kvstore.KVStore) *peer.Local {
 		seed = append(seed, bytes)
 	}
 
-	// checks that peer.Parameters.DbPath is not a subdirectory of database.Parameters.Directory
-	absMainDbPath, err := filepath.Abs(database.Parameters.Directory)
+	// checks that peer.Parameters.DBPath is not a subdirectory of database.Parameters.Directory
+	absMainDBPath, err := filepath.Abs(database.Parameters.Directory)
 	if err != nil {
 		log.Fatal("cannot resolve absolute path of %s: %s", database.Parameters.Directory, err)
 	}
-	absPeerDbPath, err := filepath.Abs(Parameters.DbPath)
+	absPeerDBPath, err := filepath.Abs(Parameters.DBPath)
 	if err != nil {
-		log.Fatal("cannot resolve absolute path of %s: %s", Parameters.DbPath, err)
+		log.Fatal("cannot resolve absolute path of %s: %s", Parameters.DBPath, err)
 	}
-	if strings.Index(absPeerDbPath, absMainDbPath) == 0 {
+	if strings.Index(absPeerDBPath, absMainDBPath) == 0 {
 		log.Fatalf("peerDB: %s should not be a subdirectory of mainDB: %s", database.Parameters.Directory)
 	}
 
-	db, err := databasePkg.NewDB(Parameters.DbPath)
+	db, err := databasePkg.NewDB(Parameters.DBPath)
 	if err != nil {
 		log.Fatalf("Error creating DB: %s", err)
 	}

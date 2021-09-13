@@ -11,8 +11,8 @@ type ParametersDefinition struct {
 
 	// ExternalAddress defines the config flag of the network external address.
 	ExternalAddress string `default:"auto" usage:"external IP address under which the node is reachable; or 'auto' to determine it automatically"`
-	// DbPath defines the path to the peer database.
-	DbPath string `default:"peerdb" usage:"path to the peer database directory"`
+	// DBPath defines the path to the peer database.
+	DBPath string `default:"peerdb" usage:"path to the peer database directory"`
 }
 
 // Parameters contains the configuration parameters of the local peer's network.

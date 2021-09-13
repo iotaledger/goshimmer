@@ -16,6 +16,7 @@ services:
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
+      --node.dbPath=/tmp/peerdb
       --mana.enableResearchVectors=false
       --mana.snapshotResetTime=true
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
@@ -35,6 +36,7 @@ services:
       - goshimmer.message.snapshot.bin
     volumes:
       - shimmerdb:/tmp/mainnetdb
+      - peerdb:/tmp/peerdb
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
@@ -49,6 +51,7 @@ services:
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
+      --node.dbPath=/tmp/peerdb
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
@@ -75,6 +78,7 @@ services:
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
+      --node.dbPath=/tmp/peerdb
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
@@ -168,6 +172,7 @@ networks:
 # ./run.sh removes these on exit
 volumes:
   shimmerdb:
+  peerdb:
 # read only files to load in the containers that may be shared across containers
 secrets:
   goshimmer.message.snapshot.bin:
