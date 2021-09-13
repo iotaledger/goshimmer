@@ -344,8 +344,6 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		}
 	}(processMsgScenario, t)
 
-	processMsgScenario.Tangle.LedgerState.Configure(ledgerstate.LazyBookingEnabled(false))
-
 	for processMsgScenario.HasNext() {
 		processMsgScenario.Next(nil)
 	}
