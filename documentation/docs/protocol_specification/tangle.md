@@ -27,7 +27,7 @@
 - `MAX_PARENTS=8` The maximum amount of parents a message can reference.
 
 ## General concept
-![Tangle](https://i.ibb.co/RyqbZzN/tangle.png)
+[![The Tangle](/img/protocol_specification/tangle.png)](/img/protocol_specification/tangle.png)
 
 The Tangle represents a growing partially-ordered set of messages, linked with each other through cryptographic primitives, and replicated to all nodes in the peer-to-peer network. The Tangle enables the ledger state (i.e., the UTXO-DAG formed by transactions contained in messages), and the possibility to store data.
 
@@ -131,7 +131,7 @@ During solidification, if a node is missing a referenced message, the correspond
 
 If a message gets solid, it shall walk through the rest of the data flow, then propagate the solid status to its future cone by performing the solidification checks on each of the messages in its future cone again.
 
-![GoShimmer-flow-solidification_spec](https://user-images.githubusercontent.com/11289354/117009286-28333200-ad1e-11eb-8d0d-186c8d8ce373.png)
+[![Message solidification specs](/img/protocol_specification/GoShimmer-flow-solidification_spec.png)](/img/protocol_specification/GoShimmer-flow-solidification_spec.png)
 
 
 ## Orphanage & Approval Switch
@@ -145,7 +145,7 @@ Each message can express two levels of approval with respect to its parents:
 
 Let's consider the following example:
 
-![Detailed Design Example](/img/protocol_specification/detailed_desing.png "Detailed Design Example")
+[![Detailed Design Example](/img/protocol_specification/detailed_desing.png "Detailed Design Example")](/img/protocol_specification/detailed_desing.png)
 
 Message *D* contains a transaction that has been rejected, thus, due to the monotonicity rule, its future cone must be orphaned. Both messages *F* (transaction) and *E* (data) directly reference *D* and, traditionally, they should not be considered for tip selection. However, by introducing the approval switch, these messages can be picked up via a **weak** reference as messages *G* and *H* show.
 
@@ -183,7 +183,7 @@ A message inherits the branch of its strong parents, while it does not inherit t
 The approval weight of a given message takes into account all of its future cone built over all its strong approvers.
 Let's consider the following example:
 
-![Approval Weight](/img/protocol_specification/approval_weight_example.png "Approval Weight")
+[![Approval Weight](/img/protocol_specification/approval_weight_example.png "Approval Weight")](/img/protocol_specification/approval_weight_example.png )
 
 *E* is a weak message strongly approving *B* and *D*. When considering the approval weight of *B*, only the strong approvers of its future cone are used, thus, *D, E, F*. Note that, the approval weight of *E* would instead be built over *G, H, I*. Therefore, its approval weight does not add up to its own weight (for instance, when looking at the approval weight of *B*).
 
@@ -272,4 +272,4 @@ func Synced() bool {
 ```
 
 The following figure displays the Tangle Time visually: 
-![Tangle Time Example](/img/protocol_specification/tangle_time.jpg "Tangle Time Example")
+[![Tangle Time](/img/protocol_specification/tangle_time.jpg "Tangle Time")](/img/protocol_specification/tangle_time.jpg )

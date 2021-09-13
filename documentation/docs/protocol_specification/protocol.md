@@ -5,7 +5,7 @@ Here, the node must choose a certain number (from two to eight) of other message
 An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on the [Tangle](tangle.md) component. 
 In the diagram below, the issuance process being described now is represented in the context of the complete protocol. 
 
-![Protocol high-level overview](/img/protocol_specification/Protocol_overview_own_message.png "Protocol high-level overview")
+
 
 Each node in the network has limited bandwidth, CPU, and memory. In order to avoid any node from being overloaded, the right to write in everybody else's Tangle is regulated by the **Rate and Congestion Control Modules**. 
 The first one dictates the maximum rate of issuance of messages by the introduction of a small amount of proof of work. 
@@ -22,7 +22,7 @@ Since we deal with a large number of nodes, the communication graph cannot be [c
 Thus, the [network topology](https://en.wikipedia.org/wiki/Network_topology) will be dictated by the [**Neighbor Selection**](autopeering.md) (aka Autopeering) module. 
 
 
-![Protocol Overview Received Message](/img/protocol_specification/Protocol_overview_received_message.png "Protocol Overview Received Message")
+[![Protocol Overview Received Message](/img/protocol_specification/Protocol_overview_received_message.png "Protocol Overview Received Message")](/img/protocol_specification/Protocol_overview_received_message.png)
 
 We turn our attention now to another point of view: the one of the nodes receiving new messages, represented in the diagram above. 
 After receiving a message, the node will perform several **syntactical verifications**, that will act as a filter to the messages. Additionally, the message has to be **solidified**, meaning that the node must know all the past cone of the message (i.e., the set of all messages directly or indirectly referenced by the message in question). 
@@ -39,7 +39,7 @@ At this point (if the message passes these checks), the message will be **booked
 Additionally, in the case of a value transfer, the **ledger state** and two vectors called Access Mana Vector and **Consensus Mana** Vector are updated accordingly. 
 The Consensus Mana is another Sybil protection mechanism which&mdash;since it is applied to different modules than Access Mana&mdash;has the need of a different calculation. 
 
-![Protocol Overview Booking](/img/protocol_specification/Protocol_overview_booking.png "Protocol Overview Booking")
+[![Protocol Overview Booking](/img/protocol_specification/Protocol_overview_booking.png "Protocol Overview Booking")](/img/protocol_specification/Protocol_overview_booking.png )
 
 After having the message booked, the node is free to **gossip** it, but a crucial step of the protocol is still missing: the **Opinion Setter** and the voting protocol, that deal with the most subjective parts of the consensus mechanism (notice that, until now, the protocol has mostly dealt with objective checks). 
 The voting protocol used here is the FPC (or **Fast Probabilistic Consensus**), which is a binary voting protocol that allows a large group of nodes to come to a consensus on the value of a single bit. 
@@ -61,7 +61,7 @@ Unless the attacker controls more than 1/3 of the Consensus Mana in the system, 
 2. **Agreement**: all honest nodes will finalize on the same opinion.
 3. **Integrity**: if a super majority of nodes&mdash;e.g. more than 90% weighted by Consensus Mana&mdash;, have the same initial opinion, then FPC will terminate with that value.
 
-![Protocol Overview Consensus](/img/protocol_specification/Protocol_overview_consensus.png "Protocol Overview Consensus")
+[![Protocol Overview Consensus](/img/protocol_specification/Protocol_overview_consensus.png "Protocol Overview Consensus")](/img/protocol_specification/Protocol_overview_consensus.png)
 
 Analogously to Bitcoin's [six blocks rule](https://en.bitcoin.it/wiki/Confirmation), our protocol has certain measures of the probability of a certain message being considered valid permanently by all nodes. 
 This is achieved by the use of the [**Approval Weight**](consensus_mechanism.md#approval-weight-aw). 

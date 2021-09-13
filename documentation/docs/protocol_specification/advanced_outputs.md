@@ -180,18 +180,18 @@ spend the 10 Mi from his alias account to his address account.
 
 1. Bob creates an alias where `aliasID=BobAliasID` with Transaction A.
 
-![Bob creates an alias](/img/protocol_specification/bob_alias.png "Bob creates an alias")
+[![Bob creates an alias](/img/protocol_specification/bob_alias.png "Bob creates an alias")](/img/protocol_specification/bob_alias.png)
 
 2. Bob shares `BobAliasID` with Alice.
 3. Alice sends 10 Mi to Bob by sending Transaction B that creates an `ExtendedLockedOutput`, specifying the balance,
    and `aliasID=BobAliasID`.
 
-![Alice sends 10 Mi to Bob](/img/protocol_specification/alice_sends_10_mi.png "Alice sends 10 Mi to Bob")
+[![Alice sends 10 Mi to Bob](/img/protocol_specification/alice_sends_10_mi.png "Alice sends 10 Mi to Bob")](/img/protocol_specification/alice_sends_10_mi.png)
 
 4. Bob can spend the outputs created by Alice by creating Transaction C that moves his `BobAlias` (to the very same
    address), and including the  `ExtendedLockedOutput` with `aliasID=BobAliasID`.
 
-![Bob can spend the outputs created by Alice by creating Transaction C](/img/protocol_specification/bob_can_spend_outputs_created_by_alice.png "Bob can spend the outputs created by Alice by creating Transaction C")
+[![Bob can spend the outputs created by Alice by creating Transaction C](/img/protocol_specification/bob_can_spend_outputs_created_by_alice.png "Bob can spend the outputs created by Alice by creating Transaction C")](/img/protocol_specification/bob_can_spend_outputs_created_by_alice.png )
 
 In a simple scenario, a user wishing to send a request to a smart contract creates an extended output. The output
 contains the AliasID of the smart contract chain account, the layer 2 request as metadata, and some tokens to pay

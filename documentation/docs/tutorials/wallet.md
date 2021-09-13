@@ -429,7 +429,7 @@ Creating NFT ... [DONE]
 
 The created NFT's unique identifier is `gSfeBrWp1HwDLwSL7rt1qEMM59YBFZ4iBgAqHuqaQHo5`, which is also a valid IOTA address. Navigate to a node dashboard/explorer and search for the address. On a node dashboard, you would see something like this:
 
-![Created NFT Example](https://i.imgur.com/JYx0v5w.png "Created NFT Example")
+[![Created NFT Example](/img/tutorials/wallet/created_nft.png)](/img/tutorials/wallet/created_nft.png)
 
 The immutable data field contains the attached binary metadata (encoded in base64 in the node dashboard).
 

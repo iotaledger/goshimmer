@@ -17,9 +17,9 @@ For these reasons, we use [FCoB](#fcob) to manage FPC.
 
 ### FCoB
 
-The following flow diagram shows the current implemention of the FCoB protocol.
+The following flow diagram shows the current implementation of the FCoB protocol.
 
-![FCoB](/img/protocol_specification/FCOB.png)
+[![FCoB](/img/protocol_specification/FCOB.png)](/img/protocol_specification/FCOB.png)
 
 Each opinion is associated to a *Level of Knowledge* (LoK) that defines how confident a node is with respect to the value of the opinion. We can distinguish 3 levels:
 * Level 1 means that the node only knows that it holds this opinion.
@@ -149,7 +149,7 @@ Approval weight is tracked with the help of supporters that cast votes for branc
 Tracking supporters of branches and following the heavier branch effectively is On Tangle Voting. It allows nodes to express their opinion simply by attaching a statement to a branch they like. This statement needs to propagate down the branch DAG, adding support to each of the branch parents. In case a supporter changes their opinion, support needs to be revoked from all conflicting branches and their children. Thus, a node can only support one branch of a conflict set. 
 
 To make this more clear consider the following example:
-![Branch Supporter](/img/protocol_specification/branches.png)
+[![Branch Supporter](/img/protocol_specification/branches.png)](/img/protocol_specification/branches.png)
 
 The green node issued **statement 1** and attached it to the aggregated branch `Branch 1.1 + Branch 4.1.1`. Thus, the green node is a supporter of all the aggregated branch's parent branches, which are (from top to bottom) `Branch 4.1.1`, `Branch 1.1`, `Branch 4.1`, `Branch 1`, and `Branch 4`.
 
@@ -182,7 +182,7 @@ Rather than keeping a list of supporters for each marker and collecting supporte
 For each marker sequence, we keep a map of supporter to marker index, meaning a supporter supports a marker index `i`. This implies that the supporter supports all markers with index `<= i`.
 
 Take the figure below as an example:
-![MarkersApprovalWeight SequenceSupporters-Page-2](https://user-images.githubusercontent.com/11289354/112416694-21012780-8d61-11eb-8089-cb9f5b236f30.png)
+[![Markers Approval Weight Sequence Supporters](/img/protocol_specification/MarkersApprovalWeight.png)](/img/protocol_specification/MarkersApprovalWeight.png)
 
 The purple circles represent markers of the same sequence, the numbers are marker indices.
 
@@ -192,8 +192,9 @@ This is a fast look-up and avoids walking through a marker's future cone when it
 
 For example, to find all supporter of marker 2, we iterate through the map and filter out those support marker with `index >= 2`. In this case, all nodes are its supporters. As for marker 5, it has supporters node A and D, which fulfill the check: `index >= 5`.
 
-Here is another more complicated example with parent sequences:
-![MarkersApprovalWeight SequenceSupporters-Page-2(1)](https://user-images.githubusercontent.com/11289354/112433680-8cf18900-8d7d-11eb-8944-54030581a033.png)
+Here is another more complicated example with parent sequences:.
+
+[![Markers Approval Weight Sequence Supporters With Parent Sequences](/img/protocol_specification/MarkersApprovalWeightSequenceSupporters.png)](/img/protocol_specification/MarkersApprovalWeightSequenceSupporters.png)
 
 The supporter will be propagated to the parent sequence.
 

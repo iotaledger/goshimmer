@@ -253,10 +253,10 @@ When the node starts for the first time, it must synchronize its state with the 
 #### Dashboard
 The dashboard of your GoShimmer node should be accessible via `http://<your-ip>:8081`. If your node is still synchronizing, you might see a higher inflow of MPS.
 
-![](https://user-images.githubusercontent.com/11289354/119599542-c3985e00-be17-11eb-8769-7e639f365ae5.png)
+[![GoShimmer Dashboard](/img/tutorials/setup/dashboard.png)](/img/tutorials/setup/dashboard.png)
 
 After a while, your node's dashboard should also display up to 8 neighbors:
-![](https://i.imgur.com/gAyAXK9.png)
+[![GoShimmer Dashboard Neighbors](/img/tutorials/setup/dashboard_neighbors.png)](/img/tutorials/setup/dashboard_neighbors.png)
 
 
 #### HTTP API
