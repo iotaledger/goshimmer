@@ -77,7 +77,12 @@ func (b *Booker) Setup() {
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			fmt.Println("BookMessage.Lock", message.Locks())
+
 			b.LockEntity(message)
+
+			fmt.Println("BookMessage.Locked", message.Locks())
+			defer fmt.Println("BookMessage.Unlocked", message.Locks())
 			defer b.UnlockEntity(message)
 
 			// Don't book the same message more than once!
@@ -142,7 +147,12 @@ func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.Transactio
 	fmt.Println("BookConflictingTransaction:", transactionID)
 
 	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
+		fmt.Println("BookConflictingTransaction.Lock", message.Locks())
+
 		b.LockEntity(message)
+
+		fmt.Println("BookConflictingTransaction.Locked", message.Locks())
+		defer fmt.Println("BookConflictingTransaction.Unlocked", message.Locks())
 		defer b.UnlockEntity(message)
 
 		if !messageMetadata.IsBooked() {
