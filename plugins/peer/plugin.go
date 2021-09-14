@@ -1,17 +1,19 @@
 package peer
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
@@ -28,6 +30,10 @@ const PluginName = "Peer"
 var (
 	// Plugin is the plugin instance of the Peer plugin.
 	Plugin *node.Plugin
+
+	// ErrMismatchedPrivateKeys is returned when the private key derived from the config does not correspond to the private
+	// key stored in an already existing peer database.
+	ErrMismatchedPrivateKeys = errors.New("private key derived from the seed defined in the config does not correspond with the already stored private key in the database")
 )
 
 func init() {
@@ -41,88 +47,141 @@ func init() {
 }
 
 // instantiates a local instance.
-func configureLocal(kvStore kvstore.KVStore) *peer.Local {
+func configureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 
-	var peeringIP net.IP
-	if strings.ToLower(Parameters.ExternalAddress) == "auto" {
-		// let the autopeering discover the IP
-		peeringIP = net.IPv4zero
-	} else {
-		peeringIP = net.ParseIP(Parameters.ExternalAddress)
-		if peeringIP == nil {
-			log.Fatalf("Invalid IP address: %s", Parameters.ExternalAddress)
-		}
-		if !peeringIP.IsGlobalUnicast() {
-			log.Warnf("IP is not a global unicast address: %s", peeringIP.String())
-		}
-	}
-
-	// set the private key from the seed provided in the config
-	var seed [][]byte
-	if Parameters.Seed != "" {
-		var bytes []byte
-		var err error
-
-		if strings.HasPrefix(Parameters.Seed, "base58:") {
-			bytes, err = base58.Decode(Parameters.Seed[7:])
-		} else if strings.HasPrefix(Parameters.Seed, "base64:") {
-			bytes, err = base64.StdEncoding.DecodeString(Parameters.Seed[7:])
-		} else {
-			err = fmt.Errorf("neither base58 nor base64 prefix provided")
-		}
-
-		if err != nil {
-			log.Fatalf("Invalid seed: %s", err)
-		}
-		if l := len(bytes); l != ed25519.SeedSize {
-			log.Fatalf("Invalid seed length: %d, need %d", l, ed25519.SeedSize)
-		}
-		seed = append(seed, bytes)
-	}
-
-	// checks that peer.Parameters.DBPath is not a subdirectory of database.Parameters.Directory
-	absMainDBPath, err := filepath.Abs(database.Parameters.Directory)
+	peeringIP, err := readPeerIP()
 	if err != nil {
-		log.Fatal("cannot resolve absolute path of %s: %s", database.Parameters.Directory, err)
-	}
-	absPeerDBPath, err := filepath.Abs(Parameters.DBPath)
-	if err != nil {
-		log.Fatal("cannot resolve absolute path of %s: %s", Parameters.DBPath, err)
-	}
-	if strings.Index(absPeerDBPath, absMainDBPath) == 0 {
-		log.Fatalf("peerDB: %s should not be a subdirectory of mainDB: %s", database.Parameters.Directory)
+		log.Fatal(err)
 	}
 
-	db, err := databasePkg.NewDB(Parameters.DBPath)
-	if err != nil {
-		log.Fatalf("Error creating DB: %s", err)
-	}
-	if db == nil {
-		log.Warnf("nil db")
+	if !peeringIP.IsGlobalUnicast() {
+		log.Warnf("IP is not a global unicast address: %s", peeringIP.String())
 	}
 
-	peerDB, err := peer.NewDB(db.NewStore().WithRealm([]byte{databasePkg.PrefixPeer}))
-	if err != nil {
-		log.Fatalf("Error creating peer DB: %s", err)
-	}
-	if db == nil {
-		log.Warnf("nil peerDB")
+	var seed []byte
+	if len(Parameters.Seed) != 0 {
+		if seed, err = readSeedFromCfg(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	// the private key seed of the current local can be returned the following way:
-	// key, _ := peerDB.LocalPrivateKey()
-	// fmt.Printf("Seed: base58:%s\n", key.Seed().String())
+	peerDB, isNewDB, err := initPeerDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if !isNewDB && len(Parameters.Seed) != 0 {
+		if err := checkCfgSeedAgainstDB(seed, peerDB); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	// TODO: remove requirement for PeeringKey in hive.go
 	services := service.New()
 	services.Update(service.PeeringKey, "dummy", 0)
 
-	local, err := peer.NewLocal(peeringIP, services, peerDB, seed...)
+	local, err := peer.NewLocal(peeringIP, services, peerDB, seed)
 	if err != nil {
 		log.Fatalf("Error creating local: %s", err)
 	}
 	log.Infof("Initialized local: %v", local)
 
 	return local
+}
+
+// checks whether the seed from the cfg corresponds to the one in the peer database.
+func checkCfgSeedAgainstDB(cfgSeed []byte, peerDB *peer.DB) error {
+	prvKeyDB, err := peerDB.LocalPrivateKey()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve private key from peer database: %w", err)
+	}
+	prvKeyCfg := ed25519.PrivateKeyFromSeed(cfgSeed)
+	if !bytes.Equal(prvKeyCfg.Bytes(), prvKeyDB.Bytes()) {
+		return fmt.Errorf("%w: identities - pub keys (cfg/db): %s vs. %s", ErrMismatchedPrivateKeys, prvKeyCfg.Public().String(), prvKeyDB.Public().String())
+	}
+	return nil
+}
+
+func readPeerIP() (net.IP, error) {
+	if strings.ToLower(Parameters.ExternalAddress) == "auto" {
+		// let the autopeering discover the IP
+		return net.IPv4zero, nil
+	}
+
+	peeringIP := net.ParseIP(Parameters.ExternalAddress)
+	if peeringIP == nil {
+		return nil, fmt.Errorf("invalid IP address: %s", Parameters.ExternalAddress)
+	}
+
+	return peeringIP, nil
+}
+
+// inits the peer database, returns a bool indicating whether the database is new.
+func initPeerDB() (*peer.DB, bool, error) {
+	if err := checkValidPeerDBPath(); err != nil {
+		return nil, false, err
+	}
+
+	var isNewDB bool
+	if _, err := os.Stat(Parameters.DBPath); os.IsNotExist(err) {
+		isNewDB = true
+	}
+
+	db, err := databasePkg.NewDB(Parameters.DBPath)
+	if err != nil {
+		return nil, false, fmt.Errorf("error creating DB: %s", err)
+	}
+
+	peerDB, err := peer.NewDB(db.NewStore().WithRealm([]byte{databasePkg.PrefixPeer}))
+	if err != nil {
+		return nil, false, fmt.Errorf("error creating peer DB: %w", err)
+	}
+	if db == nil {
+		return nil, false, fmt.Errorf("couldn't create peerDB; nil")
+	}
+
+	return peerDB, isNewDB, nil
+}
+
+// checks that the peer database path does not reside within the main database directory.
+func checkValidPeerDBPath() error {
+	absMainDBPath, err := filepath.Abs(database.Parameters.Directory)
+	if err != nil {
+		return fmt.Errorf("cannot resolve absolute path of %s: %w", database.Parameters.Directory, err)
+	}
+
+	absPeerDBPath, err := filepath.Abs(Parameters.DBPath)
+	if err != nil {
+		return fmt.Errorf("cannot resolve absolute path of %s: %w", Parameters.DBPath, err)
+	}
+
+	if strings.Index(absPeerDBPath, absMainDBPath) == 0 {
+		return fmt.Errorf("peerDB: %s should not be a subdirectory of mainDB: %s", Parameters.DBPath, database.Parameters.Directory)
+	}
+	return nil
+}
+
+func readSeedFromCfg() ([]byte, error) {
+	var seedBytes []byte
+	var err error
+
+	switch {
+	case strings.HasPrefix(Parameters.Seed, "base58:"):
+		seedBytes, err = base58.Decode(Parameters.Seed[7:])
+	case strings.HasPrefix(Parameters.Seed, "base64:"):
+		seedBytes, err = base64.StdEncoding.DecodeString(Parameters.Seed[7:])
+	default:
+		err = fmt.Errorf("neither base58 nor base64 prefix provided")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid seed: %w", err)
+	}
+
+	if l := len(seedBytes); l != ed25519.SeedSize {
+		return nil, fmt.Errorf("invalid seed length: %d, need %d", l, ed25519.SeedSize)
+	}
+
+	return seedBytes, nil
 }
