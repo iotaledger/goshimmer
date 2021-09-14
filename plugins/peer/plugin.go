@@ -60,7 +60,8 @@ func configureLocal() *peer.Local {
 	}
 
 	var seed []byte
-	if len(Parameters.Seed) != 0 {
+	cfgSeedSet := Parameters.Seed != ""
+	if cfgSeedSet {
 		if seed, err = readSeedFromCfg(); err != nil {
 			log.Fatal(err)
 		}
@@ -71,7 +72,7 @@ func configureLocal() *peer.Local {
 		log.Fatal(err)
 	}
 
-	if !isNewDB && len(Parameters.Seed) != 0 {
+	if !isNewDB && cfgSeedSet {
 		if err := checkCfgSeedAgainstDB(seed, peerDB); err != nil {
 			log.Fatal(err)
 		}
