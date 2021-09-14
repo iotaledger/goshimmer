@@ -84,6 +84,8 @@ func (s *Solidifier) Setup() {
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
+	fmt.Println("SOLIDIFY", messageID)
+
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		solidificationType := messageMetadata.Source().SolidificationType()
 		if solidificationType == UndefinedSolidificationType {
@@ -101,6 +103,8 @@ func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.Transacti
 	if s.payloadSolidificationTriggered(transactionID) {
 		return
 	}
+
+	fmt.Println("TriggerTransactionSolid", transactionID)
 
 	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
 }
