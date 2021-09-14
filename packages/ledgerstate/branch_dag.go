@@ -101,6 +101,8 @@ func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newPa
 
 	conflictBranch.SetParents(newParentBranchIDs)
 
+	b.Events.BranchParentsUpdated.Trigger(&BranchParentUpdate{conflictBranchID, newParentBranchIDs})
+
 	return
 }
 
@@ -607,6 +609,8 @@ func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID B
 		for conflictID := range conflictIDs {
 			b.registerConflictMember(conflictID, branchID)
 		}
+
+		b.Events.BranchCreated.Trigger(NewBranchDAGEvent(cachedConflictBranch))
 	default:
 		// store new ConflictMember references
 		for conflictID := range conflictIDs {
@@ -686,6 +690,8 @@ func (b *BranchDAG) aggregateNormalizedBranches(parentBranchIDs BranchIDs) (cach
 			err = errors.Errorf("failed to update inclusion state of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), inclusionStateErr)
 			return
 		}
+
+		b.Events.BranchCreated.Trigger(NewBranchDAGEvent(cachedAggregatedBranch))
 	}
 
 	return
@@ -1401,6 +1407,9 @@ ProcessStack:
 
 // BranchDAGEvents is a container for all of the BranchDAG related events.
 type BranchDAGEvents struct {
+	// BranchCreated gets triggered whenever a Branch is created.
+	BranchCreated *events.Event
+
 	// BranchLiked gets triggered whenever a Branch becomes liked that was not liked before.
 	BranchLiked *events.Event
 
@@ -1431,11 +1440,15 @@ type BranchDAGEvents struct {
 
 	// BranchPending gets triggered whenever a Branch becomes pending that was not pending before (i.e. during a reorg).
 	BranchPending *events.Event
+
+	// BranchParentsUpdated gets triggered whenever a Branch's parents are updated.
+	BranchParentsUpdated *events.Event
 }
 
 // NewBranchDAGEvents creates a container for all of the BranchDAG related events.
 func NewBranchDAGEvents() *BranchDAGEvents {
 	return &BranchDAGEvents{
+		BranchCreated:               events.NewEvent(branchEventCaller),
 		BranchLiked:                 events.NewEvent(branchEventCaller),
 		BranchDisliked:              events.NewEvent(branchEventCaller),
 		BranchMonotonicallyLiked:    events.NewEvent(branchEventCaller),
@@ -1445,6 +1458,7 @@ func NewBranchDAGEvents() *BranchDAGEvents {
 		BranchConfirmed:             events.NewEvent(branchEventCaller),
 		BranchRejected:              events.NewEvent(branchEventCaller),
 		BranchPending:               events.NewEvent(branchEventCaller),
+		BranchParentsUpdated:        events.NewEvent(branchParentUpdateEventCaller),
 	}
 }
 
@@ -1481,6 +1495,15 @@ func (b *BranchDAGEvent) Release() *BranchDAGEvent {
 // callback.
 func branchEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(branch *BranchDAGEvent))(params[0].(*BranchDAGEvent).Retain())
+}
+
+type BranchParentUpdate struct {
+	ID         BranchID
+	NewParents BranchIDs
+}
+
+func branchParentUpdateEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(branchParents *BranchParentUpdate))(params[0].(*BranchParentUpdate))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
