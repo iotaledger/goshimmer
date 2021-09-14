@@ -59,12 +59,14 @@ func configureLocal() *peer.Local {
 		log.Warnf("IP is not a global unicast address: %s", peeringIP.String())
 	}
 
-	var seed []byte
+	var seed [][]byte
 	cfgSeedSet := Parameters.Seed != ""
 	if cfgSeedSet {
-		if seed, err = readSeedFromCfg(); err != nil {
+		readSeed, err := readSeedFromCfg()
+		if err != nil {
 			log.Fatal(err)
 		}
+		seed = append(seed, readSeed)
 	}
 
 	peerDB, isNewDB, err := initPeerDB()
@@ -73,7 +75,7 @@ func configureLocal() *peer.Local {
 	}
 
 	if !isNewDB && cfgSeedSet {
-		if err := checkCfgSeedAgainstDB(seed, peerDB); err != nil {
+		if err := checkCfgSeedAgainstDB(seed[0], peerDB); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -82,7 +84,7 @@ func configureLocal() *peer.Local {
 	services := service.New()
 	services.Update(service.PeeringKey, "dummy", 0)
 
-	local, err := peer.NewLocal(peeringIP, services, peerDB, seed)
+	local, err := peer.NewLocal(peeringIP, services, peerDB, seed...)
 	if err != nil {
 		log.Fatalf("Error creating local: %s", err)
 	}
@@ -124,12 +126,12 @@ func initPeerDB() (*peer.DB, bool, error) {
 		return nil, false, err
 	}
 
-	var isNewDB bool
-	if _, err := os.Stat(Parameters.DBPath); os.IsNotExist(err) {
-		isNewDB = true
+	isNewDB, err := isPeerDBNew()
+	if err != nil {
+		return nil, false, err
 	}
 
-	db, err := databasePkg.NewDB(Parameters.DBPath)
+	db, err := databasePkg.NewDB(Parameters.PeerDBDirectory)
 	if err != nil {
 		return nil, false, fmt.Errorf("error creating DB: %s", err)
 	}
@@ -145,6 +147,28 @@ func initPeerDB() (*peer.DB, bool, error) {
 	return peerDB, isNewDB, nil
 }
 
+// checks whether the peer database is new by examining whether the directory
+// exists or whether it contains any files.
+func isPeerDBNew() (bool, error) {
+	var isNewDB bool
+	fileInfo, err := os.Stat(Parameters.PeerDBDirectory)
+	switch {
+	case fileInfo != nil:
+		files, err := os.ReadDir(Parameters.PeerDBDirectory)
+		if err != nil {
+			return false, fmt.Errorf("unable to check whether peer database is empty: %w", err)
+		}
+		if len(files) != 0 {
+			break
+		}
+		fallthrough
+	case os.IsNotExist(err):
+		isNewDB = true
+	}
+
+	return isNewDB, nil
+}
+
 // checks that the peer database path does not reside within the main database directory.
 func checkValidPeerDBPath() error {
 	absMainDBPath, err := filepath.Abs(database.Parameters.Directory)
@@ -152,13 +176,13 @@ func checkValidPeerDBPath() error {
 		return fmt.Errorf("cannot resolve absolute path of %s: %w", database.Parameters.Directory, err)
 	}
 
-	absPeerDBPath, err := filepath.Abs(Parameters.DBPath)
+	absPeerDBPath, err := filepath.Abs(Parameters.PeerDBDirectory)
 	if err != nil {
-		return fmt.Errorf("cannot resolve absolute path of %s: %w", Parameters.DBPath, err)
+		return fmt.Errorf("cannot resolve absolute path of %s: %w", Parameters.PeerDBDirectory, err)
 	}
 
 	if strings.Index(absPeerDBPath, absMainDBPath) == 0 {
-		return fmt.Errorf("peerDB: %s should not be a subdirectory of mainDB: %s", Parameters.DBPath, database.Parameters.Directory)
+		return fmt.Errorf("peerDB: %s should not be a subdirectory of mainDB: %s", Parameters.PeerDBDirectory, database.Parameters.Directory)
 	}
 	return nil
 }
