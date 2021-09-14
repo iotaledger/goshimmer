@@ -1,5 +1,5 @@
 # broadcast
-A plugin for IOTA's GoShimmer Node to broadcast every message on the message layer an write it to active tcp connections over port 5050
+A plugin for IOTA's GoShimmer Node to broadcast every message on the message layer and write it to active TCP connections over port 5050.
 
 ## Installation
 Move the project's folder into your goshimmer/plugins/ folder.
