@@ -1,3 +1,16 @@
+---
+description: TFaucet endpoint allows requesting funds from the Faucet.
+image: replaceWithGoShimmerLogo
+keywords:
+- client library
+- HTTP API
+- tokens
+- funds
+- address
+- faucet
+- testnet
+- node Id
+---
 # Faucet API Methods
 
 Faucet endpoint allows requesting funds from the Faucet.

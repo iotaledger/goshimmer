@@ -1,18 +1,39 @@
+---
+description: The marker tool is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle that needs to be traversed, and which finally results in the grade of finality.
+image: /img/protocol_specification/example_1.png
+keywords:
+- approval weight
+- marker
+- message
+- sequence
+- future marker
+- new marker
+- part marker
+- past cone
+---
 # Markers
+
 ## Summary
+
 In order to know whether a message in the Tangle is orphaned or not, we introduce **grades of finality** to interpret the status of a message. The higher grade of finality is determined by the **approval weight**, which is the proportion of active consensus mana approving a given message.
 
 To compute the approval weight of a given message we need to traverse the Tangle from the message to the tips and sum up the active consensus mana of all the messages in its future cone. The **marker** tool is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle that needs to be traversed, and which finally results in the grade of finality.
 
-**Note**: *Markers* is not a core module of the Coordicide project.
+:::info NOte
+
+**Markers** is not a core module of the Coordicide project.
+
+:::
 
 ## Motivation
+
 *Markers* is a tool to infer knowledge about the structure of the Tangle in terms of:
 + past/future cone membership;
 + approximate approval weight of any message;
 + tagging sections of the Tangle (e.g., branches) without having to traverse each message individually.
 
 ## Dependency
+
 Active Consensus Mana
 
 
@@ -30,16 +51,19 @@ Let's define the terms related to markers:
 ## Design
 
 ### The Markers
+
 Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of $[SID, MI]$. 
 
-#### Marker Structure
+#### Marker structure
+
 |Name|Type|Description|
 |--- |--- |--- |
 |SequenceID|uint64|The Sequence identifier of the marker.|
 |Index|uint64|The index of the marker in the sequence.|
 
 
-#### Create Markers
+#### Create markers
+
 A new marker is created when:
 1. the default conditions are met, which will be one of these options:
     * **every x messsages**;
@@ -65,13 +89,15 @@ The `MI` is set to $MI = 1+ max(referencedMI)$, which complies to the rule:
 + Marker indexes (`MI`s) are monotonically increasing such that $\forall x \in fc(y)$ => $MI_x > MI_y$, where $fc(y)$ is the future cone of $y$ and $x$ is any message in that future cone.
 
 ### Markers in Messages
+
 Each message keeps its associated marker information in two lists:
 * past markers 
 * future markers 
 
 These lists for past markers and future markers are used to determine whether a message is in the past cone of the other, and the list for future markers also helps us to efficiently estimate the approval weight of a message.
 
-#### StructureDetails Structure
+#### StructureDetails structure
+
 StructureDetails is a structure that will be in the message metadata containing marker information.
 
 |Name|Type|Description|
@@ -82,22 +108,25 @@ StructureDetails is a structure that will be in the message metadata containing 
 |FutureMarkers|map[SequenceID]Index|FM list, a list of FMs from different sequences.|
 
 
-##### Past Markers
+##### Past markers
+
 * The `PM` list of a marker contains the marker itself only.
 * The `PM` list of non-marker messages is inherited from its **strong** parents, with 2 steps:
     1. for a given sequence select only the nearest marker (i.e. the markers with the highest `MI`). Thus for every sequence from the parents there will be exactly one marker.
     2. remove those that have been referenced by other markers from this set. 
 
-##### Future Markers
+##### Future markers
+
 The `FM` list of a message is empty at start and gets updated when a new marker directly or indirectly references it. The propagation of a `FM` to its past cone (i.e. the update of the `FutureMarkers` field in the encountered messages) does not continue beyond a message if:
 1. the `FM` list of a message includes a previous marker of the same sequence;
 2. the message is the marker in the different sequence, we update the `FM` list of that marker only.
 
-
 ### The Sequence
+
 Sequences are used to track the UTXO DAG branches, each branch corresponds to a sequence with a unique `SID`, and the sequences form a DAG as well.
 
-#### Sequence Structure
+#### Sequence structure
+
 |Name|Type|Description|
 |--- |--- |--- |
 |id|uint64|The sequence identifier of the sequence.|
@@ -107,8 +136,8 @@ Sequences are used to track the UTXO DAG branches, each branch corresponds to a 
 |lowestIndex|uint64|The lowest MI of the sequence.|
 
 
+#### Create sequence
 
-#### Create Sequence
 A new sequence is created when:
 1. there's a conflict in a UTXO branch.
 2. the UTXO branches are aggregated.
@@ -117,9 +146,11 @@ A new sequence is created when:
 Each new sequence starts from a new marker.
 
 #### Sequences
+
 For whatever reason a sequence is created, we assign a new $SID = 1+max(referenceSequencesIdentifiers)$. To prevent assigning a new `SID` when combining same sequences again, we build parents-child relation in a map if a new sequence is created. 
 
-#### Sequence Rank
+#### Sequence rank
+
 The rank of a sequence graph is the number of sequences from the starting point to itself. The sequence ranks are shown in the figure above.
 
 
@@ -138,10 +169,12 @@ The Marker tool implementation is tested for correct Marker and Booker mapping. 
 
 [![Transactions arrive in the order of their transaction number](/img/protocol_specification/example_2_2.png "Transactions arrive in the order of their transaction number")](/img/protocol_specification/example_2_2.png)
 
-## Implementation details
+## Implementation Details
+
 In the following we describe some of the functions in more detail.
 
-### Normalization of the referenced PMs and Sequences
+### Normalization of the Referenced PMs and Sequences
+
 Messages can have markers from different sequences in `PM` list and `FM` list, the order and referenced relationship among sequences are important for example when it comes to inheriting the `PM` list from parents. Thus, we need to track these sequences.
 
 When a new sequence is created we check the parent marker' sequences with the function `normalizeMarkers()` in order from high to low rank. In this function, we remove those `PM`s that it's belonging sequence is referenced by others.
@@ -229,6 +262,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 ```
 
 ### Markers Application: Past Cone Check
+
 By comparing the past and future markers of messages, we can easily tell if one is in another's past cone. The function returns a `TriBool` representing the three possible statuses: `True`, `False` and `Maybe`. If `Maybe` is returned, then we need to perform a search of the Tangle by walking by means of e.g. a Breadth-First Search.
 
 In the following we show the implementation of the past cone check: 
@@ -337,6 +371,7 @@ func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *Marker
 ```
 
 ###  Markers Application: Approval Weight Estimation
+
 To approximate the approval weight of a message, we simply retrieve the approval weight of its `FM` list. Since the message is in the past cone of its `FM`s, the approval weight and the finality will be at least the same as its `FM`s. This will of course be a lower bound (which is the “safe” bound), but if the markers are set frequently enough, it should be a good approximation.
 
 For details of managing approval weight of each marker and approval weight calculation thereof please refer to [Approval Weight](consensus_mechanism.md#approval-weight-aw).

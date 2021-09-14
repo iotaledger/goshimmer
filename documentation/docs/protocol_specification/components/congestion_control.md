@@ -1,3 +1,16 @@
+---
+description: Every network has to deal with its intrinsic limited resources. GoShimmer uses congestion control algorithm to regulate the influx of messages in the network with the goal of maximizing throughput (messages/bytes per second) and minimizing delays
+image: /img/protocol_specification/congestion_control_algorithm_infographic.png
+keywords:
+- node
+- congestion control algorithm
+- honest node
+- message
+- access mana
+- malicious nde
+- scheduling
+---
+
 # Congestion Control
 
 Every network has to deal with its intrinsic limited resources in terms of bandwidth and node capabilities (CPU and storage). In this document, we present a congestion control algorithm to regulate the influx of messages in the network with the goal of maximizing throughput (messages/bytes per second) and minimizing delays. Furthermore, the following requirements must be satisfied:
@@ -10,7 +23,7 @@ Every network has to deal with its intrinsic limited resources in terms of bandw
 
 Further information can be found in the paper [Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach](https://arxiv.org/abs/2005.07778).
 
-## Detailed design
+## Detailed Design
 
 Our algorithm has three core components: 
 *   A scheduling algorithm which ensures fair access for all nodes according to their access Mana.
@@ -28,7 +41,7 @@ Our algorithm has three core components:
 * _Message weight_. Weight of a message is used to priority messages over the others and it is calculated depending on the type of message and of the message length.
 
 
-### Outbox management
+### Outbox Management
 
 Once the message has successfully passed the message parser checks and is solid, it is enqueued into the outbox for scheduling. The outbox is logically split into several queues, each one corresponding to a different node issuing messages. In this section, we describe the operations of message enqueuing (and dequeuing) into (from) the outbox.
 
@@ -59,7 +72,7 @@ The DRR scans all non-empty queues in sequence. When a non-empty queue is select
 
 Here a fundamental remark: _the network manager sets up a desired maximum (fixed) rate_ `SCHEDULING_RATE` _at which messages will be scheduled_, computed in weight (see above) per second. This implies that every message is scheduled after a delay which is equal to the weight (size as default) of the latest scheduled message times the parameter `SCHEDULING_RATE`. This rate mostly depends on the degree of decentralization desired: e.g., a larger rate leads to higher throughput but would leave behind slower devices which will fall out of sync.
 
-### Rate setting
+### Rate Setting
 
 If all nodes always had messages to issue, i.e., if nodes were continuously willing to issue new messages, the problem of rate setting would be very straightforward: nodes could simply operate at a fixed, assured rate, sharing the total throughput according to the percentage of access Mana owned. The scheduling algorithm would ensure that this rate is enforceable, and that increasing delays or dropped messages are only experienced by misbehaving node. However, it is unrealistic that all nodes will always have messages to issue, and we would like nodes to better utilise network resources, without causing excessive congestion and violating any requirement.
 
@@ -67,7 +80,7 @@ We propose a rate setting algorithm inspired by TCP — each node employs [addit
 
 Our rate setting algorithm outlines the AIMD rules employed by each node to set their issuance rate. Rate updates for a node `node` take place each time a new message is scheduled if the `node` has a non-empty set of its own messages not yet scheduled. Node `node` sets its own local additive-increase variable `localIncrease(node)` based on its access Mana and on a global increase rate parameter `RATE_SETTING_INCREASE`. An appropriate choice of `RATE_SETTING_INCREASE` ensures a conservative global increase rate which does not cause problems even when many nodes increase their rate simultaneously. Nodes wait `RATE_SETTING_PAUSE` seconds after a global multiplicative decrease parameter `RATE_SETTING_DECREASE`, during which there are no further updates made, to allow the reduced rate to take effect and prevent multiple successive decreases. At each update, `node` checks how many of its own messages are in its outbox queue, and responds with a multiplicative decrease if this number is above a threshold, `backoff(node)`, which is proportional to `node`'s access Mana. If the number of `node`'s messages in the outbox is below the threshold, `node`'s issuance rate is incremented by its local increase variable `localIncrease(node)`.
 
-### Message blocking and blacklisting
+### Message Blocking and Blacklisting
 
 If an incoming message made the outbox total buffer size to exceed its maximum capacity `MAX_BUFFER`, the same message would be dropped. In our analysis, we set buffers to be large enough to accommodate traffic from all honest nodes.
 

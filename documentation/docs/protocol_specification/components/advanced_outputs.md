@@ -1,3 +1,16 @@
+---
+description: IOTA strives to provide output types beyond the basic functionality of a cryptocurrency application such as Smart Contracts.
+image: /img/protocol_specification/bob_alias.png
+keywords:
+- smart contract chain
+- state metadata
+- state controller
+- governance controller
+- alias
+- smart contract 
+- transactions
+- NFT
+---
 # UTXO Output Types
 
 ## Motivation
@@ -44,6 +57,7 @@ or check out this [presentation](https://youtu.be/T1CJFr6gz8I).
 ## Output Design
 
 ### Introducing Alias Account
+
 Previously, the account concept in the ledger was realized with cryptographic entities called addresses, that are backed
 by public and private key pairs. Addresses are present in the ledger through outputs and define who can spend this
 output by providing a digital signature.
@@ -61,6 +75,7 @@ can change the state controller or the governance controller.
 An alias is not a cryptographic entity, but it is controlled via either regular addresses or other aliases.
 
 ### Representing a Smart Contract Chain Account in Ledger
+
 An alias is translated into the ledger as a distinct output type, called **AliasOutput**. The output contains:
 - the unique identifier of the alias, called **AliasID**,
 - the **State Controller** entity,
@@ -94,6 +109,7 @@ restrictions on how the newly created alias output can look like.
 As mentioned above, an alias output can be unlocked by both the state controller and the governance controller.
 
 #### Unlocking via State Controller
+
 When the state controller is an address, the alias output is unlocked by providing a signature of the state controller
 address in the output that signs the essence of the transaction. When state controller is another alias, unlocking is
 done by providing a reference to the state controller unlocked other alias within the transaction.
@@ -102,7 +118,7 @@ When an alias output is unlocked as input in a transaction by the state controll
 corresponding alias output. Only the state metadata and the token balances of the alias output are allowed to change,
 and token balances must be at least a protocol defined constant.
 
-#### Unlocking via Governance Controller
+#### Unlocking via governance controller
 
 The governance controller is either an address, or another alias. In the former case, unlocking is done via the regular
 signature. In the latter case, unlocking is done by providing a reference to the unlocked governance alias within the
@@ -158,6 +174,7 @@ Extended Output:
 - **Timelock** (Optional): a point in time. When present, the output can not be unlocked before.
 
 ### Unlocking via AliasID
+
 The extended output can be unlocked by unlocking the alias output with aliasID by the state controller within the same
 transaction. The unlock block of an extended output then references the unlock block of the corresponding alias output.
 
@@ -213,6 +230,7 @@ Fallback unlocking can either be done via signature unlocking or alias unlocking
 specified.
 
 ### Timelock
+
 Timelocking outputs is a desired operation not only for smart contracts, but for other use cases as well. A user might
 for example scheduled a request to a smart contract chain at a later point in time by timelocking the extended output
 for a certain period.
@@ -221,12 +239,13 @@ Timelocks can be implemented quite easily if transactions have enforced timestam
 the transaction timestamp is before the timelock specified in the output.
 
 ## Notes
+
 One of the most important change that the new output types imply is that checking the validity of an unlock block of a
 certain consumed input has to be done in the context of the transaction. Previously, an unlock block was valid if the
 provided signature was valid. Now, even if the signature is valid for an alias output unlocked for state transition,
 additional constraints also have to be met.
 
-## How does it work for ISCP?
+## How Does It Work for ISCP?
 
 - The new output types are completely orthogonal to colored coins, ISCP will not rely on them anymore.
 - The Alias output functions as a chain constraint to allow building a non-forkable chain of transactions in the
@@ -247,6 +266,7 @@ additional constraints also have to be met.
 ## Additional Use Cases
 
 ### Delegated Keys
+
 An alias output is controlled by two parties: the state controller and the governance controller. The state controller
 can only change the state metadata and the tokens when spending the output, therefore it only has the right to move the
 alias to the very same account in a transaction. The governance controller however can change the state controller, or
@@ -292,7 +312,7 @@ The `Immutable Data` field of the output can only be defined upon creation and c
 it is perfect to store metadata belonging to the NFT.
 
 The ID of an IOTA NFT is also a valid address, therefore the NFT itself can receive and manage funds and other NFTs as
-well. Refer to the [cli-wallet tutorial](../tutorials/wallet.md) for an overview of what you can do with an NFT.
+well. Refer to the [cli-wallet tutorial](../../tutorials/wallet_library.md) for an overview of what you can do with an NFT.
 
 Interestingly, minting an IOTA NFT costs you only the minimum required deposit balance (0.0001 MI at the moment), which
 you can take back when you destroy the NFT. This is required so that NFTs are not minted out of thin air, and there are

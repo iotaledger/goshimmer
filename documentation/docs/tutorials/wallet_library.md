@@ -1,7 +1,17 @@
 ---
-slug: wallet-library
+description: The main features in the wallet are requesting tokens from the faucet, sending tokens or assets to addresses, creating digital assets, creating, transferring or destroying NFTs, managing NFT owned tokens or assets and Delegating tokens or digital assets
+image: /img/tutorials/wallet_library/created_nft.png
+keywords:
+- wallet
+- bash
+- devnet
+- tokens
+- digital assets
+- creating
+- NFT
+- managing
+- requesting 
 ---
-
 # Command Line Wallet
 
 This section describes how to use the command line wallet (cli-wallet).
@@ -23,7 +33,7 @@ The main features in the wallet are:
 The command line wallet and this tutorial are aimed at a developer audience, you should least be familiar with using a terminal to use it. 
 :::
 
-## Initializing the wallet
+## Initializing the Wallet
 
 1. Download the latest cli-wallet for the system of your choice from the [GoShimmer GitHub Releases](https://github.com/iotaledger/goshimmer/releases) page.
 2. If needed, make the downloaded binary executable.  If you are using linux you can run:
@@ -429,7 +439,7 @@ Creating NFT ... [DONE]
 
 The created NFT's unique identifier is `gSfeBrWp1HwDLwSL7rt1qEMM59YBFZ4iBgAqHuqaQHo5`, which is also a valid IOTA address. Navigate to a node dashboard/explorer and search for the address. On a node dashboard, you would see something like this:
 
-[![Created NFT Example](/img/tutorials/wallet/created_nft.png)](/img/tutorials/wallet/created_nft.png)
+[![Created NFT Example](/img/tutorials/wallet_library/created_nft.png)](/img/tutorials/wallet_library/created_nft.png)
 
 The immutable data field contains the attached binary metadata (encoded in base64 in the node dashboard).
 
@@ -682,6 +692,7 @@ STATUS  NFT ID (ALIAS ID)                               BALANCE                 
 ```
 
 ### Withdrawing Assets From NFT
+
 You can use the `withdraw-from-nft` command to withdraw tokens from a NFT.  If the withdrawal leaves less than the minimum required funds in the NFT, the transaction will fail. You can run the `withdraw-from-nft` command with the `-help` flag to view the available options.
 
 ```bash

@@ -1,15 +1,34 @@
+---
+description: An IOTA node needs to discover and maintain a list of the reachable IP addresses of other peers. Nodes to be kept up-to-date about the ledger state, thus they exchange information with each other.
+image: /img/protocol_specification/peer_discovery.png
+keywords:
+- node
+- neighbors
+- selection
+- pong
+- ping
+- peer
+- peering
+- discovery
+- request
+- accepted
+- salt update
+---
 
 # Autopeering
-In order to establish connections, an IOTA node needs to discover and maintain a list of the reachable IP addresses of other peers. Nodes to be kept up-to-date about the ledger state, thus they exchange information with each other. Each node establishes a communication channel with a small subset of nodes (i.e., neighbors) via a process called `peering`. Such a process must be resilient against eclipse attacks: if all of a node’s neighbors are controlled by an attacker, then the attacker has complete control over the node’s view of the Tangle. Moreover, to prevent or limitate sybil-based attacks, the neighbor selection protocol makes use of a scarce resource dubbed Consensus Mana: arbitrary nodes can be created, but it is difficult to produce high mana nodes.
+
+In order to establish connections, an IOTA node needs to discover and maintain a list of the reachable IP addresses of other peers. Nodes to be kept up-to-date about the ledger state, thus they exchange information with each other. Each node establishes a communication channel with a small subset of nodes (i.e., neighbors) via a process called `peering`. Such a process must be resilient against eclipse attacks: if all of a node’s neighbors are controlled by an attacker, then the attacker has complete control over the node’s view of the Tangle. Moreover, to prevent or limit sybil-based attacks, the neighbor selection protocol makes use of a scarce resource dubbed Consensus Mana: arbitrary nodes can be created, but it is difficult to produce high mana nodes.
 
 Throughout this section the terms `Node` and `Peer` are used interchangeably to refer to a `Node` device.
 
 The usage of the *Ping* and *Pong* mechanism is to be considered as a bidirectional exchange similarly to how described by other standards such as [CoAP](https://core-wg.github.io/coap-sig/) and [WebSocket](https://tools.ietf.org/html/rfc6455#section-5.5.2).
 
-## Node identities
+## Node Identities
+
 Every node has a cryptographic identity, a key on the ed25519 elliptic curve. The `blake2b` hash of the public key of the peer serves as its identifier or `node ID`.
 
 ## Peer Discovery
+
 The main goal of the *Peer Discovery* protocol is to expose an interface providing a list of all the verified peers.
 To bootstrap the peer discovery, a node *must* be able to reach one or more entry nodes. To achieve this, the implementation of the protocol *shall* provide a hard-coded list of trusted **entry nodes** run by the IF or by trusted community members that answer to peer discovery packets coming from new nodes joining the IOTA network. This approach is a common practice of many distributed networks [[Neudecker 2018]](https://ieeexplore.ieee.org/iel7/9739/8649699/08456488.pdf). 
 Public Key-based Cryptography (PKC) *shall* be used for uniquely [identifying](#Node_identities) peers and for authenticating each packet. 
@@ -22,6 +41,7 @@ This process is summarized in the following figure and detailed in the following
 
 
 ### Verification
+
 The verification process aims at both verifying peer identities and checking their online status. Each peer *shall* maintain a list of all the known peers. This list *shall* be called `known_peer_list`. Elements of any known peer list *shall* contain a reference to a [Peer](#Peer) and a time at which it *shall* be verified/re-verified. 
 As such, the `known_peer_list` can be seen as a time-priority queue. A newly discovered peer gets added to the list at the current time. Whenever a peer is verified, its time value on the `known_peer_list` gets updated to the time at which that peer *shall* be re-verified. 
 The intent of this arrangement is to allow the node application to first verify newly discovered (and thus still unverified) peers and then to re-verify older peers (to confirm their online status) by iterating over the `known_peer_list`.
@@ -45,11 +65,13 @@ Upon successful validation of a received *Pong*, a peer *shall*:
 * move the peer entry of the `known_peer_list` to the tail.
 
 ### Removal
+
 While verifying a new peer, if no or an invalid *Pong* is received after `max_verify_attempts` attempts, that node *shall* be removed from the `known_peer_list`. Each expected reply should have a timeout such that if no answer is received after that, an attempt is considered concluded and counted as failed. 
 
 Each peer on the `verified_peer_list` *shall* be re-verified after `verification_lifetime` hours; while re-verifying a peer, if no or invalid *Pong* is received after `max_reverify_attempts` attempts, the peer *shall* be removed from the `verified_peer_list`.
 
 ### Discovery
+
 Each peer entry of the `verified_peer_list` may be used to discover new peers. This process is initiated by sending a *DiscoveryRequest*.
 
 Upon reception of a *DiscoveryRequest*, a peer node *shall* check its validity by:
@@ -66,6 +88,7 @@ Upon reception of a *DiscoveryResponse*, a peer *shall* check its validity by:
 Upon successful validation of a received *DiscoveryResponse*, a node *shall* add the nodes contained in the `peers` field to the `known_peer_list`.
 
 ## Neighbor Selection
+
 The goal of the neighbor selection is to build a node's neighborhood (to be used by the gossip protocol) while preventing attackers from “tricking” other nodes into becoming neighbors. Neighbors are established when one node sends a peering request to another node, which in turn accepts or rejects the request with a peering response. 
 
 To prevent attacks, the protocol makes the peering request *verifiably random* such that attackers cannot create nodes to which the target node will send requests. At its core, the neighbor selection protocol uses both a screening process called *Consensus Mana rank* and a *score function* that takes into account some randomness dubbed *private salt* and *public salt*. 
@@ -73,7 +96,8 @@ Half of the neighbors will be constituted from nodes that accepted the peering r
 + Chosen neighbors (outbound). The peers that the node proactively selected through the neighbor selection mechanism.
 + Accepted neighbors (inbound). The peers that sent the peering request to the node and were accepted as a neighbor.
 
-### Local variables
+### Local Variables
+
 Local variables defined here are included to help in understanding the protocol described in this section. The node application shall handle those variables in some form.
  * `saltUpdateInterval`: The time interval at which nodes shall update their salts.
  * `responseTimeout`: The time that node waits for a response during one peering attempt.
@@ -81,7 +105,8 @@ Local variables defined here are included to help in understanding the protocol 
  * `maxPeeringAttempts`: The maximum number of peering requests retries sent to the selected node before the next salt update.
 
 
-### Mana rank interval
+### Mana Rank Interval
+
 Each peer discovered and verified via the *Peer Discovery* protocol *shall* have a consensus mana value associated with it. The peer running the *Neighbor Selection* protocol *shall* keep this information up-to-date and use it to update a data structure called `manaRank` containing the list of the nodes' identities for each mana value. The aim of this ranking is to select a subset of peers having similar mana to the node preparing the ranking. More specifically, let's define `potentialNeighbors` to be such a subset, that is divided into a `lower` and an `upper` set with respect to a `targetMana` value (i.e., the mana value of the node performing the ranking). By iterating over the `manaRank`, each node *shall* fill both the `lower` and  `upper` sets with nodes' identities having a similar rank to itself, not less/greater than a given threshold `rho` respectively, except when each subset does not reach the minimal size `r`.
 
 The following pseudocode describes a reference implementation of this process:

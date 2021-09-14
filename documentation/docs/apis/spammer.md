@@ -1,3 +1,14 @@
+---
+description: The Spammer tool lets you add messages to the tangle when running GoShimmer.
+image: replaceWithGoShimmerLogo
+keywords:
+- client library
+- HTTP API
+- spammer
+- add messages
+- interval
+- tangle
+---
 # Spammer API Methods
 
 The Spammer tool lets you add messages to the tangle when running GoShimmer.

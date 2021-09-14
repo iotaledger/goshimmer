@@ -1,8 +1,23 @@
-# Protocol high-level overview
+---
+description:  A high-level overview of the protocol, following the natural life cycle of a message from the Tip Selection module to being considered valid permanently by all nodes. 
+image: /img/protocol_specification/Protocol_overview_received_message.png
+keywords:
+- message
+- node
+- honest node
+- rate of issuance
+- congestion control
+- mana
+- access 
+- rate setter
+- consensus 
+---
+
+# Protocol High-level Overview
 
 To orientate the reader, we provide a high-level overview of the protocol, following the natural life cycle of a message. The first module used&mdash;while the message is still being created&mdash;, is the **Tip Selection** module. 
 Here, the node must choose a certain number (from two to eight) of other messages to reference, meaning that the newly created message will be cryptographically attached to these referenced messages. 
-An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on the [Tangle](tangle.md) component. 
+An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on the [Tangle](components/tangle.md) component. 
 In the diagram below, the issuance process being described now is represented in the context of the complete protocol. 
 
 
@@ -19,7 +34,7 @@ Nodes that do not use the rate Setter will be punished by either the Rate Contro
 Between the Rate Setter and the actual gossip of the message, several steps will take place, but&mdash;for the sake of clearness&mdash;we ignore these steps for now and return to this subject later. 
 Then, assuming that the message was properly created, it will be propagated to the rest of the network. 
 Since we deal with a large number of nodes, the communication graph cannot be [complete](https://en.wikipedia.org/wiki/Complete_graph). 
-Thus, the [network topology](https://en.wikipedia.org/wiki/Network_topology) will be dictated by the [**Neighbor Selection**](autopeering.md) (aka Autopeering) module. 
+Thus, the [network topology](https://en.wikipedia.org/wiki/Network_topology) will be dictated by the [**Neighbor Selection**](components/autopeering.md) (aka Autopeering) module. 
 
 
 [![Protocol Overview Received Message](/img/protocol_specification/Protocol_overview_received_message.png "Protocol Overview Received Message")](/img/protocol_specification/Protocol_overview_received_message.png)
@@ -46,7 +61,7 @@ The voting protocol used here is the FPC (or **Fast Probabilistic Consensus**), 
 The FPC begins with each node having an initial opinion, set using the node's local time perception and ordering of the messages. The nodes must set opinions about two subjects: 
 
 1. **The legitimacy of the timestamp of the message**: Whenever a node issues a message, it adds a timestamp to it, which should represent the local time of issuance (as seen by the issuer node). The other nodes will judge if this timestamp is reasonable, by checking if it is too far away from their own local clock.
-2. In the case of a value transfer, **whether it is a conflict**: We use the [**FCoB Rule**](consensus_mechanism.md#fcob). Roughly, the node will have a positive opinion about a transaction A if and only if all its conflicts arrived later than a certain time interval after A's arrival. 
+2. In the case of a value transfer, **whether it is a conflict**: We use the [**FCoB Rule**](components/consensus_mechanism.md#fcob). Roughly, the node will have a positive opinion about a transaction A if and only if all its conflicts arrived later than a certain time interval after A's arrival. 
 
 In each round, nodes randomly choose other nodes to query about their opinions about one of the subjects above. 
 The querying node changes its own opinion if the number of responses with a different opinion than it is greater than a certain threshold. 
@@ -64,7 +79,7 @@ Unless the attacker controls more than 1/3 of the Consensus Mana in the system, 
 [![Protocol Overview Consensus](/img/protocol_specification/Protocol_overview_consensus.png "Protocol Overview Consensus")](/img/protocol_specification/Protocol_overview_consensus.png)
 
 Analogously to Bitcoin's [six blocks rule](https://en.bitcoin.it/wiki/Confirmation), our protocol has certain measures of the probability of a certain message being considered valid permanently by all nodes. 
-This is achieved by the use of the [**Approval Weight**](consensus_mechanism.md#approval-weight-aw). 
+This is achieved by the use of the [**Approval Weight**](components/consensus_mechanism.md#approval-weight-aw). 
 The Approval weight represents the *weight* of branches (and messages). 
 Different to the classical Nakamoto consensus, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). 
 This process is also known as virtual voting, and has been previously described in [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
