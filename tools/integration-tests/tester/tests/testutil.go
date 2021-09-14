@@ -256,11 +256,15 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 				msg, err := node.GetMessageMetadata(messageID)
 				// retry, when the message could not be found
 				if errors.Is(err, client.ErrNotFound) {
+					log.Printf("node=%s, messageID=%s; message not found", node, messageID)
 					continue
 				}
 				// retry, if the message has not yet reached the specified GoF
-				if len(gradeOfFinality) > 0 && msg.GradeOfFinality < gradeOfFinality[0] {
-					continue
+				if len(gradeOfFinality) > 0 {
+					if msg.GradeOfFinality < gradeOfFinality[0] {
+						log.Printf("node=%s, messageID=%s, expected GoF=%s, actual GoF=%s; GoF not reached", node, messageID, gradeOfFinality[0], msg.GradeOfFinality)
+						continue
+					}
 				}
 
 				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
