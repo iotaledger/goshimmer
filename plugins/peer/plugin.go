@@ -10,11 +10,12 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
@@ -34,29 +35,40 @@ var (
 	// ErrMismatchedPrivateKeys is returned when the private key derived from the config does not correspond to the private
 	// key stored in an already existing peer database.
 	ErrMismatchedPrivateKeys = errors.New("private key derived from the seed defined in the config does not correspond with the already stored private key in the database")
+
+	deps = new(dependencies)
 )
 
+type dependencies struct {
+	dig.In
+
+	PeerDB *peer.DB
+}
+
 func init() {
-	Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(configureLocal); err != nil {
+		if err := container.Provide(configureLocalPeer); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
 }
 
-// instantiates a local instance.
-func configureLocal() *peer.Local {
-	log := logger.NewLogger("Local")
-
-	peeringIP, err := readPeerIP()
-	if err != nil {
-		log.Fatal(err)
+func run(_ *node.Plugin) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+		defer deps.PeerDB.Close()
+		<-shutdownSignal
+	}, shutdown.PriorityPeerDatabase); err != nil {
+		Plugin.Logger().Fatalf("Failed to start as daemon: %s", err)
 	}
+}
 
-	if !peeringIP.IsGlobalUnicast() {
-		log.Warnf("IP is not a global unicast address: %s", peeringIP.String())
+// instantiates a local instance.
+func configureLocalPeer() (*peer.Local, *peer.DB) {
+	peerDB, isNewDB, err := initPeerDB()
+	if err != nil {
+		Plugin.Logger().Fatal(err)
 	}
 
 	var seed [][]byte
@@ -64,20 +76,24 @@ func configureLocal() *peer.Local {
 	if cfgSeedSet {
 		readSeed, err := readSeedFromCfg()
 		if err != nil {
-			log.Fatal(err)
+			Plugin.Logger().Fatal(err)
 		}
 		seed = append(seed, readSeed)
 	}
 
-	peerDB, isNewDB, err := initPeerDB()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	if !isNewDB && cfgSeedSet {
 		if err := checkCfgSeedAgainstDB(seed[0], peerDB); err != nil {
-			log.Fatal(err)
+			Plugin.Logger().Fatal(err)
 		}
+	}
+
+	peeringIP, err := readPeerIP()
+	if err != nil {
+		Plugin.Logger().Fatal(err)
+	}
+
+	if !peeringIP.IsGlobalUnicast() {
+		Plugin.Logger().Warnf("IP is not a global unicast address: %s", peeringIP.String())
 	}
 
 	// TODO: remove requirement for PeeringKey in hive.go
@@ -86,11 +102,12 @@ func configureLocal() *peer.Local {
 
 	local, err := peer.NewLocal(peeringIP, services, peerDB, seed...)
 	if err != nil {
-		log.Fatalf("Error creating local: %s", err)
+		Plugin.Logger().Fatalf("Error creating local: %s", err)
 	}
-	log.Infof("Initialized local: %v", local)
 
-	return local
+	Plugin.Logger().Infof("Initialized local: %v", local)
+
+	return local, peerDB
 }
 
 // checks whether the seed from the cfg corresponds to the one in the peer database.
@@ -133,15 +150,15 @@ func initPeerDB() (*peer.DB, bool, error) {
 
 	db, err := databasePkg.NewDB(Parameters.PeerDBDirectory)
 	if err != nil {
-		return nil, false, fmt.Errorf("error creating DB: %s", err)
+		return nil, false, fmt.Errorf("error creating peer database: %s", err)
 	}
 
 	peerDB, err := peer.NewDB(db.NewStore().WithRealm([]byte{databasePkg.PrefixPeer}))
 	if err != nil {
-		return nil, false, fmt.Errorf("error creating peer DB: %w", err)
+		return nil, false, fmt.Errorf("error creating peer database: %w", err)
 	}
 	if db == nil {
-		return nil, false, fmt.Errorf("couldn't create peerDB; nil")
+		return nil, false, fmt.Errorf("couldn't create peer database; nil")
 	}
 
 	return peerDB, isNewDB, nil
