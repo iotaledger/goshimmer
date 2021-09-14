@@ -1,7 +1,7 @@
 package database
 
 const (
-	// PrefixPeer defines the prefix of the autopeering db.
+	// PrefixPeer defines the prefix of the peer db.
 	PrefixPeer byte = iota
 
 	// PrefixHealth defines the prefix of the health db.
