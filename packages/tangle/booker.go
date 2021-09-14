@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -32,6 +33,8 @@ type Booker struct {
 
 	tangle         *Tangle
 	MarkersManager *MarkersManager
+
+	syncutils.MultiMutex
 }
 
 // NewBooker is the constructor of a Booker.
@@ -74,6 +77,9 @@ func (b *Booker) Setup() {
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			b.LockEntity(message)
+			defer b.UnlockEntity(message)
+
 			// Don't book the same message more than once!
 			if messageMetadata.IsBooked() {
 				err = errors.Errorf("message already booked %s", messageID)
@@ -133,9 +139,11 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.TransactionID) (err error) {
 	conflictBranchID := b.tangle.LedgerState.BranchID(transactionID)
 
+	fmt.Println("BookConflictingTransaction:", transactionID)
+
 	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-		b.tangle.Solidifier.LockEntity(message)
-		defer b.tangle.Solidifier.UnlockEntity(message)
+		b.LockEntity(message)
+		defer b.UnlockEntity(message)
 
 		if !messageMetadata.IsBooked() {
 			return

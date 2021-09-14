@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -10,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/eventsqueue"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -30,7 +32,30 @@ type Solidifier struct {
 
 	tangle *Tangle
 
+	currentSolidifications      map[ledgerstate.TransactionID]types.Empty
+	currentSolidificationsMutex sync.Mutex
+
 	syncutils.MultiMutex
+}
+
+func (s *Solidifier) setPayloadSolidificationTriggered(transactionID ledgerstate.TransactionID, triggered bool) {
+	s.currentSolidificationsMutex.Lock()
+	defer s.currentSolidificationsMutex.Unlock()
+
+	if triggered {
+		s.currentSolidifications[transactionID] = types.Void
+	} else {
+		delete(s.currentSolidifications, transactionID)
+	}
+}
+
+func (s *Solidifier) payloadSolidificationTriggered(transactionID ledgerstate.TransactionID) (triggered bool) {
+	s.currentSolidificationsMutex.Lock()
+	defer s.currentSolidificationsMutex.Unlock()
+
+	_, triggered = s.currentSolidifications[transactionID]
+
+	return
 }
 
 // NewSolidifier is the constructor of the Solidifier.
@@ -43,7 +68,8 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 			MessageMissing:     events.NewEvent(MessageIDCaller),
 		},
 
-		tangle: tangle,
+		currentSolidifications: make(map[ledgerstate.TransactionID]types.Empty),
+		tangle:                 tangle,
 	}
 
 	return
@@ -71,6 +97,10 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 
 // TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
 func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
+	if s.payloadSolidificationTriggered(transactionID) {
+		return
+	}
+
 	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
 }
 
@@ -313,7 +343,9 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 		cachedAttachment.Release()
 	}
 
-	stored, solidityType, err := s.tangle.LedgerState.StoreTransaction(transaction, ledgerstateEvents)
+	s.setPayloadSolidificationTriggered(transaction.ID(), true)
+	_, solidityType, err := s.tangle.LedgerState.StoreTransaction(transaction)
+	s.setPayloadSolidificationTriggered(transaction.ID(), false)
 	if err != nil {
 		switch {
 		case errors.Is(err, ledgerstate.ErrInvalidStateTransition):
@@ -328,7 +360,7 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 
 		return false
 	}
-	solid = !stored && (solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid)
+	solid = solidityType == ledgerstate.Solid || solidityType == ledgerstate.LazySolid || solidityType == ledgerstate.Invalid
 
 	return solid
 }
