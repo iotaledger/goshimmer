@@ -39,9 +39,7 @@ func Listen(bindAddress string, log *node.Plugin, shutdownSignal <-chan struct{}
 		for {
 			connection, err := listener.Accept()
 			if err != nil {
-				if connection != nil {
-					log.LogInfof("Couldn't accept connection: %s", err)
-				}
+				log.LogInfof("Couldn't accept connection: %s", err)
 				return
 			}
 			log.LogDebugf("Started connection: %s", connection.RemoteAddr().String())
@@ -102,21 +100,18 @@ func (connection *connection) readLoop() (chan []byte, chan bool) {
 	bufferedConnClosed := make(chan bool)
 
 	go func() {
-		{
-			connectionClosedClosure := events.NewClosure(func() { close(bufferedConnClosed) })
-			connection.bufferedConn.Events.Close.Attach(connectionClosedClosure)
-			defer connection.bufferedConn.Events.Close.Detach(connectionClosedClosure)
-		}
+		connectionClosedClosure := events.NewClosure(func() { close(bufferedConnClosed) })
+		connection.bufferedConn.Events.Close.Attach(connectionClosedClosure)
+		defer connection.bufferedConn.Events.Close.Detach(connectionClosedClosure)
 
-		{
-			connectionDataReceivedClosure := events.NewClosure(func(data []byte) {
-				d := make([]byte, len(data))
-				copy(d, data)
-				bufferedConnDataReceived <- d
-			})
-			connection.bufferedConn.Events.ReceiveMessage.Attach(connectionDataReceivedClosure)
-			defer connection.bufferedConn.Events.ReceiveMessage.Detach(connectionDataReceivedClosure)
-		}
+		connectionDataReceivedClosure := events.NewClosure(func(data []byte) {
+			d := make([]byte, len(data))
+			copy(d, data)
+			bufferedConnDataReceived <- d
+		})
+
+		connection.bufferedConn.Events.ReceiveMessage.Attach(connectionDataReceivedClosure)
+		defer connection.bufferedConn.Events.ReceiveMessage.Detach(connectionDataReceivedClosure)
 
 		if err := connection.bufferedConn.Read(); err != nil {
 			if err != io.EOF && errors.Is(err, net.ErrClosed) {
