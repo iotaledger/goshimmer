@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -108,7 +109,11 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 	eventsQueue := eventsqueue.New()
 	defer eventsQueue.Trigger()
 
+	fmt.Println("solidifyWeakly.Lock", message.Locks())
+
 	s.LockEntity(message)
+	fmt.Println("solidifyWeakly.Locked", message.Locks())
+	defer fmt.Println("solidifyWeakly.Unlocked", message.Locks())
 	defer s.UnlockEntity(message)
 
 	approversToPropagate = make(MessageIDs, 0)
@@ -136,7 +141,11 @@ func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *Message
 	ledgerstateEvents := eventsqueue.New()
 	defer ledgerstateEvents.Trigger()
 
+	fmt.Println("solidifyStrongly.Lock", message.Locks())
+
 	s.LockEntity(message)
+	fmt.Println("solidifyStrongly.Locked", message.Locks())
+	defer fmt.Println("solidifyStrongly.Unlocked", message.Locks())
 	defer s.UnlockEntity(message)
 
 	approversToPropagate = make(MessageIDs, 0)
