@@ -26,7 +26,7 @@ Since non-conflicting transactions aren't even voted on, they materialize after 
 
 You can access the global analysis dashboard in the [Pollen Analyzer](http://ressims.iota.cafe:28080/autopeering) which showcases the network graph and active ongoing votes on conflicts.
 
-## How Many Transactions Per Second(TPS) Can GoShimmer Sustain?
+## How Many Transactions per Second (TPS) Can GoShimmer Sustain?
 
 The transactions per second metric is irrelevant for the current development state of GoShimmer. We are evaluating components from Coordicide, and aren't currently interested in squeezing out every little ounce of performance. Since the primary goal is to evaluate Coordicide components, we value simplicity over optimization . Even if we would put out a TPS number, it would not reflect an actual metric in a finished production ready node software. 
 

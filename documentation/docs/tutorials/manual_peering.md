@@ -30,7 +30,7 @@ will keep reconnecting with known peers until it succeeds.
 In other words, the only thing that users have to do to be connected via manual peering is to 
 exchange their IP address with port and public key and set that information to known peers of their nodes and machines will do the rest.
 
-## How to Set Known Peers Via Config File
+## How to Set Known Peers via Config File
 
 Add the following record to the root of your JSON config file that you are using to run the node.
 

@@ -188,7 +188,7 @@ Finally, the green nodes issued **statement 3**, which is in `Branch 2`. Now the
 It is important to notice that the arrival order of the statements does not make a difference on the final outcome. Due to the fact that statements can be ordered objectively, every node in the network eventually comes to the same conclusion as to who is supporting which branch, even when nodes change their opinion.
 
 
-##### Calculation of approval weight
+##### Calculation of Approval Weight
 
 The approval weight itself is calculated every time a new supporter is added to a branch. The AW for a branch *B* is calculated as follows:
 
