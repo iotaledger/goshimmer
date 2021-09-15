@@ -1,5 +1,5 @@
 ---
-The Faucet endpoint allows requesting funds from the Faucet.
+description: The Faucet endpoint allows requesting funds from the Faucet.
 image: /img/logo/goshimmer_light.png
 keywords:
 - client library
