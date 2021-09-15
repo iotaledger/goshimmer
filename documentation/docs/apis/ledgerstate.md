@@ -1,5 +1,5 @@
 ---
-The ledgerstate API provides endpoints to retrieve address details, unspent outputs for an address, get branch details, and list child branches amongst others.
+description: The ledgerstate API provides endpoints to retrieve address details, unspent outputs for an address, get branch details, and list child branches amongst others.
 image: /img/logo/goshimmer_light.png
 keywords:
 - client library
