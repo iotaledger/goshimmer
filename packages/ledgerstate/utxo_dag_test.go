@@ -5,16 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/eventsqueue"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 var (
@@ -396,9 +395,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, branchesOfInputsConflicting)
 
-	eventsQueue := eventsqueue.New()
-	targetBranch2 := ledgerstate.bookConflictingTransaction(tx2, txMetadata2, inputsMetadata2, normalizedBranchIDs, conflictingInputs.ByID(), eventsQueue)
-	eventsQueue.Trigger()
+	targetBranch2 := ledgerstate.bookConflictingTransaction(tx2, txMetadata2, inputsMetadata2, normalizedBranchIDs, conflictingInputs.ByID())
 
 	ledgerstate.Branch(txMetadata2.BranchID()).Consume(func(branch Branch) {
 		assert.Equal(t, targetBranch2, txMetadata2.BranchID())
