@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -58,8 +57,6 @@ func (s *Solidifier) Setup() {
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	fmt.Println("SOLIDIFY", messageID)
-
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		solidificationType := messageMetadata.Source().SolidificationType()
 		if solidificationType == UndefinedSolidificationType {
@@ -74,8 +71,6 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 
 // TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
 func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
-	fmt.Println("TriggerTransactionSolid", transactionID)
-
 	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
 }
 
@@ -342,11 +337,7 @@ func (s *Solidifier) propagateSolidity(messageIDs ...MessageID) {
 // triggerWeaklySolidUpdate triggers the update of the MessageMetadata and the corresponding Event. It returns true if
 // the Event was fired and false if the corresponding Message was already marked as weaklySolid, before.
 func (s *Solidifier) triggerWeaklySolidUpdate(message *Message, messageMetadata *MessageMetadata) (triggered bool) {
-	fmt.Println("solidifyStrongly.Lock", message.Locks())
-
 	s.LockEntity(message)
-	fmt.Println("solidifyStrongly.Locked", message.Locks())
-	defer fmt.Println("solidifyStrongly.Unlocked", message.Locks())
 	defer s.UnlockEntity(message)
 
 	if !messageMetadata.SetWeaklySolid(true) {
@@ -361,11 +352,7 @@ func (s *Solidifier) triggerWeaklySolidUpdate(message *Message, messageMetadata 
 // triggerSolidUpdate triggers the update of the MessageMetadata and the corresponding Event. It returns true if
 // the Event was fired and false if the corresponding Message was already marked as solid, before.
 func (s *Solidifier) triggerSolidUpdate(message *Message, messageMetadata *MessageMetadata) (triggered bool) {
-	fmt.Println("solidifyStrongly.Lock", message.Locks())
-
 	s.LockEntity(message)
-	fmt.Println("solidifyStrongly.Locked", message.Locks())
-	defer fmt.Println("solidifyStrongly.Unlocked", message.Locks())
 	defer s.UnlockEntity(message)
 
 	if !messageMetadata.SetSolid(true) {
