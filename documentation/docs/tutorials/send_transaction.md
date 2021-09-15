@@ -16,7 +16,7 @@ keywords:
 # How to Send a Transaction
 
 The simplest and easiest way for creating transaction is to use ready solution, such us GUI wallets: [pollen-wallet](https://github.com/iotaledger/pollen-wallet/tree/master) and [Dr-Electron ElectricShimmer](https://github.com/Dr-Electron/ElectricShimmer)
-or command line wallet [Command Line Wallet](wallet_library.md). However, there is also an option to create a transaction directly with Go client library, which will be main focus of this tutorial.
+or command line wallet [Command Line Wallet](wallet_library.md). However, there is also an option to create a transaction directly with the Go client library, which will be main focus of this tutorial.
 
 For code examples you can go directly to [Code examples](send_transaction.md#code-examples).
 

@@ -1,5 +1,5 @@
 ---
-description: The web API interface allows access to functionality of the node software via exposed http endpoints.
+description: The web API interface allows access to functionality of the node software via exposed HTTPendpoints.
 image: /img/logo/goshimmer_light.png
 keywords:
 - web API
@@ -12,7 +12,7 @@ keywords:
 ---
 # WebAPI - clientLib
 
-The web API interface allows access to functionality of the node software via exposed http endpoints.
+The web API interface allows access to functionality of the node software via exposed HTTP endpoints.
 
 ## How to Use the API 
 

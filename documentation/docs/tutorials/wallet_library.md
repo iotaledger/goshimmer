@@ -1,5 +1,5 @@
 ---
-description: The main features in the wallet are requesting tokens from the faucet, sending tokens or assets to addresses, creating digital assets, creating, transferring or destroying NFTs, managing NFT owned tokens or assets and Delegating tokens or digital assets
+description: The main features in the wallet are requesting tokens from the faucet, sending tokens or assets to addresses, creating digital assets, creating-, transferring- or destroying NFTs, managing NFT owned tokens or assets and delegating tokens or digital assets
 image: /img/tutorials/wallet_library/created_nft.png
 keywords:
 - wallet

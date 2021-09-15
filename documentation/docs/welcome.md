@@ -1,5 +1,5 @@
 ---
-description: GoShimmer is a prototype node software exploring the implementation of IOTA 2.0. This wiki helps the reader to understand the basic concepts and ideas behind the Coordicide, and how its modules are implemented in GoShimmer.
+description: GoShimmer is a prototype node software exploring the implementation of IOTA 2.0. This wiki helps the reader to understand the basic concepts and ideas behind Coordicide, and how its modules are implemented in GoShimmer.
 image: /img/logo/goshimmer_light.png
 keywords:
 - welcome

@@ -1,5 +1,5 @@
 ---
-description: Mana is a reputation system for nodes within the IOTA network. Reputation is gained by contributing to the network.  As time passes, part of the earned mana of a node decays to encourage keeping up the good behavior.
+description: Mana is a reputation system for nodes within the IOTA network. Reputation is gained by contributing to the network. As time passes, part of the earned mana of a node decays to encourage keeping up the good behavior.
 image: /img/protocol_specification/mana.png
 keywords:
 - mana
