@@ -6,7 +6,7 @@
 <h2 align="center">Prototype node software for an IOTA network without the Coordinator</h2>
 
 <p align="center">
-    <a href="https://goshimmer.docs.iota.org/goshimmer.html" style="text-decoration:none;">
+    <a href="https://goshimmer.docs.iota.org" style="text-decoration:none;">
     <img src="https://img.shields.io/badge/Documentation%20portal-blue.svg?style=for-the-badge" alt="Developer documentation portal">
 </p>
 <p align="center">

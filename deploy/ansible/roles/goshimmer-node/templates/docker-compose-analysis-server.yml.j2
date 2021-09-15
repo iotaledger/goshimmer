@@ -3,7 +3,7 @@ version: "3"
 
 services:
   analysis_server:
-    image: iotaledger/goshimmer:develop
+    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
     container_name: analysis-server
     restart: unless-stopped
     network_mode: "host"
@@ -21,10 +21,10 @@ services:
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
       --analysis.dashboard.mongoDBEnabled=true
-      --analysis.dashboard.mongoDBHostAddress=metrics-01.pre-devnet.shimmer.iota.cafe:27117
+      --analysis.dashboard.mongoDBHostAddress={{ mongoDBHost }}:27117
       --analysis.dashboard.mongoDBUsername="{{ mongoDBUser }}"
       --analysis.dashboard.mongoDBPassword="{{ mongoDBPassword }}"
-      --analysis.dashboard.manaDashboardAddress="http://bootstrap-01.pre-devnet.shimmer.iota.cafe:9001"
+      --analysis.dashboard.manaDashboardAddress="http://{{ manaDashboardHost }}:9001"
       --prometheus.bindAddress=0.0.0.0:9312
       --metrics.local=false
       --metrics.global=true

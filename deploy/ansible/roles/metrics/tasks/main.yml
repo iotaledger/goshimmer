@@ -29,11 +29,23 @@
     dest: /opt/metrics/prometheus.yml
     mode: '0644'
 
+- name: Create logstash directory
+  file:
+    path: /opt/metrics/logstash
+    state: directory
+    mode: '0755'
+
 - name: Template logstash.yml
   template:
     src: logstash/logstash.yml.j2
     dest: /opt/metrics/logstash/logstash.yml
     mode: '0644'
+
+- name: Create logstash/pipeline directory
+  file:
+    path: /opt/metrics/logstash/pipeline
+    state: directory
+    mode: '0755'
 
 - name: Template pipeline logstash.conf
   template:

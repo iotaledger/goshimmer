@@ -3,7 +3,7 @@ version: "3"
 
 services:
   entrynode:
-    image: iotaledger/goshimmer:develop
+    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
     container_name: entrynode
     restart: unless-stopped
     network_mode: "host"
@@ -18,7 +18,9 @@ services:
     command: >
       --skip-config=true
       --autoPeering.port=15626
+      {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
+      {% endif %}
       --autoPeering.entryNodes=
       --analysis.client.serverAddress=
       --node.disablePlugins=portcheck,dashboard,analysisClient,gossip,consensus,drng,issuer,syncBeaconFollower,metrics,messageLayer,mana,webAPI,webAPIBroadcastDataEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint
