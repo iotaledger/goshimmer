@@ -9,6 +9,7 @@ keywords:
 - internal logic
 - package
 - adapter design pattern
+- adapter
 - circular dependency
 ---
 # Dependency of Packages and Plugins
