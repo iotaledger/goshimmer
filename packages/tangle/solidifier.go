@@ -115,13 +115,6 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 	eventsQueue := eventsqueue.New()
 	defer eventsQueue.Trigger()
 
-	fmt.Println("solidifyWeakly.Lock", message.Locks())
-
-	s.LockEntity(message)
-	fmt.Println("solidifyWeakly.Locked", message.Locks())
-	defer fmt.Println("solidifyWeakly.Unlocked", message.Locks())
-	defer s.UnlockEntity(message)
-
 	approversToPropagate = make(MessageIDs, 0)
 
 	if !s.isMessageWeaklySolid(message, messageMetadata, requestMissingMessages, eventsQueue) {
@@ -129,14 +122,14 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 	}
 
 	if s.isMessageSolid(message, messageMetadata, false, eventsQueue) {
-		if s.triggerSolidUpdate(messageMetadata) {
+		if s.triggerSolidUpdate(message, messageMetadata) {
 			approversToPropagate = append(approversToPropagate, s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 		}
 
 		return approversToPropagate
 	}
 
-	if s.triggerWeaklySolidUpdate(messageMetadata) {
+	if s.triggerWeaklySolidUpdate(message, messageMetadata) {
 		approversToPropagate = append(approversToPropagate, s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 	}
 
@@ -147,17 +140,10 @@ func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *Message
 	ledgerstateEvents := eventsqueue.New()
 	defer ledgerstateEvents.Trigger()
 
-	fmt.Println("solidifyStrongly.Lock", message.Locks())
-
-	s.LockEntity(message)
-	fmt.Println("solidifyStrongly.Locked", message.Locks())
-	defer fmt.Println("solidifyStrongly.Unlocked", message.Locks())
-	defer s.UnlockEntity(message)
-
 	approversToPropagate = make(MessageIDs, 0)
 
 	if s.isMessageSolid(message, messageMetadata, true, ledgerstateEvents) {
-		if s.triggerSolidUpdate(messageMetadata) {
+		if s.triggerSolidUpdate(message, messageMetadata) {
 			approversToPropagate = append(approversToPropagate, s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 		}
 
@@ -165,7 +151,7 @@ func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *Message
 	}
 
 	if s.isMessageWeaklySolid(message, messageMetadata, false, ledgerstateEvents) {
-		if s.triggerWeaklySolidUpdate(messageMetadata) {
+		if s.triggerWeaklySolidUpdate(message, messageMetadata) {
 			approversToPropagate = append(approversToPropagate, s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())...)
 		}
 	}
@@ -392,7 +378,14 @@ func (s *Solidifier) propagateSolidity(messageIDs ...MessageID) {
 
 // triggerWeaklySolidUpdate triggers the update of the MessageMetadata and the corresponding Event. It returns true if
 // the Event was fired and false if the corresponding Message was already marked as weaklySolid, before.
-func (s *Solidifier) triggerWeaklySolidUpdate(messageMetadata *MessageMetadata) (triggered bool) {
+func (s *Solidifier) triggerWeaklySolidUpdate(message *Message, messageMetadata *MessageMetadata) (triggered bool) {
+	fmt.Println("solidifyStrongly.Lock", message.Locks())
+
+	s.LockEntity(message)
+	fmt.Println("solidifyStrongly.Locked", message.Locks())
+	defer fmt.Println("solidifyStrongly.Unlocked", message.Locks())
+	defer s.UnlockEntity(message)
+
 	if !messageMetadata.SetWeaklySolid(true) {
 		return false
 	}
@@ -404,7 +397,14 @@ func (s *Solidifier) triggerWeaklySolidUpdate(messageMetadata *MessageMetadata) 
 
 // triggerSolidUpdate triggers the update of the MessageMetadata and the corresponding Event. It returns true if
 // the Event was fired and false if the corresponding Message was already marked as solid, before.
-func (s *Solidifier) triggerSolidUpdate(messageMetadata *MessageMetadata) (triggered bool) {
+func (s *Solidifier) triggerSolidUpdate(message *Message, messageMetadata *MessageMetadata) (triggered bool) {
+	fmt.Println("solidifyStrongly.Lock", message.Locks())
+
+	s.LockEntity(message)
+	fmt.Println("solidifyStrongly.Locked", message.Locks())
+	defer fmt.Println("solidifyStrongly.Unlocked", message.Locks())
+	defer s.UnlockEntity(message)
+
 	if !messageMetadata.SetSolid(true) {
 		return false
 	}
