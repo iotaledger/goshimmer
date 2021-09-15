@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -21,9 +20,9 @@ import (
 	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/plugins/database"
-
 	databasePkg "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
 // PluginName is the name of the Peer plugin.
