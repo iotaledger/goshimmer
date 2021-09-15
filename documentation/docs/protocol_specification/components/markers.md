@@ -1,5 +1,5 @@
 ---
-description: The marker tool is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle that needs to be traversed, and which finally results in the grade of finality.
+description: Markers is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle that needs to be traversed, and which finally results in the grade of finality.
 image: /img/protocol_specification/example_1.png
 keywords:
 - approval weight
