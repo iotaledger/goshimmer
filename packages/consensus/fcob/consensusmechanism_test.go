@@ -308,8 +308,8 @@ func TestOpinionFormer(t *testing.T) {
 		t.Log("Message Booked:", messageID)
 	}))
 
-	testTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		t.Log("Invalid message:", messageID)
+	testTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageInvalidEvent *tangle.MessageInvalidEvent) {
+		t.Logf("Invalid message: %s: %v", messageInvalidEvent.MessageID.Base58(), messageInvalidEvent.Error)
 	}))
 
 	var wg sync.WaitGroup
