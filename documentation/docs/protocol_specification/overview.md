@@ -1,5 +1,5 @@
 ---
-description: High-level overview of the protocol, and it's implemented components.
+description: High-level overview of the protocol, and its implemented components.
 image: /img/protocol_specification/Protocol_overview_received_message.png
 keywords:
 - overview
