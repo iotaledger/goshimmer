@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
@@ -42,7 +43,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	PeerDB *peer.DB
+	PeerDB        *peer.DB
+	PeerDBKVSTore kvstore.KVStore `name:"peerDBKVStore"`
 }
 
 func init() {
@@ -57,16 +59,28 @@ func init() {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
-		defer deps.PeerDB.Close()
 		<-shutdownSignal
+		prvKey, _ := deps.PeerDB.LocalPrivateKey()
+		if err := deps.PeerDBKVSTore.Close(); err != nil {
+			Plugin.Logger().Errorf("unable to save identity %s: %s", prvKey.Public().String(), err)
+			return
+		}
+		Plugin.Logger().Infof("saved identity %s", prvKey.Public().String())
 	}, shutdown.PriorityPeerDatabase); err != nil {
 		Plugin.Logger().Fatalf("Failed to start as daemon: %s", err)
 	}
 }
 
+type peerOut struct {
+	dig.Out
+	Peer          *peer.Local
+	PeerDB        *peer.DB
+	PeerDBKVSTore kvstore.KVStore `name:"peerDBKVStore"`
+}
+
 // instantiates a local instance.
-func configureLocalPeer() (*peer.Local, *peer.DB) {
-	peerDB, isNewDB, err := initPeerDB()
+func configureLocalPeer() peerOut {
+	peerDB, peerDBKVStore, isNewDB, err := initPeerDB()
 	if err != nil {
 		Plugin.Logger().Fatal(err)
 	}
@@ -74,16 +88,16 @@ func configureLocalPeer() (*peer.Local, *peer.DB) {
 	var seed [][]byte
 	cfgSeedSet := Parameters.Seed != ""
 	if cfgSeedSet {
-		readSeed, err := readSeedFromCfg()
-		if err != nil {
-			Plugin.Logger().Fatal(err)
+		readSeed, cfgReadErr := readSeedFromCfg()
+		if cfgReadErr != nil {
+			Plugin.Logger().Fatal(cfgReadErr)
 		}
 		seed = append(seed, readSeed)
 	}
 
 	if !isNewDB && cfgSeedSet {
-		if err := checkCfgSeedAgainstDB(seed[0], peerDB); err != nil {
-			Plugin.Logger().Fatal(err)
+		if seedCheckErr := checkCfgSeedAgainstDB(seed[0], peerDB); seedCheckErr != nil {
+			Plugin.Logger().Fatal(seedCheckErr)
 		}
 	}
 
@@ -107,7 +121,11 @@ func configureLocalPeer() (*peer.Local, *peer.DB) {
 
 	Plugin.Logger().Infof("Initialized local: %v", local)
 
-	return local, peerDB
+	return peerOut{
+		Peer:          local,
+		PeerDB:        peerDB,
+		PeerDBKVSTore: peerDBKVStore,
+	}
 }
 
 // checks whether the seed from the cfg corresponds to the one in the peer database.
@@ -138,30 +156,31 @@ func readPeerIP() (net.IP, error) {
 }
 
 // inits the peer database, returns a bool indicating whether the database is new.
-func initPeerDB() (*peer.DB, bool, error) {
+func initPeerDB() (*peer.DB, kvstore.KVStore, bool, error) {
 	if err := checkValidPeerDBPath(); err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
 	isNewDB, err := isPeerDBNew()
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
 	db, err := databasePkg.NewDB(Parameters.PeerDBDirectory)
 	if err != nil {
-		return nil, false, fmt.Errorf("error creating peer database: %s", err)
+		return nil, nil, false, fmt.Errorf("error creating peer database: %s", err)
 	}
 
-	peerDB, err := peer.NewDB(db.NewStore().WithRealm([]byte{databasePkg.PrefixPeer}))
+	peerDBKVStore := db.NewStore().WithRealm([]byte{databasePkg.PrefixPeer})
+	peerDB, err := peer.NewDB(peerDBKVStore)
 	if err != nil {
-		return nil, false, fmt.Errorf("error creating peer database: %w", err)
+		return nil, nil, false, fmt.Errorf("error creating peer database: %w", err)
 	}
 	if db == nil {
-		return nil, false, fmt.Errorf("couldn't create peer database; nil")
+		return nil, nil, false, fmt.Errorf("couldn't create peer database; nil")
 	}
 
-	return peerDB, isNewDB, nil
+	return peerDB, peerDBKVStore, isNewDB, nil
 }
 
 // checks whether the peer database is new by examining whether the directory
@@ -171,9 +190,9 @@ func isPeerDBNew() (bool, error) {
 	fileInfo, err := os.Stat(Parameters.PeerDBDirectory)
 	switch {
 	case fileInfo != nil:
-		files, err := os.ReadDir(Parameters.PeerDBDirectory)
-		if err != nil {
-			return false, fmt.Errorf("unable to check whether peer database is empty: %w", err)
+		files, readDirErr := os.ReadDir(Parameters.PeerDBDirectory)
+		if readDirErr != nil {
+			return false, fmt.Errorf("unable to check whether peer database is empty: %w", readDirErr)
 		}
 		if len(files) != 0 {
 			break
