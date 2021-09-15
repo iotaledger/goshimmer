@@ -35,7 +35,7 @@ type IUTXODAG interface {
 	// Shutdown shuts down the UTXODAG and persists its state.
 	Shutdown()
 	// StoreTransaction adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
-	// Transaction was stored, its SolidityType and an error value that contains the cause for possibly exceptions.
+	// Transaction was stored, its SolidityType and an error value that contains the cause for possible exceptions.
 	StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error)
 	// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
 	CheckTransaction(transaction *Transaction) (err error)
