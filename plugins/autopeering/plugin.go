@@ -5,7 +5,6 @@ import (
 	"net"
 	"time"
 
-	net2 "github.com/iotaledger/goshimmer/packages/net"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	net2 "github.com/iotaledger/goshimmer/packages/net"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 )

@@ -3,9 +3,9 @@ package chat
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 

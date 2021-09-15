@@ -1,9 +1,9 @@
 package dashboard
 
 import (
-	chat2 "github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/hive.go/marshalutil"
 
+	chat2 "github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"

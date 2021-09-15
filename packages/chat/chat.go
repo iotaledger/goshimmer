@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // NewChat creates a new Chat.
@@ -26,6 +27,7 @@ type Chat struct {
 	Events
 }
 
+// Events define events occurring within a Chat.
 type Events struct {
 	// Fired when a chat message is received.
 	MessageReceived *events.Event

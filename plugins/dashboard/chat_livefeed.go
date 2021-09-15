@@ -1,11 +1,11 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 

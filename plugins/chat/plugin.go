@@ -1,12 +1,12 @@
 package chat
 
 import (
-	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
