@@ -1,5 +1,5 @@
 ---
-description: The simplest easiest way to create a transaction is to use ready solutions, such us GUI wallets. But you can also create transactions using the Go client library. 
+description: The simplest easiest way to create a transaction is to use ready solutions, such as GUI wallets. But you can also create transactions using the Go client library. 
 image: /img/logo/goshimmer_light.png
 keywords:
 - transaction
