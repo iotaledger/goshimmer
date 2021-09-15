@@ -323,6 +323,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	if networkConfig.FPC {
 		conf.Consensus.Enabled = true
 		conf.FPC.Enabled = true
+		conf.DRNG.Enabled = true
 	}
 
 	// the first peer is the master peer, it uses a special conf
