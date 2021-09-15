@@ -1,5 +1,5 @@
 ---
-description: An IOTA node needs to discover and maintain a list of the reachable IP addresses of other peers. Nodes to be kept up-to-date about the ledger state, thus they exchange information with each other.
+description: An IOTA node needs to discover and maintain a list of the reachable IP addresses of other peers. Nodes need to be kept up-to-date about the ledger state, thus they exchange information with each other.
 image: /img/protocol_specification/peer_discovery.png
 keywords:
 - node
