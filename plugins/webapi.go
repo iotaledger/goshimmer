@@ -3,6 +3,7 @@ package plugins
 import (
 	"github.com/iotaledger/hive.go/node"
 
+	"github.com/iotaledger/goshimmer/plugins/broadcast"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi/data"
@@ -33,4 +34,5 @@ var WebAPI = node.Plugins(
 	ledgerstate.Plugin(),
 	snapshot.Plugin(),
 	weightprovider.Plugin(),
+	broadcast.Plugin(),
 )
