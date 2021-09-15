@@ -1,6 +1,6 @@
 ---
 description: How to run and use golangci-lint to lint your code. How to build an image with the buildkit docker engine. 
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - port config
 - golang

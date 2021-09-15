@@ -1,6 +1,6 @@
 ---
 description: Info API returns basic info about the node with the /info and /healthz endpoints and the info() function.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - info
 - endpoint

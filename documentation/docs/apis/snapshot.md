@@ -1,6 +1,6 @@
 ---
 description: The snapshot API allows retrieving current snapshot.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - client library
 - HTTP API

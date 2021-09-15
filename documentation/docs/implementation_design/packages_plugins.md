@@ -1,6 +1,6 @@
 ---
 description: GoShimmer uses the adapter design pattern to easily switch between different implementations and internal interfaces just by using a different plugin, without having to rewrite the code using it.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - dependency
 - plugins

@@ -1,6 +1,6 @@
 ---
 description: How to use the Dashboard in dev mode and set up hot loading and packaging.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - port config
 - pkger

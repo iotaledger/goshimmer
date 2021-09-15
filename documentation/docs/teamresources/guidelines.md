@@ -1,6 +1,6 @@
 ---
 description: Code guidelines on how to contribute to the GoShimmer project.   
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - error
 - function call

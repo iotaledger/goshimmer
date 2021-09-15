@@ -1,6 +1,6 @@
 ---
 description: Frequently Asked Questions. What is GoShimmer?,  What Kind of Confirmation Time Can I Expect?, Where Can I See the State of the GoShimmer testnet?,How Many Transactions Per Second(TPS) can GoShimmer Sustain?, How is Spamming Prevented?, What Happens if I Issue a Double Spend?, Who's the Target Audience for Operating a GoShimmer Node?
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - average network delay
 - testnet

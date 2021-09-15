@@ -1,6 +1,6 @@
 ---
 description: You can find instructions to create a dRNG API in the dRNG Wiki (https://github.com/iotaledger/drng/wiki)
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - dRNG
 - API

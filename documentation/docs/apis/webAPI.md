@@ -1,6 +1,6 @@
 ---
 description: The web API interface allows access to functionality of the node software via exposed http endpoints.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - web API
 - POST

@@ -1,6 +1,6 @@
 ---
 description: The Spammer tool lets you add messages to the tangle when running GoShimmer.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - client library
 - HTTP API

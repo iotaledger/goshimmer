@@ -1,6 +1,6 @@
 ---
 description: GoShimmer ships with a client Go library which communicates with the HTTP API.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - client library
 - api

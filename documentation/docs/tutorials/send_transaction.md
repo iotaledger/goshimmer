@@ -1,6 +1,6 @@
 ---
 description: The simplest easiest way to create a transaction is to use ready solution, such us GUI wallets.  But, you can create a transaction using the Go client library. 
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - transaction
 - send

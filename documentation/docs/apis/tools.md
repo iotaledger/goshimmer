@@ -1,6 +1,6 @@
 ---
 description: Tools API allows retrieving technical info about the state of the node.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - client library
 - HTTP API

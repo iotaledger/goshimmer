@@ -1,6 +1,6 @@
 ---
 description: You can pass configuration parameters in two ways when running GoShimmer, through a JSON configuration file or through command line arguments. Parameters are grouped into embedded objects containing parameters for a single plugin or functionality. There is no limit on how deep the configuration object may be embedded.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - json 
 - command line

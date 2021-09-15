@@ -1,6 +1,6 @@
 ---
 description: ObjectStorage is used as a base data structure for many data collection elements such as `branchStorage`, `conflictStorage`, `messageStorage` amongst others.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - storage
 - dynamic creation

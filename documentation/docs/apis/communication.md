@@ -1,6 +1,6 @@
 ---
 description: The communication layer represents the base Tangle layer where so called `Messages` are gossiped around. A `Message` contains payloads, and it is up to upper layers to interpret and derive functionality out of them.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - client library
 - HTTP API

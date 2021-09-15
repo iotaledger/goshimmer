@@ -1,6 +1,6 @@
 ---
 description: Protocol specification glossary.  
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - transactions
 - node

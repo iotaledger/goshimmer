@@ -1,6 +1,6 @@
 ---
 description: Learn how to write simple dApps as GoShimmer plugins such as a chat dApp and a network delay dApp.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - chat 
 - payload

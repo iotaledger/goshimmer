@@ -1,6 +1,6 @@
 ---
 description: Manual peering enables node operators to exchange their nodes' information and let them peer with each other, orthogonal to autopeering.
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - peering
 - manual

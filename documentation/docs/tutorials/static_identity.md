@@ -1,6 +1,6 @@
 ---
 description: Create a static GoShimmer identity using a random 32byte autopeering seed, open ssl or rand-seed. 
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - seed
 - static

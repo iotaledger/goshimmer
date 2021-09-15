@@ -1,6 +1,6 @@
 ---
 description: The Plugin system allows to quickly and easily add and remove modules that need to be started.  In GoShimmer, this is taken to an extreme,  everything is run through plugins. 
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - plugin
 - events

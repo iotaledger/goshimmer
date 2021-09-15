@@ -1,6 +1,6 @@
 ---
 description: How to create a GoShimmer release.  
-image: replaceWithGoShimmerLogo
+image: /img/logo/goshimmer_light.png
 keywords:
 - github
 - release
