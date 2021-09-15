@@ -1,5 +1,5 @@
 ---
-description: When an event is triggered, an event handler (or a collection of handlers) is executed and the state of the application is updated as necessary.  In GoShimmer some of those events can be the arrival of new tangle message, peering request or plugin start.
+description: When an event is triggered, an event handler (or a collection of handlers) is executed and the state of the application is updated as necessary. In GoShimmer some of those events can be the arrival of new tangle message, peering request or plugin start.
 image: /img/logo/goshimmer_light.png
 keywords:
 - events
