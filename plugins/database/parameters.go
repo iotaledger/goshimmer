@@ -9,7 +9,7 @@ import (
 // ParametersDefinition contains the definition of configuration parameters used by the storage layer.
 type ParametersDefinition struct {
 	// Directory defines the directory of the database.
-	Directory string `default:"mainnetdb" usage:"path to the database folder"`
+	Directory string `default:"mainnetdb" usage:"path to the database directory"`
 
 	// InMemory defines whether to use an in-memory database.
 	InMemory bool `default:"false" usage:"whether the database is only kept in memory and not persisted"`

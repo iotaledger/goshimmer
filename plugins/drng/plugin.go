@@ -42,7 +42,7 @@ func init() {
 		}
 
 		if err := container.Provide(func(drngInstance *drng.DRNG) *drng.State {
-			return deps.DRNGInstance.LoadState(consensus.FPCParameters.DRNGInstanceID)
+			return drngInstance.LoadState(consensus.FPCParameters.DRNGInstanceID)
 		}); err != nil {
 			Plugin.Panic(err)
 		}
