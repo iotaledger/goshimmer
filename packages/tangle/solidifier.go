@@ -101,6 +101,8 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 // TriggerTransactionSolid triggers the solidity checks related to a transaction payload becoming solid.
 func (s *Solidifier) TriggerTransactionSolid(transactionID ledgerstate.TransactionID) {
 	if s.payloadSolidificationTriggered(transactionID) {
+		fmt.Println("[ABORT] TriggerTransactionSolid", transactionID)
+
 		return
 	}
 
