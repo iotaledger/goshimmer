@@ -9,7 +9,7 @@ const (
 	MsgTypeTangleConfirmed
 	// MsgTypeFutureMarkerUpdated is the type of the future marker updated message.
 	MsgTypeFutureMarkerUpdated
-	// MsgTypeMarkerAWUpdated is the type of the future marker updated message.
+	// MsgTypeMarkerAWUpdated is the type of the marker's AW updated message.
 	MsgTypeMarkerAWUpdated
 	// MsgTypeUTXOVertex is the type of the UTXO DAG vertex.
 	MsgTypeUTXOVertex
