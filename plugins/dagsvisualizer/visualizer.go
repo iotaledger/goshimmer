@@ -71,9 +71,8 @@ func registerTangleEvents() {
 			visualizerWorkerPool.TrySubmit(&wsMessage{
 				Type: MsgTypeTangleConfirmed,
 				Data: &tangleFinalized{
-					ID:             messageID.Base58(),
-					ApprovalWeight: 0,
-					ConfirmedTime:  msgMetadata.FinalizedTime().UnixNano(),
+					ID:            messageID.Base58(),
+					ConfirmedTime: msgMetadata.FinalizedTime().UnixNano(),
 				},
 			})
 		})

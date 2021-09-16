@@ -41,9 +41,8 @@ type tangleBooked struct {
 }
 
 type tangleFinalized struct {
-	ID             string  `json:"ID"`
-	ApprovalWeight float64 `json:"approvalweight"`
-	ConfirmedTime  int64   `json:"confirmedTime"`
+	ID            string `json:"ID"`
+	ConfirmedTime int64  `json:"confirmedTime"`
 }
 
 type tangleFutureMarkerUpdated struct {
