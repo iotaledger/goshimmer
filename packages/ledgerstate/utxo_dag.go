@@ -363,7 +363,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 			return
 		}
 
-		u.updateConsumers(transaction, previousSolidityType, Unsolid)
+		u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), previousSolidityType, Unsolid)
 
 		return
 	}
@@ -396,17 +396,17 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 }
 
 // updateConsumers updates the Consumers of the given Transaction to match the given SolidityType.
-func (u *UTXODAG) updateConsumers(transaction *Transaction, previousSolidityType, newSolidityType SolidityType) {
+func (u *UTXODAG) updateConsumers(transactionID TransactionID, consumedInputs Inputs, previousSolidityType, newSolidityType SolidityType) {
 	if previousSolidityType == newSolidityType {
 		return
 	}
 
-	for _, input := range transaction.Essence().Inputs() {
+	for _, input := range consumedInputs {
 		if previousSolidityType != UndefinedSolidityType {
-			u.consumerStorage.Delete(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transaction.ID(), previousSolidityType).Bytes())
+			u.consumerStorage.Delete(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transactionID, previousSolidityType).Bytes())
 		}
 
-		u.consumerStorage.Store(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transaction.ID(), newSolidityType)).Release()
+		u.consumerStorage.Store(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transactionID, newSolidityType)).Release()
 	}
 }
 
@@ -501,7 +501,7 @@ func (u *UTXODAG) consumingTransactionIDs(transaction *Transaction, optionalSoli
 // the InvalidBranchID.
 func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata) {
 	transactionMetadata.SetBranchID(InvalidBranchID)
-	u.updateConsumers(transaction, transactionMetadata.SetSolidityType(Invalid), Invalid)
+	u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), transactionMetadata.SetSolidityType(Invalid), Invalid)
 	transactionMetadata.SetGradeOfFinality(gof.High)
 
 	u.bookOutputs(transaction, InvalidBranchID)
@@ -511,7 +511,7 @@ func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMe
 // Branch.
 func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, rejectedBranch BranchID) {
 	transactionMetadata.SetBranchID(rejectedBranch)
-	u.updateConsumers(transaction, transactionMetadata.SetSolidityType(LazySolid), LazySolid)
+	u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), transactionMetadata.SetSolidityType(LazySolid), LazySolid)
 
 	u.bookOutputs(transaction, rejectedBranch)
 }
@@ -545,7 +545,7 @@ func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transa
 
 		transactionMetadata.SetBranchID(targetBranch)
 		if previousSolidityType := transactionMetadata.SetSolidityType(Solid); previousSolidityType != Solid {
-			u.updateConsumers(transaction, previousSolidityType, Solid)
+			u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), previousSolidityType, Solid)
 
 			for _, inputMetadata := range inputsMetadata {
 				inputMetadata.RegisterConsumer(transaction.ID())
@@ -581,7 +581,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 	if !cachedConflictBranch.Consume(func(branch Branch) {
 		transactionMetadata.SetBranchID(targetBranch)
 		if previousSolidityType := transactionMetadata.SetSolidityType(Solid); previousSolidityType != Solid {
-			u.updateConsumers(transaction, previousSolidityType, Solid)
+			u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), previousSolidityType, Solid)
 
 			for _, inputMetadata := range inputsMetadata {
 				inputMetadata.RegisterConsumer(transaction.ID())
