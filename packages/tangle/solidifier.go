@@ -60,7 +60,7 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		solidificationType := messageMetadata.Source().SolidificationType()
 		if solidificationType == UndefinedSolidificationType {
-			return
+			panic(errors.Errorf("unexpected %s when solidifying Message with %s", solidificationType, messageID))
 		}
 
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {

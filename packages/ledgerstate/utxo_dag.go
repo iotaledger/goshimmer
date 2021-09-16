@@ -363,7 +363,7 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 			return
 		}
 
-		u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), previousSolidityType, Unsolid)
+		u.updateConsumers(transaction.Essence().Inputs(), transaction.ID(), previousSolidityType, Unsolid)
 
 		return
 	}
@@ -395,8 +395,8 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 	return err
 }
 
-// updateConsumers updates the Consumers of the given Transaction to match the given SolidityType.
-func (u *UTXODAG) updateConsumers(transactionID TransactionID, consumedInputs Inputs, previousSolidityType, newSolidityType SolidityType) {
+// updateConsumers updates the Consumers of the given Inputs to match the named SolidityType.
+func (u *UTXODAG) updateConsumers(consumedInputs Inputs, transactionID TransactionID, previousSolidityType, newSolidityType SolidityType) {
 	if previousSolidityType == newSolidityType {
 		return
 	}
@@ -501,7 +501,7 @@ func (u *UTXODAG) consumingTransactionIDs(transaction *Transaction, optionalSoli
 // the InvalidBranchID.
 func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata) {
 	transactionMetadata.SetBranchID(InvalidBranchID)
-	u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), transactionMetadata.SetSolidityType(Invalid), Invalid)
+	u.updateConsumers(transaction.Essence().Inputs(), transaction.ID(), transactionMetadata.SetSolidityType(Invalid), Invalid)
 	transactionMetadata.SetGradeOfFinality(gof.High)
 
 	u.bookOutputs(transaction, InvalidBranchID)
@@ -511,7 +511,7 @@ func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMe
 // Branch.
 func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, rejectedBranch BranchID) {
 	transactionMetadata.SetBranchID(rejectedBranch)
-	u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), transactionMetadata.SetSolidityType(LazySolid), LazySolid)
+	u.updateConsumers(transaction.Essence().Inputs(), transaction.ID(), transactionMetadata.SetSolidityType(LazySolid), LazySolid)
 
 	u.bookOutputs(transaction, rejectedBranch)
 }
@@ -586,7 +586,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 // createConsumers creates the initial Consumers for a newly solidified Transaction.
 func (u *UTXODAG) createConsumers(transactionMetadata *TransactionMetadata, transaction *Transaction, inputsMetadata OutputsMetadata) {
 	if previousSolidityType := transactionMetadata.SetSolidityType(Solid); previousSolidityType != Solid {
-		u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), previousSolidityType, Solid)
+		u.updateConsumers(transaction.Essence().Inputs(), transaction.ID(), previousSolidityType, Solid)
 
 		for _, inputMetadata := range inputsMetadata {
 			inputMetadata.RegisterConsumer(transaction.ID())
