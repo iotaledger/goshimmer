@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	webapi "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -144,6 +145,8 @@ func TestManaApis(t *testing.T) {
 
 	peers := n.Peers()
 	faucet := peers[0]
+
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers(), gof.High)
 
 	log.Println("Request mana from faucet...")
 	// waiting for the faucet to have access mana

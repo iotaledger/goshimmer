@@ -8,8 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -84,7 +82,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Issuing messages... done")
 
 	// 9. check whether all issued messages are available on to the new peer
-	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick, gof.High)
+	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
 
 	// check that the new node is synced

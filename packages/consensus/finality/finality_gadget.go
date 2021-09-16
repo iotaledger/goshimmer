@@ -1,6 +1,8 @@
 package finality
 
 import (
+	"fmt"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
@@ -345,7 +347,8 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 			// A transaction can't have a higher GoF than its branch, thus we need to evaluate based on min(branchGoF,max(messageGoF,transactionGoF)).
 			// This also works for transactions in MasterBranch since it has gof.High and we then use max(messageGoF,transactionGoF).
 			// max(messageGoF,transactionGoF) gets the max GoF of any possible reattachment (which has set the transaction's GoF before).
-			if transactionMetadata.GradeOfFinality() > gradeOfFinality {
+			transactionGoF := transactionMetadata.GradeOfFinality()
+			if transactionGoF > gradeOfFinality {
 				gradeOfFinality = transactionMetadata.GradeOfFinality()
 			}
 
@@ -354,6 +357,11 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 				// TODO: properly handle error
 				panic(err)
 			}
+			// This is an invalid invariant and should never happen.
+			if transactionGoF > branchGoF {
+				panic(fmt.Sprintf("%s GoF (%s) is bigger than its branch %s GoF (%s)", transactionID, transactionGoF, transactionMetadata.BranchID(), branchGoF))
+			}
+
 			if branchGoF < gradeOfFinality {
 				gradeOfFinality = branchGoF
 			}
