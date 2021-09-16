@@ -44,6 +44,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 		Events: &ApprovalWeightManagerEvents{
 			MessageProcessed: events.NewEvent(MessageIDCaller),
 			MessageFinalized: events.NewEvent(MessageIDCaller),
+			MarkerAWUpdated:  events.NewEvent(markerAWUpdatedCaller),
 		},
 		tangle:               tangle,
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
@@ -422,9 +423,10 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 	for i := a.firstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
 		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
+		messageID := a.tangle.Booker.MarkersManager.MessageID(currentMarker)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if a.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID {
+		if messageID == EmptyMessageID {
 			continue
 		}
 		if branchID != ledgerstate.MasterBranchID && a.branchConfirmationLevel(branchID) == 0 {
@@ -445,7 +447,10 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 			})
 		}
 
-		if _, transition := a.Events.MarkerConfirmation.Set(*currentMarker, supporterWeight/totalWeight); transition != events.ThresholdLevelIncreased {
+		_, transition := a.Events.MarkerConfirmation.Set(*currentMarker, supporterWeight/totalWeight)
+		a.Events.MarkerAWUpdated.Trigger(&MarkerAWUpdated{messageID, supporterWeight / totalWeight})
+
+		if transition != events.ThresholdLevelIncreased {
 			break
 		}
 
@@ -578,8 +583,20 @@ var (
 type ApprovalWeightManagerEvents struct {
 	MessageProcessed   *events.Event
 	MessageFinalized   *events.Event
+	MarkerAWUpdated    *events.Event
 	BranchConfirmation *events.ThresholdEvent
 	MarkerConfirmation *events.ThresholdEvent
+}
+
+// MarkerAWUpdated contains the message ID of a marker with its updated approval weight.
+type MarkerAWUpdated struct {
+	ID             MessageID
+	ApprovalWeight float64
+}
+
+// markerAWUpdatedCaller is the caller function for events that hand over a MarkerAWUpdated.
+func markerAWUpdatedCaller(handler interface{}, params ...interface{}) {
+	handler.(func(markerAW *MarkerAWUpdated))(params[0].(*MarkerAWUpdated))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -444,6 +444,8 @@ type MarkersManager struct {
 	tangle *Tangle
 
 	*markers.Manager
+
+	Events *MarkersManagerEvents
 }
 
 // NewMarkersManager is the constructor of the MarkersManager.
@@ -451,6 +453,9 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 	return &MarkersManager{
 		tangle:  tangle,
 		Manager: markers.NewManager(tangle.Options.Store, tangle.Options.CacheTimeProvider),
+		Events: &MarkersManagerEvents{
+			FutureMarkerUpdated: events.NewEvent(futureMarkerUpdateEventCaller),
+		},
 	}
 }
 
@@ -551,6 +556,11 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 		updated, inheritFurther := m.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
 		if updated {
 			messageMetadata.SetModified(true)
+
+			m.Events.FutureMarkerUpdated.Trigger(&FutureMarkerUpdate{
+				ID:           messageMetadata.ID(),
+				FutureMarker: m.MessageID(pastMarkerToInherit),
+			})
 		}
 		if inheritFurther {
 			m.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
@@ -580,6 +590,19 @@ func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (stru
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
 func increaseMarkersIndexCallbackStrategy(markers.SequenceID, markers.Index) bool {
 	return true
+}
+
+type MarkersManagerEvents struct {
+	// FutureMarkerUpdated is triggered when a message's future marker is updated.
+	FutureMarkerUpdated *events.Event
+}
+type FutureMarkerUpdate struct {
+	ID           MessageID
+	FutureMarker MessageID
+}
+
+func futureMarkerUpdateEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(fmUpdate *FutureMarkerUpdate))(params[0].(*FutureMarkerUpdate))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
