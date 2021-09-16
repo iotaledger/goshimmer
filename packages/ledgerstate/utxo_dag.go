@@ -544,13 +544,7 @@ func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transa
 		targetBranch = branch.ID()
 
 		transactionMetadata.SetBranchID(targetBranch)
-		if previousSolidityType := transactionMetadata.SetSolidityType(Solid); previousSolidityType != Solid {
-			u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), previousSolidityType, Solid)
-
-			for _, inputMetadata := range inputsMetadata {
-				inputMetadata.RegisterConsumer(transaction.ID())
-			}
-		}
+		u.createConsumers(transactionMetadata, transaction, inputsMetadata)
 		u.bookOutputs(transaction, targetBranch)
 	}) {
 		panic(fmt.Errorf("failed to load AggregatedBranch with %s", cachedAggregatedBranch.ID()))
@@ -580,19 +574,24 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 	// book Transaction into new ConflictBranch
 	if !cachedConflictBranch.Consume(func(branch Branch) {
 		transactionMetadata.SetBranchID(targetBranch)
-		if previousSolidityType := transactionMetadata.SetSolidityType(Solid); previousSolidityType != Solid {
-			u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), previousSolidityType, Solid)
-
-			for _, inputMetadata := range inputsMetadata {
-				inputMetadata.RegisterConsumer(transaction.ID())
-			}
-		}
+		u.createConsumers(transactionMetadata, transaction, inputsMetadata)
 		u.bookOutputs(transaction, targetBranch)
 	}) {
 		panic(fmt.Errorf("failed to load ConflictBranch with %s", cachedConflictBranch.ID()))
 	}
 
 	return
+}
+
+// createConsumers creates the initial Consumers for a newly solidified Transaction.
+func (u *UTXODAG) createConsumers(transactionMetadata *TransactionMetadata, transaction *Transaction, inputsMetadata OutputsMetadata) {
+	if previousSolidityType := transactionMetadata.SetSolidityType(Solid); previousSolidityType != Solid {
+		u.updateConsumers(transaction.ID(), transaction.Essence().Inputs(), previousSolidityType, Solid)
+
+		for _, inputMetadata := range inputsMetadata {
+			inputMetadata.RegisterConsumer(transaction.ID())
+		}
+	}
 }
 
 // forkConsumer is an internal utility function that creates a ConflictBranch for a Transaction that has not been
