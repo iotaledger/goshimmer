@@ -1,13 +1,27 @@
-# Integration tests with Docker
+---
+description: Running the integration tests spins up a `tester` container within which every test can specify its own GoShimmer network with Docker.
+image: /img/tooling/integration-testing.png
+keywords:
+- integration test
+- tester
+- network
+- docker
+- peer
+- docker compose
+- linux
+- macOS
+---
+# Integration Tests with Docker
 
-![Integration testing](/img/tooling/integration-testing.png "Integration testing")
+[![Integration testing](/img/tooling/integration-testing.png "Integration testing")](/img/tooling/integration-testing.png)
 
 Running the integration tests spins up a `tester` container within which every test can specify its own GoShimmer network with Docker as schematically shown in the figure above.
 
 Peers can communicate freely within their Docker network and this is exactly how the tests are run using the `tester` container.
 Test can be written in regular Go style while the framework provides convenience functions to create a new network, access a specific peer's web API or logs.
 
-## How to run
+## How to Run
+
 Prerequisites: 
 - Docker 17.12.0+
 - Docker compose: file format 3.5
@@ -21,7 +35,8 @@ The tests produce `*.log` files for every networks' peer in the `logs` folder af
 
 On GitHub logs of every peer are stored as artifacts and can be downloaded for closer inspection once the job finishes.
 
-## Creating tests
+## Creating Tests
+
 Tests can be written in regular Go style. Each tested component should reside in its own test file in `tools/integration-tests/tester/tests`.
 `main_test` with its `TestMain` function is executed before any test in the package and initializes the integration test framework.
 
@@ -33,7 +48,8 @@ n := f.CreateNetwork("testnetwork", 6, 3)
 defer n.Shutdown() 
 ```
 
-## Other tips
+## Other Tips
+
 Useful for development is to only execute the test you're currently building. For that matter, simply modify the `docker-compose.yml` file as follows:
 ```yaml
 entrypoint: go test ./tests -run <YOUR_TEST_NAME> -v -mod=readonly

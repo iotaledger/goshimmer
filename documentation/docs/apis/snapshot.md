@@ -1,3 +1,13 @@
+---
+description: The snapshot API allows retrieving current snapshot.
+image: /img/logo/goshimmer_light.png
+keywords:
+- client library
+- HTTP API
+- snapshot
+- retrieve
+- current
+---
 # Snapshot API Methods
 
 Snapshot API allows retrieving current snapshot.

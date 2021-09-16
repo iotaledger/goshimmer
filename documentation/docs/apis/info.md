@@ -1,3 +1,14 @@
+---
+description: Info API returns basic info about the node with the /info and /healthz endpoints and the info() function.
+image: /img/logo/goshimmer_light.png
+keywords:
+- info
+- endpoint
+- function
+- health
+- healthz
+- client lib
+---
 # Info API Methods
 
 Info API returns basic info about the node
@@ -188,6 +199,7 @@ Returns HTTP code 200 if everything is running correctly.
 
 
 ### Parameters
+
 None.
 
 ### Examples
