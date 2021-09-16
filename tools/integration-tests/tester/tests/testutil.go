@@ -25,7 +25,7 @@ var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
 
 const (
 	// Timeout denotes the default condition polling timout duration.
-	Timeout = 3 * time.Minute
+	Timeout = 1 * time.Minute
 	// Tick denotes the default condition polling tick time.
 	Tick = 500 * time.Millisecond
 
@@ -70,6 +70,27 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 	return info.Mana
 }
 
+// AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
+func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node, wantedGoF ...gof.GradeOfFinality) {
+	addrToCheck := faucet.Address(faucet.Config().Faucet.PreparedOutputsCount).Base58()
+	require.Eventually(t, func() bool {
+		avail := true
+		for _, p := range peers {
+			resp, err := p.PostAddressUnspentOutputs([]string{addrToCheck})
+			require.NoError(t, err)
+			if len(resp.UnspentOutputs[0].Outputs) == 0 {
+				avail = false
+				break
+			}
+			if len(wantedGoF) > 0 && resp.UnspentOutputs[0].Outputs[0].GradeOfFinality != wantedGoF[0] {
+				avail = false
+				break
+			}
+		}
+		return avail
+	}, time.Minute, Tick)
+}
+
 // AddressUnspentOutputs returns the unspent outputs on address.
 func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address) []jsonmodels.WalletOutput {
 	resp, err := node.PostAddressUnspentOutputs([]string{address.Base58()})
@@ -111,6 +132,10 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 		data:            nil,
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
+
+	// Make sure the message is available on the peer itself and has gof.High.
+	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.High)
+
 	return resp.ID, sent
 }
 
@@ -214,7 +239,8 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 }
 
 // RequireMessagesAvailable asserts that all nodes have received MessageIDs in waitFor time, periodically checking each tick.
-func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
+// Optionally, a GradeOfFinality can be specified, which then requires the messages to reach this GradeOfFinality.
+func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration, gradeOfFinality ...gof.GradeOfFinality) {
 	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
 	for _, node := range nodes {
 		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
@@ -227,12 +253,21 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 		for _, node := range nodes {
 			nodeMissing := missing[node.ID()]
 			for messageID := range nodeMissing {
-				msg, err := node.GetMessage(messageID)
+				msg, err := node.GetMessageMetadata(messageID)
 				// retry, when the message could not be found
 				if errors.Is(err, client.ErrNotFound) {
+					log.Printf("node=%s, messageID=%s; message not found", node, messageID)
 					continue
 				}
-				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessage' failed", node, messageID)
+				// retry, if the message has not yet reached the specified GoF
+				if len(gradeOfFinality) > 0 {
+					if msg.GradeOfFinality < gradeOfFinality[0] {
+						log.Printf("node=%s, messageID=%s, expected GoF=%s, actual GoF=%s; GoF not reached", node, messageID, gradeOfFinality[0], msg.GradeOfFinality)
+						continue
+					}
+				}
+
+				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
 				require.Equal(t, messageID, msg.ID)
 				delete(nodeMissing, messageID)
 				if len(nodeMissing) == 0 {

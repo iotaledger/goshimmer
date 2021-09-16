@@ -206,25 +206,25 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 // TestApprovalWeightManager_updateSequenceSupporters tests the ApprovalWeightManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
 func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
-	keyPair := ed25519.GenerateKeyPair()
-
+	supporters := map[string]*identity.Identity{
+		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
+		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
+	}
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
-		nodeID := identity.NewID(keyPair.PublicKey)
-		weightProvider.Update(time.Now(), nodeID)
-		return map[identity.ID]float64{
-			nodeID: 100,
+		m := make(map[identity.ID]float64)
+		for _, s := range supporters {
+			weightProvider.Update(time.Now(), s.ID())
+			m[s.ID()] = 100
 		}
+		return m
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
-	supporters := map[string]*identity.Identity{
-		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
-		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
-	}
+
 	markersMap := make(map[string]*markers.StructureDetails)
 
 	// build markers DAG
