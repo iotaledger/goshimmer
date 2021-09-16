@@ -51,7 +51,8 @@ type IUTXODAG interface {
 	CachedOutput(outputID OutputID) (cachedOutput *CachedOutput)
 	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
 	CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata)
-	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
+	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage. It is possible to provide
+	// an optional SolidityType which acts as a filter for the type of returned Consumers.
 	CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers)
 	// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 	LoadSnapshot(snapshot *Snapshot)
@@ -270,7 +271,8 @@ func (u *UTXODAG) CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedO
 	return &CachedOutputMetadata{CachedObject: u.outputMetadataStorage.Load(outputID.Bytes())}
 }
 
-// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
+// CachedConsumers retrieves the Consumers of the given OutputID from the object storage. It is possible to provide an
+// optional SolidityType which acts as a filter for the type of returned Consumers.
 func (u *UTXODAG) CachedConsumers(outputID OutputID, optionalSolidityType ...SolidityType) (cachedConsumers CachedConsumers) {
 	var iterationPrefix []byte
 	if len(optionalSolidityType) >= 1 {
