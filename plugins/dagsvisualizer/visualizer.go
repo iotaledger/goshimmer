@@ -79,8 +79,32 @@ func registerTangleEvents() {
 		})
 	})
 
+	fmUpdateClosure := events.NewClosure(func(fmUpdate *tangle.FutureMarkerUpdate) {
+		visualizerWorkerPool.TrySubmit(&wsMessage{
+			Type: MsgTypeFutureMarkerUpdated,
+			Data: &tangleFutureMarkerUpdated{
+				ID:             fmUpdate.ID.Base58(),
+				FutureMarkerID: fmUpdate.FutureMarker.Base58(),
+			},
+		})
+	})
+
+	markerConfirmedClosure := events.NewClosure(func(markerAWUpdate *tangle.MarkerAWUpdated) {
+		// get message ID of marker
+		visualizerWorkerPool.TrySubmit(&wsMessage{
+			Type: MsgTypeMarkerAWUpdated,
+			Data: &tangleMarkerAWUpdated{
+				ID:             markerAWUpdate.ID.Base58(),
+				ApprovalWeight: markerAWUpdate.ApprovalWeight,
+			},
+		})
+
+	})
+
 	messagelayer.Tangle().Storage.Events.MessageStored.Attach(storeClosure)
 	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(bookedClosure)
+	messagelayer.Tangle().Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
+	messagelayer.Tangle().ApprovalWeightManager.Events.MarkerAWUpdated.Attach(markerConfirmedClosure)
 	messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(finalizedClosure)
 }
 

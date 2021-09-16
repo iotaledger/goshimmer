@@ -7,6 +7,10 @@ const (
 	MsgTypeTangleBooked
 	// MsgTypeTangleConfirmed is the type of the Tangle DAG confirmed message.
 	MsgTypeTangleConfirmed
+	// MsgTypeFutureMarkerUpdated is the type of the future marker updated message.
+	MsgTypeFutureMarkerUpdated
+	// MsgTypeMarkerAWUpdated is the type of the future marker updated message.
+	MsgTypeMarkerAWUpdated
 	// MsgTypeUTXOVertex is the type of the UTXO DAG vertex.
 	MsgTypeUTXOVertex
 	// MsgTypeUTXOConfirmed is the type of the UTXO DAG vertex confirmed message.
@@ -26,6 +30,7 @@ type tangleVertex struct {
 	ID              string   `json:"ID"`
 	StrongParentIDs []string `json:"strongParentIDs"`
 	WeakParentIDs   []string `json:"weakParentIDs"`
+	IsMarker        bool     `json:"ismarker"`
 	ApprovalWeight  float64  `json:"approvalweight"`
 	ConfirmedTime   int64    `json:"confirmedTime"`
 }
@@ -39,6 +44,16 @@ type tangleFinalized struct {
 	ID             string  `json:"ID"`
 	ApprovalWeight float64 `json:"approvalweight"`
 	ConfirmedTime  int64   `json:"confirmedTime"`
+}
+
+type tangleFutureMarkerUpdated struct {
+	ID             string `json:"ID"`
+	FutureMarkerID string `json:"futureMarkerID"`
+}
+
+type tangleMarkerAWUpdated struct {
+	ID             string  `jsong:"ID"`
+	ApprovalWeight float64 `json:"approvalweight"`
 }
 
 type utxoVertex struct {
