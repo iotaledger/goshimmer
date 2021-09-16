@@ -5,38 +5,49 @@ services:
   goshimmer:
     image: iotaledger/goshimmer:{{goshimmerDockerTag}}
     container_name: goshimmer
-    network_mode: "host"
+    stop_grace_period: 2m
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      # Autopeering
+      - "0.0.0.0:14626:14626/udp"
+      # Gossip
+      - "0.0.0.0:14666:14666/tcp"
+      # FPC
+      - "0.0.0.0:10895:10895/tcp"
+      # HTTP API
+      - "0.0.0.0:8080:8080/tcp"
+      # Dashboard
+      - "0.0.0.0:8081:8081/tcp"
+      # pprof profiling
+      - "0.0.0.0:6061:6061/tcp"
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - ANALYSIS_CLIENT_SERVERADDRESS={{ analysisServerHost }}:21888
-      - AUTOPEERING_SEED={{ seed }}
-      - AUTOPEERING_PORT=33501
-      - DASHBOARD_BINDADDRESS=0.0.0.0:9001
-      - GOSSIP_PORT=33601
-      - WEBAPI_BINDADDRESS=0.0.0.0:9101
+      - AUTOPEERING_PORT=14626
+      - DASHBOARD_BINDADDRESS=0.0.0.0:8081
+      - GOSSIP_PORT=14666
+      - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
-      - FPC_BINDADDRESS=0.0.0.0:10891
+      - FPC_BINDADDRESS=0.0.0.0:10895
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
       --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
-      {% if networkVersion|default(None) %}
+      {% if networkVersion|default(NOne) %}
       --autopeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=
-      --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,"WebAPI tools Endpoint"
+      --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
       --prometheus.bindAddress=0.0.0.0:9312
-      --messageLayer.snapshot.file=/snapshot.bin
-     {% if faucet|default(false) %}
+      {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000
-     {% endif %}
+      {% endif %}
       --faucet.powDifficulty=22
       --pow.difficulty=22
-      --pow.numThreads=8
+      --pow.numThreads=7
       --pow.timeout=60s
       --logger.level=info
       --logger.disableEvents=false
@@ -44,7 +55,6 @@ services:
       {% if bootstrap|default(false) %}
       --messageLayer.startSynced=true
       {% endif %}
-      --statement.writeStatement=true
       --drng.pollen.instanceId=1
       --drng.pollen.threshold=3
       --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
