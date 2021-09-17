@@ -60,6 +60,7 @@ func registerTangleEvents() {
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
 					ID:       messageID.Base58(),
+					IsMarker: msgMetadata.StructureDetails().IsPastMarker,
 					BranchID: msgMetadata.BranchID().Base58(),
 				},
 			}))

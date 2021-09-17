@@ -30,13 +30,15 @@ type tangleVertex struct {
 	ID              string   `json:"ID"`
 	StrongParentIDs []string `json:"strongParentIDs"`
 	WeakParentIDs   []string `json:"weakParentIDs"`
-	IsMarker        bool     `json:"ismarker"`
+	BranchID        string   `json:"branchID"`
+	IsMarker        bool     `json:"isMarker"`
 	ApprovalWeight  float64  `json:"approvalweight"`
 	ConfirmedTime   int64    `json:"confirmedTime"`
 }
 
 type tangleBooked struct {
 	ID       string `json:"ID"`
+	IsMarker bool   `json:"isMarker"`
 	BranchID string `json:"branchID"`
 }
 

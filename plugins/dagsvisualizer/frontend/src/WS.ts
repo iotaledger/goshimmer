@@ -1,10 +1,30 @@
 export enum WSMsgType {
-    Status,
+	Message,
+	MessageBooked,
+	MessageConfirmed,
+	FutureMarkerUpdated,
+	MarkerAWUpdated,
+	Transaction,
+	TransactionConfirmed,
+	Branch,
+	BranchParentsUpdate,
 }
 
 export interface WSMessage {
     type: number;
     data: any;
+}
+
+type DataHandler = (data: any) => void;
+
+let handlers = {};
+
+export function registerHandler(msgType: number, handler: DataHandler) {
+    handlers[msgType] = handler;
+}
+
+export function unregisterHandler(msgType: number) {
+    delete handlers[msgType];
 }
 
 export function connectWebSocket(path: string, onOpen, onClose, onError) {
@@ -24,5 +44,10 @@ export function connectWebSocket(path: string, onOpen, onClose, onError) {
 
     ws.onmessage = (e) => {
         console.log(e.data)
+        let wsMsg: WSMessage = JSON.parse(e.data)
+        let handler: DataHandler = handlers[wsMsg.type]
+        if (handler != null) {
+            handler(wsMsg.data)
+        }
     };
 }

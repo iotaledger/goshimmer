@@ -1,12 +1,12 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import {Provider} from 'mobx-react';
-import Todo from 'stores/Todo';
+import TangleStore from 'stores/TangleStore';
 
-const todoStore = new Todo();
+const tangleStore = new TangleStore();
 
 ReactDOM.render(
-  <Provider todo={todoStore}>
+  <Provider tanglestore={tangleStore}>
     <div>
       <h1>Hello</h1>
     </div>
