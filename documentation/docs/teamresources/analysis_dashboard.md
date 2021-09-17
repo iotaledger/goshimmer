@@ -1,8 +1,20 @@
+---
+description: How to use the Dashboard in dev mode and set up hot loading and packaging.
+image: /img/logo/goshimmer_light.png
+keywords:
+- port config
+- pkger
+- webpack
+- build
+- change
+- npm
+- yarn
+---
 # GoShimmer Analysis Dashboard
 
 Programmed using modern web technologies.
 
-### Dashboard in dev mode
+### Dashboard in Dev Mode
 
 1. Make sure to set `analysis.dashboard.dev` to true, to enable GoShimmer to serve assets
    from the webpack-dev-server.
@@ -12,7 +24,7 @@ Programmed using modern web technologies.
 
 The Analysis Dashboard is hot-reload enabled.
 
-### Pack your changes
+### Pack Your Changes
 
 We are using [pkger](https://github.com/markbates/pkger) to wrap all built frontend files into Go files.
 

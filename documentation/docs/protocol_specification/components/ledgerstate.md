@@ -1,3 +1,18 @@
+---
+description: The unspent transaction output (UTXO) model defines a ledger state where balances are not directly associated with addresses but with the outputs of transactions. Transactions specify the outputs of previous transactions as inputs, which are consumed in order to create new outputs.
+image: /img/protocol_specification/utxo_fund_flow.png
+keywords:
+- transactions
+- ledger state
+- unlock block
+- essence
+- utxo
+- input
+- signature unlock block
+- reference unlock block
+- conflict branch
+- aggregate branch
+---
 ## UTXO model
 
 The unspent transaction output (UTXO) model defines a ledger state where balances are not directly associated with addresses but with the outputs of transactions. In this model, transactions specify the outputs of previous transactions as inputs, which are consumed in order to create new outputs. 
@@ -5,7 +20,8 @@ A transaction must consume the entirety of the specified inputs. The section unl
 
 The following image depicts the flow of funds using UTXO:
 
-![Flow of funds using UTXO](/img/protocol_specification/utxo_fund_flow.png "Flow of funds using UTXO")
+[![Flow of funds using UTXO](/img/protocol_specification/utxo_fund_flow.png "Flow of funds using UTXO")](/img/protocol_specification/utxo_fund_flow.png )
+
 ## Transaction Layout
 
 A _Transaction_ payload is made up of two parts:
@@ -230,7 +246,7 @@ The UTXO DAG models the relationship between transactions, by tracking which out
 Instead of permitting immediately only one transaction into to the ledger state, we allow for different versions of the ledger to coexist temporarily. 
 This is enabled by extending the UTXO DAG by the introduction of branches, see the following section. We can then determine which conflicting versions of the ledger state exist in the presence of conflicts.
 
-### Conflict sets and detection of double spends
+### Conflict Sets and Detection of Double Spends
 
 We maintain a list of consumers `consumerList` associated with every output, that keeps track of which transactions have spent that particular output. Outputs without consumers are considered to be unspent outputs. Transactions that consume an output that have more than one consumer are considered to be double spends. 
 
@@ -248,7 +264,7 @@ A branch that was created by a transaction that spends multiple outputs can be p
 
 Every branch *shall* be identified by the unique identifier `branchID`. We consider two kinds of branches: conflict branches and aggregated branches, which are explained in the following sections.
 
-### Conflict branches 
+### Conflict Branches 
 
 A conflict branch is created by a corresponding double spend transaction. Since the transaction identifier is unique, we choose the transaction id `transactionID` of the double spending transaction as the `branchID`.
 
@@ -257,7 +273,7 @@ Outputs inside a branch can be double spent again, recursively forming sub-branc
 On solidification of a message, we *shall* store the corresponding branch identifier together with every output, as well as the transaction metadata to enable instant lookups of this information. Thus, on solidification, a transaction can be immediately associated with a branch. 
 
 
-### Aggregated branches
+### Aggregated Branches
 
 A transaction that does not create a double spend inherits the branches of the input's branches. In the simplest case, where there is only one input branch the transaction inherits that branch. 
 
@@ -288,7 +304,7 @@ FUNCTION reducedBranches = ReduceBranches(branches)
     RETURN reducedBranches
 ```
 
-### The branch DAG
+### The Branch DAG
 
 A new branch is created for each transaction that is part of a conflict set, or if a transaction aggregates branches.
 In the branch DAG, branches constitute the vertices of the DAG. A branch that is created by a transaction that is spending outputs from other branches has edges pointing to those branches.
@@ -296,7 +312,7 @@ The branch DAG maps the UTXO DAG to a simpler structure that ignores details abo
 The set of all non-conflicting transactions form the master branch. Thus, at its root the branch DAG has the master branch, which consists of non-conflicting transaction and resolved transactions. From this root of the branch DAG the various branches emerge. 
 In other words the conflict branches and the aggregated branches appear as the children of the master branch. 
 
-### Detecting conflicting branches
+### Detecting Conflicting Branches
 
 Branches are conflicting if they, or any of their ancestors, are part of the same conflict set.
 The branch DAG can be used to check if branches are conflicting, by applying an operation called normalization, to a set of input branches.
@@ -304,7 +320,7 @@ From this information we can identify messages or transactions that are trying t
 
 Since branches represent the ledger state associated with a double spend and sub-branches implicitly share the perception of their parents, we define an operation to normalize a list of branches that gets rid of all branches that are referenced by other branches in that list. The function returns `NULL` if the branches are conflicting and can not be merged.
 
-### Merging of branches into the master branch
+### Merging of Branches Into the Master Branch
 
 A branch gains approval weight when messages from (previously non-attached) `nodeID`s attach to messages in the future cone of that branch. Once the approval weight exceeds a certain threshold we consider the branch as confirmed.
 Once a conflict branch is confirmed, it can be merged back into the master branch. Since the approval weight is monotonically increasing for branches from the past to the future, branches are only merged into the master branch.

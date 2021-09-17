@@ -1,3 +1,18 @@
+---
+description: Mana is a reputation system for nodes within the IOTA network. Reputation is gained by contributing to the network. As time passes, part of the earned mana of a node decays to encourage keeping up the good behavior.
+image: /img/protocol_specification/mana.png
+keywords:
+- mana
+- node
+- calculation
+- transactions
+- base mana
+- vectors
+- access mana
+- consensus mana
+- effective base mana
+- ledger state
+---
 # Mana Implementation
 
 This document provides a high level overview of how mana is implemented in GoShimmer.
@@ -63,7 +78,7 @@ module (FPC, AutoPeering, DRNG, Rate Control, tools, etc.).
 
 Following figure summarizes how `Access Mana` and `Consensus Mana` is derived from a transaction:
 
-![Mana](/img/protocol_specification/mana.png "Mana")
+[![Mana](/img/protocol_specification/mana.png "Mana")](/img/protocol_specification/mana.png)
 
 The reason for having two separate `Base Mana Vectors` is the fact, that `accessMana` and `consensusMana` can be pledged
 to different nodes.
@@ -193,6 +208,7 @@ type BaseManaVector struct {
 ```
 
 #### Methods
+
 `BaseManaVector` should have the following methods:
  - `BookMana(transaction)`: Book mana of a transaction. Trigger `ManaBooked` event. Note, that this method updates
    `BaseMana` with respect to time and to new `Base Mana 1` and `Base Mana 2` values.
@@ -221,6 +237,7 @@ There are two cases when the values within `Base Mana Vector` are updated:
 First, let's explore the former.
 
 ##### A confirmed transaction pledges mana
+
 For simplicity, we only describe mana calculation for one of the Base Mana Vectors, namely, the Base Access Mana Vector.
 
 First, a `TransactionConfirmed` event is triggered, therefore `BaseManaVector.BookMana(transaction)` is executed:
@@ -380,6 +397,7 @@ func (bm *BaseMana) update(t time.Time ) {
 ```
 
 #### Events
+
 The mana package should have the following events:
 
  - `Pledged` when mana (`BM1` and `BM2`) was pledged for a node due to new transactions being confirmed.
@@ -417,6 +435,7 @@ type UpdatedEvent struct {
 ```
 
 #### Testing
+ 
  - Write unit tests for all methods.
  - Test all events and if they are correctly triggered.
  - Benchmark calculations in tests to see how heavy it is to calculate EMAs and decays.
@@ -452,6 +471,7 @@ in arbitrary proportions to arrive at a final mana value that other modules use.
 in place. Additionally, a parameter could be passed to the `getMana` type of exposed functions to set the proportions.
 
 #### Methods
+
 The mana plugin should expose utility functions to other modules:
 
  - `GetHighestManaNodes(type, n) [n]NodeIdManaTuple`: return the `n` highest `type` mana nodes (`nodeID`,`manaValue`) in
@@ -473,6 +493,7 @@ Such utility functions could be used for example to visualize mana distribution 
 mana data to the analysis server for further processing.
 
 #### Booking Mana
+
 Mana is booked when a transaction is confirmed.
 
  ```go
@@ -493,9 +514,11 @@ explicit rules on when to start and stop mana calculation.
 In future, initial mana state (together with the initial ledger state) will be derived from a snapshot file.
 
 ### Mana Toolkit
+
 In this section, all tools and utility functions for mana will be outlined.
 
 #### Mana Related API endpoints
+
  - `/info`: Add own mana in node info response.
  - `value/allowedManaPledge`: Endpoint that clients can query to determine which nodeIDs are allowed as part of
    `accessMana` and `consensusMana` fields in a transaction.
@@ -511,6 +534,7 @@ Add a new `mana` endpoint route:
    top 12%.
 
 #### Metrics collection
+
 To study the mana module, following metrics could be gathered:
 
  - Amount of consensus and access mana present in the network. (amount varies because of `Base Mana 2`).

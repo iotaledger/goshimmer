@@ -1,4 +1,16 @@
-# How to do a release
+---
+description: How to create a GoShimmer release.  
+image: /img/logo/goshimmer_light.png
+keywords:
+- github
+- release
+- banner version
+- Changelog
+- build
+- node
+- newest image
+---
+# How to Do a Release
 
 1. Create a PR into `develop` updating the banner version (`plugins/banner.AppVersion`) and mentioning the changes in `CHANGELOG.md`.
 2. Create a PR merging `develop` into `master`.

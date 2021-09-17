@@ -1,3 +1,18 @@
+---
+description: The consensus mechanism is necessary to achieve agreement among the nodes of the network.  Since the Tangle is only partially ordered we have designed an open and leaderless consensus mechanism which combines FPC and Approval Weight.
+image: /img/protocol_specification/FCOB.png
+keywords:
+- node
+- approval weight
+- branch
+- opinion
+- message
+- fpc
+- fcob
+- high probability
+- active consensus mana
+- dRNG
+---
 # Consensus Mechanism
 
 The consensus mechanism is necessary to achieve agreement among the nodes of the network. In case of a double spend, one way to decide which transaction should be considered valid would be to order them and pick the oldest one. However, the Tangle is only partially ordered. To tackle this problem in the context of the Tangle, we have designed an open and leaderless consensus mechanism. It combines a binary voting protocol (FPC) used as a pre-consensus to prevent metastable states, and a virtual voting protocol (Approval Weight) that provides finality similarly to the longest chain rule in Nakamoto consensus (i.e., heaviest branch).
@@ -17,9 +32,9 @@ For these reasons, we use [FCoB](#fcob) to manage FPC.
 
 ### FCoB
 
-The following flow diagram shows the current implemention of the FCoB protocol.
+The following flow diagram shows the current implementation of the FCoB protocol.
 
-![FCoB](/img/protocol_specification/FCOB.png)
+[![FCoB](/img/protocol_specification/FCOB.png)](/img/protocol_specification/FCOB.png)
 
 Each opinion is associated to a *Level of Knowledge* (LoK) that defines how confident a node is with respect to the value of the opinion. We can distinguish 3 levels:
 * Level 1 means that the node only knows that it holds this opinion.
@@ -39,13 +54,14 @@ Case 3 is the simplest case: since conflicts have been detected, we set the opin
 
 To prevent the FCoB rule from locking funds, we modify it to the following: a transaction `X` satisfied the FCoB rule if all transactions `Y` conflicting with `X`  before `arrivalTime(X)+Quarantine` has been rejected, i.e. has has opinion false and level 2 or 3.  With this rule, any conflicts which are rejected will not affect the opinion on future conflicts.  For simplicity case, all transactions falling under this case are treated as level 1.
 
-### FPC statements
+### FPC Statements
 
 The FPC protocol requires nodes to directly query randomly selected nodes for conflict resolution. However, the information produced during such a voting mechanism is not stored in the Tangle, rather only lives within the node's local metadata. This can be a problem for nodes joining the network at a later stage, specifically when a conflict is considered marked as level of knowledge 3 by the majority of the network, a new node cannot query it anymore. 
 Moreover, since the quorum to query is randomly formed proportionally to cMana, the highest cMana nodes would need to reply to too many queries, as their probability to be included in the quorum of each node is high. 
 We propose an optimization of the protocol that, in turn, should solve both of the above issues. The idea is to let each node be free to choose whether writing its opinion on a given conflict and a given FPC round on the Tangle. 
 
 #### Payload
+
 We need to first define the FPC Statement payload:
 
  ```go
@@ -66,6 +82,7 @@ We need to first define the FPC Statement payload:
  ```
 
 #### Registry
+
 We also define an Opinion Registry where nodes can store and keep track of the opinions from each node after parsing FPC Statements.
 
 ```go
@@ -82,10 +99,12 @@ type View struct {
 Given a nodeID and a ConflictID (or a messageID for timestamps), a node can check if it has the required opinion in its registry, and thus use that during its FPC round, or if not, send a traditional query to the node.
 
 #### Broadcasting an FPC Statement
+
 A node, after forming its opinion for 1 or more conflicts during an FPC round, can prepare an FPC statement containing the result of that round and issue it on the Tangle.
 Currently, any node that belongs to the top 70% cMana issues FPC statements. This parameter is local to the node and can be changed by the node operator.
 
 ## dRNG
+
 At its core, the Fast Probabilistic Consensus (FPC) runs to resolve potential conflicting transactions by voting on them. FPC requires a random number generator (RNG) to be more resilient to an attack aiming at creating a meta-stable state, where nodes in the network are constantly toggling their opinion on a given transaction and thus are unable to finalize it. Such a RNG can be provided by either a trusted and centralized entity or be decentralized and distributed. Clearly, the fully decentralized nature of IOTA 2.0 mandates the latter option, and this option is referred to a distributed RNG (dRNG).
 
 A dRNG can be implemented in very different ways, for instance by leveraging on cryptographic primitives such as verifiable secret sharing and threshold signatures, 
@@ -95,6 +114,7 @@ originally developed within the [DEDIS organization](https://github.com/dedis), 
 This protocol has been already used by other projects such as [The League of Entropy](https://www.cloudflare.com/leagueofentropy/).
 
 ### Drand - A Distributed Randomness Beacon Daemon
+
 Drand (pronounced "dee-rand") is a distributed randomness beacon daemon written
 in [Golang](https://golang.org/). Servers running drand can be linked with each
 other to produce collective, publicly verifiable, unbiased, unpredictable
@@ -119,6 +139,7 @@ This process ensures that every new random value depends on all previously gener
 If you are interested in knowing more about drand, we recommend you to check out their [Github repository](https://github.com/drand/drand).
 
 ## Approval Weight (AW)
+
 Approval weight represents the [weight](#active-consensus-mana) of branches (and messages), similar to the longest chain rule in Nakamoto consensus. However, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). This process is also known as virtual voting, and has been previously described in [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
 
 If a node realizes its opinion according to FCoB/FPC differs from that of the majority of weight, it has to do a reorg of its perception according to the heavier branch. In that way, all nodes will eventually converge to the heaviest branches, and, thus, come to consensus efficiently. 
@@ -126,6 +147,7 @@ If a node realizes its opinion according to FCoB/FPC differs from that of the ma
 AW also serves as a probabilistic finality tool for individual messages and their payloads, i.e., transactions.
 
 ### Finalization
+
 Finality must always be considered as a probabilistic finality in the sense that a message is included in the ledger with a very high probability. Two qualities desired from a finality criteria are fast confirmation rate and a high probability of non-reversibility. 
 
 A branch is considered finalized/confirmed if one of the following holds:
@@ -138,18 +160,21 @@ A message is considered finalized/confirmed if the following holds:
 Conversely, a message that does not gather enough AW will not be finalized, and, thus, will be pending until it might be orphaned if not reachable via current tips anymore.
 
 ### Detailed Design
+
 Approval weight is tracked with the help of supporters that cast votes for branches and messages by means of making statements. This is necessary due to the changing nature of cMana over time, which prevents simply counting the AW per branch or message. 
 
 #### Definitions
+
 * **Statement**: A statement is any message issued by a *node*, expressing its opinion and casting a (virtual) vote. It can be objectively ordered by its timestamp, and, if equal, its message ID.
 * **Branch supporter**: A branch supporter is a *node* that issued a statement attaching to a branch, and, thus, voting for it.
 * **Marker/message supporter**: A marker/message's supporter is a *node* that issued a statement directly or indirectly referencing a marker/message, including its issuer.
 
 #### Branches
+
 Tracking supporters of branches and following the heavier branch effectively is On Tangle Voting. It allows nodes to express their opinion simply by attaching a statement to a branch they like. This statement needs to propagate down the branch DAG, adding support to each of the branch parents. In case a supporter changes their opinion, support needs to be revoked from all conflicting branches and their children. Thus, a node can only support one branch of a conflict set. 
 
 To make this more clear consider the following example:
-![Branch Supporter](/img/protocol_specification/branches.png)
+[![Branch Supporter](/img/protocol_specification/branches.png)](/img/protocol_specification/branches.png)
 
 The green node issued **statement 1** and attached it to the aggregated branch `Branch 1.1 + Branch 4.1.1`. Thus, the green node is a supporter of all the aggregated branch's parent branches, which are (from top to bottom) `Branch 4.1.1`, `Branch 1.1`, `Branch 4.1`, `Branch 1`, and `Branch 4`.
 
@@ -164,6 +189,7 @@ It is important to notice that the arrival order of the statements does not make
 
 
 ##### Calculation of Approval Weight
+
 The approval weight itself is calculated every time a new supporter is added to a branch. The AW for a branch *B* is calculated as follows:
 
 ```
@@ -175,6 +201,7 @@ It is then evaluated whether it fulfills the [finalization](#finalization) crite
 **Reorg**: In case the node confirmed another branch of the conflict set first, e.g., because of a difference in perception of the ledger state, it will have to do reorg. This means, the node needs to adjust its perception of the ledger state, so that, eventually, all nodes converge and follow the heaviest branch by active cMana.
 
 #### Markers
+
 It would be computationally expensive to track the AW for each message individually. Instead, we approximate the AW with the help of [markers](markers.md). Once a marker fulfills the [finalization](#finalization) criterion, the confirmation is propagated into its past cone until all the messages are confirmed.
 
 Rather than keeping a list of supporters for each marker and collecting supporters for each marker (which would also be expensive), we keep a list of supporters along with its approved marker index for each marker sequence. This approach provides a simple and fast look-up for marker supporters making use of the Tangle structure as mapped by the markers.
@@ -182,7 +209,7 @@ Rather than keeping a list of supporters for each marker and collecting supporte
 For each marker sequence, we keep a map of supporter to marker index, meaning a supporter supports a marker index `i`. This implies that the supporter supports all markers with index `<= i`.
 
 Take the figure below as an example:
-![MarkersApprovalWeight SequenceSupporters-Page-2](https://user-images.githubusercontent.com/11289354/112416694-21012780-8d61-11eb-8089-cb9f5b236f30.png)
+[![Markers Approval Weight Sequence Supporters](/img/protocol_specification/MarkersApprovalWeight.png)](/img/protocol_specification/MarkersApprovalWeight.png)
 
 The purple circles represent markers of the same sequence, the numbers are marker indices.
 
@@ -192,14 +219,16 @@ This is a fast look-up and avoids walking through a marker's future cone when it
 
 For example, to find all supporter of marker 2, we iterate through the map and filter out those support marker with `index >= 2`. In this case, all nodes are its supporters. As for marker 5, it has supporters node A and D, which fulfill the check: `index >= 5`.
 
-Here is another more complicated example with parent sequences:
-![MarkersApprovalWeight SequenceSupporters-Page-2(1)](https://user-images.githubusercontent.com/11289354/112433680-8cf18900-8d7d-11eb-8944-54030581a033.png)
+Here is another more complicated example with parent sequences:.
+
+[![Markers Approval Weight Sequence Supporters With Parent Sequences](/img/protocol_specification/MarkersApprovalWeightSequenceSupporters.png)](/img/protocol_specification/MarkersApprovalWeightSequenceSupporters.png)
 
 The supporter will be propagated to the parent sequence.
 
 Node A issues message A2 having past markers `[1,4], [3,5]`, which implies node A is a supporter for marker `[1,1]` to `[1,4]`, `[2,1]` to `[2,3]`, and `[3,4], [3,5]` as well.
 
-##### Calculation of Approval Weight
+##### Calculation of approval weight
+
 The approval weight itself is calculated every time a new supporter is added to a marker, and the marker's branch *B* has reached its finality criterion. The AW for a marker *M* is calculated as follows:
 
 ```
@@ -210,6 +239,7 @@ It is then evaluated whether it fulfills the [finalization](#finalization) crite
 
 
 ## Active Consensus Mana
+
 It is important to track the currently *active* consensus mana in the system, such that the AW of a given message and/or branch reflects an up-to-date measure of cumulative weight. Specifically, the system must be resilient against a long-range attack.
 
 The active consensus mana tracks the set of the active nodes with some conensus mana. A node is considered to be active if it has issued any message in the last 30 minutes with respect to the TangleTime. The total active consensus mana is, therefore, the sum of all the consensus mana of each active node.  
