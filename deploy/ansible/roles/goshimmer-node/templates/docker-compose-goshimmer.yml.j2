@@ -27,7 +27,7 @@ services:
       {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
-      --node.disablePlugins=
+      --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint
       --prometheus.bindAddress=0.0.0.0:9312
       --messageLayer.snapshot.file=/snapshot.bin
