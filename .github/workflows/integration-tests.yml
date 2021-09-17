@@ -74,11 +74,12 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Build GoShimmer image
-        run: docker build \
-        --build-arg DOWNLOAD_SNAPSHOT=0 \
-        --cache-from=type=local,src=/tmp/.buildx-cache \
-        --cache-to=type=local,mode=max,dest=/tmp/.buildx-cache
-        -t iotaledger/goshimmer .
+        run: |
+          docker build \
+            --build-arg DOWNLOAD_SNAPSHOT=0 \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,mode=max,dest=/tmp/.buildx-cache
+            -t iotaledger/goshimmer .
 
       - name: Pull additional Docker images
         run: |
