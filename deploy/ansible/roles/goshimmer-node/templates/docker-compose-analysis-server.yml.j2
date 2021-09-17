@@ -16,6 +16,7 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
+      --node.overwriteStoredSeed=true
       --autoPeering.entryNodes=
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:21888
@@ -29,5 +30,5 @@ services:
       --metrics.local=false
       --metrics.global=true
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus
-      --node.disablePlugins=autoPeering,portcheck,dashboard,analysisClient,gossip,consensus,drng,issuer,syncBeaconFollower,messageLayer,mana,webAPI,webAPIBroadcastDataEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint
+      --node.disablePlugins=analysisClient,autoPeering,consensus,dashboard,drng,gossip,issuer,mana,manualpeering,messageLayer,portcheck,syncBeaconFollower,webAPI,webAPIBroadcastDataEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint
       --logger.level=debug

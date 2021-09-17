@@ -94,7 +94,7 @@ func configureLocalPeer() peerOut {
 		seed = append(seed, readSeed)
 	}
 
-	if !isNewDB && cfgSeedSet {
+	if !isNewDB && cfgSeedSet && !Parameters.OverwriteStoredSeed {
 		if seedCheckErr := checkCfgSeedAgainstDB(seed[0], peerDB); seedCheckErr != nil {
 			Plugin.Logger().Fatal(seedCheckErr)
 		}
