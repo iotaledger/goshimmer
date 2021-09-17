@@ -103,7 +103,9 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+        run: |
+          docker-compose build -f tools/integration-tests/tester/docker-compose.yml
+          docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester
 
       - name: Create logs from tester
         if: always()
