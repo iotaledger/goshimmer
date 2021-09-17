@@ -37,7 +37,7 @@ type ConsensusMechanism struct {
 }
 
 // NewConsensusMechanism is the constructor for the FCoB consensus mechanism.
-func NewConsensusMechanism() *ConsensusMechanism {
+func NewConsensusMechanism() tangle.ConsensusMechanism {
 	return &ConsensusMechanism{
 		Events: &ConsensusMechanismEvents{
 			Error: events.NewEvent(events.ErrorCaller),

@@ -40,7 +40,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	LikedThreshold = 2 * time.Second
 	LocallyFinalizedThreshold = 2 * time.Second
 
-	consensusProvider := NewConsensusMechanism()
+	consensusProvider := NewConsensusMechanism().(*ConsensusMechanism)
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
@@ -245,7 +245,7 @@ func TestOpinionFormer(t *testing.T) {
 	LikedThreshold = 1 * time.Second
 	LocallyFinalizedThreshold = 2 * time.Second
 
-	consensusProvider := NewConsensusMechanism()
+	consensusProvider := NewConsensusMechanism().(*ConsensusMechanism)
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	testTangle := tangle.New(tangle.Consensus(consensusProvider), tangle.SchedulerConfig(schedulerParams),
@@ -308,8 +308,8 @@ func TestOpinionFormer(t *testing.T) {
 		t.Log("Message Booked:", messageID)
 	}))
 
-	testTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		t.Log("Invalid message:", messageID)
+	testTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageInvalidEvent *tangle.MessageInvalidEvent) {
+		t.Logf("Invalid message: %s: %v", messageInvalidEvent.MessageID.Base58(), messageInvalidEvent.Error)
 	}))
 
 	var wg sync.WaitGroup

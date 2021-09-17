@@ -2,38 +2,39 @@ package healthz
 
 import (
 	"net/http"
-	goSync "sync"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // PluginName is the name of the web API healthz endpoint plugin.
-const PluginName = "WebAPI healthz Endpoint"
+const PluginName = "WebAPIHealthzEndpoint"
+
+type dependencies struct {
+	dig.In
+
+	Server *echo.Echo
+}
 
 var (
-	// plugin is the plugin instance of the web API info endpoint plugin.
-	plugin *node.Plugin
-	once   goSync.Once
+	// Plugin is the plugin instance of the web API info endpoint plugin.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 
 	healthy typeutils.AtomicBool
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
-	webapi.Server().GET("healthz", getHealthz)
+	deps.Server.GET("healthz", getHealthz)
 }
 
 func run(plugin *node.Plugin) {
@@ -47,7 +48,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer healthy.SetTo(false)
 
 	healthy.SetTo(true)
-	Plugin().LogInfo("All plugins started successfully")
+	Plugin.LogInfo("All plugins started successfully")
 	<-shutdownSignal
 }
 

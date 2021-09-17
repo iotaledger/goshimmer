@@ -338,7 +338,7 @@ func TestFPCVotingMultipleOpinionGiversWithMana(t *testing.T) {
 		paras := fpc.DefaultParameters()
 		paras.TotalRoundsFinalization = 2
 		paras.TotalRoundsCoolingOffPeriod = 2
-		voter := fpc.New(opinionGiverFunc, ownWeightRetrieverFunc, paras)
+		voter := fpc.New(opinionGiverFunc, ownWeightRetrieverFunc, paras).(*fpc.FPC)
 		// set custom rng with fixed seed to make runs deterministic
 		voter.SetOpinionGiverRng(rand.New(rand.NewSource(42)))
 		var finalOpinion *opinion.Opinion

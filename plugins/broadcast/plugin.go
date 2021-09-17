@@ -1,78 +1,61 @@
 package broadcast
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/broadcast/server"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"sync"
-
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/plugins/broadcast/server"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 const (
-	pluginName  = "Broadcast"
-	bindAddress = "broadcast.bindAddress"
+	pluginName = "Broadcast"
 )
 
 var (
-	plugin *node.Plugin
-	once   sync.Once
-
-	log *logger.Logger
+	// Plugin defines the plugin instance of the broadcast plugin.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(pluginName, node.Disabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	Tangle *tangle.Tangle
+}
+
+func init() {
+	Plugin = node.NewPlugin(pluginName, deps, node.Disabled, run)
+	configuration.BindParameters(Parameters, "Broadcast")
 }
 
 // ParametersDefinition contains the configuration parameters used by the plugin
 type ParametersDefinition struct {
-	Port int `default:"5050" usage:"port for broadcast plugin connections"`
+	// BindAddress defines on which address the broadcast plugin should listen on.
+	BindAddress string `default:"0.0.0.0:5050" usage:"the bind address for the broadcast plugin"`
 }
 
-var parameters = &ParametersDefinition{}
-
-// Handler functions
-func init() {
-	configuration.BindParameters(parameters, "Broadcast")
-}
-
-// Configure events
-func configure(_ *node.Plugin) {
-	plugin.LogInfof("starting node with broadcast plugin")
-}
+// Parameters contains the configuration parameters of the broadcast plugin.
+var Parameters = &ParametersDefinition{}
 
 //Run
 func run(_ *node.Plugin) {
-
 	//Server to connect to
-	bindAddress := config.Node().String(bindAddress)
-	plugin.LogInfof("Starting Broadcast plugin on %s", bindAddress)
-	err := daemon.BackgroundWorker("Broadcast worker", func(shutdownSignal <-chan struct{}) {
-		err := server.Listen(bindAddress, plugin, shutdownSignal)
-		if err != nil {
-			plugin.LogError("Failed to start Broadcast server: %v", err)
+	Plugin.LogInfof("Starting Broadcast plugin on %s", Parameters.BindAddress)
+	if err := daemon.BackgroundWorker("Broadcast worker", func(shutdownSignal <-chan struct{}) {
+		if err := server.Listen(Parameters.BindAddress, Plugin, shutdownSignal); err != nil {
+			Plugin.LogError("Failed to start Broadcast server: %v", err)
 		}
 		<-shutdownSignal
-	})
-	if err != nil {
-		plugin.LogError("Failed to start Broadcast daemon: %v", err)
+	}); err != nil {
+		Plugin.LogFatalf("Failed to start Broadcast daemon: %v", err)
 	}
 
 	//Get Messages from node
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			go func() {
 				server.Broadcast([]byte(message.String()))
 			}()
@@ -80,12 +63,12 @@ func run(_ *node.Plugin) {
 	})
 
 	if err := daemon.BackgroundWorker("Broadcast[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
+		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
 		<-shutdownSignal
-		plugin.LogInfof("Stopping Broadcast...")
-		messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)
-		plugin.LogInfof("Stopping Broadcast... \tDone")
-	}, shutdown.PriorityDashboard); err != nil {
-		plugin.LogError("Failed to start as daemon: %s", err)
+		Plugin.LogInfof("Stopping Broadcast...")
+		deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
+		Plugin.LogInfof("Stopping Broadcast... \tDone")
+	}, shutdown.PriorityBroadcast); err != nil {
+		Plugin.LogError("Failed to start as daemon: %s", err)
 	}
 }

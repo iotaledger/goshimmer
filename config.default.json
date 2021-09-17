@@ -11,17 +11,17 @@
       "dev": false
     }
   },
-  "autopeering": {
+  "autoPeering": {
     "entryNodes": [
       "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626",
       "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646"
     ],
-    "port": 14626
+    "bindAddress": "0.0.0.0:14626"
   },
   "dashboard": {
     "bindAddress": "127.0.0.1:8081",
     "dev": false,
-    "basic_auth": {
+    "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"
@@ -44,7 +44,7 @@
         "64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga"
       ]
     },
-    "xteam": {
+    "xTeam": {
       "instanceId": 1339,
       "threshold": 4,
       "distributedPubKey": "",
@@ -69,10 +69,7 @@
     "bindAddress": "0.0.0.0:10895"
   },
   "gossip": {
-    "port": 14666,
-    "tipsBroadcaster": {
-      "interval": "10s"
-    }
+    "bindAddress": "0.0.0.0:14666"
   },
   "logger": {
     "level": "info",
@@ -103,6 +100,7 @@
     "externalAddress": "auto"
   },
   "node": {
+    "peerDBDirectory": "peerdb",
     "disablePlugins": [],
     "enablePlugins": []
   },
@@ -110,7 +108,6 @@
     "difficulty": 22,
     "numThreads": 1,
     "timeout": "1m"
-
   },
   "profiling": {
     "bindAddress": "127.0.0.1:6061"
@@ -120,7 +117,7 @@
   },
   "webapi": {
     "bindAddress": "127.0.0.1:8080",
-    "basic_auth": {
+    "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"

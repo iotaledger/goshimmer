@@ -16,9 +16,9 @@ import (
 const RouteManualPeers = "manualpeering/peers"
 
 func configureWebAPI() {
-	webapi.Server().POST(RouteManualPeers, addPeersHandler)
-	webapi.Server().DELETE(RouteManualPeers, removePeersHandler)
-	webapi.Server().GET(RouteManualPeers, getPeersHandler)
+	deps.Server.POST(RouteManualPeers, addPeersHandler)
+	deps.Server.DELETE(RouteManualPeers, removePeersHandler)
+	deps.Server.GET(RouteManualPeers, getPeersHandler)
 }
 
 /*
@@ -33,14 +33,14 @@ An example of the HTTP JSON request:
 func addPeersHandler(c echo.Context) error {
 	var peers []*manualpeering.KnownPeerToAdd
 	if err := webapi.ParseJSONRequest(c, &peers); err != nil {
-		plugin.Logger().Errorw("Failed to parse peers from the request", "err", err)
+		Plugin.Logger().Errorw("Failed to parse peers from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid add peers request")),
 		)
 	}
-	if err := Manager().AddPeer(peers...); err != nil {
-		plugin.Logger().Errorw(
+	if err := deps.ManualPeeringMgr.AddPeer(peers...); err != nil {
+		Plugin.Logger().Errorw(
 			"Can't add some of the peers from the HTTP request to manualpeering manager",
 			"err", err,
 		)
@@ -60,14 +60,14 @@ An example of the HTTP JSON request:
 func removePeersHandler(c echo.Context) error {
 	var peersToRemove []*jsonmodels.PeerToRemove
 	if err := webapi.ParseJSONRequest(c, &peersToRemove); err != nil {
-		plugin.Logger().Errorw("Failed to parse peers to remove from the request", "err", err)
+		Plugin.Logger().Errorw("Failed to parse peers to remove from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid remove peers request")),
 		)
 	}
 	if err := removePeers(peersToRemove); err != nil {
-		plugin.Logger().Errorw(
+		Plugin.Logger().Errorw(
 			"Can't remove some of the peers from the HTTP request",
 			"err", err,
 		)
@@ -81,7 +81,7 @@ func removePeers(peers []*jsonmodels.PeerToRemove) error {
 	for i, p := range peers {
 		keys[i] = p.PublicKey
 	}
-	if err := Manager().RemovePeer(keys...); err != nil {
+	if err := deps.ManualPeeringMgr.RemovePeer(keys...); err != nil {
 		return errors.Wrap(err, "manualpeering manager failed to remove some peers")
 	}
 	return nil
@@ -90,12 +90,12 @@ func removePeers(peers []*jsonmodels.PeerToRemove) error {
 func getPeersHandler(c echo.Context) error {
 	conf := &manualpeering.GetPeersConfig{}
 	if err := webapi.ParseJSONRequest(c, conf); err != nil {
-		plugin.Logger().Errorw("Failed to parse get peers config from the request", "err", err)
+		Plugin.Logger().Errorw("Failed to parse get peers config from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid get peers request")),
 		)
 	}
-	peers := Manager().GetPeers(conf.ToOptions()...)
+	peers := deps.ManualPeeringMgr.GetPeers(conf.ToOptions()...)
 	return c.JSON(http.StatusOK, peers)
 }

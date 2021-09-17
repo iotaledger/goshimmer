@@ -1,20 +1,21 @@
-package messagelayer
+package consensus
 
 import (
 	"context"
 	"fmt"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
@@ -32,82 +33,87 @@ import (
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
-
-// region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	// plugin is the plugin instance of the statement plugin.
-	consensusPlugin     *node.Plugin
-	consensusPluginOnce sync.Once
-	voter               *fpc.FPC
-	voterOnce           sync.Once
-	voterServer         *votenet.VoterServer
-	registry            *statement.Registry
-	registryOnce        sync.Once
-	dRNGState           *drng.State
-	dRNGStateMutex      sync.RWMutex
-	dRNGTicker          *drng.Ticker
-	dRNGTickerMutex     sync.RWMutex
+	// Plugin is the plugin instance of the consensus plugin.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
-// DRNGTicker returns the pointer to the dRNGTicker.
-func DRNGTicker() *drng.Ticker {
-	dRNGTickerMutex.RLock()
-	defer dRNGTickerMutex.RUnlock()
-	return dRNGTicker
+type dependencies struct {
+	dig.In
+
+	Tangle             *tangle.Tangle
+	Local              *peer.Local
+	Discover           *discover.Protocol       `optional:"true"`
+	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
+	VoterServer        *votenet.VoterServer
+	ConsensusMechanism tangle.ConsensusMechanism
+	Registry           *statement.Registry
+	DRNGTicker         *drng.Ticker
 }
 
-// ConsensusPlugin returns the consensus plugin.
-func ConsensusPlugin() *node.Plugin {
-	consensusPluginOnce.Do(func() {
-		consensusPlugin = node.NewPlugin("Consensus", node.Enabled, configureConsensusPlugin, runConsensusPlugin)
-	})
-	return consensusPlugin
+func init() {
+	Plugin = node.NewPlugin("Consensus", deps, node.Enabled, configureConsensusPlugin, runConsensusPlugin)
+
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() vote.DRNGRoundBasedVoter {
+			return fpc.New(OpinionGiverFunc, OwnManaRetriever)
+		}); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(func(voter vote.DRNGRoundBasedVoter) *votenet.VoterServer {
+			return votenet.New(voter, OpinionRetriever, FPCParameters.BindAddress,
+				metrics.Events().FPCInboundBytes,
+				metrics.Events().FPCOutboundBytes,
+				metrics.Events().QueryReceived,
+			)
+		}); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(statement.NewRegistry); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(func(state *drng.State) *drng.Ticker {
+			return drng.NewTicker(func() *drng.State { return state }, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
+		}); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
 }
 
 func configureConsensusPlugin(plugin *node.Plugin) {
 	configureFPC(plugin)
 
 	// subscribe to FCOB events
-	ConsensusMechanism().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
-		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
-			plugin.LogWarnf("FPC vote: %s", err)
+	consensusMechanism := deps.ConsensusMechanism.(*fcob.ConsensusMechanism)
+	consensusMechanism.Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
+		if deps.Voter != nil {
+			if err := deps.Voter.Vote(id, vote.ConflictType, initOpn); err != nil {
+				plugin.LogWarnf("FPC vote: %s", err)
+			}
 		}
 	}))
-	ConsensusMechanism().Events.Error.Attach(events.NewClosure(func(err error) {
+	consensusMechanism.Events.Error.Attach(events.NewClosure(func(err error) {
 		plugin.LogErrorf("FCOB error: %s", err)
 	}))
 
 	// subscribe to message-layer
-	Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
+	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
 }
 
 func runConsensusPlugin(plugin *node.Plugin) {
 	runFPC(plugin)
 }
 
-// Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
-func Voter() vote.DRNGRoundBasedVoter {
-	voterOnce.Do(func() {
-		voter = fpc.New(OpinionGiverFunc, OwnManaRetriever)
-	})
-	return voter
-}
-
-// Registry returns the registry.
-func Registry() *statement.Registry {
-	registryOnce.Do(func() {
-		registry = statement.NewRegistry()
-	})
-	return registry
-}
-
 func configureFPC(plugin *node.Plugin) {
 	if FPCParameters.Listen {
-		lPeer := local.GetInstance()
+		lPeer := deps.Local
 		_, portStr, err := net.SplitHostPort(FPCParameters.BindAddress)
 		if err != nil {
 			plugin.LogFatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
@@ -117,32 +123,35 @@ func configureFPC(plugin *node.Plugin) {
 			plugin.LogFatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
 		}
 
-		if err := lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
+		if err = lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
 			plugin.LogFatalf("could not update services: %v", err)
 		}
 	}
 
-	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		if StatementParameters.WriteStatement && checkEnoughMana(local.GetInstance().ID(), StatementParameters.WriteManaThreshold) {
-			makeStatement(roundStats, broadcastStatement)
-		}
-		peersQueried := len(roundStats.QueriedOpinions)
-		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		plugin.LogDebugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
-	}))
+	if deps.Voter != nil {
+		deps.Voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+			if StatementParameters.WriteStatement && checkEnoughMana(deps.Local.ID(), StatementParameters.WriteManaThreshold) {
+				makeStatement(roundStats, broadcastStatement)
+			}
+			peersQueried := len(roundStats.QueriedOpinions)
+			voteContextsCount := len(roundStats.ActiveVoteContexts)
+			plugin.LogDebugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
+		}))
 
-	Voter().Events().Finalized.Attach(events.NewClosure(ConsensusMechanism().ProcessVote))
-	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		if ev.Ctx.Type == vote.ConflictType {
-			plugin.LogInfof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
-		}
-	}))
+		consensusMechanism := deps.ConsensusMechanism.(*fcob.ConsensusMechanism)
+		deps.Voter.Events().Finalized.Attach(events.NewClosure(consensusMechanism.ProcessVote))
+		deps.Voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+			if ev.Ctx.Type == vote.ConflictType {
+				plugin.LogInfof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+			}
+		}))
 
-	Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		if ev.Ctx.Type == vote.ConflictType {
-			plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
-		}
-	}))
+		deps.Voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+			if ev.Ctx.Type == vote.ConflictType {
+				plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
+			}
+		}))
+	}
 }
 
 func runFPC(plugin *node.Plugin) {
@@ -152,15 +161,10 @@ func runFPC(plugin *node.Plugin) {
 		if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
 			stopped := make(chan struct{})
 			bindAddr := FPCParameters.BindAddress
-			voterServer = votenet.New(Voter(), OpinionRetriever, bindAddr,
-				metrics.Events().FPCInboundBytes,
-				metrics.Events().FPCOutboundBytes,
-				metrics.Events().QueryReceived,
-			)
 
 			go func() {
 				plugin.LogInfof("%s started, bind-address=%s", ServerWorkerName, bindAddr)
-				if err := voterServer.Run(); err != nil {
+				if err := deps.VoterServer.Run(); err != nil {
 					plugin.LogErrorf("Error serving: %s", err)
 				}
 				close(stopped)
@@ -173,7 +177,7 @@ func runFPC(plugin *node.Plugin) {
 			}
 
 			plugin.LogInfof("Stopping %s ...", ServerWorkerName)
-			voterServer.Shutdown()
+			deps.VoterServer.Shutdown()
 			plugin.LogInfof("Stopping %s ... done", ServerWorkerName)
 		}, shutdown.PriorityFPC); err != nil {
 			plugin.Panicf("Failed to start as daemon: %s", err)
@@ -184,19 +188,16 @@ func runFPC(plugin *node.Plugin) {
 		plugin.LogInfof("Started FPC round initiator")
 		defer plugin.LogInfof("Stopped FPC round initiator")
 
-		dRNGTickerMutex.Lock()
-		dRNGTicker = drng.NewTicker(DRNGState, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
-		dRNGTickerMutex.Unlock()
-		dRNGTicker.Start()
+		deps.DRNGTicker.Start()
 	exit:
 		for {
 			select {
-			case r := <-dRNGTicker.C():
-				if err := voter.Round(r, dRNGTicker.DelayedRoundStart()); err != nil {
+			case r := <-deps.DRNGTicker.C():
+				if err := deps.Voter.Round(r, deps.DRNGTicker.DelayedRoundStart()); err != nil {
 					plugin.LogWarnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
-				dRNGTicker.Stop()
+				deps.DRNGTicker.Stop()
 				break exit
 			}
 		}
@@ -207,13 +208,13 @@ func runFPC(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("StatementCleaner", func(shutdownSignal <-chan struct{}) {
 		plugin.LogInfof("Started Statement Cleaner")
 		defer plugin.LogInfof("Stopped Statement Cleaner")
-		ticker := time.NewTicker(time.Duration(StatementParameters.CleanInterval) * time.Minute)
+		ticker := time.NewTicker(StatementParameters.CleanInterval)
 		defer ticker.Stop()
 	exit:
 		for {
 			select {
 			case <-ticker.C:
-				Registry().Clean(time.Duration(StatementParameters.DeleteAfter) * time.Minute)
+				deps.Registry.Clean(StatementParameters.DeleteAfter)
 			case <-shutdownSignal:
 				break exit
 			}
@@ -222,10 +223,6 @@ func runFPC(plugin *node.Plugin) {
 		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OpinionGivers ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // OpinionGiver is a wrapper for both statements and peers.
 type OpinionGiver struct {
@@ -240,7 +237,7 @@ type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, delayedRoundStart ...time.Duration) (opinions opinion.Opinions, err error) {
-	waitForStatements := time.Duration(StatementParameters.WaitForStatement) * time.Second
+	waitForStatements := StatementParameters.WaitForStatement
 	// delayedRoundStart gives the time that has elapsed since the start of the current round.
 	if len(delayedRoundStart) != 0 {
 		if delayedRoundStart[0] < waitForStatements && delayedRoundStart[0] > 0 {
@@ -256,7 +253,7 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []st
 
 		// check if node has been active in the last two rounds
 		// note, we cannot simply set one RoundInterval since the last message could e.g. have arrived 1.5 intervals ago
-		if o.view.LastStatementReceivedTimestamp.Add(2 * time.Duration(FPCParameters.RoundInterval) * time.Second).After(clockPkg.SyncedTime()) {
+		if o.view.LastStatementReceivedTimestamp.Add(2 * FPCParameters.RoundInterval).After(clockPkg.SyncedTime()) {
 			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 			if err == nil {
 				return opinions, nil
@@ -283,13 +280,13 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
-	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+	consensusManaNodes, _, err := messagelayer.GetManaMap(mana.ConsensusMana)
 	if err != nil {
-		plugin.LogErrorf("Error retrieving consensus mana: %s", err)
+		Plugin.LogErrorf("Error retrieving consensus mana: %s", err)
 	}
-	for _, v := range Registry().NodesView() {
+	for _, v := range deps.Registry.NodesView() {
 		// double check to exclude self
-		if v.ID() == local.GetInstance().ID() {
+		if v.ID() == deps.Local.ID() {
 			continue
 		}
 
@@ -304,15 +301,17 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 			mana: manaValue,
 		}
 	}
-
-	for _, p := range discovery.Discovery().GetVerifiedPeers() {
+	if deps.Discover == nil {
+		return
+	}
+	for _, p := range deps.Discover.GetVerifiedPeers() {
 		fpcService := p.Services().Get(service.FPCKey)
 		if fpcService == nil {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
 			// double check to exclude self
-			if p.ID() == local.GetInstance().ID() {
+			if p.ID() == deps.Local.ID() {
 				continue
 			}
 			manaValue := 0.0
@@ -334,10 +333,6 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 
 	return opinionGivers, nil
 }
-
-// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region PeerOpinionGiver /////////////////////////////////////////////////////////////////////////////////////////////
 
 // PeerOpinionGiver implements the OpinionGiver interface based on a peer.
 type PeerOpinionGiver struct {
@@ -399,23 +394,15 @@ func (pog *PeerOpinionGiver) Address() string {
 	return net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
 }
 
-// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OwnWeightsRetriever/////////////////////////////////////////////////////////////////////////////////////
-
 // OwnManaRetriever returns the current consensus mana of a vector
 func OwnManaRetriever() (float64, error) {
 	var ownMana float64
-	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
-	if v, ok := consensusManaNodes[local.GetInstance().ID()]; ok {
+	consensusManaNodes, _, err := messagelayer.GetManaMap(mana.ConsensusMana)
+	if v, ok := consensusManaNodes[deps.Local.ID()]; ok {
 		ownMana = v
 	}
 	return ownMana, err
 }
-
-// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OpinionRetriever /////////////////////////////////////////////////////////////////////////////////////////////
 
 // OpinionRetriever returns the current opinion of the given id.
 func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
@@ -426,12 +413,13 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 	default: // conflict type
 		transactionID, err := ledgerstate.TransactionIDFromBase58(id)
 		if err != nil {
-			plugin.LogErrorf("received invalid vote request for branch '%s'", id)
+			Plugin.LogErrorf("received invalid vote request for branch '%s'", id)
 
 			return opinion.Unknown
 		}
 
-		opinionEssence := ConsensusMechanism().TransactionOpinionEssence(transactionID)
+		consensusMechanism := deps.ConsensusMechanism.(*fcob.ConsensusMechanism)
+		opinionEssence := consensusMechanism.TransactionOpinionEssence(transactionID)
 
 		if opinionEssence.LevelOfKnowledge() == fcob.Pending {
 			return opinion.Unknown
@@ -445,17 +433,13 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 	}
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
-
 const (
 	maxPayloadRatio = 0.9
 )
 
 // checkEnoughMana function check whether a node with id is among the top holders of p percent of consensus mana mana
 func checkEnoughMana(id identity.ID, threshold float64) bool {
-	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
+	highestManaNodes, _, err := messagelayer.GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
 	enoughMana := true
 	if err == nil && threshold < 1.0 && len(highestManaNodes) > 0 {
 		enoughMana = false
@@ -478,14 +462,14 @@ func makeStatement(roundStats *vote.RoundStats, broadcastFunc func(conflicts sta
 		case vote.TimestampType:
 			timeStampStatement, err := makeTimeStampStatement(id, v)
 			if err != nil {
-				plugin.LogErrorf("Statement error: %s", errors.Errorf("Failed to create a TimeStamp statement: %w", err))
+				Plugin.LogErrorf("Statement error: %s", errors.Errorf("Failed to create a TimeStamp statement: %w", err))
 				break
 			}
 			timestamps = append(timestamps, timeStampStatement)
 		case vote.ConflictType:
 			conflictStatement, err := makeConflictStatement(id, v)
 			if err != nil {
-				plugin.LogErrorf("Statement error: %s", errors.Errorf("Failed to create a Conflict statement: %w", err))
+				Plugin.LogErrorf("Statement error: %s", errors.Errorf("Failed to create a Conflict statement: %w", err))
 				break
 			}
 			conflicts = append(conflicts, conflictStatement)
@@ -548,24 +532,24 @@ func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, er
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-	msg, err := Tangle().IssuePayload(statement.New(conflicts, timestamps))
+	msg, err := deps.Tangle.IssuePayload(statement.New(conflicts, timestamps))
 	if err != nil {
-		plugin.LogWarnf("error issuing statement: %s", err)
+		Plugin.LogWarnf("error issuing statement: %s", err)
 		return
 	}
 
-	plugin.LogDebugf("issued statement %s", msg.ID())
+	Plugin.LogDebugf("issued statement %s", msg.ID())
 }
 
 func readStatement(messageID tangle.MessageID) {
-	Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+	deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		messagePayload := msg.Payload()
 		if messagePayload.Type() != statement.StatementType {
 			return
 		}
 		statementPayload, ok := messagePayload.(*statement.Statement)
 		if !ok {
-			plugin.LogDebug("could not cast payload to statement object")
+			Plugin.LogDebug("could not cast payload to statement object")
 			return
 		}
 
@@ -576,33 +560,15 @@ func readStatement(messageID tangle.MessageID) {
 			return
 		}
 		// Skip ourselves
-		if issuerID == local.GetInstance().ID() {
+		if issuerID == deps.Local.ID() {
 			return
 		}
 
-		issuerRegistry := Registry().NodeView(issuerID)
-
+		issuerRegistry := deps.Registry.NodeView(issuerID)
 		issuerRegistry.AddConflicts(statementPayload.Conflicts)
-
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
-
 		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
-		Tangle().ConsensusManager.Events.StatementProcessed.Trigger(msg)
+
+		deps.Tangle.ConsensusManager.Events.StatementProcessed.Trigger(msg)
 	})
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// SetDRNGState sets the dRNGState to the given state.
-func SetDRNGState(state *drng.State) {
-	dRNGStateMutex.Lock()
-	defer dRNGStateMutex.Unlock()
-	dRNGState = state
-}
-
-// DRNGState returns the dRNGState.
-func DRNGState() *drng.State {
-	dRNGStateMutex.RLock()
-	defer dRNGStateMutex.RUnlock()
-	return dRNGState
 }

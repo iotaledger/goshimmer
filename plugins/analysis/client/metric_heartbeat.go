@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
@@ -31,8 +30,8 @@ func sendMetricHeartbeat(w io.Writer, hb *packet.MetricHeartbeat) {
 func createMetricHeartbeat() *packet.MetricHeartbeat {
 	// get own ID
 	nodeID := make([]byte, len(identity.ID{}))
-	if local.GetInstance() != nil {
-		copy(nodeID, local.GetInstance().ID().Bytes())
+	if deps.Local != nil {
+		copy(nodeID, deps.Local.ID().Bytes())
 	}
 
 	return &packet.MetricHeartbeat{

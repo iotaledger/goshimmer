@@ -12,16 +12,17 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
-      - AUTOPEERING_SEED={{ entryNodeSeed }}
+      - NODE_PEERDBDIRECTORY=/db/peerdb
+      - NODE_SEED={{ entryNodeSeed }}
       - PROFILING_BINDADDRESS=0.0.0.0:6060
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --autopeering.port=15626
+      --autoPeering.bindAddress=0.0.0.0:15626
       {% if networkVersion|default(None) %}
-      --autopeering.networkVersion={{ networkVersion }}
+      --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
-      --autopeering.entryNodes=
+      --autoPeering.entryNodes=
       --analysis.client.serverAddress=
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,metrics,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,dashboard,analysisClient,gossip,consensus,drng,issuer,syncBeaconFollower,metrics,messageLayer,mana,webAPI,webAPIBroadcastDataEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint
       --logger.level=debug

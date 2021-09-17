@@ -52,7 +52,7 @@ You can configure the wallet by creating a `config.json` file in the directory o
 ```json
 {
 	"WebAPI": "http://127.0.0.1:8080",
-	"basic_auth": {
+	"basicAuth": {
 	  "enabled": false,
 	  "username": "goshimmer",
 	  "password": "goshimmer"

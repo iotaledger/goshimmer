@@ -74,7 +74,7 @@ It is important to note, that consuming a new transaction and pledging its mana 
 confirmed on the node. At the same time, entries of the nodes whose mana is being modified during pledging in the
 `Base Mana Vector(s)` are updated with respect to time. In general, updates due to time happen whenever a node's mana is
 being accessed. Except for the aforementioned case, this could be for example a mana related query from an external
-module (FPC, Autopeering, DRNG, Rate Control, tools, etc.).
+module (FPC, AutoPeering, DRNG, Rate Control, tools, etc.).
 
 Following figure summarizes how `Access Mana` and `Consensus Mana` is derived from a transaction:
 

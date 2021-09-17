@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -19,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
@@ -27,26 +29,27 @@ import (
 
 // Core contains the core plugins of a GoShimmer node.
 var Core = node.Plugins(
-	banner.Plugin(),
-	config.Plugin(),
-	logger.Plugin(),
-	cli.Plugin(),
-	gracefulshutdown.Plugin(),
-	portcheck.Plugin(),
-	profiling.Plugin(),
-	database.Plugin(),
-	pow.Plugin(),
-	clock.Plugin(),
-	messagelayer.Plugin(),
-	messagelayer.ManaPlugin(),
-	manarefresher.Plugin(),
-	gossip.Plugin(),
-	autopeering.Plugin(),
-	manualpeering.Plugin(),
-	drng.Plugin(),
-	faucet.Plugin(),
-	messagelayer.ConsensusPlugin(),
-	metrics.Plugin(),
-	spammer.Plugin(),
-	manaeventlogger.Plugin(),
+	banner.Plugin,
+	config.Plugin,
+	logger.Plugin,
+	cli.Plugin,
+	gracefulshutdown.Plugin,
+	database.Plugin,
+	peer.Plugin,
+	portcheck.Plugin,
+	autopeering.Plugin,
+	manualpeering.Plugin,
+	profiling.Plugin,
+	pow.Plugin,
+	clock.Plugin,
+	messagelayer.Plugin,
+	gossip.Plugin,
+	messagelayer.ManaPlugin,
+	manarefresher.Plugin,
+	drng.Plugin,
+	faucet.Plugin,
+	consensus.Plugin,
+	metrics.Plugin,
+	spammer.Plugin,
+	manaeventlogger.Plugin,
 )
