@@ -96,6 +96,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 
 	mana := c.manaRetrieverFunc()
 	targetTime := c.timeRetrieverFunc()
+	fmt.Println("WeightsOfRelevantSupporters", targetTime, mana)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -109,6 +110,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 
 		// Determine whether node was active in time window.
 		if active, empty := al.Active(targetTime.Add(-activeTimeThreshold), targetTime); !active {
+			fmt.Println("Not active", nodeID)
 			if empty {
 				delete(c.activeNodes, nodeID)
 			}
