@@ -10,39 +10,39 @@ env:
 
 jobs:
 
-  autopeering:
-    name: autopeering
-    env:
-      TEST_NAME: autopeering
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Build GoShimmer image
-        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
-
-      - name: Pull additional Docker images
-        run: |
-          docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiaadm/pumba:0.7.2
-          docker pull gaiadocker/iproute2:latest
-
-      - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
+#  autopeering:
+#    name: autopeering
+#    env:
+#      TEST_NAME: autopeering
+#    runs-on: ubuntu-latest
+#    steps:
+#
+#      - name: Checkout repository
+#        uses: actions/checkout@v2
+#
+#      - name: Build GoShimmer image
+#        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+#
+#      - name: Pull additional Docker images
+#        run: |
+#          docker pull angelocapossele/drand:v1.1.4
+#          docker pull gaiaadm/pumba:0.7.2
+#          docker pull gaiadocker/iproute2:latest
+#
+#      - name: Run integration tests
+#        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+#
+#      - name: Create logs from tester
+#        if: always()
+#        run: |
+#          docker logs tester &> tools/integration-tests/logs/tester.log
+#
+#      - name: Save logs as artifacts
+#        if: always()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: ${{ env.TEST_NAME }}
+#          path: tools/integration-tests/logs
 
 
   common:
@@ -55,8 +55,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          install: true
+          buildkitd-flags: --debug
+          config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Build GoShimmer image
-        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+        run: docker build \
+        --build-arg DOWNLOAD_SNAPSHOT=0 \
+        --cache-from=type=local,src=/tmp/.buildx-cache \
+        --cache-to=type=local,mode=max,dest=/tmp/.buildx-cache
+        -t iotaledger/goshimmer .
 
       - name: Pull additional Docker images
         run: |
@@ -78,172 +100,172 @@ jobs:
           name: ${{ env.TEST_NAME }}
           path: tools/integration-tests/logs
 
-  consensus:
-    name: consensus
-    env:
-      TEST_NAME: consensus
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Build GoShimmer image
-        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
-
-      - name: Pull additional Docker images
-        run: |
-          docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiadocker/iproute2:latest
-
-      - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
-
-
-  drng:
-    name: drng
-    env:
-      TEST_NAME: drng
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Build GoShimmer image
-        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
-
-      - name: Pull additional Docker images
-        run: |
-          docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiadocker/iproute2:latest
-
-      - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
-
-
-  value:
-    name: value
-    env:
-      TEST_NAME: value
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Build GoShimmer image
-        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
-
-      - name: Pull additional Docker images
-        run: |
-          docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiadocker/iproute2:latest
-
-      - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
-
-  faucet:
-    name: faucet
-    env:
-      TEST_NAME: faucet
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Build GoShimmer image
-        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
-
-      - name: Pull additional Docker images
-        run: |
-          docker pull angelocapossele/drand:v1.1.4
-          docker pull gaiadocker/iproute2:latest
-
-      - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
-
-  mana:
-    name: mana
-    env:
-      TEST_NAME: mana
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Build GoShimmer image
-        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
-
-      - name: Pull additional Docker images
-        run: |
-          docker pull angelocapossele/drand:1.1.3
-          docker pull gaiadocker/iproute2:latest
-
-      - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
+#  consensus:
+#    name: consensus
+#    env:
+#      TEST_NAME: consensus
+#    runs-on: ubuntu-latest
+#    steps:
+#
+#      - name: Checkout repository
+#        uses: actions/checkout@v2
+#
+#      - name: Build GoShimmer image
+#        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+#
+#      - name: Pull additional Docker images
+#        run: |
+#          docker pull angelocapossele/drand:v1.1.4
+#          docker pull gaiadocker/iproute2:latest
+#
+#      - name: Run integration tests
+#        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+#
+#      - name: Create logs from tester
+#        if: always()
+#        run: |
+#          docker logs tester &> tools/integration-tests/logs/tester.log
+#
+#      - name: Save logs as artifacts
+#        if: always()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: ${{ env.TEST_NAME }}
+#          path: tools/integration-tests/logs
+#
+#
+#  drng:
+#    name: drng
+#    env:
+#      TEST_NAME: drng
+#    runs-on: ubuntu-latest
+#    steps:
+#
+#      - name: Checkout repository
+#        uses: actions/checkout@v2
+#
+#      - name: Build GoShimmer image
+#        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+#
+#      - name: Pull additional Docker images
+#        run: |
+#          docker pull angelocapossele/drand:v1.1.4
+#          docker pull gaiadocker/iproute2:latest
+#
+#      - name: Run integration tests
+#        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+#
+#      - name: Create logs from tester
+#        if: always()
+#        run: |
+#          docker logs tester &> tools/integration-tests/logs/tester.log
+#
+#      - name: Save logs as artifacts
+#        if: always()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: ${{ env.TEST_NAME }}
+#          path: tools/integration-tests/logs
+#
+#
+#  value:
+#    name: value
+#    env:
+#      TEST_NAME: value
+#    runs-on: ubuntu-latest
+#    steps:
+#
+#      - name: Checkout repository
+#        uses: actions/checkout@v2
+#
+#      - name: Build GoShimmer image
+#        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+#
+#      - name: Pull additional Docker images
+#        run: |
+#          docker pull angelocapossele/drand:v1.1.4
+#          docker pull gaiadocker/iproute2:latest
+#
+#      - name: Run integration tests
+#        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+#
+#      - name: Create logs from tester
+#        if: always()
+#        run: |
+#          docker logs tester &> tools/integration-tests/logs/tester.log
+#
+#      - name: Save logs as artifacts
+#        if: always()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: ${{ env.TEST_NAME }}
+#          path: tools/integration-tests/logs
+#
+#  faucet:
+#    name: faucet
+#    env:
+#      TEST_NAME: faucet
+#    runs-on: ubuntu-latest
+#    steps:
+#
+#      - name: Checkout repository
+#        uses: actions/checkout@v2
+#
+#      - name: Build GoShimmer image
+#        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+#
+#      - name: Pull additional Docker images
+#        run: |
+#          docker pull angelocapossele/drand:v1.1.4
+#          docker pull gaiadocker/iproute2:latest
+#
+#      - name: Run integration tests
+#        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+#
+#      - name: Create logs from tester
+#        if: always()
+#        run: |
+#          docker logs tester &> tools/integration-tests/logs/tester.log
+#
+#      - name: Save logs as artifacts
+#        if: always()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: ${{ env.TEST_NAME }}
+#          path: tools/integration-tests/logs
+#
+#  mana:
+#    name: mana
+#    env:
+#      TEST_NAME: mana
+#    runs-on: ubuntu-latest
+#    steps:
+#
+#      - name: Check out code
+#        uses: actions/checkout@v2
+#
+#      - name: Build GoShimmer image
+#        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+#
+#      - name: Pull additional Docker images
+#        run: |
+#          docker pull angelocapossele/drand:1.1.3
+#          docker pull gaiadocker/iproute2:latest
+#
+#      - name: Run integration tests
+#        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+#
+#      - name: Create logs from tester
+#        if: always()
+#        run: |
+#          docker logs tester &> tools/integration-tests/logs/tester.log
+#
+#      - name: Save logs as artifacts
+#        if: always()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: ${{ env.TEST_NAME }}
+#          path: tools/integration-tests/logs
 
   diagnostics:
     name: diagnostics
