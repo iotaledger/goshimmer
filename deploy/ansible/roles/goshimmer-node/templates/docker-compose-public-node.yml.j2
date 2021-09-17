@@ -39,7 +39,7 @@ services:
       {% if networkVersion|default(NOne) %}
       --autopeering.networkVersion={{ networkVersion }}
       {% endif %}
-      --node.disablePlugins=
+      --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
       --prometheus.bindAddress=0.0.0.0:9312
       {% if faucet|default(false) %}
