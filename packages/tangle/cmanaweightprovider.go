@@ -105,6 +105,8 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 	for nodeID, al := range c.activeNodes {
 		nodeMana := mana[nodeID]
 
+		// TODO: if a node does not fulfill the threshold we will never clean up its activityMap.
+		//  maybe never log it in first place?
 		// Skip node if it does not fulfill minimumManaThreshold.
 		if nodeMana <= minimumManaThreshold {
 			continue
