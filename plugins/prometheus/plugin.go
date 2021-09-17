@@ -38,7 +38,7 @@ var (
 
 type dependencies struct {
 	dig.In
-	AutopeeringPlugin     *node.Plugin `name:"autopeering"`
+	AutopeeringPlugin     *node.Plugin `name:"autopeering" optional:"true"`
 	Local                 *peer.Local
 	GossipMgr             *gossip.Manager `optional:"true"`
 	AutoPeeringConnMetric *net.ConnMetric `optional:"true"`
@@ -59,7 +59,7 @@ func configure(plugin *node.Plugin) {
 	}
 
 	if metrics.Parameters.Local {
-		if !node.IsSkipped(deps.AutopeeringPlugin) {
+		if deps.AutopeeringPlugin != nil {
 			registerAutopeeringMetrics()
 		}
 		registerDBMetrics()
