@@ -18,11 +18,12 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
+      --node.overwriteStoredSeed=true
       --autoPeering.bindAddress=0.0.0.0:15626
       {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --autoPeering.entryNodes=
       --analysis.client.serverAddress=
-      --node.disablePlugins=portcheck,dashboard,analysisClient,gossip,consensus,drng,issuer,syncBeaconFollower,metrics,messageLayer,mana,webAPI,webAPIBroadcastDataEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint
+      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPI,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint
       --logger.level=debug

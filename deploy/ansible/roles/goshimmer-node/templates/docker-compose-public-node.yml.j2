@@ -35,6 +35,7 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
+      --node.overwriteStoredSeed=true
       --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
       {% if networkVersion|default(NOne) %}
       --autopeering.networkVersion={{ networkVersion }}
