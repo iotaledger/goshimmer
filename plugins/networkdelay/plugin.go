@@ -44,7 +44,7 @@ type dependencies struct {
 	Local        *peer.Local
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
 	Server       *echo.Echo
-	ClockPlugin  *node.Plugin
+	ClockPlugin  *node.Plugin `name:"clock"`
 }
 
 // App gets the plugin instance.
