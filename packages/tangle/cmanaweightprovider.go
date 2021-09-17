@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"container/heap"
+	"fmt"
 	"sync"
 	"time"
 
@@ -62,6 +63,7 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 
 // Update updates the underlying data structure and keeps track of active nodes.
 func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
+	fmt.Println("CManaWeightProvider.Update", t, nodeID)
 	// We only want to log node activity that is relevant, i.e., node activity before TangleTime-activeTimeThreshold
 	// does not matter anymore since the TangleTime advances towards the present/future.
 	staleThreshold := c.timeRetrieverFunc().Add(-activeTimeThreshold)
@@ -79,6 +81,7 @@ func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 	}
 
 	a.Add(t)
+	fmt.Println("CManaWeightProvider.Update done", t, nodeID)
 }
 
 // Weight returns the weight and total weight for the given message.

@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -306,6 +307,10 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 }
 
 func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, message *Message, walk *walker.Walker) {
+	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
+	supporterWeight, totalWeight := a.tangle.WeightProvider.Weight(message)
+	fmt.Println("addSupportToMarker", supporterWeight, totalWeight, activeWeights)
+
 	// Avoid tracking support of markers in sequence 0.
 	if marker.SequenceID() == 0 || !a.isRelevantSupporter(message) {
 		return
