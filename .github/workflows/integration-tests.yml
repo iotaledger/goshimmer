@@ -65,6 +65,17 @@ jobs:
             [worker.oci]
               max-parallelism = 4
 
+      - name: Cache Go build and dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            /root/.cache/go-build
+            /root/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+# TODO: check which key to use
       - name: Cache Docker layers
         uses: actions/cache@v2
         with:
@@ -73,6 +84,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
+# TODO: is mode=max required? maybe we can shrink the cache size
       - name: Build GoShimmer image
         run: |
           docker build \
