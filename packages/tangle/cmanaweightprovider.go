@@ -269,6 +269,17 @@ func (a *activityLog) Active(lowerBound, upperBound time.Time) (active, empty bo
 	return false, true
 }
 
+// Times returns all times stored in this activityLog.
+func (a *activityLog) Times() (times []int64) {
+	times = make([]int64, 0, a.times.Len())
+
+	for _, u := range *a.times {
+		times = append(times, u)
+	}
+
+	return times
+}
+
 // String returns a human-readable version of activityLog.
 func (a *activityLog) String() string {
 	var builder strings.Builder
