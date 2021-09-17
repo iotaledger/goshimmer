@@ -51,11 +51,11 @@ type dependencies struct {
 
 	Node         *configuration.Configuration
 	Local        *peer.Local
+	Tangle       *tangle.Tangle
 	Selection    *selection.Protocol `optional:"true"`
 	GossipMgr    *gossip.Manager     `optional:"true"`
-	Tangle       *tangle.Tangle
-	DRNGInstance *drng.DRNG `optional:"true"`
-	Chat         *chat.Chat `optional:"true"`
+	DRNGInstance *drng.DRNG          `optional:"true"`
+	Chat         *chat.Chat          `optional:"true"`
 }
 
 func init() {

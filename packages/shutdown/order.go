@@ -31,6 +31,8 @@ const (
 	PriorityWebAPI
 	// PriorityDashboard defines the shutdown priority for dashboard.
 	PriorityDashboard
+	// PriorityBroadcast defines the shutdown priority for the broadcast plugin.
+	PriorityBroadcast
 	// PrioritySynchronization defines the shutdown priority for synchronization.
 	PrioritySynchronization
 	// PriorityManaRefresher defines the shutdown priority for the manarefresher plugin.

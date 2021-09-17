@@ -1,19 +1,18 @@
 package server
 
 import (
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/node"
-	"sync"
-
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"go.uber.org/atomic"
-
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/netutil/buffconn"
-
 	"fmt"
 	"io"
 	"net"
+	"sync"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/netutil/buffconn"
+	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 type connection struct {
@@ -37,13 +36,13 @@ func Listen(bindAddress string, log *node.Plugin, shutdownSignal <-chan struct{}
 
 	go func() {
 		for {
-			connection, err := listener.Accept()
-			if err != nil {
-				log.LogInfof("Couldn't accept connection: %s", err)
+			conn, acceptErr := listener.Accept()
+			if acceptErr != nil {
+				log.LogInfof("Couldn't accept connection: %s", acceptErr)
 				return
 			}
-			log.LogDebugf("Started connection: %s", connection.RemoteAddr().String())
-			go handleConnection(connection, log, shutdownSignal)
+			log.LogDebugf("Started connection: %s", conn.RemoteAddr().String())
+			go handleConnection(conn, log, shutdownSignal)
 		}
 	}()
 
