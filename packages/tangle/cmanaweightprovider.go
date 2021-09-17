@@ -3,6 +3,7 @@ package tangle
 import (
 	"container/heap"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,24 +40,24 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 		manaRetrieverFunc: manaRetrieverFunc,
 		timeRetrieverFunc: timeRetrieverFunc,
 	}
-	//TODO:
-	//if len(store) == 0 {
-	//	return
-	//}
-	//
-	//cManaWeightProvider.store = store[0]
-	//
-	//marshaledActiveNodes, err := cManaWeightProvider.store.Get(kvstore.Key(activeNodesKey))
-	//if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
-	//	panic(err)
-	//}
-	//// Load from storage if key was found.
-	//if marshaledActiveNodes != nil {
-	//	if cManaWeightProvider.activeNodes, err = activeNodesFromBytes(marshaledActiveNodes); err != nil {
-	//		panic(err)
-	//	}
-	//	return
-	//}
+
+	if len(store) == 0 {
+		return
+	}
+
+	cManaWeightProvider.store = store[0]
+
+	marshaledActiveNodes, err := cManaWeightProvider.store.Get(kvstore.Key(activeNodesKey))
+	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
+		panic(err)
+	}
+	// Load from storage if key was found.
+	if marshaledActiveNodes != nil {
+		if cManaWeightProvider.activeNodes, err = activeNodesFromBytes(marshaledActiveNodes); err != nil {
+			panic(err)
+		}
+		return
+	}
 
 	return
 }
@@ -76,7 +77,7 @@ func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 
 	a, exists := c.activeNodes[nodeID]
 	if !exists {
-		a = newNodeActivity()
+		a = newActivityLog()
 		c.activeNodes[nodeID] = a
 	}
 
@@ -96,6 +97,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 
 	mana := c.manaRetrieverFunc()
 	targetTime := c.timeRetrieverFunc()
+	lowerBoundTargetTime := targetTime.Add(-activeTimeThreshold)
 	fmt.Println("WeightsOfRelevantSupporters", targetTime, mana)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -109,7 +111,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 		}
 
 		// Determine whether node was active in time window.
-		if active, empty := al.Active(targetTime.Add(-activeTimeThreshold), targetTime); !active {
+		if active, empty := al.Active(lowerBoundTargetTime, targetTime); !active {
 			fmt.Println("Not active", nodeID)
 			if empty {
 				delete(c.activeNodes, nodeID)
@@ -126,22 +128,20 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 // Shutdown shuts down the WeightProvider and persists its state.
 func (c *CManaWeightProvider) Shutdown() {
 	if c.store != nil {
-		//TODO:
-		//_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodesToBytes(c.ActiveNodes()))
+		_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodesToBytes(c.ActiveNodes()))
 	}
 }
 
 // ActiveNodes returns the map of the active nodes.
-func (c *CManaWeightProvider) ActiveNodes() (activeNodes map[identity.ID]time.Time) {
-	activeNodes = make(map[identity.ID]time.Time)
+func (c *CManaWeightProvider) ActiveNodes() (activeNodes map[identity.ID]*activityLog) {
+	activeNodes = make(map[identity.ID]*activityLog)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	//TODO:
-	//for nodeID, t := range c.activeNodes {
-	//	activeNodes[nodeID] = t
-	//}
+	for nodeID, al := range c.activeNodes {
+		activeNodes[nodeID] = al.Clone()
+	}
 
 	return activeNodes
 }
@@ -156,8 +156,8 @@ type TimeRetrieverFunc func() time.Time
 
 // region activeNodes //////////////////////////////////////////////////////////////////////////////////////////////////
 
-func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]time.Time, err error) {
-	activeNodes = make(map[identity.ID]time.Time)
+func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]*activityLog, err error) {
+	activeNodes = make(map[identity.ID]*activityLog)
 
 	marshalUtil := marshalutil.New(bytes)
 	count, err := marshalUtil.ReadUint32()
@@ -165,6 +165,7 @@ func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]time.Time, 
 		err = errors.Errorf("failed to parse weight (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+
 	for i := uint32(0); i < count; i++ {
 		nodeID, idErr := identity.IDFromMarshalUtil(marshalUtil)
 		if idErr != nil {
@@ -172,25 +173,25 @@ func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]time.Time, 
 			return
 		}
 
-		lastSeenTime, timeErr := marshalUtil.ReadTime()
-		if timeErr != nil {
-			err = errors.Errorf("failed to parse weight (%v): %w", timeErr, cerrors.ErrParseBytesFailed)
+		a, aErr := activityLogFromMarshalUtil(marshalUtil)
+		if aErr != nil {
+			err = errors.Errorf("failed to parse activityLog from MarshalUtil: %w", aErr)
 			return
 		}
 
-		activeNodes[nodeID] = lastSeenTime
+		activeNodes[nodeID] = a
 	}
 
 	return
 }
 
-func activeNodesToBytes(activeNodes map[identity.ID]time.Time) []byte {
+func activeNodesToBytes(activeNodes map[identity.ID]*activityLog) []byte {
 	marshalUtil := marshalutil.New()
 
 	marshalUtil.WriteUint32(uint32(len(activeNodes)))
-	for nodeID, t := range activeNodes {
+	for nodeID, al := range activeNodes {
 		marshalUtil.Write(nodeID)
-		marshalUtil.WriteTime(t)
+		marshalUtil.Write(al)
 	}
 
 	return marshalUtil.Bytes()
@@ -215,16 +216,17 @@ type activityLog struct {
 	times    *minHeap
 }
 
-func newNodeActivity() *activityLog {
+// newActivityLog is the constructor for activityLog.
+func newActivityLog() *activityLog {
 	var mh minHeap
 
-	al := &activityLog{
+	a := &activityLog{
 		setTimes: set.New(),
 		times:    &mh,
 	}
-	heap.Init(al.times)
+	heap.Init(a.times)
 
-	return al
+	return a
 }
 
 // Add adds a node activity to the log.
@@ -246,25 +248,84 @@ func (a *activityLog) Active(lowerBound, upperBound time.Time) (active, empty bo
 
 	for a.times.Len() > 0 {
 		// Get the lowest element of the min-heap = the earliest time.
-		activity := (*a.times)[0]
+		earliestActivity := (*a.times)[0]
 
 		// We clean up possible stale times < lowerBound because we don't need them anymore.
-		if activity < lb {
-			a.setTimes.Delete(activity)
+		if earliestActivity < lb {
+			a.setTimes.Delete(earliestActivity)
 			heap.Pop(a.times)
 			continue
 		}
 
-		// Check if time is between lower and upper bound. Because of cleanup, activity >= lb is implicitly given.
-		if activity <= ub {
+		// Check if time is between lower and upper bound. Because of cleanup, earliestActivity >= lb is implicitly given.
+		if earliestActivity <= ub {
 			return true, false
 		}
-		// Otherwise, the node has active times in the future of upperBound.
+		// Otherwise, the node has active times in the future of upperBound but is not currently active.
 		return false, false
 	}
 
 	// If the heap is empty, there's no activity anymore and the object might potentially be cleaned up.
 	return false, true
+}
+
+// String returns a human-readable version of activityLog.
+func (a *activityLog) String() string {
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("activityLog(len=%d, elements=", a.times.Len()))
+	for _, u := range *a.times {
+		builder.WriteString(fmt.Sprintf("%d, ", u))
+	}
+	builder.WriteString(")")
+	return builder.String()
+}
+
+// Clone clones the activityLog.
+func (a *activityLog) Clone() *activityLog {
+	clone := newActivityLog()
+
+	for _, u := range *a.times {
+		clone.setTimes.Add(u)
+		heap.Push(clone.times, u)
+	}
+
+	return clone
+}
+
+// Bytes returns a marshaled version of the activityLog.
+func (a *activityLog) Bytes() (marshaledBranchWeight []byte) {
+	marshalUtil := marshalutil.New(marshalutil.Uint32Size + a.times.Len()*marshalutil.Int64Size)
+
+	marshalUtil.WriteUint32(uint32(a.times.Len()))
+	for _, u := range *a.times {
+		marshalUtil.WriteInt64(u)
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// activityLogFromMarshalUtil unmarshals an activityLog object using a MarshalUtil (for easier unmarshaling).
+func activityLogFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (a *activityLog, err error) {
+	a = newActivityLog()
+
+	var length uint32
+	if length, err = marshalUtil.ReadUint32(); err != nil {
+		err = errors.Errorf("failed to parse activity log length (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	// Iterate from top element to avoid reshuffling the heap.
+	for i := length; i > 0; i-- {
+		var unixTime int64
+		if unixTime, err = marshalUtil.ReadInt64(); err != nil {
+			err = errors.Errorf("failed to parse activity log unix time (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return
+		}
+		a.setTimes.Add(unixTime)
+		heap.Push(a.times, unixTime)
+	}
+
+	return
 }
 
 // minHeap is a
