@@ -257,7 +257,7 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingM
 		return nil
 	}).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.SetSource(StrongSolidificationSource) {
-			s.Solidify(messageMetadata.ID())
+			go s.Solidify(messageMetadata.ID())
 		}
 
 		solid = messageMetadata.IsSolid()

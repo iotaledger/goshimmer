@@ -223,12 +223,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 		storeDelay   = 5 * time.Millisecond
 	)
 
-	// create rocksdb store
-	rocksdb, err := testutil.RocksDB(t)
-	require.NoError(t, err)
-
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb))
+	tangle := NewTestTangle()
 	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.LedgerState.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
 
 	defer tangle.Shutdown()
