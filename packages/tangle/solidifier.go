@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -257,7 +258,9 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingM
 		return nil
 	}).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.SetSource(StrongSolidificationSource) {
-			go s.Solidify(messageMetadata.ID())
+			fmt.Println("SOLIDIFYING", messageMetadata.ID())
+			s.Solidify(messageMetadata.ID())
+			fmt.Println("SOLIDIFYING DONE", messageMetadata.ID())
 		}
 
 		solid = messageMetadata.IsSolid()
