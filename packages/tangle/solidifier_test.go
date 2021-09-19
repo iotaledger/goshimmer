@@ -1,21 +1,19 @@
 package tangle
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSolidifier(t *testing.T) {
 	sourceTangle := NewTestTangle()
 	defer sourceTangle.Shutdown()
-
-	sourceFramework := NewMessageTestFramework(sourceTangle)
-
 	sourceTangle.Setup()
 
+	sourceFramework := NewMessageTestFramework(sourceTangle)
 	sourceFramework.CreateMessage("Message1", WithStrongParents("Genesis"))
 	sourceFramework.CreateMessage("Message2", WithStrongParents("Genesis"))
 	sourceFramework.CreateMessage("Message3", WithStrongParents("Message1"))
@@ -28,7 +26,6 @@ func TestSolidifier(t *testing.T) {
 	destinationTangle.Setup()
 
 	destinationTangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("MISSING", messageID)
 		go func() {
 			sourceTangle.Storage.Message(messageID).Consume(func(message *Message) {
 				destinationTangle.Storage.StoreMessage(message)
@@ -36,29 +33,61 @@ func TestSolidifier(t *testing.T) {
 		}()
 	}))
 
-	destinationTangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
-		fmt.Println("MessageParsed", msgParsedEvent.Message)
-	}))
-
-	destinationTangle.Parser.Events.BytesRejected.Attach(events.NewClosure(func(bytesRejectedEvent *BytesRejectedEvent, err error) {
-		fmt.Println("BytesRejected", bytesRejectedEvent.Bytes)
-	}))
-
-	destinationTangle.Parser.Events.MessageRejected.Attach(events.NewClosure(func(messageRejectedEvent *MessageRejectedEvent, err error) {
-		fmt.Println("MessageRejected", messageRejectedEvent.Message, err)
-	}))
-
-	destinationTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("MessageSolid", messageID)
-	}))
-
-	destinationTangle.Solidifier.Events.MessageWeaklySolid.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("MessageWeaklySolid", messageID)
-	}))
-
-	fmt.Println("PROCESS")
-
 	destinationTangle.Storage.StoreMessage(sourceFramework.Message("Message5"))
 
-	time.Sleep(5 * time.Second)
+	assert.Eventually(t, func() bool {
+		return messagesSolid(destinationTangle, sourceFramework, "Message1", "Message3", "Message5") &&
+			messagesWeaklySolid(destinationTangle, sourceFramework, "Message1", "Message3", "Message4", "Message5") &&
+			!messagesExist(destinationTangle, sourceFramework, "Message2")
+	}, 5*time.Minute, 100*time.Millisecond)
+}
+
+func messagesExist(tangle *Tangle, messageTestFramework *MessageTestFramework, aliases ...string) bool {
+	for _, alias := range aliases {
+		if !messageExists(tangle, messageTestFramework.Message(alias).ID()) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func messagesSolid(tangle *Tangle, messageTestFramework *MessageTestFramework, aliases ...string) bool {
+	for _, alias := range aliases {
+		if !messageSolid(tangle, messageTestFramework.Message(alias).ID()) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func messagesWeaklySolid(tangle *Tangle, messageTestFramework *MessageTestFramework, aliases ...string) bool {
+	for _, alias := range aliases {
+		if !messageWeaklySolid(tangle, messageTestFramework.Message(alias).ID()) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func messageExists(tangle *Tangle, messageID MessageID) bool {
+	return tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {})
+}
+
+func messageSolid(tangle *Tangle, messageID MessageID) (isSolid bool) {
+	tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		isSolid = messageMetadata.IsSolid()
+	})
+
+	return
+}
+
+func messageWeaklySolid(tangle *Tangle, messageID MessageID) (isSolid bool) {
+	tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		isSolid = messageMetadata.IsSolid() || messageMetadata.IsWeaklySolid()
+	})
+
+	return
 }
