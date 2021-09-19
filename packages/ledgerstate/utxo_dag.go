@@ -396,17 +396,17 @@ func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetad
 }
 
 // updateConsumers updates the Consumers of the given Inputs to match the named SolidityType.
-func (u *UTXODAG) updateConsumers(consumedInputs Inputs, transactionID TransactionID, previousSolidityType, newSolidityType SolidityType) {
+func (u *UTXODAG) updateConsumers(consumedInputs Inputs, consumingTransactionID TransactionID, previousSolidityType, newSolidityType SolidityType) {
 	if previousSolidityType == newSolidityType {
 		return
 	}
 
 	for _, input := range consumedInputs {
 		if previousSolidityType != UndefinedSolidityType {
-			u.consumerStorage.Delete(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transactionID, previousSolidityType).Bytes())
+			u.consumerStorage.Delete(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), consumingTransactionID, previousSolidityType).Bytes())
 		}
 
-		u.consumerStorage.Store(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), transactionID, newSolidityType)).Release()
+		u.consumerStorage.Store(NewConsumer(input.(*UTXOInput).ReferencedOutputID(), consumingTransactionID, newSolidityType)).Release()
 	}
 }
 

@@ -1008,7 +1008,7 @@ func (m *MessageMetadata) IsWeaklySolid() (result bool) {
 	m.weaklySolidMutex.RLock()
 	defer m.weaklySolidMutex.RUnlock()
 
-	return m.solid
+	return m.weaklySolid
 }
 
 // SetWeaklySolid sets the message associated with this metadata as weakly solid.
