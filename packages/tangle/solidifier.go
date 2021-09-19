@@ -257,7 +257,7 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingM
 
 		return nil
 	}).Consume(func(messageMetadata *MessageMetadata) {
-		if messageMetadata.SetSource(StrongSolidificationSource) {
+		if false && messageMetadata.SetSource(StrongSolidificationSource) {
 			fmt.Println("SOLIDIFYING", messageMetadata.ID())
 			s.Solidify(messageMetadata.ID())
 			fmt.Println("SOLIDIFYING DONE", messageMetadata.ID())
