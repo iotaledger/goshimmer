@@ -19,7 +19,8 @@ func TestSolidifier(t *testing.T) {
 	sourceFramework.CreateMessage("Message3", WithStrongParents("Message1"))
 	sourceFramework.CreateMessage("Message4", WithStrongParents("Message2"))
 	sourceFramework.CreateMessage("Message5", WithStrongParents("Message3"), WithWeakParents("Message4"))
-	sourceFramework.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5").WaitMessagesBooked()
+	sourceFramework.CreateMessage("Message6", WithStrongParents("Message4"))
+	sourceFramework.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6").WaitMessagesBooked()
 
 	destinationTangle := NewTestTangle()
 	defer destinationTangle.Shutdown()
@@ -39,6 +40,12 @@ func TestSolidifier(t *testing.T) {
 		return messagesSolid(destinationTangle, sourceFramework, "Message1", "Message3", "Message5") &&
 			messagesWeaklySolid(destinationTangle, sourceFramework, "Message1", "Message3", "Message4", "Message5") &&
 			!messagesExist(destinationTangle, sourceFramework, "Message2")
+	}, 5*time.Minute, 100*time.Millisecond)
+
+	destinationTangle.Storage.StoreMessage(sourceFramework.Message("Message6"))
+
+	assert.Eventually(t, func() bool {
+		return messagesSolid(destinationTangle, sourceFramework, "Message1", "Message2", "Message3", "Message4", "Message5", "Message6")
 	}, 5*time.Minute, 100*time.Millisecond)
 }
 
