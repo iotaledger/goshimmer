@@ -108,7 +108,6 @@ func run(*node.Plugin) {
 
 	if deps.DRNGInstance != nil {
 		runDrngLiveFeed()
-		return
 	}
 
 	if deps.Chat != nil {
