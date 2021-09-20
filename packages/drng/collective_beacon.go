@@ -3,6 +3,8 @@ package drng
 import (
 	"bytes"
 	"crypto/sha512"
+	"fmt"
+
 	"github.com/cockroachdb/errors"
 
 	"github.com/drand/drand/chain"
@@ -67,16 +69,17 @@ func VerifyCollectiveBeacon(state *State, cb *CollectiveBeaconEvent) error {
 		return err
 	}
 
-	if len(state.Committee().DistributedPK) != 0 && !bytes.Equal(cb.Dpk, state.Committee().DistributedPK) {
-		return ErrDistributedPubKeyMismatch
+	wantedCommitteePubKey := state.Committee().DistributedPK
+	if len(state.Committee().DistributedPK) != 0 && !bytes.Equal(cb.Dpk, wantedCommitteePubKey) {
+		return fmt.Errorf("%w: distributed public key for committee %d is invalid, wanted %s, got %s", ErrDistributedPubKeyMismatch, state.Committee().InstanceID, wantedCommitteePubKey, cb.Dpk)
 	}
 
 	if cb.Round <= state.Randomness().Round {
-		return ErrInvalidRound
+		return fmt.Errorf("%w: collective beacon event round is %d, but current state is %d", ErrInvalidRound, cb.Round, state.Randomness().Round)
 	}
 
 	if cb.InstanceID != state.Committee().InstanceID {
-		return ErrInstanceIDMismatch
+		return fmt.Errorf("%w: wanted %d instance ID but got %d from collective beacon event", ErrInstanceIDMismatch, state.Committee().InstanceID, cb.InstanceID)
 	}
 
 	if err := verifySignature(cb); err != nil {
@@ -93,7 +96,7 @@ func verifyIssuer(state *State, issuer ed25519.PublicKey) error {
 			return nil
 		}
 	}
-	return ErrInvalidIssuer
+	return fmt.Errorf("%w: issuer %s not found in committee %d", ErrInvalidIssuer, issuer.String(), state.Committee().InstanceID)
 }
 
 // verifySignature checks the current signature against the distributed public key.
