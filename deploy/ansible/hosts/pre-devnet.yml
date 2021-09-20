@@ -36,6 +36,7 @@ goshimmers:
     analysisServerHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
     entryNodeHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
     remoteLoggerHost: "metrics-01.pre-devnet.shimmer.iota.cafe"
+    logLevel: "debug"
 
 drands:
   hosts:
