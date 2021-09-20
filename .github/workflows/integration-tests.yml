@@ -65,16 +65,6 @@ jobs:
             [worker.oci]
               max-parallelism = 4
 
-      - name: Cache Go build and dependencies
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
 # TODO: check which key to use
       - name: Cache Docker layers
         uses: actions/cache@v2
@@ -102,22 +92,22 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-      - name: Run integration tests
-        run: |
-          docker-compose build -f tools/integration-tests/tester/docker-compose.yml
-          docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
+#      - name: Run integration tests
+#        run: |
+#          docker-compose build -f tools/integration-tests/tester/docker-compose.yml
+#          docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester
+#
+#      - name: Create logs from tester
+#        if: always()
+#        run: |
+#          docker logs tester &> tools/integration-tests/logs/tester.log
+#
+#      - name: Save logs as artifacts
+#        if: always()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: ${{ env.TEST_NAME }}
+#          path: tools/integration-tests/logs
 
 #  consensus:
 #    name: consensus
@@ -286,30 +276,30 @@ jobs:
 #          name: ${{ env.TEST_NAME }}
 #          path: tools/integration-tests/logs
 
-  diagnostics:
-    name: diagnostics
-    env:
-      TEST_NAME: diagnostics
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Build GoShimmer image
-        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
-
-      - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
-
-      - name: Create logs from tester
-        if: always()
-        run: |
-          docker logs tester &> tools/integration-tests/logs/tester.log
-
-      - name: Save logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ env.TEST_NAME }}
-          path: tools/integration-tests/logs
+#  diagnostics:
+#    name: diagnostics
+#    env:
+#      TEST_NAME: diagnostics
+#    runs-on: ubuntu-latest
+#    steps:
+#
+#      - name: Check out code
+#        uses: actions/checkout@v2
+#
+#      - name: Build GoShimmer image
+#        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+#
+#      - name: Run integration tests
+#        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+#
+#      - name: Create logs from tester
+#        if: always()
+#        run: |
+#          docker logs tester &> tools/integration-tests/logs/tester.log
+#
+#      - name: Save logs as artifacts
+#        if: always()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: ${{ env.TEST_NAME }}
+#          path: tools/integration-tests/logs
