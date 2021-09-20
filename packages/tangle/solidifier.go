@@ -256,6 +256,8 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingM
 
 		return nil
 	}).Consume(func(messageMetadata *MessageMetadata) {
+		// if we upgraded from a WeakSolidificationSource: do a proper check with eventual requests of missing parents
+		// instead of relying on the flag in the metadata.
 		if messageMetadata.SetSource(StrongSolidificationSource) {
 			s.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
 				solid = s.isMessageSolid(message, messageMetadata, true)
