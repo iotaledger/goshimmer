@@ -41,13 +41,12 @@ func TestSolidifier(t *testing.T) {
 			messagesWeaklySolid(destinationTangle, sourceFramework, "Message1", "Message3", "Message4", "Message5") &&
 			!messagesExist(destinationTangle, sourceFramework, "Message2")
 	}, 5*time.Minute, 100*time.Millisecond)
-	/*
-		destinationTangle.Storage.StoreMessage(sourceFramework.Message("Message6"))
 
-		assert.Eventually(t, func() bool {
-			return messagesSolid(destinationTangle, sourceFramework, "Message1", "Message2", "Message3", "Message4", "Message5", "Message6")
-		}, 5*time.Minute, 100*time.Millisecond)
-	*/
+	destinationTangle.Storage.StoreMessage(sourceFramework.Message("Message6"))
+
+	assert.Eventually(t, func() bool {
+		return messagesSolid(destinationTangle, sourceFramework, "Message1", "Message2", "Message3", "Message4", "Message5", "Message6")
+	}, 5*time.Minute, 100*time.Millisecond)
 }
 
 func messagesExist(tangle *Tangle, messageTestFramework *MessageTestFramework, aliases ...string) bool {
