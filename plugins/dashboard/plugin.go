@@ -106,7 +106,7 @@ func run(*node.Plugin) {
 	runVisualizer()
 	runManaFeed()
 
-	if deps.DRNGInstance == nil {
+	if deps.DRNGInstance != nil {
 		runDrngLiveFeed()
 		return
 	}
