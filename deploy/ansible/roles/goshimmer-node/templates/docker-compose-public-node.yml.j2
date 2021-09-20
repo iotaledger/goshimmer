@@ -51,7 +51,7 @@ services:
       --pow.difficulty=22
       --pow.numThreads=7
       --pow.timeout=60s
-      --logger.level=info
+      --logger.level={{ logLevel }}
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       {% if bootstrap|default(false) %}
