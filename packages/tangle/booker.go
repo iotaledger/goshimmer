@@ -99,7 +99,6 @@ func (b *Booker) run() {
 // as booked. Following, the message branch is set, and it can continue in the dataflow to add support to the determined
 // branches and markers.
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
-	fmt.Println("Booking ...", messageID)
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			// Don't book the same message more than once!
@@ -148,16 +147,11 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				}
 			}
 
-			message.ForEachParent(func(parent Parent) {
-				fmt.Println(parent)
-			})
-
 			messageMetadata.SetBooked(true)
 
 			b.Events.MessageBooked.Trigger(message.ID())
 		})
 	})
-	fmt.Println("Booking ... done", messageID)
 
 	return
 }

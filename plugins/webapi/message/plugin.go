@@ -90,7 +90,6 @@ func GetMessageMetadata(c echo.Context) (err error) {
 	}
 
 	if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		fmt.Println(messageMetadata)
 		err = c.JSON(http.StatusOK, NewMessageMetadata(messageMetadata))
 	}) {
 		return
