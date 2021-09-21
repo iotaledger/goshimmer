@@ -70,9 +70,13 @@ jobs:
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             -t iotaledger/goshimmer .
 
+      - name: Run integration tests
+        run: |
+          docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester
+
 
   common:
-    name: common
+    name: common (cached Go modules)
     env:
       TEST_NAME: common
     runs-on: ubuntu-latest
@@ -91,36 +95,23 @@ jobs:
             [worker.oci]
               max-parallelism = 4
 
-      - name: Cache Docker layers
+      - name: Cache Go modules for tester container
         uses: actions/cache@v2
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          path: /tmp/go
+          key: ${{ runner.os }}-it-go-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-it-go-
 
-# TODO: is mode=max required? maybe we can shrink the cache size
       - name: Build GoShimmer image
         run: |
           docker build \
             --build-arg DOWNLOAD_SNAPSHOT=0 \
-            --cache-from=type=local,src=/tmp/.buildx-cache \
-            --cache-to=type=local,mode=min,dest=/tmp/.buildx-cache-new \
-            --load \
             -t iotaledger/goshimmer .
 
-      # Temporary fix for bloated cache size
-      # https://github.com/docker/build-push-action/issues/252
-      # https://github.com/moby/buildkit/issues/1896
-      - name: Move cache
+      - name: Run integration tests
         run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
-#      - name: Run integration tests
-#        run: |
-#          docker-compose build -f tools/integration-tests/tester/docker-compose.yml
-#          docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester
+          docker-compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
 #
 #      - name: Create logs from tester
 #        if: always()
