@@ -1,4 +1,4 @@
-package remotelogmetrics
+package remotemetrics
 
 import (
 	"sync"
