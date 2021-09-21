@@ -97,6 +97,9 @@ func (b *Booker) run() {
 // It fires a MessageBooked event if it succeeds.
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	fmt.Println("Book message", messageID)
+	fmt.Println("Book message", messageID)
+	fmt.Println("Book message", messageID)
+	fmt.Println("Book message", messageID)
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			// don't book the same message more than once!
