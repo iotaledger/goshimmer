@@ -78,7 +78,8 @@ jobs:
       - name: Cache Go modules for tester container
         uses: actions/cache@v2
         with:
-          path: /tmp/go
+          path: |
+            ~/go
           key: ${{ runner.os }}-it-go-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-it-go-

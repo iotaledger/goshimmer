@@ -13,7 +13,8 @@ services:
       - ../../..:/tmp/goshimmer:rw
       - ../logs:/tmp/logs
       - ../assets:/tmp/assets
-      - /tmp/go:/go
+      - ~/go/pkg:/go
+      - ~/go/cache:/root/.cache/go-build
       - goshimmer-testing-assets:/assets
 
 volumes:
