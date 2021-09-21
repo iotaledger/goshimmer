@@ -28,7 +28,7 @@ const (
 type CManaWeightProvider struct {
 	store             kvstore.KVStore
 	mutex             sync.RWMutex
-	activeNodes       map[identity.ID]*activityLog
+	activeNodes       map[identity.ID]*ActivityLog
 	manaRetrieverFunc ManaRetrieverFunc
 	timeRetrieverFunc TimeRetrieverFunc
 }
@@ -36,7 +36,7 @@ type CManaWeightProvider struct {
 // NewCManaWeightProvider is the constructor for CManaWeightProvider.
 func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
 	cManaWeightProvider = &CManaWeightProvider{
-		activeNodes:       make(map[identity.ID]*activityLog),
+		activeNodes:       make(map[identity.ID]*ActivityLog),
 		manaRetrieverFunc: manaRetrieverFunc,
 		timeRetrieverFunc: timeRetrieverFunc,
 	}
@@ -64,7 +64,6 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 
 // Update updates the underlying data structure and keeps track of active nodes.
 func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
-	fmt.Println("CManaWeightProvider.Update", t, nodeID)
 	// We only want to log node activity that is relevant, i.e., node activity before TangleTime-activeTimeThreshold
 	// does not matter anymore since the TangleTime advances towards the present/future.
 	staleThreshold := c.timeRetrieverFunc().Add(-activeTimeThreshold)
@@ -77,12 +76,11 @@ func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 
 	a, exists := c.activeNodes[nodeID]
 	if !exists {
-		a = newActivityLog()
+		a = NewActivityLog()
 		c.activeNodes[nodeID] = a
 	}
 
 	a.Add(t)
-	fmt.Println("CManaWeightProvider.Update done", t, nodeID)
 }
 
 // Weight returns the weight and total weight for the given message.
@@ -98,26 +96,24 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 	mana := c.manaRetrieverFunc()
 	targetTime := c.timeRetrieverFunc()
 	lowerBoundTargetTime := targetTime.Add(-activeTimeThreshold)
-	fmt.Println("WeightsOfRelevantSupporters", targetTime, mana)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	for nodeID, al := range c.activeNodes {
 		nodeMana := mana[nodeID]
 
-		// TODO: if a node does not fulfill the threshold we will never clean up its activityMap.
-		//  maybe never log it in first place?
-		// Skip node if it does not fulfill minimumManaThreshold.
-		if nodeMana <= minimumManaThreshold {
-			continue
-		}
-
 		// Determine whether node was active in time window.
 		if active, empty := al.Active(lowerBoundTargetTime, targetTime); !active {
-			fmt.Println("Not active", nodeID)
 			if empty {
 				delete(c.activeNodes, nodeID)
 			}
+			continue
+		}
+
+		// Do this check after determining whether a node was active because otherwise we would never clean up
+		// the ActivityLog of nodes lower than the threshold.
+		// Skip node if it does not fulfill minimumManaThreshold.
+		if nodeMana <= minimumManaThreshold {
 			continue
 		}
 
@@ -135,8 +131,8 @@ func (c *CManaWeightProvider) Shutdown() {
 }
 
 // ActiveNodes returns the map of the active nodes.
-func (c *CManaWeightProvider) ActiveNodes() (activeNodes map[identity.ID]*activityLog) {
-	activeNodes = make(map[identity.ID]*activityLog)
+func (c *CManaWeightProvider) ActiveNodes() (activeNodes map[identity.ID]*ActivityLog) {
+	activeNodes = make(map[identity.ID]*ActivityLog)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -158,8 +154,8 @@ type TimeRetrieverFunc func() time.Time
 
 // region activeNodes //////////////////////////////////////////////////////////////////////////////////////////////////
 
-func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]*activityLog, err error) {
-	activeNodes = make(map[identity.ID]*activityLog)
+func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]*ActivityLog, err error) {
+	activeNodes = make(map[identity.ID]*ActivityLog)
 
 	marshalUtil := marshalutil.New(bytes)
 	count, err := marshalUtil.ReadUint32()
@@ -177,7 +173,7 @@ func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]*activityLo
 
 		a, aErr := activityLogFromMarshalUtil(marshalUtil)
 		if aErr != nil {
-			err = errors.Errorf("failed to parse activityLog from MarshalUtil: %w", aErr)
+			err = errors.Errorf("failed to parse ActivityLog from MarshalUtil: %w", aErr)
 			return
 		}
 
@@ -187,7 +183,7 @@ func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]*activityLo
 	return
 }
 
-func activeNodesToBytes(activeNodes map[identity.ID]*activityLog) []byte {
+func activeNodesToBytes(activeNodes map[identity.ID]*ActivityLog) []byte {
 	marshalUtil := marshalutil.New()
 
 	marshalUtil.WriteUint32(uint32(len(activeNodes)))
@@ -201,7 +197,7 @@ func activeNodesToBytes(activeNodes map[identity.ID]*activityLog) []byte {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region activityLog //////////////////////////////////////////////////////////////////////////////////////////////////
+// region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // granularity defines the granularity in seconds with which we log node activities.
 const granularity = 60
@@ -211,18 +207,18 @@ func timeToUnixGranularity(t time.Time) int64 {
 	return t.Unix() / granularity
 }
 
-// activityLog is a time-based log of node activity. It stores information when a node was active and provides
+// ActivityLog is a time-based log of node activity. It stores information when a node was active and provides
 // functionality to query for certain timeframes.
-type activityLog struct {
+type ActivityLog struct {
 	setTimes set.Set
 	times    *minHeap
 }
 
-// newActivityLog is the constructor for activityLog.
-func newActivityLog() *activityLog {
+// NewActivityLog is the constructor for ActivityLog.
+func NewActivityLog() *ActivityLog {
 	var mh minHeap
 
-	a := &activityLog{
+	a := &ActivityLog{
 		setTimes: set.New(),
 		times:    &mh,
 	}
@@ -232,7 +228,7 @@ func newActivityLog() *activityLog {
 }
 
 // Add adds a node activity to the log.
-func (a *activityLog) Add(t time.Time) (added bool) {
+func (a *ActivityLog) Add(t time.Time) (added bool) {
 	u := timeToUnixGranularity(t)
 	if !a.setTimes.Add(u) {
 		return false
@@ -245,7 +241,7 @@ func (a *activityLog) Add(t time.Time) (added bool) {
 // Active returns true if the node was active between lower and upper bound.
 // It cleans up the log on the fly, meaning that old/stale times are deleted.
 // If the log ends up empty after cleaning up, empty is set to true.
-func (a *activityLog) Active(lowerBound, upperBound time.Time) (active, empty bool) {
+func (a *ActivityLog) Active(lowerBound, upperBound time.Time) (active, empty bool) {
 	lb, ub := timeToUnixGranularity(lowerBound), timeToUnixGranularity(upperBound)
 
 	for a.times.Len() > 0 {
@@ -271,8 +267,8 @@ func (a *activityLog) Active(lowerBound, upperBound time.Time) (active, empty bo
 	return false, true
 }
 
-// Times returns all times stored in this activityLog.
-func (a *activityLog) Times() (times []int64) {
+// Times returns all times stored in this ActivityLog.
+func (a *ActivityLog) Times() (times []int64) {
 	times = make([]int64, 0, a.times.Len())
 
 	for _, u := range *a.times {
@@ -282,10 +278,10 @@ func (a *activityLog) Times() (times []int64) {
 	return times
 }
 
-// String returns a human-readable version of activityLog.
-func (a *activityLog) String() string {
+// String returns a human-readable version of ActivityLog.
+func (a *ActivityLog) String() string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("activityLog(len=%d, elements=", a.times.Len()))
+	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.times.Len()))
 	for _, u := range *a.times {
 		builder.WriteString(fmt.Sprintf("%d, ", u))
 	}
@@ -293,9 +289,9 @@ func (a *activityLog) String() string {
 	return builder.String()
 }
 
-// Clone clones the activityLog.
-func (a *activityLog) Clone() *activityLog {
-	clone := newActivityLog()
+// Clone clones the ActivityLog.
+func (a *ActivityLog) Clone() *ActivityLog {
+	clone := NewActivityLog()
 
 	for _, u := range *a.times {
 		clone.setTimes.Add(u)
@@ -305,8 +301,8 @@ func (a *activityLog) Clone() *activityLog {
 	return clone
 }
 
-// Bytes returns a marshaled version of the activityLog.
-func (a *activityLog) Bytes() (marshaledBranchWeight []byte) {
+// Bytes returns a marshaled version of the ActivityLog.
+func (a *ActivityLog) Bytes() (marshaledBranchWeight []byte) {
 	marshalUtil := marshalutil.New(marshalutil.Uint32Size + a.times.Len()*marshalutil.Int64Size)
 
 	marshalUtil.WriteUint32(uint32(a.times.Len()))
@@ -317,9 +313,9 @@ func (a *activityLog) Bytes() (marshaledBranchWeight []byte) {
 	return marshalUtil.Bytes()
 }
 
-// activityLogFromMarshalUtil unmarshals an activityLog object using a MarshalUtil (for easier unmarshaling).
-func activityLogFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (a *activityLog, err error) {
-	a = newActivityLog()
+// activityLogFromMarshalUtil unmarshals an ActivityLog object using a MarshalUtil (for easier unmarshaling).
+func activityLogFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (a *ActivityLog, err error) {
+	a = NewActivityLog()
 
 	var length uint32
 	if length, err = marshalUtil.ReadUint32(); err != nil {

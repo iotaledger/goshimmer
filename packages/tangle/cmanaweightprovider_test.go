@@ -17,9 +17,9 @@ func TestActiveNodesMarshalling(t *testing.T) {
 		"node3": identity.GenerateIdentity().ID(),
 	}
 
-	activeNodes := make(map[identity.ID]*activityLog)
+	activeNodes := make(map[identity.ID]*ActivityLog)
 	for _, nodeID := range nodes {
-		a := newActivityLog()
+		a := NewActivityLog()
 
 		for i := 0; i < crypto.Randomness.Intn(100); i++ {
 			a.Add(time.Now().Add(time.Duration(i)*time.Minute + time.Hour))
