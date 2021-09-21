@@ -210,7 +210,11 @@ func runManaPlugin(_ *node.Plugin) {
 
 				// initialize cMana WeightProvider with snapshot
 				t := time.Unix(tangle.DefaultGenesisTime, 0)
+				genesisNodeID := identity.ID{}
 				for nodeID := range GetCMana() {
+					if nodeID == genesisNodeID {
+						continue
+					}
 					Tangle().WeightProvider.Update(t, nodeID)
 				}
 
