@@ -44,6 +44,32 @@ jobs:
 #          name: ${{ env.TEST_NAME }}
 #          path: tools/integration-tests/logs
 
+  common-no-cache:
+    name: common (no cache)
+    env:
+      TEST_NAME: common
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          install: true
+          buildkitd-flags: --debug
+          config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+
+      - name: Build GoShimmer image
+        run: |
+          docker build \
+            --build-arg DOWNLOAD_SNAPSHOT=0 \
+            -t iotaledger/goshimmer .
+
 
   common:
     name: common
@@ -65,7 +91,6 @@ jobs:
             [worker.oci]
               max-parallelism = 4
 
-# TODO: check which key to use
       - name: Cache Docker layers
         uses: actions/cache@v2
         with:
