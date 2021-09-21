@@ -105,7 +105,7 @@ jobs:
           docker build \
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             --cache-from=type=local,src=/tmp/.buildx-cache \
-            --cache-to=type=local,mode=max,dest=/tmp/.buildx-cache-new \
+            --cache-to=type=local,mode=min,dest=/tmp/.buildx-cache-new \
             --load \
             -t iotaledger/goshimmer .
 
