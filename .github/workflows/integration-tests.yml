@@ -78,6 +78,35 @@ jobs:
           name: ${{ env.TEST_NAME }}
           path: tools/integration-tests/logs
 
+  consensus:
+    name: consensus
+    env:
+      TEST_NAME: consensus
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Build GoShimmer image
+        run: docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer .
+
+
+      - name: Run integration tests
+        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+
+      - name: Create logs from tester
+        if: always()
+        run: |
+          docker logs tester &> tools/integration-tests/logs/tester.log
+
+      - name: Save logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ env.TEST_NAME }}
+          path: tools/integration-tests/logs
+
   drng:
     name: drng
     env:

@@ -16,6 +16,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// Nodes is a slice of Node(s).
+type Nodes = []*Node
+
 // Node represents a GoShimmer node inside the Docker network
 type Node struct {
 	conf config.GoShimmer

@@ -13,6 +13,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/client"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
@@ -59,9 +60,12 @@ func newFramework(ctx context.Context) (*Framework, error) {
 	return f, nil
 }
 
+// CfgAlterFunc is a function called with the given peer's index and its configuration
+type CfgAlterFunc func(peerIndex int, cfg config.GoShimmer) config.GoShimmer
+
 // CreateNetwork creates and returns a network that contains numPeers GoShimmer peers.
 // It blocks until all peers are connected.
-func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int, conf CreateNetworkConfig) (*Network, error) {
+func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int, conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
 	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
@@ -69,13 +73,12 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 
 	// an entry node is only required for autopeering
 	if conf.Autopeering {
-		err = network.createEntryNode(ctx)
-		if err != nil {
+		if err = network.createEntryNode(ctx); err != nil {
 			return nil, errors.Wrap(err, "failed to create entry node")
 		}
 	}
 
-	err = network.createPeers(ctx, numPeers, conf)
+	err = network.createPeers(ctx, numPeers, conf, cfgAlterFunc...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create peers")
 	}
@@ -102,7 +105,7 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 
 // CreateNetworkWithPartitions creates and returns a network that contains numPeers GoShimmer nodes
 // distributed over numPartitions partitions. It blocks until all peers are connected.
-func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string, numPeers, numPartitions int, conf CreateNetworkConfig) (*Network, error) {
+func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string, numPeers, numPartitions int, conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
 	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
@@ -113,8 +116,7 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 
 	// create an entry node with blocked traffic
 	log.Println("Starting entry node...")
-	err = network.createEntryNode(ctx)
-	if err != nil {
+	if err = network.createEntryNode(ctx); err != nil {
 		return nil, err
 	}
 	pumba, err := network.createPumba(ctx, network.entryNode, nil)
@@ -125,8 +127,7 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	time.Sleep(graceTimePumba)
 	log.Println("Starting entry node... done")
 
-	err = network.createPeers(ctx, numPeers, conf)
-	if err != nil {
+	if err = network.createPeers(ctx, numPeers, conf, cfgAlterFunc...); err != nil {
 		return nil, err
 	}
 

@@ -308,6 +308,9 @@ func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID ma
 	}
 }
 
+// ExpectedAddrsBalances is a map of base58 encoded addresses to the balances they should hold.
+type ExpectedAddrsBalances map[string]map[ledgerstate.Color]uint64
+
 // RequireBalancesEqual asserts that all nodes report the balances as specified in balancesByAddress.
 func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddress map[string]map[ledgerstate.Color]uint64) {
 	for _, node := range nodes {
@@ -390,9 +393,12 @@ func RequireTransactionsEqual(t *testing.T, nodes []*framework.Node, transaction
 	}
 }
 
+// ExpectedTxsStates is a map of base58 encoded transactionIDs to their ExpectedState(s).
+type ExpectedTxsStates map[string]ExpectedState
+
 // RequireGradeOfFinalityEqual asserts that all nodes have received the transaction and have correct expectedStates
 // in waitFor time, periodically checking each tick.
-func RequireGradeOfFinalityEqual(t *testing.T, nodes []*framework.Node, expectedStates map[string]ExpectedState, waitFor time.Duration, tick time.Duration) {
+func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedStates ExpectedTxsStates, waitFor time.Duration, tick time.Duration) {
 	condition := func() bool {
 		for _, node := range nodes {
 			for txID, expInclState := range expectedStates {
