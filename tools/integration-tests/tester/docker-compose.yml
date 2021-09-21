@@ -6,6 +6,7 @@ services:
     image: golang@sha256:cefedeae41e0bbbfa20bb1c37c3a43e0001fa541be9732f7bc6a28ecc154e9e4
     working_dir: /tmp/goshimmer/tools/integration-tests/tester
     command: /tmp/assets/entrypoint.sh
+    user: ${CURRENT_UID}
     environment:
       - TEST_NAME=${TEST_NAME}
     volumes:
