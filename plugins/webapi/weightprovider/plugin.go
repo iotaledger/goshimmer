@@ -3,7 +3,6 @@ package weightprovider
 import (
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -35,9 +34,9 @@ func configure(_ *node.Plugin) {
 func getNodesHandler(c echo.Context) (err error) {
 	activeNodes := messagelayer.Tangle().WeightProvider.(*tangle.CManaWeightProvider).ActiveNodes()
 
-	activeNodesString := make(map[string]time.Time)
-	for nodeID, t := range activeNodes {
-		activeNodesString[nodeID.String()] = t
+	activeNodesString := make(map[string][]int64)
+	for nodeID, al := range activeNodes {
+		activeNodesString[nodeID.String()] = al.Times()
 	}
 
 	return c.JSON(http.StatusOK, activeNodesString)
