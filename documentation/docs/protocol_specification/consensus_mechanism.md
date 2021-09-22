@@ -118,6 +118,41 @@ Then, the committee moves to the next round and reiterates the above process. Fo
 This process ensures that every new random value depends on all previously generated signatures. 
 If you are interested in knowing more about drand, we recommend you to check out their [Github repository](https://github.com/drand/drand).
 
+## On-Tangle-Voting (OTV)
+OTV is based on virtual voting on the tangle. It braodcasts the opinions of nodes on the DAgs. We simply follow the heavier branch to set the initial opinion.
+OTV uses active consensus mana as a sybil protection mechanim. This gives us a notion of which node is active and a perception of which nodes support which branch/messages.
+Every node can express its opinion by attaching a message to the tangle (via means of the like switch). 
+
+Pros:
+1. More lightweight and efficient
+2. much simpler to understand
+
+In the examples below, the arrows represent transactions with their respective AW. The arrows in bold are the liked branches. 
+The white boxes are outputs, and the coloured boxes are branches.
+
+1. Case 1
+![case 1](/img/protocol_specification/otv_1.png)
+In this scenario, the branch of txA has a higher AW so its liked while the branch of txB is disliked.
+
+2. Case 2
+![case 2](/img/protocol_specification/otv_2.png)
+Here, there are 2 conflict sets. (B/A) and (A/C). In B/A, txB is liked because it has higher AW. In A/C, txC is liked.
+
+3. Case 3
+![case 3](/img/protocol_specification/otv_3.png)
+In case all the branches have the same AW, we like the branch with the smallest lexicographic branch ID.
+ 
+## Liked Switch and Modular conflict selection function
+The like switch mechanism prevents orphanage of messages if nodes vote for "wrong" branches. 
+To issue a message, a node select tips randomly without caring about their branches. Then, we ask OTV which of these branches are liked by invoking a conflict selection function.
+A like reference implies that all the branches conflicting with the liked branch are excluded from the vote/branch of the newly created message.
+
+![Like Switch](/img/protocol_specification/otv_like_switch.png)
+In this exmaple, we want to create message `13`.
+Assume that tip selection return messages `11` and `5`. According to OTV, we will like mesage `B` (W = 0.5) and `C` (W = 0.4) because they have higher AW.
+Hence, A and B will be set as the like references for the new message.
+
+
 ## Approval Weight (AW)
 Approval weight represents the [weight](#active-consensus-mana) of branches (and messages), similar to the longest chain rule in Nakamoto consensus. However, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). This process is also known as virtual voting, and has been previously described in [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
 
