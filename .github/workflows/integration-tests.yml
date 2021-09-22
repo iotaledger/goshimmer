@@ -80,8 +80,10 @@ jobs:
         with:
           path: |
             ~/go
-          key: ${{ runner.os }}-it-go-${{ github.job }}-${{ github.sha }}
+          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
+          key: ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-${{ github.job }}-${{ github.sha }}
           restore-keys: |
+            ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-
             ${{ runner.os }}-it-go-
 
       - name: Build GoShimmer image

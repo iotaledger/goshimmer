@@ -32,9 +32,10 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ github.action }}
+          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}-${{ github.event.action }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+            ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
             ${{ runner.os }}-go-
 
       - name: Run Tests
