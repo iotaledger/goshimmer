@@ -362,6 +362,12 @@ func Solid() *string {
 	return &x
 }
 
+// LazySolid returns a pointer to a lazySolid SolidityType.
+func LazySolid() *string {
+	x := ledgerstate.Solid.String()
+	return &x
+}
+
 // GoFPointer returns a pointer to the given grade of finality value.
 func GoFPointer(gradeOfFinality gof.GradeOfFinality) *gof.GradeOfFinality {
 	return &gradeOfFinality
@@ -452,7 +458,6 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 
 	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
 		(expInclState.SolidityType != nil && *expInclState.SolidityType != metadata.SolidityType) {
-		fmt.Println("EXPECTED VS SEEN", *expInclState.SolidityType, metadata.SolidityType)
 		return false
 	}
 	return true

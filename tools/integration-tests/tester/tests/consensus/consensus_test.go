@@ -139,7 +139,7 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 	tests.RequireGradeOfFinalityEqual(t, []*framework.Node{node}, tests.ExpectedTxsStates{
 		tx.ID().Base58(): {
 			GradeOfFinality: tests.GoFPointer(expectedGoF),
-			SolidityType:    tests.Solid(),
+			SolidityType:    tests.LazySolid(),
 		},
 	}, time.Minute, tests.Tick)
 	return tx
