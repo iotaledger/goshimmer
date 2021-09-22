@@ -24,7 +24,7 @@ Since non-conflicting transactions aren't even voted on, they materialize after 
 
 ## Where Can I See the State of the GoShimmer testnet?
 
-You can access the global analysis dashboard in the [Pollen Analyzer](http://ressims.iota.cafe:28080/autopeering) which showcases the network graph and active ongoing votes on conflicts.
+You can access the global analysis dashboard in the [Pollen Analyzer](http://analysisentry-01.devnet.shimmer.iota.cafe:28080/) which showcases the network graph and active ongoing votes on conflicts.
 
 ## How Many Transactions per Second (TPS) Can GoShimmer Sustain?
 

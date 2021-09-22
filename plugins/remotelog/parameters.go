@@ -9,7 +9,7 @@ type ParametersDefinition struct {
 	// RemoteLog defines the parameters to reach the remote logging server.
 	RemoteLog struct {
 		// ServerAddress defines the server address that will receive the logs.
-		ServerAddress string `default:"ressims.iota.cafe:5213" usage:"RemoteLog server address"`
+		ServerAddress string `default:"metrics-01.devnet.shimmer.iota.cafe:5213" usage:"RemoteLog server address"`
 	} `name:"remotelog"`
 }
 
