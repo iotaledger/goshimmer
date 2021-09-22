@@ -15,14 +15,6 @@ const (
 	CfgBasicAuthUsername = "analysis.dashboard.basic_auth.username"
 	// CfgBasicAuthPassword defines the config flag of the analysis dashboard basic auth password.
 	CfgBasicAuthPassword = "analysis.dashboard.basic_auth.password"
-	// CfgMongoDBEnabled defines the config flag of the analysis dashboard to enable mongoDB.
-	CfgMongoDBEnabled = "analysis.dashboard.mongodb.enabled"
-	// CfgMongoDBUsername defines the config flag of the analysis dashboard mongoDB username.
-	CfgMongoDBUsername = "analysis.dashboard.mongodb.username"
-	// CfgMongoDBPassword defines the config flag of the analysis dashboard mongoDB password.
-	CfgMongoDBPassword = "analysis.dashboard.mongodb.password"
-	// CfgMongoDBHostAddress defines the config flag of the analysis dashboard mongoDB binding address.
-	CfgMongoDBHostAddress = "analysis.dashboard.mongodb.hostAddress"
 	// CfgManaDashboardAddress defines the address of the mana dashboard to stream mana info from.
 	CfgManaDashboardAddress = "analysis.dashboard.manaAddress"
 )
@@ -33,9 +25,4 @@ func init() {
 	flag.Bool(CfgBasicAuthEnabled, false, "whether to enable HTTP basic auth")
 	flag.String(CfgBasicAuthUsername, "goshimmer", "HTTP basic auth username")
 	flag.String(CfgBasicAuthPassword, "goshimmer", "HTTP basic auth password")
-	flag.Bool(CfgMongoDBEnabled, false, "whether to enable MongoDB")
-	flag.String(CfgMongoDBUsername, "root", "MongoDB username")
-	flag.String(CfgMongoDBPassword, "password", "MongoDB username")
-	flag.String(CfgMongoDBHostAddress, "mongodb:27017", "MongoDB host address")
-	flag.String(CfgManaDashboardAddress, "http://127.0.0.1:8081", "dashboard host address")
 }
