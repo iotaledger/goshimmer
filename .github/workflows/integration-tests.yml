@@ -80,7 +80,7 @@ jobs:
         with:
           path: |
             ~/go
-          key: ${{ runner.os }}-it-go-${{ github.sha }}
+          key: ${{ runner.os }}-it-go-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-it-go-
 
