@@ -356,6 +356,12 @@ func False() *bool {
 	return &x
 }
 
+// Solid returns a pointer to a solid SolidityType.
+func Solid() *string {
+	x := ledgerstate.Solid.String()
+	return &x
+}
+
 // GoFPointer returns a pointer to the given grade of finality value.
 func GoFPointer(gradeOfFinality gof.GradeOfFinality) *gof.GradeOfFinality {
 	return &gradeOfFinality
