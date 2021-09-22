@@ -8,7 +8,7 @@ top of `config.default.json` as many config keys have changed.
 Most importantly, the node's identity seed is now defined via `node.seed` (previously `autopeering.seed`). The node will
 now store the private key derived from the seed per default under a separate `peerdb` database which **must not** be shared.
 If the node is started with a `node.seed` different to what an existing private key in a `peerdb` contains, the node panics;
-if you want to automatically override they already stored private key, use `node.overwriteStoredSeed=true`.
+if you want to automatically override the already stored private key, use `node.overwriteStoredSeed=true`.
 
 We have also created a more streamlined deployment for our infrastructure which means that IF provided endpoints have changed:
 
