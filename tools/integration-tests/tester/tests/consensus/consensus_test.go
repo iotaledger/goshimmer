@@ -91,7 +91,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	// send conflicting txs on both
 	tx1 := sendConflictingTx(t, genesis1Wallet, node1TargetAddr, actualGenesisTokenAmount, node1, gof.Medium, tests.Solid())
-	tx2 := sendConflictingTx(t, genesis2Wallet, node2TargetAddr, actualGenesisTokenAmount, node2, gof.Low, tests.LazySolid())
+	tx2 := sendConflictingTx(t, genesis2Wallet, node2TargetAddr, actualGenesisTokenAmount, node2, gof.Low, tests.Solid())
 
 	// conflicting txs should have spawned branches
 	require.Eventually(t, func() bool {
