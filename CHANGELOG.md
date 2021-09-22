@@ -156,9 +156,6 @@ Config key changes `config.default.json`:
    "networkdelay": {
      "originPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
    }
--}
-+}
-
 ```
 
 # v0.7.5 - 2021-08-09
