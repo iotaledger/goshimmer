@@ -6,7 +6,7 @@ chmod 777 /assets/*
 echo "assets:"
 ls /assets
 echo "running tests..."
-go test ./tests/"${TEST_NAME}" -v -timeout 10m
+go test ./tests/"${TEST_NAME}" -v -timeout 10m -count=1
 
 # if running in CI we need to set right permissions on the Go folder (within container) so that it can be exported to cache
 if [ ! -z ${CURRENT_UID} ]; then
