@@ -90,8 +90,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	require.EqualValues(t, peer2Pledged, tests.Mana(t, node2).Consensus)
 
 	// send conflicting txs on both
-	tx1 := sendConflictingTx(t, genesis1Wallet, node1TargetAddr, actualGenesisTokenAmount, node1, gof.Medium)
-	tx2 := sendConflictingTx(t, genesis2Wallet, node2TargetAddr, actualGenesisTokenAmount, node2, gof.Low)
+	tx1 := sendConflictingTx(t, genesis1Wallet, node1TargetAddr, actualGenesisTokenAmount, node1, gof.Medium, tests.Solid())
+	tx2 := sendConflictingTx(t, genesis2Wallet, node2TargetAddr, actualGenesisTokenAmount, node2, gof.Low, tests.LazySolid())
 
 	// conflicting txs should have spawned branches
 	require.Eventually(t, func() bool {
@@ -123,7 +123,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	}, tests.Timeout, tests.Tick)
 }
 
-func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node, expectedGoF gof.GradeOfFinality) *ledgerstate.Transaction {
+func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node, expectedGoF gof.GradeOfFinality, expectedSolidityType *string) *ledgerstate.Transaction {
 	tx, err := wallet.SendFunds(
 		sendoptions.Destination(targetAddr, actualGenesisTokenAmount),
 		sendoptions.ConsensusManaPledgeID(base58.Encode(node.ID().Bytes())),
@@ -139,7 +139,7 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 	tests.RequireGradeOfFinalityEqual(t, []*framework.Node{node}, tests.ExpectedTxsStates{
 		tx.ID().Base58(): {
 			GradeOfFinality: tests.GoFPointer(expectedGoF),
-			SolidityType:    tests.LazySolid(),
+			SolidityType:    expectedSolidityType,
 		},
 	}, time.Minute, tests.Tick)
 	return tx
