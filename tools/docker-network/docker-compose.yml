@@ -14,6 +14,7 @@ services:
       --analysis.server.bindAddress=0.0.0.0:1888
       --autoPeering.entryNodes=
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
+      --node.overwriteStoredSeed=true
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --node.peerDBDirectory=/tmp/peerdb
@@ -25,7 +26,7 @@ services:
       --metrics.local=true
       --metrics.manaResearch=false
       --node.disablePlugins=portcheck,clock
-      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus,spammer,"webAPIToolsEndpoint",activity,snapshot
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --statement.writeManaThreshold=1.0
@@ -80,6 +81,7 @@ services:
       --database.directory=/tmp/mainnetdb
       --node.peerDBDirectory=/tmp/peerdb
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
+      --node.overwriteStoredSeed=true
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
