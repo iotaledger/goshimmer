@@ -103,7 +103,6 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	FinalityGadget().Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
-	// mana.Events().Pledged.Attach(onPledgeEventClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
@@ -139,6 +138,7 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 			},
 			InputInfos: inputInfos,
 		}
+
 		// book in all mana vectors.
 		for _, baseManaVector := range baseManaVectors {
 			baseManaVector.Book(txInfo)
@@ -210,7 +210,11 @@ func runManaPlugin(_ *node.Plugin) {
 
 				// initialize cMana WeightProvider with snapshot
 				t := time.Unix(tangle.DefaultGenesisTime, 0)
+				genesisNodeID := identity.ID{}
 				for nodeID := range GetCMana() {
+					if nodeID == genesisNodeID {
+						continue
+					}
 					Tangle().WeightProvider.Update(t, nodeID)
 				}
 
@@ -815,13 +819,13 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 	}
 
 	// sort txSnapshot per nodeID, so that for each nodeID it is in temporal order
-	SnapshotByNode := make(map[identity.ID]mana.SnapshotNode)
+	snapshotByNode := make(map[identity.ID]mana.SnapshotNode)
 	for nodeID := range txSnapshotByNode {
 		sort.Sort(txSnapshotByNode[nodeID])
 		snapshotNode := mana.SnapshotNode{
 			SortedTxSnapshot: txSnapshotByNode[nodeID],
 		}
-		SnapshotByNode[nodeID] = snapshotNode
+		snapshotByNode[nodeID] = snapshotNode
 	}
 
 	// determine addTime if snapshot should be updated for the difference to now
@@ -839,18 +843,18 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 
 	// load access mana
 	for nodeID, accessMana := range snapshot.AccessManaByNode {
-		snapshotNode, ok := SnapshotByNode[nodeID]
+		snapshotNode, ok := snapshotByNode[nodeID]
 		if !ok { // fill with empty element if it does not exist yet
 			snapshotNode = mana.SnapshotNode{}
-			SnapshotByNode[nodeID] = snapshotNode
+			snapshotByNode[nodeID] = snapshotNode
 		}
 		snapshotNode.AccessMana = mana.AccessManaSnapshot{
 			Value:     accessMana.Value,
 			Timestamp: accessMana.Timestamp.Add(addTime),
 		}
-		SnapshotByNode[nodeID] = snapshotNode
+		snapshotByNode[nodeID] = snapshotNode
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(SnapshotByNode)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(SnapshotByNode)
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(snapshotByNode)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(snapshotByNode)
 }

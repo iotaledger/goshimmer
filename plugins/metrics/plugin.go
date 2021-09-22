@@ -10,7 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	gossippkg "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -164,6 +166,44 @@ func registerLocalMetrics() {
 
 	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(message tangle.MessageID) {
 		increasePerComponentCounter(Booker)
+	}))
+
+	messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messageType := DataMessage
+		messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
+			messageType = Transaction
+		})
+
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			message.ForEachParent(func(parent tangle.Parent) {
+				increasePerParentType(parent.Type)
+			})
+		})
+		if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			messageFinalizationTotalTime[messageType] += uint64(clock.Since(messageMetadata.ReceivedTime()).Milliseconds())
+		}) {
+			finalizedMessageCount[messageType]++
+		}
+	}))
+
+	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		oldestAttachmentTime, _, err := messagelayer.Tangle().Utils.FirstAttachment(branchID.TransactionID())
+		if err != nil {
+			return
+		}
+		messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+			if conflictingBranchID != branchID {
+				finalizedBranchCountDB.Inc()
+			}
+		})
+		finalizedBranchCountDB.Inc()
+		confirmedBranchCount.Inc()
+
+		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
+	}))
+
+	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		branchTotalCountDB.Inc()
 	}))
 
 	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {

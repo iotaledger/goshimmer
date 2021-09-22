@@ -255,6 +255,9 @@ func (n *Network) createNode(ctx context.Context, name string, conf config.GoShi
 
 	// create wallet
 	nodeSeed := walletseed.NewSeed()
+	if conf.UseNodeSeedAsWalletSeed {
+		nodeSeed = walletseed.NewSeed(conf.Seed)
+	}
 	if conf.Faucet.Enabled {
 		nodeSeed = walletseed.NewSeed(GenesisSeed)
 	}
@@ -305,7 +308,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 	return nil
 }
 
-func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig CreateNetworkConfig) error {
+func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) error {
 	// create a peer conf from the network conf
 	conf := PeerConfig()
 	if networkConfig.StartSynced {
@@ -328,11 +331,22 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 		masterConfig.Faucet.Enabled = true
 	}
 
+	if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
+		masterConfig = cfgAlterFunc[0](0, masterConfig)
+	}
+
 	log.Printf("Starting %d peers...", numPeers)
 	if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
 		return err
 	}
+
 	for i := 1; i < numPeers; i++ {
+		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
+			if _, err := n.CreatePeer(ctx, cfgAlterFunc[0](i, conf)); err != nil {
+				return err
+			}
+			continue
+		}
 		if _, err := n.CreatePeer(ctx, conf); err != nil {
 			return err
 		}

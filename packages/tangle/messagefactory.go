@@ -320,18 +320,8 @@ func PrepareLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Ta
 		}
 
 		for _, likeRef := range likedInstead {
-			transactionID := likeRef.Liked.TransactionID()
-			oldestAttachmentTime := time.Unix(0, 0)
-			oldestAttachmentMessageID := EmptyMessageID
-			if !tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
-				tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
-					if oldestAttachmentTime.Unix() == 0 || message.IssuingTime().Before(oldestAttachmentTime) {
-						oldestAttachmentTime = message.IssuingTime()
-						oldestAttachmentMessageID = message.ID()
-					}
-				})
-			}) {
-				err = errors.Errorf("could not find any attachments of transaction: %s", transactionID.String())
+			oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likeRef.Liked.TransactionID())
+			if err != nil {
 				return nil, err
 			}
 			// add like reference to a message only once if it appears in multiple conflict sets

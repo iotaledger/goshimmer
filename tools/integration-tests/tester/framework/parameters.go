@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 const (
@@ -94,6 +95,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Activity.Enabled = false
 	c.BroadcastIntervalSec = 1 // increase frequency to speedup tests
+	c.DelayOffset = 1
 
 	c.DRNG.Enabled = false
 

@@ -1,26 +1,38 @@
 // Package remotelogmetrics is a plugin that enables log metrics too complex for Prometheus, but still interesting in terms of analysis and debugging.
 // It is enabled by default.
 // The destination can be set via logger.remotelog.serverAddress.
-package remotelogmetrics
+package remotemetrics
 
 import (
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
-	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
+	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 const (
 	updateTime = 500 * time.Millisecond
+)
+
+const (
+	// Debug defines the most verbose metrics collection level.
+	Debug uint8 = iota
+	// Info defines regular metrics collection level.
+	Info
+	// Important defines the level of collection of only most important metrics.
+	Important
+	// Critical defines the level of collection of only critical metrics.
+	Critical
 )
 
 var (
@@ -38,9 +50,12 @@ func Plugin() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
+	measureInitialBranchCounts()
+
 	configureSyncMetrics()
 	configureDRNGMetrics()
-	configureTransactionMetrics()
+	configureBranchConfirmationMetrics()
+	configureMessageFinalizedMetrics()
 }
 
 func run(_ *node.Plugin) {
@@ -60,23 +75,40 @@ func run(_ *node.Plugin) {
 }
 
 func configureSyncMetrics() {
-	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
+	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotemetrics.SyncStatusChangedEvent) {
 		isTangleTimeSynced.Store(syncUpdate.CurrentStatus)
 	}))
-	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
-}
-
-func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
-	err := remotelog.RemoteLogger().Send(syncUpdate)
-	if err != nil {
-		plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
-	}
+	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
 }
 
 func configureDRNGMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
 	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
 }
 
-func configureTransactionMetrics() {
-	messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+func configureBranchConfirmationMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
+	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
+
+	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		branchTotalCountDB.Inc()
+		sendBranchMetrics()
+	}))
+}
+
+func configureMessageFinalizedMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	} else if Parameters.MetricsLevel == Info {
+		messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+	} else {
+		messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
+	}
 }

@@ -164,7 +164,10 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 		panic("tried to increase Index of wrong Sequence")
 	}
 
-	if increased = referencedSequenceIndex == s.highestIndex; increased {
+	// TODO: this is a quick'n'dirty solution and should be revisited.
+	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
+	//  For example, (1,5) <-> (1,8) are valid subsequent markers of sequence 1.
+	if increased = referencedSequenceIndex >= s.highestIndex; increased {
 		s.highestIndex = referencedMarkers.HighestIndex() + 1
 
 		if referencedMarkers.Size() > 1 {

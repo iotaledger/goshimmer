@@ -21,7 +21,7 @@ var (
 		"PayloadType", "TransactionID",
 	}
 
-	tipsHeader = append([]string{"tipType"}, messageHeader...)
+	tipsHeader = messageHeader
 
 	branchesHeader = []string{
 		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "SolidityType", "GradeOfFinality",
