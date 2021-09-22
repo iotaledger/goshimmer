@@ -39,7 +39,7 @@ type dependencies struct {
 }
 
 func init() {
-	flag.String(CfgServerAddress, "ressims.iota.cafe:21888", "tcp server for collecting analysis information")
+	flag.String(CfgServerAddress, "analysisentry-01.devnet.shimmer.iota.cafe:21888", "tcp server for collecting analysis information")
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 }
 
