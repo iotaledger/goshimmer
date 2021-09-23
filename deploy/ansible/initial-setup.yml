@@ -26,6 +26,9 @@
   roles:
     - goshimmer-node
 
+- hosts: vanilla-01*
+  roles:
+    - snapshotter
 
 - hosts: drands
   vars:
