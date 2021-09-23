@@ -12,12 +12,13 @@ if you want to automatically override the already stored private key, use `node.
 
 We have also created a more streamlined deployment for our infrastructure which means that IF provided endpoints have changed:
 
-| Service                             | Old                                | New                                                             |
-| ----------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
-| Analysis Server                     | ressims.iota.cafe:21888            | analysisentry-01.devnet.shimmer.iota.cafe:21888                 |
-| IOTA 2.0 DevNet Analyzer            | http://ressims.iota.cafe:28080    | http://analysisentry-01.devnet.shimmer.iota.cafe:28080         |
+| Service                             | Old                                | New                                                        |
+| ----------------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| Analysis Server                     | ressims.iota.cafe:21888            | analysisentry-01.devnet.shimmer.iota.cafe:21888            |
+| IOTA 2.0 DevNet Analyzer            | http://ressims.iota.cafe:28080     | http://analysisentry-01.devnet.shimmer.iota.cafe:28080     |
 | Autopeering Entry Node "2PV5487..." | [identity]@ressims.iota.cafe:15626 | [identity]@analysisentry-01.devnet.shimmer.iota.cafe:15626 |
-| LogStash Remote Log                 | ressims.iota.cafe:5213             | metrics-01.devnet.shimmer.iota.cafe:5213                        |
+| LogStash Remote Log                 | ressims.iota.cafe:5213             | metrics-01.devnet.shimmer.iota.cafe:5213                   |
+| Daily Database                      | N/A                                | https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/dbs/nectar/automated/latest-db.tgz |
 
 Other changes:
 * Refactors codebase, mainly:
