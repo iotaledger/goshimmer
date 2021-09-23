@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/netutil"
 	"github.com/iotaledger/hive.go/network"

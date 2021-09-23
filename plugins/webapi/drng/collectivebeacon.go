@@ -9,7 +9,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // collectiveBeaconHandler gets the current DRNG committee.
@@ -26,7 +25,7 @@ func collectiveBeaconHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.CollectiveBeaconResponse{Error: err.Error()})
 	}
 
-	msg, err := messagelayer.Tangle().IssuePayload(parsedPayload)
+	msg, err := deps.Tangle.IssuePayload(parsedPayload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.CollectiveBeaconResponse{Error: err.Error()})
 	}

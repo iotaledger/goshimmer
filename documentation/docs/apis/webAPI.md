@@ -1,9 +1,20 @@
+---
+description: The web API interface allows access to functionality of the node software via exposed HTTP endpoints.
+image: /img/logo/goshimmer_light.png
+keywords:
+- web API
+- POST
+- GET
+- node software
+- http endpoint
+- port 
+- handler
+---
 # WebAPI - clientLib
 
+The web API interface allows access to functionality of the node software via exposed HTTP endpoints.
 
-The web API interface allows to access functionality of the node software via exposed http endpoints.
-
-## How to use the API 
+## How to Use the API 
 
 The default port to access the web API is set to `8080:8080/tcp` in `docker-compose.yml`, where the first port number is the internal port number within the node software, and the second for the access from an http port. An example where these two would be set to different values, or the external port is not utilized, can be found in the docker-network tool (see also the `docker-compose.yml` file in the docker-network tool folder).
 

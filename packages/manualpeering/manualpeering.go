@@ -50,7 +50,7 @@ type KnownPeerToAdd struct {
 	Address   string            `json:"address"`
 }
 
-// KnownPeer defines a peer record in the manualpeering layer.
+// KnownPeer defines a peer record in the manual peering layer.
 type KnownPeer struct {
 	PublicKey     ed25519.PublicKey   `json:"publicKey"`
 	Address       string              `json:"address"`
@@ -58,7 +58,7 @@ type KnownPeer struct {
 	ConnStatus    ConnectionStatus    `json:"connectionStatus"`
 }
 
-// Manager is the core entity in the manualpeering package.
+// Manager is the core entity in the manual peering package.
 // It holds a list of known peers and constantly provisions it to the gossip layer.
 // Its job is to keep in sync the list of known peers
 // and the list of current manual neighbors connected in the gossip layer.
@@ -214,7 +214,7 @@ func newKnownPeer(p *KnownPeerToAdd, connDirection ConnectionDirection) (*knownP
 	}
 	services := service.New()
 	// Peering key is required in order to initialize a peer,
-	// but it's not used in both manualpeering and gossip layers so we just specify the default one.
+	// but it's not used in both manual peering and gossip layers so we just specify the default one.
 	services.Update(service.PeeringKey, "tcp", 14626)
 	services.Update(service.GossipKey, tcpAddress.Network(), tcpAddress.Port)
 	kp := &knownPeer{
@@ -239,12 +239,12 @@ func (kp *knownPeer) setConnStatus(cs ConnectionStatus) {
 
 func (m *Manager) addPeer(p *KnownPeerToAdd) error {
 	if !m.isStarted.IsSet() {
-		return errors.New("manualpeering manager hasn't been started yet")
+		return errors.New("manual peering manager hasn't been started yet")
 	}
 	m.stopMutex.RLock()
 	defer m.stopMutex.RUnlock()
 	if m.isStopped {
-		return errors.New("manualpeering manager was stopped")
+		return errors.New("manual peering manager was stopped")
 	}
 	m.knownPeersMutex.Lock()
 	defer m.knownPeersMutex.Unlock()
@@ -259,7 +259,7 @@ func (m *Manager) addPeer(p *KnownPeerToAdd) error {
 	if _, exists := m.knownPeers[kp.peer.ID()]; exists {
 		return nil
 	}
-	m.log.Infow("Adding new peer to the list of known peers in manualpeering", "peer", p)
+	m.log.Infow("Adding new peer to the list of known peers in manual peering", "peer", p)
 	m.knownPeers[kp.peer.ID()] = kp
 	go func() {
 		defer close(kp.doneCh)
@@ -271,7 +271,7 @@ func (m *Manager) addPeer(p *KnownPeerToAdd) error {
 func (m *Manager) removePeer(key ed25519.PublicKey) error {
 	m.knownPeersMutex.Lock()
 	defer m.knownPeersMutex.Unlock()
-	m.log.Infow("Removing peer from from the list of known peers in manualpeering",
+	m.log.Infow("Removing peer from from the list of known peers in manual peering",
 		"publicKey", key)
 	peerID := identity.NewID(key)
 	err := m.removePeerByID(peerID)
@@ -374,7 +374,7 @@ func (m *Manager) connectionDirection(peerPK ed25519.PublicKey) (ConnectionDirec
 		return ConnDirectionInbound, nil
 	} else {
 		return "", errors.Newf(
-			"manualpeering: provided neighbor public key %s is the same as the local %s: can't compare lexicographically",
+			"manual peering: provided neighbor public key %s is the same as the local %s: can't compare lexicographically",
 			peerPK,
 			m.local.PublicKey(),
 		)

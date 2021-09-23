@@ -1,3 +1,15 @@
+---
+description: The dRNG APIs provide methods to retrieve basic info about dRNG committees and randomness as well as to broadcast collective randomness beacon.
+image: /img/logo/goshimmer_light.png
+keywords:
+- client library
+- HTTP API
+- drng
+- info
+- committee
+- randomness
+- collective beacon
+---
 # dRNG API Methods
 
 The dRNG APIs provide methods to retrieve basic info about dRNG committees and randomness as well as to broadcast collective randomness beacon.
@@ -80,6 +92,7 @@ if err != nil {
 Returns the current dRNG committee used.
 
 ### Parameters
+
 None.
 
 ### Examples
@@ -149,6 +162,7 @@ for _, m := range committees.Committees {
 Returns the current DRNG randomness used.
 
 ### Parameters
+
 None.
 
 ### Examples

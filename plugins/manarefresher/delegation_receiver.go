@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // DelegationReceiver checks for delegation outputs on the wallet address and keeps the most recent delegated balance.
@@ -24,7 +23,7 @@ type DelegationReceiver struct {
 func (d *DelegationReceiver) Scan() []*ledgerstate.AliasOutput {
 	d.Lock()
 	defer d.Unlock()
-	cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(d.address)
+	cachedOutputs := deps.Tangle.LedgerState.CachedOutputsOnAddress(d.address)
 	defer cachedOutputs.Release()
 	// filterDelegationOutputs will use this time for condition checking
 	d.localTimeNow = clock.SyncedTime()
@@ -84,9 +83,9 @@ func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) 
 	// it has to be unspent
 	isUnspent := false
 	isConfirmed := false
-	messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		isUnspent = outputMetadata.ConsumerCount() == 0
-		incState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(output.ID().TransactionID())
+		incState, err := deps.Tangle.LedgerState.TransactionInclusionState(output.ID().TransactionID())
 		if err != nil {
 			return
 		}

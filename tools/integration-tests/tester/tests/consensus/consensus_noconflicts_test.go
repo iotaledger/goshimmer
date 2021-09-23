@@ -28,7 +28,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		Autopeering: true,
+		AutoPeering: true,
 		Activity:    true,
 		FPC:         true,
 	})

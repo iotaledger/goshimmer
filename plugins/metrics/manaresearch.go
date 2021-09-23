@@ -6,7 +6,6 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -40,7 +39,7 @@ func AccessResearchPercentile() float64 {
 func OwnAccessResearchMana() float64 {
 	accessResearchLock.RLock()
 	defer accessResearchLock.RUnlock()
-	return accessResearchMap[local.GetInstance().ID()]
+	return accessResearchMap[deps.Local.ID()]
 }
 
 // AccessResearchManaMap returns the access mana of the whole network, only taking ResearchAccess mana into account.
@@ -68,7 +67,7 @@ func ConsensusResearchPercentile() float64 {
 func OwnConsensusResearchMana() float64 {
 	consensusResearchLock.RLock()
 	defer consensusResearchLock.RUnlock()
-	return consensusResearchMap[local.GetInstance().ID()]
+	return consensusResearchMap[deps.Local.ID()]
 }
 
 // ConsensusResearchManaMap returns the consensus mana of the whole network, only taking ResearchConsensus mana into account.
@@ -90,7 +89,7 @@ func measureAccessResearchMana() {
 	accessResearchLock.Lock()
 	defer accessResearchLock.Unlock()
 	accessResearchMap, _, _ = manaPlugin.GetManaMap(mana.ResearchAccess)
-	aPer, _ := accessResearchMap.GetPercentile(local.GetInstance().ID())
+	aPer, _ := accessResearchMap.GetPercentile(deps.Local.ID())
 	accessResearchPercentile.Store(aPer)
 }
 
@@ -98,7 +97,7 @@ func measureConsensusResearchMana() {
 	consensusResearchLock.Lock()
 	defer consensusResearchLock.Unlock()
 	consensusResearchMap, _, _ = manaPlugin.GetManaMap(mana.ResearchConsensus)
-	aPer, _ := consensusResearchMap.GetPercentile(local.GetInstance().ID())
+	aPer, _ := consensusResearchMap.GetPercentile(deps.Local.ID())
 	consensusResearchPercentile.Store(aPer)
 }
 

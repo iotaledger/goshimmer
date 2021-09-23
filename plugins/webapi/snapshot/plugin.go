@@ -2,12 +2,13 @@ package snapshot
 
 import (
 	"os"
-	"sync"
+
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
@@ -20,23 +21,26 @@ const (
 	snapshotFileName = "snapshot.bin"
 )
 
-var (
-	// plugin holds the singleton instance of the plugin.
-	plugin *node.Plugin
+type dependencies struct {
+	dig.In
 
-	// pluginOnce is used to ensure that the plugin is a singleton.
-	once sync.Once
+	Server *echo.Echo
+	Tangle *tangle.Tangle
+}
+
+var (
+	// Plugin holds the singleton instance of the Plugin.
+	Plugin *node.Plugin
+
+	deps = new(dependencies)
 )
 
-// Plugin returns the plugin as a singleton.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin("snapshot", node.Disabled, func(*node.Plugin) {
-			webapi.Server().GET("snapshot", DumpCurrentLedger)
-		})
-	})
+func init() {
+	Plugin = node.NewPlugin("Snapshot", deps, node.Disabled, configure)
+}
 
-	return plugin
+func configure(_ *node.Plugin) {
+	deps.Server.GET("snapshot", DumpCurrentLedger)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,7 +49,7 @@ func Plugin() *node.Plugin {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	snapshot := messagelayer.Tangle().LedgerState.SnapshotUTXO()
+	snapshot := deps.Tangle.LedgerState.SnapshotUTXO()
 
 	aMana, err := snapshotAccessMana()
 	if err != nil {
@@ -55,29 +59,29 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 
 	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		plugin.LogErrorf("unable to create snapshot file %s", err)
+		Plugin.LogErrorf("unable to create snapshot file %s", err)
 	}
 
 	n, err := snapshot.WriteTo(f)
 	if err != nil {
-		plugin.LogErrorf("unable to write snapshot content to file %s", err)
+		Plugin.LogErrorf("unable to write snapshot content to file %s", err)
 	}
 
-	// plugin.LogInfo(snapshot)
-	plugin.LogInfo("Snapshot information: ")
-	plugin.LogInfo("     Number of snapshotted transactions: ", len(snapshot.Transactions))
-	plugin.LogInfo("          inputs, outputs, txID, unspentOutputs")
+	// Plugin.LogInfo(snapshot)
+	Plugin.LogInfo("Snapshot information: ")
+	Plugin.LogInfo("     Number of snapshotted transactions: ", len(snapshot.Transactions))
+	Plugin.LogInfo("          inputs, outputs, txID, unspentOutputs")
 	for key, tx := range snapshot.Transactions {
-		plugin.LogInfo("          ", len(tx.Essence.Inputs()), len(tx.Essence.Outputs()), key)
-		plugin.LogInfo("          ", tx.UnspentOutputs)
+		Plugin.LogInfo("          ", len(tx.Essence.Inputs()), len(tx.Essence.Outputs()), key)
+		Plugin.LogInfo("          ", tx.UnspentOutputs)
 	}
-	plugin.LogInfo("     Number of snapshotted accessManaEntries: ", len(snapshot.AccessManaByNode))
-	plugin.LogInfo("          nodeID, aMana, timestamp")
+	Plugin.LogInfo("     Number of snapshotted accessManaEntries: ", len(snapshot.AccessManaByNode))
+	Plugin.LogInfo("          nodeID, aMana, timestamp")
 	for nodeID, accessMana := range snapshot.AccessManaByNode {
-		plugin.LogInfo("          ", nodeID, accessMana.Value, accessMana.Timestamp)
+		Plugin.LogInfo("          ", nodeID, accessMana.Value, accessMana.Timestamp)
 	}
 
-	plugin.LogInfof("Bytes written %d", n)
+	Plugin.LogInfof("Bytes written %d", n)
 	f.Close()
 
 	return c.Attachment(snapshotFileName, snapshotFileName)

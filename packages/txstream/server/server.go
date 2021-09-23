@@ -119,8 +119,8 @@ func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSign
 		defer c.ledger.EventTransactionBooked().Detach(cl)
 	}
 
-	c.log.Debugf("started txstream")
-	defer c.log.Debugf("stopped txstream")
+	c.log.Debugf("started txStream")
+	defer c.log.Debugf("stopped txStream")
 
 	// single-threaded r/w loop
 	for {

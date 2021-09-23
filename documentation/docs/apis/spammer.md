@@ -1,3 +1,14 @@
+---
+description: The Spammer tool lets you add messages to the tangle when running GoShimmer.
+image: /img/logo/goshimmer_light.png
+keywords:
+- client library
+- HTTP API
+- spammer
+- add messages
+- interval
+- tangle
+---
 # Spammer API Methods
 
 The Spammer tool lets you add messages to the tangle when running GoShimmer.
@@ -25,18 +36,24 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 
 
 
-| **Parameter**            | `mpm`      |
+| **Parameter**            | `rate`      |
 |--------------------------|----------------|
 | **Required or Optional** | optional       |
-| **Description**          | Messages per minute. Only applicable when `cmd=start`. (default: 1)  |
+| **Description**          | Messages per time unit. Only applicable when `cmd=start`. (default: 1)  |
 | **Type**                 | `int`         |
 
+
+| **Parameter**            | `unit`      |
+|--------------------------|----------------|
+| **Required or Optional** | optional       |
+| **Description**          | Indicates the unit for the spam rate: message per minute or second. One of two possible values: `mpm` and `mps`. (default: `mps`) |
+| **Type**                 | `string`         |
 
 
 | **Parameter**            | `imif` (Inter Message Issuing Function)     |
 |--------------------------|----------------|
 | **Required or Optional** | optional       |
-| **Description**          | Parameter indicating time interval between issued messages. Possible values: `poisson`, `uniform`. Field only available in HTTP API. |
+| **Description**          | Parameter indicating time interval between issued messages. Possible values: `poisson`, `uniform`. |
 | **Type**                 | `string`         |
 
 
@@ -49,16 +66,16 @@ Description of `imif` values:
 #### cURL
 
 ```shell
-curl --location 'http://localhost:8080/spammer?cmd=start&mpm=1000'
-curl --location 'http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform'
-curl --location 'http://localhost:8080/spammer?cmd=shutdown'
+curl --location 'http://localhost:8080/spammer?cmd=start&rate=100'
+curl --location 'http://localhost:8080/spammer?cmd=start&rate=100&imif=uniform&unit=mpm'
+curl --location 'http://localhost:8080/spammer?cmd=stop'
 ```
 
 #### Client lib - `ToggleSpammer()`
 
-Spammer can be enabled and disabled via `ToggleSpammer(enable bool, mpm int) (*jsonmodels.SpammerResponse, error)`
+Spammer can be enabled and disabled via `ToggleSpammer(enable bool, rate int, imif string) (*jsonmodels.SpammerResponse, error)`
 ```go
-res, err := goshimAPI.ToggleSpammer(true, 100)
+res, err := goshimAPI.ToggleSpammer(true, 100, "mps", "uniform")
 if err != nil {
     // return error
 }

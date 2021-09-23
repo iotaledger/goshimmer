@@ -58,7 +58,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
 			MessageEligible: events.NewEvent(MessageIDCaller),
-			MessageInvalid:  events.NewEvent(MessageIDCaller),
+			MessageInvalid:  events.NewEvent(MessageInvalidCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},
 	}
@@ -178,6 +178,7 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
+	t.Parser.Shutdown()
 	t.MessageFactory.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Orderer.Shutdown()
@@ -219,6 +220,17 @@ func MessageIDCaller(handler interface{}, params ...interface{}) {
 // MessageCaller is the caller function for events that hand over a Message.
 func MessageCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*Message))(params[0].(*Message))
+}
+
+// MessageInvalidCaller is the caller function for events that had over an invalid message.
+func MessageInvalidCaller(handler interface{}, params ...interface{}) {
+	handler.(func(ev *MessageInvalidEvent))(params[0].(*MessageInvalidEvent))
+}
+
+// MessageInvalidEvent is struct that is passed along with triggering a messageInvalidEvent.
+type MessageInvalidEvent struct {
+	MessageID MessageID
+	Error     error
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

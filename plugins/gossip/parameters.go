@@ -6,8 +6,8 @@ import (
 
 // ParametersDefinition contains the definition of configuration parameters used by the gossip plugin.
 type ParametersDefinition struct {
-	// NetworkVersion defines the config flag of the network version.
-	Port int `default:"14666" usage:"tcp port for gossip connection"`
+	// BindAddress defines on which address the gossip service should listen.
+	BindAddress string `default:"0.0.0.0:14666" usage:"the bind address for the gossip"`
 }
 
 // Parameters contains the configuration parameters of the gossip plugin.

@@ -1,0 +1,37 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: "3"
+services:
+  mongodb:
+    image: mongo:4.4
+    container_name: mongodb
+    restart: unless-stopped
+    expose:
+      - 27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "{{ mongoDBUser }}"
+      MONGO_INITDB_ROOT_PASSWORD: "{{ mongoDBPassword }}"
+    volumes:
+      - ./mongodb_data:/data/db
+    networks:
+      - back-tier
+
+  asset-registry:
+    image: angelocapossele/asset-registry
+    command: >
+      --username="{{ mongoDBUser }}"
+      --password="{{ mongoDBPassword }}"
+      --basicAuthUser="{{ assetRegistryUser }}"
+      --basicAuthPassword="{{ assetRegistryPassword }}"
+    ports:
+      - "80:80"
+    depends_on:
+      - mongodb
+    networks:
+      - back-tier
+      - front-tier
+
+networks:
+  back-tier:
+    driver: bridge
+  front-tier:
+    driver: bridge

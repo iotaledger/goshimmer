@@ -12,7 +12,7 @@ type TimeSourceFunc func() int64
 
 // NewUnixTimestampPRNG creates a new Unix timestamp based pseudo random number generator
 // using the given interval. The interval defines at which second interval numbers are generated.
-func NewUnixTimestampPRNG(interval int64, timeSourceFunc ...TimeSourceFunc) *UnixTimestampPrng {
+func NewUnixTimestampPRNG(interval time.Duration, timeSourceFunc ...TimeSourceFunc) *UnixTimestampPrng {
 	utrng := &UnixTimestampPrng{
 		c:              make(chan float64),
 		exit:           make(chan struct{}),
@@ -30,7 +30,7 @@ func NewUnixTimestampPRNG(interval int64, timeSourceFunc ...TimeSourceFunc) *Uni
 type UnixTimestampPrng struct {
 	c              chan float64
 	exit           chan struct{}
-	interval       int64
+	interval       time.Duration
 	timeSourceFunc TimeSourceFunc
 }
 
@@ -39,12 +39,12 @@ type UnixTimestampPrng struct {
 // plus delta of the next interval time have elapsed.
 func (utrng *UnixTimestampPrng) Start() {
 	nowSec := utrng.timeSourceFunc()
-	nextTimePoint := ResolveNextTimePoint(nowSec, utrng.interval)
-	time.AfterFunc(time.Duration(nextTimePoint-nowSec)*time.Second, func() {
+	nextTimePointSec := ResolveNextTimePointSec(nowSec, utrng.interval)
+	time.AfterFunc(time.Duration(nextTimePointSec-nowSec)*time.Second, func() {
 		// send for the first time right after the timer is executed
 		utrng.send()
 
-		t := time.NewTicker(time.Duration(utrng.interval) * time.Second)
+		t := time.NewTicker(utrng.interval)
 		defer t.Stop()
 	out:
 		for {
@@ -60,12 +60,12 @@ func (utrng *UnixTimestampPrng) Start() {
 
 // sends the next pseudo random number to the consumer channel.
 func (utrng *UnixTimestampPrng) send() {
-	now := utrng.timeSourceFunc()
+	nowSec := utrng.timeSourceFunc()
 	// reduce to last interval
-	timePoint := now - (now % utrng.interval)
+	timePointSec := nowSec - (nowSec % int64(utrng.interval/time.Second))
 
 	// add entropy and convert to float64
-	pseudoR := rand.New(rand.NewSource(timePoint)).Float64()
+	pseudoR := rand.New(rand.NewSource(timePointSec)).Float64()
 
 	// skip slow consumers
 	select {
@@ -84,7 +84,8 @@ func (utrng *UnixTimestampPrng) Stop() {
 	utrng.exit <- struct{}{}
 }
 
-// ResolveNextTimePoint returns the next time point.
-func ResolveNextTimePoint(nowSec, interval int64) int64 {
-	return nowSec + (interval - nowSec%interval)
+// ResolveNextTimePointSec returns the next time point.
+func ResolveNextTimePointSec(nowSec int64, interval time.Duration) int64 {
+	intervalSec := int64(interval / time.Second)
+	return nowSec + (intervalSec - nowSec%intervalSec)
 }

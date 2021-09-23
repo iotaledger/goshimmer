@@ -13,18 +13,15 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var fileName = "approval-analysis.csv"
 
 // ApprovalHandler runs the approval analysis.
 func ApprovalHandler(c echo.Context) error {
-	path := config.Node().String(CfgExportPath)
+	path := Parameters.ExportPath
 	res := &ApprovalResponse{}
-	res.Err = firstApprovalAnalysis(local.GetInstance().Identity.ID().String(), path+fileName)
+	res.Err = firstApprovalAnalysis(deps.Local.Identity.ID().String(), path+fileName)
 	if res.Err != nil {
 		return c.JSON(http.StatusInternalServerError, res)
 	}
@@ -53,7 +50,7 @@ func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
 		return err
 	}
 
-	messagelayer.Tangle().Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker) {
 		approverInfo, err := firstApprovers(msgID)
 		// firstApprovers returns an error when the msgID is a tip, thus
 		// we want to stop the computation but continue with the future cone iteration.
@@ -78,7 +75,7 @@ func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
 			return
 		}
 
-		messagelayer.Tangle().Storage.Approvers(msgID).Consume(func(approver *tangle.Approver) {
+		deps.Tangle.Storage.Approvers(msgID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
@@ -167,7 +164,7 @@ func (a BySolid) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func firstApprovers(msgID tangle.MessageID) ([]MsgInfo, error) {
 	approversInfo := make([]MsgInfo, 0)
 
-	messagelayer.Tangle().Storage.Approvers(msgID).Consume(func(approver *tangle.Approver) {
+	deps.Tangle.Storage.Approvers(msgID).Consume(func(approver *tangle.Approver) {
 		approversInfo = append(approversInfo, info(approver.ApproverMessageID()))
 	})
 
@@ -194,12 +191,12 @@ func info(msgID tangle.MessageID) MsgInfo {
 		MsgID: msgID.Base58(),
 	}
 
-	messagelayer.Tangle().Storage.Message(msgID).Consume(func(msg *tangle.Message) {
+	deps.Tangle.Storage.Message(msgID).Consume(func(msg *tangle.Message) {
 		msgInfo.MsgIssuanceTimestamp = msg.IssuingTime()
 		msgInfo.MsgIssuerID = identity.NewID(msg.IssuerPublicKey()).String()
 	})
 
-	messagelayer.Tangle().Storage.MessageMetadata(msgID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+	deps.Tangle.Storage.MessageMetadata(msgID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 		msgInfo.MsgArrivalTime = msgMetadata.ReceivedTime()
 		msgInfo.MsgSolidTime = msgMetadata.SolidificationTime()
 	}, false)

@@ -5,25 +5,23 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var isTangleTimeSynced atomic.Bool
 
 func checkSynced() {
 	oldTangleTimeSynced := isTangleTimeSynced.Load()
-	tts := messagelayer.Tangle().TimeManager.Synced()
+	tts := deps.Tangle.TimeManager.Synced()
 	if oldTangleTimeSynced != tts {
 		var myID string
-		if local.GetInstance() != nil {
-			myID = local.GetInstance().ID().String()
+		if deps.Local != nil {
+			myID = deps.Local.ID().String()
 		}
 		syncStatusChangedEvent := remotelogmetrics.SyncStatusChangedEvent{
 			Type:                     "sync",
 			NodeID:                   myID,
 			Time:                     clock.SyncedTime(),
-			LastConfirmedMessageTime: messagelayer.Tangle().TimeManager.Time(),
+			LastConfirmedMessageTime: deps.Tangle.TimeManager.Time(),
 			CurrentStatus:            tts,
 			PreviousStatus:           oldTangleTimeSynced,
 		}

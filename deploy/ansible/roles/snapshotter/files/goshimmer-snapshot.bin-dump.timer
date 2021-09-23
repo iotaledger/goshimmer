@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Goshimmer Snapshot dump every 2 hours
+
+[Timer]
+OnCalendar=00/2:30 UTC
+Unit=goshimmer-snapshot.bin-dump.service
+Persistent=true
+
+[Install]
+WantedBy=multi-user.target

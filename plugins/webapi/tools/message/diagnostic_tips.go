@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
@@ -60,10 +59,10 @@ func runTipsDiagnostic(c echo.Context, diagnosticType tipsDiagnosticType) (err e
 	}
 	var strongTips, weakTips tangle.MessageIDs
 	if diagnosticType == strongTipsOnly || diagnosticType == allTips {
-		strongTips = messagelayer.Tangle().TipManager.AllStrongTips()
+		strongTips = deps.Tangle.TipManager.AllStrongTips()
 	}
 	if diagnosticType == weakTipsOnly || diagnosticType == allTips {
-		weakTips = messagelayer.Tangle().TipManager.AllWeakTips()
+		weakTips = deps.Tangle.TipManager.AllWeakTips()
 	}
 	if err := buildAndWriteTipsDiagnostic(csvWriter, strongTips, tangle.StrongTip); err != nil {
 		return errors.Errorf("%w", err)

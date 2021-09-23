@@ -1,32 +1,40 @@
 package drng
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // PluginName is the name of the web API DRNG endpoint plugin.
-const PluginName = "WebAPI DRNG Endpoint"
+const PluginName = "WebAPIDRNGEndpoint"
+
+type dependencies struct {
+	dig.In
+
+	Server       *echo.Echo
+	DrngInstance *drng.DRNG `optional:"true"`
+	Tangle       *tangle.Tangle
+}
 
 var (
-	// plugin is the plugin instance of the web API DRNG endpoint plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the web API DRNG endpoint plugin.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 }
 
 func configure(_ *node.Plugin) {
-	webapi.Server().POST("drng/collectiveBeacon", collectiveBeaconHandler)
-	webapi.Server().GET("drng/info/committee", committeeHandler)
-	webapi.Server().GET("drng/info/randomness", randomnessHandler)
+	if deps.DrngInstance == nil {
+		return
+	}
+	deps.Server.POST("drng/collectiveBeacon", collectiveBeaconHandler)
+	deps.Server.GET("drng/info/committee", committeeHandler)
+	deps.Server.GET("drng/info/randomness", randomnessHandler)
 }
