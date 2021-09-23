@@ -100,6 +100,9 @@ jobs:
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
           DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
           DRNG_XTEAM_01_SEED: '${{ secrets.DRNG_XTEAM_01_SEED }}'
+          SNAPSHOTTER_BUCKET: '${{ secrets.SNAPSHOTTER_BUCKET }}'
+          SNAPSHOTTER_ACCESS_KEY: '${{ secrets.SNAPSHOTTER_ACCESS_KEY }}'
+          SNAPSHOTTER_SECRET_KEY: '${{ secrets.SNAPSHOTTER_SECRET_KEY }}'
           GOSHIMMER_DOCKER_TAG: 'latest'
         run: |
           ./deploy/ansible/run.sh devnet.yml
