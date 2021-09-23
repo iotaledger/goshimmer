@@ -1,0 +1,54 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+http:
+  routers:
+    nodes-router:
+      rule: "Host(`nodes.tokenizedassetsdemo.iota.cafe`) || Host(`nodes.nectar.iota.cafe`)"
+      service: "nodes"
+      entryPoints:
+        - "web"
+    nodes-router-secure:
+      rule: "Host(`nodes.tokenizedassetsdemo.iota.cafe`) || Host(`nodes.nectar.iota.cafe`)"
+      service: "nodes"
+      entryPoints:
+        - "websecure"
+      tls:
+        certResolver: devops
+    dashboards-router:
+      rule: "Host(`dashboards.tokenizedassetsdemo.iota.cafe`) || Host(`dashboards.nectar.iota.cafe`)"
+      service: "dashboards"
+      entryPoints:
+        - "web"
+    dashboards-router-secure:
+      rule: "Host(`dashboards.tokenizedassetsdemo.iota.cafe`) || Host(`dashboards.nectar.iota.cafe`)"
+      service: "dashboards"
+      entryPoints:
+        - "websecure"
+      tls:
+        certResolver: devops
+  services:
+    nodes:
+      loadBalancer:
+        servers:
+          {% for host in groups['public_nodes'] %}
+          - url: "http://{{ host }}:8080"
+          {% endfor %}
+        passHostHeader: false
+        sticky:
+          cookie: {}
+        healthCheck:
+          path: /healthz
+          interval: "10s"
+          timeout: "3s"
+    dashboards:
+      loadBalancer:
+        servers:
+          {% for host in groups['public_nodes'] %}
+          - url: "http://{{ host }}:8081"
+          {% endfor %}
+        passHostHeader: false
+        sticky:
+          cookie: {}
+        healthCheck:
+          path: /
+          interval: "10s"
+          timeout: "3s"
