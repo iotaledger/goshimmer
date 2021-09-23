@@ -1,0 +1,70 @@
+- name: Install awscli utils
+  apt:
+    name: awscli
+    state: present
+
+- name: Create .aws credentials directory
+  file:
+    path: /root/.aws/
+    state: directory
+    mode: '0755'
+
+- name: .aws region configuration
+  copy:
+    dest: /root/.aws/config
+    mode: '0600'
+    content: |
+      [default]
+      region = eu-west-1
+
+- name: .aws credentials
+  template:
+    src: aws_credentials.j2
+    dest: /root/.aws/credentials
+    mode: '0600'
+
+- name: Install goshimmer-db-dump.service systemd unit file
+  copy:
+    src: goshimmer-db-dump.service
+    dest: /etc/systemd/system/goshimmer-db-dump.service
+
+- name: Install goshimmer-db-dump.timer systemd unit file
+  copy:
+    src: goshimmer-db-dump.timer
+    dest: /etc/systemd/system/goshimmer-db-dump.timer
+
+- name: Template goshimmer_db_dump.sh
+  template:
+    src: goshimmer_db_dump.sh.j2
+    dest: /opt/goshimmer_db_dump.sh
+    mode: '0755'
+
+- name: Enable and start goshimmer-db-dump.timer
+  systemd:
+    state: started
+    enabled: true
+    name: goshimmer-db-dump.timer
+    daemon_reload: yes
+
+- name: Install goshimmer-snapshot.bin-dump.service systemd unit file
+  copy:
+    src: goshimmer-snapshot.bin-dump.service
+    dest: /etc/systemd/system/goshimmer-snapshot.bin-dump.service
+
+- name: Install goshimmer-snapshot.bin-dump.timer systemd unit file
+  copy:
+    src: goshimmer-snapshot.bin-dump.timer
+    dest: /etc/systemd/system/goshimmer-snapshot.bin-dump.timer
+
+- name: Template goshimmer_snapshot.bin_dump.sh
+  template:
+    src: goshimmer_snapshot.bin_dump.sh.j2
+    dest: /opt/goshimmer_snapshot.bin_dump.sh
+    mode: '0755'
+
+- name: Enable and start goshimmer-snapshot.bin-dump.timer
+  systemd:
+    state: started
+    enabled: true
+    name: goshimmer-snapshot.bin-dump.timer
+    daemon_reload: yes
