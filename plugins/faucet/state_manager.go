@@ -285,8 +285,8 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	Plugin.LogInfof("Looking for prepared outputs in the Tangle...")
 
 	for i := MaxFaucetOutputsCount + 1; uint64(i) <= s.preparingState.GetLastFundingOutputAddressIndex(); i++ {
-		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(s.preparingState.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
-			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.LedgerState.CachedOutputsOnAddress(s.preparingState.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
+			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() < 1 {
 					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
 					if !colorExist {
@@ -357,12 +357,12 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 		// make sure only one output per address will be added
 		foundOnCurrentAddress = false
 
-		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
+		deps.Tangle.LedgerState.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
 			if foundSupplyCount >= s.splittingMultiplayer || foundOnCurrentAddress {
 				// return when enough outputs has been collected or output has been already found on this address
 				return
 			}
-			messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
 					outputMetadata.Finalized() {
 					iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
@@ -551,7 +551,7 @@ func (s *StateManager) onTickerCheckMaxAttempts(issuedCount uint64) (finished bo
 	return false, err
 }
 
-func (s *StateManager) onConfirmation(confirmedTx deps.TransactionID, issuedCount uint64) (finished bool) {
+func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, issuedCount uint64) (finished bool) {
 	s.splittingEnv.confirmedCount.Add(1)
 	err := s.updateState(confirmedTx)
 	if err == nil {
