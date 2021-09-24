@@ -46,7 +46,7 @@ type QueryReplyErrorEvent struct {
 	OpinionCount int
 }
 
-// AnalysisFPCFinalizedEvent is triggered by the analysis-server to
+// AnalysisFPCFinalizedEvent is triggered by the analysis server to
 // notify a finalized FPC vote from one node.
 type AnalysisFPCFinalizedEvent struct {
 	// ConflictID defines the ID of the finalized conflict.

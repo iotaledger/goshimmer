@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
@@ -27,8 +26,8 @@ func onFinalized(ev *vote.OpinionEvent) {
 func onRoundExecuted(roundStats *vote.RoundStats) {
 	// get own ID
 	nodeID := make([]byte, len(identity.ID{}))
-	if local.GetInstance() != nil {
-		copy(nodeID, local.GetInstance().ID().Bytes())
+	if deps.Local != nil {
+		copy(nodeID, deps.Local.ID().Bytes())
 	}
 
 	chunks := splitFPCVoteContext(roundStats.ActiveVoteContexts)

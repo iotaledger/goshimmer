@@ -11,11 +11,11 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/drand/drand v1.1.1
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go v0.0.0-20210808094628-91e3bbe1eac1
+	github.com/iotaledger/hive.go v0.0.0-20210821074123-831d7702ae07
 	github.com/mr-tron/base58 v1.2.0
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 )
 

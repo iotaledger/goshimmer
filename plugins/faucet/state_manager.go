@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -143,7 +142,7 @@ func (s *StateManager) DeriveStateFromTangle(shutdownSignal <-chan struct{}) (er
 	}
 
 	endIndex := (GenesisTokenAmount-s.preparingState.RemainderOutputBalance())/s.tokensPerRequest + MaxFaucetOutputsCount
-	Plugin().LogInfof("%d indices have already been used based on found remainder output", endIndex)
+	Plugin.LogInfof("%d indices have already been used based on found remainder output", endIndex)
 
 	s.preparingState.SetLastFundingOutputAddressIndex(endIndex)
 
@@ -152,26 +151,26 @@ func (s *StateManager) DeriveStateFromTangle(shutdownSignal <-chan struct{}) (er
 	if supplyFound > 0 {
 		err = s.splitSupplyTxAndPrepareFundingReminders()
 		if err != nil {
-			Plugin().LogInfof("Found and complete %d unfinished funds preparation", s.preparingState.SupplyOutputsCount())
+			Plugin.LogInfof("Found and complete %d unfinished funds preparation", s.preparingState.SupplyOutputsCount())
 		}
 	}
 	foundPreparedOutputs := s.findFundingOutputs()
 
 	if len(foundPreparedOutputs) != 0 {
 		// save all already prepared outputs into the state manager
-		Plugin().LogInfof("Found and restored %d ready funding remainders", len(foundPreparedOutputs))
+		Plugin.LogInfof("Found and restored %d ready funding remainders", len(foundPreparedOutputs))
 		s.saveFundingOutputs(foundPreparedOutputs)
 	}
 
 	if s.notEnoughFundsInTheFaucet() {
-		Plugin().LogInfof("Preparing more outputs...")
+		Plugin.LogInfof("Preparing more outputs...")
 		err = s.prepareMoreFundingOutputs()
 		err = s.handlePrepareErrors(err)
 	}
 
-	Plugin().LogInfof("Added new funding outputs, last used address index is %d", s.preparingState.GetLastFundingOutputAddressIndex())
-	Plugin().LogInfof("There are currently %d prepared outputs in the faucet", s.fundingState.FundingOutputsCount())
-	Plugin().LogInfof("Remainder output %s had %d funds", s.preparingState.RemainderOutputID().Base58(), s.preparingState.RemainderOutputBalance())
+	Plugin.LogInfof("Added new funding outputs, last used address index is %d", s.preparingState.GetLastFundingOutputAddressIndex())
+	Plugin.LogInfof("There are currently %d prepared outputs in the faucet", s.fundingState.FundingOutputsCount())
+	Plugin.LogInfof("Remainder output %s had %d funds", s.preparingState.RemainderOutputID().Base58(), s.preparingState.RemainderOutputBalance())
 
 	return err
 }
@@ -228,7 +227,7 @@ func (s *StateManager) notEnoughFundsInTheFaucet() bool {
 func (s *StateManager) signalMoreFundingNeeded(wait bool) {
 	if s.preparingState.IsPreparingFunds.SetToIf(false, true) {
 		go func() {
-			Plugin().LogInfof("Preparing more outputs...")
+			Plugin.LogInfof("Preparing more outputs...")
 			err := s.prepareMoreFundingOutputs()
 			_ = s.handlePrepareErrors(err)
 		}()
@@ -283,7 +282,7 @@ func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	foundPreparedOutputs := make([]*FaucetOutput, 0)
 
-	Plugin().LogInfof("Looking for prepared outputs in the Tangle...")
+	Plugin.LogInfof("Looking for prepared outputs in the Tangle...")
 
 	for i := MaxFaucetOutputsCount + 1; uint64(i) <= s.preparingState.GetLastFundingOutputAddressIndex(); i++ {
 		messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(s.preparingState.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
@@ -306,8 +305,8 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 			})
 		})
 	}
-	Plugin().LogInfof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
-	Plugin().LogInfof("Looking for prepared outputs in the Tangle... DONE")
+	Plugin.LogInfof("Found %d prepared outputs in the Tangle", len(foundPreparedOutputs))
+	Plugin.LogInfof("Looking for prepared outputs in the Tangle... DONE")
 	return foundPreparedOutputs
 }
 
@@ -318,8 +317,8 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	remainderAddress := s.preparingState.seed.Address(RemainderAddressIndex).Address()
 
 	// remainder output should sit on address 0
-	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
-		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	deps.Tangle.LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
+		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
 				outputMetadata.Finalized() {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
@@ -423,14 +422,14 @@ func (s *StateManager) handlePrepareErrors(err error) error {
 	if err != nil {
 		if errors.Is(err, ErrSplittingFundsFailed) {
 			err = errors.Errorf("failed to prepare more outputs: %w", err)
-			Plugin().LogError(err)
+			Plugin.LogError(err)
 			return err
 		}
 		if errors.Is(err, ErrConfirmationTimeoutExpired) {
-			Plugin().LogInfof("Preparing more outputs partially successful: %w", err)
+			Plugin.LogInfof("Preparing more outputs partially successful: %w", err)
 		}
 	}
-	Plugin().LogInfof("Preparing more outputs... DONE")
+	Plugin.LogInfof("Preparing more outputs... DONE")
 	return err
 }
 
@@ -447,7 +446,7 @@ func (s *StateManager) prepareAndProcessSupplyTransaction() (err error) {
 	go s.listenOnConfirmationAndUpdateState(1, preparationFailure)
 	_, ok := preparingWorkerPool.TrySubmit(s.supplyTransactionElements, preparationFailure)
 	if !ok {
-		Plugin().LogWarn("supply funding task not submitted, queue is full")
+		Plugin.LogWarn("supply funding task not submitted, queue is full")
 	}
 	// wait for listenOnConfirmationAndUpdateState to return
 	err = <-s.splittingEnv.listeningFinished
@@ -496,7 +495,7 @@ func (s *StateManager) splitSupplyTxAndPrepareFundingReminders() (err error) {
 // listenOnConfirmationAndUpdateState listens for the confirmation and updates the faucet internal state.
 // Listening is finished when all issued transactions are confirmed or when the awaiting time is up.
 func (s *StateManager) listenOnConfirmationAndUpdateState(txNumToProcess uint64, preparationFailure <-chan types.Empty) {
-	Plugin().LogInfof("Start listening for confirmation")
+	Plugin.LogInfof("Start listening for confirmation")
 	// buffered channel will store all confirmed transactions
 	txConfirmed := make(chan ledgerstate.TransactionID, txNumToProcess) // length is s.preparedOutputsCount or 1
 
@@ -507,8 +506,8 @@ func (s *StateManager) listenOnConfirmationAndUpdateState(txNumToProcess uint64,
 	})
 
 	// listen on confirmation
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
+	deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
@@ -552,7 +551,7 @@ func (s *StateManager) onTickerCheckMaxAttempts(issuedCount uint64) (finished bo
 	return false, err
 }
 
-func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, issuedCount uint64) (finished bool) {
+func (s *StateManager) onConfirmation(confirmedTx deps.TransactionID, issuedCount uint64) (finished bool) {
 	s.splittingEnv.confirmedCount.Add(1)
 	err := s.updateState(confirmedTx)
 	if err == nil {
@@ -567,7 +566,7 @@ func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, iss
 
 // updateState takes a confirmed transaction (splitting or supply tx), and updates the faucet internal state based on its content.
 func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err error) {
-	messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		remainingBalance := s.preparingState.RemainderOutputBalance() - s.tokensPerRequest*s.preparedOutputsCount*s.splittingMultiplayer
 		supplyBalance := s.tokensPerRequest * s.splittingMultiplayer
 
@@ -619,7 +618,7 @@ func (s *StateManager) createSplittingTx(transactionElementsCallback func() (led
 	essence := ledgerstate.NewTransactionEssence(
 		0,
 		clock.SyncedTime(),
-		local.GetInstance().ID(),
+		deps.Local.ID(),
 		// consensus mana is pledged to EmptyNodeID
 		identity.ID{},
 		ledgerstate.NewInputs(inputs...),
@@ -695,7 +694,7 @@ func (s *StateManager) createOutput(addr ledgerstate.Address, balance uint64) le
 func (s *StateManager) issueTx(tx *ledgerstate.Transaction) (msg *tangle.Message, err error) {
 	// attach to message layer
 	issueTransaction := func() (*tangle.Message, error) {
-		message, e := messagelayer.Tangle().IssuePayload(tx)
+		message, e := deps.Tangle.IssuePayload(tx)
 		if e != nil {
 			return nil, e
 		}

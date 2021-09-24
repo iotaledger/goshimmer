@@ -21,14 +21,14 @@ import (
 
 func TestConsensusConflicts(t *testing.T) {
 	const numberOfPeers = 6
-	FCoBQuarantineTime := time.Duration(framework.PeerConfig().FCOB.QuarantineTime) * time.Second
+	FCoBQuarantineTime := framework.PeerConfig().FCOB.QuarantineTime
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), numberOfPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		Autopeering: true,
+		AutoPeering: true,
 		Activity:    true,
 		FPC:         true,
 	})

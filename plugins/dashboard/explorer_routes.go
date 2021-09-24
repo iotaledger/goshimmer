@@ -66,11 +66,11 @@ type ExplorerMessage struct {
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
-	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
+	cachedMessageMetadata := deps.Tangle.Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
 
-	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
 	if err != nil {
 		branchID = ledgerstate.BranchID{}
 	}
@@ -85,8 +85,8 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		SequenceNumber:          msg.SequenceNumber(),
 		StrongParents:           msg.StrongParents().ToStrings(),
 		WeakParents:             msg.WeakParents().ToStrings(),
-		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
-		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
+		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
+		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
 		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
@@ -215,7 +215,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+	if !deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		explorerMsg = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.Base58())
@@ -233,31 +233,31 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
-	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	deps.Tangle.LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
 		inclusionState := ExplorerInclusionState{}
 		var timestamp int64
 
 		// get output metadata + liked status from branch of the output
-		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
-			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+			deps.Tangle.LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
 				inclusionState.Liked = branch.Liked()
 			})
 		})
 
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
-		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
+		txInclusionState, _ := deps.Tangle.LedgerState.TransactionInclusionState(transactionID)
 
-		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
+		deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
 			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
 			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
 			inclusionState.Finalized = txMeta.Finalized()
-			inclusionState.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
+			inclusionState.Conflicting = deps.Tangle.LedgerState.TransactionConflicting(transactionID)
 		})
 
-		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			timestamp = transaction.Essence().Timestamp().Unix()
 		})
 

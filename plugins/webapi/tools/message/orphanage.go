@@ -13,7 +13,6 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var fileNameOrphanage = "orphanage-analysis.csv"
@@ -61,18 +60,18 @@ func orphanageAnalysis(targetMessageID tangle.MessageID, filePath string) error 
 		return err
 	}
 	var writeErr error
-	messagelayer.Tangle().Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker) {
-		approverMessageIDs := messagelayer.Tangle().Utils.ApprovingMessageIDs(msgID)
+	deps.Tangle.Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker) {
+		approverMessageIDs := deps.Tangle.Utils.ApprovingMessageIDs(msgID)
 		if len(approverMessageIDs) == 0 {
-			messagelayer.Tangle().Storage.Message(msgID).Consume(func(message *tangle.Message) {
-				messagelayer.Tangle().Storage.MessageMetadata(msgID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			deps.Tangle.Storage.Message(msgID).Consume(func(message *tangle.Message) {
+				deps.Tangle.Storage.MessageMetadata(msgID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 					msgApproval := MsgInfoOrphanage{
 						MsgID:                msgID,
 						MsgIssuerID:          message.IssuerPublicKey(),
 						MsgIssuanceTimestamp: message.IssuingTime(),
 						MsgArrivalTime:       messageMetadata.ReceivedTime(),
 						MsgSolidTime:         messageMetadata.SolidificationTime(),
-						MsgApprovedBy:        messagelayer.Tangle().Utils.MessageApprovedBy(targetMessageID, msgID),
+						MsgApprovedBy:        deps.Tangle.Utils.MessageApprovedBy(targetMessageID, msgID),
 					}
 
 					// write msgApproval to file

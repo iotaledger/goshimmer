@@ -25,7 +25,7 @@ var (
 	faucetRemindersAddrStart = uint64(tests.FaucetRemindersAddrStart)
 )
 
-func TestManaPersistence(t *testing.T) {
+func XTestManaPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 5, framework.CreateNetworkConfig{
@@ -60,7 +60,7 @@ func TestManaPersistence(t *testing.T) {
 	require.Greater(t, tests.Mana(t, peer).Consensus, minConsensusMana)
 }
 
-func TestManaPledgeFilter(t *testing.T) {
+func XTestManaPledgeFilter(t *testing.T) {
 	const (
 		numPeers         = 3
 		tokensPerRequest = 100
@@ -139,7 +139,7 @@ func TestManaApis(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		Autopeering: true, // we need to discover online peers
+		AutoPeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)

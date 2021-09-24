@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -174,7 +175,13 @@ func (b *Builder) Spend(spend map[ledgerstate.Color]uint64) error {
 
 // AddExtendedOutputSpend adds extended output using unspent amounts and spends it. Fails of not enough.
 // Do not consume inputs
-func (b *Builder) AddExtendedOutputSpend(targetAddress ledgerstate.Address, data []byte, amounts map[ledgerstate.Color]uint64, mint ...uint64) error {
+func (b *Builder) AddExtendedOutputSpend(
+	targetAddress ledgerstate.Address,
+	data []byte,
+	amounts map[ledgerstate.Color]uint64,
+	options *sendoptions.SendFundsOptions,
+	mint ...uint64,
+) error {
 	for col, needed := range amounts {
 		available := b.consumedUnspent[col]
 		if available < needed {
@@ -185,6 +192,14 @@ func (b *Builder) AddExtendedOutputSpend(targetAddress ledgerstate.Address, data
 		return err
 	}
 	output := ledgerstate.NewExtendedLockedOutput(amounts, targetAddress)
+	if options != nil {
+		if options.FallbackAddress != nil && !options.FallbackDeadline.IsZero() {
+			output = output.WithFallbackOptions(options.FallbackAddress, options.FallbackDeadline)
+		}
+		if !options.LockUntil.IsZero() {
+			output = output.WithTimeLock(options.LockUntil)
+		}
+	}
 	if err := output.SetPayload(data); err != nil {
 		return err
 	}

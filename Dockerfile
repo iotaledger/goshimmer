@@ -36,7 +36,7 @@ RUN --mount=target=. \
 
 # Enable building the image without downloading the snapshot.
 # If built with dummy snapshot then a snapshot needs to be mounted into the resulting image.
-RUN if (( $DOWNLOAD_SNAPSHOT == 1 )); then \
+RUN if [ $DOWNLOAD_SNAPSHOT -gt 0 ]; then \
     wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin ;  \
     else  \
     touch /tmp/snapshot.bin ; \
@@ -51,7 +51,7 @@ FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5d
 
 # Gossip
 EXPOSE 14666/tcp
-# Autopeering
+# AutoPeering
 EXPOSE 14626/udp
 # FPC
 EXPOSE 10895/tcp

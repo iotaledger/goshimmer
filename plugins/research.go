@@ -17,14 +17,14 @@ import (
 
 // Research contains research plugins of a GoShimmer node.
 var Research = node.Plugins(
-	remotelog.Plugin(),
-	analysisserver.Plugin(),
-	analysisclient.Plugin(),
-	analysisdashboard.Plugin(),
-	prometheus.Plugin(),
-	remotelogmetrics.Plugin(),
+	remotelog.Plugin,
+	analysisserver.Plugin,
+	analysisclient.Plugin,
+	analysisdashboard.Plugin,
+	prometheus.Plugin,
+	remotelogmetrics.Plugin,
 	networkdelay.App(),
-	txstream.Plugin(),
-	activity.Plugin(),
-	chat.App(),
+	txstream.Plugin,
+	activity.Plugin,
+	chat.Plugin,
 )

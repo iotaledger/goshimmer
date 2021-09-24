@@ -16,9 +16,10 @@ services:
     # optionally, you can mount a config.json into the container
     volumes:
       - "./db:/tmp/mainnetdb:rw"
+      - "./peerdb:/tmp/peerdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
-      # Autopeering
+      # AutoPeering
       - "0.0.0.0:14626:14626/udp"
       # Gossip
       - "0.0.0.0:14666:14666/tcp"
@@ -31,10 +32,10 @@ services:
       # pprof profiling
       - "0.0.0.0:6061:6061/tcp"
     environment:
-      - ANALYSIS_CLIENT_SERVERADDRESS=ressims.iota.cafe:21888
-      - AUTOPEERING_PORT=14626
+      - ANALYSIS_CLIENT_SERVERADDRESS=analysisentry-01.devnet.shimmer.iota.cafe:21888
+      - AUTOPEERING_BINDADDRESS=0.0.0.0:14626
       - DASHBOARD_BINDADDRESS=0.0.0.0:8081
-      - GOSSIP_PORT=14666
+      - GOSSIP_BINDADDRESS=0.0.0.0:14666
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
       - NETWORKDELAY_ORIGINPUBLICKEY=9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd
@@ -42,18 +43,20 @@ services:
       - PROMETHEUS_BINDADDRESS=0.0.0.0:9311
     command: >
       --skip-config=true
-      --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
-      --node.disablePlugins=
+      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
+      --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
+      --database.directory=/tmp/mainnetdb
+      --node.peerDBDirectory=/tmp/peerdb
       --logger.level=info
       --logger.disableEvents=false
-      --logger.remotelog.serverAddress=ressims.iota.cafe:5213
-      --drng.pollen.instanceId=1
+      --logger.remotelog.serverAddress=metrics-01.devnet.shimmer.iota.cafe:5213
+      --drng.pollen.instanceID=1
       --drng.pollen.threshold=3
       --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
-      --drng.xteam.instanceId=1339
-      --drng.xteam.threshold=4
-      --drng.xteam.committeeMembers=GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo,68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt,Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1,75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs,CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf,7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16,CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx
+      --drng.xTeam.instanceID=1339
+      --drng.xTeam.threshold=4
+      --drng.xTeam.committeeMembers=GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo,68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt,Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1,75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs,CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf,7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16,CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx
     networks:
       - outside
 

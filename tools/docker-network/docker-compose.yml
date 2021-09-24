@@ -12,10 +12,12 @@ services:
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
       --analysis.server.bindAddress=0.0.0.0:1888
-      --autopeering.entryNodes=
-      --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
+      --autoPeering.entryNodes=
+      --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
+      --node.overwriteStoredSeed=true
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
+      --node.peerDBDirectory=/tmp/peerdb
       --mana.enableResearchVectors=false
       --mana.snapshotResetTime=true
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
@@ -24,17 +26,18 @@ services:
       --metrics.local=true
       --metrics.manaResearch=false
       --node.disablePlugins=portcheck,clock
-      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus,spammer,"webapi tools endpoint",activity,snapshot
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --statement.writeManaThreshold=1.0
       --statement.writeStatement=true
-      --webapi.exportPath=/tmp/
+      --webAPI.exportPath=/tmp/
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
     volumes:
       - shimmerdb:/tmp/mainnetdb
+      - peerdb:/tmp/peerdb
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
@@ -49,14 +52,15 @@ services:
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap,"webapi tools endpoint"
+      --node.peerDBDirectory=/tmp/peerdb
+      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
-      --webapi.exportPath=/tmp/
+      --webAPI.exportPath=/tmp/
     deploy:
       replicas: ${SHIMMER_PEER_REPLICAS:-1}
       restart_policy:
@@ -75,8 +79,10 @@ services:
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
-      --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
-      --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity
+      --node.peerDBDirectory=/tmp/peerdb
+      --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
+      --node.overwriteStoredSeed=true
+      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
@@ -85,7 +91,7 @@ services:
       --mana.snapshotResetTime=true
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
-      --webapi.exportPath=/tmp/
+      --webAPI.exportPath=/tmp/
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
@@ -168,6 +174,7 @@ networks:
 # ./run.sh removes these on exit
 volumes:
   shimmerdb:
+  peerdb:
 # read only files to load in the containers that may be shared across containers
 secrets:
   goshimmer.message.snapshot.bin:

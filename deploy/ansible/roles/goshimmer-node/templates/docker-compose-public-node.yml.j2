@@ -1,0 +1,67 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+version: '3.3'
+
+services:
+  goshimmer:
+    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
+    container_name: goshimmer
+    stop_grace_period: 2m
+    volumes:
+      - "./db:/db"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      # Autopeering
+      - "0.0.0.0:14626:14626/udp"
+      # Gossip
+      - "0.0.0.0:14666:14666/tcp"
+      # FPC
+      - "0.0.0.0:10895:10895/tcp"
+      # HTTP API
+      - "0.0.0.0:8080:8080/tcp"
+      # Dashboard
+      - "0.0.0.0:8081:8081/tcp"
+      # pprof profiling
+      - "0.0.0.0:6061:6061/tcp"
+    environment:
+      - DATABASE_DIRECTORY=/db/mainnetdb
+      - NODE_PEERDBDIRECTORY=/db/peerdb
+      - ANALYSIS_CLIENT_SERVERADDRESS={{ analysisServerHost }}:21888
+      - AUTOPEERING_BINDADDRESS=0.0.0.0:14626
+      - DASHBOARD_BINDADDRESS=0.0.0.0:8081
+      - GOSSIP_BINDADDRESS=0.0.0.0:14666
+      - WEBAPI_BINDADDRESS=0.0.0.0:8080
+      - PROFILING_BINDADDRESS=0.0.0.0:6061
+      - FPC_BINDADDRESS=0.0.0.0:10895
+    entrypoint: /run/goshimmer
+    command: >
+      --skip-config=true
+      --node.overwriteStoredSeed=true
+      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
+      {% if networkVersion|default(None) %}
+      --autopeering.networkVersion={{ networkVersion }}
+      {% endif %}
+      --node.disablePlugins=portcheck
+      --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
+      --prometheus.bindAddress=0.0.0.0:9312
+      {% if faucet|default(false) %}
+      --faucet.seed={{ faucetSeed }}
+      --faucet.tokensPerRequest=1000000
+      {% endif %}
+      --faucet.powDifficulty=22
+      --pow.difficulty=22
+      --pow.numThreads=7
+      --pow.timeout=60s
+      --logger.level={{ logLevel }}
+      --logger.disableEvents=false
+      --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
+      {% if bootstrap|default(false) %}
+      --messageLayer.startSynced=true
+      {% endif %}
+      --drng.pollen.instanceID=1
+      --drng.pollen.threshold=3
+      --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
+      {% if xteamDRNG|default(false) %}
+      --drng.xTeam.instanceID=1339
+      --drng.xTeam.threshold=4
+      --drng.xTeam.committeeMembers=GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo,68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt,Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1,75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs,CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf,7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16,CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx
+      {% endif %}
