@@ -14,7 +14,7 @@ import (
 // TestFaucetRequest sends funds by faucet request.
 func TestFaucetRequest(t *testing.T) {
 	const (
-		numPeers    = 5
+		numPeers    = 4
 		numRequests = 2
 	)
 
@@ -31,7 +31,7 @@ func TestFaucetRequest(t *testing.T) {
 	faucet, peers := n.Peers()[0], n.Peers()[1:]
 
 	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
 
 	// each non-faucet peer issues numRequests requests
 	for _, peer := range peers {

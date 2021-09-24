@@ -2,19 +2,18 @@ package value
 
 import (
 	"context"
-	"log"
-	"testing"
-	"time"
-
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
+	"log"
+	"testing"
+	"time"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -39,7 +38,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	addrBalance := make(map[string]map[ledgerstate.Color]uint64)
 
 	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
 
 	// request funds from faucet
 	for _, peer := range peers {
@@ -108,7 +107,7 @@ func TestValueAliasPersistence(t *testing.T) {
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
 
 	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)
@@ -176,6 +175,9 @@ func TestValueAliasDelegation(t *testing.T) {
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
+
+	// wait for the faucet to prepare initial outputs
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)

@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/hive.go/types"
 	"log"
 	"testing"
 	"time"
@@ -73,23 +74,33 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 }
 
 // AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
-func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node) {
+func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node) {
 	preparedOutputsCount := faucet.Config().PreparedOutputsCount
 	splittingMultiplayer := faucet.Config().SplittingMultiplayer
 	lastFaucetReminderAddress := preparedOutputsCount*splittingMultiplayer + FaucetRemindersAddrStart - 1
 	addrToCheck := faucet.Address(lastFaucetReminderAddress).Base58()
+
+	confirmed := make(map[int]types.Empty)
 	require.Eventually(t, func() bool {
-		avail := true
-		for _, p := range peers {
-			resp, err := p.PostAddressUnspentOutputs([]string{addrToCheck})
-			require.NoError(t, err)
-			if len(resp.UnspentOutputs[0].Outputs) == 0 {
-				avail = false
-				break
+		if len(confirmed) == preparedOutputsCount*splittingMultiplayer {
+			return true
+		}
+		// wait for confirmation of each fundingOutput
+		for fundingIndex := FaucetRemindersAddrStart; fundingIndex <= lastFaucetReminderAddress; fundingIndex++ {
+			if _, ok := confirmed[fundingIndex]; !ok {
+				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
+				require.NoError(t, err)
+				if len(resp.UnspentOutputs[0].Outputs) != 0 {
+					if resp.UnspentOutputs[0].Outputs[0].InclusionState.Confirmed {
+						confirmed[fundingIndex] = types.Void
+					}
+				}
 			}
 		}
-		return avail
-	}, time.Minute*2, Tick)
+		return false
+	}, time.Minute, Tick)
+	// give the faucet time to save the latest confirmed output
+	time.Sleep(time.Second)
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.

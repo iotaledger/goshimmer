@@ -14,7 +14,7 @@ import (
 func TestFaucetPrepare(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 5, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true,
@@ -32,7 +32,7 @@ func TestFaucetPrepare(t *testing.T) {
 		lastFaucetReminderAddress = preparedOutputsCount*splittingMultiplayer + faucetRemindersAddrStart - 1
 	)
 	// wait for the faucet to split the supply tx and prepare all outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
 	// check that each of the preparedOutputsCount addresses holds the correct balance
 	remainderBalance := uint64(framework.GenesisTokenAmount - preparedOutputsCount*splittingMultiplayer*tokensPerRequest)
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
