@@ -86,7 +86,7 @@ linters:
         - gofumpt # Gofumpt checks whether code was gofumpt-ed. A more strict version of gofmt.
         - goimports # Sorts and format imports.
         - golint # golint checks style mistakes.
-        - godot #Check if comments end in a period [fast: true, auto-fix: true]
+        - godot # Check if comments end in a period [fast: true, auto-fix: true]
         - gomnd # An analyzer to detect magic numbers.
         - goprintffuncname # Checks that printf-like functions are named with f at the end.
         - gosec # Inspects source code for security problems.
