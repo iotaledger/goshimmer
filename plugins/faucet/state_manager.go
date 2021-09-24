@@ -34,7 +34,7 @@ const (
 	// MinimumFaucetBalance defines the minimum token amount required, before the faucet stops operating.
 	MinimumFaucetBalance = 0.1 * GenesisTokenAmount
 
-	// MinimumFaucetRemindersPercentageLeft defines the minimum percentage of prepared fundingReminders that triggers funds preparation
+	// MinimumFaucetRemindersPercentageLeft defines the minimum percentage of prepared fundingReminders that triggers funds preparation.
 	MinimumFaucetRemindersPercentageLeft = 30
 
 	// MaxFaucetOutputsCount defines the max outputs count for the Faucet as the ledgerstate.MaxOutputCount -1 remainder output.
@@ -46,7 +46,7 @@ const (
 	// MaxWaitAttempts defines the number of attempts taken while waiting for confirmation during funds preparation.
 	MaxWaitAttempts = 50
 
-	// TotalPercentage constant used to calculate percentage of funds left in the faucet
+	// TotalPercentage constant used to calculate percentage of funds left in the faucet.
 	TotalPercentage = 100
 )
 
@@ -217,13 +217,13 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (*tangl
 	return m, txID, nil
 }
 
-// notEnoughFundsInTheFaucet checks if number of funding outputs is lower than MinimumFaucetRemindersPercentageLeft of total funds prepared at once
+// notEnoughFundsInTheFaucet checks if number of funding outputs is lower than MinimumFaucetRemindersPercentageLeft of total funds prepared at once.
 func (s *StateManager) notEnoughFundsInTheFaucet() bool {
 	return uint64(s.fundingState.FundingOutputsCount()) < uint64(float64(s.splittingMultiplayer*s.preparedOutputsCount)*float64(MinimumFaucetRemindersPercentageLeft)/TotalPercentage)
 }
 
 // signalMoreFundingNeeded triggers preparation of faucet funding only if none preparation is currently running
-// if wait is true it awaits for funds to be prepared to not drop requests and block the queue
+// if wait is true it awaits for funds to be prepared to not drop requests and block the queue.
 func (s *StateManager) signalMoreFundingNeeded(wait bool) {
 	if s.preparingState.IsPreparingFunds.SetToIf(false, true) {
 		go func() {
@@ -346,7 +346,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	return nil
 }
 
-// findSupplyOutputs looks for preparedOutputsCount number of reminders of supply transaction and updates the StateManager
+// findSupplyOutputs looks for preparedOutputsCount number of reminders of supply transaction and updates the StateManager.
 func (s *StateManager) findSupplyOutputs() uint64 {
 	var foundSupplyCount uint64
 	var foundOnCurrentAddress bool
@@ -433,7 +433,7 @@ func (s *StateManager) handlePrepareErrors(err error) error {
 	return err
 }
 
-// notEnoughFunds indicates if there are not enough funds left to carry on the faucet funds preparation
+// notEnoughFunds indicates if there are not enough funds left to carry on the faucet funds preparation.
 func (s *StateManager) notEnoughFunds() bool {
 	return s.preparingState.RemainderOutputBalance() < s.tokensPerRequest*s.preparedOutputsCount*s.splittingMultiplayer
 }
@@ -679,7 +679,7 @@ func (s *StateManager) splittingTransactionElements() (inputs ledgerstate.Inputs
 	return
 }
 
-// createOutput creates an output based on provided address and balance
+// createOutput creates an output based on provided address and balance.
 func (s *StateManager) createOutput(addr ledgerstate.Address, balance uint64) ledgerstate.Output {
 	return ledgerstate.NewSigLockedColoredOutput(
 		ledgerstate.NewColoredBalances(
@@ -715,7 +715,7 @@ func (s *StateManager) issueTx(tx *ledgerstate.Transaction) (msg *tangle.Message
 
 // region splittingEnv
 
-// splittingEnv provides variables used for synchronization during splitting transactions
+// splittingEnv provides variables used for synchronization during splitting transactions.
 type splittingEnv struct {
 	// preparedTxID is a map that stores prepared and issued transaction IDs
 	issuedTxIDs map[ledgerstate.TransactionID]types.Empty
@@ -772,7 +772,7 @@ func (s *splittingEnv) AddIssuedTxID(txID ledgerstate.TransactionID) {
 
 // region fulfilState
 
-// fundingState manages fundingOutputs and its mutex
+// fundingState manages fundingOutputs and its mutex.
 type fundingState struct {
 	// ordered list of available outputs to fund faucet requests
 	fundingOutputs *list.List
@@ -824,7 +824,7 @@ func (f *fundingState) fundingOutputsCount() int {
 
 // region preparingState
 
-// preparingState keeps all variables and related methods used to track faucet state during funds preparation
+// preparingState keeps all variables and related methods used to track faucet state during funds preparation.
 type preparingState struct {
 	// output that holds the remainder funds to the faucet, should always be on address 0
 	remainderOutput *FaucetOutput
@@ -907,7 +907,7 @@ func (p *preparingState) supplyOutputsCount() int {
 	return p.supplyOutputs.Len()
 }
 
-// AddSupplyOutput adds FaucetOutput to the supplyOutputs
+// AddSupplyOutput adds FaucetOutput to the supplyOutputs.
 func (p *preparingState) AddSupplyOutput(output *FaucetOutput) {
 	p.Lock()
 	defer p.Unlock()
@@ -940,7 +940,7 @@ func (p *preparingState) SetLastFundingOutputAddressIndex(index uint64) {
 	p.lastFundingOutputAddressIndex = index
 }
 
-// GetAddressToIndex returns index for provided address based on addressToIndex map
+// GetAddressToIndex returns index for provided address based on addressToIndex map.
 func (p *preparingState) GetAddressToIndex(addr string) uint64 {
 	p.RLock()
 	defer p.RUnlock()

@@ -34,7 +34,6 @@ const (
 var (
 	// Plugin is the "plugin" instance of the faucet application.
 	Plugin                   *node.Plugin
-	pluginOnce               sync.Once
 	_faucet                  *StateManager
 	powVerifier              = pow.New()
 	fundingWorkerPool        *workerpool.NonBlockingQueuedWorkerPool
