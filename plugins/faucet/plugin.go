@@ -136,7 +136,7 @@ func run(*node.Plugin) {
 
 		Plugin().LogInfof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
-		if err := Faucet().DeriveStateFromTangle(); err != nil {
+		if err := Faucet().DeriveStateFromTangle(shutdownSignal); err != nil {
 			Plugin().LogErrorf("failed to derive state: %s", err)
 			return
 		}

@@ -87,6 +87,9 @@ type StateManager struct {
 
 	// splittingEnv keeps all variables and related methods necessary to split transactions during funds preparation
 	splittingEnv *splittingEnv
+
+	// signal received from Faucet background worker on shutdown
+	shutdownSignal <-chan struct{}
 }
 
 // NewStateManager creates a new state manager for the faucet.
@@ -128,9 +131,11 @@ func NewStateManager(
 //  - supply outputs should be held on addresses 1-126
 //  - faucet indexes that keeps fundingOutputs starts from 127
 //  - if no funding outputs are found, the faucet creates them from the remainder output.
-func (s *StateManager) DeriveStateFromTangle() (err error) {
+func (s *StateManager) DeriveStateFromTangle(shutdownSignal <-chan struct{}) (err error) {
 	s.preparingState.IsPreparingFunds.Set()
 	defer s.preparingState.IsPreparingFunds.UnSet()
+
+	s.shutdownSignal = shutdownSignal
 
 	err = s.findUnspentRemainderOutput()
 	if err != nil {
@@ -529,6 +534,8 @@ func (s *StateManager) listenOnConfirmationAndUpdateState(txNumToProcess uint64,
 			}
 		case <-preparationFailure:
 			issuedCount--
+		case <-s.shutdownSignal:
+			s.splittingEnv.listeningFinished <- nil
 		}
 	}
 }
