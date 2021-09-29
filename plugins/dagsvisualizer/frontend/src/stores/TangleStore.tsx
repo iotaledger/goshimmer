@@ -72,7 +72,7 @@ export class TangleStore {
     }
 
     @action
-    addMessage (msg: tangleVertex) {
+    addMessage = (msg: tangleVertex) => {
         if (this.msgOrder.length >= this.maxTangleVertices) {
             let removed = this.msgOrder.shift();
             this.messages.delete(removed);
@@ -83,11 +83,12 @@ export class TangleStore {
         this.awMap.set(msg.ID, 0);
         // TODO: test if the reference works
         msg.approvalweight = this.awMap.get(msg.ID)!;
+        msg.futureMarkers = [];
         this.messages.set(msg.ID, msg);
     }
 
     @action
-    setMessageBranch(branch: tangleBooked) {
+    setMessageBranch = (branch: tangleBooked) => {
         let msg = this.messages.get(branch.ID);
         if (!msg) {
             return;
@@ -100,7 +101,7 @@ export class TangleStore {
     }
 
     @action
-    setMessageConfirmedTime(info: tangleFinalized) {
+    setMessageConfirmedTime = (info: tangleFinalized) => {
         let msg = this.messages.get(info.ID);
         if (!msg) {
             return;
@@ -111,7 +112,7 @@ export class TangleStore {
     }
 
     @action
-    updateFutureMarker(fm: tangleFutureMarkerUpdated) {
+    updateFutureMarker = (fm: tangleFutureMarkerUpdated) => {
         let msg = this.messages.get(fm.ID);
         if (msg) {
             msg.futureMarkers.push(fm.futureMarkerID);
@@ -124,31 +125,34 @@ export class TangleStore {
             this.markerMap.set(fm.futureMarkerID, [fm.ID]);
         } else {
             pastconeList.push(fm.ID);
+            this.markerMap.set(fm.futureMarkerID, pastconeList);
         }
         // TODO: think how we're gonna to delete the messages in markerMap if it's deleted
     }
 
     @action
-    updateMarkerAW(updatedAW: tangleMarkerAWUpdated) {
+    updateMarkerAW = (updatedAW: tangleMarkerAWUpdated) => {
         let marker = this.awMap.get(updatedAW.ID);
         if (marker) {
             this.awMap.set(updatedAW.ID, updatedAW.approvalWeight);
         }
 
         // iterate the past cone of marker to update AW
-        let pastcone = this.markerMap.get(updatedAW.ID)!;
-        pastcone.forEach((msgID) => {
-            let msg = this.messages.get(msgID);
-            if (msg) {
-                let aw = 0;
-                msg.futureMarkers.forEach((fm) => {
-                    let fmAW = this.awMap.get(fm)!
-                    aw += fmAW
-                })
-                this.awMap.set(msgID, aw)    
-            }
-            // TODO: if msg does not exist, delete or keep it
-        });
+        let pastcone = this.markerMap.get(updatedAW.ID);
+        if (pastcone) {
+            pastcone.forEach((msgID) => {
+                let msg = this.messages.get(msgID);
+                if (msg) {
+                    let aw = 0;
+                    msg.futureMarkers.forEach((fm) => {
+                        let fmAW = this.awMap.get(fm)!
+                        aw += fmAW
+                    })
+                    this.awMap.set(msgID, aw)    
+                }
+                // TODO: if msg does not exist, delete or keep it
+            });
+        }
     }
 }
 
