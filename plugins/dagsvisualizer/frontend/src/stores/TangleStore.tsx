@@ -1,7 +1,7 @@
 import { action, observable, ObservableMap } from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
 
-class tangleVertex {
+export class tangleVertex {
     ID:              string;   
 	strongParentIDs: Array<string>;
 	weakParentIDs:   Array<string>;
@@ -12,23 +12,23 @@ class tangleVertex {
     futureMarkers:   Array<string>;
 }
 
-class tangleBooked {
+export class tangleBooked {
     ID:       string;
     isMarker: boolean;
 	branchID: string;
 }
 
-class tangleFinalized {
+export class tangleFinalized {
     ID:            string;
     confirmedTime: number;
 }
 
-class tangleFutureMarkerUpdated {
+export class tangleFutureMarkerUpdated {
     ID:             string;
     futureMarkerID: string;
 }
 
-class tangleMarkerAWUpdated {
+export class tangleMarkerAWUpdated {
     ID:             string;
     approvalWeight: number;
 }
