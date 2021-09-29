@@ -43,7 +43,6 @@ export function connectWebSocket(path: string, onOpen, onClose, onError) {
     ws.onerror = onError;
 
     ws.onmessage = (e) => {
-        console.log(e.data)
         let wsMsg: WSMessage = JSON.parse(e.data)
         let handler: DataHandler = handlers[wsMsg.type]
         if (handler != null) {
