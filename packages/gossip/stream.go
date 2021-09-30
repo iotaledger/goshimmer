@@ -12,13 +12,13 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/multiformats/go-multiaddr"
 )
 
 const (
-	defaultDialTimeout   = 1 * time.Second                    // timeout for net.Dial
-	handshakeTimeout     = 500 * time.Millisecond             // read/write timeout of the handshake packages
-	defaultAcceptTimeout = 3*time.Second + 2*handshakeTimeout // timeout after which the connection must be accepted.
-	protocolID           = "gossip/0.0.1"
+	defaultConnectionTimeout = 5 * time.Second // timeout after which the connection must be established.
+	protocolID               = "gossip/0.0.1"
 )
 
 var (
@@ -31,6 +31,41 @@ var (
 	// ErrNoGossip means that the given peer does not support the gossip service.
 	ErrNoGossip = errors.New("peer does not have a gossip service")
 )
+
+func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts ...ConnectPeerOption) (network.Stream, error) {
+	conf := buildConnectPeerConfig(opts)
+	gossipEndpoint := p.Services().Get(service.GossipKey)
+	if gossipEndpoint == nil {
+		return nil, ErrNoGossip
+	}
+	libp2pID, err := toLibp2pID(p)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	addressStr := fmt.Sprintf("/ip4%s/tcp/%d/p2p/%s", p.IP(), gossipEndpoint.Port(), libp2pID)
+	address, err := multiaddr.NewMultiaddr(addressStr)
+	if err != nil {
+		return nil, err
+	}
+	m.host.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
+
+	if conf.useDefaultTimeout {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
+		defer cancel()
+	}
+
+	stream, err := m.host.NewStream(ctx, libp2pID, protocolID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
+	}
+	m.log.Debugw("outgoing connection established",
+		"id", p.ID(),
+		"addr", stream.Conn().RemoteMultiaddr(),
+	)
+	return stream, nil
+}
 
 func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (network.Stream, error) {
 	gossipEndpoint := p.Services().Get(service.GossipKey)
@@ -45,7 +80,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		conf := buildConnectPeerConfig(opts)
 		if conf.useDefaultTimeout {
 			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, defaultAcceptTimeout)
+			ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
 			defer cancel()
 		}
 		am, err := newAcceptMatcher(p)
@@ -128,7 +163,7 @@ func (m *Manager) streamHandler(stream network.Stream) {
 	matched := m.matchNewStream(stream)
 	// close the connection if not matched
 	if !matched {
-		m.log.Debugw("unexpected connection", "libp2pAddr", stream.Conn().RemoteMultiaddr())
+		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr())
 		m.closeStream(stream)
 	}
 }
