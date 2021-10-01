@@ -32,7 +32,6 @@ type tangleVertex struct {
 	WeakParentIDs   []string `json:"weakParentIDs"`
 	BranchID        string   `json:"branchID"`
 	IsMarker        bool     `json:"isMarker"`
-	ApprovalWeight  float64  `json:"approvalweight"`
 	ConfirmedTime   int64    `json:"confirmedTime"`
 }
 
@@ -54,7 +53,7 @@ type tangleFutureMarkerUpdated struct {
 
 type tangleMarkerAWUpdated struct {
 	ID             string  `jsong:"ID"`
-	ApprovalWeight float64 `json:"approvalweight"`
+	ApprovalWeight float64 `json:"approvalWeight"`
 }
 
 type utxoVertex struct {
@@ -68,14 +67,14 @@ type utxoVertex struct {
 
 type utxoConfirmed struct {
 	ID             string  `json:"ID"`
-	ApprovalWeight float64 `json:"approvalweight"`
+	ApprovalWeight float64 `json:"approvalWeight"`
 	ConfirmedTime  int64   `json:"confirmedTime"`
 }
 
 type branchVertex struct {
 	ID             string   `json:"ID"`
 	Parents        []string `json:"parents"`
-	ApprovalWeight float64  `json:"approvalweight"`
+	ApprovalWeight float64  `json:"approvalWeight"`
 	ConfirmedTime  int64    `json:"confirmedTime"`
 }
 

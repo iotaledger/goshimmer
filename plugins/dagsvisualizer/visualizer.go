@@ -48,7 +48,6 @@ func registerTangleEvents() {
 					ID:              messageID.Base58(),
 					StrongParentIDs: msg.StrongParents().ToStrings(),
 					WeakParentIDs:   msg.WeakParents().ToStrings(),
-					ApprovalWeight:  0,
 				},
 			})
 		})

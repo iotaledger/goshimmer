@@ -7,7 +7,6 @@ export class tangleVertex {
 	weakParentIDs:   Array<string>;
     branchID:        string;
 	isMarker:        boolean;
-	approvalweight:  number;
 	confirmedTime:   number;
     futureMarkers:   Array<string>;
 }
@@ -81,8 +80,6 @@ export class TangleStore {
 
         this.msgOrder.push(msg.ID);
         this.awMap.set(msg.ID, 0);
-        // TODO: test if the reference works
-        msg.approvalweight = this.awMap.get(msg.ID)!;
         msg.futureMarkers = [];
         this.messages.set(msg.ID, msg);
     }
@@ -132,10 +129,8 @@ export class TangleStore {
 
     @action
     updateMarkerAW = (updatedAW: tangleMarkerAWUpdated) => {
-        let marker = this.awMap.get(updatedAW.ID);
-        if (marker) {
-            this.awMap.set(updatedAW.ID, updatedAW.approvalWeight);
-        }
+        // update AW of the marker
+        this.awMap.set(updatedAW.ID, updatedAW.approvalWeight);
 
         // iterate the past cone of marker to update AW
         let pastcone = this.markerMap.get(updatedAW.ID);
@@ -145,10 +140,12 @@ export class TangleStore {
                 if (msg) {
                     let aw = 0;
                     msg.futureMarkers.forEach((fm) => {
-                        let fmAW = this.awMap.get(fm)!
-                        aw += fmAW
+                        let fmAW = this.awMap.get(fm);
+                        if (fmAW) {
+                            aw += fmAW;
+                        }
                     })
-                    this.awMap.set(msgID, aw)    
+                    this.awMap.set(msgID, aw);
                 }
                 // TODO: if msg does not exist, delete or keep it
             });
