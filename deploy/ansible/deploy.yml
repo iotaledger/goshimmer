@@ -14,8 +14,18 @@
     - role: goshimmer-node
       nodeType: analysis-server
 
-- hosts: goshimmers
+- hosts: goshimmers:&internal_nodes
   vars:
     nodeType: goshimmer
   roles:
     - goshimmer-node
+
+- hosts: goshimmers:&public_nodes
+  vars:
+    nodeType: public-node
+  roles:
+    - goshimmer-node
+
+- hosts: vanilla-01*
+  roles:
+    - snapshotter

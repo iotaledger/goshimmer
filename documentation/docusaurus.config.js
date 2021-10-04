@@ -68,15 +68,15 @@ module.exports = {
             },
             {
               label: 'Protocol Specification',
-              to: '/docs/protocol_specification',
+              to: '/docs/protocol_specification/overview',
             },
             {
               label: 'API',
-              to: '/docs/apis/api',
+              to: '/docs/apis/client_lib',
             },
             {
               label: 'Tooling',
-              to: '/docs/tooling',
+              to: '/docs/tooling/overview',
             },
             {
               label: 'Team Resources',

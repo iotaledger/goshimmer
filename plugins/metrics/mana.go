@@ -7,8 +7,6 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -104,7 +102,7 @@ func ConsensusPercentile() float64 {
 func OwnConsensusMana() float64 {
 	consensusLock.RLock()
 	defer consensusLock.RUnlock()
-	return consensusMap[local.GetInstance().ID()]
+	return consensusMap[deps.Local.ID()]
 }
 
 // ConsensusManaMap returns the consensus mana of the whole network.
@@ -177,14 +175,14 @@ func measureMana() {
 	accessLock.Lock()
 	defer accessLock.Unlock()
 	accessMap = tmp[mana.AccessMana]
-	aPer, _ := accessMap.GetPercentile(local.GetInstance().ID())
+	aPer, _ := accessMap.GetPercentile(deps.Local.ID())
 	accessPercentile.Store(aPer)
 	consensusLock.Lock()
 	defer consensusLock.Unlock()
 	consensusMap = tmp[mana.ConsensusMana]
-	cPer, _ := consensusMap.GetPercentile(local.GetInstance().ID())
+	cPer, _ := consensusMap.GetPercentile(deps.Local.ID())
 	consensusPercentile.Store(cPer)
-	neighbors := gossip.Manager().AllNeighbors()
+	neighbors := deps.GossipMgr.AllNeighbors()
 	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana, neighbors)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range neighborAccessMap {

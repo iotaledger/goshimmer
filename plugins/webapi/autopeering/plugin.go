@@ -4,38 +4,41 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"sync"
 
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
-const PluginName = "WebAPI autopeering Endpoint"
+const PluginName = "WebAPIAutopeeringEndpoint"
 
 var (
-	// plugin is the plugin instance of the web API autopeering endpoint plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the web API autopeering endpoint plugin.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
-func configure(plugin *node.Plugin) {
-	webapi.Server().GET("autopeering/neighbors", getNeighbors)
+type dependencies struct {
+	dig.In
+
+	Server    *echo.Echo
+	Selection *selection.Protocol `optional:"true"`
+	Discover  *discover.Protocol  `optional:"true"`
 }
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
+}
+
+func configure(_ *node.Plugin) {
+	deps.Server.GET("autopeering/neighbors", getNeighbors)
 }
 
 // getNeighbors returns the chosen and accepted neighbors of the node
@@ -45,16 +48,20 @@ func getNeighbors(c echo.Context) error {
 	var knownPeers []jsonmodels.Neighbor
 
 	if c.QueryParam("known") == "1" {
-		for _, p := range discovery.Discovery().GetVerifiedPeers() {
-			knownPeers = append(knownPeers, createNeighborFromPeer(p))
+		if deps.Discover != nil {
+			for _, p := range deps.Discover.GetVerifiedPeers() {
+				knownPeers = append(knownPeers, createNeighborFromPeer(p))
+			}
 		}
 	}
 
-	for _, p := range autopeering.Selection().GetOutgoingNeighbors() {
-		chosen = append(chosen, createNeighborFromPeer(p))
-	}
-	for _, p := range autopeering.Selection().GetIncomingNeighbors() {
-		accepted = append(accepted, createNeighborFromPeer(p))
+	if deps.Selection != nil {
+		for _, p := range deps.Selection.GetOutgoingNeighbors() {
+			chosen = append(chosen, createNeighborFromPeer(p))
+		}
+		for _, p := range deps.Selection.GetIncomingNeighbors() {
+			accepted = append(accepted, createNeighborFromPeer(p))
+		}
 	}
 
 	return c.JSON(http.StatusOK, jsonmodels.GetNeighborsResponse{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})

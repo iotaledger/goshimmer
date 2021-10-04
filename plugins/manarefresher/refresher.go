@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -77,15 +76,15 @@ func (r *Refresher) prepareRefreshingTransaction(toBeRefreshed []*ledgerstate.Al
 	essence := ledgerstate.NewTransactionEssence(
 		0,
 		clock.SyncedTime(),
-		local.GetInstance().ID(), // pledge both manas to self
-		local.GetInstance().ID(),
+		deps.Local.ID(), // pledge both manas to self
+		deps.Local.ID(),
 		ledgerstate.NewInputs(inputs...),
 		ledgerstate.NewOutputs(outputs...),
 	)
 	tx = ledgerstate.NewTransaction(essence, r.wallet.unlockBlocks(essence))
 
 	// check transaction validity
-	if transactionErr := messagelayer.Tangle().LedgerState.CheckTransaction(tx); transactionErr != nil {
+	if transactionErr := deps.Tangle.LedgerState.CheckTransaction(tx); transactionErr != nil {
 		return nil, transactionErr
 	}
 
@@ -100,7 +99,7 @@ func (r *Refresher) prepareRefreshingTransaction(toBeRefreshed []*ledgerstate.Al
 // sendTransaction
 func (r *Refresher) sendTransaction(tx *ledgerstate.Transaction) (err error) {
 	issueTransaction := func() (*tangle.Message, error) {
-		return messagelayer.Tangle().IssuePayload(tx)
+		return deps.Tangle.IssuePayload(tx)
 	}
 	if _, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
 		return err

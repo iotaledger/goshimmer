@@ -1,4 +1,14 @@
-# Plugin system
+---
+description: The Plugin system allows to quickly and easily add and remove modules that need to be started. In GoShimmer, this is taken to an extreme, everything is run through plugins. 
+image: /img/logo/goshimmer_light.png
+keywords:
+- plugin
+- events
+- configure
+- event handlers
+- handler function
+---
+# Plugin System
 
 GoShimmer is a complex application that is used in a research environment where requirements often changed and new ideas arise. 
 The Plugin system allows to quickly and easily add and remove modules that need to be started. However, one thing that might be non-intuitive about the use of plugins is that it's taken to an extreme - everything is run through plugins. 
@@ -6,7 +16,7 @@ The only code that is not executed through a plugin system is the code responsib
 All new future features added to the GoShimmer must be added by creating a new plugin. 
 
 
-## Plugin structure
+## Plugin Structure
 
 `Plugin` structure is defined as following.
 
@@ -27,7 +37,7 @@ Below is a brief description of each field:
 * `Events` - structure containing events used to properly deploy the plugin. Details described below.
 * `wg` - a private field containing WaitGroup. #TODO: figure out why it is there - not really used anywhere
 
-## Plugin events
+## Plugin Events
 
 Each plugin defines 3 events: `Init`, `Configure`, `Run`. 
 Those events are triggered during different stages of node startup, but the plugin doesn't have to define handlers for all of those events in order to do what it's been designed for.
@@ -58,7 +68,7 @@ func run(*node.Plugin) {
 The handler functions receive one argument of type `*Plugin`. The code responsible for triggering those events passes a pointer to the plugin object itself. 
 The object needs to be passed so that the handler function can access plugin fields (e.g. plugin name to configure logger).
 
-## Creating new plugin
+## Creating a New Plugin
 
 A plugin object can be created by calling the `node.NewPlugin` method. 
 The method creates and returns a new plugin object, as well as registers it so that GoShimmer knows the plugin is available.
@@ -135,7 +145,7 @@ func run(*node.Plugin) {
 }
 ```
 
-## Running new plugin
+## Running a New Plugin
 
 In order to correctly add a new plugin to GoShimmer, apart from defining it, it must also be passed to the `node.Run` method. 
 Because there are plenty of plugins, in order to improve readability and make managing plugins easier, they are grouped into separate wrappers passed to the `node.Run` method. 

@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -85,7 +84,7 @@ func runManaFeed() {
 
 // region Websocket message sending handlers (live updates)
 func sendManaValue() {
-	ownID := local.GetInstance().ID()
+	ownID := deps.Local.ID()
 	access, _, err := manaPlugin.GetAccessMana(ownID)
 	// if node not found, returned value is 0.0
 	if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) && !errors.Is(err, manaPlugin.ErrQueryNotAllowed) {
@@ -160,7 +159,7 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 
-	weights, totalWeight := manaPlugin.Tangle().WeightProvider.WeightsOfRelevantSupporters()
+	weights, totalWeight := deps.Tangle.WeightProvider.WeightsOfRelevantSupporters()
 	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
 	for nodeID, weight := range weights {
 		n := mana.Node{

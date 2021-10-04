@@ -4,18 +4,20 @@
 package remotelogmetrics
 
 import (
-	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
+	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -24,28 +26,40 @@ const (
 )
 
 var (
-	// plugin is the plugin instance of the remote plugin instance.
-	plugin     *node.Plugin
-	pluginOnce sync.Once
+	// Plugin is the plugin instance of the remote plugin instance.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin("RemoteLogMetrics", node.Enabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Local              *peer.Local
+	Tangle             *tangle.Tangle
+	Voter              vote.DRNGRoundBasedVoter    `optional:"true"`
+	RemoteLogger       *remotelog.RemoteLoggerConn `optional:"true"`
+	DrngInstance       *drng.DRNG                  `optional:"true"`
+	ClockPlugin        *node.Plugin                `name:"clock" optional:"true"`
+	ConsensusMechanism tangle.ConsensusMechanism
+}
+
+func init() {
+	Plugin = node.NewPlugin("RemoteLogMetrics", deps, node.Disabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
 	configureSyncMetrics()
-	configureFPCConflictsMetrics()
-	configureDRNGMetrics()
+	if deps.Voter != nil {
+		configureFPCConflictsMetrics()
+	}
+	if deps.DrngInstance != nil {
+		configureDRNGMetrics()
+	}
 	configureTransactionMetrics()
 	configureStatementMetrics()
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Node State Logger Updater", func(shutdownSignal <-chan struct{}) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
@@ -69,26 +83,26 @@ func configureSyncMetrics() {
 }
 
 func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
-	err := remotelog.RemoteLogger().Send(syncUpdate)
+	err := deps.RemoteLogger.Send(syncUpdate)
 	if err != nil {
-		plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
+		Plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
 	}
 }
 
 func configureFPCConflictsMetrics() {
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
+	deps.Voter.Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
+	deps.Voter.Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
 }
 
 func configureDRNGMetrics() {
-	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
+	deps.DrngInstance.Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
 }
 
 func configureTransactionMetrics() {
-	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onTransactionOpinionFormed))
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onTransactionOpinionFormed))
+	deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }
 
 func configureStatementMetrics() {
-	messagelayer.Tangle().ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
+	deps.Tangle.ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
 }

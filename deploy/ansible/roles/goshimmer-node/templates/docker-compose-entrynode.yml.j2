@@ -3,7 +3,7 @@ version: "3"
 
 services:
   entrynode:
-    image: iotaledger/goshimmer:develop
+    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
     container_name: entrynode
     restart: unless-stopped
     network_mode: "host"
@@ -12,14 +12,18 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
-      - AUTOPEERING_SEED={{ entryNodeSeed }}
+      - NODE_PEERDBDIRECTORY=/db/peerdb
+      - NODE_SEED={{ entryNodeSeed }}
       - PROFILING_BINDADDRESS=0.0.0.0:6060
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --autopeering.port=15626
-      --autopeering.networkVersion={{ networkVersion }}
-      --autopeering.entryNodes=
+      --node.overwriteStoredSeed=true
+      --autoPeering.bindAddress=0.0.0.0:15626
+      {% if networkVersion|default(None) %}
+      --autoPeering.networkVersion={{ networkVersion }}
+      {% endif %}
+      --autoPeering.entryNodes=
       --analysis.client.serverAddress=
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,metrics,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint
       --logger.level=debug

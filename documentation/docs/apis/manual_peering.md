@@ -1,3 +1,14 @@
+---
+description: The manual peering APIs allows you to add, get and remove the list of known peers of the node.
+image: /img/logo/goshimmer_light.png
+keywords:
+- client library
+- HTTP API
+- known peer
+- peer
+- public key
+- gossip port
+---
 # Manual Peering API methods
 
 The manual peering APIs allow managing the list of known peers of the node.

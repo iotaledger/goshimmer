@@ -59,7 +59,7 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		if !messageMetadata.SetInvalid(true) {
 			return
 		}
-		s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
 		return
 	}
 

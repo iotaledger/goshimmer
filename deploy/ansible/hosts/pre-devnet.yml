@@ -1,0 +1,45 @@
+metrics:
+  hosts:
+    metrics-01.pre-devnet.shimmer.iota.cafe:
+
+supports:
+  hosts:
+    analysisentry-01.pre-devnet.shimmer.iota.cafe:
+      entryNodeSeed: "{{ ANALYSISSENTRY_01_ENTRYNODE_SEED }}"
+      mongoDBHost: "metrics-01.pre-devnet.shimmer.iota.cafe"
+      manaDashboardHost: "bootstrap-01.pre-devnet.shimmer.iota.cafe"
+
+goshimmers:
+  children:
+    internal_nodes:
+      hosts:
+        bootstrap-01.pre-devnet.shimmer.iota.cafe:
+          seed: "{{ BOOTSTRAP_01_SEED }}"
+          bootstrap: true
+        vanilla-01.pre-devnet.shimmer.iota.cafe:
+          seed: "{{ VANILLA_01_SEED }}"
+        drng-01.pre-devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_01_SEED }}"
+        drng-02.pre-devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_02_SEED }}"
+        drng-03.pre-devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_03_SEED }}"
+        drng-04.pre-devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_04_SEED }}"
+        drng-05.pre-devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_05_SEED }}"
+        faucet-01.pre-devnet.shimmer.iota.cafe:
+          seed: "{{ FAUCET_01_SEED }}"
+          faucet: true
+          faucetSeed: "{{ FAUCET_01_FAUCET_SEED }}"
+  vars:
+    analysisServerHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
+    entryNodeHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
+    remoteLoggerHost: "metrics-01.pre-devnet.shimmer.iota.cafe"
+    logLevel: "debug"
+
+drands:
+  hosts:
+    drand-01.pre-devnet.shimmer.iota.cafe:
+  vars:
+    drngHostTemplate: "drng-0{drandNumber}.pre-devnet.shimmer.iota.cafe"

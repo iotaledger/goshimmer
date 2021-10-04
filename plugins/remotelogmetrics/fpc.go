@@ -5,14 +5,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 func onVoteFinalized(ev *vote.OpinionEvent) {
 	var nodeID string
-	if local.GetInstance() != nil {
-		nodeID = local.GetInstance().ID().String()
+	if deps.Local != nil {
+		nodeID = deps.Local.ID().String()
 	}
 	record := &remotelogmetrics.FPCConflictRecord{
 		Type:                 "fpc",
@@ -25,15 +23,15 @@ func onVoteFinalized(ev *vote.OpinionEvent) {
 		ConflictCreationTime: ev.Ctx.ConflictCreationTime,
 		Delta:                clock.Since(ev.Ctx.ConflictCreationTime).Nanoseconds(),
 	}
-	if err := remotelog.RemoteLogger().Send(record); err != nil {
-		plugin.Logger().Errorw("Failed to send FPC conflict record on vote finalized event", "err", err)
+	if err := deps.RemoteLogger.Send(record); err != nil {
+		Plugin.Logger().Errorw("Failed to send FPC conflict record on vote finalized event", "err", err)
 	}
 }
 
 func onVoteRoundExecuted(roundStats *vote.RoundStats) {
 	var nodeID string
-	if local.GetInstance() != nil {
-		nodeID = local.GetInstance().ID().String()
+	if deps.Local != nil {
+		nodeID = deps.Local.ID().String()
 	}
 	for conflictID, conflictContext := range roundStats.ActiveVoteContexts {
 		record := &remotelogmetrics.FPCConflictRecord{
@@ -46,8 +44,8 @@ func onVoteRoundExecuted(roundStats *vote.RoundStats) {
 			ConflictCreationTime: conflictContext.ConflictCreationTime,
 			Delta:                clock.Since(conflictContext.ConflictCreationTime).Nanoseconds(),
 		}
-		if err := remotelog.RemoteLogger().Send(record); err != nil {
-			plugin.Logger().Errorw("Failed to send FPC conflict record on round executed event", "err", err)
+		if err := deps.RemoteLogger.Send(record); err != nil {
+			Plugin.Logger().Errorw("Failed to send FPC conflict record on round executed event", "err", err)
 		}
 	}
 }

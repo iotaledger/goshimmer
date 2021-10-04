@@ -29,7 +29,7 @@ var (
 )
 
 // New creates a new FPC instance.
-func New(opinionGiverFunc opinion.OpinionGiverFunc, ownWeightRetrieverFunc opinion.OwnWeightRetriever, paras ...*Parameters) *FPC {
+func New(opinionGiverFunc opinion.OpinionGiverFunc, ownWeightRetrieverFunc opinion.OwnWeightRetriever, paras ...*Parameters) vote.DRNGRoundBasedVoter {
 	f := &FPC{
 		opinionGiverFunc:       opinionGiverFunc,
 		ownWeightRetrieverFunc: ownWeightRetrieverFunc,
