@@ -150,6 +150,7 @@ func registerBranchEvents() {
 				Type: MsgTypeBranchVertex,
 				Data: &branchVertex{
 					ID:             branch.ID().Base58(),
+					Type:           branch.Type().String(),
 					Parents:        branch.Parents().Strings(),
 					ApprovalWeight: 0,
 				},

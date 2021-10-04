@@ -73,6 +73,7 @@ type utxoConfirmed struct {
 
 type branchVertex struct {
 	ID             string   `json:"ID"`
+	Type           string   `json:"type"`
 	Parents        []string `json:"parents"`
 	ApprovalWeight float64  `json:"approvalWeight"`
 	ConfirmedTime  int64    `json:"confirmedTime"`
