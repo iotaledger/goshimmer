@@ -4,7 +4,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -41,7 +40,7 @@ func runVisualizer() {
 
 func registerTangleEvents() {
 	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			visualizerWorkerPool.TrySubmit(&wsMessage{
 				Type: MsgTypeTangleVertex,
 				Data: &tangleVertex{
@@ -54,7 +53,7 @@ func registerTangleEvents() {
 	})
 
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			visualizerWorkerPool.TrySubmit((&wsMessage{
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
@@ -67,7 +66,7 @@ func registerTangleEvents() {
 	})
 
 	finalizedClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			visualizerWorkerPool.TrySubmit(&wsMessage{
 				Type: MsgTypeTangleConfirmed,
 				Data: &tangleFinalized{
@@ -100,16 +99,16 @@ func registerTangleEvents() {
 
 	})
 
-	messagelayer.Tangle().Storage.Events.MessageStored.Attach(storeClosure)
-	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(bookedClosure)
-	messagelayer.Tangle().Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
-	messagelayer.Tangle().ApprovalWeightManager.Events.MarkerAWUpdated.Attach(markerConfirmedClosure)
-	messagelayer.Tangle().ApprovalWeightManager.Events.MessageFinalized.Attach(finalizedClosure)
+	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
+	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
+	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
+	deps.Tangle.ApprovalWeightManager.Events.MarkerAWUpdated.Attach(markerConfirmedClosure)
+	deps.Tangle.ApprovalWeightManager.Events.MessageFinalized.Attach(finalizedClosure)
 }
 
 func registerUTXOEvents() {
 	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() == ledgerstate.TransactionType {
 				tx := msg.Payload().(*ledgerstate.Transaction)
 				visualizerWorkerPool.TrySubmit(&wsMessage{
@@ -127,7 +126,7 @@ func registerUTXOEvents() {
 	})
 
 	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
-		messagelayer.Tangle().LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 			visualizerWorkerPool.TrySubmit(&wsMessage{
 				Type: MsgTypeUTXOConfirmed,
 				Data: &utxoConfirmed{
@@ -139,8 +138,8 @@ func registerUTXOEvents() {
 		})
 	})
 
-	messagelayer.Tangle().Storage.Events.MessageStored.Attach(storeClosure)
-	messagelayer.Tangle().LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(txConfirmedClosure)
+	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
+	deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(txConfirmedClosure)
 }
 
 func registerBranchEvents() {
@@ -168,6 +167,6 @@ func registerBranchEvents() {
 		})
 	})
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
+	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
+	deps.Tangle.LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 }

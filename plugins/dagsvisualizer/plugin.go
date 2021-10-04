@@ -11,19 +11,32 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // PluginName is the name of the dags visualizer plugin.
 const PluginName = "DAGs visualizer"
 
 var (
+	deps = new(dependencies)
 	// Plugin is the plugin instance of the dashboard plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin *node.Plugin
 	log    *logger.Logger
 	server *echo.Echo
 )
+
+type dependencies struct {
+	dig.In
+
+	Tangle *tangle.Tangle
+}
+
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
+}
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
