@@ -74,7 +74,7 @@ export class TangleStore {
     addMessage = (msg: tangleVertex) => {
         if (this.msgOrder.length >= this.maxTangleVertices) {
             let removed = this.msgOrder.shift();
-            this.messages.delete(removed);
+            this.removeMessage(removed);
         }
         console.log(msg.ID)
 
@@ -82,6 +82,18 @@ export class TangleStore {
         this.awMap.set(msg.ID, 0);
         msg.futureMarkers = [];
         this.messages.set(msg.ID, msg);
+    }
+
+    @action
+    removeMessage = (msgID: string) => {
+        let msg = this.messages.get(msgID);
+        if (msg) {
+            this.awMap.delete(msgID);
+            if (msg.isMarker) {
+                this.markerMap.delete(msgID);
+            }
+            this.messages.delete(msgID);
+        }
     }
 
     @action
@@ -124,7 +136,6 @@ export class TangleStore {
             pastconeList.push(fm.ID);
             this.markerMap.set(fm.futureMarkerID, pastconeList);
         }
-        // TODO: think how we're gonna to delete the messages in markerMap if it's deleted
     }
 
     @action
@@ -147,7 +158,6 @@ export class TangleStore {
                     })
                     this.awMap.set(msgID, aw);
                 }
-                // TODO: if msg does not exist, delete or keep it
             });
         }
     }
