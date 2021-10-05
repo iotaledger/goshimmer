@@ -15,6 +15,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -49,7 +51,8 @@ type dependencies struct {
 	Local              *peer.Local
 	Discover           *discover.Protocol `optional:"true"`
 	Storage            kvstore.KVStore
-	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
+	Voter              vote.DRNGRoundBasedVoter    `optional:"true"`
+	RemoteLoggerConn   *remotelog.RemoteLoggerConn `optional:"true"`
 	ConsensusMechanism tangle.ConsensusMechanism
 }
 
@@ -178,8 +181,8 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.Consensus(deps.ConsensusMechanism),
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		tangle.SchedulerConfig(tangle.SchedulerParams{
-			MaxBufferSize:               SchedulerParameters.MaxBufferSize,
-			Rate:                        schedulerRate(SchedulerParameters.Rate),
+			MaxBufferSize: SchedulerParameters.MaxBufferSize,
+			Rate:          schedulerRate(SchedulerParameters.Rate),
 			AccessManaRetrieveFunc:      accessManaRetriever,
 			TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 		}),
