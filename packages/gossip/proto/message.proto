@@ -4,10 +4,17 @@ option go_package = "github.com/iotaledger/goshimmer/packages/gossip/proto";
 
 package proto;
 
+message Packet {
+  oneof body {
+    Message message = 1;
+    MessageRequest messageRequest = 2;
+  }
+}
+
 message Message {
-    bytes data = 1;
+  bytes data = 1;
 }
 
 message MessageRequest {
-    bytes id = 1;
+  bytes id = 1;
 }

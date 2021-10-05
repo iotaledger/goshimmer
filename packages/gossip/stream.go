@@ -32,7 +32,7 @@ var (
 	ErrNoGossip = errors.New("peer does not have a gossip service")
 )
 
-func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts ...ConnectPeerOption) (network.Stream, error) {
+func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (network.Stream, error) {
 	conf := buildConnectPeerConfig(opts)
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
