@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
 	"go.uber.org/dig"
-	"gopkg.in/src-d/go-git.v4"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -70,7 +69,7 @@ func init() {
 	}))
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	if logger_plugin.Parameters.DisableEvents {
 		return
 	}
