@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
 	"go.uber.org/dig"
+	git "gopkg.in/src-d/go-git.v4"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
