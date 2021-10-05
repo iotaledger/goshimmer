@@ -76,7 +76,6 @@ export class TangleStore {
             let removed = this.msgOrder.shift();
             this.removeMessage(removed);
         }
-        console.log(msg.ID)
 
         this.msgOrder.push(msg.ID);
         this.awMap.set(msg.ID, 0);

@@ -8,6 +8,7 @@ export enum WSMsgType {
 	TransactionConfirmed,
 	Branch,
 	BranchParentsUpdate,
+    BranchAWUpdate,
 }
 
 export interface WSMessage {

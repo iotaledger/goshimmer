@@ -167,6 +167,18 @@ func registerBranchEvents() {
 		})
 	})
 
+	awUpdateClosure := events.NewClosure(func(branchAW *tangle.BranchAWUpdated) {
+		visualizerWorkerPool.TrySubmit(&wsMessage{
+			Type: MsgTypeBranchAWUpdate,
+			Data: &branchAWUpdate{
+				ID:             branchAW.ID.Base58(),
+				Conflicts:      branchAW.Conflicts.Strings(),
+				ApprovalWeight: branchAW.ApprovalWeight,
+			},
+		})
+	})
+
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
+	deps.Tangle.ApprovalWeightManager.Events.BranchAWUpdated.Attach(awUpdateClosure)
 }

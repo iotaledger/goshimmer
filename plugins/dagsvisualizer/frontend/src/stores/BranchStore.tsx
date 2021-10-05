@@ -14,6 +14,11 @@ export class branchParentUpdate {
     parents: Array<string>;
 }
 
+export class branchAWUpdate {
+    ID:             string;
+    conflicts:      Array<string>;
+    approvalWeight: number;
+}
 
 export class BranchStore {
     @observable maxBranchVertices: number = 500;
@@ -23,11 +28,13 @@ export class BranchStore {
     constructor() {        
         registerHandler(WSMsgType.Branch, this.addBranch);
         registerHandler(WSMsgType.BranchParentsUpdate, this.updateParents);
+        registerHandler(WSMsgType.BranchAWUpdate, this.updateAW);
     }
 
     unregisterHandlers() {
-        unregisterHandler(WSMsgType.Transaction);
-        unregisterHandler(WSMsgType.TransactionConfirmed);
+        unregisterHandler(WSMsgType.Branch);
+        unregisterHandler(WSMsgType.BranchParentsUpdate);
+        unregisterHandler(WSMsgType.BranchAWUpdate);
     }
 
     @action
@@ -51,6 +58,26 @@ export class BranchStore {
 
         b.parents = newParents.parents;
         this.branches.set(newParents.ID, b);
+    }
+
+    @action
+    updateAW = (newAW: branchAWUpdate) => {
+        let b = this.branches.get(newAW.ID);
+        if (!b) {
+            return;
+        }
+
+        b.approvalWeight = newAW.approvalWeight;
+        this.branches.set(newAW.ID, b);
+
+        // update AW of conflict branches
+        newAW.conflicts.forEach((id) => {
+            let b = this.branches.get(id);
+            if (b) {    
+                b.approvalWeight = newAW.approvalWeight;
+                this.branches.set(id, b);
+            }
+        })
     }
 }
 

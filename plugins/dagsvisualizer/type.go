@@ -19,6 +19,8 @@ const (
 	MsgTypeBranchVertex
 	// MsgTypeBranchParentsUpdate is the type of the branch DAG vertex parents updated message.
 	MsgTypeBranchParentsUpdate
+	// MsgTypeBranchAWUpdate is the type of the branch DAG vertex AW updated message.
+	MsgTypeBranchAWUpdate
 )
 
 type wsMessage struct {
@@ -82,4 +84,10 @@ type branchVertex struct {
 type branchParentUpdate struct {
 	ID      string   `json:"ID"`
 	Parents []string `json:"parents"`
+}
+
+type branchAWUpdate struct {
+	ID             string   `json:"ID"`
+	Conflicts      []string `json:"conflicts"`
+	ApprovalWeight float64  `json:"approvalWeight"`
 }

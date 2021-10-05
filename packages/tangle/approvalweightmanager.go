@@ -45,6 +45,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 			MessageProcessed: events.NewEvent(MessageIDCaller),
 			MessageFinalized: events.NewEvent(MessageIDCaller),
 			MarkerAWUpdated:  events.NewEvent(markerAWUpdatedCaller),
+			BranchAWUpdated:  events.NewEvent(branchAWUpdatedCaller),
 		},
 		tangle:               tangle,
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
@@ -491,6 +492,8 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 			})
 		}
 	}
+
+	a.Events.BranchAWUpdated.Trigger(&BranchAWUpdated{ID: branchID, Conflicts: conflictBranchIDs, ApprovalWeight: newBranchWeight})
 }
 
 func (a *ApprovalWeightManager) weightOfHeaviestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
@@ -584,6 +587,7 @@ type ApprovalWeightManagerEvents struct {
 	MessageProcessed   *events.Event
 	MessageFinalized   *events.Event
 	MarkerAWUpdated    *events.Event
+	BranchAWUpdated    *events.Event
 	BranchConfirmation *events.ThresholdEvent
 	MarkerConfirmation *events.ThresholdEvent
 }
@@ -597,6 +601,18 @@ type MarkerAWUpdated struct {
 // markerAWUpdatedCaller is the caller function for events that hand over a MarkerAWUpdated.
 func markerAWUpdatedCaller(handler interface{}, params ...interface{}) {
 	handler.(func(markerAW *MarkerAWUpdated))(params[0].(*MarkerAWUpdated))
+}
+
+// BranchAWUpdated contains the branch ID and conflict IDs of a branch with its updated approval weight.
+type BranchAWUpdated struct {
+	ID             ledgerstate.BranchID
+	Conflicts      ledgerstate.BranchIDs
+	ApprovalWeight float64
+}
+
+// branchAWUpdatedCaller is the caller function for events that hand over a BranchAWUpdated.
+func branchAWUpdatedCaller(handler interface{}, params ...interface{}) {
+	handler.(func(branchAW *BranchAWUpdated))(params[0].(*BranchAWUpdated))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
