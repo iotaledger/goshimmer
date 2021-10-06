@@ -38,7 +38,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
-	libp2pID, err := toLibp2pID(p)
+	libp2pID, err := toLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -130,7 +130,7 @@ type acceptMatcher struct {
 }
 
 func newAcceptMatcher(p *peer.Peer) (*acceptMatcher, error) {
-	libp2pID, err := toLibp2pID(p)
+	libp2pID, err := toLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -160,23 +160,21 @@ func (m *Manager) removeAcceptMatcher(am *acceptMatcher) {
 
 func (m *Manager) streamHandler(stream network.Stream) {
 
-	matched := m.matchNewStream(stream)
-	// close the connection if not matched
-	if !matched {
+	am := m.matchNewStream(stream)
+	if am != nil {
+		am.streamCh <- stream
+	} else {
+		// close the connection if not matched
 		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr())
 		m.closeStream(stream)
 	}
 }
 
-func (m *Manager) matchNewStream(stream network.Stream) bool {
+func (m *Manager) matchNewStream(stream network.Stream) *acceptMatcher {
 	m.acceptMutex.RLock()
 	defer m.acceptMutex.RUnlock()
-	am, ok := m.acceptMap[stream.Conn().RemotePeer()]
-	if !ok {
-		return false
-	}
-	am.streamCh <- stream
-	return true
+	am := m.acceptMap[stream.Conn().RemotePeer()]
+	return am
 }
 
 func (m *Manager) closeStream(s network.Stream) {

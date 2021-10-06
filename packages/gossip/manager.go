@@ -3,9 +3,7 @@ package gossip
 import (
 	"context"
 	"fmt"
-	"io"
 	"runtime"
-	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -19,7 +17,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/multiformats/go-multiaddr"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -68,10 +65,9 @@ func WithNoDefaultTimeout() ConnectPeerOption {
 
 // The Manager handles the connected neighbors.
 type Manager struct {
-	local           *peer.Local
-	host            host.Host
-	networkNotifiee *networkNotifiee
-	closing         chan struct{} // if this channel gets closed all pending waits should terminate
+	local   *peer.Local
+	host    host.Host
+	closing chan struct{} // if this channel gets closed all pending waits should terminate
 
 	acceptWG    sync.WaitGroup
 	acceptMutex sync.RWMutex
@@ -87,7 +83,6 @@ type Manager struct {
 
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
-	neighborsWG    sync.WaitGroup
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
 	messageWorkerPool *workerpool.NonBlockingQueuedWorkerPool
@@ -125,29 +120,11 @@ func NewManager(host host.Host, local *peer.Local, f LoadMessageFunc, log *logge
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageRequestWorkerCount), workerpool.QueueSize(messageRequestWorkerQueueSize))
-	nn := &networkNotifiee{m: m}
-	m.networkNotifiee = nn
 
 	m.host.SetStreamHandler(protocolID, m.streamHandler)
-	m.host.Network().Notify(nn)
 
 	return m
 }
-
-type networkNotifiee struct {
-	m *Manager
-}
-
-func (nn *networkNotifiee) Listen(_ network.Network, _ multiaddr.Multiaddr)      {}
-func (nn *networkNotifiee) ListenClose(_ network.Network, _ multiaddr.Multiaddr) {}
-func (nn *networkNotifiee) Connected(_ network.Network, _ network.Conn)          {}
-func (nn *networkNotifiee) Disconnected(n network.Network, conn network.Conn)       {
-	// assure that the neighbor is removed and notify
-	nn.m.deleteNeighbor(nbr)
-	nn.m.neighborsEvents[nbr.Group].NeighborRemoved.Trigger(nbr)
-}
-func (nn *networkNotifiee) OpenedStream(_ network.Network, _ network.Stream)     {}
-func (nn *networkNotifiee) ClosedStream(_ network.Network, _ network.Stream) {}
 
 // Start starts the manager for the given TCP server.
 func (m *Manager) Start(srv *server.TCP) {
@@ -173,7 +150,7 @@ func (m *Manager) Stop() {
 func (m *Manager) dropAllNeighbors() {
 	neighborsList := m.AllNeighbors()
 	for _, nbr := range neighborsList {
-		nbr.Close()
+		nbr.disconnect()
 	}
 }
 
@@ -206,7 +183,7 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	nbr.Close()
+	nbr.disconnect()
 	return nil
 }
 
@@ -271,7 +248,7 @@ func (m *Manager) send(packet libp2pproto.Message, to ...identity.ID) {
 	}
 
 	for _, nbr := range neighbors {
-		if err := nbr.Write(packet); err != nil {
+		if err := nbr.write(packet); err != nil {
 			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
 		}
 	}
@@ -300,13 +277,15 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	}
 
 	// create and add the neighbor
-	nbr := NewNeighbor(p, group, stream, m.log)
+	nbr := NewNeighbor(p, group, stream, m)
 	if err := m.setNeighbor(nbr); err != nil {
 		if resetErr := stream.Reset(); resetErr != nil {
 			err = errors.CombineErrors(err, resetErr)
 		}
 		return errors.WithStack(err)
 	}
+	go nbr.readLoop()
+	nbr.log.Info("Connection established")
 	m.neighborsEvents[group].NeighborAdded.Trigger(nbr)
 
 	return nil
@@ -331,31 +310,8 @@ func (m *Manager) setNeighbor(nbr *Neighbor) error {
 	if _, exists := m.neighbors[nbr.ID()]; exists {
 		return errors.WithStack(ErrDuplicateNeighbor)
 	}
-	//nbr.Events.Close.Attach(events.NewClosure(func() {
-	//}))
-	m.neighborsWG.Add(1)
 	m.neighbors[nbr.ID()] = nbr
-	go m.listenNeighbor(nbr)
-	nbr.log.Info("Connection established")
 	return nil
-}
-
-func (m *Manager) listenNeighbor(nbr *Neighbor) {
-	defer m.neighborsWG.Done()
-	defer nbr.Close()
-	for {
-		packet := &pb.Packet{}
-		err := nbr.Read(packet)
-		if err != nil {
-			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				nbr.log.Warnw("Permanent error", "err", err)
-			}
-			return
-		}
-		if err := m.handlePacket(packet, nbr); err != nil {
-			nbr.log.Debugw("Can't handle packet", "err", err)
-		}
-	}
 }
 
 func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
@@ -405,21 +361,35 @@ func (m *Manager) processMessageRequest(packetMsgReq *pb.Packet_MessageRequest, 
 
 	// send the loaded message directly to the neighbor
 	packet := &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: msgBytes}}}
-	if err := nbr.Write(packet); err != nil {
+	if err := nbr.write(packet); err != nil {
 		nbr.log.Warnw("Failed to send requested message back to the neighbor", "err", err)
-		nbr.Close()
+		nbr.disconnect()
 	}
 }
 
-func toLibp2pID(p *peer.Peer) (libp2ppeer.ID, error) {
+func toLibp2pPeerID(p *peer.Peer) (libp2ppeer.ID, error) {
 	pubKeyBytes := p.PublicKey().Bytes()
-	pubKey, err := crypto.UnmarshalEd25519PublicKey(pubKeyBytes)
+	pubKeyLibp2p, err := crypto.UnmarshalEd25519PublicKey(pubKeyBytes)
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
-	libp2pID, err := libp2ppeer.IDFromPublicKey(pubKey)
+	libp2pID, err := libp2ppeer.IDFromPublicKey(pubKeyLibp2p)
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
 	return libp2pID, nil
 }
+
+//func toOurPeerID(conn network.Conn) (identity.ID, error) {
+//	pubKeyLibp2p := conn.RemotePublicKey()
+//	pubKeyBytes, err := pubKeyLibp2p.Raw()
+//	if err != nil {
+//		return identity.ID{}, errors.WithStack(err)
+//	}
+//	pubKeyOur, _, err := ed25519.PublicKeyFromBytes(pubKeyBytes)
+//	if err != nil {
+//		return identity.ID{}, errors.WithStack(err)
+//	}
+//	ourPeerID := identity.NewID(pubKeyOur)
+//	return ourPeerID, nil
+//}

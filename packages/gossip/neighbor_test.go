@@ -25,7 +25,7 @@ func TestNeighborClose(t *testing.T) {
 
 	n := newTestNeighbor("A", a)
 	n.Listen()
-	require.NoError(t, n.Close())
+	require.NoError(t, n.disconnect())
 }
 
 func TestNeighborCloseTwice(t *testing.T) {
@@ -34,8 +34,8 @@ func TestNeighborCloseTwice(t *testing.T) {
 
 	n := newTestNeighbor("A", a)
 	n.Listen()
-	require.NoError(t, n.Close())
-	require.NoError(t, n.Close())
+	require.NoError(t, n.disconnect())
+	require.NoError(t, n.disconnect())
 }
 
 func TestNeighborWrite(t *testing.T) {
@@ -43,11 +43,11 @@ func TestNeighborWrite(t *testing.T) {
 	defer teardown()
 
 	neighborA := newTestNeighbor("A", a)
-	defer neighborA.Close()
+	defer neighborA.disconnect()
 	neighborA.Listen()
 
 	neighborB := newTestNeighbor("B", b)
-	defer neighborB.Close()
+	defer neighborB.disconnect()
 
 	var count uint32
 	neighborB.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
@@ -56,7 +56,7 @@ func TestNeighborWrite(t *testing.T) {
 	}))
 	neighborB.Listen()
 
-	_, err := neighborA.Write(testData)
+	_, err := neighborA.write(testData)
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool { return atomic.LoadUint32(&count) == 1 }, time.Second, 10*time.Millisecond)
@@ -67,11 +67,11 @@ func TestNeighborParallelWrite(t *testing.T) {
 	defer teardown()
 
 	neighborA := newTestNeighbor("A", a)
-	defer neighborA.Close()
+	defer neighborA.disconnect()
 	neighborA.Listen()
 
 	neighborB := newTestNeighbor("B", b)
-	defer neighborB.Close()
+	defer neighborB.disconnect()
 
 	var count uint32
 	neighborB.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
@@ -90,7 +90,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < neighborQueueSize; i++ {
-			l, err := neighborA.Write(testData)
+			l, err := neighborA.write(testData)
 			if errors.Is(err, ErrNeighborQueueFull) || l == 0 {
 				continue
 			}
@@ -102,7 +102,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < neighborQueueSize; i++ {
-			l, err := neighborA.Write(testData)
+			l, err := neighborA.write(testData)
 			if errors.Is(err, ErrNeighborQueueFull) || l == 0 {
 				continue
 			}
