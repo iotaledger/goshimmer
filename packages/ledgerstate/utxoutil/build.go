@@ -294,7 +294,7 @@ func (b *Builder) AddExtendedOutputConsume(targetAddress ledgerstate.Address, da
 }
 
 // AddRemainderOutputIfNeeded consumes already touched inputs and spends consumed-unspend.
-// Creates remainder output if needed
+// Creates remainder output if needed.
 func (b *Builder) AddRemainderOutputIfNeeded(remainderAddr ledgerstate.Address, data []byte, compress ...bool) error {
 	compr := false
 	if len(compress) > 0 {
@@ -382,7 +382,7 @@ func (b *Builder) AliasNextChainedOutput(addressAlias ledgerstate.Address) (*led
 	return out.NewAliasOutputNext(false), nil
 }
 
-// AddAliasOutputAsRemainder forms a remainder by creating new alias output
+// AddAliasOutputAsRemainder forms a remainder by creating new alias output.
 func (b *Builder) AddAliasOutputAsRemainder(addressAlias ledgerstate.Address, stateData []byte, compress ...bool) error {
 	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
