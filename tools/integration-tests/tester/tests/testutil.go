@@ -101,7 +101,7 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node) {
 		return false
 	}, time.Minute, Tick)
 	// give the faucet time to save the latest confirmed output
-	time.Sleep(time.Second)
+	time.Sleep(3 * time.Second)
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.
