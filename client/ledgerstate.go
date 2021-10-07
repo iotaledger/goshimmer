@@ -91,7 +91,7 @@ func (api *GoShimmerAPI) GetBranchConflicts(base58EncodedBranchID string) (*json
 	return res, nil
 }
 
-// GetBranchConflicts gets the conflict branches of a branch.
+// GetBranchSupporters gets the supporters of a branch.
 func (api *GoShimmerAPI) GetBranchSupporters(base58EncodedBranchID string) (*jsonmodels.GetBranchSupportersResponse, error) {
 	res := &jsonmodels.GetBranchSupportersResponse{}
 	if err := api.do(http.MethodGet, func() string {
