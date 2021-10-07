@@ -286,7 +286,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 
 	var start, end uint64
 	end = s.replenishmentState.GetLastFundingOutputAddressIndex()
-	if start := end - s.targetFundingOutputsCount; start <= MaxFaucetOutputsCount {
+	if start = end - s.targetFundingOutputsCount; start <= MaxFaucetOutputsCount {
 		start = MaxFaucetOutputsCount + 1
 	}
 
