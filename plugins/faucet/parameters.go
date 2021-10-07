@@ -28,9 +28,9 @@ type ParametersDefinition struct {
 	// PreparedOutputsCount is the number of supply outputs, and splitting transactions accordingly, the faucet prepares.
 	PreparedOutputsCount int `default:"126" usage:"the number of supply outputs, and splitting transactions accordingly, the faucet prepares."`
 
-	// SplittingMultiplayer defines how many outputs each splitting transaction will have.
-	// SplittingMultiplayer * PreparedOutputsCount indicates how many outputs faucet will prepare during funds preparation.
-	SplittingMultiplayer int `default:"126" usage:"SplittingMultiplayer defines how many outputs each supply transaction will have."`
+	// SplittingMultiplier defines how many outputs each splitting transaction will have.
+	// SplittingMultiplier * PreparedOutputsCount indicates how many outputs faucet will prepare during funds preparation.
+	SplittingMultiplier int `default:"126" usage:"SplittingMultiplier defines how many outputs each supply transaction will have."`
 }
 
 // Parameters contains the configuration parameters of the faucet plugin.

@@ -124,9 +124,9 @@ func (u *UtxoDB) mustRequestFundsTx(target ledgerstate.Address, timestamp time.T
 	if len(sourceOutputs) != 1 {
 		panic("number of genesis outputs must be 1")
 	}
-	reminder, _ := sourceOutputs[0].Balances().Get(ledgerstate.ColorIOTA)
+	remainder, _ := sourceOutputs[0].Balances().Get(ledgerstate.ColorIOTA)
 	o1 := ledgerstate.NewSigLockedSingleOutput(RequestFundsAmount, target)
-	o2 := ledgerstate.NewSigLockedSingleOutput(reminder-RequestFundsAmount, u.GetGenesisAddress())
+	o2 := ledgerstate.NewSigLockedSingleOutput(remainder-RequestFundsAmount, u.GetGenesisAddress())
 	outputs := ledgerstate.NewOutputs(o1, o2)
 	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(sourceOutputs[0].ID()))
 	essence := ledgerstate.NewTransactionEssence(0, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)

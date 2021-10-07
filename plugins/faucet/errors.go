@@ -19,6 +19,4 @@ var (
 	ErrSplittingFundsFailed = errors.New("none of funding outputs has been confirmed during funds preparation")
 	// ErrNotEnoughSupplyOutputs if there are not enough supply outputs in the faucet.
 	ErrNotEnoughSupplyOutputs = errors.New("not enough supply outputs to prepare more funds in the faucet")
-	// ErrMissingSupplyOutputs is returned if any supply reminder outputs has not been found.
-	ErrMissingSupplyOutputs = errors.New("can't find any supply reminder output")
 )

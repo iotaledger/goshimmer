@@ -83,14 +83,14 @@ func newFaucet() *StateManager {
 	if Parameters.PreparedOutputsCount <= 0 {
 		Plugin.LogFatalf("the number of faucet prepared outputs should be more than 0")
 	}
-	if Parameters.SplittingMultiplayer <= 0 {
+	if Parameters.SplittingMultiplier <= 0 {
 		Plugin.LogFatalf("the number of outputs for each supply transaction during funds splitting should be more than 0")
 	}
 	return NewStateManager(
 		uint64(Parameters.TokensPerRequest),
 		walletseed.NewSeed(seedBytes),
 		uint64(Parameters.PreparedOutputsCount),
-		uint64(Parameters.SplittingMultiplayer),
+		uint64(Parameters.SplittingMultiplier),
 		Parameters.MaxTransactionBookedAwaitTime,
 	)
 }

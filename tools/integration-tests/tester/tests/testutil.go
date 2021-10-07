@@ -3,10 +3,11 @@ package tests
 import (
 	"context"
 	"fmt"
-	"github.com/iotaledger/hive.go/types"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
@@ -31,7 +32,7 @@ const (
 
 	shutdownGraceTime = time.Minute
 
-	FaucetRemindersAddrStart = 127 // the same as ledgerstate.MaxOutputCount
+	FaucetRemaindersAddrStart = 127 // the same as ledgerstate.MaxOutputCount
 
 )
 
@@ -76,9 +77,9 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 // AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
 func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node) {
 	preparedOutputsCount := faucet.Config().PreparedOutputsCount
-	splittingMultiplayer := faucet.Config().SplittingMultiplayer
-	lastFaucetReminderAddress := preparedOutputsCount*splittingMultiplayer + FaucetRemindersAddrStart - 1
-	addrToCheck := faucet.Address(lastFaucetReminderAddress).Base58()
+	splittingMultiplayer := faucet.Config().SplittingMultiplier
+	lastFaucetRemainderAddress := preparedOutputsCount*splittingMultiplayer + FaucetRemaindersAddrStart - 1
+	addrToCheck := faucet.Address(lastFaucetRemainderAddress).Base58()
 
 	confirmed := make(map[int]types.Empty)
 	require.Eventually(t, func() bool {
@@ -86,7 +87,7 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node) {
 			return true
 		}
 		// wait for confirmation of each fundingOutput
-		for fundingIndex := FaucetRemindersAddrStart; fundingIndex <= lastFaucetReminderAddress; fundingIndex++ {
+		for fundingIndex := FaucetRemaindersAddrStart; fundingIndex <= lastFaucetRemainderAddress; fundingIndex++ {
 			if _, ok := confirmed[fundingIndex]; !ok {
 				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
 				require.NoError(t, err)
@@ -419,7 +420,9 @@ func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedS
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
-func ShutdownNetwork(ctx context.Context, t *testing.T, n interface{ Shutdown(context.Context) error }) {
+func ShutdownNetwork(ctx context.Context, t *testing.T, n interface {
+	Shutdown(context.Context) error
+}) {
 	log.Println("Shutting down network...")
 	require.NoError(t, n.Shutdown(ctx))
 	log.Println("Shutting down network... done")

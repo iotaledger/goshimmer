@@ -2,14 +2,16 @@ package mana
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"log"
+	"testing"
+
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"log"
-	"testing"
+
+	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	webapi "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -21,8 +23,8 @@ var (
 	minAccessMana    = tangle.MinMana
 	minConsensusMana = 0.0
 
-	emptyNodeID              = identity.ID{}
-	faucetRemindersAddrStart = uint64(tests.FaucetRemindersAddrStart)
+	emptyNodeID               = identity.ID{}
+	faucetRemaindersAddrStart = uint64(tests.FaucetRemaindersAddrStart)
 )
 
 func XTestManaPersistence(t *testing.T) {
@@ -85,7 +87,7 @@ func XTestManaPledgeFilter(t *testing.T) {
 	faucetConfig.MessageLayer.StartSynced = true
 	faucetConfig.Faucet.Enabled = true
 	faucetConfig.Faucet.PreparedOutputsCount = 3
-	faucetConfig.Faucet.SplittingMultiplayer = 3
+	faucetConfig.Faucet.SplittingMultiplier = 3
 	faucetConfig.Faucet.TokensPerRequest = tokensPerRequest
 	faucetConfig.Mana.Enabled = true
 	faucetConfig.Mana.AllowedAccessPledge = []string{accessPeerID}
@@ -105,7 +107,7 @@ func XTestManaPledgeFilter(t *testing.T) {
 
 	// pledge mana to allowed peers
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetRemindersAddrStart,
+		FromAddressIndex:      faucetRemaindersAddrStart,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
@@ -114,7 +116,7 @@ func XTestManaPledgeFilter(t *testing.T) {
 
 	// pledge consensus mana to forbidden peer
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetRemindersAddrStart + 1,
+		FromAddressIndex:      faucetRemaindersAddrStart + 1,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: accessPeer.Identity.ID(),
@@ -124,7 +126,7 @@ func XTestManaPledgeFilter(t *testing.T) {
 
 	// pledge access mana to forbidden peer
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetRemindersAddrStart + 2,
+		FromAddressIndex:      faucetRemaindersAddrStart + 2,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    consensusPeer.Identity.ID(),
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
