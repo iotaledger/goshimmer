@@ -104,10 +104,6 @@ func (b *BufferQueue) Unsubmit(msg Element) bool {
 	}
 
 	b.size -= msg.Size()
-	if nodeQueue.Size() == 0 {
-		b.ringRemove(element)
-		delete(b.activeNode, nodeID)
-	}
 	return true
 }
 
@@ -120,6 +116,17 @@ func (b *BufferQueue) Ready(msg Element) bool {
 
 	nodeQueue := element.Value.(*NodeQueue)
 	return nodeQueue.Ready(msg)
+}
+
+// InsertNode creates a queue for the given node and adds it to the list of active nodes.
+func (b *BufferQueue) InsertNode(nodeID identity.ID) {
+	_, nodeActive := b.activeNode[nodeID]
+	if nodeActive {
+		return
+	}
+
+	nodeQueue := NewNodeQueue(nodeID)
+	b.activeNode[nodeID] = b.ringInsert(nodeQueue)
 }
 
 // RemoveNode removes all messages (submitted and ready) for the given node.
@@ -157,11 +164,6 @@ func (b *BufferQueue) Current() *NodeQueue {
 func (b *BufferQueue) PopFront() Element {
 	q := b.Current()
 	msg := q.PopFront()
-	if q.Size() == 0 {
-		b.ringRemove(b.ring)
-		delete(b.activeNode, identity.NewID(msg.IssuerPublicKey()))
-	}
-
 	b.size -= msg.Size()
 	return msg
 }

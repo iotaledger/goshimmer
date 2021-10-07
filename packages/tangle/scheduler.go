@@ -35,6 +35,7 @@ type SchedulerParams struct {
 	Rate                        time.Duration
 	AccessManaRetrieveFunc      func(identity.ID) float64
 	TotalAccessManaRetrieveFunc func() float64
+	AccessManaMapRetrieverFunc  func() map[identity.ID]float64
 }
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
@@ -251,13 +252,13 @@ func (s *Scheduler) submit(message *Message) error {
 	}
 
 	nodeID := identity.NewID(message.IssuerPublicKey())
-	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
-	if mana < MinMana {
+	nodeMana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
+	if nodeMana < MinMana {
 		s.Events.MessageDiscarded.Trigger(message.ID())
 		return schedulerutils.ErrInsufficientMana
 	}
 
-	err := s.buffer.Submit(message, mana)
+	err := s.buffer.Submit(message, nodeMana)
 	if err != nil {
 		s.Events.MessageDiscarded.Trigger(message.ID())
 	}
@@ -279,33 +280,27 @@ func (s *Scheduler) schedule() *Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// cache the access mana
+	manaCache := s.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()
+
+	s.updateActiveNodesList(manaCache)
+
 	start := s.buffer.Current()
 	// no messages submitted
 	if start == nil {
 		return nil
 	}
 
-	// cache the access mana retrieval
-	manas := make(map[identity.ID]float64, s.buffer.NumActiveNodes())
-	getCachedMana := func(id identity.ID) float64 {
-		if mana, ok := manas[id]; ok {
-			return mana
-		}
-		mana := math.Max(s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(id), MinMana)
-		manas[id] = mana
-		return mana
-	}
-
 	var schedulingNode *schedulerutils.NodeQueue
 	rounds := math.MaxInt32
 	now := clock.SyncedTime()
-	for q := start; ; {
+	for q := start; q != nil; {
 		msg := q.Front()
-		// a message can be scheduled, if it is ready and its issuing time is not in the future
+		// a message can be scheduled, if it is ready, and its issuing time is not in the future
 		if msg != nil && !now.Before(msg.IssuingTime()) {
 			// compute how often the deficit needs to be incremented until the message can be scheduled
 			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-			r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
+			r := int(math.Ceil(remainingDeficit / manaCache[q.NodeID()]))
 			// find the first node that will be allowed to schedule a message
 			if r < rounds {
 				rounds = r
@@ -327,7 +322,7 @@ func (s *Scheduler) schedule() *Message {
 	if rounds > 0 {
 		// increment every node's deficit for the required number of rounds
 		for q := start; ; {
-			s.updateDeficit(q.NodeID(), float64(rounds)*getCachedMana(q.NodeID()))
+			s.updateDeficit(q.NodeID(), float64(rounds)*manaCache[q.NodeID()])
 
 			q = s.buffer.Next()
 			if q == start {
@@ -338,7 +333,7 @@ func (s *Scheduler) schedule() *Message {
 
 	// increment the deficit for all nodes before schedulingNode one more time
 	for q := start; q != schedulingNode; q = s.buffer.Next() {
-		s.updateDeficit(q.NodeID(), getCachedMana(q.NodeID()))
+		s.updateDeficit(q.NodeID(), manaCache[q.NodeID()])
 	}
 
 	// remove the message from the buffer and adjust node's deficit
@@ -347,6 +342,40 @@ func (s *Scheduler) schedule() *Message {
 	s.updateDeficit(nodeID, -float64(msg.Size()))
 
 	return msg.(*Message)
+}
+
+func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
+	// update list of active nodes with accumulating deficit
+	for nodeID, nodeMana := range manaCache {
+		if nodeMana < MinMana {
+			continue
+		}
+		if _, exists := s.deficits[nodeID]; !exists {
+			s.deficits[nodeID] = 0
+			s.buffer.InsertNode(nodeID)
+		}
+	}
+
+	start := s.buffer.Current()
+	// use counter to avoid infinite loop in case the start element is removed
+	activeNodes := s.buffer.NumActiveNodes()
+	counter := 0
+	// remove nodes that don't have mana anymore along with their queue
+	for q := start; q != nil; {
+		// should messages added to the queue when node had mana be scheduled or simply removed? currently are removed
+		if nodeMana, exists := manaCache[q.NodeID()]; !exists || nodeMana < MinMana {
+			s.buffer.RemoveNode(q.NodeID())
+			delete(s.deficits, q.NodeID())
+			q = s.buffer.Current()
+		} else {
+			q = s.buffer.Next()
+		}
+
+		counter++
+		if q == start || counter >= activeNodes {
+			break
+		}
+	}
 }
 
 // mainLoop periodically triggers the scheduling of ready messages.
