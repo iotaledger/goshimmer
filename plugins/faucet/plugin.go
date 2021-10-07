@@ -80,8 +80,8 @@ func newFaucet() *StateManager {
 	if Parameters.MaxTransactionBookedAwaitTime <= 0 {
 		Plugin.LogFatalf("the max transaction booked await time must be more than 0")
 	}
-	if Parameters.PreparedOutputsCount <= 0 {
-		Plugin.LogFatalf("the number of faucet prepared outputs should be more than 0")
+	if Parameters.SupplyOutputsCount <= 0 {
+		Plugin.LogFatalf("the number of faucet supply outputs should be more than 0")
 	}
 	if Parameters.SplittingMultiplier <= 0 {
 		Plugin.LogFatalf("the number of outputs for each supply transaction during funds splitting should be more than 0")
@@ -89,7 +89,7 @@ func newFaucet() *StateManager {
 	return NewStateManager(
 		uint64(Parameters.TokensPerRequest),
 		walletseed.NewSeed(seedBytes),
-		uint64(Parameters.PreparedOutputsCount),
+		uint64(Parameters.SupplyOutputsCount),
 		uint64(Parameters.SplittingMultiplier),
 		Parameters.MaxTransactionBookedAwaitTime,
 	)

@@ -32,7 +32,7 @@ const (
 
 	shutdownGraceTime = time.Minute
 
-	FaucetRemaindersAddrStart = 127 // the same as ledgerstate.MaxOutputCount
+	FaucetFundingOutputsAddrStart = 127 // the same as ledgerstate.MaxOutputCount
 
 )
 
@@ -76,18 +76,18 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 
 // AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
 func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node) {
-	preparedOutputsCount := faucet.Config().PreparedOutputsCount
+	supplyOutputsCount := faucet.Config().SupplyOutputsCount
 	splittingMultiplayer := faucet.Config().SplittingMultiplier
-	lastFaucetRemainderAddress := preparedOutputsCount*splittingMultiplayer + FaucetRemaindersAddrStart - 1
-	addrToCheck := faucet.Address(lastFaucetRemainderAddress).Base58()
+	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplayer + FaucetFundingOutputsAddrStart - 1
+	addrToCheck := faucet.Address(lastFundingOutputAddress).Base58()
 
 	confirmed := make(map[int]types.Empty)
 	require.Eventually(t, func() bool {
-		if len(confirmed) == preparedOutputsCount*splittingMultiplayer {
+		if len(confirmed) == supplyOutputsCount*splittingMultiplayer {
 			return true
 		}
 		// wait for confirmation of each fundingOutput
-		for fundingIndex := FaucetRemaindersAddrStart; fundingIndex <= lastFaucetRemainderAddress; fundingIndex++ {
+		for fundingIndex := FaucetFundingOutputsAddrStart; fundingIndex <= lastFundingOutputAddress; fundingIndex++ {
 			if _, ok := confirmed[fundingIndex]; !ok {
 				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
 				require.NoError(t, err)

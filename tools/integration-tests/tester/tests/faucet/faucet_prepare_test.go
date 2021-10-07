@@ -26,32 +26,36 @@ func TestFaucetPrepare(t *testing.T) {
 	faucet, peer := n.Peers()[0], n.Peers()[1]
 	// use faucet parameters
 	var (
-		preparedOutputsCount       = faucet.Config().PreparedOutputsCount
-		splittingMultiplayer       = faucet.Config().SplittingMultiplier
-		tokensPerRequest           = faucet.Config().TokensPerRequest
-		faucetRemaindersAddrStart  = tests.FaucetRemaindersAddrStart
-		lastFaucetRemainderAddress = preparedOutputsCount*splittingMultiplayer + faucetRemaindersAddrStart - 1
+		supplyOutputsCount      = faucet.Config().SupplyOutputsCount
+		splittingMultiplayer    = faucet.Config().SplittingMultiplier
+		tokensPerRequest        = faucet.Config().TokensPerRequest
+		fundingOutputsAddrStart = tests.FaucetFundingOutputsAddrStart
+		lastFundingOutputAddr   = supplyOutputsCount*splittingMultiplayer + fundingOutputsAddrStart - 1
 	)
+
 	// wait for the faucet to split the supply tx and prepare all outputs
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
-	// check that each of the preparedOutputsCount addresses holds the correct balance
-	remainderBalance := uint64(framework.GenesisTokenAmount - preparedOutputsCount*splittingMultiplayer*tokensPerRequest)
+
+	// check that each of the supplyOutputsCount addresses holds the correct balance
+	remainderBalance := uint64(framework.GenesisTokenAmount - supplyOutputsCount*splittingMultiplayer*tokensPerRequest)
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
-	for i := faucetRemaindersAddrStart; i <= lastFaucetRemainderAddress; i++ {
+	for i := fundingOutputsAddrStart; i <= lastFundingOutputAddr; i++ {
 		require.EqualValues(t, uint64(tokensPerRequest), tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))
 	}
+
 	// consume all but one of the prepared outputs
-	for i := 1; i < preparedOutputsCount*splittingMultiplayer; i++ {
+	for i := 1; i < supplyOutputsCount*splittingMultiplayer; i++ {
 		tests.SendFaucetRequest(t, peer, peer.Address(i))
 	}
+
 	// wait for the peer to register a balance change
 	require.Eventually(t, func() bool {
-		return tests.Balance(t, peer, peer.Address(preparedOutputsCount*splittingMultiplayer-1), ledgerstate.ColorIOTA) > 0
+		return tests.Balance(t, peer, peer.Address(supplyOutputsCount*splittingMultiplayer-1), ledgerstate.ColorIOTA) > 0
 	}, tests.Timeout, tests.Tick)
 
 	// one prepared output is left from the first prepared batch, index is not known because outputs are not sorted by the index.
 	var balanceLeft uint64 = 0
-	for i := faucetRemaindersAddrStart; i <= lastFaucetRemainderAddress; i++ {
+	for i := fundingOutputsAddrStart; i <= lastFundingOutputAddr; i++ {
 		balanceLeft += tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA)
 	}
 	require.EqualValues(t, uint64(tokensPerRequest), balanceLeft)
@@ -59,15 +63,17 @@ func TestFaucetPrepare(t *testing.T) {
 	// check that more funds preparation has been triggered
 	// wait for the faucet to finish preparing new outputs
 	require.Eventually(t, func() bool {
-		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(lastFaucetRemainderAddress + splittingMultiplayer*preparedOutputsCount - 1).Base58()})
+		resp, err := faucet.PostAddressUnspentOutputs([]string{faucet.Address(lastFundingOutputAddr + splittingMultiplayer*supplyOutputsCount - 1).Base58()})
 		require.NoError(t, err)
 		return len(resp.UnspentOutputs[0].Outputs) > 0
 	}, tests.Timeout, tests.Tick)
-	// check that each of the preparedOutputsCount addresses holds the correct balance
-	for i := lastFaucetRemainderAddress + 1; i <= lastFaucetRemainderAddress+splittingMultiplayer*preparedOutputsCount; i++ {
+
+	// check that each of the supplyOutputsCount addresses holds the correct balance
+	for i := lastFundingOutputAddr + 1; i <= lastFundingOutputAddr+splittingMultiplayer*supplyOutputsCount; i++ {
 		require.EqualValues(t, uint64(tokensPerRequest), tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))
 	}
+
 	// check that remainder has correct balance
-	remainderBalance -= uint64(preparedOutputsCount * tokensPerRequest * splittingMultiplayer)
+	remainderBalance -= uint64(supplyOutputsCount * tokensPerRequest * splittingMultiplayer)
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
 }

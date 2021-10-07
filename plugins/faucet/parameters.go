@@ -25,11 +25,11 @@ type ParametersDefinition struct {
 	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
 	BlacklistCapacity int `default:"10000" usage:"holds the maximum amount the address blacklist holds"`
 
-	// PreparedOutputsCount is the number of supply outputs, and splitting transactions accordingly, the faucet prepares.
-	PreparedOutputsCount int `default:"126" usage:"the number of supply outputs, and splitting transactions accordingly, the faucet prepares."`
+	// SupplyOutputsCount is the number of supply outputs, and splitting transactions accordingly, the faucet prepares.
+	SupplyOutputsCount int `default:"126" usage:"the number of supply outputs, and splitting transactions accordingly, the faucet prepares."`
 
 	// SplittingMultiplier defines how many outputs each splitting transaction will have.
-	// SplittingMultiplier * PreparedOutputsCount indicates how many outputs faucet will prepare during funds preparation.
+	// SplittingMultiplier * SupplyOutputsCount indicates how many funding outputs during funds replenishment.
 	SplittingMultiplier int `default:"126" usage:"SplittingMultiplier defines how many outputs each supply transaction will have."`
 }
 

@@ -24,7 +24,7 @@ var (
 	minConsensusMana = 0.0
 
 	emptyNodeID               = identity.ID{}
-	faucetRemaindersAddrStart = uint64(tests.FaucetRemaindersAddrStart)
+	faucetRemaindersAddrStart = uint64(tests.FaucetFundingOutputsAddrStart)
 )
 
 func XTestManaPersistence(t *testing.T) {
@@ -86,7 +86,7 @@ func XTestManaPledgeFilter(t *testing.T) {
 	faucetConfig := framework.PeerConfig()
 	faucetConfig.MessageLayer.StartSynced = true
 	faucetConfig.Faucet.Enabled = true
-	faucetConfig.Faucet.PreparedOutputsCount = 3
+	faucetConfig.Faucet.SupplyOutputsCount = 3
 	faucetConfig.Faucet.SplittingMultiplier = 3
 	faucetConfig.Faucet.TokensPerRequest = tokensPerRequest
 	faucetConfig.Mana.Enabled = true
