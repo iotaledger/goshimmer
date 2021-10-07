@@ -284,13 +284,13 @@ func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	foundPreparedOutputs := make([]*FaucetOutput, 0)
 
-	Plugin.LogInfof("Looking for funding outputs...")
-
 	var start, end uint64
 	end = s.replenishmentState.GetLastFundingOutputAddressIndex()
 	if start := end - s.targetFundingOutputsCount; start <= MaxFaucetOutputsCount {
 		start = MaxFaucetOutputsCount + 1
 	}
+
+	Plugin.LogInfof("Looking for funding outputs in address range %d to %d...", start, end)
 
 	for i := start; i <= end; i++ {
 		deps.Tangle.LedgerState.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
