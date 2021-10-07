@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/types"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
@@ -29,6 +31,9 @@ const (
 	Tick = 500 * time.Millisecond
 
 	shutdownGraceTime = time.Minute
+
+	FaucetFundingOutputsAddrStart = 127 // the same as ledgerstate.MaxOutputCount
+
 )
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
@@ -67,6 +72,36 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 	info, err := node.Info()
 	require.NoError(t, err)
 	return info.Mana
+}
+
+// AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
+func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node) {
+	supplyOutputsCount := faucet.Config().SupplyOutputsCount
+	splittingMultiplayer := faucet.Config().SplittingMultiplier
+	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplayer + FaucetFundingOutputsAddrStart - 1
+	addrToCheck := faucet.Address(lastFundingOutputAddress).Base58()
+
+	confirmed := make(map[int]types.Empty)
+	require.Eventually(t, func() bool {
+		if len(confirmed) == supplyOutputsCount*splittingMultiplayer {
+			return true
+		}
+		// wait for confirmation of each fundingOutput
+		for fundingIndex := FaucetFundingOutputsAddrStart; fundingIndex <= lastFundingOutputAddress; fundingIndex++ {
+			if _, ok := confirmed[fundingIndex]; !ok {
+				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
+				require.NoError(t, err)
+				if len(resp.UnspentOutputs[0].Outputs) != 0 {
+					if resp.UnspentOutputs[0].Outputs[0].InclusionState.Confirmed {
+						confirmed[fundingIndex] = types.Void
+					}
+				}
+			}
+		}
+		return false
+	}, time.Minute, Tick)
+	// give the faucet time to save the latest confirmed output
+	time.Sleep(3 * time.Second)
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.
@@ -385,7 +420,9 @@ func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedS
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
-func ShutdownNetwork(ctx context.Context, t *testing.T, n interface{ Shutdown(context.Context) error }) {
+func ShutdownNetwork(ctx context.Context, t *testing.T, n interface {
+	Shutdown(context.Context) error
+}) {
 	log.Println("Shutting down network...")
 	require.NoError(t, n.Shutdown(ctx))
 	log.Println("Shutting down network... done")

@@ -265,33 +265,17 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	defer deps.Tangle.Booker.Events.MessageBooked.Detach(closure)
 
 	// then issue the message with the tx
+	msg, err := f()
 
-	// channel to receive the result of issuance
-	issueResult := make(chan struct {
-		msg *tangle.Message
-		err error
-	}, 1)
-
-	go func() {
-		msg, err := f()
-		issueResult <- struct {
-			msg *tangle.Message
-			err error
-		}{msg: msg, err: err}
-	}()
-
-	// wait on issuance
-	result := <-issueResult
-
-	if result.err != nil || result.msg == nil {
-		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+	if err != nil || msg == nil {
+		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), err)
 	}
 
 	select {
 	case <-time.After(maxAwait):
 		return nil, ErrMessageWasNotBookedInTime
 	case <-booked:
-		return result.msg, nil
+		return msg, nil
 	}
 }
 

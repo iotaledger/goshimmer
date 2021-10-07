@@ -89,7 +89,8 @@ func PeerConfig() config.GoShimmer {
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeed)
 	c.Faucet.PowDifficulty = 3
-	c.PreparedOutputsCount = 10
+	c.SupplyOutputsCount = 4
+	c.SplittingMultiplier = 4
 
 	c.Mana.Enabled = true
 
