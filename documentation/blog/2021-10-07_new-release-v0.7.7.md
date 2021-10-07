@@ -14,8 +14,7 @@ This release does **not** include changes to the consensus mechanism and still u
 :::
 
 :::caution
-This is a **breaking** maintenance release. We urge community node operators to re-apply their config changes on
-top of `config.default.json` as many config keys have changed.
+This is a **breaking** maintenance release. You must upgrade your node to participate further and delete your current database.
 :::
 
 Changelog:
