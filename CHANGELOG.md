@@ -1,3 +1,14 @@
+# v0.7.7 - 2021-10-07
+
+> This release does **not** include changes to the consensus mechanism and still uses FPC+FCoB.
+
+This is a **breaking** maintenance release.
+
+Changelog:
+- Changes the way the faucet plugin manages outputs in order to be able to service more funding requests. 
+- Fixes a nil pointer caused when a re-org is detected but the `RemoteLog` plugin is not enabled.
+- Fixes an issue where the CLI wallet would no longer work under Windows.
+
 # v0.7.6 - 2021-09-23
 
 > This release does **not** include changes to the consensus mechanism and still uses FPC+FCoB.
