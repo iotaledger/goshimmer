@@ -284,10 +284,16 @@ func (s *StateManager) saveFundingOutputs(fundingOutputs []*FaucetOutput) {
 func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	foundPreparedOutputs := make([]*FaucetOutput, 0)
 
-	Plugin.LogInfof("Looking for funding outputs...")
+	var start, end uint64
+	end = s.replenishmentState.GetLastFundingOutputAddressIndex()
+	if start := end - s.targetFundingOutputsCount; start <= MaxFaucetOutputsCount {
+		start = MaxFaucetOutputsCount + 1
+	}
 
-	for i := MaxFaucetOutputsCount + 1; uint64(i) <= s.replenishmentState.GetLastFundingOutputAddressIndex(); i++ {
-		deps.Tangle.LedgerState.CachedOutputsOnAddress(s.replenishmentState.seed.Address(uint64(i)).Address()).Consume(func(output ledgerstate.Output) {
+	Plugin.LogInfof("Looking for funding outputs in address range %d to %d...", start, end)
+
+	for i := start; i <= end; i++ {
+		deps.Tangle.LedgerState.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
 			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() < 1 {
 					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
@@ -307,6 +313,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 			})
 		})
 	}
+
 	Plugin.LogInfof("Found %d funding outputs in the Tangle", len(foundPreparedOutputs))
 	Plugin.LogInfof("Looking for funding outputs in the Tangle... DONE")
 	return foundPreparedOutputs
