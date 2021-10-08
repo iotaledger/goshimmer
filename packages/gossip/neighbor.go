@@ -33,15 +33,16 @@ const (
 // Neighbor describes the established gossip connection to another peer.
 type Neighbor struct {
 	*peer.Peer
-	Group           NeighborsGroup
+	Group NeighborsGroup
 
-	manager *Manager
-	log             *logger.Logger
+	manager        *Manager
+	log            *logger.Logger
 	disconnectOnce sync.Once
+	wg             sync.WaitGroup
 
-	stream          network.Stream
-	reader          protoio.ReadCloser
-	writer          protoio.WriteCloser
+	stream network.Stream
+	reader protoio.ReadCloser
+	writer protoio.WriteCloser
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
@@ -72,20 +73,21 @@ func (n *Neighbor) ConnectionEstablished() time.Time {
 }
 
 func (n *Neighbor) readLoop() {
-	defer n.disconnect()
-	for {
-		 packet := &pb.Packet{}
-		 err := n.read(packet)
-		 if err != nil {
-			 if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				 n.log.Warnw("Permanent error", "err", err)
-			 }
-			 return
-		 }
-		 if err := n.manager.handlePacket(packet, n); err != nil {
-			 n.log.Debugw("Can't handle packet", "err", err)
-		 }
-	}
+	n.wg.Add(1)
+	defer n.wg.Done()
+	go func() {
+		for {
+			packet := &pb.Packet{}
+			err := n.read(packet)
+			if err != nil {
+				n.log.Warnw("Permanent error", "err", err)
+				return
+			}
+			if err := n.manager.handlePacket(packet, n); err != nil {
+				n.log.Debugw("Can't handle packet", "err", err)
+			}
+		}
+	}()
 }
 
 
@@ -95,6 +97,10 @@ func (n *Neighbor) write(msg libp2pproto.Message) error {
 	}
 	err := n.writer.WriteMsg(msg)
 	if err != nil {
+		n.disconnect()
+		if isCloseError(err) {
+			return nil
+		}
 		return errors.WithStack(err)
 	}
 	return nil
@@ -105,7 +111,19 @@ func (n *Neighbor) read(msg libp2pproto.Message) error {
 		return errors.WithStack(err)
 	}
 	err := n.reader.ReadMsg(msg)
-	return errors.WithStack(err)
+	if err != nil {
+		n.disconnect()
+		if isCloseError(err) || errors.Is(err, io.EOF) {
+			return nil
+		}
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (n *Neighbor) close() {
+	n.disconnect()
+	n.wg.Wait()
 }
 
 func (n *Neighbor) disconnect() {
@@ -118,4 +136,8 @@ func (n *Neighbor) disconnect() {
 		n.manager.deleteNeighbor(n.ID())
 		go n.manager.NeighborsEvents(n.Group).NeighborRemoved.Trigger(n)
 	})
+}
+
+func isCloseError(err error) bool {
+	return strings.Contains(err.Error(), "use of closed network connection")
 }

@@ -13,19 +13,12 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/workerpool"
-	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-)
-
-const (
-	// maxPacketSize defines the maximum packet size allowed for gossip and bufferedconn.
-	maxPacketSize = 65 * 1024
 )
 
 var (
@@ -65,9 +58,8 @@ func WithNoDefaultTimeout() ConnectPeerOption {
 
 // The Manager handles the connected neighbors.
 type Manager struct {
-	local   *peer.Local
-	host    host.Host
-	closing chan struct{} // if this channel gets closed all pending waits should terminate
+	local      *peer.Local
+	libp2pHost host.Host
 
 	acceptWG    sync.WaitGroup
 	acceptMutex sync.RWMutex
@@ -78,8 +70,8 @@ type Manager struct {
 	events          Events
 	neighborsEvents map[NeighborsGroup]NeighborsEvents
 
-	server      *server.TCP
-	serverMutex sync.RWMutex
+	stopMutex sync.RWMutex
+	isStopped bool
 
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
@@ -91,10 +83,9 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager.
-func NewManager(host host.Host, local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manager {
+func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manager {
 	m := &Manager{
-		host:            host,
-		closing:         make(chan struct{}),
+		libp2pHost:      libp2pHost,
 		acceptMap:       map[libp2ppeer.ID]*acceptMatcher{},
 		local:           local,
 		loadMessageFunc: f,
@@ -107,7 +98,6 @@ func NewManager(host host.Host, local *peer.Local, f LoadMessageFunc, log *logge
 			NeighborsGroupManual: NewNeighborsEvents(),
 		},
 		neighbors: map[identity.ID]*Neighbor{},
-		server:    nil,
 	}
 	m.messageWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		m.processPacketMessage(task.Param(0).(*pb.Packet_Message), task.Param(1).(*Neighbor))
@@ -121,25 +111,20 @@ func NewManager(host host.Host, local *peer.Local, f LoadMessageFunc, log *logge
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageRequestWorkerCount), workerpool.QueueSize(messageRequestWorkerQueueSize))
 
-	m.host.SetStreamHandler(protocolID, m.streamHandler)
+	m.libp2pHost.SetStreamHandler(protocolID, m.streamHandler)
 
 	return m
 }
 
-// Start starts the manager for the given TCP server.
-func (m *Manager) Start(srv *server.TCP) {
-	m.serverMutex.Lock()
-	defer m.serverMutex.Unlock()
-
-	m.server = srv
-}
-
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
-	m.serverMutex.Lock()
-	defer m.serverMutex.Unlock()
+	m.stopMutex.Lock()
+	defer m.stopMutex.Unlock()
 
-	m.server = nil
+	if m.isStopped {
+		return
+	}
+	m.isStopped = true
 
 	m.dropAllNeighbors()
 
@@ -173,7 +158,6 @@ func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group Neighbors
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
 func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
 	connectOpts ...ConnectPeerOption) error {
-	p.PublicKey().Bytes()
 	return m.addNeighbor(ctx, p, group, m.acceptPeer, connectOpts)
 }
 
@@ -261,9 +245,9 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if p.ID() == m.local.ID() {
 		return errors.WithStack(ErrLoopbackNeighbor)
 	}
-	m.serverMutex.RLock()
-	defer m.serverMutex.RUnlock()
-	if m.server == nil {
+	m.stopMutex.RLock()
+	defer m.stopMutex.RUnlock()
+	if m.isStopped {
 		return ErrNotRunning
 	}
 	exists := m.neighborExists(p)
@@ -284,7 +268,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		}
 		return errors.WithStack(err)
 	}
-	go nbr.readLoop()
+	nbr.readLoop()
 	nbr.log.Info("Connection established")
 	m.neighborsEvents[group].NeighborAdded.Trigger(nbr)
 
@@ -366,30 +350,3 @@ func (m *Manager) processMessageRequest(packetMsgReq *pb.Packet_MessageRequest, 
 		nbr.disconnect()
 	}
 }
-
-func toLibp2pPeerID(p *peer.Peer) (libp2ppeer.ID, error) {
-	pubKeyBytes := p.PublicKey().Bytes()
-	pubKeyLibp2p, err := crypto.UnmarshalEd25519PublicKey(pubKeyBytes)
-	if err != nil {
-		return "", errors.WithStack(err)
-	}
-	libp2pID, err := libp2ppeer.IDFromPublicKey(pubKeyLibp2p)
-	if err != nil {
-		return "", errors.WithStack(err)
-	}
-	return libp2pID, nil
-}
-
-//func toOurPeerID(conn network.Conn) (identity.ID, error) {
-//	pubKeyLibp2p := conn.RemotePublicKey()
-//	pubKeyBytes, err := pubKeyLibp2p.Raw()
-//	if err != nil {
-//		return identity.ID{}, errors.WithStack(err)
-//	}
-//	pubKeyOur, _, err := ed25519.PublicKeyFromBytes(pubKeyBytes)
-//	if err != nil {
-//		return identity.ID{}, errors.WithStack(err)
-//	}
-//	ourPeerID := identity.NewID(pubKeyOur)
-//	return ourPeerID, nil
-//}

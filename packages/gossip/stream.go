@@ -14,6 +14,8 @@ import (
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/multiformats/go-multiaddr"
+
+	"github.com/iotaledger/goshimmer/packages/libp2putil"
 )
 
 const (
@@ -26,8 +28,6 @@ var (
 	ErrTimeout = errors.New("accept timeout")
 	// ErrDuplicateAccept is returned when the server already registered an accept request for that peer ID.
 	ErrDuplicateAccept = errors.New("accept request for that peer already exists")
-	// ErrClosed means that the server was shut down before a response could be received.
-	ErrClosed = errors.New("server closed")
 	// ErrNoGossip means that the given peer does not support the gossip service.
 	ErrNoGossip = errors.New("peer does not have a gossip service")
 )
@@ -38,7 +38,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
-	libp2pID, err := toLibp2pPeerID(p)
+	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -48,7 +48,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if err != nil {
 		return nil, err
 	}
-	m.host.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
+	m.libp2pHost.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
 
 	if conf.useDefaultTimeout {
 		var cancel context.CancelFunc
@@ -56,7 +56,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		defer cancel()
 	}
 
-	stream, err := m.host.NewStream(ctx, libp2pID, protocolID)
+	stream, err := m.libp2pHost.NewStream(ctx, libp2pID, protocolID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
 	}
@@ -102,8 +102,6 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 			}
 			m.log.Debugw("context error", "id", am.peer.ID(), "err", err)
 			return nil, errors.WithStack(err)
-		case <-m.closing:
-			return nil, errors.WithStack(ErrClosed)
 		}
 
 	}()
@@ -130,7 +128,7 @@ type acceptMatcher struct {
 }
 
 func newAcceptMatcher(p *peer.Peer) (*acceptMatcher, error) {
-	libp2pID, err := toLibp2pPeerID(p)
+	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

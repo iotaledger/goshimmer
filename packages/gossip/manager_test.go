@@ -3,6 +3,7 @@ package gossip
 import (
 	"context"
 	"net"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -12,13 +13,14 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/libp2p/go-libp2p"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -477,30 +479,25 @@ func newTestDB(t require.TestingT) *peer.DB {
 func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
 	l := log.Named(name)
 
-	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	lis, err := net.ListenTCP("tcp", laddr)
-	require.NoError(t, err)
+	host, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
+	lis := host.Network().ListenAddresses()[0]
 
 	services := service.New()
 	services.Update(service.PeeringKey, "peering", 0)
-	services.Update(service.GossipKey, lis.Addr().Network(), lis.Addr().(*net.TCPAddr).Port)
+	tcpPortStr, err := lis.ValueForProtocol(multiaddr.P_TCP)
+	require.NoError(t, err)
+	tcpPort, err := strconv.Atoi(tcpPortStr)
+	require.NoError(t, err)
+	services.Update(service.GossipKey, "tcp", tcpPort)
 
-	local, err := peer.NewLocal(lis.Addr().(*net.TCPAddr).IP, services, newTestDB(t))
+	ipAddr, err := lis.ValueForProtocol(multiaddr.P_IP4)
+	local, err := peer.NewLocal(net.ParseIP(ipAddr), services, newTestDB(t))
 	require.NoError(t, err)
 
-	srv := server.ServeTCP(local, lis, l)
-
 	// start the actual gossipping
-	mgr := NewManager(local, loadTestMessage, l)
-	mgr.Start(srv)
+	mgr := NewManager(host, local, loadTestMessage, l)
 
-	detach := func() {
-		mgr.Stop()
-		srv.Close()
-		_ = lis.Close()
-	}
-	return mgr, detach, local.Peer
+	return mgr, mgr.Stop, local.Peer
 }
 
 func newMockedManager(t *testing.T, name string) (*mockedManager, func(), *peer.Peer) {
@@ -512,7 +509,6 @@ func mockManager(t mock.TestingT, mgr *Manager) *mockedManager {
 	e := &mockedManager{Manager: mgr}
 	e.Test(t)
 
-	e.NeighborsEvents(NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(e.connectionFailed))
 	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(events.NewClosure(e.neighborAdded))
 	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(e.neighborRemoved))
 	e.Events().MessageReceived.Attach(events.NewClosure(e.messageReceived))
@@ -525,7 +521,6 @@ type mockedManager struct {
 	*Manager
 }
 
-func (e *mockedManager) connectionFailed(p *peer.Peer, err error) { e.Called(p, err) }
 func (e *mockedManager) neighborAdded(n *Neighbor)                { e.Called(n) }
 func (e *mockedManager) neighborRemoved(n *Neighbor)              { e.Called(n) }
 func (e *mockedManager) messageReceived(ev *MessageReceivedEvent) { e.Called(ev) }
