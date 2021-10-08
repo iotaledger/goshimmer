@@ -188,29 +188,23 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 	return stored, solidityType, err
 }
 
-// TransactionWillFork checks if the given transaction would fork another Transaction (and which Transactions).
-func (u *UTXODAG) TransactionWillFork(transaction *Transaction) (willFork bool, forkedTransactions TransactionIDs) {
+// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
+func (u *UTXODAG) ConflictingTransactions(transaction *Transaction) (conflictingTransactions TransactionIDs) {
 	u.LockEntity(transaction)
 	defer u.UnlockEntity(transaction)
 
-	forkedTransactions = make(TransactionIDs)
+	conflictingTransactions = make(TransactionIDs)
 	for _, input := range transaction.Essence().Inputs() {
 		u.CachedConsumers(input.(*UTXOInput).ReferencedOutputID(), Solid).Consume(func(consumer *Consumer) {
 			if consumer.TransactionID() == transaction.ID() {
 				return
 			}
 
-			u.CachedTransactionMetadata(consumer.TransactionID()).Consume(func(transactionMetadata *TransactionMetadata) {
-				if transactionMetadata.BranchID().TransactionID() != consumer.TransactionID() {
-					forkedTransactions[transactionMetadata.ID()] = types.Void
-				}
-			})
+			conflictingTransactions.Add(consumer.TransactionID())
 		})
 	}
 
-	fmt.Println(forkedTransactions)
-
-	return len(forkedTransactions) > 0, forkedTransactions
+	return
 }
 
 // TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.

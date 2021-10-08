@@ -74,17 +74,6 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 	f.powTimeout = timeout
 }
 
-func (f *MessageFactory) getTips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
-	if p.Type() == ledgerstate.TransactionType {
-		transactionWillFork, _ := f.tangle.LedgerState.TransactionWillFork(p.(*ledgerstate.Transaction))
-		if transactionWillFork {
-			return MessageIDs{EmptyMessageID}, nil
-		}
-	}
-
-	return f.selector.Tips(p, parentsCount)
-}
-
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
@@ -123,8 +112,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
-			parents, err = f.getTips(p, countParents)
-			if err != nil {
+			if parents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
 				f.issuanceMutex.Unlock()
@@ -202,6 +190,16 @@ func (f *MessageFactory) Shutdown() {
 	if err := f.sequence.Release(); err != nil {
 		f.Events.Error.Trigger(fmt.Errorf("could not release message sequence number: %w", err))
 	}
+}
+
+func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
+	if p.Type() == ledgerstate.TransactionType {
+		if conflictingTransactions := f.tangle.LedgerState.ConflictingTransactions(p.(*ledgerstate.Transaction)); len(conflictingTransactions) != 0 {
+			return MessageIDs{EmptyMessageID}, nil
+		}
+	}
+
+	return f.selector.Tips(p, parentsCount)
 }
 
 func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
