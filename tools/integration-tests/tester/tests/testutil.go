@@ -77,13 +77,13 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 // AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
 func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node) {
 	supplyOutputsCount := faucet.Config().SupplyOutputsCount
-	splittingMultiplayer := faucet.Config().SplittingMultiplier
-	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplayer + FaucetFundingOutputsAddrStart - 1
+	splittingMultiplier := faucet.Config().SplittingMultiplier
+	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplier + FaucetFundingOutputsAddrStart - 1
 	addrToCheck := faucet.Address(lastFundingOutputAddress).Base58()
 
 	confirmed := make(map[int]types.Empty)
 	require.Eventually(t, func() bool {
-		if len(confirmed) == supplyOutputsCount*splittingMultiplayer {
+		if len(confirmed) == supplyOutputsCount*splittingMultiplier {
 			return true
 		}
 		// wait for confirmation of each fundingOutput
