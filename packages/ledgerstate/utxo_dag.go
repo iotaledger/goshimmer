@@ -188,6 +188,7 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 	return stored, solidityType, err
 }
 
+// TransactionWillFork checks if the given transaction would fork another Transaction (and which Transactions).
 func (u *UTXODAG) TransactionWillFork(transaction *Transaction) (willFork bool, forkedTransactions TransactionIDs) {
 	u.LockEntity(transaction)
 	defer u.UnlockEntity(transaction)
@@ -206,6 +207,8 @@ func (u *UTXODAG) TransactionWillFork(transaction *Transaction) (willFork bool, 
 			})
 		})
 	}
+
+	fmt.Println(forkedTransactions)
 
 	return len(forkedTransactions) > 0, forkedTransactions
 }
