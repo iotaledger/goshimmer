@@ -44,6 +44,9 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	defer tangle.Shutdown()
 	nodes := make(map[string]*identity.Identity)
 
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{})
+	assert.Equal(t, 0, tangle.Scheduler.buffer.NumActiveNodes())
+
 	for _, node := range []string{"A", "B", "C", "D", "E", "F", "G"} {
 		nodes[node] = identity.GenerateIdentity()
 	}
@@ -73,6 +76,10 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["C"].ID())
 	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["F"].ID())
 	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["G"].ID())
+
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{})
+	assert.Equal(t, 0, tangle.Scheduler.buffer.NumActiveNodes())
+
 }
 
 func TestScheduler_Discarded(t *testing.T) {
