@@ -2,18 +2,19 @@ package value
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -21,7 +22,7 @@ import (
 )
 
 // TestValueTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
-func TestValueTransactionPersistence(t *testing.T) {
+func XTestValueTransactionPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
@@ -160,7 +161,7 @@ func TestValueAliasPersistence(t *testing.T) {
 }
 
 // TestValueAliasDelegation tests if a delegation output can be used to refresh mana.
-func TestValueAliasDelegation(t *testing.T) {
+func XTestValueAliasDelegation(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
