@@ -3,12 +3,9 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-
 	"github.com/iotaledger/hive.go/syncutils"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -74,21 +71,6 @@ var (
 	// number of messages in the database at startup
 	initialMessageTotalCountDB uint64
 
-	// total number of branches in the database at startup
-	initialBranchTotalCountDB uint64
-
-	// total number of finalized branches in the database at startup
-	initialFinalizedBranchCountDB uint64
-
-	// total number of confirmed branches in the database at startup
-	initialConfirmedBranchCountDB uint64
-
-	// number of branches created since the node started
-	branchTotalCountDB atomic.Uint64
-
-	// number of branches finalized since the node started
-	finalizedBranchCountDB atomic.Uint64
-
 	// current number of messages in the node's database
 	messageTotalCountDB atomic.Uint64
 
@@ -122,12 +104,6 @@ var (
 
 	// protect map from concurrent read/write.
 	messageFinalizationTotalTimeMutex syncutils.RWMutex
-
-	// current number of confirmed  branches
-	confirmedBranchCount atomic.Uint64
-
-	// total time it took all branches to finalize. unit is milliseconds!
-	branchConfirmationTotalTime atomic.Uint64
 
 	// current number of message tips.
 	messageTips atomic.Uint64
@@ -221,16 +197,6 @@ func MessageRequestQueueSize() int64 {
 	return requestQueueSize.Load()
 }
 
-// TotalBranchCountDB returns the total number of branches.
-func TotalBranchCountDB() uint64 {
-	return initialBranchTotalCountDB + branchTotalCountDB.Load()
-}
-
-// FinalizedBranchCountDB returns the number of non-confirmed branches.
-func FinalizedBranchCountDB() uint64 {
-	return initialFinalizedBranchCountDB + finalizedBranchCountDB.Load()
-}
-
 // MessageSolidCountDB returns the number of messages that are solid in the DB.
 func MessageSolidCountDB() uint64 {
 	return initialMessageSolidCountDB + messageSolidCountDBInc.Load()
@@ -283,16 +249,6 @@ func FinalizedMessageCountPerType() map[MessageType]uint64 {
 	}
 
 	return clone
-}
-
-// BranchConfirmationTotalTime returns total time it took for all confirmed branches to be confirmed.
-func BranchConfirmationTotalTime() uint64 {
-	return branchConfirmationTotalTime.Load()
-}
-
-// ConfirmedBranchCount returns the number of confirmed branches.
-func ConfirmedBranchCount() uint64 {
-	return initialConfirmedBranchCountDB + confirmedBranchCount.Load()
 }
 
 // ParentCountPerType returns a map of parent counts per parent type.
@@ -393,30 +349,4 @@ func measureInitialDBStats() {
 	initialMessageTotalCountDB = uint64(total)
 	initialSumSolidificationTime = avgSolidTime * float64(solid)
 	initialMissingMessageCountDB = uint64(missing)
-
-	messagelayer.Tangle().LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
-		switch branch.ID() {
-		case ledgerstate.MasterBranchID:
-			return
-		case ledgerstate.InvalidBranchID:
-			return
-		case ledgerstate.LazyBookedConflictsBranchID:
-			return
-		default:
-			initialBranchTotalCountDB++
-			branchGoF, err := messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
-			if err != nil {
-				return
-			}
-			if branchGoF == gof.High {
-				messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
-					if conflictingBranchID != branch.ID() {
-						initialFinalizedBranchCountDB++
-					}
-				})
-				initialFinalizedBranchCountDB++
-				initialConfirmedBranchCountDB++
-			}
-		}
-	})
 }

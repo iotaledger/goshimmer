@@ -50,6 +50,7 @@ func run(_ *node.Plugin) {
 	if Parameters.Local {
 		// initial measurement, since we have to know how many messages are there in the db
 		measureInitialDBStats()
+		measureInitialBranchStats()
 		registerLocalMetrics()
 	}
 	// Events from analysis server
@@ -187,23 +188,36 @@ func registerLocalMetrics() {
 	}))
 
 	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		activeBranchesMutex.Lock()
+		defer activeBranchesMutex.Unlock()
+
+		if _, exists := activeBranches[branchID]; !exists {
+			return
+		}
+
 		oldestAttachmentTime, _, err := messagelayer.Tangle().Utils.FirstAttachment(branchID.TransactionID())
 		if err != nil {
 			return
 		}
 		messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-			if conflictingBranchID != branchID {
+			if _, exists := activeBranches[branchID]; exists && conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
+				delete(activeBranches, conflictingBranchID)
 			}
 		})
 		finalizedBranchCountDB.Inc()
 		confirmedBranchCount.Inc()
-
 		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
+
+		delete(activeBranches, branchID)
 	}))
 
 	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
-		branchTotalCountDB.Inc()
+		activeBranchesMutex.Lock()
+		defer activeBranchesMutex.Unlock()
+		if _, exists := activeBranches[branchID]; !exists {
+			branchTotalCountDB.Inc()
+		}
 	}))
 
 	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
