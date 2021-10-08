@@ -14,7 +14,7 @@ This release does **not** include changes to the consensus mechanism and still u
 :::
 
 :::caution
-This is a **breaking** maintenance release. You must upgrade your node to participate further and delete your current database.
+This is a **breaking** maintenance release. You must delete your current database and upgrade your node to further participate in the network.
 :::
 
 Changelog:
