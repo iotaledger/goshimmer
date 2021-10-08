@@ -40,7 +40,7 @@ func TestScheduler_Submit(t *testing.T) {
 }
 
 func TestScheduler_updateActiveNodeList(t *testing.T) {
-	tangle := newTestTangle(Identity(selfLocalIdentity))
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 	nodes := make(map[string]*identity.Identity)
 
