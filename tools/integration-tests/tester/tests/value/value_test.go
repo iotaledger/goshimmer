@@ -22,7 +22,7 @@ import (
 )
 
 // TestValueTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
-func XTestValueTransactionPersistence(t *testing.T) {
+func TestValueTransactionPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
@@ -161,7 +161,7 @@ func TestValueAliasPersistence(t *testing.T) {
 }
 
 // TestValueAliasDelegation tests if a delegation output can be used to refresh mana.
-func XTestValueAliasDelegation(t *testing.T) {
+func TestValueAliasDelegation(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
