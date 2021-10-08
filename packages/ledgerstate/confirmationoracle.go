@@ -24,7 +24,7 @@ func NewSimpleConfirmationOracle(ledgerstate *Ledgerstate) *SimpleConfirmationOr
 // IsTransactionConfirmed returns true if the transaction has been accepted to stay in the ledger.
 func (s *SimpleConfirmationOracle) IsTransactionConfirmed(transactionID TransactionID) (isConfirmed bool) {
 	s.ledgerstate.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		isConfirmed = transactionMetadata.GradeOfFinality() >= gof.Medium
+		isConfirmed = transactionMetadata.GradeOfFinality() >= gof.High
 	})
 
 	return

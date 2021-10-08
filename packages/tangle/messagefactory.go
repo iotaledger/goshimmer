@@ -74,6 +74,25 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 	f.powTimeout = timeout
 }
 
+func (f *MessageFactory) getTips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
+	if p.Type() == ledgerstate.TransactionType {
+		transaction := p.(*ledgerstate.Transaction)
+		for _, input := range transaction.Essence().Inputs() {
+			consumerCount := 0
+			f.tangle.LedgerState.Consumers(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(consumer *ledgerstate.Consumer) {
+				consumerCount++
+			})
+
+			if consumerCount == 1 {
+				return MessageIDs{EmptyMessageID}, nil
+			}
+		}
+		// attach to the bla
+	}
+
+	return f.selector.Tips(p, parentsCount)
+}
+
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
@@ -112,7 +131,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
-			parents, err = f.selector.Tips(p, countParents)
+			parents, err = f.getTips(p, countParents)
 			if err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)

@@ -227,8 +227,8 @@ func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cac
 }
 
 // Consumers returns the (cached) consumers of the given outputID.
-func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
-	return l.UTXODAG.CachedConsumers(outputID)
+func (l *LedgerState) Consumers(outputID ledgerstate.OutputID, optionalSolidityType ...ledgerstate.SolidityType) (cachedTransactions ledgerstate.CachedConsumers) {
+	return l.UTXODAG.CachedConsumers(outputID, optionalSolidityType...)
 }
 
 // ConfirmedConsumer returns the confirmed transactionID consuming the given outputID.
