@@ -61,6 +61,7 @@ func FinalizedBranchCountDB() uint64 {
 func measureInitialBranchStats() {
 	activeBranchesMutex.Lock()
 	defer activeBranchesMutex.Unlock()
+	activeBranches = make(map[ledgerstate.BranchID]types.Empty)
 	conflictsToRemove := make([]ledgerstate.BranchID, 0)
 	messagelayer.Tangle().LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
 		switch branch.ID() {

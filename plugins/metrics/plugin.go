@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	gossippkg "github.com/iotaledger/goshimmer/packages/gossip"
@@ -190,7 +191,6 @@ func registerLocalMetrics() {
 	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
-
 		if _, exists := activeBranches[branchID]; !exists {
 			return
 		}
@@ -217,6 +217,7 @@ func registerLocalMetrics() {
 		defer activeBranchesMutex.Unlock()
 		if _, exists := activeBranches[branchID]; !exists {
 			branchTotalCountDB.Inc()
+			activeBranches[branchID] = types.Void
 		}
 	}))
 
