@@ -14,7 +14,7 @@ var (
 	messageTotalCount            prometheus.Gauge
 	messageTotalCountDB          prometheus.Gauge
 	messageSolidCountDB          prometheus.Gauge
-	avgSolidificationTime        prometheus.Gauge
+	solidificationTotalTime      prometheus.Gauge
 	messageMissingCountDB        prometheus.Gauge
 	messageRequestCount          prometheus.Gauge
 	confirmedBranchCount         prometheus.Gauge
@@ -71,7 +71,7 @@ func registerTangleMetrics() {
 		Help: "number of solid messages on the node's database",
 	})
 
-	avgSolidificationTime = prometheus.NewGauge(prometheus.GaugeOpts{
+	solidificationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_message_avg_solidification_time",
 		Help: "average time it takes for a message to become solid",
 	})
@@ -133,7 +133,7 @@ func registerTangleMetrics() {
 	registry.MustRegister(messageTotalCount)
 	registry.MustRegister(messageTotalCountDB)
 	registry.MustRegister(messageSolidCountDB)
-	registry.MustRegister(avgSolidificationTime)
+	registry.MustRegister(solidificationTotalTime)
 	registry.MustRegister(messageMissingCountDB)
 	registry.MustRegister(messageRequestCount)
 	registry.MustRegister(messageFinalizationTotalTime)
@@ -160,7 +160,7 @@ func collectTangleMetrics() {
 	messageTotalCount.Set(float64(metrics.MessageTotalCountSinceStart()))
 	messageTotalCountDB.Set(float64(metrics.MessageTotalCountDB()))
 	messageSolidCountDB.Set(float64(metrics.MessageSolidCountDB()))
-	avgSolidificationTime.Set(metrics.AvgSolidificationTime())
+	solidificationTotalTime.Set(float64(metrics.SolidificationTime()))
 	messageMissingCountDB.Set(float64(metrics.MessageMissingCountDB()))
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
 	confirmedBranchCount.Set(float64(metrics.ConfirmedBranchCount()))

@@ -81,7 +81,7 @@ var (
 	messageSolidCountDBInc atomic.Uint64
 
 	// helper variable that is only calculated at init phase. unit is milliseconds!
-	initialSumSolidificationTime float64
+	initialSumSolidificationTime int64
 
 	// sum of solidification time (since start of the node)
 	sumSolidificationTime time.Duration
@@ -207,13 +207,13 @@ func MessageTotalCountDB() uint64 {
 	return initialMessageTotalCountDB + messageTotalCountDB.Load()
 }
 
-// AvgSolidificationTime returns the average time it takes for a message to become solid. [milliseconds]
-func AvgSolidificationTime() (result float64) {
+// SolidificationTime returns the cumulative time it took for all message to become solid. [milliseconds]
+func SolidificationTime() (result int64) {
 	solidTimeMutex.RLock()
 	defer solidTimeMutex.RUnlock()
 	totalSolid := MessageSolidCountDB()
 	if totalSolid > 0 {
-		result = (initialSumSolidificationTime + float64(sumSolidificationTime.Milliseconds())) / float64(totalSolid)
+		result = initialSumSolidificationTime + sumSolidificationTime.Milliseconds()
 	}
 	return
 }
@@ -344,9 +344,9 @@ func measureRequestQueueSize() {
 }
 
 func measureInitialDBStats() {
-	solid, total, avgSolidTime, missing := messagelayer.Tangle().Storage.DBStats()
+	solid, total, sumSolidTime, missing := messagelayer.Tangle().Storage.DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
-	initialSumSolidificationTime = avgSolidTime * float64(solid)
+	initialSumSolidificationTime = sumSolidTime
 	initialMissingMessageCountDB = uint64(missing)
 }
