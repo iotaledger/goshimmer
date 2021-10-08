@@ -76,18 +76,10 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 
 func (f *MessageFactory) getTips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
 	if p.Type() == ledgerstate.TransactionType {
-		transaction := p.(*ledgerstate.Transaction)
-		for _, input := range transaction.Essence().Inputs() {
-			consumerCount := 0
-			f.tangle.LedgerState.Consumers(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(consumer *ledgerstate.Consumer) {
-				consumerCount++
-			})
-
-			if consumerCount == 1 {
-				return MessageIDs{EmptyMessageID}, nil
-			}
+		transactionWillFork, _ := f.tangle.LedgerState.TransactionWillFork(p.(*ledgerstate.Transaction))
+		if transactionWillFork {
+			return MessageIDs{EmptyMessageID}, nil
 		}
-		// attach to the bla
 	}
 
 	return f.selector.Tips(p, parentsCount)

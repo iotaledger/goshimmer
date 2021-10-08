@@ -188,6 +188,28 @@ func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solid
 	return stored, solidityType, err
 }
 
+func (u *UTXODAG) TransactionWillFork(transaction *Transaction) (willFork bool, forkedTransactions TransactionIDs) {
+	u.LockEntity(transaction)
+	defer u.UnlockEntity(transaction)
+
+	forkedTransactions = make(TransactionIDs)
+	for _, input := range transaction.Essence().Inputs() {
+		u.CachedConsumers(input.(*UTXOInput).ReferencedOutputID(), Solid).Consume(func(consumer *Consumer) {
+			if consumer.TransactionID() == transaction.ID() {
+				return
+			}
+
+			u.CachedTransactionMetadata(consumer.TransactionID()).Consume(func(transactionMetadata *TransactionMetadata) {
+				if transactionMetadata.BranchID().TransactionID() == transactionMetadata.ID() {
+					forkedTransactions.Add(transactionMetadata.ID())
+				}
+			})
+		})
+	}
+
+	return len(forkedTransactions) > 0, forkedTransactions
+}
+
 // TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
 func (u *UTXODAG) TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {

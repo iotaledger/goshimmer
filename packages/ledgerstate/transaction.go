@@ -127,6 +127,11 @@ func (i TransactionID) String() string {
 // TransactionIDs represents a collection of TransactionIDs.
 type TransactionIDs map[TransactionID]types.Empty
 
+// Add adds a new TransactionID to the collection.
+func (t TransactionIDs) Add(transactionID TransactionID) {
+	t[transactionID] = types.Void
+}
+
 // Clone returns a copy of the collection of TransactionIDs.
 func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	transactionIDs = make(TransactionIDs)
