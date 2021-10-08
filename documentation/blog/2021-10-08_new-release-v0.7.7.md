@@ -21,3 +21,4 @@ Changelog:
 - Changes the way the faucet plugin manages outputs in order to be able to service more funding requests.
 - Fixes a nil pointer caused when a re-org is detected but the `RemoteLog` plugin is not enabled.
 - Fixes an issue where the CLI wallet would no longer work under Windows.
+- Use Go 1.17.2 docker image
