@@ -4137,7 +4137,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "sum(irate(tangle_messages_parent_count_per_type{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_message_total_count{instance=\"$instance\"}[1m])) by (instance)",
+              "expr": "sum(irate(tangle_messages_parent_count_per_type{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_message_finalized_count{instance=\"$instance\"}[1m])) by (instance)",
               "hide": false,
               "interval": "",
               "legendFormat": "{{type}}",
