@@ -458,14 +458,6 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 
 	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
 		(expInclState.SolidityType != nil && *expInclState.SolidityType != metadata.SolidityType) {
-		if expInclState.GradeOfFinality != nil {
-			fmt.Println("EXPECTED GOF VS SEEN", *expInclState.GradeOfFinality, metadata.GradeOfFinality)
-		}
-
-		if expInclState.SolidityType != nil {
-			fmt.Println("EXPECTED SOLIDITY VS SEEN", *expInclState.SolidityType, metadata.SolidityType)
-		}
-
 		return false
 	}
 	return true
