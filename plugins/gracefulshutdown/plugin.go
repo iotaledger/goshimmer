@@ -35,7 +35,7 @@ func configure(plugin *node.Plugin) {
 	go func() {
 		<-gracefulStop
 
-		plugin.LogWarnf("Received shutdown request - waiting (max %d) to finish processing ...", Parameters.WaitToKillTime)
+		plugin.LogWarnf("Received shutdown request - waiting (max %v) to finish processing ...", Parameters.WaitToKillTime)
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
