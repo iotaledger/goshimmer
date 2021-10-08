@@ -52,7 +52,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, "test_simple_double_spend", 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      false,
 		Activity:    false,

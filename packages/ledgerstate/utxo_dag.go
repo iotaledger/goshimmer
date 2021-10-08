@@ -201,8 +201,8 @@ func (u *UTXODAG) TransactionWillFork(transaction *Transaction) (willFork bool, 
 			}
 
 			u.CachedTransactionMetadata(consumer.TransactionID()).Consume(func(transactionMetadata *TransactionMetadata) {
-				if transactionMetadata.BranchID().TransactionID() == transactionMetadata.ID() {
-					forkedTransactions.Add(transactionMetadata.ID())
+				if transactionMetadata.BranchID().TransactionID() != consumer.TransactionID() {
+					forkedTransactions[transactionMetadata.ID()] = types.Void
 				}
 			})
 		})
