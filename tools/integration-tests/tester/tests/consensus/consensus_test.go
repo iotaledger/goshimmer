@@ -103,8 +103,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			res2.BranchID != ledgerstate.MasterBranchID.String()
 	}, tests.Timeout, tests.Tick)
 
-	// we issue Messages on both nodes so the txs' GoF can change, given that they are dependent on their
-	// attachments' GoF. if Messages would only be issued on node 2 or 1, they weight would never surpass 50%.
+	// we issue msgs on both nodes so the txs' GoF can change, given that they are dependent on their
+	// attachments' GoF. if msgs would only be issued on node 2 or 1, they weight would never surpass 50%.
 	tests.SendDataMessages(t, n.Peers(), 50)
 
 	tests.RequireGradeOfFinalityEqual(t, n.Peers(), tests.ExpectedTxsStates{
