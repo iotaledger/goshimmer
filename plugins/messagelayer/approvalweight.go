@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 func configureApprovalWeight() {
@@ -70,7 +69,9 @@ func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition e
 	}
 
 	if deps.Tangle.LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
-		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))
+		if deps.RemoteLoggerConn != nil {
+			deps.RemoteLoggerConn.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))
+		}
 		Plugin.LogInfof("%s reorg detected by ApprovalWeight.", branchID)
 	}
 }

@@ -1,4 +1,4 @@
-name: Release
+name: Release & Devnet deploy
 on:
   workflow_dispatch:
     inputs:

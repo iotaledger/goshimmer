@@ -15,6 +15,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -49,7 +51,8 @@ type dependencies struct {
 	Local              *peer.Local
 	Discover           *discover.Protocol `optional:"true"`
 	Storage            kvstore.KVStore
-	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
+	Voter              vote.DRNGRoundBasedVoter    `optional:"true"`
+	RemoteLoggerConn   *remotelog.RemoteLoggerConn `optional:"true"`
 	ConsensusMechanism tangle.ConsensusMechanism
 }
 
@@ -178,8 +181,8 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.Consensus(deps.ConsensusMechanism),
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		tangle.SchedulerConfig(tangle.SchedulerParams{
-			MaxBufferSize:               SchedulerParameters.MaxBufferSize,
-			Rate:                        schedulerRate(SchedulerParameters.Rate),
+			MaxBufferSize: SchedulerParameters.MaxBufferSize,
+			Rate:          schedulerRate(SchedulerParameters.Rate),
 			AccessManaRetrieveFunc:      accessManaRetriever,
 			TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 		}),
@@ -262,33 +265,17 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	defer deps.Tangle.Booker.Events.MessageBooked.Detach(closure)
 
 	// then issue the message with the tx
+	msg, err := f()
 
-	// channel to receive the result of issuance
-	issueResult := make(chan struct {
-		msg *tangle.Message
-		err error
-	}, 1)
-
-	go func() {
-		msg, err := f()
-		issueResult <- struct {
-			msg *tangle.Message
-			err error
-		}{msg: msg, err: err}
-	}()
-
-	// wait on issuance
-	result := <-issueResult
-
-	if result.err != nil || result.msg == nil {
-		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+	if err != nil || msg == nil {
+		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), err)
 	}
 
 	select {
 	case <-time.After(maxAwait):
 		return nil, ErrMessageWasNotBookedInTime
 	case <-booked:
-		return result.msg, nil
+		return msg, nil
 	}
 }
 
