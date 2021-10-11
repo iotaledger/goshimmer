@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -98,8 +99,13 @@ func configureBranchConfirmationMetrics() {
 	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
 
 	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
-		branchTotalCountDB.Inc()
-		sendBranchMetrics()
+		activeBranchesMutex.Lock()
+		defer activeBranchesMutex.Unlock()
+		if _, exists := activeBranches[branchID]; !exists {
+			branchTotalCountDB.Inc()
+			activeBranches[branchID] = types.Void
+			sendBranchMetrics()
+		}
 	}))
 }
 
