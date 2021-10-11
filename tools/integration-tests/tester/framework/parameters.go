@@ -72,11 +72,11 @@ func PeerConfig() config.GoShimmer {
 	c.POW.Enabled = true
 	c.POW.Difficulty = 2
 
-	c.Webapi.Enabled = true
-	c.Webapi.BindAddress = fmt.Sprintf(":%d", apiPort)
+	c.WebAPI.Enabled = true
+	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
 
-	c.Autopeering.Enabled = false
-	c.Autopeering.EntryNodes = nil
+	c.AutoPeering.Enabled = false
+	c.AutoPeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
 	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed))
@@ -103,9 +103,12 @@ func PeerConfig() config.GoShimmer {
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
-	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
+	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus", "manarefresher", "manualpeering", "chat",
+		"WebAPIDataEndpoint", "WebAPIDRNGEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "Snapshot", "WebAPIToolsDRNGEndpoint",
+		"WebAPIToolsMessageEndpoint", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint")
 	c.Gossip.Enabled = false
-	c.Autopeering.Enabled = true
+	c.POW.Enabled = false
+	c.AutoPeering.Enabled = true
 	c.MessageLayer.Enabled = false
 	c.Faucet.Enabled = false
 	c.Mana.Enabled = false
