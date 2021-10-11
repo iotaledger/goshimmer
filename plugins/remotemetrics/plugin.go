@@ -4,20 +4,22 @@
 package remotemetrics
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/vote"
 )
 
 const (
@@ -36,29 +38,39 @@ const (
 )
 
 var (
-	// plugin is the plugin instance of the remote plugin instance.
-	plugin     *node.Plugin
-	pluginOnce sync.Once
+	// Plugin is the plugin instance of the remote plugin instance.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin("RemoteLogMetrics", node.Enabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Local              *peer.Local
+	Tangle             *tangle.Tangle
+	Voter              vote.DRNGRoundBasedVoter    `optional:"true"`
+	RemoteLogger       *remotelog.RemoteLoggerConn `optional:"true"`
+	DrngInstance       *drng.DRNG                  `optional:"true"`
+	ClockPlugin        *node.Plugin                `name:"clock" optional:"true"`
+	ConsensusMechanism tangle.ConsensusMechanism
+}
+
+func init() {
+	Plugin = node.NewPlugin("RemoteLogMetrics", deps, node.Disabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
 	measureInitialBranchCounts()
 
 	configureSyncMetrics()
-	configureDRNGMetrics()
-	configureBranchConfirmationMetrics()
+	}
+	if deps.DrngInstance != nil {
+		configureDRNGMetrics()
+	}
 	configureMessageFinalizedMetrics()
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Node State Logger Updater", func(shutdownSignal <-chan struct{}) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can

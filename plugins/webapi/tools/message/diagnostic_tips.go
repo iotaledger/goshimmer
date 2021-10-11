@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
@@ -39,7 +38,7 @@ func runTipsDiagnostic(c echo.Context) (err error) {
 		return errors.Errorf("can't write table description row: %w", err)
 	}
 
-	tips := messagelayer.Tangle().TipManager.AllTips()
+	tips := deps.Tangle.TipManager.AllTips()
 
 	if err := buildAndWriteTipsDiagnostic(csvWriter, tips); err != nil {
 		return errors.Errorf("%w", err)

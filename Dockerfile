@@ -1,8 +1,8 @@
 # syntax = docker/dockerfile:1.2.1
 
 ############################
-# golang 1.17-buster amd64
-FROM golang@sha256:cefedeae41e0bbbfa20bb1c37c3a43e0001fa541be9732f7bc6a28ecc154e9e4 AS build
+# golang 1.17.1-buster multi-arch
+FROM golang@sha256:d2710b111354dd7d8a64454d80c22ffd62f90993d811e57a9fce7ff76a235b5f AS build
 
 ARG BUILD_TAGS=rocksdb,builtin_static
 # Download and include snapshot into resulting image by default.
@@ -29,7 +29,7 @@ RUN go mod verify
 # 4. Verify that goshimmer binary is statically linked
 RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=linux GOARCH=amd64 go build \
+    go build \
     -tags="$BUILD_TAGS" \
     -ldflags='-w -s' \
     -o /go/bin/goshimmer
@@ -51,7 +51,7 @@ FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5d
 
 # Gossip
 EXPOSE 14666/tcp
-# Autopeering
+# AutoPeering
 EXPOSE 14626/udp
 # Pprof Profiling
 EXPOSE 6061/tcp

@@ -1,3 +1,17 @@
+---
+description: Frequently Asked Questions. What is GoShimmer?,  What Kind of Confirmation Time Can I Expect?, Where Can I See the State of the GoShimmer testnet?,How Many Transactions Per Second(TPS) can GoShimmer Sustain?, How is Spamming Prevented?, What Happens if I Issue a Double Spend?, Who's the Target Audience for Operating a GoShimmer Node?
+image: /img/logo/goshimmer_light.png
+keywords:
+- average network delay
+- testnet
+- analysis
+- dashboard
+- vote
+- frequently asked questions
+- node software
+- double spend
+- transactions
+---
 # FAQ
 
 ## What is GoShimmer?
@@ -10,9 +24,9 @@ Since non-conflicting transactions aren't even voted on, they materialize after 
 
 ## Where Can I See the State of the GoShimmer testnet?
 
-You can access the global analysis dashboard in the [Pollen Analyzer](http://ressims.iota.cafe:28080/autopeering) which showcases the network graph and active ongoing votes on conflicts.
+You can access the global analysis dashboard in the [Pollen Analyzer](http://analysisentry-01.devnet.shimmer.iota.cafe:28080/) which showcases the network graph and active ongoing votes on conflicts.
 
-## How Many Transactions Per Second(TPS) can GoShimmer Sustain?
+## How Many Transactions per Second (TPS) Can GoShimmer Sustain?
 
 The transactions per second metric is irrelevant for the current development state of GoShimmer. We are evaluating components from Coordicide, and aren't currently interested in squeezing out every little ounce of performance. Since the primary goal is to evaluate Coordicide components, we value simplicity over optimization . Even if we would put out a TPS number, it would not reflect an actual metric in a finished production ready node software. 
 

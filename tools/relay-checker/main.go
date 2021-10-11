@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/dig"
+
 	client "github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/logger"
@@ -38,7 +40,8 @@ func testNodesGetMessages(msgID string) error {
 }
 
 func main() {
-	config.Init()
+	container := dig.New()
+	config.Init(container)
 	logger.Init()
 
 	initConfig()
@@ -53,7 +56,7 @@ func main() {
 		fmt.Printf("msgID: %s\n", msgID)
 
 		// cooldown time
-		time.Sleep(time.Duration(cooldownTime) * time.Second)
+		time.Sleep(cooldownTime)
 
 		// query target node
 		err = testTargetGetMessages(api, msgID)

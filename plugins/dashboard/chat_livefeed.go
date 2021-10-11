@@ -5,8 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/chat"
 )
 
 var (
@@ -25,7 +25,7 @@ type chatMsg struct {
 
 func configureChatLiveFeed() {
 	chatLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		newMessage := task.Param(0).(*chat.ChatEvent)
+		newMessage := task.Param(0).(*chat.Event)
 
 		broadcastWsMessage(&wsmsg{MsgTypeChat, &chatMsg{
 			From:      newMessage.From,
@@ -41,16 +41,16 @@ func configureChatLiveFeed() {
 
 func runChatLiveFeed() {
 	if err := daemon.BackgroundWorker("Dashboard[ChatUpdater]", func(shutdownSignal <-chan struct{}) {
-		notifyNewMessages := events.NewClosure(func(chatEvent *chat.ChatEvent) {
+		notifyNewMessages := events.NewClosure(func(chatEvent *chat.Event) {
 			chatLiveFeedWorkerPool.TrySubmit(chatEvent)
 		})
-		chat.Events.MessageReceived.Attach(notifyNewMessages)
+		deps.Chat.Events.MessageReceived.Attach(notifyNewMessages)
 
 		defer chatLiveFeedWorkerPool.Stop()
 
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[ChatUpdater] ...")
-		chat.Events.MessageReceived.Detach(notifyNewMessages)
+		deps.Chat.Events.MessageReceived.Detach(notifyNewMessages)
 		log.Info("Stopping Dashboard[ChatUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

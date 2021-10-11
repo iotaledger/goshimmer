@@ -45,6 +45,7 @@ goshimmers:
     remoteLoggerHost: "metrics-01.devnet.shimmer.iota.cafe"
     communityEntryNode: "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entryshimmer.tanglebay.com:14646"
     xteamDRNG: true
+    logLevel: "info"
 
 drands:
   hosts:
@@ -55,3 +56,7 @@ drands:
 asset_registries:
   hosts:
     asset-registry-01.devnet.shimmer.iota.cafe:
+
+lbs:
+  hosts:
+    lb.devnet.shimmer.iota.cafe:

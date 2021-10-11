@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/discover"
@@ -14,16 +13,11 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 )
 
 // autopeering constants
 const (
 	ProtocolVersion = 0 // update on protocol changes
-
-	// PluginName is the name of the autopeering plugin.
-	PluginName = "Autopeering"
 
 	entryNodeParts = 2
 )
@@ -31,25 +25,11 @@ const (
 var (
 	// ErrParsingEntryNode is returned for an invalid entry node.
 	ErrParsingEntryNode = errors.New("cannot parse entry node")
-
-	// the peer discovery protocol
-	peerDisc     *discover.Protocol
-	peerDiscOnce sync.Once
-
-	networkVersion uint32
 )
 
-// Discovery returns the peer discovery instance.
-func Discovery() *discover.Protocol {
-	peerDiscOnce.Do(createPeerDisc)
-	return peerDisc
-}
-
-func createPeerDisc() {
-	// assure that the logger is available
-	log := logger.NewLogger(PluginName).Named("disc")
-
-	networkVersion = uint32(Parameters.NetworkVersion)
+// CreatePeerDisc creates a discover protocol instance.
+func CreatePeerDisc(localID *peer.Local) *discover.Protocol {
+	log := logger.NewLogger("Autopeering").Named("disc")
 
 	entryNodes, err := parseEntryNodes()
 	if err != nil {
@@ -57,7 +37,7 @@ func createPeerDisc() {
 	}
 	log.Debugf("Entry nodes: %v", entryNodes)
 
-	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion(),
+	return discover.New(localID, ProtocolVersion, Parameters.NetworkVersion,
 		discover.Logger(log),
 		discover.MasterPeers(entryNodes),
 	)
@@ -93,9 +73,4 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	}
 
 	return result, nil
-}
-
-// NetworkVersion returns the network version of the autopeering.
-func NetworkVersion() uint32 {
-	return networkVersion
 }

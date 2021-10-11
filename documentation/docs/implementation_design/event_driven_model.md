@@ -1,24 +1,37 @@
-# Event driven model
+---
+description: When an event is triggered, an event handler (or a collection of handlers) is executed and the state of the application is updated as necessary. In GoShimmer some of those events can be the arrival of new tangle message, peering request or plugin start.
+image: /img/logo/goshimmer_light.png
+keywords:
+- events
+- plugin
+- handler
+- trigger
+- specific type
+---
+# Event Driven Model
 
 Event driven model is popular approach often used for example in GUI applications, where a program is waiting for some external event to take place (e.g. mouse click) in order to perform some action.
 In case of GoShimmer there is no GUI, however it applies this architecture approach as it's really flexible and is used to handle communication with other nodes and other internal parts. 
 In GoShimmer some of those events can be e.g. arrival of new tangle message, peering request or plugin start. 
 When an event is triggered, an event handler (or a collection of handlers) is executed and the state of the application is updated as necessary.
  
-## Glossary:
+## Glossary
 
 At first let's define some terms used further to avoid misunderstandings:
 
-* Event - represents the type of event (e.g. new message or peering request) as well as set of handlers and trigger functions. Each type of event is separately defined 
+### Event
+Represents the type of event (e.g. new message or peering request) as well as set of handlers and trigger functions. Each type of event is separately defined 
   which means that events are independent of each other - each event has its own set of handlers and is triggered separately.
 
-* Event handler (callback) - is a function that is executed when an event of given type occurs. An event handler can accept multiple arguments (e.g. message ID or plugin) so that it can perform appropriate actions.
+### Event handler (callback) 
+A function that is executed when an event of given type occurs. An event handler can accept multiple arguments (e.g. message ID or plugin) so that it can perform appropriate actions.
   Every handler must accept the same set of parameters. Each event has a different set of handlers (there can be multiple handlers) that are executed when the event is triggered.
 
-* Trigger - is a method that triggers execution of event handlers with given parameter values.
+### Trigger
+A method that triggers execution of event handlers with given parameter values.
 
 
-## Creating new event with custom callbacks
+## Creating a New Event With Custom Callbacks
 
 Below are the steps that show the example code necessary to create a custom event, attach a handler and trigger the event. 
 

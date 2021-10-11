@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
 )
@@ -82,7 +81,7 @@ func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 
 func runVisualizer() {
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			finalized := messagelayer.Tangle().ConfirmationOracle.IsMessageConfirmed(messageID)
 			addToHistory(message, finalized)
 			visualizerWorkerPool.TrySubmit(message, finalized)
@@ -98,14 +97,14 @@ func runVisualizer() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
-		defer messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)
+		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
+		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
 		messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(notifyNewMsg)
 		defer messagelayer.FinalityGadget().Events().MessageConfirmed.Detach(notifyNewMsg)
-		messagelayer.Tangle().TipManager.Events.TipAdded.Attach(notifyNewTip)
-		defer messagelayer.Tangle().TipManager.Events.TipAdded.Detach(notifyNewTip)
-		messagelayer.Tangle().TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
-		defer messagelayer.Tangle().TipManager.Events.TipRemoved.Detach(notifyDeletedTip)
+		deps.Tangle.TipManager.Events.TipAdded.Attach(notifyNewTip)
+		defer deps.Tangle.TipManager.Events.TipAdded.Detach(notifyNewTip)
+		deps.Tangle.TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
+		defer deps.Tangle.TipManager.Events.TipRemoved.Detach(notifyDeletedTip)
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[Visualizer] ...")
 		visualizerWorkerPool.Stop()
