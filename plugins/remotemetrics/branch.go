@@ -10,9 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 var (
@@ -27,7 +24,6 @@ var (
 
 	// total number of branches in the database at startup
 	initialBranchTotalCountDB uint64
-
 	// total number of finalized branches in the database at startup
 	initialFinalizedBranchCountDB uint64
 
@@ -40,13 +36,13 @@ func onBranchConfirmed(branchID ledgerstate.BranchID) {
 	// update branch metric counts even if node is not synced
 	oldestAttachmentTime, oldestAttachmentMessageID, err := updateMetricCounts(branchID, transactionID)
 
-	if err != nil || !messagelayer.Tangle().Synced() {
+	if err != nil || !deps.Tangle.Synced() {
 		return
 	}
 
 	var nodeID string
-	if local.GetInstance() != nil {
-		nodeID = local.GetInstance().ID().String()
+	if deps.Local != nil {
+		nodeID = deps.Local.Identity.ID().String()
 	}
 
 	record := &remotemetrics.BranchConfirmationMetrics{
@@ -60,21 +56,22 @@ func onBranchConfirmed(branchID ledgerstate.BranchID) {
 		DeltaConfirmed:     clock.Since(oldestAttachmentTime).Nanoseconds(),
 	}
 
-	if err = remotelog.RemoteLogger().Send(record); err != nil {
-		plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
+	if err = deps.RemoteLogger.Send(record); err != nil {
+		Plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
 	}
 	sendBranchMetrics()
 }
 
 func sendBranchMetrics() {
-	if !messagelayer.Tangle().Synced() {
+	if !deps.Tangle.Synced() {
 		return
 	}
 
 	var myID string
-	if local.GetInstance() != nil {
-		myID = local.GetInstance().ID().String()
+	if deps.Local != nil {
+		myID = deps.Local.Identity.ID().String()
 	}
+
 	record := remotemetrics.BranchCountUpdate{
 		Type:                           "branchCounts",
 		NodeID:                         myID,
@@ -89,17 +86,17 @@ func sendBranchMetrics() {
 		InitialFinalizedBranchCount:    initialFinalizedBranchCountDB,
 		FinalizedBranchCountSinceStart: finalizedBranchCountDB.Load(),
 	}
-	if err := remotelog.RemoteLogger().Send(record); err != nil {
-		plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
+	if err := deps.RemoteLogger.Send(record); err != nil {
+		Plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
 	}
 }
 
 func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate.TransactionID) (time.Time, tangle.MessageID, error) {
-	oldestAttachmentTime, oldestAttachmentMessageID, err := messagelayer.Tangle().Utils.FirstAttachment(transactionID)
+	oldestAttachmentTime, oldestAttachmentMessageID, err := deps.Tangle.Utils.FirstAttachment(transactionID)
 	if err != nil {
 		return time.Time{}, tangle.MessageID{}, err
 	}
-	messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 		if conflictingBranchID != branchID {
 			finalizedBranchCountDB.Inc()
 		}
@@ -110,7 +107,7 @@ func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate
 }
 
 func measureInitialBranchCounts() {
-	messagelayer.Tangle().LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
@@ -120,12 +117,12 @@ func measureInitialBranchCounts() {
 			return
 		default:
 			initialBranchTotalCountDB++
-			branchGoF, err := messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+			branchGoF, err := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 			if err != nil {
 				return
 			}
 			if branchGoF == gof.High {
-				messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
+				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}

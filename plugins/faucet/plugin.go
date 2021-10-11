@@ -146,7 +146,7 @@ func run(plugin *node.Plugin) {
 		}()
 
 		// determine state, prepare more outputs if needed
-		if err := Faucet().DeriveStateFromTangle(ctx, startIndex); err != nil {
+		if err := _faucet.DeriveStateFromTangle(ctx); err != nil {
 			plugin.LogErrorf("failed to derive state: %s", err)
 			return
 		}
@@ -216,7 +216,7 @@ func waitForMana(shutdownSignal <-chan struct{}) error {
 }
 
 func configureEvents() {
-	deps.Tangle.ConsensusManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		// Do not start picking up request while waiting for initialization.
 		// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
 		// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in

@@ -82,7 +82,7 @@ func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 func runVisualizer() {
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			finalized := messagelayer.Tangle().ConfirmationOracle.IsMessageConfirmed(messageID)
+			finalized := deps.Tangle.ConfirmationOracle.IsMessageConfirmed(messageID)
 			addToHistory(message, finalized)
 			visualizerWorkerPool.TrySubmit(message, finalized)
 		})
@@ -99,8 +99,8 @@ func runVisualizer() {
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
 		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
 		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
-		messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(notifyNewMsg)
-		defer messagelayer.FinalityGadget().Events().MessageConfirmed.Detach(notifyNewMsg)
+		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(notifyNewMsg)
+		defer deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Detach(notifyNewMsg)
 		deps.Tangle.TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer deps.Tangle.TipManager.Events.TipAdded.Detach(notifyNewTip)
 		deps.Tangle.TipManager.Events.TipRemoved.Attach(notifyDeletedTip)

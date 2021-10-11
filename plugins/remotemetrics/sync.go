@@ -3,8 +3,6 @@ package remotemetrics
 import (
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 )
@@ -33,8 +31,8 @@ func checkSynced() {
 }
 
 func sendSyncStatusChangedEvent(syncUpdate remotemetrics.SyncStatusChangedEvent) {
-	err := remotelog.RemoteLogger().Send(syncUpdate)
+	err := deps.RemoteLogger.Send(syncUpdate)
 	if err != nil {
-		plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
+		Plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
 	}
 }

@@ -23,11 +23,10 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle             *tangle.Tangle
-	ConsensusMechanism tangle.ConsensusMechanism
-	Local              *peer.Local
-	Config             *configuration.Configuration
-	Server             *echo.Echo
+	Tangle *tangle.Tangle
+	Local  *peer.Local
+	Config *configuration.Configuration
+	Server *echo.Echo
 }
 
 const (
@@ -67,6 +66,4 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET(RouteDiagnosticsLazyBookedBranches, DiagnosticLazyBookedBranchesHandler)
 	deps.Server.GET(RouteDiagnosticsInvalidBranches, DiagnosticInvalidBranchesHandler)
 	deps.Server.GET(RouteDiagnosticsTips, TipsDiagnosticHandler)
-	deps.Server.GET(RouteDiagnosticsStrongTips, StrongTipsDiagnosticHandler)
-	deps.Server.GET(RouteDiagnosticsWeakTips, WeakTipsDiagnosticHandler)
 }

@@ -100,7 +100,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	deps.Tangle.FinalityGadget.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
@@ -213,10 +213,10 @@ func runManaPlugin(_ *node.Plugin) {
 					if nodeID == genesisNodeID {
 						continue
 					}
-					Tangle().WeightProvider.Update(t, nodeID)
+					deps.Tangle.WeightProvider.Update(t, nodeID)
 				}
 
-				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)
+				manaLogger.Infof("MANA: read snapshot from %s", Parameters.Snapshot.File)
 			}
 		}
 		pruneStorages()
@@ -226,7 +226,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				deps.Tangle.FinalityGadget.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return

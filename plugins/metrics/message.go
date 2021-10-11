@@ -393,7 +393,7 @@ func measureInitialDBStats() {
 	initialSumSolidificationTime = avgSolidTime * float64(solid)
 	initialMissingMessageCountDB = uint64(missing)
 
-	messagelayer.Tangle().LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
@@ -403,12 +403,12 @@ func measureInitialDBStats() {
 			return
 		default:
 			initialBranchTotalCountDB++
-			branchGoF, err := messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+			branchGoF, err := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 			if err != nil {
 				return
 			}
 			if branchGoF == gof.High {
-				messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
+				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}

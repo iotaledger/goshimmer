@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/consensus"
 )
 
 // PluginName is the name of the DRNG plugin.
@@ -38,12 +37,6 @@ func init() {
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
 		if err := container.Provide(configureDRNG); err != nil {
-			Plugin.Panic(err)
-		}
-
-		if err := container.Provide(func(drngInstance *drng.DRNG) *drng.State {
-			return drngInstance.LoadState(consensus.FPCParameters.DRNGInstanceID)
-		}); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -97,11 +90,4 @@ func configureEvents() {
 	if len(deps.DRNGInstance.State) == 0 {
 		return
 	}
-
-	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		select {
-		case inbox <- messageID:
-		default:
-		}
-	}))
 }

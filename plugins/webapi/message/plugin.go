@@ -37,7 +37,6 @@ func init() {
 func configure(_ *node.Plugin) {
 	deps.Server.GET("messages/:messageID", GetMessage)
 	deps.Server.GET("messages/:messageID/metadata", GetMessageMetadata)
-	deps.Server.GET("messages/:messageID/consensus", GetMessageConsensusMetadata)
 	deps.Server.POST("messages/payload", PostPayload)
 }
 

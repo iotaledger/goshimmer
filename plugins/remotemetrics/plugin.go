@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -15,11 +16,10 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
 )
 
 const (
@@ -46,13 +46,11 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local              *peer.Local
-	Tangle             *tangle.Tangle
-	Voter              vote.DRNGRoundBasedVoter    `optional:"true"`
-	RemoteLogger       *remotelog.RemoteLoggerConn `optional:"true"`
-	DrngInstance       *drng.DRNG                  `optional:"true"`
-	ClockPlugin        *node.Plugin                `name:"clock" optional:"true"`
-	ConsensusMechanism tangle.ConsensusMechanism
+	Local        *peer.Local
+	Tangle       *tangle.Tangle
+	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
+	DrngInstance *drng.DRNG                  `optional:"true"`
+	ClockPlugin  *node.Plugin                `name:"clock" optional:"true"`
 }
 
 func init() {
@@ -61,9 +59,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	measureInitialBranchCounts()
-
 	configureSyncMetrics()
-	}
 	if deps.DrngInstance != nil {
 		configureDRNGMetrics()
 	}
@@ -100,16 +96,16 @@ func configureDRNGMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
+	deps.DrngInstance.Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
 }
 
 func configureBranchConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
+	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		branchTotalCountDB.Inc()
 		sendBranchMetrics()
 	}))
@@ -119,8 +115,8 @@ func configureMessageFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+		deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 	} else {
-		messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
+		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
 	}
 }

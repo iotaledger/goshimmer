@@ -13,7 +13,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/vote"
 )
 
 const (
@@ -30,8 +29,7 @@ type dependencies struct {
 
 	Local     *peer.Local
 	Config    *configuration.Configuration
-	Voter     vote.DRNGRoundBasedVoter `optional:"true"`
-	Selection *selection.Protocol      `optional:"true"`
+	Selection *selection.Protocol `optional:"true"`
 }
 
 func init() {

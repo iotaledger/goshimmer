@@ -5,10 +5,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -27,7 +23,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
@@ -52,31 +47,24 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle             *tangle.Tangle
-	Local              *peer.Local
-	Discover           *discover.Protocol `optional:"true"`
-	Storage            kvstore.KVStore
-	Voter              vote.DRNGRoundBasedVoter    `optional:"true"`
-	RemoteLoggerConn   *remotelog.RemoteLoggerConn `optional:"true"`
-	ConsensusMechanism tangle.ConsensusMechanism
+	Tangle           *tangle.Tangle
+	Local            *peer.Local
+	Discover         *discover.Protocol `optional:"true"`
+	Storage          kvstore.KVStore
+	RemoteLoggerConn *remotelog.RemoteLoggerConn `optional:"true"`
 }
 
 type tangledeps struct {
 	dig.In
 
-	Storage            kvstore.KVStore
-	Local              *peer.Local
-	ConsensusMechanism tangle.ConsensusMechanism
+	Storage kvstore.KVStore
+	Local   *peer.Local
 }
 
 func init() {
 	Plugin = node.NewPlugin("MessageLayer", deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(fcob.NewConsensusMechanism); err != nil {
-			Plugin.Panic(err)
-		}
-
 		if err := container.Provide(newTangle); err != nil {
 			Plugin.Panic(err)
 		}
@@ -182,8 +170,8 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.Width(Parameters.TangleWidth),
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		tangle.SchedulerConfig(tangle.SchedulerParams{
-			MaxBufferSize: SchedulerParameters.MaxBufferSize,
-			Rate:          schedulerRate(SchedulerParameters.Rate),
+			MaxBufferSize:               SchedulerParameters.MaxBufferSize,
+			Rate:                        schedulerRate(SchedulerParameters.Rate),
 			AccessManaRetrieveFunc:      accessManaRetriever,
 			TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 		}),
@@ -197,13 +185,12 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, deps.Storage)
-		tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
+	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
-		finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
-		tangleInstance.ConfirmationOracle = finalityGadget
+	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
+	tangleInstance.ConfirmationOracle = finalityGadget
 
-		tangleInstance.Setup()
-	})
+	tangleInstance.Setup()
 	return tangleInstance
 }
 

@@ -134,11 +134,9 @@ func NewStateManager(
 //  - supply outputs should be held on address indices 1-126
 //  - funding outputs start from address index 127
 //  - if no funding outputs are found, the faucet creates them from the remainder output.
-func (s *StateManager) DeriveStateFromTangle(ctx context.Context, startIndex int) (err error) {
+func (s *StateManager) DeriveStateFromTangle(ctx context.Context) (err error) {
 	s.replenishmentState.IsReplenishing.Set()
 	defer s.replenishmentState.IsReplenishing.UnSet()
-
-	s.shutdownSignal = shutdownSignal
 
 	if err = s.findUnspentRemainderOutput(); err != nil {
 		return
@@ -334,8 +332,8 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	// remainder output should sit on address 0
 	deps.Tangle.LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
 		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
-				messagelayer.Tangle().ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
+			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
+				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
 				if !ok || iotaBalance < MinFaucetBalance {
 					return
@@ -376,24 +374,22 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 			if foundOnCurrentAddress {
 				return
 			}
-			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-				if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
-					outputMetadata.Finalized() {
-					iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
-					if !ok || iotaBalance != s.tokensPerSupplyOutput {
-						return
-					}
-					supplyOutput := &FaucetOutput{
-						ID:           output.ID(),
-						Balance:      iotaBalance,
-						Address:      output.Address(),
-						AddressIndex: supplyAddr,
-					}
-					s.replenishmentState.AddSupplyOutput(supplyOutput)
-					foundSupplyCount++
-					foundOnCurrentAddress = true
+			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()).Base58() == ledgerstate.GenesisTransactionID.Base58() &&
+				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
+				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
+				if !ok || iotaBalance != s.tokensPerSupplyOutput {
+					return
 				}
-			})
+				supplyOutput := &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: supplyAddr,
+				}
+				s.replenishmentState.AddSupplyOutput(supplyOutput)
+				foundSupplyCount++
+				foundOnCurrentAddress = true
+			}
 		})
 	}
 
@@ -520,8 +516,8 @@ func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparat
 	})
 
 	// listen on confirmation
-	deps.Tangle.FinalityGadget.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer deps.Tangle.FinalityGadget.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
+	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()

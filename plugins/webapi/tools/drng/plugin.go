@@ -20,9 +20,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle             *tangle.Tangle
-	ConsensusMechanism tangle.ConsensusMechanism
-	Server             *echo.Echo
+	Tangle *tangle.Tangle
+	Server *echo.Echo
 }
 
 const (

@@ -74,7 +74,7 @@ func configure(_ *node.Plugin) {
 	onTransactionConfirmed = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		doubleSpendFilter.Remove(transactionID)
 	})
-	deps.Tangle.FinalityGadget().Events().TransactionConfirmed.Attach(onTransactionConfirmed)
+	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmed)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -95,7 +95,6 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID", GetTransaction)
 	deps.Server.GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
-	deps.Server.GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
 	deps.Server.POST("ledgerstate/transactions", PostTransaction)
 }
 
@@ -114,7 +113,7 @@ func worker(shutdownSignal <-chan struct{}) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Tangle.FinalityGadget().Events().TransactionConfirmed.Detach(onTransactionConfirmed)
+	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(onTransactionConfirmed)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -228,9 +227,9 @@ func GetBranch(c echo.Context) (err error) {
 	}
 
 	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		branchGoF, _ := messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 
-		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, messagelayer.Tangle().ApprovalWeightManager.WeightOfBranch(branchID)))
+		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID)))
 	}) {
 		return
 	}
@@ -299,7 +298,7 @@ func GetBranchSupporters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	supporters := messagelayer.Tangle().ApprovalWeightManager.SupportersOfBranch(branchID)
+	supporters := deps.Tangle.ApprovalWeightManager.SupportersOfBranch(branchID)
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchSupportersResponse(branchID, supporters))
 }
@@ -353,7 +352,7 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	}
 
 	if !deps.Tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(outputID)
+		confirmedConsumerID := deps.Tangle.LedgerState.ConfirmedConsumer(outputID)
 
 		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
 

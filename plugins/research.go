@@ -22,7 +22,7 @@ var Research = node.Plugins(
 	analysisclient.Plugin,
 	analysisdashboard.Plugin,
 	prometheus.Plugin,
-	remotelogmetrics.Plugin,
+	remotemetrics.Plugin,
 	networkdelay.App(),
 	txstream.Plugin,
 	activity.Plugin,

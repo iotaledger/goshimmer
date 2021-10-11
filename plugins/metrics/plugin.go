@@ -36,9 +36,8 @@ type dependencies struct {
 	dig.In
 
 	Tangle    *tangle.Tangle
-	GossipMgr *gossip.Manager          `optional:"true"`
-	Selection *selection.Protocol      `optional:"true"`
-	Voter     vote.DRNGRoundBasedVoter `optional:"true"`
+	GossipMgr *gossip.Manager     `optional:"true"`
+	Selection *selection.Protocol `optional:"true"`
 	Local     *peer.Local
 }
 
@@ -176,30 +175,30 @@ func registerLocalMetrics() {
 		increasePerComponentCounter(Booker)
 	}))
 
-	messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messageType := DataMessage
-		messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
+		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
 			messageType = Transaction
 		})
 
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			message.ForEachParent(func(parent tangle.Parent) {
 				increasePerParentType(parent.Type)
 			})
 		})
-		if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+		if deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			messageFinalizationTotalTime[messageType] += uint64(clock.Since(messageMetadata.ReceivedTime()).Milliseconds())
 		}) {
 			finalizedMessageCount[messageType]++
 		}
-		}))
+	}))
 
-	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
-		oldestAttachmentTime, _, err := messagelayer.Tangle().Utils.FirstAttachment(branchID.TransactionID())
+	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(branchID.TransactionID())
 		if err != nil {
 			return
 		}
-		messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
 			}
@@ -208,10 +207,9 @@ func registerLocalMetrics() {
 		confirmedBranchCount.Inc()
 
 		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
-		}))
-	}
+	}))
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		branchTotalCountDB.Inc()
 	}))
 

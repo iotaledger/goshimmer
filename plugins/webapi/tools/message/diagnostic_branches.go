@@ -111,7 +111,7 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 	}
 
 	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		conflictInfo.GradeOfFinality, _ = messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+		conflictInfo.GradeOfFinality, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 
 		if branch.Type() == ledgerstate.AggregatedBranchType {
 			return
