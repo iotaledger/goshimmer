@@ -247,7 +247,7 @@ func measureReceivedMPS() {
 }
 
 func measureRateSetter() {
-	rateSetter := messagelayer.Tangle().RateSetter
+	rateSetter := deps.Tangle.RateSetter
 	Events.RateSetterUpdated.Trigger(RateSetterMetric{
 		Size:     rateSetter.Size(),
 		Estimate: rateSetter.Estimate(),

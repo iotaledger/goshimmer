@@ -57,7 +57,7 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no data provided"})
 	}
 
-	if request.MaxEstimate > 0 && messagelayer.Tangle().RateSetter.Estimate().Milliseconds() > request.MaxEstimate {
+	if request.MaxEstimate > 0 && deps.Tangle.RateSetter.Estimate().Milliseconds() > request.MaxEstimate {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
 			Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
 		})

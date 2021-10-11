@@ -141,17 +141,17 @@ func getInfo(c echo.Context) error {
 		EnabledPlugins:          enabledPlugins,
 		DisabledPlugins:         disabledPlugins,
 		Mana:                    nodeMana,
-		ManaDelegationAddress:   delegationAddressString,
-		ManaDecay:               mana.Decay,
+		ManaDelegationAddress: delegationAddressString,
+		ManaDecay:             mana.Decay,
 		Scheduler: jsonmodels.Scheduler{
 			Running:        deps.Tangle.Scheduler.Running(),
 			Rate:           deps.Tangle.Scheduler.Rate().String(),
 			NodeQueueSizes: nodeQueueSizes,
 		},
 		RateSetter: jsonmodels.RateSetter{
-			Rate:     messagelayer.Tangle().RateSetter.Rate(),
-			Size:     messagelayer.Tangle().RateSetter.Size(),
-			Estimate: messagelayer.Tangle().RateSetter.Estimate().String(),
+			Rate:     deps.Tangle.RateSetter.Rate(),
+			Size:     deps.Tangle.RateSetter.Size(),
+			Estimate: deps.Tangle.RateSetter.Estimate().String(),
 		},
 	})
 }
