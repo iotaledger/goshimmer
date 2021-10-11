@@ -111,8 +111,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// and, thus, knowing about the given conflict.
 			if !b.allMessagesContainTransactions(message.ParentsByType(LikeParentType)) {
 				messageMetadata.SetInvalid(true)
-				b.tangle.Events.MessageInvalid.Trigger(messageID)
 				err = errors.Errorf("message like reference does not contain a transaction %s", messageID)
+				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 				return
 			}
 
@@ -130,8 +130,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(supportedBranches.Add(branchIDOfPayload))
 			if inheritErr != nil {
 				messageMetadata.SetInvalid(true)
-				b.tangle.Events.MessageInvalid.Trigger(messageID)
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
+				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 				return
 			}
 
