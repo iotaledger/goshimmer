@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/types"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
@@ -32,9 +30,6 @@ const (
 	Tick = 500 * time.Millisecond
 
 	shutdownGraceTime = time.Minute
-
-	FaucetFundingOutputsAddrStart = 127 // the same as ledgerstate.MaxOutputCount
-
 )
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
@@ -76,33 +71,24 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 }
 
 // AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
-func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node) {
-	supplyOutputsCount := faucet.Config().SupplyOutputsCount
-	splittingMultiplier := faucet.Config().SplittingMultiplier
-	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplier + FaucetFundingOutputsAddrStart - 1
-	addrToCheck := faucet.Address(lastFundingOutputAddress).Base58()
-
-	confirmed := make(map[int]types.Empty)
+func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node, wantedGoF ...gof.GradeOfFinality) {
+	addrToCheck := faucet.Address(faucet.Config().Faucet.SupplyOutputsCount).Base58()
 	require.Eventually(t, func() bool {
-		if len(confirmed) == supplyOutputsCount*splittingMultiplier {
-			return true
-		}
-		// wait for confirmation of each fundingOutput
-		for fundingIndex := FaucetFundingOutputsAddrStart; fundingIndex <= lastFundingOutputAddress; fundingIndex++ {
-			if _, ok := confirmed[fundingIndex]; !ok {
-				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
-				require.NoError(t, err)
-				if len(resp.UnspentOutputs[0].Outputs) != 0 {
-					if resp.UnspentOutputs[0].Outputs[0].InclusionState.Confirmed {
-						confirmed[fundingIndex] = types.Void
-					}
-				}
+		avail := true
+		for _, p := range peers {
+			resp, err := p.PostAddressUnspentOutputs([]string{addrToCheck})
+			require.NoError(t, err)
+			if len(resp.UnspentOutputs[0].Outputs) == 0 {
+				avail = false
+				break
+			}
+			if len(wantedGoF) > 0 && resp.UnspentOutputs[0].Outputs[0].GradeOfFinality != wantedGoF[0] {
+				avail = false
+				break
 			}
 		}
-		return false
+		return avail
 	}, time.Minute, Tick)
-	// give the faucet time to save the latest confirmed output
-	time.Sleep(3 * time.Second)
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.
@@ -438,9 +424,7 @@ func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedSt
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
-func ShutdownNetwork(ctx context.Context, t *testing.T, n interface {
-	Shutdown(context.Context) error
-}) {
+func ShutdownNetwork(ctx context.Context, t *testing.T, n interface{ Shutdown(context.Context) error }) {
 	log.Println("Shutting down network...")
 	require.NoError(t, n.Shutdown(ctx))
 	log.Println("Shutting down network... done")

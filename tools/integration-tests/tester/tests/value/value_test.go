@@ -40,9 +40,6 @@ func TestValueTransactionPersistence(t *testing.T) {
 
 	addrBalance := make(map[string]map[ledgerstate.Color]uint64)
 
-	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
-
 	// request funds from faucet
 	for _, peer := range nonFaucetPeers {
 		addr := peer.Address(0)
@@ -110,9 +107,6 @@ func TestValueAliasPersistence(t *testing.T) {
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
 
-	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
-
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)
 
@@ -179,9 +173,6 @@ func TestValueAliasDelegation(t *testing.T) {
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
-
-	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)

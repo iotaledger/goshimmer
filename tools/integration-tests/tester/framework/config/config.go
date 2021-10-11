@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -34,12 +33,15 @@ type GoShimmer struct {
 	// Whether to use the same seed for the node's wallet.
 	UseNodeSeedAsWalletSeed bool
 
+	// Network specifies network-level configurations
+	Network
+
 	// individual plugin configurations
 	Database
 	Gossip
 	POW
-	WebAPI
-	AutoPeering
+	Webapi
+	Autopeering
 	MessageLayer
 	Faucet
 	Mana
@@ -55,6 +57,10 @@ func NewGoShimmer() (config GoShimmer) {
 	config = GoShimmer{}
 	fillStructFromDefaultTag(reflect.ValueOf(&config).Elem())
 	return
+}
+
+type Network struct {
+	Enabled bool
 }
 
 // Database defines the parameters of the database plugin.
@@ -78,15 +84,15 @@ type POW struct {
 	pow.ParametersDefinition
 }
 
-// WebAPI defines the parameters of the Web API plugin.
-type WebAPI struct {
+// Webapi defines the parameters of the Web API plugin.
+type Webapi struct {
 	Enabled bool
 
 	webapi.ParametersDefinition
 }
 
-// AutoPeering defines the parameters of the autopeering plugin.
-type AutoPeering struct {
+// Autopeering defines the parameters of the autopeering plugin.
+type Autopeering struct {
 	Enabled bool
 
 	autopeering.ParametersDefinition

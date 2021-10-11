@@ -314,16 +314,15 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	if networkConfig.StartSynced {
 		conf.MessageLayer.StartSynced = true
 	}
-	if networkConfig.AutoPeering {
-		conf.AutoPeering.Enabled = true
-		conf.AutoPeering.EntryNodes = []string{
+	if networkConfig.Autopeering {
+		conf.Autopeering.Enabled = true
+		conf.Autopeering.EntryNodes = []string{
 			fmt.Sprintf("%s@%s:%d", base58.Encode(n.entryNode.Identity.PublicKey().Bytes()), n.entryNode.Name(), peeringPort),
 		}
 	}
 	if networkConfig.Activity {
 		conf.Activity.Enabled = true
 	}
-		conf.DRNG.Enabled = true
 
 	// the first peer is the master peer, it uses a special conf
 	masterConfig := conf

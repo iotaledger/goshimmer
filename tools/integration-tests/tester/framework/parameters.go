@@ -46,8 +46,8 @@ var (
 type CreateNetworkConfig struct {
 	// StartSynced specifies whether all node in the network start synced.
 	StartSynced bool
-	// AutoPeering specifies whether autopeering or manual peering is used.
-	AutoPeering bool
+	// Autopeering specifies whether autopeering or manual peering is used.
+	Autopeering bool
 	// Faucet specifies whether the first peer should have the faucet enabled.
 	Faucet bool
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
@@ -60,23 +60,23 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock"}
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
+
+	c.Network.Enabled = true
 
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
 
 	c.Gossip.Enabled = true
-	c.Gossip.BindAddress = fmt.Sprintf(":%d", gossipPort)
 
 	c.POW.Enabled = true
-	c.POW.Difficulty = 1
+	c.POW.Difficulty = 2
 
-	c.WebAPI.Enabled = true
-	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
+	c.Webapi.Enabled = true
+	c.Webapi.BindAddress = fmt.Sprintf(":%d", apiPort)
 
-	c.AutoPeering.Enabled = false
-	c.AutoPeering.BindAddress = fmt.Sprintf(":%d", peeringPort)
-	c.AutoPeering.EntryNodes = nil
+	c.Autopeering.Enabled = false
+	c.Autopeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
 	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed))
@@ -84,16 +84,14 @@ func PeerConfig() config.GoShimmer {
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeed)
-	c.Faucet.PowDifficulty = 1
-	c.SupplyOutputsCount = 4
-	c.SplittingMultiplier = 4
+	c.Faucet.PowDifficulty = 3
 
 	c.Mana.Enabled = true
 
 	c.Consensus.Enabled = false
 
 	c.Activity.Enabled = false
-	c.BroadcastInterval = 1 * time.Second // increase frequency to speedup tests
+	c.Activity.BroadcastInterval = 1 // increase frequency to speedup tests
 	c.DelayOffset = 1
 
 	c.DRNG.Enabled = false
@@ -104,15 +102,10 @@ func PeerConfig() config.GoShimmer {
 // EntryNodeConfig specifies the default config of a standard GoShimmer entry node.
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
-	disable := []string{
-		"ManaRefresher", "Chat", "WebAPIDataEndpoint", "WebAPIDRNGEndpoint",
-		"WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "WebAPIInfoEndpoint",
-		"WebAPIToolsMessageEndpoint", "WebAPIToolsDRNGEndpoint", "WebAPILedgerstateEndpoint",
-		"WebAPIWeightProviderEndpoint", "Issuer", "Metrics", "Consensus", "ManualPeering"}
-	c.DisabledPlugins = append(c.DisabledPlugins, disable...)
-	c.POW.Enabled = false
+
+	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
 	c.Gossip.Enabled = false
-	c.AutoPeering.Enabled = true
+	c.Autopeering.Enabled = true
 	c.MessageLayer.Enabled = false
 	c.Faucet.Enabled = false
 	c.Mana.Enabled = false

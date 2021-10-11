@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	webapi "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -23,14 +22,13 @@ var (
 	minAccessMana    = tangle.MinMana
 	minConsensusMana = 0.0
 
-	emptyNodeID               = identity.ID{}
-	faucetRemaindersAddrStart = uint64(tests.FaucetFundingOutputsAddrStart)
+	emptyNodeID = identity.ID{}
 )
 
-func XTestManaPersistence(t *testing.T) {
+func TestManaPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 5, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
 		Activity:    true,
@@ -39,10 +37,6 @@ func XTestManaPersistence(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
-	faucet := n.Peers()[0]
-
-	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
 
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 	tests.SendFaucetRequest(t, peer, peer.Address(0))
@@ -64,16 +58,15 @@ func XTestManaPersistence(t *testing.T) {
 	require.Greater(t, tests.Mana(t, peer).Consensus, minConsensusMana)
 }
 
-func XTestManaPledgeFilter(t *testing.T) {
+func TestManaPledgeFilter(t *testing.T) {
 	const (
-		numPeers         = 3
+		numPeers         = 2
 		tokensPerRequest = 100
 	)
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
-		Activity:    true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -88,15 +81,13 @@ func XTestManaPledgeFilter(t *testing.T) {
 	faucetConfig := framework.PeerConfig()
 	faucetConfig.MessageLayer.StartSynced = true
 	faucetConfig.Faucet.Enabled = true
-	faucetConfig.Faucet.SupplyOutputsCount = 3
-	faucetConfig.Faucet.SplittingMultiplier = 3
+	faucetConfig.Faucet.SupplyOutputsCount = 3 // we require exactly three outputs
 	faucetConfig.Faucet.TokensPerRequest = tokensPerRequest
 	faucetConfig.Mana.Enabled = true
 	faucetConfig.Mana.AllowedAccessPledge = []string{accessPeerID}
 	faucetConfig.Mana.AllowedAccessFilterEnabled = true
 	faucetConfig.Mana.AllowedConsensusPledge = []string{consensusPeerID}
 	faucetConfig.Mana.AllowedConsensusFilterEnabled = true
-	faucetConfig.Activity.Enabled = true
 
 	faucet, err := n.CreatePeer(ctx, faucetConfig)
 	require.NoError(t, err)
@@ -104,12 +95,15 @@ func XTestManaPledgeFilter(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
+	// wait for the faucet to prepare all outputs
+	require.Eventually(t, func() bool {
+		outputs := tests.AddressUnspentOutputs(t, faucet, faucet.Address(faucet.Config().Faucet.SupplyOutputsCount))
+		return len(outputs) > 0
+	}, tests.Timeout, tests.Tick)
 
 	// pledge mana to allowed peers
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetRemaindersAddrStart,
+		FromAddressIndex:      1,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
@@ -118,7 +112,7 @@ func XTestManaPledgeFilter(t *testing.T) {
 
 	// pledge consensus mana to forbidden peer
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetRemaindersAddrStart + 1,
+		FromAddressIndex:      2,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: accessPeer.Identity.ID(),
@@ -128,7 +122,7 @@ func XTestManaPledgeFilter(t *testing.T) {
 
 	// pledge access mana to forbidden peer
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetRemaindersAddrStart + 2,
+		FromAddressIndex:      3,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    consensusPeer.Identity.ID(),
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
@@ -143,7 +137,7 @@ func TestManaApis(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		AutoPeering: true, // we need to discover online peers
+		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity messages
 	})
 	require.NoError(t, err)
@@ -151,9 +145,6 @@ func TestManaApis(t *testing.T) {
 
 	peers := n.Peers()
 	faucet := peers[0]
-
-	// wait for the faucet to prepare initial outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet)
 
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers(), gof.High)
 
