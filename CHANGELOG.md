@@ -1,3 +1,17 @@
+# v0.7.7 - 2021-10-09
+
+> This release does **not** include changes to the consensus mechanism and still uses FPC+FCoB.
+
+This is a **breaking** maintenance release. You must delete your current database and upgrade your node to further participate in the network.
+
+The snapshot has been taken at 2021-10-08 2pm CEST.
+
+Changelog:
+- Changes the way the faucet plugin manages outputs in order to be able to service more funding requests. 
+- Fixes a nil pointer caused when a re-org is detected but the `RemoteLog` plugin is not enabled.
+- Fixes an issue where the CLI wallet would no longer work under Windows.
+- Use Go 1.17.2 docker image
+
 # v0.7.6 - 2021-09-23
 
 > This release does **not** include changes to the consensus mechanism and still uses FPC+FCoB.

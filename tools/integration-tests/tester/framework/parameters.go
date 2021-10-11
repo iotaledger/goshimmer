@@ -69,7 +69,7 @@ func PeerConfig() config.GoShimmer {
 	c.Gossip.BindAddress = fmt.Sprintf(":%d", gossipPort)
 
 	c.POW.Enabled = true
-	c.POW.Difficulty = 2
+	c.POW.Difficulty = 1
 
 	c.WebAPI.Enabled = true
 	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
@@ -84,7 +84,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeed)
-	c.Faucet.PowDifficulty = 3
+	c.Faucet.PowDifficulty = 1
 	c.SupplyOutputsCount = 4
 	c.SplittingMultiplier = 4
 

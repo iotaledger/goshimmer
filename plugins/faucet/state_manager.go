@@ -145,7 +145,7 @@ func (s *StateManager) DeriveStateFromTangle(ctx context.Context, startIndex int
 	}
 
 	endIndex := (GenesisTokenAmount-s.replenishmentState.RemainderOutputBalance())/s.tokensPerRequest + MaxFaucetOutputsCount
-	Plugin.LogInfof("%d indices have already been used based on found remainder output", endIndex)
+	Plugin.LogInfof("Set last funding output address index to %d (%d outputs have been prepared in the faucet's lifetime)", endIndex, endIndex-MaxFaucetOutputsCount)
 
 	s.replenishmentState.SetLastFundingOutputAddressIndex(endIndex)
 
@@ -166,7 +166,7 @@ func (s *StateManager) DeriveStateFromTangle(ctx context.Context, startIndex int
 	}
 
 	if s.replenishThresholdReached() {
-		Plugin.LogInfof("Preparing more outputs...")
+		Plugin.LogInfof("Preparing more funding outputs...")
 		if err = s.handleReplenishmentErrors(s.replenishSupplyAndFundingOutputs()); err != nil {
 			return
 		}
@@ -232,7 +232,7 @@ func (s *StateManager) replenishThresholdReached() bool {
 func (s *StateManager) signalReplenishmentNeeded(wait bool) {
 	if s.replenishmentState.IsReplenishing.SetToIf(false, true) {
 		go func() {
-			Plugin.LogInfof("Preparing more outputs...")
+			Plugin.LogInfof("Preparing more funding outputs due to replenishment threshold reached...")
 			_ = s.handleReplenishmentErrors(s.replenishSupplyAndFundingOutputs())
 		}()
 	}
@@ -291,7 +291,12 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 		start = MaxFaucetOutputsCount + 1
 	}
 
-	Plugin.LogInfof("Looking for funding outputs in address range %d to %d...", start, end)
+	if start >= end {
+		Plugin.LogInfof("No need to search for existing funding outputs, since the faucet is freshly initialized")
+		return foundPreparedOutputs
+	}
+
+	Plugin.LogInfof("Looking for existing funding outputs in address range %d to %d...", start, end)
 
 	for i := start; i <= end; i++ {
 		deps.Tangle.LedgerState.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
@@ -427,12 +432,12 @@ func (s *StateManager) replenishSupplyAndFundingOutputs() (err error) {
 func (s *StateManager) handleReplenishmentErrors(err error) error {
 	if err != nil {
 		if errors.Is(err, ErrSplittingFundsFailed) {
-			err = errors.Errorf("failed to prepare more outputs: %w", err)
+			err = errors.Errorf("failed to prepare more funding outputs: %w", err)
 			Plugin.LogError(err)
 			return err
 		}
 		if errors.Is(err, ErrConfirmationTimeoutExpired) {
-			Plugin.LogInfof("Preparing more outputs partially successful: %w", err)
+			Plugin.LogInfof("Preparing more funding outputs partially successful: %w", err)
 		}
 	}
 	Plugin.LogInfof("Preparing more outputs... DONE")
@@ -447,9 +452,11 @@ func (s *StateManager) enoughFundsForSupplyReplenishment() bool {
 // replenishSupplyOutputs takes the faucet remainder output and splits it up to create supply outputs that will be used for replenishing the funding outputs.
 func (s *StateManager) replenishSupplyOutputs() (err error) {
 	errChan := make(chan error)
+	listenerAttachedChan := make(chan types.Empty)
 	s.splittingEnv = newSplittingEnv()
 
-	go s.updateStateOnConfirmation(1, errChan)
+	go s.updateStateOnConfirmation(1, errChan, listenerAttachedChan)
+	<-listenerAttachedChan
 	if _, ok := preparingWorkerPool.TrySubmit(s.supplyTransactionElements, errChan); !ok {
 		Plugin.LogWarn("supply replenishment task not submitted, queue is full")
 	}
@@ -482,10 +489,12 @@ func (s *StateManager) prepareTransactionTask(task workerpool.Task) {
 // It listens for transaction confirmation and in parallel submits transaction preparation and issuance to the worker pool.
 func (s *StateManager) replenishFundingOutputs() (err error) {
 	errChan := make(chan error)
-
+	listenerAttachedChan := make(chan types.Empty)
 	supplyToProcess := uint64(s.replenishmentState.SupplyOutputsCount())
 	s.splittingEnv = newSplittingEnv()
-	go s.updateStateOnConfirmation(supplyToProcess, errChan)
+
+	go s.updateStateOnConfirmation(supplyToProcess, errChan, listenerAttachedChan)
+	<-listenerAttachedChan
 
 	for i := uint64(0); i < supplyToProcess; i++ {
 		if _, ok := preparingWorkerPool.TrySubmit(s.splittingTransactionElements, errChan); !ok {
@@ -499,7 +508,7 @@ func (s *StateManager) replenishFundingOutputs() (err error) {
 
 // updateStateOnConfirmation listens for the confirmation and updates the faucet internal state.
 // Listening is finished when all issued transactions are confirmed or when the awaiting time is up.
-func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparationFailure <-chan error) {
+func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparationFailure <-chan error, listenerAttached chan<- types.Empty) {
 	Plugin.LogInfof("Start listening for confirmation")
 	// buffered channel will store all confirmed transactions
 	txConfirmed := make(chan ledgerstate.TransactionID, txNumToProcess) // length is s.targetSupplyOutputsCount or 1
@@ -516,6 +525,8 @@ func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparat
 
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
+
+	listenerAttached <- types.Empty{}
 
 	// issuedCount indicates number of  transactions issued without any errors, declared with max value,
 	// decremented whenever failure is signaled through the preparationFailure channel

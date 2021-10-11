@@ -8,19 +8,16 @@ services:
     command: /tmp/assets/entrypoint.sh
     environment:
       - TEST_NAME=${TEST_NAME}
+      - CURRENT_UID
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../../..:/tmp/goshimmer:rw
       - ../logs:/tmp/logs
       - ../assets:/tmp/assets
-      - goshimmer-testing-package-cache:/go
-      - goshimmer-testing-build-cache:/root/.cache/go-build
+      - ~/go/pkg:/go
+      - ~/go/cache:/root/.cache/go-build
       - goshimmer-testing-assets:/assets
 
 volumes:
-  goshimmer-testing-package-cache:
-    name: goshimmer-testing-package-cache
-  goshimmer-testing-build-cache:
-    name: goshimmer-testing-build-cache
   goshimmer-testing-assets:
     name: goshimmer-testing-assets
