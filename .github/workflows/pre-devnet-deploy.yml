@@ -73,6 +73,7 @@ jobs:
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
           DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
           COMMIT_SHA: '${{ github.sha }}'
+          GOSHIMMER_DOCKER_TAG: 'develop'
         run: |
           export NETWORK_VERSION=$((16#$(git rev-parse --short "$COMMIT_SHA")%1000000000+1000))
-          ./deploy/ansible/run.sh
+          ./deploy/ansible/run.sh pre-devnet.yml

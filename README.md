@@ -1,12 +1,12 @@
 <h1 align="center">
   <br>
-  <a href="https://goshimmer.docs.iota.org/"><img src="images/GoShimmer.png"></a>
+  <a href="https://wiki.iota.org/goshimmer/welcome"><img src="images/GoShimmer.png"></a>
 </h1>
 
 <h2 align="center">Prototype node software for an IOTA network without the Coordinator</h2>
 
 <p align="center">
-    <a href="https://goshimmer.docs.iota.org/goshimmer.html" style="text-decoration:none;">
+    <a href="https://wiki.iota.org/goshimmer/welcome" style="text-decoration:none;">
     <img src="https://img.shields.io/badge/Documentation%20portal-blue.svg?style=for-the-badge" alt="Developer documentation portal">
 </p>
 <p align="center">
@@ -34,28 +34,28 @@ This repository, called GoShimmer, is where the IOTA Foundation's Research Depar
 
 GoShimmer is first and foremost a research prototype. As such, breaking changes can often happen. We invite researchers and developers to make use of this project as you see fit. Running experiments, test out new ideas, build PoC are all very welcome initiatives.
 
-For a documentation, including tutorials and resources, we refer to the [Documentation](http://goshimmer.docs.iota.org/) (Github [link](https://github.com/iotaledger/goshimmer/blob/develop/documentation/README.md)).
+For a documentation, including tutorials and resources, we refer to the [Documentation](https://wiki.iota.org/goshimmer/welcome) (Github [link](https://github.com/iotaledger/goshimmer/blob/develop/documentation/README.md)).
 
 ## Design
 The code in GoShimmer is modular, where each module represents either one of the *IOTA 2.0 components*, or a basic node function such as the gossip, ledger state, and API - just to mention a few.  
 
 ![Layers](docOps/static/img/protocol_specification/layers.png)
 
-GoShimmer's modularity is based on a combination of [event-driven](https://goshimmer.docs.iota.org/docs/implementation_design/event_driven_model) and [layer-based](https://goshimmer.docs.iota.org/docs/protocol_specification/components) approaches.
+GoShimmer's modularity is based on a combination of [event-driven](https://wiki.iota.org/goshimmer/implementation_design/event_driven_model) and [layer-based](https://wiki.iota.org/goshimmer/protocol_specification/components/overview) approaches.
 
 ## Client-Library and HTTP API reference
 
 You can use the Go client-library to interact with GoShimmer (located under `github.com/iotaledger/goshimmer/client`).
 
-You can find more info about this on our [client-lib](https://goshimmer.docs.iota.org/docs/apis/api) and [Web API](https://goshimmer.docs.iota.org/docs/apis/webAPI) documentation.
+You can find more info about this on our [client-lib](https://wiki.iota.org/goshimmer/apis/client_lib) and [Web API](https://wiki.iota.org/goshimmer/apis/webAPI) documentation.
 
 ## Getting started
 
-You can find tutorials on how to [setup a GoShimmer node](https://goshimmer.docs.iota.org/docs/tutorials/setup), [writing a dApp](https://goshimmer.docs.iota.org/docs/tutorials/dApp), [obtaining tokens from the faucet](https://goshimmer.docs.iota.org/docs/tutorials/request_funds) and more in the [GoShimmer documentation](https://goshimmer.docs.iota.org/).
+You can find tutorials on how to [setup a GoShimmer node](https://wiki.iota.org/goshimmer/tutorials/setup), [writing a dApp](https://wiki.iota.org/goshimmer/tutorials/dApp), [obtaining tokens from the faucet](https://wiki.iota.org/goshimmer/tutorials/obtain_tokens) and more in the [GoShimmer documentation](https://wiki.iota.org/goshimmer/welcome).
 
 ### Compiling from source
 
-We always recommend running your node via [Docker](https://goshimmer.docs.iota.org/docs/tutorials/setup). However, you can also compile the source and run the node from the compiled binary. GoShimmer uses [RocksDB](https://github.com/linxGnu/grocksdb) as its underlying db engine. That requires a few dependencies before building the project: 
+We always recommend running your node via [Docker](https://wiki.iota.org/goshimmer/tutorials/setup). However, you can also compile the source and run the node from the compiled binary. GoShimmer uses [RocksDB](https://github.com/linxGnu/grocksdb) as its underlying db engine. That requires a few dependencies before building the project: 
 - librocksdb
 - libsnappy
 - libz

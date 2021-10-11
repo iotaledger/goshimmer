@@ -4,16 +4,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	clockPlugin "github.com/iotaledger/goshimmer/plugins/clock"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -26,11 +26,9 @@ const (
 
 var (
 	// App is the "plugin" instance of the network delay application.
-	app  *node.Plugin
-	once sync.Once
-
-	remoteLogger *remotelog.RemoteLoggerConn
-
+	app             *node.Plugin
+	once            sync.Once
+	deps            = new(dependencies)
 	myID            string
 	myPublicKey     ed25519.PublicKey
 	originPublicKey ed25519.PublicKey
@@ -39,42 +37,55 @@ var (
 	clockEnabled bool
 )
 
+type dependencies struct {
+	dig.In
+
+	Tangle       *tangle.Tangle
+	Local        *peer.Local
+	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
+	Server       *echo.Echo
+	ClockPlugin  *node.Plugin `name:"clock"`
+}
+
 // App gets the plugin instance.
 func App() *node.Plugin {
 	once.Do(func() {
-		app = node.NewPlugin(PluginName, node.Disabled, configure)
+		app = node.NewPlugin(PluginName, deps, node.Disabled, configure)
 	})
 	return app
 }
 
-func configure(_ *node.Plugin) {
-	remoteLogger = remotelog.RemoteLogger()
+func configure(plugin *node.Plugin) {
+	if deps.RemoteLogger == nil {
+		plugin.LogInfo("Plugin is inactive since RemoteLogger is disabled")
+		return
+	}
 
-	if local.GetInstance() != nil {
-		myID = local.GetInstance().ID().String()
-		myPublicKey = local.GetInstance().PublicKey()
+	if deps.Local != nil {
+		myID = deps.Local.ID().String()
+		myPublicKey = deps.Local.PublicKey()
 	}
 
 	// get origin public key from config
 	bytes, err := base58.Decode(Parameters.OriginPublicKey)
 	if err != nil {
-		app.LogFatalf("could not parse originPublicKey config entry as base58. %v", err)
+		plugin.LogFatalf("could not parse originPublicKey config entry as base58. %v", err)
 	}
 	originPublicKey, _, err = ed25519.PublicKeyFromBytes(bytes)
 	if err != nil {
-		app.LogFatalf("could not parse originPublicKey config entry as public key. %v", err)
+		plugin.LogFatalf("could not parse originPublicKey config entry as public key. %v", err)
 	}
 
 	configureWebAPI()
 
 	// subscribe to message-layer
-	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
-	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
+	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }
 
 func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
-	messagelayer.Tangle().Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
+	deps.Tangle.Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
 		messagePayload := solidMessage.Payload()
 		if messagePayload.Type() != Type {
 			return
@@ -114,10 +125,10 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
 		Clock:       clockEnabled,
-		Sync:        messagelayer.Tangle().Synced(),
+		Sync:        deps.Tangle.Synced(),
 		Type:        remoteLogType,
 	}
-	_ = remoteLogger.Send(m)
+	_ = deps.RemoteLogger.Send(m)
 }
 
 func sendPoWInfo(payload *Payload, powDelta time.Duration) {
@@ -128,10 +139,10 @@ func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),
 		Clock:       clockEnabled,
-		Sync:        messagelayer.Tangle().Synced(),
+		Sync:        deps.Tangle.Synced(),
 		Type:        remoteLogType,
 	}
-	_ = remoteLogger.Send(m)
+	_ = deps.RemoteLogger.Send(m)
 }
 
 type networkDelay struct {

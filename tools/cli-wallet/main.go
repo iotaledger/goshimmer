@@ -4,14 +4,38 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+)
+
+const (
+	lockFile = "wallet.LOCK"
 )
 
 // entry point for the program
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
+			if exit, ok := r.(Exit); ok {
+				os.Exit(exit.Code)
+			}
 			_, _ = fmt.Fprintf(os.Stderr, "\nFATAL ERROR: "+r.(error).Error())
 			os.Exit(1)
+		}
+	}()
+
+	setCWD()
+
+	// Make sure only one instance of the wallet runs
+	file, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_RDONLY, 0o600)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err = file.Close(); err != nil {
+			panic(err)
+		}
+		if err = os.Remove(file.Name()); err != nil {
+			panic(err)
 		}
 	}()
 
@@ -104,5 +128,18 @@ func main() {
 		printUsage(nil)
 	default:
 		printUsage(nil, "unknown [COMMAND]: "+os.Args[1])
+	}
+}
+
+// ensures the cwd is where the actual go executable
+// currently doesn't work well with symlinks (or shortcuts)
+func setCWD() {
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	dirAbsPath := filepath.Dir(ex)
+	if err := os.Chdir(dirAbsPath); err != nil {
+		panic(err)
 	}
 }

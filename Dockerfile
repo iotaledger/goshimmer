@@ -1,10 +1,12 @@
 # syntax = docker/dockerfile:1.2.1
 
 ############################
-# golang 1.16.3-buster amd64
-FROM golang@sha256:dfa3cef088454200d6b48e2a911138f7d5d9afff77f89243eea6342f16ddcfb0 AS build
+# golang 1.17.2-buster multi-arch
+FROM golang@sha256:5b036db95aaf91b8c75be815e2ba0ca0eecbfc3f57952c24c5d8c125970e2634 AS build
 
 ARG BUILD_TAGS=rocksdb,builtin_static
+# Download and include snapshot into resulting image by default.
+ARG DOWNLOAD_SNAPSHOT=1
 
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates
@@ -27,12 +29,18 @@ RUN go mod verify
 # 4. Verify that goshimmer binary is statically linked
 RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=linux GOARCH=amd64 go build \
+    go build \
     -tags="$BUILD_TAGS" \
     -ldflags='-w -s' \
     -o /go/bin/goshimmer
 
-RUN wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
+# Enable building the image without downloading the snapshot.
+# If built with dummy snapshot then a snapshot needs to be mounted into the resulting image.
+RUN if [ $DOWNLOAD_SNAPSHOT -gt 0 ]; then \
+    wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin ;  \
+    else  \
+    touch /tmp/snapshot.bin ; \
+    fi
 
 ############################
 # Image
@@ -43,7 +51,7 @@ FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5d
 
 # Gossip
 EXPOSE 14666/tcp
-# Autopeering
+# AutoPeering
 EXPOSE 14626/udp
 # FPC
 EXPOSE 10895/tcp

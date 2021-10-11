@@ -9,8 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // FPCRecord defines the FPC record to be stored into a mongoDB.
@@ -57,9 +55,9 @@ func mongoDB() *mongo.Database {
 }
 
 func newMongoDB() (*mongo.Client, error) {
-	username := config.Node().String(CfgMongoDBUsername)
-	password := config.Node().String(CfgMongoDBPassword)
-	hostAddr := config.Node().String(CfgMongoDBHostAddress)
+	username := Parameters.MongoDBUsername
+	password := Parameters.MongoDBPassword
+	hostAddr := Parameters.MongoDBHostAddress
 
 	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://" + username + ":" + password + "@" + hostAddr))
 	if err != nil {

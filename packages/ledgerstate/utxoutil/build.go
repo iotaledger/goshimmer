@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -174,7 +175,13 @@ func (b *Builder) Spend(spend map[ledgerstate.Color]uint64) error {
 
 // AddExtendedOutputSpend adds extended output using unspent amounts and spends it. Fails of not enough.
 // Do not consume inputs
-func (b *Builder) AddExtendedOutputSpend(targetAddress ledgerstate.Address, data []byte, amounts map[ledgerstate.Color]uint64, mint ...uint64) error {
+func (b *Builder) AddExtendedOutputSpend(
+	targetAddress ledgerstate.Address,
+	data []byte,
+	amounts map[ledgerstate.Color]uint64,
+	options *sendoptions.SendFundsOptions,
+	mint ...uint64,
+) error {
 	for col, needed := range amounts {
 		available := b.consumedUnspent[col]
 		if available < needed {
@@ -185,6 +192,14 @@ func (b *Builder) AddExtendedOutputSpend(targetAddress ledgerstate.Address, data
 		return err
 	}
 	output := ledgerstate.NewExtendedLockedOutput(amounts, targetAddress)
+	if options != nil {
+		if options.FallbackAddress != nil && !options.FallbackDeadline.IsZero() {
+			output = output.WithFallbackOptions(options.FallbackAddress, options.FallbackDeadline)
+		}
+		if !options.LockUntil.IsZero() {
+			output = output.WithTimeLock(options.LockUntil)
+		}
+	}
 	if err := output.SetPayload(data); err != nil {
 		return err
 	}
@@ -279,7 +294,7 @@ func (b *Builder) AddExtendedOutputConsume(targetAddress ledgerstate.Address, da
 }
 
 // AddRemainderOutputIfNeeded consumes already touched inputs and spends consumed-unspend.
-// Creates reminder output if needed
+// Creates remainder output if needed.
 func (b *Builder) AddRemainderOutputIfNeeded(remainderAddr ledgerstate.Address, data []byte, compress ...bool) error {
 	compr := false
 	if len(compress) > 0 {
@@ -288,7 +303,7 @@ func (b *Builder) AddRemainderOutputIfNeeded(remainderAddr ledgerstate.Address, 
 	b.ConsumeRemainingBalances(compr)
 	unspent := b.ConsumedUnspent()
 	if len(unspent) == 0 {
-		// no need for reminder output
+		// no need for remainder output
 		return nil
 	}
 	return b.AddExtendedOutputConsume(remainderAddr, data, unspent)
@@ -367,7 +382,7 @@ func (b *Builder) AliasNextChainedOutput(addressAlias ledgerstate.Address) (*led
 	return out.NewAliasOutputNext(false), nil
 }
 
-// AddAliasOutputAsRemainder forms an reminder by creating new alias output
+// AddAliasOutputAsRemainder forms a remainder by creating new alias output.
 func (b *Builder) AddAliasOutputAsRemainder(addressAlias ledgerstate.Address, stateData []byte, compress ...bool) error {
 	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {

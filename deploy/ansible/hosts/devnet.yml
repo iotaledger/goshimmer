@@ -1,0 +1,63 @@
+metrics:
+  hosts:
+    metrics-01.devnet.shimmer.iota.cafe:
+
+supports:
+  hosts:
+    analysisentry-01.devnet.shimmer.iota.cafe:
+      entryNodeSeed: "{{ ANALYSISSENTRY_01_ENTRYNODE_SEED }}"
+      mongoDBHost: "metrics-01.devnet.shimmer.iota.cafe"
+      manaDashboardHost: "bootstrap-01.devnet.shimmer.iota.cafe"
+
+goshimmers:
+  children:
+    internal_nodes:
+      hosts:
+        bootstrap-01.devnet.shimmer.iota.cafe:
+          seed: "{{ BOOTSTRAP_01_SEED }}"
+          bootstrap: true
+        vanilla-01.devnet.shimmer.iota.cafe:
+          seed: "{{ VANILLA_01_SEED }}"
+        drng-01.devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_01_SEED }}"
+        drng-02.devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_02_SEED }}"
+        drng-03.devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_03_SEED }}"
+        drng-04.devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_04_SEED }}"
+        drng-05.devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_05_SEED }}"
+        drng-xteam-01.devnet.shimmer.iota.cafe:
+          seed: "{{ DRNG_XTEAM_01_SEED }}"
+        faucet-01.devnet.shimmer.iota.cafe:
+          seed: "{{ FAUCET_01_SEED }}"
+          faucet: true
+          faucetSeed: "{{ FAUCET_01_FAUCET_SEED }}"
+    public_nodes:
+      hosts:
+        public-node-01.devnet.shimmer.iota.cafe:
+        public-node-02.devnet.shimmer.iota.cafe:
+        public-node-03.devnet.shimmer.iota.cafe:
+
+  vars:
+    analysisServerHost: "analysisentry-01.devnet.shimmer.iota.cafe"
+    entryNodeHost: "analysisentry-01.devnet.shimmer.iota.cafe"
+    remoteLoggerHost: "metrics-01.devnet.shimmer.iota.cafe"
+    communityEntryNode: "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entryshimmer.tanglebay.com:14646"
+    xteamDRNG: true
+    logLevel: "info"
+
+drands:
+  hosts:
+    drand-01.devnet.shimmer.iota.cafe:
+  vars:
+    drngHostTemplate: "drng-0{drandNumber}.devnet.shimmer.iota.cafe"
+
+asset_registries:
+  hosts:
+    asset-registry-01.devnet.shimmer.iota.cafe:
+
+lbs:
+  hosts:
+    lb.devnet.shimmer.iota.cafe:

@@ -1,11 +1,32 @@
-name: Release
-'on':
-  release:
-    types:
-      - published
+name: Release & Devnet deploy
+on:
+  workflow_dispatch:
+    inputs:
+      tagName:
+        description: 'Tag name'
+        required: true
+      releaseDescription:
+        description: 'Release description'
+        required: true
+
 jobs:
+  createTag:
+    environment: devnet
+    name: Create Git tag
+    runs-on:
+      - ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Create Git tag
+        run: |
+          git tag ${{ github.event.inputs.tagName }}
+          git push origin ${{ github.event.inputs.tagName }}
+
   goreleaser:
     environment: devnet
+    needs: createTag
     name: GoReleaser
     runs-on:
       - ubuntu-latest
@@ -15,33 +36,73 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          ref: "refs/tags/${{github.event.inputs.tagName}}"
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.16.3
+
       - name: Copy config.default.json to config.json
         run: cp config.default.json config.json
+
       - name: Download latest snapshot file
         run: wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
+
       - name: Run GoReleaser
-        run: goreleaser --rm-dist
+        run: goreleaser --rm-dist --release-notes <(echo "${{ github.event.inputs.releaseDescription }}")
+        shell: bash
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
   docker:
     environment: devnet
-    name: Docker
+    needs: createTag
+    name: Docker build and deploy
     runs-on:
       - ubuntu-latest
-    env:
-      DOCKER_BUILDKIT: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          ref: "refs/tags/${{github.event.inputs.tagName}}"
       - name: Publish to Docker Hub
         uses: docker/build-push-action@92e71463491f2d026a477188b8ad3a0fdd9d672c
+        env:
+          DOCKER_BUILDKIT: 1
         with:
           repository: iotaledger/goshimmer
           username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
           password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
           tags: latest
           tag_with_ref: true
+
+      - name: Install SSH Key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          sudo chmod 600 ~/.ssh/id_ed25519
+          echo '
+               Host *
+                 StrictHostKeyChecking no
+                 UserKnownHostsFile=/dev/null
+               ' > ~/.ssh/config
+
+      - name: Ansible deploy
+        env:
+          GOSHIMMER_SEEDS: '${{ secrets.GOSHIMMER_SEEDS }}'
+          MONGODB_USER: '${{ secrets.MONGODB_USER }}'
+          MONGODB_PASSWORD: '${{ secrets.MONGODB_PASSWORD }}'
+          GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
+          ELK_ELASTIC_PASSWORD: '${{ secrets.ELK_ELASTIC_PASSWORD }}'
+          ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
+          DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
+          DRNG_XTEAM_01_SEED: '${{ secrets.DRNG_XTEAM_01_SEED }}'
+          SNAPSHOTTER_BUCKET: '${{ secrets.SNAPSHOTTER_BUCKET }}'
+          SNAPSHOTTER_ACCESS_KEY: '${{ secrets.SNAPSHOTTER_ACCESS_KEY }}'
+          SNAPSHOTTER_SECRET_KEY: '${{ secrets.SNAPSHOTTER_SECRET_KEY }}'
+          GOSHIMMER_DOCKER_TAG: 'latest'
+        run: |
+          ./deploy/ansible/run.sh devnet.yml

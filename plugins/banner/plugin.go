@@ -3,7 +3,6 @@ package banner
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/iotaledger/hive.go/node"
 )
@@ -12,12 +11,11 @@ import (
 const PluginName = "Banner"
 
 var (
-	// plugin is the plugin instance of the banner plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the banner plugin.
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled, configure, run)
 
 	// AppVersion version number
-	AppVersion = "v0.7.5"
+	AppVersion = "v0.7.7"
 	// SimplifiedAppVersion is the version number without commit hash
 	SimplifiedAppVersion = simplifiedVersion(AppVersion)
 )
@@ -26,14 +24,6 @@ const (
 	// AppName app code name
 	AppName = "GoShimmer"
 )
-
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
-}
 
 func configure(ctx *node.Plugin) {
 	fmt.Printf(`

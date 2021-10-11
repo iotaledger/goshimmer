@@ -12,7 +12,6 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -21,7 +20,7 @@ var (
 	wsSendWorkerCount     = 1
 	wsSendWorkerQueueSize = 250
 	wsSendWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	webSocketWriteTimeout = time.Duration(3) * time.Second
+	webSocketWriteTimeout = 3 * time.Second
 
 	// clients
 	wsClientsMu    sync.RWMutex
@@ -52,8 +51,8 @@ func configureWebSocketWorkerPool() {
 			broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
 			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
 			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, &tipsInfo{
-				TotalTips: messagelayer.Tangle().TipManager.StrongTipCount() + messagelayer.Tangle().TipManager.WeakTipCount(),
-				WeakTips:  messagelayer.Tangle().TipManager.WeakTipCount(),
+				TotalTips: deps.Tangle.TipManager.StrongTipCount() + deps.Tangle.TipManager.WeakTipCount(),
+				WeakTips:  deps.Tangle.TipManager.WeakTipCount(),
 			}})
 		case *componentsmetric:
 			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})

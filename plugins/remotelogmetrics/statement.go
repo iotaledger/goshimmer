@@ -6,23 +6,19 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/clock"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 func onStatementReceived(msg *tangle.Message) {
-	if !messagelayer.Tangle().Synced() {
+	if !deps.Tangle.Synced() {
 		return
 	}
 
-	clockEnabled := !node.IsSkipped(clock.Plugin())
+	clockEnabled := !node.IsSkipped(deps.ClockPlugin)
 	var myID string
-	if local.GetInstance() != nil {
-		myID = local.GetInstance().ID().String()
+	if deps.Local != nil {
+		myID = deps.Local.ID().String()
 	}
-	messagelayer.Tangle().Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *tangle.MessageMetadata) {
+	deps.Tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		issuedTime := msg.IssuingTime()
 		arrivalTime := messageMetadata.ReceivedTime()
 		solidTime := messageMetadata.SolidificationTime()
@@ -37,11 +33,11 @@ func onStatementReceived(msg *tangle.Message) {
 			DeltaArrival: arrivalTime.UnixNano() - issuedTime.UnixNano(),
 			DeltaSolid:   solidTime.UnixNano() - issuedTime.UnixNano(),
 			Clock:        clockEnabled,
-			Sync:         messagelayer.Tangle().Synced(),
+			Sync:         deps.Tangle.Synced(),
 			Type:         "statement",
 		}
-		if err := remotelog.RemoteLogger().Send(m); err != nil {
-			plugin.Logger().Errorw("Failed to send statement metrics", "err", err)
+		if err := deps.RemoteLogger.Send(m); err != nil {
+			Plugin.Logger().Errorw("Failed to send statement metrics", "err", err)
 		}
 	})
 }

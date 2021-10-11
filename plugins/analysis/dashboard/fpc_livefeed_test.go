@@ -26,10 +26,10 @@ func TestCreateFPCUpdate(t *testing.T) {
 			RandUsed: 0.5,
 			ActiveVoteContexts: map[string]*vote.Context{
 				"one": {
-					ID:       "one",
-					ProportionLiked:    1.,
-					Rounds:   3,
-					Opinions: []opinion.Opinion{opinion.Dislike, opinion.Like, opinion.Dislike},
+					ID:              "one",
+					ProportionLiked: 1.,
+					Rounds:          3,
+					Opinions:        []opinion.Opinion{opinion.Dislike, opinion.Like, opinion.Dislike},
 				},
 			},
 		},

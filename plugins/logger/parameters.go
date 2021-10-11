@@ -1,5 +1,7 @@
 package logger
 
+import "github.com/iotaledger/hive.go/configuration"
+
 // ParametersDefinition contains the definition of configuration parameters used by the logger plugin.
 type ParametersDefinition struct {
 	// Level defines the logger's level.
@@ -23,3 +25,7 @@ type ParametersDefinition struct {
 
 // Parameters contains the configuration parameters of the logger plugin.
 var Parameters = &ParametersDefinition{}
+
+func init() {
+	configuration.BindParameters(Parameters, "logger")
+}

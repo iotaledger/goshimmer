@@ -2,11 +2,9 @@ package profiling
 
 import (
 	"net/http"
-	"runtime"
-	"sync"
-
 	// import required to profile
 	_ "net/http/pprof"
+	"runtime"
 
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -16,18 +14,13 @@ import (
 const PluginName = "Profiling"
 
 var (
-	// plugin is the profiling plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the profiling plugin.
+	Plugin *node.Plugin
 	log    *logger.Logger
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
+func init() {
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {

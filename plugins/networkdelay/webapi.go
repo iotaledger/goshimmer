@@ -8,12 +8,10 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 func configureWebAPI() {
-	webapi.Server().POST("networkdelay", broadcastNetworkDelayPayload)
+	deps.Server.POST("networkdelay", broadcastNetworkDelayPayload)
 }
 
 // broadcastNetworkDelayPayload creates a message with a network delay object and
@@ -32,7 +30,7 @@ func broadcastNetworkDelayPayload(c echo.Context) error {
 
 	nowWithoutClock := time.Now()
 
-	msg, err := messagelayer.Tangle().IssuePayload(payload)
+	msg, err := deps.Tangle.IssuePayload(payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

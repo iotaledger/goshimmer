@@ -8,5 +8,5 @@ import (
 
 // UI contains the user interface plugins of a GoShimmer node.
 var UI = node.Plugins(
-	dashboard.Plugin(),
+	dashboard.Plugin,
 )
