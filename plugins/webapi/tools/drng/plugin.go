@@ -26,7 +26,7 @@ type dependencies struct {
 
 const (
 	routeDiagnostics = "tools/diagnostic"
-	// RouteDiagnosticsDRNG is the API route for DRNG diagnostics
+	// RouteDiagnosticsDRNG is the API route for DRNG diagnostics.
 	RouteDiagnosticsDRNG = routeDiagnostics + "/drng"
 )
 

@@ -310,7 +310,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 							ID:           output.ID(),
 							Balance:      iotaBalance,
 							Address:      output.Address(),
-							AddressIndex: uint64(i),
+							AddressIndex: i,
 						})
 					}
 				}

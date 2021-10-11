@@ -74,7 +74,7 @@ type ConfirmationEvents struct {
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
-			MessageInvalid:  events.NewEvent(MessageInvalidCaller),
+			MessageInvalid: events.NewEvent(MessageInvalidCaller),
 			Error:          events.NewEvent(events.ErrorCaller),
 		},
 	}
