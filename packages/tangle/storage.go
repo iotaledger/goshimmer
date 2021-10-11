@@ -459,7 +459,7 @@ func (s *Storage) Prune() error {
 // DBStats returns the number of solid messages and total number of messages in the database (messageMetadataStorage,
 // that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
 // the average time it takes to solidify messages.
-func (s *Storage) DBStats() (solidCount int, messageCount int, sumSolidificationTime int64, missingMessageCount int) {
+func (s *Storage) DBStats() (solidCount, messageCount int, sumSolidificationTime int64, missingMessageCount int) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			msgMetaData := object.(*MessageMetadata)
