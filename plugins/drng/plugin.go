@@ -90,4 +90,11 @@ func configureEvents() {
 	if len(deps.DRNGInstance.State) == 0 {
 		return
 	}
+
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		select {
+		case inbox <- messageID:
+		default:
+		}
+	}))
 }
