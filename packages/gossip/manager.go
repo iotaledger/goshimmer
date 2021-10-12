@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	libp2pproto "github.com/gogo/protobuf/proto"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -135,7 +134,7 @@ func (m *Manager) Stop() {
 func (m *Manager) dropAllNeighbors() {
 	neighborsList := m.AllNeighbors()
 	for _, nbr := range neighborsList {
-		nbr.disconnect()
+		nbr.close()
 	}
 }
 
@@ -167,7 +166,7 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	nbr.disconnect()
+	nbr.close()
 	return nil
 }
 
@@ -225,7 +224,7 @@ func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	return result
 }
 
-func (m *Manager) send(packet libp2pproto.Message, to ...identity.ID) {
+func (m *Manager) send(packet *pb.Packet, to ...identity.ID) {
 	neighbors := m.getNeighborsByID(to)
 	if len(neighbors) == 0 {
 		neighbors = m.AllNeighbors()
@@ -261,13 +260,22 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	}
 
 	// create and add the neighbor
-	nbr := NewNeighbor(p, group, stream, m)
+	nbr := NewNeighbor(p, group, stream, m.log)
 	if err := m.setNeighbor(nbr); err != nil {
 		if resetErr := stream.Reset(); resetErr != nil {
 			err = errors.CombineErrors(err, resetErr)
 		}
 		return errors.WithStack(err)
 	}
+	nbr.disconnected.Attach(events.NewClosure(func() {
+		m.deleteNeighbor(nbr.ID())
+		go m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(nbr)
+	}))
+	nbr.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
+		if err := m.handlePacket(packet, nbr); err != nil {
+			nbr.log.Debugw("Can't handle packet", "err", err)
+		}
+	}))
 	nbr.readLoop()
 	nbr.log.Info("Connection established")
 	m.neighborsEvents[group].NeighborAdded.Trigger(nbr)
@@ -347,6 +355,6 @@ func (m *Manager) processMessageRequest(packetMsgReq *pb.Packet_MessageRequest, 
 	packet := &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: msgBytes}}}
 	if err := nbr.write(packet); err != nil {
 		nbr.log.Warnw("Failed to send requested message back to the neighbor", "err", err)
-		nbr.disconnect()
+		nbr.close()
 	}
 }

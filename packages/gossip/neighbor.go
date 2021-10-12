@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	libp2pproto "github.com/gogo/protobuf/proto"
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-msgio/protoio"
@@ -35,10 +35,12 @@ type Neighbor struct {
 	*peer.Peer
 	Group NeighborsGroup
 
-	manager        *Manager
 	log            *logger.Logger
 	disconnectOnce sync.Once
 	wg             sync.WaitGroup
+
+	disconnected   *events.Event
+	packetReceived *events.Event
 
 	stream network.Stream
 	reader protoio.ReadCloser
@@ -46,25 +48,35 @@ type Neighbor struct {
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, manager *Manager) *Neighbor {
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log *logger.Logger) *Neighbor {
 
-	log := manager.log.With(
+	log = log.With(
 		"id", p.ID(),
 		"localAddr", stream.Conn().LocalMultiaddr(),
 		"remoteAddr", stream.Conn().RemoteMultiaddr(),
 	)
 	const maxMsgSize = 1024 * 1024
 	return &Neighbor{
-		Peer:   p,
-		Group:  group,
+		Peer:  p,
+		Group: group,
 
-		manager: manager,
-		log:    log,
+		log: log,
 
 		stream: stream,
 		reader: protoio.NewDelimitedReader(stream, maxMsgSize),
 		writer: protoio.NewDelimitedWriter(stream),
+
+		disconnected:   events.NewEvent(disconnected),
+		packetReceived: events.NewEvent(disconnected),
 	}
+}
+
+func disconnected(handler interface{}, params ...interface{}) {
+	handler.(func(*Neighbor))(params[0].(*Neighbor))
+}
+
+func packetReceived(handler interface{}, params ...interface{}) {
+	handler.(func(*Neighbor, *pb.Packet))(params[0].(*Neighbor), params[1].(*pb.Packet))
 }
 
 // ConnectionEstablished returns the connection established.
@@ -83,59 +95,59 @@ func (n *Neighbor) readLoop() {
 				n.log.Warnw("Permanent error", "err", err)
 				return
 			}
-			if err := n.manager.handlePacket(packet, n); err != nil {
-				n.log.Debugw("Can't handle packet", "err", err)
-			}
+			n.disconnected.Trigger(n, packet)
 		}
 	}()
 }
 
 
-func (n *Neighbor) write(msg libp2pproto.Message) error {
+func (n *Neighbor) write(packet *pb.Packet) error {
 	if err := n.stream.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {
 		return errors.WithStack(err)
 	}
-	err := n.writer.WriteMsg(msg)
+	err := n.writer.WriteMsg(packet)
 	if err != nil {
-		n.disconnect()
+		disconnectErr := n.disconnect()
 		if isCloseError(err) {
 			return nil
 		}
-		return errors.WithStack(err)
+		return errors.CombineErrors(err, disconnectErr)
 	}
 	return nil
 }
 
-func (n *Neighbor) read(msg libp2pproto.Message) error {
+func (n *Neighbor) read(packet *pb.Packet) error {
 	if err := n.stream.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
 		return errors.WithStack(err)
 	}
-	err := n.reader.ReadMsg(msg)
+	err := n.reader.ReadMsg(packet)
 	if err != nil {
-		n.disconnect()
+		disconnectErr := n.disconnect()
 		if isCloseError(err) || errors.Is(err, io.EOF) {
 			return nil
 		}
-		return errors.WithStack(err)
+		return errors.CombineErrors(err, disconnectErr)
 	}
 	return nil
 }
 
 func (n *Neighbor) close() {
-	n.disconnect()
+	if err := n.disconnect(); err != nil {
+		n.log.Errorw("Failed to disconnect the neighbor", "err", err)
+	}
 	n.wg.Wait()
 }
 
-func (n *Neighbor) disconnect() {
+func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
-		if err := n.stream.Close(); err != nil {
-			n.log.Warnw("Failed to close the stream", "err", err)
+		if streamErr := n.stream.Close(); streamErr != nil {
+			err = errors.WithStack(streamErr)
 			return
 		}
 		n.log.Info("Connection closed")
-		n.manager.deleteNeighbor(n.ID())
-		go n.manager.NeighborsEvents(n.Group).NeighborRemoved.Trigger(n)
+		n.disconnected.Trigger(n)
 	})
+	return err
 }
 
 func isCloseError(err error) bool {
