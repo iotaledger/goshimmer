@@ -67,7 +67,7 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log 
 		writer: protoio.NewDelimitedWriter(stream),
 
 		disconnected:   events.NewEvent(disconnected),
-		packetReceived: events.NewEvent(disconnected),
+		packetReceived: events.NewEvent(packetReceived),
 	}
 }
 

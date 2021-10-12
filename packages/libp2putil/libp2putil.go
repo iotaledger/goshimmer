@@ -4,9 +4,22 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/libp2p/go-libp2p"
 	libp2pcrypto "github.com/libp2p/go-libp2p-core/crypto"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 )
+
+func GetLibp2pIdentity(lPeer *peer.Local) (libp2p.Option, error) {
+	ourPrivateKey, err := lPeer.Database().LocalPrivateKey()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	libp2pPrivateKey, err := ToLibp2pPrivateKey(ourPrivateKey)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return libp2p.Identity(libp2pPrivateKey), nil
+}
 
 func ToLibp2pPrivateKey(ourPrivateKey ed25519.PrivateKey) (libp2pcrypto.PrivKey, error) {
 	libp2pPrivateKey, err := libp2pcrypto.UnmarshalEd25519PrivateKey(ourPrivateKey.Bytes())

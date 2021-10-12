@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/libp2putil"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -478,20 +479,24 @@ func newTestDB(t require.TestingT) *peer.DB {
 
 func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
 	l := log.Named(name)
-
-	host, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
-	lis := host.Network().ListenAddresses()[0]
-
 	services := service.New()
 	services.Update(service.PeeringKey, "peering", 0)
+	local, err := peer.NewLocal(net.ParseIP("127.0.0.1"), services, newTestDB(t))
+	require.NoError(t, err)
+	libp2pIdentity, err := libp2putil.GetLibp2pIdentity(local)
+	require.NoError(t, err)
+	host, err := libp2p.New(
+		context.Background(),
+		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"),
+		libp2pIdentity,
+		libp2p.DisableRelay(),
+	)
+	lis := host.Addrs()[0]
 	tcpPortStr, err := lis.ValueForProtocol(multiaddr.P_TCP)
 	require.NoError(t, err)
 	tcpPort, err := strconv.Atoi(tcpPortStr)
 	require.NoError(t, err)
-	services.Update(service.GossipKey, "tcp", tcpPort)
-
-	ipAddr, err := lis.ValueForProtocol(multiaddr.P_IP4)
-	local, err := peer.NewLocal(net.ParseIP(ipAddr), services, newTestDB(t))
+	err = local.UpdateService(service.GossipKey, "tcp", tcpPort)
 	require.NoError(t, err)
 
 	// start the actual gossipping

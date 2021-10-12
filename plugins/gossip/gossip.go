@@ -1,14 +1,17 @@
 package gossip
 
 import (
+	"context"
+	"fmt"
 	"net"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/libp2p/go-libp2p"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/packages/libp2putil"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -43,25 +46,23 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		msg := cachedMessage.Unwrap()
 		return msg.Bytes(), nil
 	}
+	libp2pIdentity, err := libp2putil.GetLibp2pIdentity(lPeer)
+	if err != nil {
+		Plugin.LogFatalf("Could build libp2p identity from local peer: %s", err)
+	}
+	libp2pHost, err := libp2p.New(
+		context.Background(),
+		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/%s/tcp/%d", localAddr.IP, localAddr.Port)),
+		libp2pIdentity,
+		libp2p.NATPortMap(),
+	)
 
-	return gossip.NewManager(lPeer, loadMessage, Plugin.Logger())
+	return gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger())
 }
 
 func start(shutdownSignal <-chan struct{}) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 
-	lPeer := deps.Local
-
-	listener, err := net.ListenTCP(localAddr.Network(), localAddr)
-	if err != nil {
-		Plugin.LogFatalf("Error listening: %v", err)
-	}
-	defer listener.Close()
-
-	srv := server.ServeTCP(lPeer, listener, Plugin.Logger())
-	defer srv.Close()
-
-	deps.GossipMgr.Start(srv)
 	defer deps.GossipMgr.Stop()
 
 	Plugin.LogInfof("%s started: bind-address=%s", PluginName, localAddr.String())

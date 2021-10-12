@@ -114,6 +114,7 @@ func configureGossipIntegration() {
 		}
 		go func() {
 			if err := mgr.AddInbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
+				deps.Selection.RemoveNeighbor(ev.Peer.ID())
 				Plugin.Logger().Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()
@@ -124,15 +125,12 @@ func configureGossipIntegration() {
 		}
 		go func() {
 			if err := mgr.AddOutbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
+				deps.Selection.RemoveNeighbor(ev.Peer.ID())
 				Plugin.Logger().Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()
 	}))
 
-	// notify the autopeering on connection loss
-	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, _ error) {
-		deps.Selection.RemoveNeighbor(p.ID())
-	}))
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		deps.Selection.RemoveNeighbor(n.ID())
 	}))

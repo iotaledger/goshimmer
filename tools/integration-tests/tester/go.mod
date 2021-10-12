@@ -16,7 +16,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
 replace github.com/iotaledger/goshimmer => ../../..
