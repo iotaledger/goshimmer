@@ -466,7 +466,7 @@ if err != nil {
     // return error
 }
 fmt.Printf("All supporters for branch %s:\n", resp.BranchID)
-// iterate over all conflicts
+// iterate over all supporters
 for _, supporter := range resp.Supporters {
     fmt.Println("ID: ", supporter)
 }

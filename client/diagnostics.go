@@ -33,7 +33,7 @@ const (
 //
 //	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
 //	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled ScheduledBypass Booked
-//	Eligible Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
+//	Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsMessages() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticMessages)
 }
@@ -43,7 +43,7 @@ func (api *GoShimmerAPI) GetDiagnosticsMessages() (*csv.Reader, error) {
 //
 //	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
 //	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
-//	Eligible Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
+//  Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsFirstWeakMessageReferences() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsFirstWeakMessageReferences)
 }
@@ -53,7 +53,7 @@ func (api *GoShimmerAPI) GetDiagnosticsFirstWeakMessageReferences() (*csv.Reader
 //
 //	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
 //	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
-//	Eligible Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
+//	Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsMessagesByRank(rank uint64) (*csv.Reader, error) {
 	return api.diagnose(fmt.Sprintf("%s?rank=%d", RouteDiagnosticMessages, rank))
 }
@@ -94,9 +94,9 @@ func (api *GoShimmerAPI) GetDiagnosticsInvalidBranches() (*csv.Reader, error) {
 // GetDiagnosticsTips runs diagnostics over tips
 // Returns csv with the following fields:
 //
-//	tipType,ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,BookedTime,
-//	FinalizedTime,StrongParents,WeakParents,StrongApprovers,WeakApprovers,BranchID,InclusionState,Scheduled,Booked,
-//	Eligible,Invalid,Finalized,Rank,IsPastMarker,PastMarkers,PMHI,PMLI,FutureMarkers,FMHI,FMLI,PayloadType,TransactionID,
+//	tipType ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
+//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled ScheduledBypass Booked
+//	Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsTips() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsTips)
 }
