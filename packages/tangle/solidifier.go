@@ -190,8 +190,13 @@ func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 			solid = s.isMessageMarkedAsSolid(parentMessageID, requestMissingMessages) && solid
 		}
 	})
+	message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
+		if solid || requestMissingMessages {
+			solid = s.isMessageMarkedAsSolid(parentMessageID, requestMissingMessages) && solid
+		}
+	})
 
-	if solid && !s.parentsAgeValid(message.IssuingTime(), message.ParentsByType(StrongParentType)) && len(message.ParentsByType(WeakParentType)) == 0 && messageMetadata.SetInvalid(true) {
+	if solid && (!s.parentsAgeValid(message.IssuingTime(), message.ParentsByType(StrongParentType)) || !s.parentsAgeValid(message.IssuingTime(), message.ParentsByType(LikeParentType)) && len(message.ParentsByType(WeakParentType)) == 0 && messageMetadata.SetInvalid(true) {
 		s.tangle.Events.MessageInvalid.Trigger(message.ID())
 
 		return false
