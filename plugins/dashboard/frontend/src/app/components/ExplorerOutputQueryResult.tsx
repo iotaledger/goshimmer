@@ -2,7 +2,7 @@ import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import ListGroup from "react-bootstrap/ListGroup";
 import NodeStore from "app/stores/NodeStore";
-import { inject, observer } from "mobx-react";
+import {inject, observer} from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import Badge from "react-bootstrap/Badge";
 import {displayManaUnit} from "app/utils";
@@ -89,7 +89,7 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                     <ListGroup>
                         {outputConsumers.consumers.map((c,i) => <ListGroup.Item key={i}>
                             <div>Transaction ID:  <a href={`/explorer/transaction/${c.transactionID}`}>{c.transactionID}</a></div>
-                            <div>Valid: {renderTriBool(c.valid)} </div>
+                            <div>SolidityType: {c.valid.toString()} </div>
                         </ListGroup.Item>)}
                     </ListGroup>
                 </div>}
