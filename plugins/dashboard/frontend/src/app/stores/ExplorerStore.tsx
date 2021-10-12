@@ -86,7 +86,7 @@ export class OutputMetadata {
 
 class OutputConsumer {
     transactionID: string;
-    valid: string;
+    solidityType: string;
 }
 
 class OutputConsumers {
