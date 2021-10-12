@@ -119,13 +119,13 @@ This process ensures that every new random value depends on all previously gener
 If you are interested in knowing more about drand, we recommend you to check out their [Github repository](https://github.com/drand/drand).
 
 ## On-Tangle-Voting (OTV)
-OTV is based on virtual voting on the tangle. It braodcasts the opinions of nodes on the DAgs. We simply follow the heavier branch to set the initial opinion.
-OTV uses active consensus mana as a sybil protection mechanim. This gives us a notion of which node is active and a perception of which nodes support which branch/messages.
-Every node can express its opinion by attaching a message to the tangle (via means of the like switch). 
+OTV is based on virtual voting on the tangle. It broadcasts the opinions of nodes on the DAGs. We simply follow the heavier branch to set the initial opinion.
+OTV uses active consensus mana as a Sybil protection mechanism. This gives us a notion of which node is active and a perception of which nodes support which branch/messages.
+Every node can express its opinion by attaching a message to the tangle. Through the like switch, a message can even reference messages of branches it doesn't like (thereby reduce orphanage), by explicitly expressing which ones it likes instead.
 
 Pros:
 1. More lightweight and efficient
-2. much simpler to understand
+2. Much simpler to understand in comparison to FPC+FCoB
 
 In the examples below, the arrows represent transactions with their respective AW. The arrows in bold are the liked branches. 
 The white boxes are outputs, and the coloured boxes are branches.
@@ -144,13 +144,12 @@ In case all the branches have the same AW, we like the branch with the smallest 
  
 ## Liked Switch and Modular conflict selection function
 The like switch mechanism prevents orphanage of messages if nodes vote for "wrong" branches. 
-To issue a message, a node select tips randomly without caring about their branches. Then, we ask OTV which of these branches are liked by invoking a conflict selection function.
+To issue a message, a node selects tips randomly without caring about their branches. Then, we ask OTV which of these branches are liked by invoking a conflict selection function.
 A like reference implies that all the branches conflicting with the liked branch are excluded from the vote/branch of the newly created message.
 
 ![Like Switch](/img/protocol_specification/otv_like_switch.png)
-In this exmaple, we want to create message `13`.
-Assume that tip selection return messages `11` and `5`. According to OTV, we will like mesage `B` (W = 0.5) and `C` (W = 0.4) because they have higher AW.
-Hence, A and B will be set as the like references for the new message.
+In this example, we want to create message `13`.
+Assume that tip selection returns messages `11` (voting for branch `A` & `C`) and `5` (voting for branch `D`). According to OTV, we will set a like reference to the message creating branch `B` as it has a higher AW than branch `A`, another like reference to the message creating branch `C` as it has higher AW than branch `D`, therefore making the new message vote for branch `B` and `C`. Through the like references, the node can derive which branches are excluded from the vote the message creates.
 
 
 ## Approval Weight (AW)
