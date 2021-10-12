@@ -10,10 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	webapi "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
+	webapiledgerstate "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -117,8 +116,7 @@ func TestManaPledgeFilter(t *testing.T) {
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
 		ConsensusManaPledgeID: accessPeer.Identity.ID(),
 	})
-	require.ErrorIs(t, err, client.ErrBadRequest)
-	require.Contains(t, err.Error(), webapi.ErrNotAllowedToPledgeManaToNode.Error())
+	require.Contains(t, err.Error(), webapiledgerstate.ErrNotAllowedToPledgeManaToNode.Error())
 
 	// pledge access mana to forbidden peer
 	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
@@ -128,7 +126,7 @@ func TestManaPledgeFilter(t *testing.T) {
 		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
 	require.ErrorIs(t, err, client.ErrBadRequest)
-	require.Contains(t, err.Error(), webapi.ErrNotAllowedToPledgeManaToNode.Error())
+	require.Contains(t, err.Error(), webapiledgerstate.ErrNotAllowedToPledgeManaToNode.Error())
 }
 
 func TestManaApis(t *testing.T) {
@@ -146,7 +144,7 @@ func TestManaApis(t *testing.T) {
 	peers := n.Peers()
 	faucet := peers[0]
 
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers(), gof.High)
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	log.Println("Request mana from faucet...")
 	// waiting for the faucet to have access mana

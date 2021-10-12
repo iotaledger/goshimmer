@@ -60,7 +60,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock"}
 
 	c.Network.Enabled = true
 
@@ -70,12 +70,13 @@ func PeerConfig() config.GoShimmer {
 	c.Gossip.Enabled = true
 
 	c.POW.Enabled = true
-	c.POW.Difficulty = 2
+	c.POW.Difficulty = 1
 
 	c.WebAPI.Enabled = true
 	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
 
 	c.AutoPeering.Enabled = false
+	c.AutoPeering.BindAddress = fmt.Sprintf(":%d", peeringPort)
 	c.AutoPeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
@@ -84,15 +85,16 @@ func PeerConfig() config.GoShimmer {
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeed)
-	c.Faucet.PowDifficulty = 3
+	c.Faucet.PowDifficulty = 1
+	c.Faucet.SupplyOutputsCount = 4
+	c.Faucet.SplittingMultiplier = 4
 
 	c.Mana.Enabled = true
 
 	c.Consensus.Enabled = false
 
 	c.Activity.Enabled = false
-	c.Activity.BroadcastInterval = 1 // increase frequency to speedup tests
-	c.DelayOffset = 1
+	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
 
 	c.DRNG.Enabled = false
 
