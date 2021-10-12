@@ -483,7 +483,7 @@ for _, supporter := range resp.Supporters {
 ### Results
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `branchId`   | string    | The branch identifier encoded with base58.   |
+| `branchID`   | string    | The branch identifier encoded with base58.   |
 | `supporters` | [] string | The list of branch supporter IDs  |
 
 

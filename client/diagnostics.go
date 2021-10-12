@@ -31,8 +31,8 @@ const (
 // GetDiagnosticsMessages runs full message diagnostics
 // Returns CSV with the following fields:
 //
-//	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime,GradeOfFinality
-//	GradeOfFinalityTime, StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled ScheduledBypass Booked
+//	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
+//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled ScheduledBypass Booked
 //	Eligible Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsMessages() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticMessages)
