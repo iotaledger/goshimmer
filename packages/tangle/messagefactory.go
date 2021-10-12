@@ -213,9 +213,15 @@ func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.Transacti
 	for transactionID := range transactionIDs {
 		f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
 			f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
-				if message.IssuingTime().Before(earliestIssuingTime) {
-					earliestAttachment = message
-				}
+				f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+					if messageMetadata.IsBooked() {
+						return
+					}
+
+					if message.IssuingTime().Before(earliestIssuingTime) {
+						earliestAttachment = message
+					}
+				})
 			})
 		})
 	}

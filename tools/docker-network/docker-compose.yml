@@ -65,6 +65,28 @@ services:
       - shimmer
     depends_on:
       - peer_master
+  mario:
+    build: *goshimmer_build
+    stop_grace_period: 1m
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/tmp/mainnetdb
+      --node.enablePlugins="webapi tools endpoint",activity,spammer
+      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
+      --messageLayer.snapshot.genesisNode=
+      --node.disablePlugins=portcheck,clock
+      --mana.snapshotResetTime=true
+      --webapi.exportPath=/tmp/
+    secrets:
+      - goshimmer.config.json
+      - goshimmer.message.snapshot.bin
+    ports:
+      - "8070:8080/tcp" # web API
+      - "8071:8081/tcp" # dashboard
+    networks:
+      - shimmer
+    depends_on:
+      - peer_master
   faucet:
     build: *goshimmer_build
     stop_grace_period: 1m
