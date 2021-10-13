@@ -374,7 +374,7 @@ docker logs goshimmer > log.txt
 
 If you set up the Grafana dashboard for your node according to the next section "Setting up the Grafana dashboard", the following method will help you to update when a new version is released.
 
-You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
+You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
 Supposing you are at `/opt/goshimmer/`:
 ```
 wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/monitoring/grafana/dashboards/local_dashboard.json
