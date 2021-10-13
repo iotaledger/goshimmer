@@ -2,17 +2,17 @@ package portcheck
 
 import (
 	"net"
-	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/discover"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
@@ -20,25 +20,33 @@ import (
 const PluginName = "PortCheck"
 
 var (
-	// plugin is the plugin instance of the port check plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the port check plugin.
+	Plugin *node.Plugin
 	log    *logger.Logger
+
+	deps = new(dependencies)
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Local     *peer.Local
+	Discovery *discover.Protocol `optional:"true"`
 }
 
-func configure(*node.Plugin) {
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
+}
+
+func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 }
 
 func run(*node.Plugin) {
+	if deps.Discovery == nil {
+		log.Infof("Skipping port check since autopeering plugin is disabled")
+		return
+	}
 	log.Info("Testing autopeering service ...")
 	checkAutopeeringConnection()
 	log.Info("Testing autopeering service ... done")
@@ -46,12 +54,12 @@ func run(*node.Plugin) {
 
 // check that discovery is working and the port is open
 func checkAutopeeringConnection() {
-	peering := local.GetInstance().Services().Get(service.PeeringKey)
+	peering := deps.Local.Services().Get(service.PeeringKey)
 
 	// resolve the bind address
-	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.BindAddress())
+	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.Parameters.BindAddress)
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.ParametersNetwork.BindAddress, err)
+		log.Fatalf("Error resolving %s: %v", autopeering.Parameters.BindAddress, err)
 	}
 	// open a connection
 	conn, err := net.ListenUDP(peering.Network(), localAddr)
@@ -61,14 +69,14 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), discovery.ProtocolVersion, discovery.NetworkVersion(), discover.Logger(log))
-	srv := server.Serve(local.GetInstance(), conn, log, disc)
+	disc := discover.New(deps.Local, discovery.ProtocolVersion, discovery.Parameters.NetworkVersion, discover.Logger(log))
+	srv := server.Serve(deps.Local, conn, log, disc)
 	defer srv.Close()
 
 	disc.Start(srv)
 	defer disc.Close()
 
-	for _, entryNode := range discovery.Discovery().GetMasterPeers() {
+	for _, entryNode := range deps.Discovery.GetMasterPeers() {
 		err = disc.Ping(entryNode)
 		if err == nil {
 			log.Infof("Pong received from %s", entryNode.IP())

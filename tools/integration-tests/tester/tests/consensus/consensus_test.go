@@ -60,10 +60,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		cfg.UseNodeSeedAsWalletSeed = true
 		switch peerIndex {
 		case 0:
-			cfg.Autopeering.Seed = "base58:" + peer1SeedBase58
 			cfg.Seed = peer1IdentSeed
 		case 1:
-			cfg.Autopeering.Seed = "base58:" + peer2SeedBase58
 			cfg.Seed = peer2IdentSeed
 		}
 		return cfg

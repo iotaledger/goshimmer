@@ -1,38 +1,39 @@
 package pow
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PluginName is the name of the PoW plugin.
-const PluginName = "PoW"
+const PluginName = "POW"
 
 var (
 	// Plugin is the plugin instance of the PoW plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Tangle             *tangle.Tangle
+	MessagelayerPlugin *node.Plugin `name:"messagelayer"`
 }
 
-func configure(*node.Plugin) {
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
+}
+
+func configure(plugin *node.Plugin) {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName)
 
-	if node.IsSkipped(messagelayer.Plugin()) {
-		log.Infof("%s is disabled; skipping %s\n", messagelayer.Plugin().Name, PluginName)
+	if node.IsSkipped(deps.MessagelayerPlugin) {
+		log.Infof("%s is disabled; skipping %s\n", deps.MessagelayerPlugin.Name, PluginName)
 		return
 	}
 
@@ -41,7 +42,7 @@ func configure(*node.Plugin) {
 
 	log.Infof("%s started: difficult=%d", PluginName, difficulty)
 
-	messagelayer.Tangle().Parser.AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
-	messagelayer.Tangle().MessageFactory.SetWorker(tangle.WorkerFunc(DoPOW))
-	messagelayer.Tangle().MessageFactory.SetTimeout(timeout)
+	deps.Tangle.Parser.AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
+	deps.Tangle.MessageFactory.SetWorker(tangle.WorkerFunc(DoPOW))
+	deps.Tangle.MessageFactory.SetTimeout(timeout)
 }

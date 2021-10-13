@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // DiagnosticBranchesHandler runs the diagnostic over the Tangle.
@@ -43,7 +42,7 @@ func runDiagnosticBranches(c echo.Context) {
 		panic(err)
 	}
 
-	messagelayer.Tangle().LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
@@ -74,7 +73,7 @@ func runDiagnosticChildBranches(c echo.Context, branchID ledgerstate.BranchID) {
 		panic(err)
 	}
 
-	messagelayer.Tangle().LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
+	deps.Tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
 		conflictInfo := getDiagnosticConflictsInfo(childBranch.ChildBranchID())
 		_, err = fmt.Fprintln(c.Response(), conflictInfo.toCSV())
 		if err != nil {
@@ -111,8 +110,8 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 		ID: branchID.Base58(),
 	}
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		conflictInfo.GradeOfFinality, _ = messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		conflictInfo.GradeOfFinality, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 
 		if branch.Type() == ledgerstate.AggregatedBranchType {
 			return
@@ -120,13 +119,13 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 
 		transactionID := ledgerstate.TransactionID(branchID)
 
-		conflictInfo.ConflictSet = messagelayer.Tangle().LedgerState.ConflictSet(transactionID).Base58s()
+		conflictInfo.ConflictSet = deps.Tangle.LedgerState.ConflictSet(transactionID).Base58s()
 
-		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
 		})
 
-		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
 			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
 		})

@@ -1,3 +1,15 @@
+---
+description: The peering API allows retrieving basic information about autopeering using the /autopeering/neighbors endpoint or the GetAutopeeringNeighbors() function in the client lib.
+image: /img/logo/goshimmer_light.png
+keywords:
+- client library
+- HTTP API
+- peering api methods
+- neighbors
+- accepted neighbors
+- known peer
+---
+
 # Peering API Methods
 
 The peering API allows retrieving basic information about autopeering.

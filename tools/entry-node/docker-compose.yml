@@ -14,13 +14,13 @@ services:
       - "8080:80/tcp"     # analysis dashboard
       - "14626:14626/udp" # autopeering discovery
     command: >
-      --autopeering.seed=${SEED}
-      --autopeering.entryNodes=
+      --node.seed=${SEED}
+      --autoPeering.entryNodes=
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:8080
-      --node.enablePlugins=analysis-server,analysis-dashboard
-      --node.disablePlugins=analysis-client,gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.enablePlugins=analysisServer,analysisDashboard
+      --node.disablePlugins=analysisClient,gossip,portcheck,spa,dashboard,webAPI,webAPIBroadcastDataEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint
 
 volumes:
   entrynode:

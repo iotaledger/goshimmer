@@ -3,30 +3,26 @@ package remotemetrics
 import (
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var isTangleTimeSynced atomic.Bool
 
 func checkSynced() {
 	oldTangleTimeSynced := isTangleTimeSynced.Load()
-	tts := messagelayer.Tangle().TimeManager.Synced()
+	tts := deps.Tangle.TimeManager.Synced()
 	if oldTangleTimeSynced != tts {
 		var myID string
-		if local.GetInstance() != nil {
-			myID = local.GetInstance().ID().String()
+		if deps.Local != nil {
+			myID = deps.Local.ID().String()
 		}
 		syncStatusChangedEvent := remotemetrics.SyncStatusChangedEvent{
 			Type:                     "sync",
 			NodeID:                   myID,
 			MetricsLevel:             Parameters.MetricsLevel,
 			Time:                     clock.SyncedTime(),
-			LastConfirmedMessageTime: messagelayer.Tangle().TimeManager.Time(),
+			LastConfirmedMessageTime: deps.Tangle.TimeManager.Time(),
 			CurrentStatus:            tts,
 			PreviousStatus:           oldTangleTimeSynced,
 		}
@@ -35,8 +31,8 @@ func checkSynced() {
 }
 
 func sendSyncStatusChangedEvent(syncUpdate remotemetrics.SyncStatusChangedEvent) {
-	err := remotelog.RemoteLogger().Send(syncUpdate)
+	err := deps.RemoteLogger.Send(syncUpdate)
 	if err != nil {
-		plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
+		Plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
 	}
 }

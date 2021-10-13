@@ -31,7 +31,10 @@ func main() {
 		panic(err)
 	}
 	defer func() {
-		if err := os.Remove(file.Name()); err != nil {
+		if err = file.Close(); err != nil {
+			panic(err)
+		}
+		if err = os.Remove(file.Name()); err != nil {
 			panic(err)
 		}
 	}()

@@ -30,6 +30,7 @@ testNodes/*
 # Database directory
 mainnetdb/
 objectsdb/
+peerdb/
 
 # OSX related files
 .DS_Store

@@ -1,18 +1,28 @@
+---
+description:  How to set up your own GoShimmer node in the GoShimmer testnet with Docker
+image: /img/tutorials/setup/dashboard.png
+keywords:
+- node
+- set up
+- docker
+- http API
+- tcp
+- dashboard
+- prometheus
+- grafana
+---
 # Setting up a GoShimmer node 
 
-This page describes how to setup your own GoShimmer node in the GoShimmer testnet with Docker.
+This page describes how to set up your own GoShimmer node in the GoShimmer testnet with Docker.
 
-> DISCLAIMER: **Note that there will be breaking changes frequently (approx. bi-weekly) where the entire network needs to upgrade. If you don't have time to continuously monitor and upgrade your node, then running a GoShimmer node might not be for you.**  We want to emphasize that running a GoShimmer node requires proper knowledge in Linux and IT related topics such as networking and so on. It is not meant as a node to be run by people with little experience in the mentioned fields. **Do not plan to run any production level services on your node/network.**
+:::warning DISCLAIMER
+**Note that there will be breaking changes frequently (approx. bi-weekly) where the entire network needs to upgrade. If you don't have time to continuously monitor and upgrade your node, then running a GoShimmer node might not be for you.**  
 
-| Contents                                                                        |
-|:------------------------------------------------------------------------------- |
-| [Why you should run a node](#why-you-should-run-a-node)                           |
-| [Installing GoShimmer with Docker](#installing-goshimmer-with-docker)           |
-| [Running the GoShimmer node](#running-the-goshimmer-node)                       |
-| [Managing the GoShimmer node lifecycle](#managing-the-goshimmer-node-lifecycle) |
-| [Setting up the Grafana dashboard](#setting-up-the-grafana-dashboard)           |
+We want to emphasize that running a GoShimmer node requires proper knowledge in Linux and IT related topics such as networking and so on. It is not meant as a node to be run by people with little experience in the mentioned fields. **Do not plan to run any production level services on your node/network.**
+:::
 
-## Why you should run a node
+
+## Why You Should Run a Node
 
 Running a node in the GoShimmer testnet helps us in the following ways:
 * It increases the amount of nodes in the network and thus lets it form a more realistic network.
@@ -20,13 +30,21 @@ Running a node in the GoShimmer testnet helps us in the following ways:
 * Your node is configured to send metric data to a centralized analysis server where we store information such as resource consumption, traffic, FPC vote context processing and so on. This data helps us further fostering the development of GoShimmer and assessing network behavior.
 * If you expose your HTTP API port, you provide an entrypoint for other people to interact with the network.
 
-> Note that any metric data is anonymous.
+:::note
+
+Any metric data is anonymous.
+
+:::
 
 ## Installing GoShimmer with Docker
 
 #### Hardware Requirements
 
-> Note that we do not provide a Docker image or binaries for ARM based systems such as Raspberry Pis.
+:::note
+
+We do not provide a Docker image or binaries for ARM based systems such as Raspberry Pis.
+
+:::
 
 We recommend running GoShimmer on a x86 VPS with following minimum hardware specs:
 * 2 cores / 4 threads
@@ -39,7 +57,11 @@ If you plan on running your GoShimmer node from home, please only do so if you k
 
 ---
 
-> In the following sections we are going to use a CX21 Hetzner instance with Ubuntu 20.04 while being logged in as root
+:::info
+
+In the following sections we are going to use a CX21 Hetzner instance with Ubuntu 20.04 while being logged in as root
+
+:::
 
 Lets first upgrade the packages on our system:
 ```
@@ -104,6 +126,7 @@ CONTAINER ID        IMAGE               COMMAND             CREATED             
 ```
 
 ### Install Docker Compose
+
 Docker compose gives us the ability to define our services with `docker-compose.yml` files instead of having to define all container parameters directly on the CLI.
 
 Download docker compose:
@@ -164,7 +187,8 @@ services:
     hostname: goshimmer
     stop_grace_period: 2m
     volumes:
-      - "./db:/tmp/mainnetdb:rw"   
+      - "./db:/tmp/mainnetdb:rw"
+      - "./peerdb:/tmp/peerdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       # Autopeering 
@@ -180,10 +204,10 @@ services:
       # pprof profiling
       - "0.0.0.0:6061:6061/tcp"
     environment:
-      - ANALYSIS_CLIENT_SERVERADDRESS=ressims.iota.cafe:21888
-      - AUTOPEERING_PORT=14626
+      - ANALYSIS_CLIENT_SERVERADDRESS=analysisentry-01.devnet.shimmer.iota.cafe:21888
+      - AUTOPEERING_BINDADDRESS=0.0.0.0:14626
       - DASHBOARD_BINDADDRESS=0.0.0.0:8081
-      - GOSSIP_PORT=14666
+      - GOSSIP_BINDADDRESS=0.0.0.0:14666
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
       - NETWORKDELAY_ORIGINPUBLICKEY=9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd
@@ -191,23 +215,29 @@ services:
       - PROMETHEUS_BINDADDRESS=0.0.0.0:9311
     command: >
       --skip-config=true
-      --autopeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
-      --node.disablePlugins=
+      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
+      --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
+      --database.directory=/tmp/mainnetdb
+      --node.peerDBDirectory=/tmp/peerdb
       --logger.level=info
       --logger.disableEvents=false
-      --logger.remotelog.serverAddress=ressims.iota.cafe:5213
-      --drng.pollen.instanceId=1
+      --logger.remotelog.serverAddress=metrics-01.devnet.shimmer.iota.cafe:5213
+      --drng.pollen.instanceID=1
       --drng.pollen.threshold=3
       --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
-      --drng.xteam.instanceId=1339
-      --drng.xteam.threshold=4
-      --drng.xteam.committeeMembers=GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo,68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt,Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1,75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs,CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf,7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16,CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx
+      --drng.xTeam.instanceID=1339
+      --drng.xTeam.threshold=4
+      --drng.xTeam.committeeMembers=GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo,68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt,Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1,75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs,CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf,7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16,CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx
     networks:
       - outside
 ```
 
-> If performance is a concern, you can also run your containers with `network_mode: "host"`, however, you must then adjust the hostnames in the configs for the corresponding containers and perhaps also create some iptable rules to block traffic from outside accessing your services directly.
+:::info
+
+If performance is a concern, you can also run your containers with `network_mode: "host"`, however, you must then adjust the hostnames in the configs for the corresponding containers and perhaps also create some iptable rules to block traffic from outside accessing your services directly.
+
+:::
 
 Note how we are setting up NATs for different ports:
 
@@ -223,9 +253,13 @@ Note how we are setting up NATs for different ports:
 
 It is important that the ports are correctly mapped so that the node for example actively participates in FPC votes or can gain inbound neighbors.
 
-> If the UDP NAT mapping is not configured correctly, GoShimmer will terminate with an error message stating to check the NAT configuration
+:::warning INFO
 
-## Running the GoShimmer node
+If the UDP NAT mapping is not configured correctly, GoShimmer will terminate with an error message stating to check the NAT configuration
+
+:::
+
+## Running the GoShimmer Node
 
 Within the `/opt/goshimmer` folder where the `docker-compose.yml` resides, simply execute:
 ```
@@ -253,10 +287,10 @@ When the node starts for the first time, it must synchronize its state with the 
 #### Dashboard
 The dashboard of your GoShimmer node should be accessible via `http://<your-ip>:8081`. If your node is still synchronizing, you might see a higher inflow of MPS.
 
-![](https://user-images.githubusercontent.com/11289354/119599542-c3985e00-be17-11eb-8769-7e639f365ae5.png)
+[![GoShimmer Dashboard](/img/tutorials/setup/dashboard.png)](/img/tutorials/setup/dashboard.png)
 
 After a while, your node's dashboard should also display up to 8 neighbors:
-![](https://i.imgur.com/gAyAXK9.png)
+[![GoShimmer Dashboard Neighbors](/img/tutorials/setup/dashboard_neighbors.png)](/img/tutorials/setup/dashboard_neighbors.png)
 
 
 #### HTTP API
@@ -303,17 +337,20 @@ GoShimmer also exposes an HTTP API. To check whether that works correctly, you c
 
 ## Managing the GoShimmer node lifecycle
 
-##### Stopping the node
+### Stopping the Node
+
 ```
 docker-compose stop
 ```
 
-##### Resetting the node
+### Resetting the Node
+
 ```
 docker-compose down
 ```
 
-##### Upgrading the node
+### Upgrading the Node
+
 **Ensure that the image version in the `docker-compose.yml` is `latest`** then execute following commands:
 ```
 docker-compose down
@@ -322,22 +359,25 @@ docker-compose pull
 docker-compose up -d
 ```
 
-##### Following log output
+### Following Log Output
+
 ```
 docker logs -f --since=1m goshimmer
 ```
 
-##### Create a log.txt
+### Create a log.txt
+
 ```
 docker logs goshimmer > log.txt
 ```
-##### Update Grafana Dashboard
+### Update Grafana Dashboard
+
 If you set up the Grafana dashboard for your node according to the next section "Setting up the Grafana dashboard", the following method will help you to update when a new version is released.
 
-You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
+You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
 Supposing you are at `/opt/goshimmer/`:
 ```
-wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/monitoring/grafana/dashboards/local_dashboard.json
 cp local_dashboard.json grafana/dashboards
 ```
 Restart the grafana container:
@@ -348,7 +388,8 @@ docker restart grafana
 
 ## Setting up the Grafana dashboard
 
-#### Add Prometheus and Grafana Containers to `docker-compose.yml`
+### Add Prometheus and Grafana Containers to `docker-compose.yml`
+
 Append the following to the previously described `docker-compose.yml` file (**make sure to also copy the space in front of "prometheus"/the entire whitespace**):
 ```yaml
   prometheus:
@@ -383,7 +424,9 @@ Append the following to the previously described `docker-compose.yml` file (**ma
     networks:
       - outside
 ```
+
 #### Create Prometheus config
+
 1. Create a `prometheus/data` directory in `/opt/goshimmer`:
 ```
 cd /opt/goshimmer
@@ -406,7 +449,9 @@ scrape_configs:
 ```
 chmod -R 777 prometheus
 ```
+
 #### Create Grafana configs
+
 1. Create necessary config dirs in `/opt/goshimmer/`.
 ```
 mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/provisioning/notifiers grafana/provisioning/plugins
@@ -462,16 +507,18 @@ providers:
 ```
 4. Add predefined GoShimmer Local Metrics Dashboard.
 
-Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json).
+Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json).
 ```
-wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/monitoring/grafana/dashboards/local_dashboard.json
 cp local_dashboard.json grafana/dashboards
 ```
 5. Add permissions to Grafana config folder
 ```
 chmod -R 777 grafana
 ```
+
 #### Run GoShimmer with Prometheus and Grafana:
+
 ```
 docker-compose up -d
 ```

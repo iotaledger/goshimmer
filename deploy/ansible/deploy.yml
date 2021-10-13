@@ -25,3 +25,7 @@
     nodeType: public-node
   roles:
     - goshimmer-node
+
+- hosts: vanilla-01*
+  roles:
+    - snapshotter

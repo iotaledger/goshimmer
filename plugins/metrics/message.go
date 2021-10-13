@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // MessageType defines the component for the different MPS metrics.
@@ -315,7 +314,7 @@ func measurePerComponentCounter() {
 }
 
 func measureMessageTips() {
-	metrics.Events().MessageTips.Trigger(uint64(messagelayer.Tangle().TipManager.TipCount()))
+	metrics.Events().MessageTips.Trigger(uint64(deps.Tangle.TipManager.TipCount()))
 }
 
 // increases the received MPS counter
@@ -339,12 +338,12 @@ func measureReceivedMPS() {
 }
 
 func measureRequestQueueSize() {
-	size := int64(messagelayer.Tangle().Requester.RequestQueueSize())
+	size := int64(deps.Tangle.Requester.RequestQueueSize())
 	requestQueueSize.Store(size)
 }
 
 func measureInitialDBStats() {
-	solid, total, sumSolidTime, missing := messagelayer.Tangle().Storage.DBStats()
+	solid, total, sumSolidTime, missing := deps.Tangle.Storage.DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
 	initialSumSolidificationTime = sumSolidTime

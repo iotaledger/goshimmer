@@ -1,45 +1,49 @@
 package metrics
 
 import (
-	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 	"github.com/iotaledger/hive.go/types"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	gossippkg "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PluginName is the name of the metrics plugin.
 const PluginName = "Metrics"
 
 var (
-	// plugin is the plugin instance of the metrics plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the metrics plugin.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 	log    *logger.Logger
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Tangle    *tangle.Tangle
+	GossipMgr *gossip.Manager     `optional:"true"`
+	Selection *selection.Protocol `optional:"true"`
+	Local     *peer.Local
+}
+
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
@@ -90,10 +94,13 @@ func run(_ *node.Plugin) {
 
 	// create a background worker that updates the mana metrics
 	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(shutdownSignal <-chan struct{}) {
+		if deps.GossipMgr == nil {
+			return
+		}
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
 		timeutil.NewTicker(func() {
 			measureMana()
-		}, time.Second*time.Duration(Parameters.ManaUpdateInterval), shutdownSignal)
+		}, Parameters.ManaUpdateInterval, shutdownSignal)
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-shutdownSignal
 		log.Infof("Stopping Metrics Mana Updater ...")
@@ -108,7 +115,7 @@ func run(_ *node.Plugin) {
 			timeutil.NewTicker(func() {
 				measureAccessResearchMana()
 				measureConsensusResearchMana()
-			}, time.Second*time.Duration(Parameters.ManaUpdateInterval), shutdownSignal)
+			}, Parameters.ManaUpdateInterval, shutdownSignal)
 			// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 			<-shutdownSignal
 			log.Infof("Stopping Metrics Research Mana Updater ...")
@@ -122,8 +129,8 @@ func registerLocalMetrics() {
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
-	messagelayer.Tangle().Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+	deps.Tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			increaseReceivedMPSCounter()
 			increasePerPayloadCounter(message.Payload().Type())
 			// MessageStored is triggered in storeMessageWorker that saves the msg to database
@@ -132,19 +139,19 @@ func registerLocalMetrics() {
 		increasePerComponentCounter(Store)
 	}))
 
-	messagelayer.Tangle().Storage.Events.MessageRemoved.Attach(events.NewClosure(func(messageId tangle.MessageID) {
+	deps.Tangle.Storage.Events.MessageRemoved.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		// MessageRemoved triggered when the message gets removed from database.
 		messageTotalCountDB.Dec()
 	}))
 
 	// messages can only become solid once, then they stay like that, hence no .Dec() part
-	messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		increasePerComponentCounter(Solidifier)
 		solidTimeMutex.Lock()
 		defer solidTimeMutex.Unlock()
 
 		// Consume should release cachedMessageMetadata
-		messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.IsSolid() {
 				messageSolidCountDBInc.Inc()
 				sumSolidificationTime += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
@@ -153,53 +160,54 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a message gets added to missing message storage
-	messagelayer.Tangle().Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
+	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		missingMessageCountDB.Inc()
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
-	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(tangle.MessageID) {
+	deps.Tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(tangle.MessageID) {
 		missingMessageCountDB.Dec()
 	}))
 
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		increasePerComponentCounter(Scheduler)
 	}))
 
-	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(message tangle.MessageID) {
+	deps.Tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(message tangle.MessageID) {
 		increasePerComponentCounter(Booker)
 	}))
 
-	messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messageType := DataMessage
-		messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
+		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
 			messageType = Transaction
 		})
 
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			message.ForEachParent(func(parent tangle.Parent) {
 				increasePerParentType(parent.Type)
 			})
 		})
-		if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+		if deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			messageFinalizationTotalTime[messageType] += uint64(clock.Since(messageMetadata.ReceivedTime()).Milliseconds())
 		}) {
 			finalizedMessageCount[messageType]++
 		}
 	}))
 
-	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 		if _, exists := activeBranches[branchID]; !exists {
 			return
 		}
 
-		oldestAttachmentTime, _, err := messagelayer.Tangle().Utils.FirstAttachment(branchID.TransactionID())
+		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(branchID.TransactionID())
+
 		if err != nil {
 			return
 		}
-		messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if _, exists := activeBranches[branchID]; exists && conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
 				delete(activeBranches, conflictingBranchID)
@@ -212,7 +220,7 @@ func registerLocalMetrics() {
 		delete(activeBranches, branchID)
 	}))
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 		if _, exists := activeBranches[branchID]; !exists {
@@ -234,11 +242,13 @@ func registerLocalMetrics() {
 		isTangleTimeSynced.Store(synced)
 	}))
 
-	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
-	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
+	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
+	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
-	autopeering.Selection().Events().IncomingPeering.Attach(onAutopeeringSelection)
-	autopeering.Selection().Events().OutgoingPeering.Attach(onAutopeeringSelection)
+	if deps.Selection != nil {
+		deps.Selection.Events().IncomingPeering.Attach(onAutopeeringSelection)
+		deps.Selection.Events().OutgoingPeering.Attach(onAutopeeringSelection)
+	}
 
 	metrics.Events().MessageTips.Attach(events.NewClosure(func(tipsCount uint64) {
 		messageTips.Store(tipsCount)

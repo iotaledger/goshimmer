@@ -4,21 +4,23 @@
 package remotemetrics
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
+	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
@@ -37,29 +39,35 @@ const (
 )
 
 var (
-	// plugin is the plugin instance of the remote plugin instance.
-	plugin     *node.Plugin
-	pluginOnce sync.Once
+	// Plugin is the plugin instance of the remote plugin instance.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin("RemoteLogMetrics", node.Enabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Local        *peer.Local
+	Tangle       *tangle.Tangle
+	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
+	DrngInstance *drng.DRNG                  `optional:"true"`
+	ClockPlugin  *node.Plugin                `name:"clock" optional:"true"`
+}
+
+func init() {
+	Plugin = node.NewPlugin("RemoteLogMetrics", deps, node.Disabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
 	measureInitialBranchCounts()
-
 	configureSyncMetrics()
-	configureDRNGMetrics()
-	configureBranchConfirmationMetrics()
+	if deps.DrngInstance != nil {
+		configureDRNGMetrics()
+	}
 	configureMessageFinalizedMetrics()
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Node State Logger Updater", func(shutdownSignal <-chan struct{}) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
@@ -89,16 +97,16 @@ func configureDRNGMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
+	deps.DrngInstance.Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
 }
 
 func configureBranchConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	messagelayer.FinalityGadget().Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
+	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 		if _, exists := activeBranches[branchID]; !exists {
@@ -113,8 +121,8 @@ func configureMessageFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		messagelayer.FinalityGadget().Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+		deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 	} else {
-		messagelayer.FinalityGadget().Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
+		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
 	}
 }

@@ -2,6 +2,7 @@ package prng_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -9,14 +10,14 @@ import (
 )
 
 func TestResolveNextTimePoint(t *testing.T) {
-	assert.EqualValues(t, 105, prng.ResolveNextTimePoint(103, 5))
-	assert.EqualValues(t, 110, prng.ResolveNextTimePoint(105, 5))
-	assert.EqualValues(t, 105, prng.ResolveNextTimePoint(100, 5))
-	assert.EqualValues(t, 100, prng.ResolveNextTimePoint(97, 5))
+	assert.EqualValues(t, 105, prng.ResolveNextTimePointSec(103, 5*time.Second))
+	assert.EqualValues(t, 110, prng.ResolveNextTimePointSec(105, 5*time.Second))
+	assert.EqualValues(t, 105, prng.ResolveNextTimePointSec(100, 5*time.Second))
+	assert.EqualValues(t, 100, prng.ResolveNextTimePointSec(97, 5*time.Second))
 }
 
 func TestUnixTsPrng(t *testing.T) {
-	unixTsRng := prng.NewUnixTimestampPRNG(1)
+	unixTsRng := prng.NewUnixTimestampPRNG(1 * time.Second)
 	unixTsRng.Start()
 	defer unixTsRng.Stop()
 

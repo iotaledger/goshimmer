@@ -32,13 +32,13 @@ func configureDRNG() *drng.DRNG {
 	// parse identities of the committee members
 	committeeMembers, err := parseCommitteeMembers(Parameters.Pollen.CommitteeMembers)
 	if err != nil {
-		plugin.LogWarnf("Invalid Pollen committee members: %s", err)
+		Plugin.LogWarnf("Invalid Pollen committee members: %s", err)
 	}
 
 	// parse distributed public key of the committee
 	dpk, err := parseDistributedPublicKey(Parameters.Pollen.DistributedPubKey)
 	if err != nil {
-		plugin.LogWarn(err)
+		Plugin.LogWarn(err)
 	}
 
 	// configure Pollen committee
@@ -57,13 +57,13 @@ func configureDRNG() *drng.DRNG {
 	// parse identities of the x-team committee members
 	committeeMembers, err = parseCommitteeMembers(Parameters.XTeam.CommitteeMembers)
 	if err != nil {
-		plugin.LogWarnf("Invalid X-Team committee members: %s", err)
+		Plugin.LogWarnf("Invalid X-Team committee members: %s", err)
 	}
 
 	// parse distributed public key of the committee
 	dpk, err = parseDistributedPublicKey(Parameters.XTeam.DistributedPubKey)
 	if err != nil {
-		plugin.LogWarn(err)
+		Plugin.LogWarn(err)
 	}
 
 	// configure X-Team committee
@@ -82,13 +82,13 @@ func configureDRNG() *drng.DRNG {
 	// parse identities of the x-team committee members
 	committeeMembers, err = parseCommitteeMembers(Parameters.Custom.CommitteeMembers)
 	if err != nil {
-		plugin.LogWarn("Invalid custom committee members: %s", err)
+		Plugin.LogWarn("Invalid custom committee members: %s", err)
 	}
 
 	// parse distributed public key of the committee
 	dpk, err = parseDistributedPublicKey(Parameters.Custom.DistributedPubKey)
 	if err != nil {
-		plugin.LogWarn(err)
+		Plugin.LogWarn(err)
 	}
 
 	// configure Custom committee
@@ -103,17 +103,11 @@ func configureDRNG() *drng.DRNG {
 		if customConf.InstanceID != Pollen && customConf.InstanceID != XTeam {
 			c[customConf.InstanceID] = []drng.Option{drng.SetCommittee(customConf)}
 		} else {
-			plugin.LogWarnf("Invalid Custom dRNG instanceID: %d, must be different than both Pollen and X-Team dRNG instance IDs (%d - %d)", customConf.InstanceID, pollenConf.InstanceID, xTeamConf.InstanceID)
+			Plugin.LogWarnf("Invalid Custom dRNG instanceID: %d, must be different than both Pollen and X-Team dRNG instance IDs (%d - %d)", customConf.InstanceID, pollenConf.InstanceID, xTeamConf.InstanceID)
 		}
 	}
 
 	return drng.New(c)
-}
-
-// Instance returns the DRNG instance.
-func Instance() *drng.DRNG {
-	once.Do(func() { instance = configureDRNG() })
-	return instance
 }
 
 func parseCommitteeMembers(committeeMembers []string) (result []ed25519.PublicKey, err error) {
@@ -141,10 +135,10 @@ func parseDistributedPublicKey(pubKey string) (dpk []byte, err error) {
 	if pubKey != "" {
 		dpk, err = hex.DecodeString(pubKey)
 		if err != nil {
-			return []byte{}, fmt.Errorf("Invalid %s: %s", pubKey, err)
+			return []byte{}, fmt.Errorf("invalid %s: %s", pubKey, err)
 		}
 		if l := len(dpk); l != drng.PublicKeySize {
-			return []byte{}, fmt.Errorf("Invalid %s length: %d, need %d", pubKey, l, drng.PublicKeySize)
+			return []byte{}, fmt.Errorf("invalid %s length: %d, need %d", pubKey, l, drng.PublicKeySize)
 		}
 	}
 	return

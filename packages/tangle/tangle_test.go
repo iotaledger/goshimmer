@@ -155,8 +155,8 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 		atomic.AddInt32(&solidMessages, 1)
 	}))
 
-	messageTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("INVALID:", messageID)
+	messageTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
+		fmt.Println("INVALID:", messageInvalidEvent.MessageID)
 		atomic.AddInt32(&invalidMessages, 1)
 	}))
 
@@ -501,9 +501,9 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// message invalid events
-	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
 		n := atomic.AddInt32(&invalidMessages, 1)
-		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageInvalidEvent.MessageID)
 	}))
 
 	tangle.Storage.Events.MessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {

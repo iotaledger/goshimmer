@@ -5,7 +5,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
 )
@@ -63,7 +62,7 @@ func measureInitialBranchStats() {
 	defer activeBranchesMutex.Unlock()
 	activeBranches = make(map[ledgerstate.BranchID]types.Empty)
 	conflictsToRemove := make([]ledgerstate.BranchID, 0)
-	messagelayer.Tangle().LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
@@ -74,12 +73,12 @@ func measureInitialBranchStats() {
 		default:
 			initialBranchTotalCountDB++
 			activeBranches[branch.ID()] = types.Void
-			branchGoF, err := messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+			branchGoF, err := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 			if err != nil {
 				return
 			}
 			if branchGoF == gof.High {
-				messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
+				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}
@@ -93,7 +92,7 @@ func measureInitialBranchStats() {
 
 	// remove finalized branches from the map in separate loop when all conflicting branches are known
 	for _, branchID := range conflictsToRemove {
-		messagelayer.Tangle().LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 			if conflictingBranchID != branchID {
 				delete(activeBranches, conflictingBranchID)
 			}
