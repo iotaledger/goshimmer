@@ -24,8 +24,9 @@ var ErrNotFound = errors.New("not found")
 var ErrForbidden = errors.New("forbidden")
 
 const (
-	app    = "/plugins/dagsvisualizer/frontend/build"
-	static = "/plugins/dagsvisualizer/frontend/build/static/js"
+	app       = "/plugins/dagsvisualizer/frontend/build"
+	staticJS  = "/plugins/dagsvisualizer/frontend/build/static/js"
+	staticCSS = "/plugins/dagsvisualizer/frontend/build/static/css"
 )
 
 func indexRoute(e echo.Context) error {
@@ -65,14 +66,22 @@ func setupRoutes(e *echo.Echo) {
 		if err != nil {
 			return err
 		}
+		fmt.Println(info.Name())
 		e.GET("/app/"+info.Name(), echo.WrapHandler(http.StripPrefix("/app", http.FileServer(pkger.Dir(app)))))
 		return nil
 	})
-	pkger.Walk(static, func(path string, info os.FileInfo, err error) error {
+	pkger.Walk(staticJS, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		e.GET("/static/js/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/js/", http.FileServer(pkger.Dir(static)))))
+		e.GET("/static/js/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/js/", http.FileServer(pkger.Dir(staticJS)))))
+		return nil
+	})
+	pkger.Walk(staticCSS, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		e.GET("/static/css/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/css/", http.FileServer(pkger.Dir(staticCSS)))))
 		return nil
 	})
 

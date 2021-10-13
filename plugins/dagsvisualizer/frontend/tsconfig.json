@@ -18,6 +18,7 @@
     "allowSyntheticDefaultImports": true,
     "noFallthroughCasesInSwitch": true,
     "strictPropertyInitialization": false,
+    "strictNullChecks": false,
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,

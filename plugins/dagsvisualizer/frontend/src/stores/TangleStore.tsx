@@ -1,5 +1,6 @@
 import { action, observable, ObservableMap } from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
+import cytoscape from 'cytoscape';
 
 export class tangleVertex {
     ID:              string;   
@@ -159,6 +160,48 @@ export class TangleStore {
                 }
             });
         }
+    }
+
+    start = () => {
+        var cy = cytoscape({
+            container: document.getElementById("tangleVisualizer"), // container to render in
+            elements: [ // list of graph elements to start with
+                { // node a
+                  data: { id: 'a' }
+                },
+                { // node b
+                  data: { id: 'b' }
+                },
+                { // edge ab
+                  data: { id: 'ab', source: 'a', target: 'b' }
+                }
+              ],
+            style: [ // the stylesheet for the graph
+                {
+                  selector: 'node',
+                  style: {
+                    'background-color': '#666',
+                    'label': 'data(id)',
+                    'width': 5,
+                    'height': 5,
+                  }
+                },            
+                {
+                  selector: 'edge',
+                  style: {
+                    'width': 3,
+                    'line-color': '#ccc',
+                    'target-arrow-color': '#ccc',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier'
+                  }
+                }
+              ],            
+              layout: {
+                name: 'grid',
+                rows: 1
+              }
+        });        
     }
 }
 
