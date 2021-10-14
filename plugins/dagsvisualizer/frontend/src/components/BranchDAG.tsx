@@ -1,6 +1,6 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container'
-import {inject, observer, PropTypes} from "mobx-react";
+import {inject, observer} from "mobx-react";
 import BranchStore from "stores/BranchStore";
 import "styles/style.css";
 

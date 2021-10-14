@@ -1,6 +1,6 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container'
-import {inject, observer, PropTypes} from "mobx-react";
+import {inject, observer} from "mobx-react";
 import TangleStore from "stores/TangleStore";
 import "styles/style.css";
 

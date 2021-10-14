@@ -9,7 +9,7 @@ interface Props {
 
 @inject("utxoStore")
 @observer
-export class UTXODAG extends React.Component {
+export class UTXODAG extends React.Component<Props, any> {
     render () {
         return (
             <Container>

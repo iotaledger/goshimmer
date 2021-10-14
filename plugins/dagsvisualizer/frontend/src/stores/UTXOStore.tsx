@@ -1,5 +1,5 @@
 import { action, observable, ObservableMap } from 'mobx';
-import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
+import {registerHandler, unregisterHandler, WSMsgType} from 'WS';
 
 export class utxoVertex {
     msgID:          string;   
