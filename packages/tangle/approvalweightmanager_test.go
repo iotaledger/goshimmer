@@ -1,4 +1,3 @@
-//nolint:dupl
 package tangle
 
 import (
@@ -66,7 +65,6 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 
 	// measure time for each marker
 	for i := 1; i < 3; i++ {
-
 		measurements := 100
 		var total time.Duration
 		for m := 0; m < measurements; m++ {
