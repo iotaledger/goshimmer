@@ -203,6 +203,11 @@ func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supp
 }
 
 func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
+	// Don't do anything if the supporter is not relevant.
+	if !a.isRelevantSupporter(message) {
+		return
+	}
+
 	statement, isNewStatement := a.statementFromMessage(message)
 	if !isNewStatement {
 		return
@@ -217,7 +222,7 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 		panic(err)
 	}
 
-	supportWalker := walker.New()
+	supportWalker := walker.New(false)
 	for conflictBranchID := range conflictBranchIDs {
 		supportWalker.Push(conflictBranchID)
 	}
@@ -228,7 +233,7 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 }
 
 func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
-	if branchID == ledgerstate.MasterBranchID || !a.isRelevantSupporter(message) {
+	if branchID == ledgerstate.MasterBranchID {
 		return
 	}
 
@@ -244,7 +249,7 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 
 	if added {
 		a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-			revokeWalker := walker.New()
+			revokeWalker := walker.New(false)
 			revokeWalker.Push(conflictingBranchID)
 
 			for revokeWalker.HasNext() {
