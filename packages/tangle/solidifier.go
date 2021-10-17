@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/syncutils"
 
-	"github.com/iotaledger/goshimmer/packages/eventsqueue"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -97,9 +96,6 @@ func (s *Solidifier) solidifyWeakly(message *Message, messageMetadata *MessageMe
 }
 
 func (s *Solidifier) solidifyStrongly(message *Message, messageMetadata *MessageMetadata) (approversToPropagate MessageIDs) {
-	ledgerstateEvents := eventsqueue.New()
-	defer ledgerstateEvents.Trigger()
-
 	approversToPropagate = make(MessageIDs, 0)
 
 	if s.isMessageSolid(message, messageMetadata, true) {
