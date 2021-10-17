@@ -158,7 +158,10 @@ func (s *Solidifier) isMessageWeaklySolid(message *Message, messageMetadata *Mes
 
 	if !s.parentsAgeValid(message.IssuingTime(), message.ParentsByType(WeakParentType)) {
 		if messageMetadata.SetInvalid(true) {
-			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+			s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{
+				MessageID: message.ID(),
+				Error:     errors.Errorf("parents age invalid for Message with %s: %w", message.ID(), cerrors.ErrFatal),
+			})
 		}
 
 		return false
@@ -193,7 +196,10 @@ func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 	})
 
 	if solid && (!s.parentsAgeValid(message.IssuingTime(), message.ParentsByType(StrongParentType)) || !s.parentsAgeValid(message.IssuingTime(), message.ParentsByType(LikeParentType))) && len(message.ParentsByType(WeakParentType)) == 0 && messageMetadata.SetInvalid(true) {
-		s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{
+			MessageID: message.ID(),
+			Error:     errors.Errorf("parents age invalid for Message with %s: %w", message.ID(), cerrors.ErrFatal),
+		})
 
 		return false
 	}
@@ -209,7 +215,10 @@ func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 
 	if !s.parentsAgeValid(message.IssuingTime(), message.ParentsByType(WeakParentType)) {
 		if messageMetadata.SetInvalid(true) {
-			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+			s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{
+				MessageID: message.ID(),
+				Error:     errors.Errorf("parents age invalid for Message with %s: %w", message.ID(), cerrors.ErrFatal),
+			})
 		}
 
 		return false
@@ -315,10 +324,16 @@ func (s *Solidifier) solidifyPayload(message *Message, messageMetadata *MessageM
 		switch {
 		case errors.Is(err, ledgerstate.ErrInvalidStateTransition):
 			messageMetadata.SetInvalid(true)
-			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+			s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{
+				MessageID: message.ID(),
+				Error:     err,
+			})
 		case errors.Is(err, ledgerstate.ErrTransactionInvalid):
 			messageMetadata.SetInvalid(true)
-			s.tangle.Events.MessageInvalid.Trigger(message.ID())
+			s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{
+				MessageID: message.ID(),
+				Error:     err,
+			})
 		default:
 			s.Events.Error.Trigger(errors.Errorf("failed to store Transaction: %w", err))
 		}
