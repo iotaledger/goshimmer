@@ -1,5 +1,17 @@
-# Configuration parameters
-## Customizing configuration
+---
+description: You can pass configuration parameters in two ways when running GoShimmer, through a JSON configuration file or through command line arguments. Parameters are grouped into embedded objects containing parameters for a single plugin or functionality. There is no limit on how deep the configuration object may be embedded.
+image: /img/logo/goshimmer_light.png
+keywords:
+- json 
+- command line
+- embedded object
+- parameters
+---
+
+# Configuration Parameters
+
+## Customizing Configuration
+
 Users can pass configuration parameters in two ways when running GoShimmer. One way is through a JSON configuration file and another way is through command line arguments.
 Settings passed through command line arguments take precedence. The JSON configuration file is structured as a JSON object containing parameters and their values.
 Parameters are grouped into embedded objects containing parameters for a single plugin or functionality. There is no limit on how deep the configuration object may be embedded.
@@ -26,43 +38,11 @@ goshimmer \
 --pow.timeout=10s 
 ```
 
-## Custom parameter fields
+## Custom Parameter Fields
 
 Currently, in the code there are two ways in which parameters are registered with GoShimmer. However, one is deprecated way, while the second should be used any longer when adding new parameters.
 
-### Old, deprecated way
-The old way is described shortly to give a basic understanding of how it works, but it should not be used any longer when adding new parameters.
-
-In a package where the parameters will be used, create a `parameters.go` file, that contains the definition of constants, which define parameter names in JSON dot-notation. 
-The constants will be later used in the code to access the parameter value. 
-The file should also contain an `init()` function, which registers the parameters with the `flag` library responsible for parsing configuration along with its default value and short description.
-It should include comments describing what the parameter is for. Here is an example `parameters.go` file:
-
-```go
-package customPackage
-
-import (
-	flag "github.com/spf13/pflag"
-)
-const (
-	// ParamName contains some value used within the plugin
-	ParamName = "customPlugin.paramName"
-)
-
-func init() {
-	flag.Float64(paramName, 0.31, "ParamName used in some calculation")
-}
-```
-
-The parameter values can be accessed in the code in the following way through the `config` plugin:
-
-```go
-import "github.com/iotaledger/goshimmer/plugins/config"
-
-config.Node().Int(CfgGossipPort)
-```
-
-### New way
+### New Way
 
 Defining configuration parameters using the new way is really similar, however the parameters are not registered directly with the package reading the configuration,
 but rather with our custom package that contains all the logic required to make it work seamlessly. 
@@ -102,3 +82,36 @@ In order to access the parameter value, a user can simply access the structure's
 and it will be populated either with the default value or values passed through a JSON config or command-line argument. 
 
 This approach makes it more simple to define new parameters as well as makes accessing configuration values more clear. 
+
+### Old, Deprecated Way
+
+The old way is described shortly to give a basic understanding of how it works, but it should not be used any longer when adding new parameters.
+
+In a package where the parameters will be used, create a `parameters.go` file, that contains the definition of constants, which define parameter names in JSON dot-notation.
+The constants will be later used in the code to access the parameter value.
+The file should also contain an `init()` function, which registers the parameters with the `flag` library responsible for parsing configuration along with its default value and short description.
+It should include comments describing what the parameter is for. Here is an example `parameters.go` file:
+
+```go
+package customPackage
+
+import (
+	flag "github.com/spf13/pflag"
+)
+const (
+	// ParamName contains some value used within the plugin
+	ParamName = "customPlugin.paramName"
+)
+
+func init() {
+	flag.Float64(paramName, 0.31, "ParamName used in some calculation")
+}
+```
+
+The parameter values can be accessed in the code in the following way through the `config` plugin:
+
+```go
+import "github.com/iotaledger/goshimmer/plugins/config"
+
+config.Node().Int(CfgGossipPort)
+```

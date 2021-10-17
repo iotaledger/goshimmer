@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/configuration"
 )
 
@@ -11,7 +13,7 @@ type ParametersDefinition struct {
 	// Global defines whether to collect global metrics.
 	Global bool `default:"false" usage:"include global metrics"`
 	// ManaUpdateInterval defines interval between mana metrics refreshes.
-	ManaUpdateInterval int `default:"30" usage:"mana metrics update interval"`
+	ManaUpdateInterval time.Duration `default:"30s" usage:"mana metrics update interval"`
 	// MetricsManaResearch defines whether to collect research mana metrics.
 	ManaResearch bool `default:"false" usage:"include research mana metrics"`
 }

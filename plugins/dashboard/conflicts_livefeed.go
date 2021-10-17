@@ -110,14 +110,14 @@ func runConflictLiveFeed() {
 
 		onBranchCreatedClosure := events.NewClosure(onBranchCreated)
 		onBranchWeightChangedClosure := events.NewClosure(onBranchWeightChanged)
-		messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
-		messagelayer.Tangle().ApprovalWeightManager.Events.BranchWeightChanged.AttachAfter(onBranchWeightChangedClosure)
+		deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
+		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.AttachAfter(onBranchWeightChangedClosure)
 
 		<-shutdownSignal
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		messagelayer.Tangle().LedgerState.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
-		messagelayer.Tangle().ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChangedClosure)
+		deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
+		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChangedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -129,7 +129,7 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 		BranchID: branchID,
 	}
 
-	messagelayer.Tangle().LedgerState.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.LedgerState.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
 		b.IssuingTime = transaction.Essence().Timestamp()
 	})
 
@@ -140,7 +140,7 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		b.ConflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 
 		for conflictID := range b.ConflictIDs {
@@ -156,7 +156,7 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 			}
 
 			// update all existing branches with a possible new conflict membership
-			messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 				if cm, exists := branches[conflictMember.BranchID()]; exists {
 					cm.ConflictIDs.Add(conflictID)
 					sendBranchUpdate(cm)
@@ -175,7 +175,7 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 
 	b, exists := branches[e.BranchID]
 	if !exists {
-		plugin.LogWarnf("branch %s did not yet exist", e.BranchID)
+		log.Warnf("branch %s did not yet exist", e.BranchID)
 		return
 	}
 
@@ -186,7 +186,7 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 	}
 
 	b.AW = math.Round(e.Weight*precision) / precision
-	b.GoF, _ = messagelayer.Tangle().LedgerState.UTXODAG.BranchGradeOfFinality(b.BranchID)
+	b.GoF, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(b.BranchID)
 	sendBranchUpdate(b)
 
 	if messagelayer.FinalityGadget().IsBranchConfirmed(b.BranchID) {
@@ -216,8 +216,8 @@ func sendAllConflicts() {
 
 func issuerOfOldestAttachment(branchID ledgerstate.BranchID) (id identity.ID) {
 	var oldestAttachmentTime time.Time
-	messagelayer.Tangle().Storage.Attachments(ledgerstate.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
-		messagelayer.Tangle().Storage.Message(attachment.MessageID()).Consume(func(message *tangle.Message) {
+	deps.Tangle.Storage.Attachments(ledgerstate.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
+		deps.Tangle.Storage.Message(attachment.MessageID()).Consume(func(message *tangle.Message) {
 			if oldestAttachmentTime.IsZero() || message.IssuingTime().Before(oldestAttachmentTime) {
 				oldestAttachmentTime = message.IssuingTime()
 				id = identity.New(message.IssuerPublicKey()).ID()

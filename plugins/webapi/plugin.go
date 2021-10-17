@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
@@ -21,96 +22,104 @@ import (
 const PluginName = "WebAPI"
 
 var (
-	// plugin is the plugin instance of the web API plugin.
-	plugin     *node.Plugin
-	pluginOnce sync.Once
-	// server is the web API server.
-	server     *echo.Echo
-	serverOnce sync.Once
+	// Plugin is the plugin instance of the web API plugin.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 
 	log *logger.Logger
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Server *echo.Echo
 }
 
-// Server gets the server instance.
-func Server() *echo.Echo {
-	serverOnce.Do(func() {
-		server = echo.New()
-		server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-			Skipper:      middleware.DefaultSkipper,
-			AllowOrigins: []string{"*"},
-			AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
-		}))
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-		// if enabled, configure basic-auth
-		if Parameters.BasicAuth.Enabled {
-			server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-				if username == Parameters.BasicAuth.Username &&
-					password == Parameters.BasicAuth.Password {
-					return true, nil
-				}
-				return false, nil
-			}))
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() *echo.Echo {
+			server := newServer()
+			return server
+		}); err != nil {
+			Plugin.Panic(err)
 		}
+	}))
+}
 
-		server.HTTPErrorHandler = func(err error, c echo.Context) {
-			log.Warnf("Request failed: %s", err)
+// newServer creates a server instance.
+func newServer() *echo.Echo {
+	server := echo.New()
+	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		Skipper:      middleware.DefaultSkipper,
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
+	}))
 
-			var statusCode int
-			var message string
-
-			switch errors.Unwrap(err) {
-			case echo.ErrUnauthorized:
-				statusCode = http.StatusUnauthorized
-				message = "unauthorized"
-
-			case echo.ErrForbidden:
-				statusCode = http.StatusForbidden
-				message = "access forbidden"
-
-			case echo.ErrInternalServerError:
-				statusCode = http.StatusInternalServerError
-				message = "internal server error"
-
-			case echo.ErrNotFound:
-				statusCode = http.StatusNotFound
-				message = "not found"
-
-			case echo.ErrBadRequest:
-				statusCode = http.StatusBadRequest
-				message = "bad request"
-
-			default:
-				statusCode = http.StatusInternalServerError
-				message = "internal server error"
+	// if enabled, configure basic-auth
+	if Parameters.BasicAuth.Enabled {
+		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+			if username == Parameters.BasicAuth.Username &&
+				password == Parameters.BasicAuth.Password {
+				return true, nil
 			}
+			return false, nil
+		}))
+	}
 
-			message = fmt.Sprintf("%s, error: %+v", message, err)
-			c.String(statusCode, message)
+	server.HTTPErrorHandler = func(err error, c echo.Context) {
+		log.Warnf("Request failed: %s", err)
+
+		var statusCode int
+		var message string
+
+		switch errors.Unwrap(err) {
+		case echo.ErrUnauthorized:
+			statusCode = http.StatusUnauthorized
+			message = "unauthorized"
+
+		case echo.ErrForbidden:
+			statusCode = http.StatusForbidden
+			message = "access forbidden"
+
+		case echo.ErrInternalServerError:
+			statusCode = http.StatusInternalServerError
+			message = "internal server error"
+
+		case echo.ErrNotFound:
+			statusCode = http.StatusNotFound
+			message = "not found"
+
+		case echo.ErrBadRequest:
+			statusCode = http.StatusBadRequest
+			message = "bad request"
+
+		default:
+			statusCode = http.StatusInternalServerError
+			message = "internal server error"
 		}
-	})
+
+		message = fmt.Sprintf("%s, error: %+v", message, err)
+		resErr := c.String(statusCode, message)
+		if resErr != nil {
+			log.Warnf("Failed to send error response: %s", resErr)
+		}
+	}
 	return server
 }
 
 func configure(*node.Plugin) {
-	server = Server()
 	log = logger.NewLogger(PluginName)
 	// configure the server
-	server.HideBanner = true
-	server.HidePort = true
-	server.GET("/", IndexRequest)
+	deps.Server.HideBanner = true
+	deps.Server.HidePort = true
+	deps.Server.GET("/", IndexRequest)
 }
 
 func run(*node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
-	if err := daemon.BackgroundWorker("WebAPI server", worker, shutdown.PriorityWebAPI); err != nil {
+	if err := daemon.BackgroundWorker("WebAPIServer", worker, shutdown.PriorityWebAPI); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
@@ -122,7 +131,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	bindAddr := Parameters.BindAddress
 	go func() {
 		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, Parameters.BasicAuth.Enabled)
-		if err := server.Start(bindAddr); err != nil {
+		if err := deps.Server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
 			}
@@ -139,7 +148,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	log.Infof("Stopping %s ...", PluginName)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	if err := deps.Server.Shutdown(ctx); err != nil {
 		log.Errorf("Error stopping: %s", err)
 	}
 }

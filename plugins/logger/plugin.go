@@ -1,47 +1,34 @@
 package logger
 
 import (
-	"sync"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the logger plugin.
 const PluginName = "Logger"
 
-var (
-	// plugin is the plugin instance of the logger plugin.
-	plugin *node.Plugin
-	once   sync.Once
-)
-
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled)
-	})
-	return plugin
-}
+// Plugin is the plugin instance of the logger plugin.
+var Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
 
 // Init triggers the Init event.
 func Init() {
-	plugin.Events.Init.Trigger(plugin)
+	Plugin.Events.Init.Trigger(Plugin)
 }
 
 func init() {
-	plugin = Plugin()
-
-	configuration.BindParameters(Parameters, "logger")
-
-	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := logger.InitGlobalLogger(config.Node()); err != nil {
-			panic(err)
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Invoke(func(config *configuration.Configuration) {
+			if err := logger.InitGlobalLogger(config); err != nil {
+				panic(err)
+			}
+		}); err != nil {
+			Plugin.Panic(err)
 		}
 
 		// enable logging for the daemon

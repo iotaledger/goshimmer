@@ -8,20 +8,18 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
-	"gopkg.in/src-d/go-git.v4"
+	"go.uber.org/dig"
+	git "gopkg.in/src-d/go-git.v4"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
 )
 
@@ -37,42 +35,52 @@ const (
 )
 
 var (
-	// plugin is the plugin instance of the remote plugin instance.
-	plugin      *node.Plugin
-	pluginOnce  sync.Once
+	// Plugin is the plugin instance of the remote plugin instance.
+	Plugin      *node.Plugin
+	deps        = new(dependencies)
 	myID        string
 	myGitHead   string
 	myGitBranch string
 	workerPool  *workerpool.NonBlockingQueuedWorkerPool
-
-	remoteLogger     *RemoteLoggerConn
-	remoteLoggerOnce sync.Once
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
-	})
-	return plugin
+type dependencies struct {
+	dig.In
+
+	Local        *peer.Local
+	RemoteLogger *RemoteLoggerConn
 }
 
-func configure(plugin *node.Plugin) {
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
+
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(func() *RemoteLoggerConn {
+			remoteLogger, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
+			if err != nil {
+				Plugin.LogFatal(err)
+				return nil
+			}
+			return remoteLogger
+		}); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
+}
+
+func configure(_ *node.Plugin) {
 	if logger_plugin.Parameters.DisableEvents {
 		return
 	}
 
-	// initialize remote logger connection
-	RemoteLogger()
-
-	if local.GetInstance() != nil {
-		myID = local.GetInstance().ID().String()
+	if deps.Local != nil {
+		myID = deps.Local.ID().String()
 	}
 
 	getGitInfo()
 
 	workerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
+		deps.RemoteLogger.SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(runtime.GOMAXPROCS(0)), workerpool.QueueSize(1000))
@@ -95,27 +103,10 @@ func run(plugin *node.Plugin) {
 	}
 }
 
-// SendLogMsg sends log message to the remote logger.
-func SendLogMsg(level logger.Level, name, msg string) {
-	m := logMessage{
-		banner.AppVersion,
-		myGitHead,
-		myGitBranch,
-		myID,
-		level.CapitalString(),
-		name,
-		msg,
-		clock.SyncedTime(),
-		remoteLogType,
-	}
-
-	_ = RemoteLogger().Send(m)
-}
-
 func getGitInfo() {
 	r, err := git.PlainOpen(getGitDir())
 	if err != nil {
-		plugin.LogDebug("Could not open Git repo.")
+		Plugin.LogDebug("Could not open Git repo.")
 		return
 	}
 
@@ -148,21 +139,6 @@ func getGitDir() string {
 	}
 
 	return gitDir
-}
-
-// RemoteLogger represents a connection to our remote log server.
-func RemoteLogger() *RemoteLoggerConn {
-	remoteLoggerOnce.Do(func() {
-		r, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
-		if err != nil {
-			plugin.LogFatal(err)
-			return
-		}
-
-		remoteLogger = r
-	})
-
-	return remoteLogger
 }
 
 type logMessage struct {

@@ -6,7 +6,7 @@ specified nodes after a cooldown.
 
 This program can be configured via CLI flags:
 ```
---relayChecker.cooldownTime int    the cooldown time after broadcasting the data on the specified target node (default 10)
+--relayChecker.cooldownTime time.Duration    the cooldown time after broadcasting the data on the specified target node (default 10s)
 --relayChecker.data string         data to broadcast (default "TEST99BROADCAST99DATA")
 --relayChecker.repeat int          the amount of times to repeat the relay-checker queries (default 1)
 --relayChecker.targetNode string   the target node from the which transaction will be broadcasted from (default "http://127.0.0.1:8080")

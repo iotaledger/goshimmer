@@ -6,13 +6,12 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/drng"
 )
 
 // randomnessHandler returns the current DRNG randomness used.
 func randomnessHandler(c echo.Context) error {
 	randomness := []jsonmodels.Randomness{}
-	for _, state := range drng.Instance().State {
+	for _, state := range deps.DrngInstance.State {
 		randomness = append(randomness,
 			jsonmodels.Randomness{
 				InstanceID: state.Committee().InstanceID,

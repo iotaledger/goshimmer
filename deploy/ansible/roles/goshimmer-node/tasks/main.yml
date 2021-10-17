@@ -4,7 +4,6 @@
     state: directory
     mode: '0755'
 
-
 - name: Template docker-compose.yml
   template:
     src: docker-compose-{{ nodeType }}.yml.j2

@@ -1,19 +1,39 @@
+---
+description: Learn how to write simple dApps as GoShimmer plugins such as a chat dApp and a network delay dApp.
+image: /img/logo/goshimmer_light.png
+keywords:
+- chat 
+- payload
+- message
+- bytes layout
+- web api endpoint
+---
+# How to Create dApps
+ 
+:::info
 
-# How to create dApps
+This guide is meant for developers familiar with the Go programming language.
 
-> This guide is meant for developers familiar with the Go programming language.
+:::
 
-> **DISCLAIMER:** GoShimmer is a rapidly evolving prototype software. As such, the described steps here will likely change in the future. Specifically, we are envisioning to ease the process of dApp creation and installation for node owners. Furthermore, the current approach is in no way hardened and should be seen as purely experimental. Do not write any software for actual production use.
+:::warning DISCLAIMER
 
-## Intro
+GoShimmer is a rapidly evolving prototype software. As such, the described steps here will likely change in the future. Specifically, we are envisioning to ease the process of dApp creation and installation for node owners. Furthermore, the current approach is in no way hardened and should be seen as purely experimental. Do not write any software for actual production use.
+
+:::
+
+## Introduction
+
 Throughout this tutorial we will learn how to write simple dApps as GoShimmer plugins. We provide two different examples: a chat dApp and a network delay dApp. Hope you enjoy the reading!
 
 ## Chat dApp
+
 In this guide we are going to explain how to write a very simple chat dApp so that anyone, connected to a GoShimmer node, could write a short message and read what is being written into the Tangle.
 
 The complete source code of the application can be found [in the repository](https://github.com/iotaledger/goshimmer/tree/develop/plugins/chat). 
 
 ### Overview
+
 Our chat dApp can be implemented in a few simple steps:
 1. A node sends a special message containing a chat payload via the Tangle.
 2. Upon receipt, every other node in the network processes this message and - if the chat dApp/plugin is enabled - triggers an event that a chat message has been received.
@@ -23,6 +43,7 @@ Within GoShimmer we need 3 components to realize this undertaking. First, we nee
 If a node does not have our chat dApp installed and activated, the chat message will be simply treated as a raw data message without any particular meaning. In general that means that in order for a dApp to be useful, node owners need to explicitly install it. In our case we simply ship it with GoShimmer as a [plugin](../implementation_design/plugin.md).
 
 ### Define & Register The Chat Payload
+
 First, we need to decide what data our chat payload should contain and define the byte layout accordingly.
 In our case we need a `From` field to identify the sender of the message (e.g., a nickname, the ID of the node); a `To` field to identify an optional recipient of the message (e.g., a chat room ID, a nickname); a `Message` field containing the actual chat message.
 Therefore, we can define the byte layout as follows:
@@ -66,6 +87,7 @@ var Type = payload.NewType(payloadType, PayloadName, func(data []byte) (payload 
 ```
 
 ### Create The Web API Endpoints
+
 In order to issue a message with our newly created chat payload, we need to create a web API endpoint. Here we simply bind a json request containing the necessary fields: `from`, `to` and `message` and then issue it into the Tangle with `messagelayer.Tangle().IssuePayload(chatPayload)`. This plugin takes care of all the specifics and employs the `MessageFactory` to, i.a., select tips and sign the message.
 
 ```Go
@@ -88,7 +110,8 @@ func SendChatMessage(c echo.Context) error {
 }
 ```
 
-### Listen for chat payloads
+### Listen for Chat Payloads
+
 Every dApp listens for messages from the *communication layer* and when its payload type is detected, takes appropriate action. For us that means listening for chat payload type and triggering an event if we encounter any. In this case the event will contain information about the chat message and also the `MessageID` in terms of a Tangle message as well as its issuance timestamp.
 
 ```Go
@@ -124,11 +147,13 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 ```
 
 ## Network Delay dApp
+
 In this guide we are going to explain how to write a very simple dApp based on an actual dApp we are using in GoShimmer to help us measure the network delay, i.e., how long it takes for every active node in the network to receive a message. Gathering this data will enable us to set realistic parameters for FCoB.
 
 The complete source code of the application can be found [in the repository](https://github.com/iotaledger/goshimmer/tree/develop/plugins/networkdelay). 
 
 ### Overview
+
 Our network delay dApp should help us to identify the time it takes for every active node to receive and process a message. That can be done in a few simple steps:
 1. A (known) node sends a special message containing a network delay payload.
 2. Upon receipt, every other node in the network answers to the special message by posting its current time to our remote logger.
@@ -139,6 +164,7 @@ Within GoShimmer we need 3 components to realize this undertaking. First, we nee
 If a node does not have our dApp installed and activated, the message will be simply treated as a raw data message without any particular meaning. In general that means that in order for a dApp to be useful, node owners need to explicitly install it. In our case we simply ship it with GoShimmer as a [plugin](../implementation_design/plugin.md).
 
 ### Define & Register The Network Delay Object
+
 First, we need to decide what data our network delay payload should contain and define the byte layout accordingly.
 In our case we need an `ID` to identify a network delay message and the `sent time` of the initiator. 
 Therefore, we can define the byte layout as follows:
@@ -181,6 +207,7 @@ var Type = payload.NewType(189, ObjectName, func(data []byte) (payload payload.P
 ```
 
 ### Create The Web API Endpoints
+
 In order to issue a message with our newly created network delay payload, we need to create a web API endpoint. Here we simply create a random `ID` and the `sentTime` and then issue a message with `issuer.IssuePayload()`. This plugin takes care of all the specifics and employs the `MessageFactory` to, i.a., select tips and sign the message.
 
 ```Go
@@ -203,7 +230,8 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 ```
 
 
-### Listen for network delay payloads
+### Listen for Network Delay Payloads
+
 Every dApp listens for messages from the *communication layer* and when its data type is detected, takes appropriate action. For us that means listening for network delay payloads and sending messages to our remote logger if we encounter any. Of course in this context, we only want to react to network delay payloads which were issued by our analysis/entry node server. Therefore, matching the message signer's public key with a configured public key lets us only react to the appropriate network delay payloads.
 
 ```Go

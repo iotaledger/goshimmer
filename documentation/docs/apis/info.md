@@ -1,3 +1,14 @@
+---
+description: Info API returns basic info about the node with the /info and /healthz endpoints and the info() function.
+image: /img/logo/goshimmer_light.png
+keywords:
+- info
+- endpoint
+- function
+- health
+- healthz
+- client lib
+---
 # Info API Methods
 
 Info API returns basic info about the node
@@ -58,8 +69,8 @@ fmt.Println(string(info))
   "totalMessageCount": 74088,
   "enabledPlugins": [
     "Activity",
-    "Analysis-Client",
-    "Autopeering",
+    "AnalysisClient",
+    "AutoPeering",
     "Banner",
     "CLI",
     "Clock",
@@ -69,11 +80,11 @@ fmt.Println(string(info))
     "Dashboard",
     "Database",
     "Gossip",
-    "Graceful Shutdown",
+    "GracefulShutdown",
     "Logger",
     "Mana",
     "ManaRefresher",
-    "Manualpeering",
+    "ManualPeering",
     "MessageLayer",
     "Metrics",
     "NetworkDelay",
@@ -84,22 +95,22 @@ fmt.Println(string(info))
     "RemoteLog",
     "RemoteLogMetrics",
     "WebAPI",
-    "WebAPI DRNG Endpoint",
-    "WebAPI Mana Endpoint",
-    "WebAPI WeightProvider Endpoint",
-    "WebAPI autopeering Endpoint",
-    "WebAPI data Endpoint",
-    "WebAPI faucet Endpoint",
-    "WebAPI healthz Endpoint",
-    "WebAPI info Endpoint",
-    "WebAPI ledgerstate Endpoint",
-    "WebAPI message Endpoint",
-    "WebAPI tools Endpoint",
+    "WebAPIDRNGEndpoint",
+    "WebAPIManaEndpoint",
+    "WebAPIWeightProviderEndpoint",
+    "WebAPIAutoPeeringEndpoint",
+    "WebAPIDataEndpoint",
+    "WebAPIFaucetEndpoint",
+    "WebAPIHealthzEndpoint",
+    "WebAPIInfoEndpoint",
+    "WebAPILedgerstateEndpoint",
+    "WebAPIMessageEndpoint",
+    "WebAPIToolsEndpoint",
     "snapshot"
   ],
   "disabledPlugins": [
-    "Analysis-Dashboard",
-    "Analysis-Server",
+    "AnalysisDashboard",
+    "AnalysisServer",
     "Faucet",
     "ManaEventLogger",
     "Spammer",
@@ -188,6 +199,7 @@ Returns HTTP code 200 if everything is running correctly.
 
 
 ### Parameters
+
 None.
 
 ### Examples

@@ -86,6 +86,7 @@ linters:
         - gofumpt # Gofumpt checks whether code was gofumpt-ed. A more strict version of gofmt.
         - goimports # Sorts and format imports.
         - golint # golint checks style mistakes.
+        - godot # Check if comments end in a period [fast: true, auto-fix: true]
         - gomnd # An analyzer to detect magic numbers.
         - goprintffuncname # Checks that printf-like functions are named with f at the end.
         - gosec # Inspects source code for security problems.
@@ -120,7 +121,6 @@ linters:
     # gochecknoglobals: check that no global variables exist [fast: true, auto-fix: false]
     # gochecknoinits: Checks that no init functions are present in Go code [fast: true, auto-fix: false]
     # gocognit: Computes and checks the cognitive complexity of functions [fast: true, auto-fix: false]
-    # godot: Check if comments end in a period [fast: true, auto-fix: true]
     # godox: Tool for detection of FIXME, TODO and other comment keywords [fast: true, auto-fix: false]
     # gofmt: Gofmt checks whether code was gofmt-ed. By default this tool runs with -s option to check for code simplification [fast: true, auto-fix: true]
     # goheader: Checks is file header matches to pattern [fast: true, auto-fix: false]

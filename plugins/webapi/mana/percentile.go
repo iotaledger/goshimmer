@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -25,7 +24,7 @@ func getPercentileHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
 	if request.NodeID == "" {
-		ID = local.GetInstance().ID()
+		ID = deps.Local.ID()
 	}
 	t := time.Now()
 	access, tAccess, err := manaPlugin.GetManaMap(mana.AccessMana, t)

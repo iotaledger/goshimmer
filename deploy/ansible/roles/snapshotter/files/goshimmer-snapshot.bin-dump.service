@@ -1,0 +1,9 @@
+[Unit]
+Description=Dump Goshimmer Snapshots
+
+[Service]
+Type=oneshot
+ExecStart=/opt/goshimmer_snapshot.bin_dump.sh
+
+[Install]
+WantedBy=timers.target

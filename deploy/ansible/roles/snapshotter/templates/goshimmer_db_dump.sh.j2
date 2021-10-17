@@ -1,0 +1,45 @@
+#!/bin/bash
+
+GOSHIMMER_BASE=/opt/goshimmer
+GOSHIMMER_DB=/opt/goshimmer/db
+HTTP_STS_CODE="$(/usr/bin/curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9101/healthz)"
+DRIVE=/opt/BACKUPS
+
+if [[ $HTTP_STS_CODE -eq 200 ]]; then
+
+  # stop node
+  echo 'Node is solid. Stopping node...'
+  cd ${GOSHIMMER_BASE}
+  docker-compose stop -t 180
+  sleep 5
+  DATE=$(date -u +%FT%TZ)
+  cd ${GOSHIMMER_BASE}
+
+  mkdir -p $DRIVE
+  
+  cd ${GOSHIMMER_DB}
+  echo 'Creating tgz, it will take a while...'
+  time tar --use-compress-program="pigz --fast --recursive" -cvf $DRIVE/$DATE-db.tgz mainnetdb
+
+  echo 'Starting node...'
+  cd ${GOSHIMMER_BASE}
+  docker-compose start
+
+  echo 'Uploading database to S3...'
+  aws s3 cp $DRIVE/$DATE-db.tgz s3://{{ snapshotterBucket }}/dbs/nectar/automated/$DATE-db.tgz --acl public-read
+  aws s3 cp s3://{{ snapshotterBucket }}/dbs/nectar/automated/$DATE-db.tgz s3://{{ snapshotterBucket }}/dbs/nectar/automated/latest-db.tgz --acl public-read
+
+  echo 'Generating and uploading checksums...'
+  cd $DRIVE
+  sha256sum $DATE-db.tgz | cut -d' ' -f 1 > $DATE-db.tgz.sum
+
+  aws s3 cp $DRIVE/$DATE-db.tgz.sum s3://{{ snapshotterBucket }}/dbs/nectar/automated/$DATE-db.tgz.sum --acl public-read
+  aws s3 cp s3://{{ snapshotterBucket }}/dbs/nectar/automated/$DATE-db.tgz.sum s3://{{ snapshotterBucket }}/dbs/nectar/automated/latest-db.tgz.sum --acl public-read
+
+  echo 'Cleaning up...'
+  rm -rf $DRIVE/*.tgz*
+
+else
+  echo 'Node is NOT SOLID: stopping here...'
+  exit 1
+fi

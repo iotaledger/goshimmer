@@ -1,0 +1,40 @@
+- name: Create traefik directory
+  file:
+    path: /opt/traefik
+    state: directory
+    mode: '0755'
+
+- name: Create config directory
+  file:
+    path: /opt/traefik/config
+    state: directory
+    mode: '0755'
+
+- name: Create letsencrypt directory
+  file:
+    path: /opt/traefik/letsencrypt
+    state: directory
+    mode: '0755'
+
+- name: Template asset-registry configuration
+  template:
+    src: asset-registry.yml.j2
+    dest: /opt/traefik/config/asset-registry.yml
+    mode: '0644'
+
+- name: Template nodes configuration
+  template:
+    src: nodes.yml.j2
+    dest: /opt/traefik/config/nodes.yml
+    mode: '0644'
+
+- name: Template docker-compose.yml
+  copy:
+    src: docker-compose.yml
+    dest: /opt/traefik/docker-compose.yml
+    mode: '0644'
+
+- name: Run traefik
+  community.general.docker_compose:
+    project_src: /opt/traefik
+  register: output
