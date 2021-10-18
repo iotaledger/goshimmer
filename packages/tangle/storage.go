@@ -150,6 +150,12 @@ func (s *Storage) StoreMessage(message *Message) {
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
 	})
+	// We treat like parents as strong approvers as they have the same meaning in terms of solidification.
+	message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
+		if cachedObject, likeStored := s.approverStorage.StoreIfAbsent(NewApprover(StrongApprover, parentMessageID, messageID)); likeStored {
+			cachedObject.Release()
+		}
+	})
 	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(WeakApprover, parentMessageID, messageID)).Release()
 	})
