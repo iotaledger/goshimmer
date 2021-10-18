@@ -87,7 +87,7 @@ func (s *SimpleConfirmationOracle) isConflictingBranchConfirmed(currentBranchID 
 	return
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ ConfirmationOracle = &SimpleConfirmationOracle{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
