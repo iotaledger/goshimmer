@@ -1465,6 +1465,7 @@ func (m MessageSource) String() (humanReadableMessageSource string) {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 var (
 	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
 	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
