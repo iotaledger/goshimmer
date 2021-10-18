@@ -377,7 +377,7 @@ If you set up the Grafana dashboard for your node according to the next section 
 You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
 Supposing you are at `/opt/goshimmer/`:
 ```
-wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/monitoring/grafana/dashboards/local_dashboard.json
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/docker-network/grafana/dashboards/local_dashboard.json
 cp local_dashboard.json grafana/dashboards
 ```
 Restart the grafana container:
@@ -507,9 +507,9 @@ providers:
 ```
 4. Add predefined GoShimmer Local Metrics Dashboard.
 
-Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json).
+Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/dashboards/local_dashboard.json).
 ```
-wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/monitoring/grafana/dashboards/local_dashboard.json
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/docker-network/grafana/dashboards/local_dashboard.json
 cp local_dashboard.json grafana/dashboards
 ```
 5. Add permissions to Grafana config folder
