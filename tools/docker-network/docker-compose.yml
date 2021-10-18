@@ -80,7 +80,7 @@ services:
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
-      --webapi.exportPath=/tmp/
+      --webAPI.exportPath=/tmp/
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
