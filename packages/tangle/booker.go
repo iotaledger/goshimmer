@@ -246,6 +246,10 @@ func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
 	// We obtain liked payload branches
 	likedBranchIDs := b.likedParentsBranchIDs(message)
 
+	if len(likedBranchIDs) == 0 {
+		return strongBranchIDs
+	}
+
 	// We collect strong parents branches recursively
 	prunedCollectedStrongParents := b.collectBranchesUpwards(strongBranchIDs)
 	// For every liked branch we need to prune it and all its descendants from the collected strong branches
