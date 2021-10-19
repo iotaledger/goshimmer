@@ -354,26 +354,22 @@ func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *marke
 		panic(err)
 	}
 
+	supportersOfOldBranch := a.SupportersOfAggregatedBranch(oldBranchID)
+	supportersOfMarker := a.supportersOfMarker(marker)
+	intersectionOfSupporters := supportersOfMarker.Intersect(supportersOfOldBranch)
+
 	for conflictBranchID := range conflictBranchIDs {
 		a.tangle.Storage.BranchSupporters(conflictBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-			supportersOfMarker := a.supportersOfMarker(marker)
-
 			if oldBranchID == ledgerstate.MasterBranchID {
-				supportersOfMarker.ForEach(func(supporter Supporter) {
-					branchSupporters.AddSupporter(supporter)
-				})
+				branchSupporters.AddSupporters(supportersOfMarker)
 				return
 			}
 
-			a.SupportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
-				if supportersOfMarker.Has(supporter) {
-					branchSupporters.AddSupporter(supporter)
-				}
-			})
+			branchSupporters.AddSupporters(intersectionOfSupporters)
 		})
 
 		a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
-			a.updateBranchWeight(newBranchID, message)
+			a.updateBranchWeight(conflictBranchID, message)
 		})
 	}
 }
@@ -1072,6 +1068,23 @@ func (b *BranchSupporters) AddSupporter(supporter Supporter) (added bool) {
 		return
 	}
 	b.SetModified()
+
+	return
+}
+
+// AddSupporter adds a new Supporter to the tracked ledgerstate.BranchID.
+func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
+
+	modified := false
+	supporters.ForEach(func(supporter Supporter) {
+		if added = b.supporters.Add(supporter); added {
+			modified = true
+		}
+	})
+
+	if modified {
+		b.SetModified()
+	}
 
 	return
 }
