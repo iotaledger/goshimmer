@@ -295,7 +295,7 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 // ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
 // AggregatedBranches to their corresponding ConflictBranches.
 func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
-	switch typeCastedResult := b.normalizedBranchCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
+	switch typeCastedResult := b.conflictBranchIDsCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
 		// initialize return variable
 		result := make(BranchIDs)
 
