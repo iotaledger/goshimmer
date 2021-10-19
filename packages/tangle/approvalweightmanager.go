@@ -213,6 +213,11 @@ func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supp
 }
 
 func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
+	// Don't do anything if the supporter is not relevant.
+	if !a.isRelevantSupporter(message) {
+		return
+	}
+
 	statement, isNewStatement := a.statementFromMessage(message)
 	if !isNewStatement {
 		return
@@ -227,7 +232,7 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 		panic(err)
 	}
 
-	supportWalker := walker.New()
+	supportWalker := walker.New(false)
 	for conflictBranchID := range conflictBranchIDs {
 		supportWalker.Push(conflictBranchID)
 	}
@@ -238,7 +243,7 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 }
 
 func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
-	if branchID == ledgerstate.MasterBranchID || !a.isRelevantSupporter(message) {
+	if branchID == ledgerstate.MasterBranchID {
 		return
 	}
 
@@ -302,12 +307,22 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 }
 
 func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
+	// Don't do anything if the supporter is not relevant.
+	if !a.isRelevantSupporter(message) {
+		return
+	}
+
 	a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// Do not revisit markers that have already been visited. With the like switch there can be cycles in the sequence DAG
 		// which results in endless walks.
 		supportWalker := walker.New(false)
 
 		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			// Avoid adding and tracking support of markers in sequence 0.
+			if sequenceID == 0 {
+				return true
+			}
+
 			supportWalker.Push(*markers.NewMarker(sequenceID, index))
 
 			return true
@@ -320,8 +335,11 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 }
 
 func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, message *Message, walk *walker.Walker) {
-	// Avoid tracking support of markers in sequence 0.
-	if marker.SequenceID() == 0 || !a.isRelevantSupporter(message) {
+	// TODO: check map size
+	// We don't add the supporter and abort if the marker is already confirmed. This prevents walking too much in the sequence DAG.
+	// However, it might lead to inaccuracies when creating a new branch once a conflict arrives and we copy over the
+	// supporters of the marker to the branch. Since the marker is already seen as confirmed it should not matter too much though.
+	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
 		return
 	}
 
@@ -331,8 +349,6 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 		sequenceSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()), marker.Index())
 		a.updateMarkerWeight(&marker, message)
 
-		// TODO: this degrades performance over time: the more references between sequences there are, the more we need to walk.
-		//   we need to find a way to not need to visit the referenced sequences/markers.
 		a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 			sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 				// Avoid adding and tracking support of markers in sequence 0.
@@ -375,11 +391,6 @@ func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *marke
 }
 
 func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Message) {
-	// TODO: check map size
-	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
-		return
-	}
-
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
 	for i := a.firstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
