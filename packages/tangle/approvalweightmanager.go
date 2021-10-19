@@ -415,33 +415,13 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 
 	newBranchWeight := supporterWeight / totalWeight
 
-	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	if err != nil {
-		panic(err)
-	}
-
-	for conflictBranchID := range conflictBranchIDs {
-		switch isAggregatedBranch := len(conflictBranchIDs) != 1; isAggregatedBranch {
-		case false:
-			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
-				if !branchWeight.SetWeight(newBranchWeight) {
-					return
-				}
-
-				a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
-			})
-		default:
-			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
-				if newBranchWeight > branchWeight.Weight() {
-					if !branchWeight.SetWeight(newBranchWeight) {
-						return
-					}
-
-					a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
-				}
-			})
+	a.tangle.Storage.BranchWeight(branchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
+		if !branchWeight.SetWeight(newBranchWeight) {
+			return
 		}
-	}
+
+		a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{branchID, newBranchWeight})
+	})
 }
 
 func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
