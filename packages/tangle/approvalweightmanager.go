@@ -252,16 +252,19 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 		added = branchSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()))
 	})
 
-	if added {
-		a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-			revokeWalker := walker.New()
-			revokeWalker.Push(conflictingBranchID)
-
-			for revokeWalker.HasNext() {
-				a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), message, revokeWalker)
-			}
-		})
+	// Abort if this node already supported this branch.
+	if !added {
+		return
 	}
+
+	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		revokeWalker := walker.New(false)
+		revokeWalker.Push(conflictingBranchID)
+
+		for revokeWalker.HasNext() {
+			a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), message, revokeWalker)
+		}
+	})
 
 	a.updateBranchWeight(branchID, message)
 
@@ -281,6 +284,7 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 	a.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
 		deleted = branchSupporters.DeleteSupporter(identity.NewID(message.IssuerPublicKey()))
 	})
+
 	// Abort if this node did not support this branch.
 	if !deleted {
 		return
