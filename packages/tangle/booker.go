@@ -270,38 +270,21 @@ func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
 func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = ledgerstate.NewBranchIDs()
 
-	message.ForEachParentByType(StrongParentType, func(messageID MessageID) {
-		if messageID == EmptyMessageID {
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
+		if parentMessageID == EmptyMessageID {
 			branchIDs.Add(ledgerstate.MasterBranchID)
 			return
 		}
 
-		if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			if branchID := messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
-				branchIDs.Add(branchID)
-				return
-			}
-
-			structureDetailsOfMessage := messageMetadata.StructureDetails()
-			if structureDetailsOfMessage == nil {
-				panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
-			}
-			if structureDetailsOfMessage.PastMarkers.Size() > 1 {
-				panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
-			}
-
-			branchIDs.Add(b.MarkersManager.BranchID(structureDetailsOfMessage.PastMarkers.Marker()))
-		}) {
-			panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
+		branchID, err := b.MessageBranchID(parentMessageID)
+		if err != nil {
+			panic(err)
 		}
+		branchIDs.Add(branchID)
 	})
 
-	resolvedStrongBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(branchIDs)
-	if err != nil {
-		panic(errors.Wrapf(err, "could not resolve parent branch IDs of %s", branchIDs))
-	}
+	return branchIDs
 
-	return resolvedStrongBranchIDs
 }
 
 // likedParentsBranchIDs returns all the payload branches of the Message's liked parents.
