@@ -336,17 +336,10 @@ func (b *Booker) collectBranchesUpwards(branchIDs ledgerstate.BranchIDs) (parent
 			continue
 		}
 
-		conflictBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-		if err != nil {
-			panic(err)
-		}
-
-		for conflictBranchID := range conflictBranchIDs {
-			parents.Add(conflictBranchID)
-			b.tangle.LedgerState.BranchDAG.Branch(conflictBranchID).Consume(func(branch ledgerstate.Branch) {
-				parents.AddAll(b.collectBranchesUpwards(branch.Parents()))
-			})
-		}
+		parents.Add(branchID)
+		b.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+			parents.AddAll(b.collectBranchesUpwards(branch.Parents()))
+		})
 	}
 
 	return
