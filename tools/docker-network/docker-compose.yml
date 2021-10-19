@@ -101,6 +101,7 @@ services:
       --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity,spammer
       --node.overwriteStoredSeed=true
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
+      --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
