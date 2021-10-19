@@ -250,8 +250,13 @@ func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
 		return strongBranchIDs
 	}
 
+	resolvedStrongBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(strongBranchIDs)
+	if err != nil {
+		panic(errors.Wrapf(err, "could not resolve parent branch IDs of %s", strongBranchIDs))
+	}
+
 	// We collect strong parents branches recursively
-	prunedCollectedStrongParents := b.collectBranchesUpwards(strongBranchIDs)
+	prunedCollectedStrongParents := b.collectBranchesUpwards(resolvedStrongBranchIDs)
 	// For every liked branch we need to prune it and all its descendants from the collected strong branches
 	for likedBranchID := range likedBranchIDs {
 		b.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
@@ -262,7 +267,7 @@ func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
 	}
 
 	// We filter our strong parents and add the liked parents to the resulting set
-	supportedBranches := strongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
+	supportedBranches := resolvedStrongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
 	return supportedBranches
 }
 
@@ -283,12 +288,8 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 		branchIDs.Add(branchID)
 	})
 
-	resolvedStrongBranchIDs, err := b.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(branchIDs)
-	if err != nil {
-		panic(errors.Wrapf(err, "could not resolve parent branch IDs of %s", branchIDs))
-	}
+	return branchIDs
 
-	return resolvedStrongBranchIDs
 }
 
 // likedParentsBranchIDs returns all the payload branches of the Message's liked parents.
