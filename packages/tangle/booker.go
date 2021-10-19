@@ -267,7 +267,7 @@ func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
 	}
 
 	// We filter our strong parents and add the liked parents to the resulting set
-	supportedBranches := strongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
+	supportedBranches := resolvedStrongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
 	return supportedBranches
 }
 
