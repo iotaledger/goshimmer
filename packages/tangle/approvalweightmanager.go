@@ -168,8 +168,8 @@ func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
 	return supporterWeight/totalWeight >= minSupporterWeight
 }
 
-// SupportersOfBranch returns the Supporters of the given ledgerstate.BranchID.
-func (a *ApprovalWeightManager) SupportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
+// SupportersOfAggregatedBranch returns the Supporters of the given aggregatedbranch ledgerstate.BranchID.
+func (a *ApprovalWeightManager) SupportersOfAggregatedBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
 	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
 		panic(err)
@@ -188,6 +188,16 @@ func (a *ApprovalWeightManager) SupportersOfBranch(branchID ledgerstate.BranchID
 		}
 	}
 
+	return
+}
+
+// SupportersOfConflictBranch returns the Supporters of the given conflictbranch ledgerstate.BranchID.
+func (a *ApprovalWeightManager) SupportersOfConflictBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
+	if !a.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {
+		supporters = branchSupporters.Supporters()
+	}) {
+		supporters = NewSupporters()
+	}
 	return
 }
 
@@ -399,7 +409,7 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
 	var supporterWeight float64
-	a.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+	a.SupportersOfConflictBranch(branchID).ForEach(func(supporter Supporter) {
 		supporterWeight += activeWeights[supporter]
 	})
 
@@ -448,7 +458,7 @@ func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Mark
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 		branchWeight := float64(0)
-		a.SupportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
+		a.SupportersOfAggregatedBranch(newBranchID).ForEach(func(supporter Supporter) {
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
