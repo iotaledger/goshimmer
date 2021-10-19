@@ -229,24 +229,26 @@ func (b BranchIDs) Subtract(other BranchIDs) BranchIDs {
 
 // Intersect removes all BranchIDs from the collection that are not contained in the argument collection.
 // It returns the collection to enable chaining.
-func (b BranchIDs) Intersect(branchIDs BranchIDs) BranchIDs {
-	for branchID := range b {
-		if !branchIDs.Contains(branchID) {
-			delete(b, branchID)
+func (b BranchIDs) Intersect(branchIDs BranchIDs) (res BranchIDs) {
+	// Iterate over the smallest map to increase performance.
+	target, source := branchIDs, b
+	if len(source) < len(target) {
+		target, source = source, target
+	}
+
+	res = NewBranchIDs()
+	for branchID := range target {
+		if source.Contains(branchID) {
+			res.Add(branchID)
 		}
 	}
 
-	return b
+	return
 }
 
 // Contains checks if the given target BranchID is part of the BranchIDs.
 func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
-	for branchID := range b {
-		if contains = branchID == targetBranchID; contains {
-			return
-		}
-	}
-
+	_, contains = b[targetBranchID]
 	return
 }
 
