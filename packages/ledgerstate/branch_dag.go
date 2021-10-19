@@ -18,6 +18,7 @@ import (
 
 // region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// BranchDAGCacheSize defines how many elements are stored in the internal LRUCaches.
 const BranchDAGCacheSize = 100000
 
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
@@ -294,31 +295,39 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 // ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
 // AggregatedBranches to their corresponding ConflictBranches.
 func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
-	// initialize return variable
-	conflictBranchIDs = make(BranchIDs)
+	switch typeCastedResult := b.normalizedBranchCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
+		// initialize return variable
+		result := make(BranchIDs)
 
-	// iterate through parameters and collect the conflict branches
-	seenBranches := set.New()
-	for branchID := range branchIDs {
-		// abort if branch was processed already
-		if !seenBranches.Add(branchID) {
-			continue
-		}
-
-		// process branch or abort if it can not be found
-		if !b.Branch(branchID).Consume(func(branch Branch) {
-			switch branch.Type() {
-			case ConflictBranchType:
-				conflictBranchIDs[branch.ID()] = types.Void
-			case AggregatedBranchType:
-				for parentBranchID := range branch.Parents() {
-					conflictBranchIDs[parentBranchID] = types.Void
-				}
+		// iterate through parameters and collect the conflict branches
+		seenBranches := set.New()
+		for branchID := range branchIDs {
+			// abort if branch was processed already
+			if !seenBranches.Add(branchID) {
+				continue
 			}
-		}) {
-			err = errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
-			return
+
+			// process branch or abort if it can not be found
+			if !b.Branch(branchID).Consume(func(branch Branch) {
+				switch branch.Type() {
+				case ConflictBranchType:
+					result[branch.ID()] = types.Void
+				case AggregatedBranchType:
+					for parentBranchID := range branch.Parents() {
+						result[parentBranchID] = types.Void
+					}
+				}
+			}) {
+				return errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+			}
 		}
+
+		return result
+	}).(type) {
+	case error:
+		err = typeCastedResult
+	case BranchIDs:
+		conflictBranchIDs = typeCastedResult
 	}
 
 	return
@@ -373,6 +382,8 @@ func (b *BranchDAG) Shutdown() {
 		b.childBranchStorage.Shutdown()
 		b.conflictStorage.Shutdown()
 		b.conflictMemberStorage.Shutdown()
+		b.normalizedBranchCache = nil
+		b.conflictBranchIDsCache = nil
 	})
 }
 
