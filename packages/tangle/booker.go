@@ -107,6 +107,22 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
+			isAnyParentInvalid := false
+			message.ForEachParent(func(parent Parent) {
+				if isAnyParentInvalid {
+					return
+				}
+				b.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+					isAnyParentInvalid = messageMetadata.invalid
+				})
+			})
+			if isAnyParentInvalid {
+				messageMetadata.SetInvalid(true)
+				err = errors.Errorf("failed to book message %s: referencing invalid parent", messageID)
+				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
+				return
+			}
+
 			// Like references need to point to messages containing transactions in order to be able to solidify these
 			// and, thus, knowing about the given conflict.
 			if !b.allMessagesContainTransactions(message.ParentsByType(LikeParentType)) {
@@ -128,7 +144,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// By adding the BranchID of the payload to the computed supported branches, InheritBranch will check if anything of what we
 			// finally support has overlapping conflict sets, in which case the Message is invalid
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(supportedBranches.Add(branchIDOfPayload))
-			if inheritErr != nil {
+			if inheritedBranch == ledgerstate.InvalidBranchID || inheritErr != nil {
 				messageMetadata.SetInvalid(true)
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
