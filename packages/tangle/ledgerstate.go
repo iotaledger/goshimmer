@@ -42,8 +42,7 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
 		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
-			inheritedBranch = ledgerstate.InvalidBranchID
-			return
+			return ledgerstate.InvalidBranchID, nil
 		}
 
 		err = errors.Errorf("failed to aggregate BranchIDs: %w", err)

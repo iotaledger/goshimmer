@@ -410,7 +410,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 
 	// introduce iteration variables
 	traversedBranches := set.New()
-	seenConflictSets := set.New()
+	seenConflictSets := make(map[ConflictID]BranchID)
 	parentsToCheck := stack.New()
 
 	// checks if branches are conflicting and queues parents to be checked
@@ -428,10 +428,11 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 
 		// return error if conflict set was seen twice
 		for conflictSetID := range currentConflictBranch.Conflicts() {
-			if !seenConflictSets.Add(conflictSetID) {
-				err = errors.Errorf("combined Branches are conflicting: %w", ErrInvalidStateTransition)
+			if conflictingBranch, exists := seenConflictSets[conflictSetID]; exists {
+				err = errors.Errorf("%s conflicts with %s in %s: %w", conflictingBranch, currentConflictBranch.ID(), conflictSetID, ErrInvalidStateTransition)
 				return
 			}
+			seenConflictSets[conflictSetID] = currentConflictBranch.ID()
 		}
 
 		// queue parents to be checked when traversing ancestors

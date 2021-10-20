@@ -109,7 +109,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(supportedBranches.Add(branchIDOfPayload))
 			if inheritErr != nil {
 				messageMetadata.SetInvalid(true)
-				messageMetadata.SetBranchID(ledgerstate.InvalidBranchID)
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 				return
@@ -260,6 +259,7 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 
 			structureDetailsOfMessage := messageMetadata.StructureDetails()
 			if structureDetailsOfMessage == nil {
+				fmt.Println("BOOKED/SOLID", messageMetadata.IsBooked(), messageMetadata.IsSolid())
 				panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
 			}
 			if structureDetailsOfMessage.PastMarkers.Size() > 1 {
@@ -727,7 +727,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 	for j := uint64(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {
-			err = errors.Errorf("failed to parse Index (%v): %w", indexErr, cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("failed to parse Index from %X (%v): %w", marshalUtil.Bytes(), indexErr, cerrors.ErrParseBytesFailed)
 			return
 		}
 

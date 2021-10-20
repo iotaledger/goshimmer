@@ -158,6 +158,14 @@ func (t *TipManager) AddTip(message *Message) {
 		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 	}
 
+	messageBranchID, err := t.tangle.Booker.MessageBranchID(messageMetadata.ID())
+	if err != nil {
+		panic(errors.Errorf("failed to retrieve BranchID of Message with %s: %w", messageMetadata.ID(), err))
+	}
+	if messageBranchID == ledgerstate.InvalidBranchID {
+		return
+	}
+
 	if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
 		return
 	}

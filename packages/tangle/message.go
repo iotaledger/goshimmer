@@ -648,6 +648,12 @@ func (m *Message) Locks() (locks []interface{}) {
 			lockBuilder = lockBuilder.AddLock(parent.ID)
 		})
 
+		if transaction, typeCastOK := m.Payload().(*ledgerstate.Transaction); typeCastOK {
+			for _, lock := range transaction.Locks() {
+				lockBuilder = lockBuilder.AddLock(lock)
+			}
+		}
+
 		m.locks = lockBuilder.Build()
 	}
 
