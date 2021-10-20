@@ -370,12 +370,12 @@ func (b *Booker) updatedBranchID(branchID, conflictBranchID ledgerstate.BranchID
 	}
 
 	if newBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchID, conflictBranchID)); err != nil {
-		// If the combined branches are conflicting when propagating them, it means that there was a like switch set in the future cone.
-		// We can safely ignore the branch propagation in that part of the tangle.
-		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
-			return ledgerstate.UndefinedBranchID, false, nil
-		}
 		return ledgerstate.UndefinedBranchID, false, errors.Errorf("failed to combine %s and %s into a new BranchID: %w", branchID, conflictBranchID, cerrors.ErrFatal)
+	}
+	// If the combined branches are conflicting when propagating them, it means that there was a like switch set in the future cone.
+	// We can safely ignore the branch propagation in that part of the tangle.
+	if newBranchID == ledgerstate.InvalidBranchID {
+		return ledgerstate.UndefinedBranchID, false, nil
 	}
 
 	if newBranchID == branchID {

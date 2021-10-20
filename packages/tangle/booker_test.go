@@ -1232,9 +1232,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 	{
 		msg := testFramework.CreateMessage("Message30", WithStrongParents("Message1", "Message2"))
 		testFramework.IssueMessages("Message30").WaitMessagesBooked()
-		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
-		})
+		branchID, err := tangle.Booker.MessageBranchID(msg.ID())
+		require.NoError(t, err)
+		assert.Equal(t, branchID, ledgerstate.InvalidBranchID)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1308,9 +1308,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 	{
 		msg := testFramework.CreateMessage("Message31", WithStrongParents("Message1", "Message2"), WithLikeParents("Message2"), WithInputs("G"), WithOutput("O", 500))
 		testFramework.IssueMessages("Message31").WaitMessagesBooked()
-		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
-		})
+		branchID, err := tangle.Booker.MessageBranchID(msg.ID())
+		require.NoError(t, err)
+		assert.Equal(t, branchID, ledgerstate.InvalidBranchID)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1460,9 +1460,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 	{
 		msg := testFramework.CreateMessage("Message33", WithStrongParents("Message15", "Message11"))
 		testFramework.IssueMessages("Message33").WaitMessagesBooked()
-		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
-		})
+		branchID, err := tangle.Booker.MessageBranchID(msg.ID())
+		require.NoError(t, err)
+		assert.Equal(t, branchID, ledgerstate.InvalidBranchID)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1536,9 +1536,9 @@ func TestBookerMarkerMappings(t *testing.T) {
 	{
 		msg := testFramework.CreateMessage("Message34", WithStrongParents("Message14", "Message9"))
 		testFramework.IssueMessages("Message34").WaitMessagesBooked()
-		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
-		})
+		branchID, err := tangle.Booker.MessageBranchID(msg.ID())
+		require.NoError(t, err)
+		assert.Equal(t, branchID, ledgerstate.InvalidBranchID)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
