@@ -145,7 +145,6 @@ func (s *Storage) StoreMessage(message *Message) {
 	cachedMessage := &CachedMessage{CachedObject: s.messageStorage.Store(message)}
 	defer cachedMessage.Release()
 
-	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
