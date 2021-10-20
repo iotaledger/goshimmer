@@ -185,6 +185,40 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	return issuingTime
 }
 
+func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
+	if p.Type() == ledgerstate.TransactionType {
+
+		conflictingTransactions := f.tangle.LedgerState.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
+		if len(conflictingTransactions) != 0 {
+			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
+			case nil:
+				return MessageIDs{EmptyMessageID}, nil
+			default:
+				return earliestAttachment.ParentsByType(StrongParentType), nil
+			}
+		}
+	}
+
+	return f.selector.Tips(p, parentsCount)
+}
+
+func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.TransactionIDs) (earliestAttachment *Message) {
+	earliestIssuingTime := time.Now()
+	for transactionID := range transactionIDs {
+		f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+			f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+				f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+					if messageMetadata.IsBooked() && message.IssuingTime().Before(earliestIssuingTime) {
+						earliestAttachment = message
+					}
+				})
+			})
+		})
+	}
+
+	return earliestAttachment
+}
+
 // Shutdown closes the MessageFactory and persists the sequence number.
 func (f *MessageFactory) Shutdown() {
 	if err := f.sequence.Release(); err != nil {

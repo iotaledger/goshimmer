@@ -68,6 +68,8 @@ type IUTXODAG interface {
 	TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error)
 	// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
 	BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error)
+	// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
+	ConflictingTransactions(transaction *Transaction) (conflictingTransactions TransactionIDs)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -204,6 +206,21 @@ func (u *UTXODAG) ConflictingTransactions(transaction *Transaction) (conflicting
 		})
 	}
 
+	return
+}
+
+// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
+func (u *UTXODAG) ConflictingTransactions(transaction *Transaction) (conflictingTransactions TransactionIDs) {
+	conflictingTransactions = make(TransactionIDs)
+	for _, input := range transaction.Essence().Inputs() {
+		u.CachedConsumers(input.(*UTXOInput).ReferencedOutputID()).Consume(func(consumer *Consumer) {
+			if consumer.TransactionID() == transaction.ID() {
+				return
+			}
+
+			conflictingTransactions[consumer.TransactionID()] = types.Void
+		})
+	}
 	return
 }
 

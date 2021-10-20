@@ -40,6 +40,7 @@ services:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
       - "9000:9000/tcp" # analysis dashboard
+      - "6081:6061/tcp" # pprof
     expose:
       - 1888/tcp # analysis server
     networks:
@@ -69,7 +70,7 @@ services:
       - shimmer
     depends_on:
       - peer_master
-  mario:
+  peer_master2:
     build: *goshimmer_build
     stop_grace_period: 1m
     command: >
@@ -80,13 +81,13 @@ services:
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
-      --webAPI.exportPath=/tmp/
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
     ports:
       - "8070:8080/tcp" # web API
       - "8071:8081/tcp" # dashboard
+      - "6071:6061/tcp" # pprof
     networks:
       - shimmer
     depends_on:
@@ -99,6 +100,7 @@ services:
       --database.directory=/tmp/mainnetdb
       --node.peerDBDirectory=/tmp/peerdb
       --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity,spammer
+      --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.overwriteStoredSeed=true
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
@@ -115,6 +117,7 @@ services:
     ports:
       - "8090:8080/tcp" # web API
       - "8091:8081/tcp" # dashboard
+      - "6091:6061/tcp" # pprof
     networks:
       - shimmer
     depends_on:
