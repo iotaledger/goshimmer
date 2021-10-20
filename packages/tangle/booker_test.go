@@ -1047,10 +1047,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message19
 	{
 		testFramework.CreateMessage("Message19", WithStrongParents("Message3", "Message7"), WithLikeParents("Message3"), WithInputs("F"), WithOutput("M", 500))
-		testFramework.IssueMessages("Message19").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("H", "Message9")
 		testFramework.RegisterBranchID("I", "Message19")
+
+		testFramework.IssueMessages("Message19").WaitMessagesBooked()
+
 		testFramework.RegisterBranchID("D+F+I", "Message5", "Message4", "Message19")
 		testFramework.RegisterBranchID("A+D+F+H", "Message1", "Message5", "Message4", "Message9")
 
