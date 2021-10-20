@@ -31,7 +31,7 @@ func TestScenario_1(t *testing.T) {
 	testFramework.CreateMessage("Message6", WithStrongParents("Message2", "Message5"), WithInputs("E", "F"), WithOutput("H", 3))
 	testFramework.CreateMessage("Message7", WithStrongParents("Message4", "Message5"), WithReattachment("Message2"))
 	testFramework.CreateMessage("Message8", WithStrongParents("Message4", "Message5"), WithInputs("F", "D"), WithOutput("I", 2))
-	testFramework.CreateMessage("Message9", WithStrongParents("Message4", "Message6"), WithInputs("H"), WithOutput("J", 1))
+	testFramework.CreateMessage("Message9", WithStrongParents("Message4", "Message6"), WithInputs("H"), WithOutput("J", 3))
 
 	testFramework.RegisterBranchID("red", "Message4")
 	testFramework.RegisterBranchID("yellow", "Message5")
@@ -40,11 +40,7 @@ func TestScenario_1(t *testing.T) {
 	testFramework.IssueMessages("Message7", "Message9").WaitMessagesBooked()
 	testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
-	for _, messageAlias := range []string{"Message7", "Message9"} {
-		assert.Truef(t, testFramework.MessageMetadata(messageAlias).IsInvalid(), "%s not invalid", messageAlias)
-	}
-
-	for _, messageAlias := range []string{"Message8"} {
+	for _, messageAlias := range []string{"Message7", "Message8", "Message9"} {
 		branchID, err := testFramework.tangle.Booker.MessageBranchID(testFramework.Message(messageAlias).ID())
 		require.NoError(t, err)
 		assert.Equalf(t, ledgerstate.InvalidBranchID, branchID, "%s not invalid", messageAlias)
