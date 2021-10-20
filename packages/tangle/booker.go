@@ -276,11 +276,6 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 	branchIDs = ledgerstate.NewBranchIDs()
 
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
-		if parentMessageID == EmptyMessageID {
-			branchIDs.Add(ledgerstate.MasterBranchID)
-			return
-		}
-
 		branchID, err := b.MessageBranchID(parentMessageID)
 		if err != nil {
 			panic(err)
