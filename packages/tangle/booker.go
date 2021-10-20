@@ -259,7 +259,6 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 
 			structureDetailsOfMessage := messageMetadata.StructureDetails()
 			if structureDetailsOfMessage == nil {
-				fmt.Println("BOOKED/SOLID", messageMetadata.IsBooked(), messageMetadata.IsSolid())
 				panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
 			}
 			if structureDetailsOfMessage.PastMarkers.Size() > 1 {
