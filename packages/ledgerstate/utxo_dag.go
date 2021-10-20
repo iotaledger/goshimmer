@@ -209,21 +209,6 @@ func (u *UTXODAG) ConflictingTransactions(transaction *Transaction) (conflicting
 	return
 }
 
-// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
-func (u *UTXODAG) ConflictingTransactions(transaction *Transaction) (conflictingTransactions TransactionIDs) {
-	conflictingTransactions = make(TransactionIDs)
-	for _, input := range transaction.Essence().Inputs() {
-		u.CachedConsumers(input.(*UTXOInput).ReferencedOutputID()).Consume(func(consumer *Consumer) {
-			if consumer.TransactionID() == transaction.ID() {
-				return
-			}
-
-			conflictingTransactions[consumer.TransactionID()] = types.Void
-		})
-	}
-	return
-}
-
 // TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
 func (u *UTXODAG) TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
