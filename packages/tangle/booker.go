@@ -728,8 +728,8 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 		mapping:    thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator),
 	}
 
-	markerBranchMapping.Persist()
 	markerBranchMapping.SetModified()
+	markerBranchMapping.Persist()
 
 	return
 }
@@ -813,9 +813,8 @@ func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID l
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
-	m.SetModified()
-
 	m.mapping.Set(index, branchID)
+	m.SetModified()
 }
 
 // DeleteBranchID deletes a mapping between the given marker Index and the stored BranchID.
@@ -823,14 +822,16 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
-	m.SetModified()
-
 	m.mapping.Delete(index)
+	m.SetModified()
 }
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
 func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+	m.mappingMutex.RLock()
+	defer m.mappingMutex.RUnlock()
+
 	if untypedIndex, untypedBranchID, exists := m.mapping.Floor(index); exists {
 		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID), true
 	}
@@ -841,6 +842,9 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 // Ceiling returns the smallest Index that is >= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
 func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+	m.mappingMutex.RLock()
+	defer m.mappingMutex.RUnlock()
+
 	if untypedIndex, untypedBranchID, exists := m.mapping.Ceiling(index); exists {
 		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID), true
 	}
