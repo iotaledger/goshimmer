@@ -21,8 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
-const bookerQueueSize = 1024
-
 // region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Booker is a Tangle component that takes care of booking Messages and Transactions by assigning them to the
@@ -259,7 +257,14 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 
 			structureDetailsOfMessage := messageMetadata.StructureDetails()
 			if structureDetailsOfMessage == nil {
-				panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
+				finishedSolidCallsMutex.Lock()
+				fmt.Println("BOOKED?", finishedSolidCalls[messageID])
+				finishedSolidCallsMutex.Unlock()
+				fmt.Println("SOLID?", messageMetadata.IsSolid(), messageMetadata.IsWeaklySolid())
+
+				fmt.Printf("atried to retrieve BranchID from unbooked Message with %s\n", messageID)
+				return
+				//panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
 			}
 			if structureDetailsOfMessage.PastMarkers.Size() > 1 {
 				panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
@@ -779,6 +784,22 @@ func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID l
 	m.SetModified()
 
 	m.mapping.Set(index, branchID)
+
+	if m.mapping.Size() != m.realSize() {
+		panic("SIZE WAS WRONG AFTER SETTING")
+	}
+}
+
+func (m *MarkerIndexBranchIDMapping) realSize() int {
+	realSize := 0
+
+	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
+		realSize++
+
+		return true
+	})
+
+	return realSize
 }
 
 // DeleteBranchID deletes a mapping between the given marker Index and the stored BranchID.
@@ -789,11 +810,18 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	m.SetModified()
 
 	m.mapping.Delete(index)
+
+	if m.mapping.Size() != m.realSize() {
+		panic("SIZE WAS WRONG AFTER DELETING")
+	}
 }
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
 func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+	m.mappingMutex.RLock()
+	defer m.mappingMutex.RUnlock()
+
 	if untypedIndex, untypedBranchID, exists := m.mapping.Floor(index); exists {
 		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID), true
 	}
@@ -804,6 +832,9 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 // Ceiling returns the smallest Index that is >= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
 func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+	m.mappingMutex.RLock()
+	defer m.mappingMutex.RUnlock()
+
 	if untypedIndex, untypedBranchID, exists := m.mapping.Ceiling(index); exists {
 		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID), true
 	}
@@ -873,14 +904,26 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
+	if m.mapping.Size() != m.realSize() {
+		fmt.Println("SIZE WAS WRONG before marshaling")
+	}
+
+	size := uint64(m.mapping.Size())
+
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
+	marshalUtil.WriteUint64(size)
 	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
+		size--
 		marshalUtil.Write(node.Key().(markers.Index))
 		marshalUtil.Write(node.Value().(ledgerstate.BranchID))
 
 		return true
 	})
+
+	if size != 0 {
+		fmt.Println(size)
+		panic("SIZE WAS NOT CORRECT")
+	}
 
 	return marshalUtil.Bytes()
 }

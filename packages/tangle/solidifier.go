@@ -1,7 +1,9 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -269,11 +271,11 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingM
 		// if we upgraded from a WeakSolidificationSource: do a proper check with eventual requests of missing parents
 		// instead of relying on the flag in the metadata.
 		if messageMetadata.SetSource(StrongSolidificationSource) {
-			s.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
-				solid = s.isMessageSolid(message, messageMetadata, true)
-			})
+			fmt.Println("upgraded source", messageMetadata.ID())
 
-			return
+			s.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
+				s.isMessageSolid(message, messageMetadata, true)
+			})
 		}
 
 		solid = messageMetadata.IsSolid()
@@ -382,8 +384,16 @@ func (s *Solidifier) triggerSolidUpdate(message *Message, messageMetadata *Messa
 
 	s.Events.MessageSolid.Trigger(messageMetadata.ID())
 
+	finishedSolidCallsMutex.Lock()
+	finishedSolidCalls[message.ID()] = true
+	finishedSolidCallsMutex.Unlock()
+
+
 	return true
 }
+
+var finishedSolidCalls = make(map[MessageID]bool)
+var finishedSolidCallsMutex sync.Mutex
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

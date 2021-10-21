@@ -66,6 +66,10 @@ services:
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
+    ports:
+      - "8060:8080/tcp" # web API
+      - "8061:8081/tcp" # dashboard
+      - "6061:6061/tcp" # pprof
     networks:
       - shimmer
     depends_on:
