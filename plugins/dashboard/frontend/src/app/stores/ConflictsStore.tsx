@@ -13,6 +13,7 @@ export class ConflictMessage {
     resolved: boolean;
     timeToResolve: number;
     shown: boolean;
+    updatedAt: Date;
 }
 
 export class BranchMessage {
@@ -22,9 +23,11 @@ export class BranchMessage {
     gof: number;
     issuingTime: number;
     issuerNodeID: string;
+    updatedAt: Date;
 }
 
-// const liveFeedSize = 10;
+const maxStoredConflicts = 100;
+const maxStoredBranches = 100;
 
 export class ConflictsStore {
     // live feed
@@ -45,18 +48,28 @@ export class ConflictsStore {
 
     @action
     updateConflicts = (msg: ConflictMessage) => {
+        msg.updatedAt = new Date();
         this.conflicts.set(msg.conflictID, msg);
     };
 
     @action
     updateBranches = (msg: BranchMessage) => {
+        msg.updatedAt = new Date();
         this.branches.set(msg.branchID, msg);
     };
    
     @computed
     get conflictsLiveFeed() {
         let feed = [];
+        let oldestConflictUpdate: ConflictMessage;
+        let oldestConflictUpdatedAt = new Date(0);
+        let oldestBranchUpdate: BranchMessage;
+        let oldestBranchUpdatedAt = new Date(0);
         for (let [key, conflict] of this.conflicts) {
+            if(conflict.updatedAt < oldestConflictUpdatedAt) {
+                oldestConflictUpdatedAt = conflict.updatedAt;
+                oldestConflictUpdate = conflict;
+            }
             feed.push(
                 <tr key={conflict.conflictID} onClick={() => conflict.shown = !conflict.shown} style={{cursor:"pointer"}}>
                     <td>
@@ -90,6 +103,10 @@ export class ConflictsStore {
 
             let branches = [];
             for (let branch of branchesArr) {
+                if(branch.updatedAt < oldestBranchUpdatedAt) {
+                    oldestBranchUpdatedAt = branch.updatedAt;
+                    oldestBranchUpdate = branch;
+                }
                 for(let conflictID of branch.conflictIDs){
                     if (conflictID === key) {
                         branches.push(
@@ -128,6 +145,13 @@ export class ConflictsStore {
                     </td>
                 </tr>
             );
+        }
+
+        if(this.conflicts.size === maxStoredConflicts) {
+            this.conflicts.delete(oldestConflictUpdate.conflictID);
+        }
+        if(this.branches.size === maxStoredBranches){
+            this.branches.delete(oldestBranchUpdate.branchID);
         }
 
         return feed;
