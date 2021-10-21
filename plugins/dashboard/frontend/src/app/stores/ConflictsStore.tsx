@@ -62,9 +62,9 @@ export class ConflictsStore {
     get conflictsLiveFeed() {
         let feed = [];
         let oldestConflictUpdate: ConflictMessage;
-        let oldestConflictUpdatedAt = new Date(0);
+        let oldestConflictUpdatedAt = new Date();
         let oldestBranchUpdate: BranchMessage;
-        let oldestBranchUpdatedAt = new Date(0);
+        let oldestBranchUpdatedAt = new Date();
         for (let [key, conflict] of this.conflicts) {
             if(conflict.updatedAt < oldestConflictUpdatedAt) {
                 oldestConflictUpdatedAt = conflict.updatedAt;
