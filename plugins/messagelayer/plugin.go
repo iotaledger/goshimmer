@@ -307,7 +307,7 @@ func AwaitMessageToBeIssued(f func() (*tangle.Message, error), issuer ed25519.Pu
 	result := <-issueResult
 
 	if result.err != nil || result.msg == nil {
-		return nil, errors.Errorf("Failed to issue data %s: %w", result.msg.ID().Base58(), result.err)
+		return nil, errors.Errorf("Failed to issue data: %w", result.err)
 	}
 
 	ticker := time.NewTicker(maxAwait)
