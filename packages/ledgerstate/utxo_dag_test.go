@@ -761,7 +761,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 	})
 }
 
-func setupDependencies(t *testing.T) *Ledgerstate {
+func setupDependencies(t *testing.T) *LedgerState {
 	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
 	err := ledgerstate.Prune()
 	require.NoError(t, err)
@@ -807,7 +807,7 @@ func (w wallet) unlockBlocks(txEssence *TransactionEssence) []UnlockBlock {
 	return unlockBlocks
 }
 
-func generateOutput(ledgerstate *Ledgerstate, address Address, index uint16) *SigLockedSingleOutput {
+func generateOutput(ledgerstate *LedgerState, address Address, index uint16) *SigLockedSingleOutput {
 	output := NewSigLockedSingleOutput(100, address)
 	output.SetID(NewOutputID(GenesisTransactionID, index))
 	ledgerstate.outputStorage.Store(output).Release()
@@ -821,7 +821,7 @@ func generateOutput(ledgerstate *Ledgerstate, address Address, index uint16) *Si
 	return output
 }
 
-func generateOutputs(ledgerstate *Ledgerstate, address Address, branchIDs BranchIDs) (outputs []*SigLockedSingleOutput) {
+func generateOutputs(ledgerstate *LedgerState, address Address, branchIDs BranchIDs) (outputs []*SigLockedSingleOutput) {
 	i := 0
 	outputs = make([]*SigLockedSingleOutput, len(branchIDs))
 	for branchID := range branchIDs {
@@ -840,7 +840,7 @@ func generateOutputs(ledgerstate *Ledgerstate, address Address, branchIDs Branch
 	return
 }
 
-func singleInputTransaction(ledgerstate *Ledgerstate, a, b wallet, outputToSpend *SigLockedSingleOutput, optionalGradeOfFinality ...gof.GradeOfFinality) (*Transaction, *SigLockedSingleOutput) {
+func singleInputTransaction(ledgerstate *LedgerState, a, b wallet, outputToSpend *SigLockedSingleOutput, optionalGradeOfFinality ...gof.GradeOfFinality) (*Transaction, *SigLockedSingleOutput) {
 	input := NewUTXOInput(outputToSpend.ID())
 	output := NewSigLockedSingleOutput(100, b.address)
 
@@ -870,7 +870,7 @@ func singleInputTransaction(ledgerstate *Ledgerstate, a, b wallet, outputToSpend
 	return tx, output
 }
 
-func multipleInputsTransaction(ledgerstate *Ledgerstate, a, b wallet, outputsToSpend []*SigLockedSingleOutput, optionalGradeOfFinality ...gof.GradeOfFinality) *Transaction {
+func multipleInputsTransaction(ledgerstate *LedgerState, a, b wallet, outputsToSpend []*SigLockedSingleOutput, optionalGradeOfFinality ...gof.GradeOfFinality) *Transaction {
 	inputs := make(Inputs, len(outputsToSpend))
 	branchIDs := make(BranchIDs, len(outputsToSpend))
 	for i, outputToSpend := range outputsToSpend {
@@ -915,7 +915,7 @@ func multipleInputsTransaction(ledgerstate *Ledgerstate, a, b wallet, outputsToS
 	return tx
 }
 
-func buildTransaction(_ *Ledgerstate, a, b wallet, outputsToSpend []*SigLockedSingleOutput) *Transaction {
+func buildTransaction(_ *LedgerState, a, b wallet, outputsToSpend []*SigLockedSingleOutput) *Transaction {
 	inputs := make(Inputs, len(outputsToSpend))
 	sum := uint64(0)
 	for i, outputToSpend := range outputsToSpend {
@@ -939,7 +939,7 @@ func buildTransaction(_ *Ledgerstate, a, b wallet, outputsToSpend []*SigLockedSi
 }
 
 // assertTransactionStoredIntoBranch stores the Transaction in the UTXODAG and then validates its Branch.
-func assertTransactionStoredIntoBranch(t *testing.T, ledgerstate *Ledgerstate, transaction *Transaction, branchID BranchID) {
+func assertTransactionStoredIntoBranch(t *testing.T, ledgerstate *LedgerState, transaction *Transaction, branchID BranchID) {
 	stored, solidityType, err := ledgerstate.StoreTransaction(transaction)
 	require.NoError(t, err)
 	require.True(t, stored)

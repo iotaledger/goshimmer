@@ -235,10 +235,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message2
 	{
 		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithInputs("A", "B"), WithOutput("E", 1000))
-		testFramework.IssueMessages("Message2").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("A", "Message1")
 		testFramework.RegisterBranchID("B", "Message2")
+
+		testFramework.IssueMessages("Message2").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -257,9 +258,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message3
 	{
 		testFramework.CreateMessage("Message3", WithStrongParents("Genesis"), WithInputs("B"), WithOutput("F", 500))
-		testFramework.IssueMessages("Message3").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("C", "Message3")
+
+		testFramework.IssueMessages("Message3").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -399,9 +401,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message8
 	{
 		testFramework.CreateMessage("Message8", WithStrongParents("Message5", "Message7", "Message3"), WithLikeParents("Message1", "Message3"))
-		testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("A+C", "Message1", "Message3")
+
+		testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -580,13 +583,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message12
 	{
 		testFramework.CreateMessage("Message12", WithStrongParents("Message1"), WithInputs("C"), WithOutput("H", 500))
-		testFramework.IssueMessages("Message12").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("D", "Message5")
 		testFramework.RegisterBranchID("E", "Message12")
 		testFramework.RegisterBranchID("A+E", "Message1", "Message12")
 		testFramework.RegisterBranchID("B+D", "Message2", "Message5")
 		testFramework.RegisterBranchID("A+C+D", "Message1", "Message3", "Message5")
+
+		testFramework.IssueMessages("Message12").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -641,9 +645,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message13
 	{
 		testFramework.CreateMessage("Message13", WithStrongParents("Message9"), WithLikeParents("Message2", "Message12"))
-		testFramework.IssueMessages("Message13").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("B+E", "Message2", "Message12")
+
+		testFramework.IssueMessages("Message13").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -763,9 +768,10 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message15
 	{
 		testFramework.CreateMessage("Message15", WithStrongParents("Message5", "Message14"), WithLikeParents("Message5"), WithInputs("D"), WithOutput("I", 500))
-		testFramework.IssueMessages("Message15").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("B+D", "Message2", "Message5")
+
+		testFramework.IssueMessages("Message15").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -830,7 +836,6 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message16
 	{
 		testFramework.CreateMessage("Message16", WithStrongParents("Genesis"), WithInputs("L"), WithOutput("J", 500))
-		testFramework.IssueMessages("Message16").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("F", "Message4")
 		testFramework.RegisterBranchID("G", "Message16")
@@ -838,6 +843,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("B+D+F", "Message2", "Message5", "Message4")
 		testFramework.RegisterBranchID("A+C+D+F", "Message1", "Message3", "Message5", "Message4")
 		testFramework.RegisterBranchID("B+E+F", "Message2", "Message12", "Message4")
+
+		testFramework.IssueMessages("Message16").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -1050,12 +1057,13 @@ func TestBookerMarkerMappings(t *testing.T) {
 	// ISSUE Message19
 	{
 		testFramework.CreateMessage("Message19", WithStrongParents("Message3", "Message7"), WithLikeParents("Message3"), WithInputs("F"), WithOutput("M", 500))
-		testFramework.IssueMessages("Message19").WaitMessagesBooked()
 
 		testFramework.RegisterBranchID("H", "Message9")
 		testFramework.RegisterBranchID("I", "Message19")
 		testFramework.RegisterBranchID("D+F+I", "Message5", "Message4", "Message19")
 		testFramework.RegisterBranchID("A+D+F+H", "Message1", "Message5", "Message4", "Message9")
+
+		testFramework.IssueMessages("Message19").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":    markers.NewMarkers(markers.NewMarker(1, 1)),

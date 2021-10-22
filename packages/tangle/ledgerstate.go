@@ -17,14 +17,14 @@ type LedgerState struct {
 	tangle      *Tangle
 	totalSupply uint64
 
-	*ledgerstate.Ledgerstate
+	*ledgerstate.LedgerState
 }
 
 // NewLedgerState is the constructor of the LedgerState component.
 func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
 	return &LedgerState{
 		tangle: tangle,
-		Ledgerstate: ledgerstate.New(
+		LedgerState: ledgerstate.New(
 			ledgerstate.Store(tangle.Options.Store),
 			ledgerstate.CacheTimeProvider(tangle.Options.CacheTimeProvider),
 		),
@@ -42,7 +42,14 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
 		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
+<<<<<<< HEAD
 			return ledgerstate.InvalidBranchID, nil
+=======
+			// We book under the InvalidBranch, no error.
+			inheritedBranch = ledgerstate.InvalidBranchID
+			err = nil
+			return
+>>>>>>> 8c8d7c5e1e5b82c2aa530a4c45954a9e50af6e11
 		}
 
 		err = errors.Errorf("failed to aggregate BranchIDs: %w", err)

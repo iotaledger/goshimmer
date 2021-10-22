@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/stack"
@@ -24,18 +25,20 @@ type BranchDAG struct {
 	conflictStorage       *objectstorage.ObjectStorage
 	conflictMemberStorage *objectstorage.ObjectStorage
 	shutdownOnce          sync.Once
+	ledgerState           *LedgerState
 	Events                *BranchDAGEvents
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
-	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
-	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
+func NewBranchDAG(ledgerState *LedgerState) (newBranchDAG *BranchDAG) {
+	options := buildObjectStorageOptions(ledgerState.Options.CacheTimeProvider)
+	osFactory := objectstorage.NewFactory(ledgerState.Options.Store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
 		branchStorage:         osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, options.branchStorageOptions...),
 		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
 		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, options.conflictStorageOptions...),
 		conflictMemberStorage: osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, options.conflictMemberStorageOptions...),
+		ledgerState: ledgerState,
 		Events: &BranchDAGEvents{
 			BranchCreated: events.NewEvent(BranchIDEventHandler),
 		},
@@ -118,7 +121,6 @@ func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBran
 
 // MergeToMaster merges a confirmed Branch with the MasterBranch to clean up the BranchDAG. It reorganizes existing
 // ChildBranches by adjusting their parents accordingly.
-/*
 func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID]BranchID, err error) {
 	movedBranches = make(map[BranchID]BranchID)
 
@@ -137,7 +139,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 	}
 
 	// abort if the Branch is not High GoF
-	if b.tangle.ConfirmationOracle.IsBranchConfirmed(conflictBranch) {
+	if b.ledgerState.ConfirmationOracle.IsBranchConfirmed(branchID) {
 		err = errors.Errorf("tried to merge non-high-gof Branch with %s to Master: %w", branchID, cerrors.ErrFatal)
 		return
 	}
@@ -236,7 +238,6 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 
 	return
 }
-*/
 
 // Branch retrieves the Branch with the given BranchID from the object storage.
 func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {

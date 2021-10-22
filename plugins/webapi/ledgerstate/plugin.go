@@ -298,7 +298,7 @@ func GetBranchSupporters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	supporters := deps.Tangle.ApprovalWeightManager.SupportersOfBranch(branchID)
+	supporters := deps.Tangle.ApprovalWeightManager.SupportersOfAggregatedBranch(branchID)
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchSupportersResponse(branchID, supporters))
 }

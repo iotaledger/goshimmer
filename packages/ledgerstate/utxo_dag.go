@@ -81,7 +81,7 @@ type IUTXODAG interface {
 type UTXODAG struct {
 	events *UTXODAGEvents
 
-	ledgerstate *Ledgerstate
+	ledgerstate *LedgerState
 
 	transactionStorage          *objectstorage.ObjectStorage
 	transactionMetadataStorage  *objectstorage.ObjectStorage
@@ -95,7 +95,7 @@ type UTXODAG struct {
 }
 
 // NewUTXODAG create a new UTXODAG from the given details.
-func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
+func NewUTXODAG(ledgerstate *LedgerState) (utxoDAG *UTXODAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
 	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{

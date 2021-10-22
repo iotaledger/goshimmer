@@ -1,16 +1,18 @@
 package ledgerstate
 
 import (
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 )
 
-// region Ledgerstate //////////////////////////////////////////////////////////////////////////////////////////////////
+// region LedgerState //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Ledgerstate is a data structure that follows the principles of the quadruple entry accounting.
-type Ledgerstate struct {
+// LedgerState is a data structure that follows the principles of the quadruple entry accounting.
+type LedgerState struct {
 	Options *Options
 
 	*UTXODAG
@@ -18,9 +20,9 @@ type Ledgerstate struct {
 	ConfirmationOracle
 }
 
-// New is the constructor for the Ledgerstate.
-func New(options ...Option) (ledgerstate *Ledgerstate) {
-	ledgerstate = &Ledgerstate{}
+// New is the constructor for the LedgerState.
+func New(options ...Option) (ledgerstate *LedgerState) {
+	ledgerstate = &LedgerState{}
 	ledgerstate.Configure(options...)
 
 	ledgerstate.UTXODAG = NewUTXODAG(ledgerstate)
@@ -30,8 +32,8 @@ func New(options ...Option) (ledgerstate *Ledgerstate) {
 	return ledgerstate
 }
 
-// Configure modifies the configuration of the Ledgerstate.
-func (l *Ledgerstate) Configure(options ...Option) {
+// Configure modifies the configuration of the LedgerState.
+func (l *LedgerState) Configure(options ...Option) {
 	if l.Options == nil {
 		l.Options = &Options{
 			Store:              mapdb.NewMapDB(),
@@ -44,8 +46,47 @@ func (l *Ledgerstate) Configure(options ...Option) {
 	}
 }
 
-// Shutdown marks the Ledgerstate as stopped, so it will not accept any new Transactions.
-func (l *Ledgerstate) Shutdown() {
+func (l *LedgerState) MergeToMaster(branchID BranchID) (err error) {
+	// lock other writes
+
+	updatedBranches, err := l.BranchDAG.MergeToMaster(branchID)
+	if err != nil {
+		return errors.Errorf("failed to merge Branch with %s to %s: %w", branchID, MasterBranchID, err)
+	}
+
+	transactionWalker := walker.New(false)
+	transactionWalker.Push(branchID.TransactionID())
+
+	for transactionWalker.HasNext() {
+		currentTransactionID := transactionWalker.Next().(TransactionID)
+
+		l.UTXODAG.CachedTransactionMetadata(currentTransactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+			currentBranchID := transactionMetadata.BranchID()
+			if currentBranchID == InvalidBranchID {
+				return
+			}
+
+			transactionMetadata.SetBranchID(updatedBranches[currentBranchID])
+
+			l.UTXODAG.CachedTransaction(currentTransactionID).Consume(func(transaction *Transaction) {
+				for _, output := range transaction.Essence().Outputs() {
+					l.UTXODAG.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
+						outputMetadata.SetBranchID(updatedBranches[currentBranchID])
+					})
+
+					l.UTXODAG.CachedConsumers(output.ID(), Solid).Consume(func(consumer *Consumer) {
+						transactionWalker.Push(consumer.TransactionID())
+					})
+				}
+			})
+		})
+	}
+
+	return nil
+}
+
+// Shutdown marks the LedgerState as stopped, so it will not accept any new Transactions.
+func (l *LedgerState) Shutdown() {
 	l.BranchDAG.Shutdown()
 	l.UTXODAG.Shutdown()
 }
@@ -54,18 +95,18 @@ func (l *Ledgerstate) Shutdown() {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Option represents the return type of optional parameters that can be handed into the constructor of the Ledgerstate
+// Option represents the return type of optional parameters that can be handed into the constructor of the LedgerState
 // to configure its behavior.
 type Option func(*Options)
 
-// Options is a container for all configurable parameters of the Ledgerstate.
+// Options is a container for all configurable parameters of the LedgerState.
 type Options struct {
 	Store              kvstore.KVStore
 	CacheTimeProvider  *database.CacheTimeProvider
 	LazyBookingEnabled bool
 }
 
-// Store is an Option for the Ledgerstate that allows to specify which storage layer is supposed to be used to persist
+// Store is an Option for the LedgerState that allows to specify which storage layer is supposed to be used to persist
 // data.
 func Store(store kvstore.KVStore) Option {
 	return func(options *Options) {
@@ -80,7 +121,7 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
-// LazyBookingEnabled is an Option for the Ledgerstate that allows to specify if the ledger state should lazy book
+// LazyBookingEnabled is an Option for the LedgerState that allows to specify if the ledger state should lazy book
 // conflicts that look like they have been decided already.
 func LazyBookingEnabled(enabled bool) Option {
 	return func(options *Options) {

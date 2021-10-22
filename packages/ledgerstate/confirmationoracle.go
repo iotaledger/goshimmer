@@ -11,11 +11,11 @@ import (
 // SimpleConfirmationOracle is a very simple ConfirmationOracle that retrieves the confirmation status by analyzing the
 // gradeOfFinality of the different entities.
 type SimpleConfirmationOracle struct {
-	ledgerstate *Ledgerstate
+	ledgerstate *LedgerState
 }
 
 // NewSimpleConfirmationOracle is the constructor for the SimpleConfirmationOracle.
-func NewSimpleConfirmationOracle(ledgerstate *Ledgerstate) *SimpleConfirmationOracle {
+func NewSimpleConfirmationOracle(ledgerstate *LedgerState) *SimpleConfirmationOracle {
 	return &SimpleConfirmationOracle{
 		ledgerstate: ledgerstate,
 	}
