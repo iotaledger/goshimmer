@@ -871,26 +871,14 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	if m.mapping.Size() != m.realSize() {
-		fmt.Println("SIZE WAS WRONG before marshaling")
-	}
-
-	size := uint64(m.mapping.Size())
-
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(size)
+	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
 	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
-		size--
 		marshalUtil.Write(node.Key().(markers.Index))
 		marshalUtil.Write(node.Value().(ledgerstate.BranchID))
 
 		return true
 	})
-
-	if size != 0 {
-		fmt.Println(size)
-		panic("SIZE WAS NOT CORRECT")
-	}
 
 	return marshalUtil.Bytes()
 }
