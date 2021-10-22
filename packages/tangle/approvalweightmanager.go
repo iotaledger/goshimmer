@@ -1063,17 +1063,15 @@ func (b *BranchSupporters) AddSupporter(supporter Supporter) (added bool) {
 	return
 }
 
-// AddSupporter adds a new Supporter to the tracked ledgerstate.BranchID.
+// AddSupporters adds the supporters set to the tracked ledgerstate.BranchID.
 func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
-
-	modified := false
 	supporters.ForEach(func(supporter Supporter) {
-		if added = b.supporters.Add(supporter); added {
-			modified = true
+		if b.supporters.Add(supporter) {
+			added = true
 		}
 	})
 
-	if modified {
+	if added {
 		b.SetModified()
 	}
 

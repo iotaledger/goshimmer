@@ -48,7 +48,9 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
 		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
+			// We book under the InvalidBranch, no error.
 			inheritedBranch = ledgerstate.InvalidBranchID
+			err = nil
 			return
 		}
 
