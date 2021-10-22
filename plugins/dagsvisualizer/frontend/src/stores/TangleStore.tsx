@@ -1,6 +1,9 @@
 import { action, observable, ObservableMap } from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
 import cytoscape from 'cytoscape';
+import fcose from 'cytoscape-fcose';
+import { fcoseOptions } from 'styles/graphStyle';
+import layoutUtilities from 'cytoscape-layout-utilities';
 
 export class tangleVertex {
     ID:              string;   
@@ -34,11 +37,15 @@ export class tangleMarkerAWUpdated {
 }
 
 export class TangleStore {
-    @observable maxTangleVertices: number = 500;
+    @observable maxTangleVertices: number = 100;
     @observable messages = new ObservableMap<string, tangleVertex>();
     @observable markerMap = new ObservableMap<string, Array<string>>();
     @observable awMap = new ObservableMap<string, number>();
     msgOrder: Array<any> = [];
+    newVertexCounter = 0;
+    cy;
+    layout;
+    layoutApi;
 
     constructor() {
         this.connect()
@@ -48,6 +55,9 @@ export class TangleStore {
         registerHandler(WSMsgType.MessageConfirmed, this.setMessageConfirmedTime);
         registerHandler(WSMsgType.FutureMarkerUpdated, this.updateFutureMarker);
         registerHandler(WSMsgType.MarkerAWUpdated, this.updateMarkerAW);
+
+        cytoscape.use(fcose);
+        cytoscape.use( layoutUtilities );
     }
 
     unregisterHandlers() {
@@ -59,7 +69,7 @@ export class TangleStore {
     }
 
     connect() {
-        connectWebSocket("/ws",
+        connectWebSocket("localhost:8061/ws",
         () => {console.log("connection opened")},
         this.reconnect,
         () => {console.log("connection error")});
@@ -82,6 +92,8 @@ export class TangleStore {
         this.awMap.set(msg.ID, 0);
         msg.futureMarkers = [];
         this.messages.set(msg.ID, msg);
+
+        //this.drawVertex(msg);
     }
 
     @action
@@ -93,6 +105,7 @@ export class TangleStore {
                 this.markerMap.delete(msgID);
             }
             this.messages.delete(msgID);
+            //this.removeVertex(msgID);
         }
     }
 
@@ -162,46 +175,84 @@ export class TangleStore {
         }
     }
 
+    drawVertex = (msg: tangleVertex) => {
+        this.newVertexCounter++;
+
+        let v = this.cy.add({
+            group: 'nodes',
+            data: { id: msg.ID },
+        });
+
+        msg.strongParentIDs.forEach((spID) => {
+            let sp = this.messages.get(spID);
+            if (sp) {
+                let edgeID = msg.ID+spID; 
+                this.cy.add({
+                    group: 'edges',
+                    data: { id: edgeID, source: msg.ID, target: spID}
+                });
+            }            
+        });
+
+        msg.weakParentIDs.forEach((wpID) => {
+            let wp = this.messages.get(wpID);
+            if (wp) {
+                let edgeID = msg.ID+wpID; 
+                this.cy.add({
+                    group: 'edges',
+                    data: { id: edgeID, source: msg.ID, target: wpID}
+                });
+            }            
+        });
+        this.layoutApi.placeNewNodes(v);
+
+        if (this.newVertexCounter >= 0) {
+            this.cy.layout(fcoseOptions).run();
+            this.newVertexCounter = 0;
+        }
+    }
+
+    removeVertex = (msgID: string) => {
+        let uiID = '#'+msgID;
+        this.cy.remove(uiID);
+        this.cy.layout( fcoseOptions ).run();
+    }
+
     start = () => {
-        var cy = cytoscape({
+        this.cy = cytoscape({
             container: document.getElementById("tangleVisualizer"), // container to render in
-            elements: [ // list of graph elements to start with
-                { // node a
-                  data: { id: 'a' }
-                },
-                { // node b
-                  data: { id: 'b' }
-                },
-                { // edge ab
-                  data: { id: 'ab', source: 'a', target: 'b' }
-                }
-              ],
             style: [ // the stylesheet for the graph
                 {
                   selector: 'node',
                   style: {
-                    'background-color': '#666',
-                    'label': 'data(id)',
-                    'width': 5,
-                    'height': 5,
+                    'background-color': '#2E8BC0',
+                    'shape': 'round-rectangle',
+                    'width': 15,
+                    'height': 15,
                   }
                 },            
                 {
                   selector: 'edge',
                   style: {
-                    'width': 3,
-                    'line-color': '#ccc',
-                    'target-arrow-color': '#ccc',
-                    'target-arrow-shape': 'triangle',
-                    'curve-style': 'bezier'
+                    'width': 1,
+                    'curve-style': 'bezier',
+                    'line-color': '#696969',
+                    'control-point-step-size': '10px'
                   }
                 }
-              ],            
-              layout: {
-                name: 'grid',
-                rows: 1
-              }
-        });        
+              ],
+            layout: {
+                name: 'fcose',
+            },
+        });
+        this.layoutApi = this.cy.layoutUtilities(
+            {
+              desiredAspectRatio: 1,
+              polyominoGridSizeFactor: 1,
+              utilityFunction: 0,
+              componentSpacing: 80,
+            }
+        );
     }
 }
 

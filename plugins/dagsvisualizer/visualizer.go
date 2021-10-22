@@ -1,6 +1,7 @@
 package dagsvisualizer
 
 import (
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -111,13 +112,24 @@ func registerUTXOEvents() {
 		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() == ledgerstate.TransactionType {
 				tx := msg.Payload().(*ledgerstate.Transaction)
+				// handle inputs (retrieve outputID)
+				inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
+				for i, input := range tx.Essence().Inputs() {
+					inputs[i] = jsonmodels.NewInput(input)
+				}
+
+				outputs := make([]string, len(tx.Essence().Outputs()))
+				for i, output := range tx.Essence().Outputs() {
+					outputs[i] = output.ID().Base58()
+				}
+
 				visualizerWorkerPool.TrySubmit(&wsMessage{
 					Type: MsgTypeUTXOVertex,
 					Data: &utxoVertex{
 						MsgID:          messageID.Base58(),
 						ID:             tx.ID().Base58(),
-						Inputs:         tx.Essence().Inputs().Strings(),
-						Outputs:        tx.Essence().Outputs().Strings(),
+						Inputs:         inputs,
+						Outputs:        outputs,
 						ApprovalWeight: 0,
 					},
 				})

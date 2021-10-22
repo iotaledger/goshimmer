@@ -11,6 +11,14 @@ interface Props {
 @inject("branchStore")
 @observer
 export class BranchDAG extends React.Component<Props, any> {
+    componentDidMount() {
+        this.props.branchStore.start();
+    }
+
+    componentWillUnmount() {
+        this.props.branchStore.unregisterHandlers();
+    }
+
     render () {
         return (
             <Container>

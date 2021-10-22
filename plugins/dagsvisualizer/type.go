@@ -1,5 +1,7 @@
 package dagsvisualizer
 
+import "github.com/iotaledger/goshimmer/packages/jsonmodels"
+
 const (
 	// MsgTypeTangleVertex is the type of the Tangle DAG vertex.
 	MsgTypeTangleVertex byte = iota
@@ -59,12 +61,12 @@ type tangleMarkerAWUpdated struct {
 }
 
 type utxoVertex struct {
-	MsgID          string   `json:"msgID"`
-	ID             string   `json:"ID"`
-	Inputs         []string `json:"inputs"`
-	Outputs        []string `json:"outputs"`
-	ApprovalWeight float64  `json:"approvalweight"`
-	ConfirmedTime  int64    `json:"confirmedTime"`
+	MsgID          string              `json:"msgID"`
+	ID             string              `json:"ID"`
+	Inputs         []*jsonmodels.Input `json:"inputs"`
+	Outputs        []string            `json:"outputs"`
+	ApprovalWeight float64             `json:"approvalweight"`
+	ConfirmedTime  int64               `json:"confirmedTime"`
 }
 
 type utxoConfirmed struct {
@@ -79,6 +81,7 @@ type branchVertex struct {
 	Parents        []string `json:"parents"`
 	ApprovalWeight float64  `json:"approvalWeight"`
 	ConfirmedTime  int64    `json:"confirmedTime"`
+	ConflictIDs    []string `json:"conflictIDs"`
 }
 
 type branchParentUpdate struct {

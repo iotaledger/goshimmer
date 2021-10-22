@@ -10,11 +10,21 @@ interface Props {
 @inject("utxoStore")
 @observer
 export class UTXODAG extends React.Component<Props, any> {
+    componentDidMount() {
+        this.props.utxoStore.start();
+    }
+
+    componentWillUnmount() {
+        this.props.utxoStore.unregisterHandlers();
+    }
+
     render () {
+        let { selectedTx } = this.props.utxoStore;
+
         return (
             <Container>
                 <h2> UTXO DAG </h2>
-                <div id="utxoVisualizer" />
+                <div id="utxoVisualizer" />                    
             </Container>
         );
     }
