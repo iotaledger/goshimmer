@@ -268,43 +268,10 @@ func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
 func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = ledgerstate.NewBranchIDs()
 
-<<<<<<< HEAD
-	message.ForEachParentByType(StrongParentType, func(messageID MessageID) {
-		if messageID == EmptyMessageID {
-			branchIDs.Add(ledgerstate.MasterBranchID)
-			return
-		}
-
-		if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			if branchID := messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
-				branchIDs.Add(branchID)
-				return
-			}
-
-			structureDetailsOfMessage := messageMetadata.StructureDetails()
-			if structureDetailsOfMessage == nil {
-				finishedSolidCallsMutex.Lock()
-				fmt.Println("BOOKED?", finishedSolidCalls[messageID])
-				finishedSolidCallsMutex.Unlock()
-				fmt.Println("SOLID?", messageMetadata.IsSolid(), messageMetadata.IsWeaklySolid())
-
-				fmt.Printf("atried to retrieve BranchID from unbooked Message with %s\n", messageID)
-				return
-				//panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
-			}
-			if structureDetailsOfMessage.PastMarkers.Size() > 1 {
-				panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
-			}
-
-			branchIDs.Add(b.MarkersManager.BranchID(structureDetailsOfMessage.PastMarkers.Marker()))
-		}) {
-			panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
-=======
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		branchID, err := b.MessageBranchID(parentMessageID)
 		if err != nil {
 			panic(err)
->>>>>>> 8c8d7c5e1e5b82c2aa530a4c45954a9e50af6e11
 		}
 		branchIDs.Add(branchID)
 	})
@@ -378,29 +345,10 @@ func (b *Booker) branchIDOfPayload(message *Message) (branchID ledgerstate.Branc
 		return ledgerstate.MasterBranchID, nil
 	}
 
-	transaction := payload.(*ledgerstate.Transaction)
-
-<<<<<<< HEAD
-	if !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	if transactionID := payload.(*ledgerstate.Transaction).ID(); !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		branchID = transactionMetadata.BranchID()
 	}) {
-		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to load TransactionMetadata of %s: %w", transaction.ID(), cerrors.ErrFatal)
-=======
-	if transactionErr := b.tangle.LedgerState.TransactionValid(transaction, message.ID()); transactionErr != nil {
-		return ledgerstate.UndefinedBranchID, errors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
-	}
-
-	if branchID, err = b.tangle.LedgerState.BookTransaction(transaction, message.ID()); err != nil {
-		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)
-	}
-
-	for _, output := range transaction.Essence().Outputs() {
-		b.tangle.LedgerState.UTXODAG.ManageStoreAddressOutputMapping(output)
-	}
-
-	if attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), message.ID()); stored {
-		attachment.Release()
->>>>>>> 8c8d7c5e1e5b82c2aa530a4c45954a9e50af6e11
+		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to load TransactionMetadata of %s: %w", transactionID, cerrors.ErrFatal)
 	}
 
 	return
@@ -421,10 +369,8 @@ func (b *Booker) updatedBranchID(branchID, conflictBranchID ledgerstate.BranchID
 		return ledgerstate.UndefinedBranchID, false, nil
 	}
 
-	// If the combined branches are conflicting when propagating them, it means that there was a like switch set in the future cone.
-	// We can safely ignore the branch propagation in that part of the tangle.
-	if newBranchID == ledgerstate.InvalidBranchID {
-		return ledgerstate.UndefinedBranchID, false, nil
+	if newBranchID == branchID {
+		return branchID, false, nil
 	}
 
 	return newBranchID, newBranchID != branchID, nil
@@ -824,26 +770,8 @@ func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID l
 	defer m.mappingMutex.Unlock()
 
 	m.mapping.Set(index, branchID)
-<<<<<<< HEAD
 
-	if m.mapping.Size() != m.realSize() {
-		panic("SIZE WAS WRONG AFTER SETTING")
-	}
-}
-
-func (m *MarkerIndexBranchIDMapping) realSize() int {
-	realSize := 0
-
-	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
-		realSize++
-
-		return true
-	})
-
-	return realSize
-=======
 	m.SetModified()
->>>>>>> 8c8d7c5e1e5b82c2aa530a4c45954a9e50af6e11
 }
 
 // DeleteBranchID deletes a mapping between the given marker Index and the stored BranchID.
@@ -852,14 +780,7 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	defer m.mappingMutex.Unlock()
 
 	m.mapping.Delete(index)
-<<<<<<< HEAD
-
-	if m.mapping.Size() != m.realSize() {
-		panic("SIZE WAS WRONG AFTER DELETING")
-	}
-=======
 	m.SetModified()
->>>>>>> 8c8d7c5e1e5b82c2aa530a4c45954a9e50af6e11
 }
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
