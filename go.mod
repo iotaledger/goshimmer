@@ -17,7 +17,7 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20211021203208-abb7133a9915
+	github.com/iotaledger/hive.go v0.0.0-20211022130818-5eadd0c9157d
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/linxGnu/grocksdb v1.6.35 // indirect
