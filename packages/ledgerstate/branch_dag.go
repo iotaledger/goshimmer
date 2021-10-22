@@ -19,7 +19,7 @@ import (
 // region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BranchDAGCacheSize defines how many elements are stored in the internal LRUCaches.
-const BranchDAGCacheSize = 100000
+const BranchDAGCacheSize = 1024
 
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
 // the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
