@@ -772,26 +772,8 @@ func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID l
 	defer m.mappingMutex.Unlock()
 
 	m.mapping.Set(index, branchID)
-<<<<<<< HEAD
 
-	if m.mapping.Size() != m.realSize() {
-		panic("SIZE WAS WRONG AFTER SETTING")
-	}
-}
-
-func (m *MarkerIndexBranchIDMapping) realSize() int {
-	realSize := 0
-
-	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
-		realSize++
-
-		return true
-	})
-
-	return realSize
-=======
 	m.SetModified()
->>>>>>> 8c8d7c5e1e5b82c2aa530a4c45954a9e50af6e11
 }
 
 // DeleteBranchID deletes a mapping between the given marker Index and the stored BranchID.
@@ -800,14 +782,7 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	defer m.mappingMutex.Unlock()
 
 	m.mapping.Delete(index)
-<<<<<<< HEAD
-
-	if m.mapping.Size() != m.realSize() {
-		panic("SIZE WAS WRONG AFTER DELETING")
-	}
-=======
 	m.SetModified()
->>>>>>> 8c8d7c5e1e5b82c2aa530a4c45954a9e50af6e11
 }
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
@@ -898,26 +873,14 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	if m.mapping.Size() != m.realSize() {
-		fmt.Println("SIZE WAS WRONG before marshaling")
-	}
-
-	size := uint64(m.mapping.Size())
-
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(size)
+	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
 	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
-		size--
 		marshalUtil.Write(node.Key().(markers.Index))
 		marshalUtil.Write(node.Value().(ledgerstate.BranchID))
 
 		return true
 	})
-
-	if size != 0 {
-		fmt.Println(size)
-		panic("SIZE WAS NOT CORRECT")
-	}
 
 	return marshalUtil.Bytes()
 }
