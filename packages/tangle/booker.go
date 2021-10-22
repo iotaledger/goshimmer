@@ -374,15 +374,6 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 		return ledgerstate.UndefinedBranchID, errors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
 	}
 
-	// if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
-	// 	b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messagemetadata *MessageMetadata) {
-	// 		messagemetadata.SetInvalid(true)
-	// 	})
-	// 	b.tangle.Events.MessageInvalid.Trigger(message.ID())
-
-	// 	return ledgerstate.UndefinedBranchID, errors.Errorf("message with %s does not approve its referenced %s: %w", message.ID(), transaction.ReferencedTransactionIDs(), cerrors.ErrFatal)
-	// }
-
 	if branchID, err = b.tangle.LedgerState.BookTransaction(transaction, message.ID()); err != nil {
 		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)
 	}
@@ -414,11 +405,7 @@ func (b *Booker) updatedBranchID(branchID, conflictBranchID ledgerstate.BranchID
 		return ledgerstate.UndefinedBranchID, false, nil
 	}
 
-	if newBranchID == branchID {
-		return branchID, false, nil
-	}
-
-	return newBranchID, true, nil
+	return newBranchID, newBranchID != branchID, nil
 }
 
 // updateMarkerFutureCone updates the future cone of a Marker to belong to the given conflict BranchID.
@@ -449,10 +436,11 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
 		return
 	}
-
-	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
+	b.updateIndividuallyMappedMessages(oldBranchID, currentMarker, conflictBranchID)
 
 	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
+
+	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
 
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
