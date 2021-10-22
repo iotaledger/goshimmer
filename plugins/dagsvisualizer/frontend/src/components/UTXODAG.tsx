@@ -24,7 +24,12 @@ export class UTXODAG extends React.Component<Props, any> {
         return (
             <Container>
                 <h2> UTXO DAG </h2>
-                <div id="utxoVisualizer" />                    
+                <div className="graphFrame">
+                    <div className="selectedInfo">
+                        <p> TXID: </p>
+                    </div>
+                    <div id="utxoVisualizer" />
+                </div>                    
             </Container>
         );
     }
