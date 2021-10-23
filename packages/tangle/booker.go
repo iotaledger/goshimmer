@@ -121,7 +121,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// By adding the BranchID of the payload to the computed supported branches, InheritBranch will check if anything of what we
 			// finally support has overlapping conflict sets, in which case the Message is invalid
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(supportedBranches.Add(branchIDOfPayload))
-			if inheritedBranch == ledgerstate.InvalidBranchID || inheritErr != nil {
+			if inheritErr != nil {
 				messageMetadata.SetInvalid(true)
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
