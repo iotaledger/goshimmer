@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/events"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/eventsqueue"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
@@ -396,7 +397,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, branchesOfInputsConflicting)
 
-	eventsQueue := eventsqueue.New()
+	eventsQueue := events.NewQueue()
 	targetBranch2 := ledgerstate.bookConflictingTransaction(tx2, txMetadata2, inputsMetadata2, normalizedBranchIDs, conflictingInputs.ByID(), eventsQueue)
 	eventsQueue.Trigger()
 
