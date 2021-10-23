@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/eventsqueue"
 )
 
 // region IUTXODAG /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -151,7 +150,7 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 func (u *UTXODAG) StoreTransaction(transaction *Transaction) (stored bool, solidityType SolidityType, err error) {
 	propagationWalker := walker.New(true)
 
-	eventsQueue := eventsqueue.New()
+	eventsQueue := events.NewQueue()
 
 	u.LockEntity(transaction)
 	u.CachedTransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
@@ -373,7 +372,7 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 // solidifyTransaction solidifies the Transaction - it performs semantic checks and stores the transaction in its
 // corresponding Branch if the inputs are known. If the Transaction is solid, then we also queue its Consumers to be
 // checked.
-func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, propagationWalker *walker.Walker, eventsQueue *eventsqueue.EventsQueue) (err error) {
+func (u *UTXODAG) solidifyTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, propagationWalker *walker.Walker, eventsQueue *events.Queue) (err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
@@ -449,7 +448,7 @@ func (u *UTXODAG) transactionObjectivelyValid(transaction *Transaction, consumed
 }
 
 // bookTransaction books the Transaction into it's corresponding Branch.
-func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, consumedOutputs Outputs, eventsQueue *eventsqueue.EventsQueue) (targetBranch BranchID, err error) {
+func (u *UTXODAG) bookTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, consumedOutputs Outputs, eventsQueue *events.Queue) (targetBranch BranchID, err error) {
 	// retrieve the metadata of the Inputs
 	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
 	defer cachedInputsMetadata.Release()
@@ -577,7 +576,7 @@ func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transa
 // bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
 // already been spent by another Transaction. It create a new ConflictBranch for the new Transaction and "forks" the
 // existing consumers of the conflicting Inputs.
-func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs, conflictingInputs OutputsMetadataByID, eventsQueue *eventsqueue.EventsQueue) (targetBranch BranchID) {
+func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs, conflictingInputs OutputsMetadataByID, eventsQueue *events.Queue) (targetBranch BranchID) {
 	// fork existing consumers
 	u.walkFutureCone(conflictingInputs.IDs(), func(transactionID TransactionID) (nextOutputsToVisit []OutputID) {
 		u.forkConsumer(transactionID, conflictingInputs, eventsQueue)
@@ -617,7 +616,7 @@ func (u *UTXODAG) createConsumers(transactionMetadata *TransactionMetadata, tran
 
 // forkConsumer is an internal utility function that creates a ConflictBranch for a Transaction that has not been
 // conflicting first but now turned out to be conflicting because of a newly booked double spend.
-func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID, eventsQueue *eventsqueue.EventsQueue) {
+func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID, eventsQueue *events.Queue) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(txMetadata *TransactionMetadata) {
 		conflictBranchID := NewBranchID(transactionID)
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
@@ -657,7 +656,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 // propagateBranchUpdates is an internal utility function that propagates changes in the perception of the BranchDAG
 // after introducing a new ConflictBranch.
-func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, eventsQueue *eventsqueue.EventsQueue) (updatedOutputs []OutputID) {
+func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, eventsQueue *events.Queue) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		// if the BranchID is the TransactionID we have a ConflictBranch
 		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
@@ -683,7 +682,7 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, eventsQueu
 
 // updateBranchOfTransaction is an internal utility function that updates the Branch that a Transaction and its Outputs
 // are booked into.
-func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID, eventsQueue *eventsqueue.EventsQueue) (updatedOutputs []OutputID) {
+func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID, eventsQueue *events.Queue) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.SetBranchID(branchID) {
 			eventsQueue.Queue(u.Events().TransactionBranchIDUpdated, transactionID)

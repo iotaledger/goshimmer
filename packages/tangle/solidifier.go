@@ -3,7 +3,6 @@ package tangle
 import (
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -384,16 +383,8 @@ func (s *Solidifier) triggerSolidUpdate(message *Message, messageMetadata *Messa
 
 	s.Events.MessageSolid.Trigger(messageMetadata.ID())
 
-	finishedSolidCallsMutex.Lock()
-	finishedSolidCalls[message.ID()] = true
-	finishedSolidCallsMutex.Unlock()
-
-
 	return true
 }
-
-var finishedSolidCalls = make(map[MessageID]bool)
-var finishedSolidCallsMutex sync.Mutex
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
