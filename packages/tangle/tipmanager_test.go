@@ -189,6 +189,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	// set up scenario (images/tipmanager-TransactionTips-test.png)
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
+	tangle.Solidifier.Setup()
 	tipManager := tangle.TipManager
 
 	wallets := make(map[string]wallet)
@@ -387,6 +388,14 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 6
 	{
+		// with the invalidity check in the Booker, the tests would now fail as the parents are invalid
+		tangle.Storage.MessageMetadata(messages["3"].ID()).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetInvalid(false)
+		})
+		tangle.Storage.MessageMetadata(messages["5"].ID()).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetInvalid(false)
+		})
+
 		createScenarioMessageWith1Input1Output("6", "5", "3", "H", "Q", []MessageID{messages["3"].ID(), messages["5"].ID()})
 		tipManager.AddTip(messages["6"])
 		assert.Equal(t, 2, tipManager.TipCount())

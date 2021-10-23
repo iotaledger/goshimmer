@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/stack"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
@@ -29,9 +28,9 @@ type BranchDAG struct {
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider) (newBranchDAG *BranchDAG) {
-	options := buildObjectStorageOptions(cacheProvider)
-	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
+func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
+	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
+	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
 		branchStorage:         osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, options.branchStorageOptions...),
 		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
@@ -411,7 +410,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 
 	// introduce iteration variables
 	traversedBranches := set.New()
-	seenConflictSets := set.New()
+	seenConflictSets := make(map[ConflictID]BranchID)
 	parentsToCheck := stack.New()
 
 	// checks if branches are conflicting and queues parents to be checked
@@ -429,10 +428,11 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 
 		// return error if conflict set was seen twice
 		for conflictSetID := range currentConflictBranch.Conflicts() {
-			if !seenConflictSets.Add(conflictSetID) {
-				err = errors.Errorf("combined Branches are conflicting: %w", ErrInvalidStateTransition)
+			if conflictingBranch, exists := seenConflictSets[conflictSetID]; exists {
+				err = errors.Errorf("%s conflicts with %s in %s: %w", conflictingBranch, currentConflictBranch.ID(), conflictSetID, ErrInvalidStateTransition)
 				return
 			}
+			seenConflictSets[conflictSetID] = currentConflictBranch.ID()
 		}
 
 		// queue parents to be checked when traversing ancestors
@@ -596,8 +596,14 @@ func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID Branc
 	})
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchDAGEvents //////////////////////////////////////////////////////////////////////////////////////////////
+
 // BranchDAGEvents is a container for all BranchDAG related events.
 type BranchDAGEvents struct {
 	// BranchCreated gets triggered when a new Branch is created.
 	BranchCreated *events.Event
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -66,6 +66,10 @@ services:
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
+    ports:
+      - "8060:8080/tcp" # web API
+      - "8061:8081/tcp" # dashboard
+      - "6061:6061/tcp" # pprof
     networks:
       - shimmer
     depends_on:
@@ -103,6 +107,7 @@ services:
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.overwriteStoredSeed=true
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
+      --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih

@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
@@ -126,6 +127,11 @@ func (i TransactionID) String() string {
 // TransactionIDs represents a collection of TransactionIDs.
 type TransactionIDs map[TransactionID]types.Empty
 
+// Add adds a new TransactionID to the collection.
+func (t TransactionIDs) Add(transactionID TransactionID) {
+	t[transactionID] = types.Void
+}
+
 // Clone returns a copy of the collection of TransactionIDs.
 func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	transactionIDs = make(TransactionIDs)
@@ -161,6 +167,8 @@ type Transaction struct {
 	idMutex      sync.RWMutex
 	essence      *TransactionEssence
 	unlockBlocks UnlockBlocks
+	lock         []interface{}
+	lockMutex    sync.Mutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -361,6 +369,24 @@ func (t *Transaction) ReferencedTransactionIDs() (referencedTransactionIDs Trans
 	}
 
 	return
+}
+
+// Locks returns a list of identifiers of the entities that this Transaction depends on and that should be locked before
+// modifying any of the Transactions properties.
+func (t *Transaction) Locks() (lock []interface{}) {
+	t.lockMutex.Lock()
+	defer t.lockMutex.Unlock()
+
+	if t.lock == nil {
+		lockBuilder := (&syncutils.MultiMutexLockBuilder{}).AddLock(t.ID())
+		for referencedTransactionID := range t.ReferencedTransactionIDs() {
+			lockBuilder = lockBuilder.AddLock(referencedTransactionID)
+		}
+
+		t.lock = lockBuilder.Build()
+	}
+
+	return t.lock
 }
 
 // Bytes returns a marshaled version of the Transaction.
@@ -691,12 +717,10 @@ type TransactionMetadata struct {
 	id                      TransactionID
 	branchID                BranchID
 	branchIDMutex           sync.RWMutex
-	solid                   bool
-	solidMutex              sync.RWMutex
+	solidityType            SolidityType
+	solidityTypeMutex       sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	lazyBooked              bool
-	lazyBookedMutex         sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
 	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
@@ -734,16 +758,12 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		err = errors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
-	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if transactionMetadata.solidityType, err = SolidityTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SolidityType from MarshalUtil: %w", err)
 		return
 	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	gradeOfFinality, err := marshalUtil.ReadUint8()
@@ -799,35 +819,33 @@ func (t *TransactionMetadata) SetBranchID(branchID BranchID) (modified bool) {
 	return
 }
 
-// Solid returns true if the Transaction has been marked as solid.
-func (t *TransactionMetadata) Solid() bool {
-	t.solidMutex.RLock()
-	defer t.solidMutex.RUnlock()
+// SetSolidityType updates the SolidityType of the Transaction. It returns the previous value.
+func (t *TransactionMetadata) SetSolidityType(solidityType SolidityType) (previousValue SolidityType) {
+	t.solidityTypeMutex.Lock()
+	defer t.solidityTypeMutex.Unlock()
 
-	return t.solid
-}
-
-// SetSolid updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates the
-// solidification time if the Transaction was marked as solid.
-func (t *TransactionMetadata) SetSolid(solid bool) (modified bool) {
-	t.solidMutex.Lock()
-	defer t.solidMutex.Unlock()
-
-	if t.solid == solid {
+	if previousValue = t.solidityType; previousValue >= solidityType {
 		return
 	}
 
-	if solid {
+	if (previousValue == UndefinedSolidityType || previousValue == Unsolid) && solidityType >= LazySolid {
 		t.solidificationTimeMutex.Lock()
 		t.solidificationTime = time.Now()
 		t.solidificationTimeMutex.Unlock()
 	}
 
-	t.solid = solid
+	t.solidityType = solidityType
 	t.SetModified()
-	modified = true
 
 	return
+}
+
+// SolidityType returns the SolidityType of the given Transaction.
+func (t *TransactionMetadata) SolidityType() (solidityType SolidityType) {
+	t.solidityTypeMutex.RLock()
+	defer t.solidityTypeMutex.RUnlock()
+
+	return t.solidityType
 }
 
 // SolidificationTime returns the time when the Transaction was marked as solid.
@@ -836,31 +854,6 @@ func (t *TransactionMetadata) SolidificationTime() time.Time {
 	defer t.solidificationTimeMutex.RUnlock()
 
 	return t.solidificationTime
-}
-
-// LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
-// status of its consumed Branches.
-func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
-	t.lazyBookedMutex.RLock()
-	defer t.lazyBookedMutex.RUnlock()
-
-	return t.lazyBooked
-}
-
-// SetLazyBooked updates the lazy booked flag of the Output. It returns true if the value was modified.
-func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
-	t.lazyBookedMutex.Lock()
-	defer t.lazyBookedMutex.Unlock()
-
-	if t.lazyBooked == lazyBooked {
-		return
-	}
-
-	t.lazyBooked = lazyBooked
-	t.SetModified()
-	modified = true
-
-	return
 }
 
 // GradeOfFinality returns the grade of finality.
@@ -904,9 +897,8 @@ func (t *TransactionMetadata) String() string {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
 		stringify.StructField("branchID", t.BranchID()),
-		stringify.StructField("solid", t.Solid()),
+		stringify.StructField("solidityType", t.SolidityType()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
-		stringify.StructField("lazyBooked", t.LazyBooked()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", t.GradeOfFinalityTime()),
 	)
@@ -928,9 +920,8 @@ func (t *TransactionMetadata) ObjectStorageKey() []byte {
 func (t *TransactionMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(t.BranchID()).
-		WriteBool(t.Solid()).
+		Write(t.SolidityType()).
 		WriteTime(t.SolidificationTime()).
-		WriteBool(t.LazyBooked()).
 		WriteUint8(uint8(t.GradeOfFinality())).
 		WriteTime(t.GradeOfFinalityTime()).
 		Bytes()

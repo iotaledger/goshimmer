@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import NodeStore from "app/stores/NodeStore";
-import { inject, observer } from "mobx-react";
+import {inject, observer} from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import ListGroup from "react-bootstrap/ListGroup";
 import {resolveBase58BranchID} from "app/utils/branch";
@@ -40,11 +40,10 @@ export class ExplorerTransactionMetadata extends React.Component<Props, any> {
                 <h4>Metadata</h4>
                 {txMetadata && <ListGroup>
                     <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${txMetadata.branchID}`}>{resolveBase58BranchID(txMetadata.branchID)}</a></ListGroup.Item>
-                    <ListGroup.Item>Solid: {txMetadata.solid.toString()}</ListGroup.Item>
+                    <ListGroup.Item>SolidityType: {txMetadata.solidityType.toString()}</ListGroup.Item>
                     <ListGroup.Item>Solidification time: {new Date(txMetadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                     <ListGroup.Item>Grade of Finality: {txMetadata.gradeOfFinality}</ListGroup.Item>
                     <ListGroup.Item>Grade of Finality Time: {new Date(txMetadata.gradeOfFinalityTime * 1000).toLocaleString()}</ListGroup.Item>
-                    <ListGroup.Item>Lazy booked: {txMetadata.lazyBooked.toString()}</ListGroup.Item>
                 </ListGroup>}
             </div>
         )

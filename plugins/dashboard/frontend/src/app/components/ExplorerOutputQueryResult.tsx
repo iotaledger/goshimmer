@@ -2,9 +2,8 @@ import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import ListGroup from "react-bootstrap/ListGroup";
 import NodeStore from "app/stores/NodeStore";
-import { inject, observer } from "mobx-react";
+import {inject, observer} from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
-import Badge from "react-bootstrap/Badge";
 import {displayManaUnit} from "app/utils";
 import {resolveBase58BranchID} from "app/utils/branch";
 import {outputToComponent} from "app/utils/output";
@@ -36,16 +35,6 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
     render() {
         let {id} = this.props.match.params;
         let { query_err, output, pendingMana, outputMetadata, outputConsumers } = this.props.explorerStore;
-
-        let renderTriBool = (val: string) => {
-            if (val === "true"){
-                return <Badge variant={"success"}>True</Badge>
-            }
-            if (val === "false"){
-                return <Badge variant={"danger"}>False</Badge>
-            }
-            return <Badge variant={"warning"}>Maybe</Badge>
-        }
 
         if (query_err) {
             return (
@@ -89,7 +78,7 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                     <ListGroup>
                         {outputConsumers.consumers.map((c,i) => <ListGroup.Item key={i}>
                             <div>Transaction ID:  <a href={`/explorer/transaction/${c.transactionID}`}>{c.transactionID}</a></div>
-                            <div>Valid: {renderTriBool(c.valid)} </div>
+                            <div>SolidityType: {c.solidityType.toString()} </div>
                         </ListGroup.Item>)}
                     </ListGroup>
                 </div>}

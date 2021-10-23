@@ -63,7 +63,9 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
-	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(_ *MessageInvalidEvent) {
+	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(e *MessageInvalidEvent) {
+		fmt.Println(e)
+
 		messageTestFramework.messagesBookedWG.Done()
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
@@ -86,12 +88,7 @@ func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...
 		branch := m.BranchIDFromMessage(messageAlias)
 		aggregation.Add(branch)
 	}
-	cachedAggregatedBranch, _, err := m.tangle.LedgerState.BranchDAG.AggregateBranches(aggregation)
-	if err != nil {
-		panic("my mom beats me with an aggregated branch")
-	}
-	defer cachedAggregatedBranch.Release()
-	branchID := cachedAggregatedBranch.ID()
+	branchID := ledgerstate.NewAggregatedBranch(aggregation).ID()
 	m.branchIDs[alias] = branchID
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)
 }
@@ -772,12 +769,12 @@ func totalAccessManaRetriever() float64 {
 
 // NewTestTangle returns a Tangle instance with a testing schedulerConfig
 func NewTestTangle(options ...Option) *Tangle {
-	cacheTimeProvider := database.NewCacheTimeProvider(0)
-
-	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
+	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(database.NewCacheTimeProvider(0)))
+	options = append(options, SchedulerConfig(testSchedulerParams), ConfirmationOracleFactory(func(tangle *Tangle) ConfirmationOracle {
+		return &MockConfirmationOracle{}
+	}))
 
 	t := New(options...)
-	t.ConfirmationOracle = &MockConfirmationOracle{}
 	if t.WeightProvider == nil {
 		t.WeightProvider = &MockWeightProvider{}
 	}
@@ -800,13 +797,23 @@ func (m *MockConfirmationOracle) IsMessageConfirmed(msgID MessageID) bool {
 	return false
 }
 
+// IsTransactionConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool {
+	return false
+}
+
+// IsTransactionRejected mocks its interface function.
+func (m *MockConfirmationOracle) IsTransactionRejected(transactionID ledgerstate.TransactionID) bool {
+	return false
+}
+
 // IsBranchConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID) bool {
 	return false
 }
 
-// IsTransactionConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool {
+// IsBranchRejected mocks its interface function.
+func (m *MockConfirmationOracle) IsBranchRejected(branchID ledgerstate.BranchID) bool {
 	return false
 }
 

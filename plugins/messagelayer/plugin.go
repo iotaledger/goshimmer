@@ -181,14 +181,12 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		tangle.StartSynced(Parameters.StartSynced),
 		tangle.CacheTimeProvider(database.CacheTimeProvider()),
+		tangle.ConfirmationOracleFactory(finality.SimpleFinalityGadgetFactory()),
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, deps.Storage)
 	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
-
-	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
-	tangleInstance.ConfirmationOracle = finalityGadget
 
 	tangleInstance.Setup()
 	return tangleInstance
@@ -309,7 +307,7 @@ func AwaitMessageToBeIssued(f func() (*tangle.Message, error), issuer ed25519.Pu
 	result := <-issueResult
 
 	if result.err != nil || result.msg == nil {
-		return nil, errors.Errorf("Failed to issue data %s: %w", result.msg.ID().Base58(), result.err)
+		return nil, errors.Errorf("Failed to issue data: %w", result.err)
 	}
 
 	ticker := time.NewTicker(maxAwait)

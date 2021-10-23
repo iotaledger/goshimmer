@@ -185,10 +185,16 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	return issuingTime
 }
 
+// Shutdown closes the MessageFactory and persists the sequence number.
+func (f *MessageFactory) Shutdown() {
+	if err := f.sequence.Release(); err != nil {
+		f.Events.Error.Trigger(fmt.Errorf("could not release message sequence number: %w", err))
+	}
+}
+
 func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
 	if p.Type() == ledgerstate.TransactionType {
-
-		conflictingTransactions := f.tangle.LedgerState.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
+		conflictingTransactions := f.tangle.LedgerState.ConflictingTransactions(p.(*ledgerstate.Transaction))
 		if len(conflictingTransactions) != 0 {
 			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
 			case nil:
@@ -217,13 +223,6 @@ func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.Transacti
 	}
 
 	return earliestAttachment
-}
-
-// Shutdown closes the MessageFactory and persists the sequence number.
-func (f *MessageFactory) Shutdown() {
-	if err := f.sequence.Release(); err != nil {
-		f.Events.Error.Trigger(fmt.Errorf("could not release message sequence number: %w", err))
-	}
 }
 
 func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {

@@ -510,14 +510,14 @@ func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedCons
 // Consumer represents the JSON model of a ledgerstate.Consumer.
 type Consumer struct {
 	TransactionID string `json:"transactionID"`
-	Valid         string `json:"valid"`
+	SolidityType  string `json:"solidityType"`
 }
 
 // NewConsumer returns a Consumer from the given ledgerstate.Consumer.
 func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 	return &Consumer{
 		TransactionID: consumer.TransactionID().Base58(),
-		Valid:         consumer.Valid().String(),
+		SolidityType:  consumer.SolidityType().String(),
 	}
 }
 
@@ -741,9 +741,8 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 type TransactionMetadata struct {
 	TransactionID       string              `json:"transactionID"`
 	BranchID            string              `json:"branchID"`
-	Solid               bool                `json:"solid"`
+	SolidityType        string              `json:"solidityType"`
 	SolidificationTime  int64               `json:"solidificationTime"`
-	LazyBooked          bool                `json:"lazyBooked"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
@@ -753,9 +752,8 @@ func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata
 	return &TransactionMetadata{
 		TransactionID:       transactionMetadata.ID().Base58(),
 		BranchID:            transactionMetadata.BranchID().Base58(),
-		Solid:               transactionMetadata.Solid(),
+		SolidityType:        transactionMetadata.SolidityType().String(),
 		SolidificationTime:  transactionMetadata.SolidificationTime().Unix(),
-		LazyBooked:          transactionMetadata.LazyBooked(),
 		GradeOfFinality:     transactionMetadata.GradeOfFinality(),
 		GradeOfFinalityTime: transactionMetadata.GradeOfFinalityTime().Unix(),
 	}

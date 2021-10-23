@@ -353,7 +353,7 @@ type ExpectedState struct {
 	// The optional grade of finality state to check against.
 	GradeOfFinality *gof.GradeOfFinality
 	// The optional solid state to check against.
-	Solid *bool
+	SolidityType *string
 }
 
 // True returns a pointer to a true bool.
@@ -365,6 +365,18 @@ func True() *bool {
 // False returns a pointer to a false bool.
 func False() *bool {
 	x := false
+	return &x
+}
+
+// Solid returns a pointer to a solid SolidityType.
+func Solid() *string {
+	x := ledgerstate.Solid.String()
+	return &x
+}
+
+// LazySolid returns a pointer to a lazySolid SolidityType.
+func LazySolid() *string {
+	x := ledgerstate.LazySolid.String()
 	return &x
 }
 
@@ -457,7 +469,7 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 
 	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
-		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) {
+		(expInclState.SolidityType != nil && *expInclState.SolidityType != metadata.SolidityType) {
 		return false
 	}
 	return true

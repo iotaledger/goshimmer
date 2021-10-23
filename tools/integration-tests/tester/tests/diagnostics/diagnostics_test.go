@@ -24,12 +24,12 @@ var (
 	tipsHeader = messageHeader
 
 	branchesHeader = []string{
-		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "LazyBooked", "GradeOfFinality",
+		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "SolidityType", "GradeOfFinality",
 	}
 
 	utxoDagHeader = []string{
 		"ID", "IssuanceTime", "SolidTime", "AccessManaPledgeID",
-		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "Conflicting", "LazyBooked",
+		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "Conflicting", "SolidityType",
 		"GradeOfFinality", "GradeOfFinalityTime",
 	}
 

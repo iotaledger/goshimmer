@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -227,6 +229,9 @@ type Message struct {
 	payload         payload.Payload
 	nonce           uint64
 	signature       ed25519.Signature
+
+	locks      []interface{}
+	locksMutex sync.Mutex
 
 	// derived properties
 	id         *MessageID
@@ -627,6 +632,34 @@ func (m *Message) Signature() ed25519.Signature {
 	return m.signature
 }
 
+// Locks returns a list of identifiers of the entities that this Message depends on and that should be locked before
+// modifying any of its properties.
+func (m *Message) Locks() (locks []interface{}) {
+	m.locksMutex.Lock()
+	defer m.locksMutex.Unlock()
+
+	if m.locks == nil {
+		lockBuilder := (&syncutils.MultiMutexLockBuilder{}).AddLock(m.ID())
+		m.ForEachParent(func(parent Parent) {
+			if parent.ID == EmptyMessageID {
+				return
+			}
+
+			lockBuilder = lockBuilder.AddLock(parent.ID)
+		})
+
+		if transaction, typeCastOK := m.Payload().(*ledgerstate.Transaction); typeCastOK {
+			for _, lock := range transaction.Locks() {
+				lockBuilder = lockBuilder.AddLock(lock)
+			}
+		}
+
+		m.locks = lockBuilder.Build()
+	}
+
+	return m.locks
+}
+
 // calculates the message's MessageID.
 func (m *Message) calculateID() MessageID {
 	return blake2b.Sum256(m.Bytes())
@@ -782,7 +815,10 @@ type MessageMetadata struct {
 
 	messageID           MessageID
 	receivedTime        time.Time
+	source              MessageSource
+	solidificationType  SolidificationType
 	solid               bool
+	weaklySolid         bool
 	solidificationTime  time.Time
 	structureDetails    *markers.StructureDetails
 	branchID            ledgerstate.BranchID
@@ -795,6 +831,9 @@ type MessageMetadata struct {
 	gradeOfFinality     gof.GradeOfFinality
 	gradeOfFinalityTime time.Time
 
+	sourceMutex             sync.RWMutex
+	solidificationTypeMutex sync.RWMutex
+	weaklySolidMutex        sync.RWMutex
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	structureDetailsMutex   sync.RWMutex
@@ -841,8 +880,20 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
 		return
 	}
+	if result.source, err = MessageSourceFromMarshalUtil(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse source flag of message metadata: %w", err)
+		return
+	}
+	if result.solidificationType, err = SolidificationTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse solidification type of message metadata: %w", err)
+		return
+	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
+		return
+	}
+	if result.weaklySolid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse weakly solid flag of message metadata: %w", err)
 		return
 	}
 	if result.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
@@ -911,13 +962,89 @@ func (m *MessageMetadata) ReceivedTime() time.Time {
 	return m.receivedTime
 }
 
+// Source returns the MessageSource of the Message.
+func (m *MessageMetadata) Source() MessageSource {
+	m.sourceMutex.RLock()
+	defer m.sourceMutex.RUnlock()
+
+	return m.source
+}
+
+// SetSource sets the MessageSource of the Message.
+func (m *MessageMetadata) SetSource(source MessageSource) (updated bool) {
+	m.sourceMutex.Lock()
+	defer m.sourceMutex.Unlock()
+
+	if source <= m.source {
+		return false
+	}
+
+	m.source = source
+	m.SetModified()
+
+	return true
+}
+
+// SetSolidificationType sets the SolidificationType of the Message. Tt can only be "upgraded" (go from a weaker form of
+// solidification to a stronger one).
+func (m *MessageMetadata) SetSolidificationType(solidificationType SolidificationType) (updated bool) {
+	m.solidificationTypeMutex.Lock()
+	defer m.solidificationTypeMutex.Unlock()
+
+	if solidificationType <= m.solidificationType {
+		return false
+	}
+
+	m.solidificationType = solidificationType
+	m.SetModified()
+
+	return true
+}
+
+// SolidificationType returns the SolidificationType of the Message.
+func (m *MessageMetadata) SolidificationType() (solidificationType SolidificationType) {
+	m.solidificationTypeMutex.RLock()
+	defer m.solidificationTypeMutex.RUnlock()
+
+	return m.solidificationType
+}
+
+// IsWeaklySolid returns true if the message represented by this metadata is weakly solid. False otherwise.
+func (m *MessageMetadata) IsWeaklySolid() (result bool) {
+	m.weaklySolidMutex.RLock()
+	defer m.weaklySolidMutex.RUnlock()
+
+	return m.weaklySolid
+}
+
+// SetWeaklySolid sets the message associated with this metadata as weakly solid.
+// It returns true if the solid status is modified. False otherwise.
+func (m *MessageMetadata) SetWeaklySolid(weaklySolid bool) (modified bool) {
+	m.weaklySolidMutex.RLock()
+	if m.weaklySolid == weaklySolid {
+		m.weaklySolidMutex.RUnlock()
+		return
+	}
+
+	m.weaklySolidMutex.RUnlock()
+	m.weaklySolidMutex.Lock()
+	defer m.weaklySolidMutex.Unlock()
+	if m.weaklySolid == weaklySolid {
+		return
+	}
+
+	m.weaklySolid = weaklySolid
+	m.SetModified()
+
+	return true
+}
+
 // IsSolid returns true if the message represented by this metadata is solid. False otherwise.
 func (m *MessageMetadata) IsSolid() (result bool) {
 	m.solidMutex.RLock()
 	defer m.solidMutex.RUnlock()
-	result = m.solid
 
-	return
+	return m.solid
 }
 
 // SetSolid sets the message associated with this metadata as solid.
@@ -1174,7 +1301,10 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
+		Write(m.Source()).
+		Write(m.SolidificationType()).
 		WriteBool(m.IsSolid()).
+		WriteBool(m.IsWeaklySolid()).
 		Write(m.StructureDetails()).
 		Write(m.BranchID()).
 		WriteBool(m.Scheduled()).
@@ -1199,7 +1329,10 @@ func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
 		stringify.StructField("ID", m.messageID),
 		stringify.StructField("receivedTime", m.ReceivedTime()),
+		stringify.StructField("source", m.Source()),
+		stringify.StructField("solidificationType", m.SolidificationType()),
 		stringify.StructField("solid", m.IsSolid()),
+		stringify.StructField("weaklySolid", m.IsWeaklySolid()),
 		stringify.StructField("solidificationTime", m.SolidificationTime()),
 		stringify.StructField("structureDetails", m.StructureDetails()),
 		stringify.StructField("branchID", m.BranchID()),
@@ -1260,7 +1393,85 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Errors /////////////////////////////tangle.m//////////////////////////////////////////////////////////////////////////
+// region MessageSource ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageSource is a type that represents different sources for Messages in a nodes database.
+type MessageSource uint8
+
+const (
+	// UndefinedMessageSource represents the zero value of a MessageSource.
+	UndefinedMessageSource MessageSource = iota
+
+	// WeakSolidificationSource represents Messages that were requested as a missing weak parent.
+	WeakSolidificationSource
+
+	// StrongSolidificationSource represents Messages that were requested as a missing strong parent.
+	StrongSolidificationSource
+
+	// GossipSource represents Messages that were received via Gossip without previously requesting them.
+	GossipSource
+)
+
+// MessageSourceFromBytes unmarshals a MessageSource from a sequence of bytes.
+func MessageSourceFromBytes(messageSourceBytes []byte) (messageSource MessageSource, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(messageSourceBytes)
+	if messageSource, err = MessageSourceFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse MessageSource from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// MessageSourceFromMarshalUtil unmarshals a MessageSource using a MarshalUtil (for easier unmarshaling).
+func MessageSourceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageSource MessageSource, err error) {
+	untypedMessageSource, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse MessageSource (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return MessageSource(untypedMessageSource), nil
+}
+
+// SolidificationType returns the SolidificationType that is used for Messages of the given MessageSource.
+func (m MessageSource) SolidificationType() SolidificationType {
+	switch m {
+	case UndefinedMessageSource:
+		return UndefinedSolidificationType
+	case WeakSolidificationSource:
+		return WeakSolidification
+	default:
+		return StrongSolidification
+	}
+}
+
+// Bytes returns a marshaled version of the MessageSource.
+func (m MessageSource) Bytes() (marshaledMessageSource []byte) {
+	return []byte{uint8(m)}
+}
+
+// String returns a human readable version of the MessageSource.
+func (m MessageSource) String() (humanReadableMessageSource string) {
+	switch m {
+	case UndefinedMessageSource:
+		return "MessageSource(UndefinedMessageSource)"
+	case WeakSolidificationSource:
+		return "MessageSource(WeakSolidificationSource)"
+	case StrongSolidificationSource:
+		return "MessageSource(StrongSolidificationSource)"
+	case GossipSource:
+		return "MessageSource(GossipSource)"
+	default:
+		return "MessageSource(" + strconv.Itoa(int(m)) + ")"
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 var (
 	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
 	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")

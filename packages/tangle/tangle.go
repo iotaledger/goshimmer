@@ -58,7 +58,9 @@ type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker *markers.Marker) bool
 	IsMessageConfirmed(msgID MessageID) bool
 	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
+	IsBranchRejected(branchID ledgerstate.BranchID) bool
 	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
+	IsTransactionRejected(transactionID ledgerstate.TransactionID) bool
 	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
 	Events() *ConfirmationEvents
 }
@@ -94,7 +96,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Orderer = NewOrderer(tangle)
-
+	tangle.ConfirmationOracle = tangle.Options.ConfirmationOracleFactory(tangle)
 	tangle.WeightProvider = tangle.Options.WeightProvider
 
 	return
@@ -241,6 +243,7 @@ type Options struct {
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
 	CacheTimeProvider            *database.CacheTimeProvider
+	ConfirmationOracleFactory    func(tangle *Tangle) ConfirmationOracle
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -327,6 +330,13 @@ func StartSynced(startSynced bool) Option {
 func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
 		options.CacheTimeProvider = cacheTimeProvider
+	}
+}
+
+// ConfirmationOracleFactory is an Option for the Tangle that allows to define the used ConfirmationOracle.
+func ConfirmationOracleFactory(factory func(tangle *Tangle) ConfirmationOracle) Option {
+	return func(options *Options) {
+		options.ConfirmationOracleFactory = factory
 	}
 }
 

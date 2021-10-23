@@ -111,12 +111,22 @@ func WithMessageGoFReachedLevel(msgGradeOfFinality gof.GradeOfFinality) Option {
 	}
 }
 
+// SimpleFinalityGadgetFactory returns a pre-configured factory function for the SimpleFinalityGadget.
+// It can be used to provide the SimpleFinalityGadget to the Tangle as an option.
+func SimpleFinalityGadgetFactory(opts ...Option) func(tangle *tangle.Tangle) tangle.ConfirmationOracle {
+	return func(tangle *tangle.Tangle) tangle.ConfirmationOracle {
+		return NewSimpleFinalityGadget(tangle, opts...)
+	}
+}
+
 // SimpleFinalityGadget is a Gadget which simply translates approval weight down to gof.GradeOfFinality
 // and then applies it to messages, branches, transactions and outputs.
 type SimpleFinalityGadget struct {
 	tangle *tangle.Tangle
 	opts   *Options
 	events *tangle.ConfirmationEvents
+
+	ledgerstate.ConfirmationOracle
 }
 
 // NewSimpleFinalityGadget creates a new SimpleFinalityGadget.
@@ -129,6 +139,8 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGa
 			TransactionConfirmed: events.NewEvent(ledgerstate.TransactionIDEventHandler),
 			BranchConfirmed:      events.NewEvent(ledgerstate.BranchIDEventHandler),
 		},
+
+		ConfirmationOracle: t.LedgerState.ConfirmationOracle,
 	}
 
 	for _, defOpt := range defaultOpts {
@@ -164,24 +176,6 @@ func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker *markers.Marker) (confir
 func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confirmed bool) {
 	s.tangle.Storage.MessageMetadata(msgID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		if messageMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
-			confirmed = true
-		}
-	})
-	return
-}
-
-// IsBranchConfirmed returns whether the given branch is confirmed.
-func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
-	// TODO: HANDLE ERRORS INSTEAD?
-	branchGoF, _ := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
-
-	return branchGoF >= s.opts.BranchGoFReachedLevel
-}
-
-// IsTransactionConfirmed returns whether the given transaction is confirmed.
-func (s *SimpleFinalityGadget) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) (confirmed bool) {
-	s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		if transactionMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
 			confirmed = true
 		}
 	})
@@ -386,3 +380,6 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 		})
 	})
 }
+
+// code contract (make sure the type implements all required methods).
+var _ Gadget = &SimpleFinalityGadget{}

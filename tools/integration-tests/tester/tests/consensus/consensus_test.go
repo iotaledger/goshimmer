@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -14,9 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/require"
 )
 
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend.
@@ -51,7 +52,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, "test_simple_double_spend", 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      false,
 		Activity:    false,
@@ -107,11 +108,11 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	tests.RequireGradeOfFinalityEqual(t, n.Peers(), tests.ExpectedTxsStates{
 		tx1.ID().Base58(): {
 			GradeOfFinality: tests.GoFPointer(gof.High),
-			Solid:           tests.True(),
+			SolidityType:    tests.Solid(),
 		},
 		tx2.ID().Base58(): {
 			GradeOfFinality: tests.GoFPointer(gof.None),
-			Solid:           tests.True(),
+			SolidityType:    tests.Solid(),
 		},
 	}, time.Minute, tests.Tick)
 
@@ -136,7 +137,7 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 	tests.RequireGradeOfFinalityEqual(t, []*framework.Node{node}, tests.ExpectedTxsStates{
 		tx.ID().Base58(): {
 			GradeOfFinality: tests.GoFPointer(expectedGoF),
-			Solid:           tests.True(),
+			SolidityType:    tests.Solid(),
 		},
 	}, time.Minute, tests.Tick)
 	return tx

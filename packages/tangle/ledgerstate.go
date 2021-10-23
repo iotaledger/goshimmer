@@ -14,27 +14,21 @@ import (
 // LedgerState is a Tangle component that wraps the components of the ledgerstate package and makes them available at a
 // "single point of contact".
 type LedgerState struct {
-	tangle    *Tangle
-	BranchDAG *ledgerstate.BranchDAG
-	UTXODAG   ledgerstate.IUTXODAG
-
+	tangle      *Tangle
 	totalSupply uint64
+
+	*ledgerstate.Ledgerstate
 }
 
 // NewLedgerState is the constructor of the LedgerState component.
 func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
-	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store, tangle.Options.CacheTimeProvider)
 	return &LedgerState{
-		tangle:    tangle,
-		BranchDAG: branchDAG,
-		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, tangle.Options.CacheTimeProvider, branchDAG),
+		tangle: tangle,
+		Ledgerstate: ledgerstate.New(
+			ledgerstate.Store(tangle.Options.Store),
+			ledgerstate.CacheTimeProvider(tangle.Options.CacheTimeProvider),
+		),
 	}
-}
-
-// Shutdown shuts down the LedgerState and persists its state.
-func (l *LedgerState) Shutdown() {
-	l.UTXODAG.Shutdown()
-	l.BranchDAG.Shutdown()
 }
 
 // InheritBranch implements the inheritance rules for Branches in the Tangle. It returns a single inherited Branch
@@ -48,8 +42,7 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
 		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
-			inheritedBranch = ledgerstate.InvalidBranchID
-			return
+			return ledgerstate.InvalidBranchID, nil
 		}
 
 		err = errors.Errorf("failed to aggregate BranchIDs: %w", err)
@@ -59,21 +52,6 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 
 	inheritedBranch = cachedAggregatedBranch.ID()
 	return
-}
-
-// TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
-// not pass.
-func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
-	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
-		})
-		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-
-		return errors.Errorf("invalid transaction in message with %s: %w", messageID, err)
-	}
-
-	return nil
 }
 
 // TransactionConflicting returns whether the given transaction is part of a conflict.
@@ -89,24 +67,6 @@ func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionI
 // Transaction retrieves the Transaction with the given TransactionID from the object storage.
 func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransaction {
 	return l.UTXODAG.CachedTransaction(transactionID)
-}
-
-// BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
-// eventual error.
-func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
-	targetBranch, err = l.UTXODAG.BookTransaction(transaction)
-	if err != nil {
-		err = errors.Errorf("failed to book Transaction: %w", err)
-
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
-		})
-		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-
-		return
-	}
-
-	return
 }
 
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
@@ -266,8 +226,8 @@ func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cac
 }
 
 // Consumers returns the (cached) consumers of the given outputID.
-func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
-	return l.UTXODAG.CachedConsumers(outputID)
+func (l *LedgerState) Consumers(outputID ledgerstate.OutputID, optionalSolidityType ...ledgerstate.SolidityType) (cachedTransactions ledgerstate.CachedConsumers) {
+	return l.UTXODAG.CachedConsumers(outputID, optionalSolidityType...)
 }
 
 // ConfirmedConsumer returns the confirmed transactionID consuming the given outputID.
