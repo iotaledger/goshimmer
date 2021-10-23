@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -18,6 +20,7 @@ type Ledgerstate struct {
 	*UTXODAG
 	*BranchDAG
 	ConfirmationOracle
+	sync.RWMutex
 }
 
 // New is the constructor for the Ledgerstate.
@@ -48,7 +51,8 @@ func (l *Ledgerstate) Configure(options ...Option) {
 
 // MergeToMaster merges a confirmed Branch back into the MasterBranch.
 func (l *Ledgerstate) MergeToMaster(branchID BranchID) (err error) {
-	// lock other writes
+	l.Lock()
+	defer l.Unlock()
 
 	updatedBranches, err := l.BranchDAG.MergeToMaster(branchID)
 	if err != nil {
@@ -67,12 +71,17 @@ func (l *Ledgerstate) MergeToMaster(branchID BranchID) (err error) {
 				return
 			}
 
-			transactionMetadata.SetBranchID(updatedBranches[currentBranchID])
+			updatedBranchID, exists := updatedBranches[currentBranchID]
+			if !exists {
+				return
+			}
+
+			transactionMetadata.SetBranchID(updatedBranchID)
 
 			l.UTXODAG.CachedTransaction(currentTransactionID).Consume(func(transaction *Transaction) {
 				for _, output := range transaction.Essence().Outputs() {
 					l.UTXODAG.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
-						outputMetadata.SetBranchID(updatedBranches[currentBranchID])
+						outputMetadata.SetBranchID(updatedBranchID)
 					})
 
 					l.UTXODAG.CachedConsumers(output.ID(), Solid).Consume(func(consumer *Consumer) {
