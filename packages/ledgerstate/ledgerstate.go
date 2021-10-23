@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
@@ -42,6 +44,46 @@ func (l *Ledgerstate) Configure(options ...Option) {
 	for _, option := range options {
 		option(l.Options)
 	}
+}
+
+// MergeToMaster merges a confirmed Branch back into the MasterBranch.
+func (l *Ledgerstate) MergeToMaster(branchID BranchID) (err error) {
+	// lock other writes
+
+	updatedBranches, err := l.BranchDAG.MergeToMaster(branchID)
+	if err != nil {
+		return errors.Errorf("failed to merge Branch with %s to %s: %w", branchID, MasterBranchID, err)
+	}
+
+	transactionWalker := walker.New(false)
+	transactionWalker.Push(branchID.TransactionID())
+
+	for transactionWalker.HasNext() {
+		currentTransactionID := transactionWalker.Next().(TransactionID)
+
+		l.UTXODAG.CachedTransactionMetadata(currentTransactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+			currentBranchID := transactionMetadata.BranchID()
+			if currentBranchID == InvalidBranchID {
+				return
+			}
+
+			transactionMetadata.SetBranchID(updatedBranches[currentBranchID])
+
+			l.UTXODAG.CachedTransaction(currentTransactionID).Consume(func(transaction *Transaction) {
+				for _, output := range transaction.Essence().Outputs() {
+					l.UTXODAG.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
+						outputMetadata.SetBranchID(updatedBranches[currentBranchID])
+					})
+
+					l.UTXODAG.CachedConsumers(output.ID(), Solid).Consume(func(consumer *Consumer) {
+						transactionWalker.Push(consumer.TransactionID())
+					})
+				}
+			})
+		})
+	}
+
+	return nil
 }
 
 // Shutdown marks the Ledgerstate as stopped, so it will not accept any new Transactions.
