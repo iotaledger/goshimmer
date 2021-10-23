@@ -115,9 +115,7 @@ func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBran
 		return
 	}
 
-	cachedAggregatedBranch, newBranchCreated, err = b.aggregateNormalizedBranches(normalizedBranchIDs)
-
-	return
+	return b.aggregateNormalizedBranches(normalizedBranchIDs)
 }
 
 // MergeToMaster merges a confirmed Branch with the MasterBranch to clean up the BranchDAG. It reorganizes existing
@@ -562,7 +560,6 @@ func (b *BranchDAG) aggregateNormalizedBranches(parentBranchIDs BranchIDs) (cach
 	})}
 
 	if newBranchCreated {
-		// store child references
 		for parentBranchID := range parentBranchIDs {
 			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, cachedAggregatedBranch.ID(), AggregatedBranchType)); stored {
 				cachedChildBranch.Release()
