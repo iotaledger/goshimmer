@@ -54,42 +54,72 @@ func (l *Ledgerstate) MergeToMaster(branchID BranchID) (err error) {
 	l.Lock()
 	defer l.Unlock()
 
-	updatedBranches, err := l.BranchDAG.MergeToMaster(branchID)
+	conflictBranchIDs, err := l.BranchDAG.ResolveConflictBranchIDs(NewBranchIDs(branchID))
 	if err != nil {
-		return errors.Errorf("failed to merge Branch with %s to %s: %w", branchID, MasterBranchID, err)
+		return errors.Errorf("failed to resolve ConflictBranchIDs of Branch with %s: %w", branchID, err)
 	}
 
-	transactionWalker := walker.New(false)
-	transactionWalker.Push(branchID.TransactionID())
+	branchWalker := walker.New(false)
+	for conflictBranchID := range conflictBranchIDs {
+		branchWalker.Push(conflictBranchID)
+	}
 
-	for transactionWalker.HasNext() {
-		currentTransactionID := transactionWalker.Next().(TransactionID)
+	mergeStack := make([]BranchID, 0)
+	for branchWalker.HasNext() {
+		currentBranchID := branchWalker.Next().(BranchID)
+		mergeStack = append(mergeStack, currentBranchID)
 
-		l.UTXODAG.CachedTransactionMetadata(currentTransactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-			currentBranchID := transactionMetadata.BranchID()
-			if currentBranchID == InvalidBranchID {
-				return
-			}
-
-			updatedBranchID, exists := updatedBranches[currentBranchID]
-			if !exists {
-				return
-			}
-
-			transactionMetadata.SetBranchID(updatedBranchID)
-
-			l.UTXODAG.CachedTransaction(currentTransactionID).Consume(func(transaction *Transaction) {
-				for _, output := range transaction.Essence().Outputs() {
-					l.UTXODAG.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
-						outputMetadata.SetBranchID(updatedBranchID)
-					})
-
-					l.UTXODAG.CachedConsumers(output.ID(), Solid).Consume(func(consumer *Consumer) {
-						transactionWalker.Push(consumer.TransactionID())
-					})
+		l.BranchDAG.Branch(currentBranchID).Consume(func(branch Branch) {
+			for parentBranchID := range branch.Parents() {
+				if parentBranchID == MasterBranchID {
+					continue
 				}
-			})
+
+				branchWalker.Push(parentBranchID)
+			}
 		})
+	}
+
+	for i := len(mergeStack) - 1; i >= 0; i-- {
+		currentBranchID := mergeStack[i]
+
+		updatedBranches, err := l.BranchDAG.MergeToMaster(currentBranchID)
+		if err != nil {
+			return errors.Errorf("failed to merge Branch with %s to %s: %w", currentBranchID, MasterBranchID, err)
+		}
+
+		transactionWalker := walker.New(false)
+		transactionWalker.Push(currentBranchID.TransactionID())
+
+		for transactionWalker.HasNext() {
+			currentTransactionID := transactionWalker.Next().(TransactionID)
+
+			l.UTXODAG.CachedTransactionMetadata(currentTransactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+				currentBranchID := transactionMetadata.BranchID()
+				if currentBranchID == InvalidBranchID {
+					return
+				}
+
+				updatedBranchID, exists := updatedBranches[currentBranchID]
+				if !exists {
+					return
+				}
+
+				transactionMetadata.SetBranchID(updatedBranchID)
+
+				l.UTXODAG.CachedTransaction(currentTransactionID).Consume(func(transaction *Transaction) {
+					for _, output := range transaction.Essence().Outputs() {
+						l.UTXODAG.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
+							outputMetadata.SetBranchID(updatedBranchID)
+						})
+
+						l.UTXODAG.CachedConsumers(output.ID(), Solid).Consume(func(consumer *Consumer) {
+							transactionWalker.Push(consumer.TransactionID())
+						})
+					}
+				})
+			})
+		}
 	}
 
 	return nil
