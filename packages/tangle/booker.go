@@ -80,11 +80,7 @@ func (b *Booker) UpdateMessagesAfterMerge(transactionID ledgerstate.TransactionI
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.mergeMarkerFutureCone(structureDetails.PastMarkers.Marker(), updatedBranches); err != nil {
-				err = errors.Errorf("failed to propagate BranchDAG changes of merge to future cone of %s: %w", structureDetails.PastMarkers.Marker(), err)
-				walker.StopWalk()
-			}
-
+			b.mergeMarkerFutureCone(structureDetails.PastMarkers.Marker(), updatedBranches)
 			return
 		}
 
@@ -99,15 +95,13 @@ func (b *Booker) UpdateMessagesAfterMerge(transactionID ledgerstate.TransactionI
 }
 
 // mergeMarkerFutureCone updates the future cone of a Marker to belong to the given conflict BranchID.
-func (b *Booker) mergeMarkerFutureCone(marker *markers.Marker, branchDAGChanges map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
+func (b *Booker) mergeMarkerFutureCone(marker *markers.Marker, branchDAGChanges map[ledgerstate.BranchID]ledgerstate.BranchID) {
 	walk := walker.New()
 	walk.Push(marker)
 
 	for walk.HasNext() {
 		b.mergeMarker(walk.Next().(*markers.Marker), branchDAGChanges, walk)
 	}
-
-	return
 }
 
 // mergeMarker updates a single Marker and queues the next Elements that need to be updated.
@@ -139,8 +133,6 @@ func (b *Booker) mergeMarker(currentMarker *markers.Marker, branchDAGChanges map
 			return true
 		})
 	})
-
-	return
 }
 
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
