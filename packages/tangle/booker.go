@@ -98,25 +98,20 @@ func (b *Booker) UpdateMessagesAfterMerge(transactionID ledgerstate.TransactionI
 	return
 }
 
-// updateMarkerFutureCone updates the future cone of a Marker to belong to the given conflict BranchID.
+// mergeMarkerFutureCone updates the future cone of a Marker to belong to the given conflict BranchID.
 func (b *Booker) mergeMarkerFutureCone(marker *markers.Marker, branchDAGChanges map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
 	walk := walker.New()
 	walk.Push(marker)
 
 	for walk.HasNext() {
-		currentMarker := walk.Next().(*markers.Marker)
-
-		if err = b.mergeMarker(currentMarker, branchDAGChanges, walk); err != nil {
-			err = errors.Errorf("failed to propagate propagate BranchDAG changes of merge to Messages approving %s: %w", currentMarker, err)
-			return
-		}
+		b.mergeMarker(walk.Next().(*markers.Marker), branchDAGChanges, walk)
 	}
 
 	return
 }
 
-// updateMarker updates a single Marker and queues the next Elements that need to be updated.
-func (b *Booker) mergeMarker(currentMarker *markers.Marker, branchDAGChanges map[ledgerstate.BranchID]ledgerstate.BranchID, walk *walker.Walker) (err error) {
+// mergeMarker updates a single Marker and queues the next Elements that need to be updated.
+func (b *Booker) mergeMarker(currentMarker *markers.Marker, branchDAGChanges map[ledgerstate.BranchID]ledgerstate.BranchID, walk *walker.Walker) {
 	oldBranchID := b.MarkersManager.BranchID(currentMarker)
 	newBranchID, branchUpdated := branchDAGChanges[oldBranchID]
 	if !branchUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
@@ -133,7 +128,13 @@ func (b *Booker) mergeMarker(currentMarker *markers.Marker, branchDAGChanges map
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
 			walk.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
 
-			b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker /*conflictBranchID*/, ledgerstate.UndefinedBranchID)
+			oldReferencingBranchID := b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex))
+			newReferencingBranchID, referencingBranchIDUpdated := branchDAGChanges[oldReferencingBranchID]
+			if !referencingBranchIDUpdated {
+				return true
+			}
+
+			b.updateIndividuallyMappedMessages(oldReferencingBranchID, currentMarker, newReferencingBranchID)
 
 			return true
 		})
@@ -516,6 +517,10 @@ func (b *Booker) updateIndividuallyMappedMessages(oldChildBranch ledgerstate.Bra
 		}
 
 		individuallyMappedMessage.Delete()
+
+		if newBranchID == ledgerstate.MasterBranchID {
+			return
+		}
 
 		b.tangle.Storage.MessageMetadata(individuallyMappedMessage.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(newBranchID)
