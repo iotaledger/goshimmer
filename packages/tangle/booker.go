@@ -66,8 +66,80 @@ func (b *Booker) Setup() {
 				b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 			}
 		case ledgerstate.Merge:
+			if err := b.UpdateMessagesAfterMerge(event.TransactionID, event.BranchDAGChanges); err != nil {
+				b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
+			}
 		}
 	}))
+}
+
+func (b *Booker) UpdateMessagesAfterMerge(transactionID ledgerstate.TransactionID, updatedBranches map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
+	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+		if !messageMetadata.IsBooked() {
+			return
+		}
+
+		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
+			if err = b.mergeMarkerFutureCone(structureDetails.PastMarkers.Marker(), updatedBranches); err != nil {
+				err = errors.Errorf("failed to propagate BranchDAG changes of merge to future cone of %s: %w", structureDetails.PastMarkers.Marker(), err)
+				walker.StopWalk()
+			}
+
+			return
+		}
+
+		if err = b.updateMetadataFutureCone(messageMetadata, ledgerstate.UndefinedBranchID, walker); err != nil {
+			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", ledgerstate.UndefinedBranchID, messageMetadata.ID(), err)
+			walker.StopWalk()
+			return
+		}
+	}, b.tangle.Storage.AttachmentMessageIDs(transactionID))
+
+	return
+}
+
+// updateMarkerFutureCone updates the future cone of a Marker to belong to the given conflict BranchID.
+func (b *Booker) mergeMarkerFutureCone(marker *markers.Marker, branchDAGChanges map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
+	walk := walker.New()
+	walk.Push(marker)
+
+	for walk.HasNext() {
+		currentMarker := walk.Next().(*markers.Marker)
+
+		if err = b.mergeMarker(currentMarker, branchDAGChanges, walk); err != nil {
+			err = errors.Errorf("failed to propagate propagate BranchDAG changes of merge to Messages approving %s: %w", currentMarker, err)
+			return
+		}
+	}
+
+	return
+}
+
+// updateMarker updates a single Marker and queues the next Elements that need to be updated.
+func (b *Booker) mergeMarker(currentMarker *markers.Marker, branchDAGChanges map[ledgerstate.BranchID]ledgerstate.BranchID, walk *walker.Walker) (err error) {
+	oldBranchID := b.MarkersManager.BranchID(currentMarker)
+	newBranchID, branchUpdated := branchDAGChanges[oldBranchID]
+	if !branchUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
+		return
+	}
+
+	b.updateIndividuallyMappedMessages(oldBranchID, currentMarker, newBranchID)
+
+	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
+
+	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
+
+	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
+			walk.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
+
+			b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker /*conflictBranchID*/, ledgerstate.UndefinedBranchID)
+
+			return true
+		})
+	})
+
+	return
 }
 
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
@@ -408,7 +480,8 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
 		return
 	}
-	b.updateIndividuallyMappedMessages(oldBranchID, currentMarker, conflictBranchID)
+
+	b.updateIndividuallyMappedMessages(oldBranchID, currentMarker, newBranchID)
 
 	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
 
@@ -418,7 +491,15 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
 			walk.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
 
-			b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker, conflictBranchID)
+			oldReferencingBranchID := b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex))
+			newReferencingBranchID, referencingBranchIDUpdated, referencingBranchIDErr := b.updatedBranchID(oldReferencingBranchID, conflictBranchID)
+			if referencingBranchIDErr != nil {
+				panic(fmt.Errorf("failed to update Branch of Marker with %s", currentMarker))
+			} else if !referencingBranchIDUpdated {
+				return true
+			}
+
+			b.updateIndividuallyMappedMessages(oldReferencingBranchID, currentMarker, newReferencingBranchID)
 
 			return true
 		})
@@ -428,14 +509,7 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 }
 
 // updateIndividuallyMappedMessages updates the Messages that have their BranchID set in the MessageMetadata.
-func (b *Booker) updateIndividuallyMappedMessages(oldChildBranch ledgerstate.BranchID, currentMarker *markers.Marker, newConflictBranchID ledgerstate.BranchID) {
-	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldChildBranch, newConflictBranchID)
-	if err != nil {
-		return
-	} else if !branchIDUpdated {
-		return
-	}
-
+func (b *Booker) updateIndividuallyMappedMessages(oldChildBranch ledgerstate.BranchID, currentMarker *markers.Marker, newBranchID ledgerstate.BranchID) {
 	b.tangle.Storage.IndividuallyMappedMessages(oldChildBranch).Consume(func(individuallyMappedMessage *IndividuallyMappedMessage) {
 		if index, sequenceExists := individuallyMappedMessage.PastMarkers().Get(currentMarker.SequenceID()); !sequenceExists || index < currentMarker.Index() {
 			return
