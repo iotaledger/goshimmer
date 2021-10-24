@@ -73,6 +73,7 @@ func (b *Booker) Setup() {
 	}))
 }
 
+// UpdateMessagesAfterMerge propagates the updated BranchID (after a merge) of a Transaction, to the future cone of its Attachments.
 func (b *Booker) UpdateMessagesAfterMerge(transactionID ledgerstate.TransactionID, updatedBranches map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
 		if !messageMetadata.IsBooked() {
