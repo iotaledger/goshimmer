@@ -100,7 +100,7 @@ func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
 			TransactionInvalid:         events.NewEvent(TransactionIDEventHandler),
-			TransactionBranchIDUpdated: events.NewEvent(TransactionIDEventHandler),
+			TransactionBranchIDUpdated: events.NewEvent(TransactionBranchIDUpdatedEventHandler),
 			TransactionSolid:           events.NewEvent(TransactionIDEventHandler),
 		},
 		ledgerstate:                 ledgerstate,
@@ -635,7 +635,11 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		}
 
 		txMetadata.SetBranchID(conflictBranchID)
-		eventsQueue.Queue(u.Events().TransactionBranchIDUpdated, transactionID)
+		eventsQueue.Queue(u.Events().TransactionBranchIDUpdated, &TransactionBranchIDUpdatedEvent{
+			TransactionID: transactionID,
+			BranchID:      conflictBranchID,
+			Cause:         Fork,
+		})
 
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
@@ -685,8 +689,6 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, eventsQueu
 func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID, eventsQueue *events.Queue) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.SetBranchID(branchID) {
-			eventsQueue.Queue(u.Events().TransactionBranchIDUpdated, transactionID)
-
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {
 				if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
@@ -695,6 +697,12 @@ func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchI
 					panic(fmt.Errorf("failed to load OutputMetadata with %s", outputID))
 				}
 			}
+
+			eventsQueue.Queue(u.Events().TransactionBranchIDUpdated, &TransactionBranchIDUpdatedEvent{
+				TransactionID: transactionID,
+				BranchID:      branchID,
+				Cause:         Fork,
+			})
 		}
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
@@ -1026,6 +1034,38 @@ type UTXODAGEvents struct {
 func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(TransactionID))(params[0].(TransactionID))
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionBranchIDUpdatedEvent //////////////////////////////////////////////////////////////////////////////
+
+// TransactionBranchIDUpdatedEvent is an event that gets triggered, whenever the BranchID of a Transaction is changed.
+type TransactionBranchIDUpdatedEvent struct {
+	TransactionID    TransactionID
+	BranchID         BranchID
+	Cause            TransactionBranchIDUpdateCause
+	BranchDAGChanges map[BranchID]BranchID
+}
+
+// TransactionBranchIDUpdatedEventHandler is an event handler for an event with a TransactionBranchIDUpdatedEvent.
+func TransactionBranchIDUpdatedEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*TransactionBranchIDUpdatedEvent))(params[0].(*TransactionBranchIDUpdatedEvent))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionBranchIDUpdateCause ///////////////////////////////////////////////////////////////////////////////
+
+// TransactionBranchIDUpdateCause represents the cause for a called TransactionBranchIDUpdatedEvent.
+type TransactionBranchIDUpdateCause uint8
+
+const (
+	// Fork represents the cause for a TransactionBranchIDUpdatedEvent that was triggered by a newly created conflict.
+	Fork TransactionBranchIDUpdateCause = iota
+
+	// Merge represents the cause for a TransactionBranchIDUpdatedEvent that was triggered by a merged Branch.
+	Merge
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
