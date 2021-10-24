@@ -2068,8 +2068,8 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *ledgerstate.Al
 	return nil, err
 }
 
-// collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance
-// it may collect pending outputs according to flag
+// collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance.
+// It may collect pending outputs according to flag.
 func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Color]uint64, includePending bool) (OutputsByAddressAndOutputID, error) {
 	if fundingBalance == nil {
 		return nil, errors.Errorf("can't collect fund: empty fundingBalance provided")

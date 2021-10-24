@@ -89,6 +89,7 @@ func WaitForConfirmation(wait bool) SendFundsOption {
 	}
 }
 
+// UsePendingOutputs defines if we can collect outputs that are still pending confirmation.
 func UsePendingOutputs(usePendingOutputs bool) SendFundsOption {
 	return func(options *SendFundsOptions) error {
 		options.UsePendingOutputs = usePendingOutputs
