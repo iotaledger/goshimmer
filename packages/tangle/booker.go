@@ -64,13 +64,9 @@ func (b *Booker) Setup() {
 		b.bookerQueue <- messageID
 	}))
 
-	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdated.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedEvent) {
-		switch event.Cause {
-		case ledgerstate.Fork:
-			if err := b.BookConflictingTransaction(event.TransactionID, event.BranchID); err != nil {
-				b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
-			}
-		case ledgerstate.Merge:
+	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByForkEvent) {
+		if err := b.BookConflictingTransaction(event.TransactionID, event.ForkedBranchID); err != nil {
+			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
 }
@@ -184,23 +180,23 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 }
 
 // BookConflictingTransaction propagates new conflicts.
-func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.TransactionID, conflictBranchID ledgerstate.BranchID) (err error) {
+func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.TransactionID, newBranchID ledgerstate.BranchID) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
 		if !messageMetadata.IsBooked() {
 			return
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.Marker(), conflictBranchID); err != nil {
-				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.Marker(), err)
+			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.Marker(), newBranchID); err != nil {
+				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", newBranchID, structureDetails.PastMarkers.Marker(), err)
 				walker.StopWalk()
 			}
 
 			return
 		}
 
-		if err = b.updateMetadataFutureCone(messageMetadata, conflictBranchID, walker); err != nil {
-			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", conflictBranchID, messageMetadata.ID(), err)
+		if err = b.updateMetadataFutureCone(messageMetadata, newBranchID, walker); err != nil {
+			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", newBranchID, messageMetadata.ID(), err)
 			walker.StopWalk()
 			return
 		}

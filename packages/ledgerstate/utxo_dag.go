@@ -89,7 +89,7 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
-			TransactionBranchIDUpdated: events.NewEvent(TransactionBranchIDUpdatedEventHandler),
+			TransactionBranchIDUpdatedByFork: events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
 		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, options.transactionMetadataStorageOptions...),
@@ -464,10 +464,10 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		}
 
 		txMetadata.SetBranchID(conflictBranchID)
-		u.Events().TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
-			TransactionID: transactionID,
-			BranchID:      conflictBranchID,
-			Cause:         Fork,
+		u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
+			TransactionID:  transactionID,
+			NewBranchID:    conflictBranchID,
+			ForkedBranchID: conflictBranchID,
 		})
 
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
@@ -479,7 +479,9 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 			}
 		}
 
-		u.walkFutureCone(outputIds, u.propagateBranchUpdates, types.True)
+		u.walkFutureCone(outputIds, func(transactionID TransactionID) (updatedOutputs []OutputID) {
+			return u.propagateBranchUpdates(transactionID, conflictBranchID)
+		}, types.True)
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
@@ -487,7 +489,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 // propagateBranchUpdates is an internal utility function that propagates changes in the perception of the BranchDAG
 // after introducing a new ConflictBranch.
-func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, conflictBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		// if the BranchID is the TransactionID we have a ConflictBranch
 		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
@@ -503,7 +505,7 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 		}
 		defer cachedAggregatedBranch.Release()
 
-		updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID())
+		updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID(), conflictBranchID)
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
@@ -513,23 +515,23 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 
 // updateBranchOfTransaction is an internal utility function that updates the Branch that a Transaction and its Outputs
 // are booked into.
-func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, newBranchID BranchID, conflictBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		if transactionMetadata.SetBranchID(branchID) {
-			u.Events().TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
-				TransactionID: transactionID,
-				BranchID:      branchID,
-				Cause:         Fork,
-			})
-
+		if transactionMetadata.SetBranchID(newBranchID) {
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {
 				if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
-					outputMetadata.SetBranchID(branchID)
+					outputMetadata.SetBranchID(newBranchID)
 				}) {
 					panic(fmt.Errorf("failed to load OutputMetadata with %s", outputID))
 				}
 			}
+
+			u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
+				TransactionID:  transactionID,
+				NewBranchID:    newBranchID,
+				ForkedBranchID: conflictBranchID,
+			})
 		}
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
@@ -830,8 +832,8 @@ func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) 
 
 // UTXODAGEvents is a container for all of the UTXODAG related events.
 type UTXODAGEvents struct {
-	// TransactionBranchIDUpdated gets triggered when the BranchID of a Transaction is changed after the initial booking.
-	TransactionBranchIDUpdated *events.Event
+	// TransactionBranchIDUpdatedByFork gets triggered when the BranchID of a Transaction is changed after the initial booking.
+	TransactionBranchIDUpdatedByFork *events.Event
 }
 
 // TransactionIDEventHandler is an event handler for an event with a TransactionID.
@@ -843,33 +845,19 @@ func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 
 // region TransactionBranchIDUpdatedEvent //////////////////////////////////////////////////////////////////////////////
 
-// TransactionBranchIDUpdatedEvent is an event that gets triggered, whenever the BranchID of a Transaction is changed.
-type TransactionBranchIDUpdatedEvent struct {
-	TransactionID    TransactionID
-	BranchID         BranchID
-	Cause            TransactionBranchIDUpdateCause
-	BranchDAGChanges map[BranchID]BranchID
+// TransactionBranchIDUpdatedByForkEvent is an event that gets triggered, whenever the BranchID of a Transaction is
+// changed.
+type TransactionBranchIDUpdatedByForkEvent struct {
+	TransactionID  TransactionID
+	NewBranchID    BranchID
+	ForkedBranchID BranchID
 }
 
-// TransactionBranchIDUpdatedEventHandler is an event handler for an event with a TransactionBranchIDUpdatedEvent.
-func TransactionBranchIDUpdatedEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*TransactionBranchIDUpdatedEvent))(params[0].(*TransactionBranchIDUpdatedEvent))
+// TransactionBranchIDUpdatedByForkEventHandler is an event handler for an event with a
+// TransactionBranchIDUpdatedByForkEvent.
+func TransactionBranchIDUpdatedByForkEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*TransactionBranchIDUpdatedByForkEvent))(params[0].(*TransactionBranchIDUpdatedByForkEvent))
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionBranchIDUpdateCause ///////////////////////////////////////////////////////////////////////////////
-
-// TransactionBranchIDUpdateCause represents the cause for a called TransactionBranchIDUpdatedEvent.
-type TransactionBranchIDUpdateCause uint8
-
-const (
-	// Fork represents the cause for a TransactionBranchIDUpdatedEvent that was triggered by a newly created conflict.
-	Fork TransactionBranchIDUpdateCause = iota
-
-	// Merge represents the cause for a TransactionBranchIDUpdatedEvent that was triggered by a merged Branch.
-	Merge
-)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -955,7 +943,7 @@ func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (a *AddressOutputMapping) Update(other objectstorage.StorableObject) {
+func (a *AddressOutputMapping) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -1012,7 +1000,7 @@ func (c *CachedAddressOutputMapping) Consume(consumer func(addressOutputMapping 
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedAddressOutputMapping.
+// String returns a human-readable version of the CachedAddressOutputMapping.
 func (c *CachedAddressOutputMapping) String() string {
 	return stringify.Struct("CachedAddressOutputMapping",
 		stringify.StructField("CachedObject", c.Unwrap()),
@@ -1193,7 +1181,7 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Consumer) Update(other objectstorage.StorableObject) {
+func (c *Consumer) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
