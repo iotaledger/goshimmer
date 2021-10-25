@@ -84,15 +84,16 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	require.EqualValues(t, peer1Pledged, tests.Mana(t, node1).Consensus)
 	require.EqualValues(t, peer2Pledged, tests.Mana(t, node2).Consensus)
 
-	require.NoError(t, err)
-
 	txs1 := []*ledgerstate.Transaction{}
 	txs2 := []*ledgerstate.Transaction{}
 	// send transactions on the seperate partitions
 	for i := 0; i < numberOfConflictingTxs; i++ {
 		t.Logf("issuing conflict %d", i+1)
+		// This builds transactions that move the genesis funds on the first partition.
+		// Funds move from address 1 -> address 2 -> address 3...
 		txs1 = append(txs1, sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(i+1)), actualGenesisTokenAmount, node1, gof.Medium))
 		t.Logf("issuing other conflict %d", i+1)
+		// This builds transactions that move the genesis funds on the second partition
 		txs2 = append(txs2, sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(i+1)), actualGenesisTokenAmount, node2, gof.Low))
 	}
 
