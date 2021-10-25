@@ -117,7 +117,7 @@ func (l *Ledgerstate) branchesToMergeInOrder(branchID BranchID) (branchesInMerge
 		branchesInMergeOrder[i], branchesInMergeOrder[opp] = branchesInMergeOrder[opp], branchesInMergeOrder[i]
 	}
 
-	return
+	return branchesInMergeOrder, nil
 }
 
 // mergeSingleBranchToMaster merges a single Branch that is at the bottom of the BranchDAG (a child of the root) into
