@@ -20,10 +20,19 @@ export class TangleDAG extends React.Component<Props, any> {
     }
 
     render () {
+        let { selectedMsg } = this.props.tangleStore;
+
         return (
             <Container>
                 <h2> Tangle DAG </h2>
-                <div id="tangleVisualizer" />
+                <div className="graphFrame">
+                    { selectedMsg && 
+                        <div className="selectedInfo">
+                            <p> MsgID: </p>
+                        </div>                       
+                    }
+                    <div id="tangleVisualizer" />
+                </div>
             </Container>
             
         );

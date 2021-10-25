@@ -28,6 +28,7 @@ export class branchAWUpdate {
 export class BranchStore {
     @observable maxBranchVertices: number = 500;
     @observable branches = new ObservableMap<string, branchVertex>();
+    @observable selectedBranch: branchVertex;
     branchOrder: Array<any> = [];
     newVertexCounter = 0;
     cy;

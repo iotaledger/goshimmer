@@ -20,10 +20,19 @@ export class BranchDAG extends React.Component<Props, any> {
     }
 
     render () {
+        let { selectedBranch } = this.props.branchStore;
+
         return (
             <Container>
                 <h2> Branch DAG </h2>
-                <div id="branchVisualizer" />
+                <div className="graphFrame">
+                    { selectedBranch && 
+                        <div className="selectedInfo">
+                            <p> BranchID: </p>
+                        </div>                       
+                    }
+                    <div id="branchVisualizer" />
+                </div>
             </Container>
             
         );
