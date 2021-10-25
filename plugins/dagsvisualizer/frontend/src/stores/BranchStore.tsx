@@ -123,11 +123,7 @@ export class BranchStore {
         });
 
         this.layoutApi.placeNewNodes(v);
-
-        if (this.newVertexCounter >= 10) {
-            this.cy.layout(dagreOptions).run();
-            this.newVertexCounter = 0;
-        }
+        this.cy.layout(dagreOptions).run();
     }
 
     start = () => {

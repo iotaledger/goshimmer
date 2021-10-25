@@ -179,11 +179,7 @@ export class UTXOStore {
         }));
 
         this.layoutApi.placeNewNodes(collection);
-
-        if (this.newVertexCounter >= 10) {
-            this.cy.layout(dagreOptions).run();
-            this.newVertexCounter = 0;
-        }
+        this.cy.layout(dagreOptions).run();
     }
 
     start = () => {
