@@ -85,7 +85,7 @@ func (b *Booker) UpdateMessagesAfterMerge(transactionID ledgerstate.TransactionI
 			return
 		}
 
-		if err = b.updateMetadataFutureCone(messageMetadata, ledgerstate.UndefinedBranchID, walker); err != nil {
+		if err = b.mergeMetadataFutureCone(messageMetadata, updatedBranches, walker); err != nil {
 			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", ledgerstate.UndefinedBranchID, messageMetadata.ID(), err)
 			walker.StopWalk()
 			return
@@ -134,6 +134,31 @@ func (b *Booker) mergeMarker(currentMarker *markers.Marker, branchDAGChanges map
 			return true
 		})
 	})
+}
+
+// mergeMetadataFutureCone updates the future cone of a Message to belong to the given conflict BranchID.
+func (b *Booker) mergeMetadataFutureCone(messageMetadata *MessageMetadata, branchDAGChanges map[ledgerstate.BranchID]ledgerstate.BranchID, walk *walker.Walker) (err error) {
+	oldBranchID, err := b.MessageBranchID(messageMetadata.ID())
+	if err != nil {
+		err = errors.Errorf("failed to retrieve BranchID of %s: %w", messageMetadata.ID(), err)
+		return
+	}
+
+	newBranchID, branchUpdated := branchDAGChanges[oldBranchID]
+	if !branchUpdated || !messageMetadata.SetBranchID(newBranchID) {
+		return
+	}
+
+	b.tangle.Storage.DeleteIndividuallyMappedMessage(oldBranchID, messageMetadata.ID())
+	b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, messageMetadata.ID(), messageMetadata.StructureDetails().PastMarkers))
+
+	b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), oldBranchID, newBranchID)
+
+	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
+		walk.Push(approvingMessageID)
+	}
+
+	return
 }
 
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
