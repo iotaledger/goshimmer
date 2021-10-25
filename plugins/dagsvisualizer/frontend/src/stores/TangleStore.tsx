@@ -41,15 +41,14 @@ export class TangleStore {
     @observable messages = new ObservableMap<string, tangleVertex>();
     @observable markerMap = new ObservableMap<string, Array<string>>();
     @observable awMap = new ObservableMap<string, number>();
+    @observable selectedMsg: tangleVertex;
     msgOrder: Array<any> = [];
     newVertexCounter = 0;
     cy;
     layout;
     layoutApi;
 
-    constructor() {
-        this.connect()
-        
+    constructor() {        
         registerHandler(WSMsgType.Message, this.addMessage);
         registerHandler(WSMsgType.MessageBooked, this.setMessageBranch);
         registerHandler(WSMsgType.MessageConfirmed, this.setMessageConfirmedTime);
