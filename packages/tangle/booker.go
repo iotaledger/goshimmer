@@ -132,14 +132,14 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			supportedBranches := b.supportedBranches(message)
-
 			// We try to book the payload
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
 				return
 			}
+
+			supportedBranches := b.supportedBranches(message)
 
 			// By adding the BranchID of the payload to the computed supported branches, InheritBranch will check if anything of what we
 			// finally support has overlapping conflict sets, in which case the Message is invalid
