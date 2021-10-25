@@ -1,6 +1,7 @@
 import * as React from 'react';
-import Container from 'react-bootstrap/Container'
+import Container from 'react-bootstrap/Container';
 import {inject, observer} from "mobx-react";
+import {TransactionInfo} from "components/TransactionInfo";
 import UTXOStore from "stores/UTXOStore";
 
 interface Props {
@@ -19,15 +20,11 @@ export class UTXODAG extends React.Component<Props, any> {
     }
 
     render () {
-        let { selectedTx } = this.props.utxoStore;
-
         return (
             <Container>
                 <h2> UTXO DAG </h2>
                 <div className="graphFrame">
-                    <div className="selectedInfo">
-                        <p> TXID: </p>
-                    </div>
+                    <TransactionInfo />
                     <div id="utxoVisualizer" />
                 </div>                    
             </Container>

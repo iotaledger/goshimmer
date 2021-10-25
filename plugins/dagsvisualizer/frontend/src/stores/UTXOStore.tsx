@@ -29,7 +29,7 @@ export class utxoConfirmed {
 export class UTXOStore {
     @observable maxUTXOVertices: number = 500;
     @observable transactions = new ObservableMap<string, utxoVertex>();
-    @observable selectedTx: utxoVertex;
+    @observable selectedTx: utxoVertex = null;
     outputMap = new Map();
     txOrder: Array<any> = [];
     newVertexCounter = 0;
@@ -83,6 +83,12 @@ export class UTXOStore {
         tx.confirmedTime = txConfirmed.confirmedTime;
         tx.approvalWeight = txConfirmed.approvalWeight;
         this.transactions.set(txConfirmed.ID, tx);
+    }
+
+    @action
+    updateSelected = (tx: utxoVertex) => {
+      console.log("update here", tx);
+      this.selectedTx = tx;
     }
 
     removeVertex = (txID: string) => {
@@ -211,6 +217,13 @@ export class UTXOStore {
                     }
                 },
                 {
+                  selector: 'node:selected',
+                    style: {
+                      'background-opacity': 0.333,
+                      'background-color': 'red'
+                    }
+                },
+                {
                   selector: '.input',
                     style: {
                       'background-color': '#F9BDC0'
@@ -246,11 +259,9 @@ export class UTXOStore {
         this.cy.on('click', 'node', (evt) => {
           var node = evt.target;
           const nodeData = node.json();
-          console.log(nodeData);
-          let tx = this.transactions.get(nodeData.ID);
-          if (tx) {
-            this.selectedTx = tx;
-          }
+          
+          let tx = this.transactions.get(nodeData.data.id);
+          this.updateSelected(tx);
         });
     }
 }
