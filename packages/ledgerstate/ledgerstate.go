@@ -5,7 +5,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
@@ -16,7 +15,6 @@ import (
 
 // Ledgerstate is a data structure that follows the principles of the quadruple entry accounting.
 type Ledgerstate struct {
-	Events  *Events
 	Options *Options
 
 	*UTXODAG
@@ -27,13 +25,7 @@ type Ledgerstate struct {
 
 // New is the constructor for the Ledgerstate.
 func New(options ...Option) (ledgerstate *Ledgerstate) {
-	ledgerstate = &Ledgerstate{
-		Events: &Events{
-			BranchMergedToMaster: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(BranchID, map[BranchID]BranchID))(params[0].(BranchID), params[1].(map[BranchID]BranchID))
-			}),
-		},
-	}
+	ledgerstate = &Ledgerstate{}
 	ledgerstate.Configure(options...)
 
 	ledgerstate.UTXODAG = NewUTXODAG(ledgerstate)
@@ -162,7 +154,12 @@ func (l *Ledgerstate) mergeSingleBranchToMaster(branchID BranchID) (err error) {
 						outputMetadata.SetBranchID(updatedBranchID)
 					})
 
-					l.Events.BranchMergedToMaster.Trigger(currentTransactionID, updatedBranches)
+					l.UTXODAG.Events().TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
+						TransactionID:    currentTransactionID,
+						BranchID:         updatedBranchID,
+						Cause:            Merge,
+						BranchDAGChanges: updatedBranches,
+					})
 
 					l.UTXODAG.CachedConsumers(output.ID(), Solid).Consume(func(consumer *Consumer) {
 						transactionWalker.Push(consumer.TransactionID())
@@ -173,14 +170,6 @@ func (l *Ledgerstate) mergeSingleBranchToMaster(branchID BranchID) (err error) {
 	}
 
 	return nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type Events struct {
-	BranchMergedToMaster *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
