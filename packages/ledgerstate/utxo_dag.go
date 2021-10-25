@@ -89,7 +89,7 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
-			TransactionBranchIDUpdated: events.NewEvent(TransactionIDEventHandler),
+			TransactionBranchIDUpdated: events.NewEvent(TransactionBranchIDUpdatedEventHandler),
 		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, options.transactionMetadataStorageOptions...),
@@ -464,7 +464,11 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		}
 
 		txMetadata.SetBranchID(conflictBranchID)
-		u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
+		u.Events().TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
+			TransactionID: transactionID,
+			BranchID:      conflictBranchID,
+			Cause:         Fork,
+		})
 
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
@@ -512,7 +516,11 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.SetBranchID(branchID) {
-			u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
+			u.Events().TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
+				TransactionID: transactionID,
+				BranchID:      branchID,
+				Cause:         Fork,
+			})
 
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {
@@ -816,21 +824,6 @@ func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) 
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// TODO: IMPLEMENT A GOOD SYNCHRONIZATION MECHANISM FOR THE UTXODAG
-/*
-func (u *UTXODAG) lockTransaction(transaction *Transaction) {
-	var lockBuilder syncutils.MultiMutexLockBuilder
-	for _, input := range transaction.Essence().Inputs() {
-		lockBuilder.AddLock(input.(*UTXOInput).ReferencedOutputID())
-	}
-	for outputIndex := range transaction.Essence().Outputs() {
-		lockBuilder.AddLock(NewOutputID(transaction.ID(), uint16(outputIndex)))
-	}
-	var mutex syncutils.RWMultiMutex
-	mutex.Lock(lockBuilder.Build()...)
-}
-*/
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region UTXODAGEvents ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -845,6 +838,38 @@ type UTXODAGEvents struct {
 func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(TransactionID))(params[0].(TransactionID))
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionBranchIDUpdatedEvent //////////////////////////////////////////////////////////////////////////////
+
+// TransactionBranchIDUpdatedEvent is an event that gets triggered, whenever the BranchID of a Transaction is changed.
+type TransactionBranchIDUpdatedEvent struct {
+	TransactionID    TransactionID
+	BranchID         BranchID
+	Cause            TransactionBranchIDUpdateCause
+	BranchDAGChanges map[BranchID]BranchID
+}
+
+// TransactionBranchIDUpdatedEventHandler is an event handler for an event with a TransactionBranchIDUpdatedEvent.
+func TransactionBranchIDUpdatedEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*TransactionBranchIDUpdatedEvent))(params[0].(*TransactionBranchIDUpdatedEvent))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionBranchIDUpdateCause ///////////////////////////////////////////////////////////////////////////////
+
+// TransactionBranchIDUpdateCause represents the cause for a called TransactionBranchIDUpdatedEvent.
+type TransactionBranchIDUpdateCause uint8
+
+const (
+	// Fork represents the cause for a TransactionBranchIDUpdatedEvent that was triggered by a newly created conflict.
+	Fork TransactionBranchIDUpdateCause = iota
+
+	// Merge represents the cause for a TransactionBranchIDUpdatedEvent that was triggered by a merged Branch.
+	Merge
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

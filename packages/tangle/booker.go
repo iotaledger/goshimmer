@@ -64,9 +64,13 @@ func (b *Booker) Setup() {
 		b.bookerQueue <- messageID
 	}))
 
-	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		if err := b.BookConflictingTransaction(transactionID); err != nil {
-			b.Events.Error.Trigger(errors.Errorf("failed to propagate ConflictBranch of %s to tangle: %w", transactionID, err))
+	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdated.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedEvent) {
+		switch event.Cause {
+		case ledgerstate.Fork:
+			if err := b.BookConflictingTransaction(event.TransactionID, event.BranchID); err != nil {
+				b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
+			}
+		case ledgerstate.Merge:
 		}
 	}))
 }
@@ -173,9 +177,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 }
 
 // BookConflictingTransaction propagates new conflicts.
-func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.TransactionID) (err error) {
-	conflictBranchID := b.tangle.LedgerState.BranchID(transactionID)
-
+func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.TransactionID, conflictBranchID ledgerstate.BranchID) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
 		if !messageMetadata.IsBooked() {
 			return

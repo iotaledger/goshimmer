@@ -559,6 +559,14 @@ func (b *BranchDAG) aggregateNormalizedBranches(parentBranchIDs BranchIDs) (cach
 		return aggregatedBranch
 	})}
 
+	if newBranchCreated {
+		for parentBranchID := range parentBranchIDs {
+			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, cachedAggregatedBranch.ID(), AggregatedBranchType)); stored {
+				cachedChildBranch.Release()
+			}
+		}
+	}
+
 	return
 }
 
