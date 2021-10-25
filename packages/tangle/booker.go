@@ -150,8 +150,15 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(supportedBranches.Add(branchIDOfPayload))
 			if inheritedBranch == ledgerstate.InvalidBranchID || inheritErr != nil {
 				messageMetadata.SetInvalid(true)
-				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
-				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
+
+				if inheritErr != nil {
+					err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
+					b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
+				} else {
+					err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), cerrors.ErrFatal)
+					b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
+				}
+
 				return
 			}
 
