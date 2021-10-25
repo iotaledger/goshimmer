@@ -12,12 +12,12 @@ const branchStore = new BranchStore();
 const stores = {
   "tangleStore": tangleStore,
   "utxoStore": utxoStore,
-  "branchStore": branchStore,
-}
+  "branchStore": branchStore
+};
 
 ReactDOM.render(
   <Provider {...stores}>
     <Root />
   </Provider>,
   document.getElementById('root')
-)
+);

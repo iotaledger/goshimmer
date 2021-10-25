@@ -68,7 +68,7 @@ export class TangleStore {
     }
 
     connect() {
-        connectWebSocket("localhost:8061/ws",
+        connectWebSocket("/ws",
         () => {console.log("connection opened")},
         this.reconnect,
         () => {console.log("connection error")});

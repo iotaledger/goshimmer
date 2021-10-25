@@ -86,7 +86,8 @@ export class UTXOStore {
     }
 
     @action
-    updateSelected = (tx: utxoVertex) => {
+    updateSelected = (txID: string) => {
+      let tx = this.transactions.get(txID);
       console.log("update here", tx);
       this.selectedTx = tx;
     }
@@ -260,8 +261,7 @@ export class UTXOStore {
           var node = evt.target;
           const nodeData = node.json();
           
-          let tx = this.transactions.get(nodeData.data.id);
-          this.updateSelected(tx);
+          this.updateSelected(nodeData.data.id);
         });
     }
 }
