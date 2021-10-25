@@ -154,17 +154,17 @@ func (l *Ledgerstate) mergeSingleBranchToMaster(branchID BranchID) (err error) {
 						outputMetadata.SetBranchID(updatedBranchID)
 					})
 
-					l.UTXODAG.Events().TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
-						TransactionID:    currentTransactionID,
-						BranchID:         updatedBranchID,
-						Cause:            Merge,
-						BranchDAGChanges: updatedBranches,
-					})
-
 					l.UTXODAG.CachedConsumers(output.ID(), Solid).Consume(func(consumer *Consumer) {
 						transactionWalker.Push(consumer.TransactionID())
 					})
 				}
+			})
+
+			l.UTXODAG.Events().TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
+				TransactionID:    currentTransactionID,
+				BranchID:         updatedBranchID,
+				Cause:            Merge,
+				BranchDAGChanges: updatedBranches,
 			})
 		})
 	}
