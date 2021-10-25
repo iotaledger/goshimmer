@@ -515,7 +515,7 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, conflictBr
 
 // updateBranchOfTransaction is an internal utility function that updates the Branch that a Transaction and its Outputs
 // are booked into.
-func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, newBranchID BranchID, conflictBranchID BranchID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, newBranchID, conflictBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.SetBranchID(newBranchID) {
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
