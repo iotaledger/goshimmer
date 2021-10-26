@@ -187,11 +187,10 @@ func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.Transactio
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID); err != nil {
+			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID, walker); err != nil {
 				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
 				walker.StopWalk()
 			}
-
 			return
 		}
 
@@ -200,7 +199,7 @@ func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.Transactio
 			walker.StopWalk()
 			return
 		}
-	}, b.tangle.Storage.AttachmentMessageIDs(transactionID))
+	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), false)
 
 	return
 }
@@ -414,14 +413,14 @@ func (b *Booker) updatedBranchID(branchID, conflictBranchID ledgerstate.BranchID
 }
 
 // updateMarkerFutureCone updates the future cone of a Marker to belong to the given conflict BranchID.
-func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranchID ledgerstate.BranchID) (err error) {
-	walk := walker.New()
-	walk.Push(marker)
+func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
+	markerWalker := walker.New(false)
+	markerWalker.Push(marker)
 
-	for walk.HasNext() {
-		currentMarker := walk.Next().(*markers.Marker)
+	for markerWalker.HasNext() {
+		currentMarker := markerWalker.Next().(*markers.Marker)
 
-		if err = b.updateMarker(currentMarker, newConflictBranchID, walk); err != nil {
+		if err = b.updateMarker(currentMarker, newConflictBranchID, messageWalker, markerWalker); err != nil {
 			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", newConflictBranchID, currentMarker, err)
 			return
 		}
@@ -431,7 +430,7 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 }
 
 // updateMarker updates a single Marker and queues the next Elements that need to be updated.
-func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, walk *walker.Walker) (err error) {
+func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker, markerWalker *walker.Walker) (err error) {
 	oldBranchID := b.MarkersManager.BranchID(currentMarker)
 	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, conflictBranchID)
 	if err != nil {
@@ -441,7 +440,10 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
 		return
 	}
-	b.updateIndividuallyMappedMessages(oldBranchID, currentMarker, conflictBranchID)
+
+	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(b.MarkersManager.MessageID(currentMarker), StrongApprover) {
+		messageWalker.Push(approvingMessageID)
+	}
 
 	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
 
@@ -450,7 +452,7 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 	referencingMarkerIndexInSameSequence, _, exists := b.MarkersManager.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1))
 	if exists {
 		referencingMarker := markers.NewMarker(currentMarker.SequenceID(), referencingMarkerIndexInSameSequence)
-		walk.Push(referencingMarker)
+		markerWalker.Push(referencingMarker)
 	}
 
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
@@ -459,7 +461,8 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 				return true
 			}
 
-			walk.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
+			referencingMarker := markers.NewMarker(referencingSequenceID, referencingIndex)
+			markerWalker.Push(referencingMarker)
 
 			b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker, conflictBranchID)
 
