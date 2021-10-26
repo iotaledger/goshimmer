@@ -1,4 +1,4 @@
-import { action, observable, ObservableMap } from 'mobx';
+import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import { registerHandler, unregisterHandler, WSMsgType } from 'WS';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
@@ -36,7 +36,8 @@ export class BranchStore {
     layoutApi;
 
 
-    constructor() {        
+    constructor() {      
+        makeObservable(this);  
         registerHandler(WSMsgType.Branch, this.addBranch);
         registerHandler(WSMsgType.BranchParentsUpdate, this.updateParents);
         registerHandler(WSMsgType.BranchAWUpdate, this.updateAW);

@@ -1,4 +1,4 @@
-import { action, observable, ObservableMap } from 'mobx';
+import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import {registerHandler, unregisterHandler, WSMsgType} from 'WS';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
@@ -37,7 +37,8 @@ export class UTXOStore {
     layout;
     layoutApi;
 
-    constructor() {        
+    constructor() { 
+        makeObservable(this);       
         registerHandler(WSMsgType.Transaction, this.addTransaction);
         registerHandler(WSMsgType.TransactionConfirmed, this.setTXConfirmedTime);
 
