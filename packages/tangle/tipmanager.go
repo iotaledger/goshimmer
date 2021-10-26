@@ -7,6 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
@@ -207,9 +208,20 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 		transaction := p.(*ledgerstate.Transaction)
 
 		tries := 5
-		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), parents...) {
+		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), parents...) || len(parents) == 0 {
 			if tries == 0 {
-				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
+				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips and parents have correct time-since-confirmation")
+				return nil, err
+			}
+			tries--
+
+			parents = t.selectTips(p, MaxParentsCount)
+		}
+	} else {
+		tries := 5
+		for len(parents) == 0 {
+			if tries == 0 {
+				err = errors.Errorf("not able to make sure that parents have correct time-since-confirmation")
 				return nil, err
 			}
 			tries--
@@ -219,6 +231,55 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 	}
 
 	return
+}
+
+func (t *TipManager) isPastConeTimestampCorrect(parents MessageIDs) bool {
+	now := clock.SyncedTime()
+	oldestUnconfirmedAncestorTime := now
+	minSupportedTimestamp := now.Add(-oldMessageThreshold)
+
+	if t.tangle.TimeManager.Time().Before(minSupportedTimestamp) {
+		// FIXME: this opens a hole to confirm incorrect timestamps if the oldest supported timestamp is bigger than current tangleTime
+		// possibly it should be required that timestampValidThreshold > syncThreshold
+		return false
+	}
+
+	messagesVisited := 0
+	correctTimestamp := true
+	t.tangle.Utils.WalkMessage(func(message *Message, walker *walker.Walker) {
+		messagesVisited++
+		if t.tangle.ConfirmationOracle.IsMessageConfirmed(message.ID()) {
+			return
+		}
+
+		if message.IssuingTime().Before(oldestUnconfirmedAncestorTime) {
+			oldestUnconfirmedAncestorTime = message.IssuingTime()
+		}
+
+		// check weak parents without checking their past cones
+		for _, weakParentID := range message.ParentsByType(WeakParentType) {
+			messagesVisited++
+			if t.tangle.ConfirmationOracle.IsMessageConfirmed(weakParentID) {
+				return
+			}
+
+			t.tangle.Storage.Message(weakParentID).Consume(func(message *Message) {
+				if message.IssuingTime().Before(oldestUnconfirmedAncestorTime) {
+					oldestUnconfirmedAncestorTime = message.IssuingTime()
+				}
+			})
+		}
+		// walk through strong parents' past cones
+		for _, parentID := range message.ParentsByType(StrongParentType) {
+			walker.Push(parentID)
+		}
+		if oldestUnconfirmedAncestorTime.Before(minSupportedTimestamp) {
+			correctTimestamp = false
+			walker.StopWalk()
+		}
+	}, parents)
+
+	return correctTimestamp
 }
 
 // selectTips returns a list of parents. In case of a transaction, it references young enough attachments
@@ -241,7 +302,7 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 					t.tangle.Storage.Message(attachmentMessageID).Consume(func(message *Message) {
 						// check if message is too old
 						timeDifference := clock.SyncedTime().Sub(message.IssuingTime())
-						if timeDifference <= maxParentsTimeDifference {
+						if timeDifference <= maxParentsTimeDifference && t.isPastConeTimestampCorrect(MessageIDs{attachmentMessageID}) {
 							if _, ok := parentsMap[attachmentMessageID]; !ok {
 								parentsMap[attachmentMessageID] = types.Void
 								parents = append(parents, attachmentMessageID)
@@ -273,24 +334,24 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 	}
 
 	tips := t.tips.RandomUniqueEntries(count)
-	// count is invalid or there are no tips
-	if len(tips) == 0 {
-		// only add genesis if no tip was found and not previously referenced (in case of a transaction)
-		if len(parents) == 0 {
-			parents = append(parents, EmptyMessageID)
-		}
-		return
-	}
+
 	// at least one tip is returned
 	for _, tip := range tips {
 		messageID := tip.(MessageID)
-
-		if _, ok := parentsMap[messageID]; !ok {
+		if !t.isPastConeTimestampCorrect(MessageIDs{messageID}) {
+			// remove tip with incorrect timestamp in the past cone
+			t.tips.Delete(messageID)
+		} else if _, ok := parentsMap[messageID]; !ok {
 			parentsMap[messageID] = types.Void
 			parents = append(parents, messageID)
 		}
 	}
 
+	// only add genesis if no tips are available and not previously referenced (in case of a transaction),
+	// or selected ones had incorrect time-since-confirmation
+	if len(parents) == 0 && t.tips.Size() == 0 {
+		parents = append(parents, EmptyMessageID)
+	}
 	return
 }
 
