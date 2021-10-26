@@ -447,8 +447,18 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 
 	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
 
+	referencingMarkerIndexInSameSequence, _, exists := b.MarkersManager.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1))
+	if exists {
+		referencingMarker := markers.NewMarker(currentMarker.SequenceID(), referencingMarkerIndexInSameSequence)
+		walk.Push(referencingMarker)
+	}
+
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
+			if referencingSequenceID == currentMarker.SequenceID() {
+				return true
+			}
+
 			walk.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
 
 			b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker, conflictBranchID)
