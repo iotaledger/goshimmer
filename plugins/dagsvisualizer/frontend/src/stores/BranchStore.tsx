@@ -211,9 +211,6 @@ export class BranchStore {
 
         // clear selected node
         this.cy.on('unselect', 'node', (evt) => {
-            var node = evt.target;
-            const nodeData = node.json();
-            
             this.clearSelected();
         });
     }
