@@ -93,6 +93,11 @@ export class UTXOStore {
       this.selectedTx = tx;
     }
 
+    @action
+    clearSelected = () => {
+      this.selectedTx = null;
+    }
+
     removeVertex = (txID: string) => {
         let children = this.cy.getElementById(txID).children();
 
@@ -202,7 +207,8 @@ export class UTXOStore {
                     'width': 1,
                     'curve-style': 'bezier',
                     'line-color': '#696969',
-                    'control-point-step-size': '10px'
+                    'control-point-step-size': '10px',
+                    'events': 'no'
                   }
                 },
                 {
@@ -224,13 +230,15 @@ export class UTXOStore {
                 {
                   selector: '.input',
                     style: {
-                      'background-color': '#F9BDC0'
+                      'background-color': '#F9BDC0',
+                      'events': 'no'
                     }
                 },
                 {
                   selector: '.output',
                     style: {
-                      'background-color': '#FBE698'
+                      'background-color': '#FBE698',
+                      'events': 'no'
                     }
                 },
                 {
@@ -254,11 +262,19 @@ export class UTXOStore {
         );
 
         // set up click event
-        this.cy.on('click', 'node', (evt) => {
+        this.cy.on('select', 'node', (evt) => {
           var node = evt.target;
           const nodeData = node.json();
           
           this.updateSelected(nodeData.data.id);
+        });
+
+        // clear selected node
+        this.cy.on('unselect', 'node', (evt) => {
+          var node = evt.target;
+          const nodeData = node.json();
+          
+          this.clearSelected();
         });
     }
 }
