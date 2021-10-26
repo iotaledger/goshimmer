@@ -86,9 +86,14 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
+	//tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{}
 
 	// set up scenario (images/tipmanager-DataMessageTips-test.png)
 	messages := make(map[string]*Message)
+
+	// create a message and update tangle time with it
+	lastConfirmedMessage := createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{}).ID()
+	tangle.TimeManager.updateTime(lastConfirmedMessage)
 
 	// without any tip -> genesis
 	{
@@ -190,6 +195,8 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
+	confirmedMessageIDs := &MessageIDs{}
+	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs}
 
 	wallets := make(map[string]wallet)
 	walletsByAddress := make(map[ledgerstate.Address]wallet)
@@ -297,6 +304,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 		tipManager.AddTip(messages["1"])
 		assert.Equal(t, 0, tipManager.TipCount())
+
+		// mark this message as confirmed
+		*confirmedMessageIDs = MessageIDs{messages["1"].ID()}
 	}
 
 	// Message 2
@@ -313,6 +323,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 		tipManager.AddTip(messages["2"])
 		assert.Equal(t, 1, tipManager.TipCount())
+
+		// use this message to set TangleTime
+		tangle.TimeManager.updateTime(messages["2"].ID())
 	}
 
 	// Message 3
@@ -656,4 +669,23 @@ func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParent
 	})
 
 	return
+}
+
+type MockConfirmationOracleTipManagerTest struct {
+	confirmedMessageIDs *MessageIDs
+	MockConfirmationOracle
+}
+
+// IsMessageConfirmed mocks its interface function.
+func (m *MockConfirmationOracleTipManagerTest) IsMessageConfirmed(msgID MessageID) bool {
+	return containsMessageID(*m.confirmedMessageIDs, msgID)
+}
+
+func containsMessageID(s MessageIDs, e MessageID) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
