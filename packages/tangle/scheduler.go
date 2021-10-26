@@ -110,28 +110,12 @@ func (s *Scheduler) Shutdown() {
 func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
 	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
-		// avoid scheduling old messages
-		skipScheduler := false
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			skipScheduler = clock.Since(message.IssuingTime()) > oldMessageThreshold
-		})
-		if skipScheduler {
-			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				messageMetadata.SetScheduledBypass(true)
-			})
-			return
-		}
-
-		if err := s.SubmitAndReady(messageID); err != nil {
-			if !errors.Is(err, schedulerutils.ErrBufferFull) &&
-				!errors.Is(err, schedulerutils.ErrInboxExceeded) &&
-				!errors.Is(err, schedulerutils.ErrInsufficientMana) {
-				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			if messageMetadata.SetScheduled(true) {
+				s.Events.MessageScheduled.Trigger(messageID)
 			}
-		}
+		})
 	}))
-
-	s.Start()
 }
 
 // SetRate sets the rate of the scheduler.
