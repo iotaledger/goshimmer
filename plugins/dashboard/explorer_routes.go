@@ -43,6 +43,7 @@ type ExplorerMessage struct {
 	// Solid defines the solid status of the message.
 	Solid               bool                `json:"solid"`
 	BranchID            string              `json:"branchID"`
+	MetadataBranchID    string              `json:"metadataBranchID"`
 	Scheduled           bool                `json:"scheduled"`
 	ScheduledBypass     bool                `json:"scheduledBypass"`
 	Booked              bool                `json:"booked"`
@@ -87,6 +88,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
 		BranchID:                branchID.Base58(),
+		MetadataBranchID:        messageMetadata.BranchID().Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		ScheduledBypass:         messageMetadata.ScheduledBypass(),
 		Booked:                  messageMetadata.IsBooked(),
