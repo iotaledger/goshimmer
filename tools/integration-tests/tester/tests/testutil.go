@@ -422,9 +422,13 @@ func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedSt
 				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
 				// the grade of finality can change, so we should check all transactions every time
-				if !txMetadataStateEqual(t, node, txID, expInclState) {
+				stateEqual, gof := txMetadataStateEqual(t, node, txID, expInclState)
+				if !stateEqual {
+					t.Logf("Current grade of finality for txId %s is %d", txID, gof)
 					return false
 				}
+				t.Logf("Current grade of finality for txId %s is %d", txID, gof)
+
 			}
 		}
 		return true
@@ -452,13 +456,13 @@ func OutputIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 	panic("invalid address")
 }
 
-func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) bool {
+func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) (bool, gof.GradeOfFinality) {
 	metadata, err := node.GetTransactionMetadata(txID)
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 
 	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
 		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) {
-		return false
+		return false, metadata.GradeOfFinality
 	}
-	return true
+	return true, metadata.GradeOfFinality
 }

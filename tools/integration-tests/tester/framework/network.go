@@ -57,7 +57,9 @@ func NewNetwork(ctx context.Context, dockerClient *client.Client, name string, t
 
 // Peers returns all available peers in the network.
 func (n *Network) Peers() []*Node {
-	return n.peers
+	peersCopy := make([]*Node, len(n.peers))
+	copy(peersCopy, n.peers)
+	return peersCopy
 }
 
 // CreatePeer creates and returns a new GoShimmer peer.
