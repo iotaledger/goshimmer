@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"math"
+	"sort"
 	"sync"
 	"time"
 
@@ -34,6 +35,7 @@ type conflict struct {
 	ArrivalTime   time.Time              `json:"arrivalTime"`
 	Resolved      bool                   `json:"resolved"`
 	TimeToResolve time.Duration          `json:"timeToResolve"`
+	UpdatedTime   time.Time              `json:"updatedTime"`
 }
 
 type conflictJSON struct {
@@ -59,6 +61,7 @@ type branch struct {
 	GoF          gof.GradeOfFinality     `json:"gof"`
 	IssuingTime  time.Time               `json:"issuingTime"`
 	IssuerNodeID identity.ID             `json:"issuerNodeID"`
+	UpdatedTime  time.Time               `json:"updatedTime"`
 }
 
 type branchJSON struct {
@@ -86,6 +89,38 @@ func (b *branch) ToJSON() *branchJSON {
 	}
 }
 
+type conflictCleanup struct {
+	ConflictIDS []ledgerstate.ConflictID `json:"conflictIDs"`
+}
+
+type conflictCleanupJSON struct {
+	ConflictIDS []string `json:"conflictIDs"`
+}
+
+func (c *conflictCleanup) ToJSON() *conflictCleanupJSON {
+	var conflictIDS []string
+	for _, c := range c.ConflictIDS {
+		conflictIDS = append(conflictIDS, c.Base58())
+	}
+	return &conflictCleanupJSON{ConflictIDS: conflictIDS}
+}
+
+type branchCleanup struct {
+	BranchIDs []ledgerstate.BranchID `json:"branchIDs"`
+}
+
+type branchCleanupJSON struct {
+	BranchIDs []string `json:"branchIDs"`
+}
+
+func (b *branchCleanup) ToJSON() *branchCleanupJSON {
+	var branchIDs []string
+	for _, b := range b.BranchIDs {
+		branchIDs = append(branchIDs, b.Base58())
+	}
+	return &branchCleanupJSON{BranchIDs: branchIDs}
+}
+
 func sendConflictUpdate(c *conflict) {
 	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsConflict, c.ToJSON())
 }
@@ -94,7 +129,21 @@ func sendBranchUpdate(b *branch) {
 	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsBranch, b.ToJSON())
 }
 
+func sendConflictCleanup(c *conflictCleanup) {
+	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictCleanup, c.ToJSON())
+}
+
+func sendBranchCleanup(b *branchCleanup) {
+	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeBranchCleanup, b.ToJSON())
+}
+
 func configureConflictLiveFeed() {
+	if Parameters.Conflicts.ConflictCleanupCount >= Parameters.Conflicts.MaxConflictsCount {
+		Plugin.LogFatal("conflicts cleanup count must be less than max conflicts count")
+	}
+	if Parameters.Conflicts.BranchCleanupCount >= Parameters.Conflicts.MaxBranchesCount {
+		Plugin.LogFatal("branch cleanup count must be less than max branches count")
+	}
 	conflictsLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		broadcastWsMessage(&wsmsg{task.Param(0).(byte), task.Param(1)})
 		task.Return(nil)
@@ -126,7 +175,8 @@ func runConflictLiveFeed() {
 
 func onBranchCreated(branchID ledgerstate.BranchID) {
 	b := &branch{
-		BranchID: branchID,
+		BranchID:    branchID,
+		UpdatedTime: clock.SyncedTime(),
 	}
 
 	deps.Tangle.LedgerState.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
@@ -150,15 +200,20 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 				c := &conflict{
 					ConflictID:  conflictID,
 					ArrivalTime: clock.SyncedTime(),
+					UpdatedTime: clock.SyncedTime(),
 				}
 				conflicts[conflictID] = c
 				sendConflictUpdate(c)
+				if len(conflicts) >= Parameters.Conflicts.MaxConflictsCount {
+					cleanupOldConflicts(conflicts)
+				}
 			}
 
 			// update all existing branches with a possible new conflict membership
 			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 				if cm, exists := branches[conflictMember.BranchID()]; exists {
 					cm.ConflictIDs.Add(conflictID)
+					cm.UpdatedTime = clock.SyncedTime()
 					sendBranchUpdate(cm)
 				}
 			})
@@ -167,6 +222,9 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 
 	branches[b.BranchID] = b
 	sendBranchUpdate(b)
+	if len(branches) >= Parameters.Conflicts.MaxBranchesCount {
+		cleanupOldBranches(branches, conflicts)
+	}
 }
 
 func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
@@ -187,6 +245,7 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 
 	b.AW = math.Round(e.Weight*precision) / precision
 	b.GoF, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(b.BranchID)
+	b.UpdatedTime = clock.SyncedTime()
 	sendBranchUpdate(b)
 
 	if messagelayer.FinalityGadget().IsBranchConfirmed(b.BranchID) {
@@ -195,6 +254,7 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 			if !c.Resolved {
 				c.Resolved = true
 				c.TimeToResolve = clock.Since(c.ArrivalTime)
+				c.UpdatedTime = clock.SyncedTime()
 				sendConflictUpdate(c)
 			}
 		}
@@ -225,4 +285,62 @@ func issuerOfOldestAttachment(branchID ledgerstate.BranchID) (id identity.ID) {
 		})
 	})
 	return
+}
+
+func cleanupOldConflicts(conflictsMap map[ledgerstate.ConflictID]*conflict) {
+	var conflicts []*conflict
+	for _, conflict := range conflictsMap {
+		conflicts = append(conflicts, conflict)
+	}
+	sort.Slice(conflicts, func(i, j int) bool {
+		return conflicts[i].UpdatedTime.Before(conflicts[i].UpdatedTime)
+	})
+	var conflictIDs []ledgerstate.ConflictID
+	for _, c := range conflicts[:Parameters.Conflicts.ConflictCleanupCount] {
+		conflictIDs = append(conflictIDs, c.ConflictID)
+	}
+	sendConflictCleanup(&conflictCleanup{ConflictIDS: conflictIDs})
+
+	// free map
+	for _, conflictID := range conflictIDs {
+		delete(conflictsMap, conflictID)
+	}
+}
+
+func cleanupOldBranches(branchesMap map[ledgerstate.BranchID]*branch, conflictsMap map[ledgerstate.ConflictID]*conflict) {
+	var branches []*branch
+	for _, branch := range branchesMap {
+		branches = append(branches, branch)
+	}
+	sort.Slice(branches, func(i, j int) bool {
+		return branches[i].UpdatedTime.Before(branches[i].UpdatedTime)
+	})
+	var branchIDs []ledgerstate.BranchID
+	for _, b := range branches[:Parameters.Conflicts.BranchCleanupCount] {
+		branchIDs = append(branchIDs, b.BranchID)
+	}
+	sendBranchCleanup(&branchCleanup{BranchIDs: branchIDs})
+
+	// follow up and cleanup conflicts
+	conflictsToCleanup := make(map[ledgerstate.ConflictID]struct{})
+	for _, branchID := range branchIDs {
+		for _, conflictID := range branchesMap[branchID].ConflictIDs.Slice() {
+			conflictsToCleanup[conflictID] = struct{}{}
+		}
+	}
+	var conflictIDs []ledgerstate.ConflictID
+	for conflictID := range conflictsToCleanup {
+		conflictIDs = append(conflictIDs, conflictID)
+	}
+	sendConflictCleanup(&conflictCleanup{ConflictIDS: conflictIDs})
+
+	// free branches map
+	for _, branchID := range branchIDs {
+		delete(branchesMap, branchID)
+	}
+
+	// free conflicts map
+	for _, conflictID := range conflictIDs {
+		delete(conflictsMap, conflictID)
+	}
 }

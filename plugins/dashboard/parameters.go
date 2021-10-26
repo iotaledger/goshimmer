@@ -25,6 +25,18 @@ type ParametersDefinition struct {
 		// Password defines the config flag of the dashboard basic auth password.
 		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
 	}
+
+	// Conflicts defines the config flag for the configs tab of the dashboard.
+	Conflicts struct {
+		// MaxConflictsCount defines the max number of conflicts stored on the dashboard.
+		MaxConflictsCount int `default:"200" usage:"max number of conflicts stored on the dashboard"`
+		// MaxBranchesCount defines the max number of branches stored on the dashboard.
+		MaxBranchesCount int `default:"100" usage:"max number of conflict branches stored on the dashboard"`
+		// ConflictCleanupCount defines the number of conflicts to remove when the max is reached.
+		ConflictCleanupCount int `default:"50" usage:"number of conflicts to remove when the max is reached"`
+		// BranchCleanupCount defines the number of branches to remove when the max is reached.
+		BranchCleanupCount int `default:"20" usage:"number of branches to remove when the max is reached"`
+	}
 }
 
 // Parameters contains the configuration parameters of the dashboard plugin.

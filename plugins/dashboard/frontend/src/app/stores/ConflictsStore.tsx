@@ -13,7 +13,6 @@ export class ConflictMessage {
     resolved: boolean;
     timeToResolve: number;
     shown: boolean;
-    updatedAt: Date;
 }
 
 export class BranchMessage {
@@ -23,11 +22,15 @@ export class BranchMessage {
     gof: number;
     issuingTime: number;
     issuerNodeID: string;
-    updatedAt: Date;
 }
 
-const maxStoredConflicts = 100;
-const maxStoredBranches = 100;
+export class ConflictCleanup {
+    conflictIDs: Array<string>;
+}
+
+export class BranchCleanup {
+    branchIDs: Array<string>;
+}
 
 export class ConflictsStore {
     // live feed
@@ -44,32 +47,38 @@ export class ConflictsStore {
         this.branches = new Map;
         registerHandler(WSMsgType.Conflict, this.updateConflicts);
         registerHandler(WSMsgType.Branch, this.updateBranches);
+        registerHandler(WSMsgType.ConflictCleanup, this.cleanupConflicts);
+        registerHandler(WSMsgType.BranchCleanup, this.cleanupBranches);
     }
 
     @action
     updateConflicts = (msg: ConflictMessage) => {
-        msg.updatedAt = new Date();
         this.conflicts.set(msg.conflictID, msg);
     };
 
     @action
     updateBranches = (msg: BranchMessage) => {
-        msg.updatedAt = new Date();
         this.branches.set(msg.branchID, msg);
     };
+
+    @action
+    cleanupConflicts = (msg: ConflictCleanup) => {
+        msg.conflictIDs.forEach(conflictID => {
+            this.conflicts.delete(conflictID);
+        })
+    }
+
+    @action
+    cleanupBranches = (msg: BranchCleanup) => {
+        msg.branchIDs.forEach(branchID => {
+            this.branches.delete(branchID);
+        })
+    }
    
     @computed
     get conflictsLiveFeed() {
         let feed = [];
-        let oldestConflictUpdate: ConflictMessage;
-        let oldestConflictUpdatedAt = new Date();
-        let oldestBranchUpdate: BranchMessage;
-        let oldestBranchUpdatedAt = new Date();
         for (let [key, conflict] of this.conflicts) {
-            if(conflict.updatedAt < oldestConflictUpdatedAt) {
-                oldestConflictUpdatedAt = conflict.updatedAt;
-                oldestConflictUpdate = conflict;
-            }
             feed.push(
                 <tr key={conflict.conflictID} onClick={() => conflict.shown = !conflict.shown} style={{cursor:"pointer"}}>
                     <td>
@@ -103,10 +112,6 @@ export class ConflictsStore {
 
             let branches = [];
             for (let branch of branchesArr) {
-                if(branch.updatedAt < oldestBranchUpdatedAt) {
-                    oldestBranchUpdatedAt = branch.updatedAt;
-                    oldestBranchUpdate = branch;
-                }
                 for(let conflictID of branch.conflictIDs){
                     if (conflictID === key) {
                         branches.push(
@@ -145,13 +150,6 @@ export class ConflictsStore {
                     </td>
                 </tr>
             );
-        }
-
-        if(this.conflicts.size === maxStoredConflicts) {
-            this.conflicts.delete(oldestConflictUpdate.conflictID);
-        }
-        if(this.branches.size === maxStoredBranches){
-            this.branches.delete(oldestBranchUpdate.branchID);
         }
 
         return feed;
