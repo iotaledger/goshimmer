@@ -28,7 +28,7 @@ export class branchAWUpdate {
 export class BranchStore {
     @observable maxBranchVertices: number = 500;
     @observable branches = new ObservableMap<string, branchVertex>();
-    @observable selectedBranch: branchVertex;
+    @observable selectedBranch: branchVertex = null;
     branchOrder: Array<any> = [];
     newVertexCounter = 0;
     cy;
@@ -98,6 +98,17 @@ export class BranchStore {
         })
     }
 
+    @action
+    updateSelected = (branchID: string) => {
+      let b = this.branches.get(branchID);
+      this.selectedBranch = b;
+    }
+
+    @action
+    clearSelected = () => {
+        this.selectedBranch = null;
+    }
+
     removeVertex = (branchID: string) => {
         let uiID = '#'+branchID;
         this.cy.remove(uiID);
@@ -146,9 +157,17 @@ export class BranchStore {
                     'width': 1,
                     'curve-style': 'bezier',
                     'line-color': '#696969',
-                    'control-point-step-size': '10px'
+                    'control-point-step-size': '10px',
+                    'events': 'no'
                   }
-                }
+                },
+                {
+                  selector: 'node:selected',
+                  style: {
+                    'background-opacity': 0.333,
+                    'background-color': 'red'
+                  }
+                },
               ],
             layout: {
                 name: 'fcose',
@@ -180,6 +199,22 @@ export class BranchStore {
                 'label': 'master'
             },
             classes: 'top-center'
+        });
+
+        // set up click event
+        this.cy.on('select', 'node', (evt) => {
+            var node = evt.target;
+            const nodeData = node.json();
+            
+            this.updateSelected(nodeData.data.id);
+        });
+
+        // clear selected node
+        this.cy.on('unselect', 'node', (evt) => {
+            var node = evt.target;
+            const nodeData = node.json();
+            
+            this.clearSelected();
         });
     }
 }
