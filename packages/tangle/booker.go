@@ -431,43 +431,36 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 
 // updateMarker updates a single Marker and queues the next Elements that need to be updated.
 func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker, markerWalker *walker.Walker) (err error) {
+	// update BranchID mapping
 	oldBranchID := b.MarkersManager.BranchID(currentMarker)
 	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, conflictBranchID)
 	if err != nil {
-		err = errors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), conflictBranchID, err)
-		return
+		return errors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), conflictBranchID, err)
 	}
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
-		return
+		return nil
 	}
-
-	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(b.MarkersManager.MessageID(currentMarker), StrongApprover) {
-		messageWalker.Push(approvingMessageID)
-	}
-
 	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
 
+	// trigger event
 	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
 
-	referencingMarkerIndexInSameSequence, _, exists := b.MarkersManager.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1))
-	if exists {
-		referencingMarker := markers.NewMarker(currentMarker.SequenceID(), referencingMarkerIndexInSameSequence)
+	// propagate updates to the direct approvers of the marker
+	b.MarkersManager.ForEachMessageApprovingMarker(currentMarker, func(approvingMessageID MessageID) {
+		messageWalker.Push(approvingMessageID)
+	})
+
+	// propagate updates to later BranchID mappings of the same sequence.
+	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, mappedBranch ledgerstate.BranchID) {
+		markerWalker.Push(mappedMarker)
+	})
+
+	// propagate updates to referencing markers of later sequences and their corresponding individually mapped messages
+	// that are "next" to the first marker of the sequence.
+	b.MarkersManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker *markers.Marker) {
 		markerWalker.Push(referencingMarker)
-	}
 
-	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
-		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
-			if referencingSequenceID == currentMarker.SequenceID() {
-				return true
-			}
-
-			referencingMarker := markers.NewMarker(referencingSequenceID, referencingIndex)
-			markerWalker.Push(referencingMarker)
-
-			b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker, conflictBranchID)
-
-			return true
-		})
+		b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(referencingMarker), currentMarker, conflictBranchID)
 	})
 
 	return
@@ -666,6 +659,40 @@ func (m *MarkersManager) Ceiling(referenceMarker *markers.Marker) (marker marker
 	})
 
 	return
+}
+
+// ForEachMessageApprovingMarker iterates through all Messages that strongly approve the given Marker.
+func (m *MarkersManager) ForEachMessageApprovingMarker(marker *markers.Marker, callback func(approvingMessageID MessageID)) {
+	for _, approvingMessageID := range m.tangle.Utils.ApprovingMessageIDs(m.MessageID(marker), StrongApprover) {
+		callback(approvingMessageID)
+	}
+}
+
+// ForEachBranchIDMapping iterates over all BranchID mappings in the given Sequence that are bigger than the given
+// thresholdIndex. Setting the thresholdIndex to 0 will iterate over all existing mappings.
+func (m *MarkersManager) ForEachBranchIDMapping(sequenceID markers.SequenceID, thresholdIndex markers.Index, callback func(mappedMarker *markers.Marker, mappedBranchID ledgerstate.BranchID)) {
+	currentMarker := markers.NewMarker(sequenceID, thresholdIndex)
+	referencingMarkerIndexInSameSequence, mappedBranchID, exists := m.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1))
+	for ; exists; referencingMarkerIndexInSameSequence, _, exists = m.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1)) {
+		currentMarker = markers.NewMarker(currentMarker.SequenceID(), referencingMarkerIndexInSameSequence)
+		callback(currentMarker, mappedBranchID)
+	}
+}
+
+// ForEachMarkerReferencingMarker executes the callback function for each Marker of other Sequences that directly
+// reference the given Marker.
+func (m *MarkersManager) ForEachMarkerReferencingMarker(referencedMarker *markers.Marker, callback func(referencingMarker *markers.Marker)) {
+	m.Sequence(referencedMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+		sequence.ReferencingMarkers(referencedMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
+			if referencingSequenceID == referencedMarker.SequenceID() {
+				return true
+			}
+
+			callback(markers.NewMarker(referencingSequenceID, referencingIndex))
+
+			return true
+		})
+	})
 }
 
 // propagatePastMarkerToFutureMarkers updates the FutureMarkers of the strong parents of a given message when a new
