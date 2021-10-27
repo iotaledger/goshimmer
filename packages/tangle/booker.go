@@ -430,7 +430,7 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 }
 
 // updateMarker updates a single Marker and queues the next Elements that need to be updated.
-func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker, markerWalker *walker.Walker) (err error) {
+func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, messageWalker, markerWalker *walker.Walker) (err error) {
 	// update BranchID mapping
 	oldBranchID := b.MarkersManager.BranchID(currentMarker)
 	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, conflictBranchID)
