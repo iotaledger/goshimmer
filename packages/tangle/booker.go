@@ -455,11 +455,11 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 		markerWalker.Push(mappedMarker)
 	})
 
-	// propagate updates to referencing markers of later sequences and their corresponding individually mapped messages
-	// that are "next" to the first marker of the sequence.
+	// propagate updates to referencing markers of later sequences ...
 	b.MarkersManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker *markers.Marker) {
 		markerWalker.Push(referencingMarker)
 
+		// ... and update individually mapped messages that are next to the referencing marker.
 		b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(referencingMarker), currentMarker, conflictBranchID)
 	})
 
