@@ -238,6 +238,12 @@ func (t *TipManager) isPastConeTimestampCorrect(parents MessageIDs) bool {
 	oldestUnconfirmedAncestorTime := now
 	minSupportedTimestamp := now.Add(-oldMessageThreshold)
 
+	if t.tangle.TimeManager.LastConfirmedMessage().MessageID == EmptyMessageID {
+		// if the genesis message is the last confirmed message, then there is no point in performing tangle walk
+		// return true so that the network can start issuing messages when the tangle starts
+		return true
+	}
+
 	if t.tangle.TimeManager.Time().Before(minSupportedTimestamp) {
 		// FIXME: this opens a hole to confirm incorrect timestamps if the oldest supported timestamp is bigger than current tangleTime
 		// possibly it should be required that timestampValidThreshold > syncThreshold

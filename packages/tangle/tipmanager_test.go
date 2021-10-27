@@ -86,14 +86,9 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
-	//tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{}
 
 	// set up scenario (images/tipmanager-DataMessageTips-test.png)
 	messages := make(map[string]*Message)
-
-	// create a message and update tangle time with it
-	lastConfirmedMessage := createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{}).ID()
-	tangle.TimeManager.updateTime(lastConfirmedMessage)
 
 	// without any tip -> genesis
 	{
