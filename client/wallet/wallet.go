@@ -116,7 +116,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *led
 	// how much funds will we need to fund this transfer?
 	requiredFunds := sendOptions.RequiredFunds()
 	// collect that many outputs for funding
-	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds)
+	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, sendOptions.UsePendingOutputs)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -192,7 +192,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		return
 	}
 	// collect outputs
-	allOutputs, err := wallet.collectOutputsForFunding(confirmedAvailableBalance)
+	allOutputs, err := wallet.collectOutputsForFunding(confirmedAvailableBalance, false)
 	if err != nil && !errors.Is(err, ErrTooManyOutputs) {
 		return
 	}
@@ -348,7 +348,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	// where will we spend from?
-	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Supply})
+	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Supply}, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -365,6 +365,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	tx, err := wallet.SendFunds(
 		sendoptions.Destination(receiveAddress, asset.Supply, ledgerstate.ColorMint),
 		sendoptions.WaitForConfirmation(wait),
+		sendoptions.UsePendingOutputs(false),
 	)
 	if err != nil {
 		return
@@ -410,7 +411,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOpti
 	// how much funds will we need to fund this transfer?
 	requiredFunds := delegateOptions.RequiredFunds()
 	// collect that many outputs for funding
-	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds)
+	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -550,7 +551,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 		return
 	}
 	// collect funds required for an alias input
-	consumedOutputs, err := wallet.collectOutputsForFunding(createNFTOptions.InitialBalance)
+	consumedOutputs, err := wallet.collectOutputsForFunding(createNFTOptions.InitialBalance, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -986,7 +987,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	}
 
 	// collect funds required for a deposit
-	consumedOutputs, err := wallet.collectOutputsForFunding(depositBalances)
+	consumedOutputs, err := wallet.collectOutputsForFunding(depositBalances, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -2067,15 +2068,16 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *ledgerstate.Al
 	return nil, err
 }
 
-// collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance
-func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Color]uint64) (OutputsByAddressAndOutputID, error) {
+// collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance.
+// It may collect pending outputs according to flag.
+func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Color]uint64, includePending bool) (OutputsByAddressAndOutputID, error) {
 	if fundingBalance == nil {
 		return nil, errors.Errorf("can't collect fund: empty fundingBalance provided")
 	}
 
 	_ = wallet.outputManager.Refresh()
 	addresses := wallet.addressManager.Addresses()
-	unspentOutputs := wallet.outputManager.UnspentValueOutputs(false, addresses...)
+	unspentOutputs := wallet.outputManager.UnspentValueOutputs(includePending, addresses...)
 
 	collected := make(map[ledgerstate.Color]uint64)
 	outputsToConsume := NewAddressToOutputs()
