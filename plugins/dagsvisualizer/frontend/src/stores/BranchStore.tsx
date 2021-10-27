@@ -11,9 +11,18 @@ export class branchVertex {
 	parents:        Array<string>;
 	approvalWeight: number;
 	confirmedTime:  number;
-    conflictIDs:    Array<string>;
+    conflicts:      conflictBranches;
 }
 
+export class conflictBranches {
+    branchID:  string;
+    conflicts: Array<conflict>;
+}
+
+export class conflict {
+    outputID:  any;
+    branchIDs: Array<string>;
+}
 export class branchParentUpdate {
     ID:      string;
     parents: Array<string>;
@@ -59,7 +68,7 @@ export class BranchStore {
             this.branches.delete(removed);
             this.removeVertex(removed.ID);
         }
-        console.log(branch.ID, branch.type);
+        console.log(branch.conflicts);
 
         this.branchOrder.push(branch.ID);
         this.branches.set(branch.ID, branch);
@@ -183,13 +192,13 @@ export class BranchStore {
         );
 
         // add master branch
-        let master = {
+        let master:branchVertex = {
             ID:             '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
             type:           'ConflictBranchType',
 	        parents:        [],
 	        approvalWeight: 1.0,
 	        confirmedTime:  123,
-            conflictIDs:    []
+            conflicts:      null
         }
         this.branches.set("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", master);
         this.cy.add({

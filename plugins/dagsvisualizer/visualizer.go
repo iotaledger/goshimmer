@@ -157,6 +157,17 @@ func registerUTXOEvents() {
 func registerBranchEvents() {
 	createdClosure := events.NewClosure(func(branchDAGEvent *ledgerstate.BranchDAGEvent) {
 		branchDAGEvent.Branch.Consume(func(branch ledgerstate.Branch) {
+			conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
+			// get conflicts for Conflict branch
+			if branch.Type() == ledgerstate.ConflictBranchType {
+				for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+					conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
+					deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+						conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
+					})
+				}
+			}
+
 			visualizerWorkerPool.TrySubmit(&wsMessage{
 				Type: MsgTypeBranchVertex,
 				Data: &branchVertex{
@@ -164,6 +175,7 @@ func registerBranchEvents() {
 					Type:           branch.Type().String(),
 					Parents:        branch.Parents().Strings(),
 					ApprovalWeight: 0,
+					Conflicts:      jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
 				},
 			})
 		})

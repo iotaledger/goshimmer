@@ -76,12 +76,12 @@ type utxoConfirmed struct {
 }
 
 type branchVertex struct {
-	ID             string   `json:"ID"`
-	Type           string   `json:"type"`
-	Parents        []string `json:"parents"`
-	ApprovalWeight float64  `json:"approvalWeight"`
-	ConfirmedTime  int64    `json:"confirmedTime"`
-	ConflictIDs    []string `json:"conflictIDs"`
+	ID             string                                 `json:"ID"`
+	Type           string                                 `json:"type"`
+	Parents        []string                               `json:"parents"`
+	ApprovalWeight float64                                `json:"approvalWeight"`
+	ConfirmedTime  int64                                  `json:"confirmedTime"`
+	Conflicts      *jsonmodels.GetBranchConflictsResponse `json:"conflicts"`
 }
 
 type branchParentUpdate struct {
