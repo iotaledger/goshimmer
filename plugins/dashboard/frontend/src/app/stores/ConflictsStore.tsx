@@ -24,14 +24,6 @@ export class BranchMessage {
     issuerNodeID: string;
 }
 
-export class ConflictCleanup {
-    conflictIDs: Array<string>;
-}
-
-export class BranchCleanup {
-    branchIDs: Array<string>;
-}
-
 export class ConflictsStore {
     // live feed
     @observable conflicts: Map<String, ConflictMessage>;

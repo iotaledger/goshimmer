@@ -203,10 +203,6 @@ const (
 	MsgTypeConflictsConflict
 	// MsgTypeConflictsBranch defines a message that contains a branch update for the conflict tab.
 	MsgTypeConflictsBranch
-	// MsgTypeConflictCleanup defines a message that cleans up up the conflicts supplied from the conflicts tab.
-	MsgTypeConflictCleanup
-	// MsgTypeBranchCleanup defines a message that cleans up the branches supplied from the conflicts tab.
-	MsgTypeBranchCleanup
 )
 
 type wsmsg struct {
