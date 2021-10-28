@@ -254,11 +254,11 @@ func (h timeHeap) Len() int {
 }
 
 func (h timeHeap) Less(i, j int) bool {
-	switch h[i].(type) {
+	switch v := h[i].(type) {
 	case *conflict:
-		return h[i].(*conflict).UpdatedTime.Before(h[j].(*conflict).UpdatedTime)
+		return v.UpdatedTime.Before(h[j].(*conflict).UpdatedTime)
 	case *branch:
-		return h[i].(*branch).UpdatedTime.Before(h[j].(*branch).UpdatedTime)
+		return v.UpdatedTime.Before(h[j].(*branch).UpdatedTime)
 	}
 	return true
 }
