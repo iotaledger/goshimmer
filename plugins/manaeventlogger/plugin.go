@@ -1,7 +1,6 @@
 package manaeventlogger
 
 import (
-	"context"
 	"encoding/csv"
 	"os"
 	"sync"
@@ -114,14 +113,14 @@ func writeEventsToCSV(evs []mana.Event) error {
 }
 
 func run(_ *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping %s ... done", PluginName)
 		ticker := time.NewTicker(checkBufferInterval)
 		defer ticker.Stop()
 	L:
 		for {
 			select {
-			case <-ctx.Done():
+			case <-shutdownSignal:
 				break L
 			case <-ticker.C:
 				checkBuffer()

@@ -2,7 +2,6 @@
 package database
 
 import (
-	"context"
 	"strconv"
 	"sync"
 	"time"
@@ -114,12 +113,12 @@ func run(*node.Plugin) {
 
 // manageDBLifetime takes care of managing the lifetime of the database. It marks the database as dirty up on
 // startup and unmarks it up on shutdown. Up on shutdown it will run the db GC and then close the database.
-func manageDBLifetime(ctx context.Context) {
+func manageDBLifetime(shutdownSignal <-chan struct{}) {
 	// we mark the database only as corrupted from within a background worker, which means
 	// that we only mark it as dirty, if the node actually started up properly (meaning no termination
 	// signal was received before all plugins loaded).
 	MarkDatabaseUnhealthy()
-	<-ctx.Done()
+	<-shutdownSignal
 	runDatabaseGC()
 	MarkDatabaseHealthy()
 	log.Infof("Syncing database to disk...")

@@ -1,7 +1,6 @@
 package healthz
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -44,13 +43,13 @@ func run(plugin *node.Plugin) {
 	}
 }
 
-func worker(ctx context.Context) {
+func worker(shutdownSignal <-chan struct{}) {
 	// set healthy to false as soon as worker exits
 	defer healthy.SetTo(false)
 
 	healthy.SetTo(true)
 	Plugin.LogInfo("All plugins started successfully")
-	<-ctx.Done()
+	<-shutdownSignal
 }
 
 func getHealthz(c echo.Context) error {

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"strings"
 	"sync"
 	"time"
@@ -137,12 +136,12 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 
 // starts record manager that initiates a record cleanup periodically
 func runEventsRecordManager() {
-	if err := daemon.BackgroundWorker("Analysis Server Autopeering Record Manager", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Analysis Server Autopeering Record Manager", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(cleanUpPeriod)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-shutdownSignal:
 				return
 			case <-ticker.C:
 				cleanUp(cleanUpPeriod)

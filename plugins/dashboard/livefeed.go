@@ -1,8 +1,6 @@
 package dashboard
 
 import (
-	"context"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -34,9 +32,9 @@ func runLiveFeed() {
 		})
 	})
 
-	if err := daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
 		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
-		<-ctx.Done()
+		<-shutdownSignal
 		log.Info("Stopping Dashboard[MsgUpdater] ...")
 		deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
 		liveFeedWorkerPool.Stop()

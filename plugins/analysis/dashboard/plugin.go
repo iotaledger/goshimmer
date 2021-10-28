@@ -72,7 +72,7 @@ func run(*node.Plugin) {
 	}
 }
 
-func worker(ctx context.Context) {
+func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
@@ -96,7 +96,7 @@ func worker(ctx context.Context) {
 			select {
 			case <-ticker.C:
 				broadcastWsMessage(&wsmsg{MsgTypePing, ""})
-			case <-ctx.Done():
+			case <-shutdownSignal:
 				return
 			case <-stopped:
 				return
@@ -105,10 +105,6 @@ func worker(ctx context.Context) {
 	}()
 
 	log.Infof("Stopping %s ...", PluginName)
-	stopServer()
-}
-
-func stopServer() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {

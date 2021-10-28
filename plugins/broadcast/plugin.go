@@ -1,16 +1,15 @@
 package broadcast
 
 import (
-	"context"
-
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 
+	"github.com/iotaledger/goshimmer/plugins/broadcast/server"
+
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/broadcast/server"
 )
 
 const (
@@ -45,11 +44,11 @@ var Parameters = &ParametersDefinition{}
 func run(_ *node.Plugin) {
 	//Server to connect to
 	Plugin.LogInfof("Starting Broadcast plugin on %s", Parameters.BindAddress)
-	if err := daemon.BackgroundWorker("Broadcast worker", func(ctx context.Context) {
-		if err := server.Listen(Parameters.BindAddress, Plugin, ctx.Done()); err != nil {
+	if err := daemon.BackgroundWorker("Broadcast worker", func(shutdownSignal <-chan struct{}) {
+		if err := server.Listen(Parameters.BindAddress, Plugin, shutdownSignal); err != nil {
 			Plugin.LogError("Failed to start Broadcast server: %v", err)
 		}
-		<-ctx.Done()
+		<-shutdownSignal
 	}); err != nil {
 		Plugin.LogFatalf("Failed to start Broadcast daemon: %v", err)
 	}
@@ -63,9 +62,9 @@ func run(_ *node.Plugin) {
 		})
 	})
 
-	if err := daemon.BackgroundWorker("Broadcast[MsgUpdater]", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Broadcast[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
 		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
-		<-ctx.Done()
+		<-shutdownSignal
 		Plugin.LogInfof("Stopping Broadcast...")
 		deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
 		Plugin.LogInfof("Stopping Broadcast... \tDone")

@@ -1,8 +1,6 @@
 package drng
 
 import (
-	"context"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -56,11 +54,11 @@ func configure(_ *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker("dRNG-plugin", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("dRNG-plugin", func(shutdownSignal <-chan struct{}) {
 	loop:
 		for {
 			select {
-			case <-ctx.Done():
+			case <-shutdownSignal:
 				plugin.LogInfof("Stopping %s ...", "dRNG-plugin")
 				break loop
 			case messageID := <-inbox:

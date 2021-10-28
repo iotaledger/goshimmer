@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/gorilla/websocket"
@@ -128,7 +127,7 @@ func runAutopeeringFeed() {
 		autoPeeringWorkerPool.Submit("c", eventStruct)
 	})
 
-	if err := daemon.BackgroundWorker("AnalysisDashboard[AutopeeringVisualizer]", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("AnalysisDashboard[AutopeeringVisualizer]", func(shutdownSignal <-chan struct{}) {
 		// connect closures (submitting tasks) to events of the analysis server
 		analysisserver.Events.AddNode.Attach(notifyAddNode)
 		defer analysisserver.Events.AddNode.Detach(notifyAddNode)
@@ -138,7 +137,7 @@ func runAutopeeringFeed() {
 		defer analysisserver.Events.ConnectNodes.Detach(notifyConnectNodes)
 		analysisserver.Events.DisconnectNodes.Attach(notifyDisconnectNodes)
 		defer analysisserver.Events.DisconnectNodes.Detach(notifyDisconnectNodes)
-		<-ctx.Done()
+		<-shutdownSignal
 		log.Info("Stopping AnalysisDashboard[AutopeeringVisualizer] ...")
 		autoPeeringWorkerPool.Stop()
 		log.Info("Stopping AnalysisDashboard[AutopeeringVisualizer] ... done")

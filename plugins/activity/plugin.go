@@ -1,7 +1,6 @@
 package activity
 
 import (
-	"context"
 	"math/rand"
 	"time"
 
@@ -48,18 +47,18 @@ func broadcastActivityMessage() {
 }
 
 func run(_ *node.Plugin) {
-	if err := daemon.BackgroundWorker("Activity-plugin", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Activity-plugin", func(shutdownSignal <-chan struct{}) {
 		// start with initial delay
 		rand.NewSource(time.Now().UnixNano())
 		initialDelay := time.Duration(rand.Intn(int(Parameters.DelayOffset)))
 		time.Sleep(initialDelay)
 
 		if Parameters.BroadcastInterval > 0 {
-			timeutil.NewTicker(broadcastActivityMessage, Parameters.BroadcastInterval, ctx)
+			timeutil.NewTicker(broadcastActivityMessage, Parameters.BroadcastInterval, shutdownSignal)
 		}
 
-		// Wait before terminating, so we get correct log messages from the daemon regarding the shutdown order.
-		<-ctx.Done()
+		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		<-shutdownSignal
 	}, shutdown.PriorityActivity); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}

@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -76,10 +75,10 @@ func runWebSocketStreams() {
 		wsSendWorkerPool.TrySubmit(updateStatus)
 	})
 
-	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(shutdownSignal <-chan struct{}) {
 		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
 		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
-		<-ctx.Done()
+		<-shutdownSignal
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
 		metrics.Events.ReceivedMPSUpdated.Detach(updateStatus)
 		wsSendWorkerPool.Stop()

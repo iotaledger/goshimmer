@@ -5,7 +5,6 @@
 package remotelog
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,7 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
 	"go.uber.org/dig"
-	"gopkg.in/src-d/go-git.v4"
+	git "gopkg.in/src-d/go-git.v4"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
@@ -92,9 +91,9 @@ func run(plugin *node.Plugin) {
 		workerPool.TrySubmit(level, name, msg)
 	})
 
-	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		logger.Events.AnyMsg.Attach(logEvent)
-		<-ctx.Done()
+		<-shutdownSignal
 		plugin.LogInfof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)
 		workerPool.Stop()

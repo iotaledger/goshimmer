@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"context"
 	"runtime"
 	"time"
 
@@ -60,7 +59,7 @@ func configureFPCLiveFeed() {
 }
 
 func runFPCLiveFeed() {
-	if err := daemon.BackgroundWorker("Analysis[FPCUpdater]", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
 		onFPCHeartbeatReceived := events.NewClosure(func(hb *packet.FPCHeartbeat) {
 			fpcLiveFeedWorkerPool.Submit(createFPCUpdate(hb))
 		})
@@ -76,7 +75,7 @@ func runFPCLiveFeed() {
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-shutdownSignal:
 				log.Info("Stopping Analysis[FPCUpdater] ...")
 				analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
 				cleanUpTicker.Stop()
@@ -97,11 +96,11 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 	// prepare the update
 	conflicts := make(conflictSet)
 	nodeID := analysis.ShortNodeIDString(hb.OwnID)
-	for ID, activeContext := range hb.RoundStats.ActiveVoteContexts {
+	for ID, context := range hb.RoundStats.ActiveVoteContexts {
 		newVoteContext := voteContext{
 			NodeID:   nodeID,
-			Rounds:   activeContext.Rounds,
-			Opinions: opinion.ConvertOpinionsToInts32ForLiveFeed(activeContext.Opinions),
+			Rounds:   context.Rounds,
+			Opinions: opinion.ConvertOpinionsToInts32ForLiveFeed(context.Opinions),
 		}
 
 		conflicts[ID] = newConflict()

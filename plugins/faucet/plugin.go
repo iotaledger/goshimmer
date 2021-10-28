@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"context"
 	"runtime"
 	"sync"
 	"time"
@@ -120,17 +119,17 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		defer plugin.LogInfof("Stopping %s ... done", PluginName)
 
 		plugin.LogInfo("Waiting for node to become synced...")
-		if !waitUntilSynced(ctx) {
+		if !waitUntilSynced(shutdownSignal) {
 			return
 		}
 		plugin.LogInfo("Waiting for node to become synced... done")
 
 		plugin.LogInfo("Waiting for node to have sufficient access mana")
-		if err := waitForMana(ctx); err != nil {
+		if err := waitForMana(shutdownSignal); err != nil {
 			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
@@ -138,7 +137,7 @@ func run(plugin *node.Plugin) {
 
 		plugin.LogInfof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
-		if err := _faucet.DeriveStateFromTangle(ctx.Done()); err != nil {
+		if err := _faucet.DeriveStateFromTangle(shutdownSignal); err != nil {
 			plugin.LogErrorf("failed to derive state: %s", err)
 			return
 		}
@@ -149,14 +148,14 @@ func run(plugin *node.Plugin) {
 
 		initDone.Store(true)
 
-		<-ctx.Done()
+		<-shutdownSignal
 		plugin.LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
 }
 
-func waitUntilSynced(ctx context.Context) bool {
+func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
 	synced := make(chan struct{}, 1)
 	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
 		if e.Synced {
@@ -179,17 +178,17 @@ func waitUntilSynced(ctx context.Context) bool {
 	select {
 	case <-synced:
 		return true
-	case <-ctx.Done():
+	case <-shutdownSignal:
 		return false
 	}
 }
 
-func waitForMana(ctx context.Context) error {
+func waitForMana(shutdownSignal <-chan struct{}) error {
 	nodeID := deps.Tangle.Options.Identity.ID()
 	for {
 		// stop polling, if we are shutting down
 		select {
-		case <-ctx.Done():
+		case <-shutdownSignal:
 			return errors.New("faucet shutting down")
 		default:
 		}

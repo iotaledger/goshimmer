@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"context"
 	"net"
 
 	"github.com/cockroachdb/errors"
@@ -48,7 +47,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 	return gossip.NewManager(lPeer, loadMessage, Plugin.Logger())
 }
 
-func start(ctx context.Context) {
+func start(shutdownSignal <-chan struct{}) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 
 	lPeer := deps.Local
@@ -67,6 +66,6 @@ func start(ctx context.Context) {
 
 	Plugin.LogInfof("%s started: bind-address=%s", PluginName, localAddr.String())
 
-	<-ctx.Done()
+	<-shutdownSignal
 	Plugin.LogInfo("Stopping " + PluginName + " ...")
 }

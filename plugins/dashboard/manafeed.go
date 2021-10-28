@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"context"
 	"sort"
 	"sync"
 	"time"
@@ -60,13 +59,13 @@ func runManaFeed() {
 	notifyManaRevoke := events.NewClosure(func(ev *mana.RevokedEvent) {
 		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
 	})
-	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(shutdownSignal <-chan struct{}) {
 		mana.Events().Pledged.Attach(notifyManaPledge)
 		mana.Events().Revoked.Attach(notifyManaRevoke)
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {
-			case <-ctx.Done():
+			case <-shutdownSignal:
 				log.Info("Stopping Dashboard[ManaUpdater] ...")
 				manaFeedWorkerPool.Stop()
 				manaTicker.Stop()

@@ -1,7 +1,6 @@
 package messagelayer
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"os"
@@ -188,7 +187,7 @@ func runManaPlugin(_ *node.Plugin) {
 	vectorsCleanUpInterval := ManaParameters.VectorsCleanupInterval
 	fmt.Printf("Prune interval: %v\n", pruneInterval)
 	mana.SetCoefficients(ema1, ema2, dec)
-	if err := daemon.BackgroundWorker("Mana", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		defer manaLogger.Infof("Stopping %s ... done", PluginName)
 		// ticker := time.NewTicker(pruneInterval)
 		// defer ticker.Stop()
@@ -212,7 +211,7 @@ func runManaPlugin(_ *node.Plugin) {
 		pruneStorages()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-shutdownSignal:
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)

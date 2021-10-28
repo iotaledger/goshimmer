@@ -1,8 +1,6 @@
 package txstream
 
 import (
-	"context"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -43,12 +41,12 @@ func run(_ *node.Plugin) {
 
 	bindAddress := Parameters.BindAddress
 	log.Debugf("starting TXStream Plugin on %s", bindAddress)
-	err := daemon.BackgroundWorker("TXStream worker", func(ctx context.Context) {
-		err := server.Listen(ledger, bindAddress, log, ctx.Done())
+	err := daemon.BackgroundWorker("TXStream worker", func(shutdownSignal <-chan struct{}) {
+		err := server.Listen(ledger, bindAddress, log, shutdownSignal)
 		if err != nil {
 			log.Errorf("failed to start TXStream server: %w", err)
 		}
-		<-ctx.Done()
+		<-shutdownSignal
 	}, shutdown.PriorityTXStream)
 	if err != nil {
 		log.Errorf("failed to start TXStream daemon: %w", err)

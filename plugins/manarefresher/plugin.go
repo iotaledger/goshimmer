@@ -1,7 +1,6 @@
 package manarefresher
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -52,12 +51,12 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker("ManaRefresher-plugin", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("ManaRefresher-plugin", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(Parameters.RefreshInterval)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-shutdownSignal:
 				return
 
 			case <-ticker.C:

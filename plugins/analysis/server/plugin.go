@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"io"
 	"net"
 	"strconv"
@@ -79,7 +78,7 @@ func run(_ *node.Plugin) {
 		log.Fatal("invalid port in %s: %s", CfgAnalysisServerBindAddress, err)
 	}
 
-	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		defer log.Infof("Stopping %s ... done", PluginName)
 
@@ -89,7 +88,7 @@ func run(_ *node.Plugin) {
 
 		go server.Listen(addr, port)
 
-		<-ctx.Done()
+		<-shutdownSignal
 		log.Info("Stopping Server ...")
 		server.Shutdown()
 	}, shutdown.PriorityAnalysis); err != nil {

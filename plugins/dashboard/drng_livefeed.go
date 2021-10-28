@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"context"
 	"encoding/hex"
 	"time"
 
@@ -60,7 +59,7 @@ func configureDrngLiveFeed() {
 }
 
 func runDrngLiveFeed() {
-	if err := daemon.BackgroundWorker("Dashboard[DRNGUpdater]", func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Dashboard[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
 		newMsgRateLimiter := time.NewTicker(time.Second / 10)
 		defer newMsgRateLimiter.Stop()
 
@@ -75,7 +74,7 @@ func runDrngLiveFeed() {
 
 		defer drngLiveFeedWorkerPool.Stop()
 
-		<-ctx.Done()
+		<-shutdownSignal
 		log.Info("Stopping Dashboard[DRNGUpdater] ...")
 		deps.DRNGInstance.Events.Randomness.Detach(notifyNewRandomness)
 		log.Info("Stopping Dashboard[DRNGUpdater] ... done")
