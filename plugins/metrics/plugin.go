@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -62,7 +63,7 @@ func run(_ *node.Plugin) {
 	}
 
 	// create a background worker that update the metrics every second
-	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Metrics Updater", func(ctx context.Context) {
 		if Parameters.Local {
 			// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 			// safely ignore the last execution when shutting down.
@@ -75,32 +76,32 @@ func run(_ *node.Plugin) {
 				measureRequestQueueSize()
 				measureGossipTraffic()
 				measurePerComponentCounter()
-			}, 1*time.Second, shutdownSignal)
+			}, 1*time.Second, ctx)
 		}
 
 		if Parameters.Global {
 			// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 			// safely ignore the last execution when shutting down.
-			timeutil.NewTicker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
+			timeutil.NewTicker(calculateNetworkDiameter, 1*time.Minute, ctx)
 		}
 
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
-		<-shutdownSignal
+		<-ctx.Done()
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
 	// create a background worker that updates the mana metrics
-	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(ctx context.Context) {
 		if deps.GossipMgr == nil {
 			return
 		}
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
 		timeutil.NewTicker(func() {
 			measureMana()
-		}, Parameters.ManaUpdateInterval, shutdownSignal)
+		}, Parameters.ManaUpdateInterval, ctx)
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
-		<-shutdownSignal
+		<-ctx.Done()
 		log.Infof("Stopping Metrics Mana Updater ...")
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -108,14 +109,14 @@ func run(_ *node.Plugin) {
 
 	if Parameters.ManaResearch {
 		// create a background worker that updates the research mana metrics
-		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(shutdownSignal <-chan struct{}) {
+		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(ctx context.Context) {
 			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
 			timeutil.NewTicker(func() {
 				measureAccessResearchMana()
 				measureConsensusResearchMana()
-			}, Parameters.ManaUpdateInterval, shutdownSignal)
+			}, Parameters.ManaUpdateInterval, ctx)
 			// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
-			<-shutdownSignal
+			<-ctx.Done()
 			log.Infof("Stopping Metrics Research Mana Updater ...")
 		}, shutdown.PriorityMetrics); err != nil {
 			log.Panicf("Failed to start as daemon: %s", err)

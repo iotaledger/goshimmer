@@ -1,18 +1,18 @@
 package dashboard
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-
-	"github.com/labstack/echo"
 )
 
 var (
@@ -106,7 +106,7 @@ func runVisualizer() {
 		}
 	})
 
-	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
 		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
 		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
 		deps.Tangle.ApprovalWeightManager.Events.MessageFinalized.Attach(notifyNewMsg)
@@ -115,7 +115,7 @@ func runVisualizer() {
 		defer deps.Tangle.TipManager.Events.TipAdded.Detach(notifyNewTip)
 		deps.Tangle.TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
 		defer deps.Tangle.TipManager.Events.TipRemoved.Detach(notifyDeletedTip)
-		<-shutdownSignal
+		<-ctx.Done()
 		log.Info("Stopping Dashboard[Visualizer] ...")
 		visualizerWorkerPool.Stop()
 		log.Info("Stopping Dashboard[Visualizer] ... done")
