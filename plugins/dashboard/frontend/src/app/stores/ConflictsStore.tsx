@@ -24,6 +24,8 @@ export class BranchMessage {
     issuerNodeID: string;
 }
 
+// const liveFeedSize = 10;
+
 export class ConflictsStore {
     // live feed
     @observable conflicts: Map<String, ConflictMessage>;

@@ -257,12 +257,14 @@ func (h timeHeap) Less(i, j int) bool {
 	switch h[i].(type) {
 	case *conflict:
 		return h[i].(*conflict).UpdatedTime.Before(h[j].(*conflict).UpdatedTime)
+	case *branch:
+		return h[i].(*branch).UpdatedTime.Before(h[j].(*branch).UpdatedTime)
 	}
-	return h[i].(*branch).UpdatedTime.Before(h[j].(*branch).UpdatedTime)
+	return true
 }
 
 func (h timeHeap) Swap(i, j int) {
-	h[i], h[j] = h[i], h[j]
+	h[i], h[j] = h[j], h[i]
 }
 
 func (h *timeHeap) Push(x interface{}) {
