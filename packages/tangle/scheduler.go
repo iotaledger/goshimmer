@@ -304,17 +304,20 @@ func (s *Scheduler) schedule() *Message {
 	var schedulingNode *schedulerutils.NodeQueue
 	rounds := math.MaxInt32
 	now := clock.SyncedTime()
-	for q := start; q != nil; {
+	for q := start; ; {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready, and its issuing time is not in the future
 		if msg != nil && !now.Before(msg.IssuingTime()) {
 			// compute how often the deficit needs to be incremented until the message can be scheduled
 			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-			r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
-			// find the first node that will be allowed to schedule a message
-			if r < rounds {
-				rounds = r
-				schedulingNode = q
+			nodeMana := getCachedMana(q.NodeID())
+			if nodeMana > 0 {
+				r := int(math.Ceil(remainingDeficit / nodeMana))
+				// find the first node that will be allowed to schedule a message
+				if r < rounds {
+					rounds = r
+					schedulingNode = q
+				}
 			}
 		}
 
@@ -355,6 +358,22 @@ func (s *Scheduler) schedule() *Message {
 }
 
 func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
+	currentNode := s.buffer.Current()
+	// use counter to avoid infinite loop in case the start element is removed
+	activeNodes := s.buffer.NumActiveNodes()
+	// remove nodes that don't have mana and have empty queue
+	// this allows nodes with zero mana to issue messages, however nodes will only accumulate their deficit
+	// when there are messages in node's queue
+	for i := 0; i < activeNodes; i++ {
+		if nodeMana, exists := manaCache[currentNode.NodeID()]; (!exists || nodeMana < MinMana) && s.buffer.Current().Size() == 0 {
+			s.buffer.RemoveNode(currentNode.NodeID())
+			delete(s.deficits, currentNode.NodeID())
+			currentNode = s.buffer.Current()
+		} else {
+			currentNode = s.buffer.Next()
+		}
+	}
+
 	// update list of active nodes with accumulating deficit
 	for nodeID, nodeMana := range manaCache {
 		if nodeMana < MinMana {
@@ -363,28 +382,6 @@ func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
 		if _, exists := s.deficits[nodeID]; !exists {
 			s.deficits[nodeID] = 0
 			s.buffer.InsertNode(nodeID)
-		}
-	}
-
-	start := s.buffer.Current()
-	// use counter to avoid infinite loop in case the start element is removed
-	activeNodes := s.buffer.NumActiveNodes()
-	counter := 0
-	// remove nodes that don't have mana and have empty queue
-	// this allows nodes with zero mana to issue messages, however nodes will only accumulate their deficit
-	// when there are messages in node's queue
-	for q := start; q != nil; {
-		if nodeMana, exists := manaCache[q.NodeID()]; (!exists || nodeMana < MinMana) && s.buffer.Current().Size() == 0 {
-			s.buffer.RemoveNode(q.NodeID())
-			delete(s.deficits, q.NodeID())
-			q = s.buffer.Current()
-		} else {
-			q = s.buffer.Next()
-		}
-
-		counter++
-		if q == start || counter >= activeNodes {
-			break
 		}
 	}
 }
