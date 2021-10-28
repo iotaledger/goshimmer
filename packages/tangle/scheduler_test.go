@@ -79,7 +79,6 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 
 	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{})
 	assert.Equal(t, 0, tangle.Scheduler.buffer.NumActiveNodes())
-
 }
 
 func TestScheduler_Discarded(t *testing.T) {
