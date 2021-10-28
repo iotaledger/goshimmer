@@ -27,9 +27,9 @@ type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
 type BranchThresholdTranslation func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality
 
 const (
-	lowLowerBound    = 0.2
-	mediumLowerBound = 0.3
-	highLowerBound   = 0.5
+	lowLowerBound    = 0.25
+	mediumLowerBound = 0.45
+	highLowerBound   = 0.67
 )
 
 var (
