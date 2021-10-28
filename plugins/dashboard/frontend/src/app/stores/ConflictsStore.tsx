@@ -47,8 +47,6 @@ export class ConflictsStore {
         this.branches = new Map;
         registerHandler(WSMsgType.Conflict, this.updateConflicts);
         registerHandler(WSMsgType.Branch, this.updateBranches);
-        registerHandler(WSMsgType.ConflictCleanup, this.cleanupConflicts);
-        registerHandler(WSMsgType.BranchCleanup, this.cleanupBranches);
     }
 
     @action
@@ -60,20 +58,6 @@ export class ConflictsStore {
     updateBranches = (msg: BranchMessage) => {
         this.branches.set(msg.branchID, msg);
     };
-
-    @action
-    cleanupConflicts = (msg: ConflictCleanup) => {
-        msg.conflictIDs.forEach(conflictID => {
-            this.conflicts.delete(conflictID);
-        })
-    }
-
-    @action
-    cleanupBranches = (msg: BranchCleanup) => {
-        msg.branchIDs.forEach(branchID => {
-            this.branches.delete(branchID);
-        })
-    }
    
     @computed
     get conflictsLiveFeed() {

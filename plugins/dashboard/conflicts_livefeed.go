@@ -1,8 +1,8 @@
 package dashboard
 
 import (
+	"container/heap"
 	"math"
-	"sort"
 	"sync"
 	"time"
 
@@ -89,52 +89,12 @@ func (b *branch) ToJSON() *branchJSON {
 	}
 }
 
-type conflictCleanup struct {
-	ConflictIDS []ledgerstate.ConflictID `json:"conflictIDs"`
-}
-
-type conflictCleanupJSON struct {
-	ConflictIDS []string `json:"conflictIDs"`
-}
-
-func (c *conflictCleanup) ToJSON() *conflictCleanupJSON {
-	var conflictIDS []string
-	for _, c := range c.ConflictIDS {
-		conflictIDS = append(conflictIDS, c.Base58())
-	}
-	return &conflictCleanupJSON{ConflictIDS: conflictIDS}
-}
-
-type branchCleanup struct {
-	BranchIDs []ledgerstate.BranchID `json:"branchIDs"`
-}
-
-type branchCleanupJSON struct {
-	BranchIDs []string `json:"branchIDs"`
-}
-
-func (b *branchCleanup) ToJSON() *branchCleanupJSON {
-	var branchIDs []string
-	for _, b := range b.BranchIDs {
-		branchIDs = append(branchIDs, b.Base58())
-	}
-	return &branchCleanupJSON{BranchIDs: branchIDs}
-}
-
 func sendConflictUpdate(c *conflict) {
 	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsConflict, c.ToJSON())
 }
 
 func sendBranchUpdate(b *branch) {
 	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsBranch, b.ToJSON())
-}
-
-func sendConflictCleanup(c *conflictCleanup) {
-	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictCleanup, c.ToJSON())
-}
-
-func sendBranchCleanup(b *branchCleanup) {
-	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeBranchCleanup, b.ToJSON())
 }
 
 func configureConflictLiveFeed() {
@@ -287,60 +247,62 @@ func issuerOfOldestAttachment(branchID ledgerstate.BranchID) (id identity.ID) {
 	return
 }
 
-func cleanupOldConflicts(conflictsMap map[ledgerstate.ConflictID]*conflict) {
-	var conflicts []*conflict
-	for _, conflict := range conflictsMap {
-		conflicts = append(conflicts, conflict)
-	}
-	sort.Slice(conflicts, func(i, j int) bool {
-		return conflicts[i].UpdatedTime.Before(conflicts[i].UpdatedTime)
-	})
-	var conflictIDs []ledgerstate.ConflictID
-	for _, c := range conflicts[:Parameters.Conflicts.ConflictCleanupCount] {
-		conflictIDs = append(conflictIDs, c.ConflictID)
-	}
-	sendConflictCleanup(&conflictCleanup{ConflictIDS: conflictIDs})
+type timeHeap []interface{}
 
-	// free map
-	for _, conflictID := range conflictIDs {
-		delete(conflictsMap, conflictID)
+func (h timeHeap) Len() int {
+	return len(h)
+}
+
+func (h timeHeap) Less(i, j int) bool {
+	switch h[i].(type) {
+	case *conflict:
+		return h[i].(*conflict).UpdatedTime.Before(h[j].(*conflict).UpdatedTime)
+	}
+	return h[i].(*branch).UpdatedTime.Before(h[j].(*branch).UpdatedTime)
+}
+
+func (h timeHeap) Swap(i, j int) {
+	h[i], h[j] = h[i], h[j]
+}
+
+func (h *timeHeap) Push(x interface{}) {
+	*h = append(*h, x)
+}
+
+func (h *timeHeap) Pop() interface{} {
+	n := len(*h)
+	data := (*h)[n-1]
+	(*h)[n-1] = nil
+	*h = (*h)[:n-1]
+	return data
+}
+
+var _ heap.Interface = &timeHeap{}
+
+func cleanupOldConflicts(conflictsMap map[ledgerstate.ConflictID]*conflict) {
+	var conflictHeap = &timeHeap{}
+	heap.Init(conflictHeap)
+	for _, conflict := range conflictsMap {
+		heap.Push(conflictHeap, conflict)
+	}
+
+	for i := 0; i < Parameters.Conflicts.ConflictCleanupCount; i++ {
+		conflict := heap.Pop(conflictHeap).(*conflict)
+		delete(conflictsMap, conflict.ConflictID)
 	}
 }
 
 func cleanupOldBranches(branchesMap map[ledgerstate.BranchID]*branch, conflictsMap map[ledgerstate.ConflictID]*conflict) {
-	var branches []*branch
+	var branchHeap = &timeHeap{}
+	heap.Init(branchHeap)
 	for _, branch := range branchesMap {
-		branches = append(branches, branch)
+		heap.Push(branchHeap, branch)
 	}
-	sort.Slice(branches, func(i, j int) bool {
-		return branches[i].UpdatedTime.Before(branches[i].UpdatedTime)
-	})
-	var branchIDs []ledgerstate.BranchID
-	for _, b := range branches[:Parameters.Conflicts.BranchCleanupCount] {
-		branchIDs = append(branchIDs, b.BranchID)
-	}
-	sendBranchCleanup(&branchCleanup{BranchIDs: branchIDs})
-
-	// follow up and cleanup conflicts
-	conflictsToCleanup := make(map[ledgerstate.ConflictID]struct{})
-	for _, branchID := range branchIDs {
-		for _, conflictID := range branchesMap[branchID].ConflictIDs.Slice() {
-			conflictsToCleanup[conflictID] = struct{}{}
+	for i := 0; i < Parameters.Conflicts.BranchCleanupCount; i++ {
+		branch := heap.Pop(branchHeap).(*branch)
+		delete(branchesMap, branch.BranchID)
+		for _, conflictID := range branchesMap[branch.BranchID].ConflictIDs.Slice() {
+			delete(conflictsMap, conflictID)
 		}
-	}
-	var conflictIDs []ledgerstate.ConflictID
-	for conflictID := range conflictsToCleanup {
-		conflictIDs = append(conflictIDs, conflictID)
-	}
-	sendConflictCleanup(&conflictCleanup{ConflictIDS: conflictIDs})
-
-	// free branches map
-	for _, branchID := range branchIDs {
-		delete(branchesMap, branchID)
-	}
-
-	// free conflicts map
-	for _, conflictID := range conflictIDs {
-		delete(conflictsMap, conflictID)
 	}
 }
