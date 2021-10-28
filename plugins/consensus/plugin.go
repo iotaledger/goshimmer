@@ -158,7 +158,7 @@ func runFPC(plugin *node.Plugin) {
 	const ServerWorkerName = "FPCVoterServer"
 
 	if FPCParameters.Listen {
-		if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
+		if err := daemon.BackgroundWorker(ServerWorkerName, func(ctx context.Context) {
 			stopped := make(chan struct{})
 			bindAddr := FPCParameters.BindAddress
 
@@ -172,7 +172,7 @@ func runFPC(plugin *node.Plugin) {
 
 			// stop if we are shutting down or the server could not be started
 			select {
-			case <-shutdownSignal:
+			case <-ctx.Done():
 			case <-stopped:
 			}
 
@@ -184,7 +184,7 @@ func runFPC(plugin *node.Plugin) {
 		}
 	}
 
-	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(ctx context.Context) {
 		plugin.LogInfof("Started FPC round initiator")
 		defer plugin.LogInfof("Stopped FPC round initiator")
 
@@ -196,7 +196,7 @@ func runFPC(plugin *node.Plugin) {
 				if err := deps.Voter.Round(r, deps.DRNGTicker.DelayedRoundStart()); err != nil {
 					plugin.LogWarnf("unable to execute FPC round: %s", err)
 				}
-			case <-shutdownSignal:
+			case <-ctx.Done():
 				deps.DRNGTicker.Stop()
 				break exit
 			}
@@ -205,7 +205,7 @@ func runFPC(plugin *node.Plugin) {
 		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 
-	if err := daemon.BackgroundWorker("StatementCleaner", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("StatementCleaner", func(ctx context.Context) {
 		plugin.LogInfof("Started Statement Cleaner")
 		defer plugin.LogInfof("Stopped Statement Cleaner")
 		ticker := time.NewTicker(StatementParameters.CleanInterval)
@@ -215,7 +215,7 @@ func runFPC(plugin *node.Plugin) {
 			select {
 			case <-ticker.C:
 				deps.Registry.Clean(StatementParameters.DeleteAfter)
-			case <-shutdownSignal:
+			case <-ctx.Done():
 				break exit
 			}
 		}
