@@ -187,7 +187,7 @@ func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.Transactio
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID, walker); err != nil {
+			if err = b.forkMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID, walker); err != nil {
 				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
 				walker.StopWalk()
 			}
@@ -393,35 +393,18 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	return branchID, nil
 }
 
-// updatedBranchID returns the BranchID that is the result of aggregating the passed in BranchIDs.
-func (b *Booker) updatedBranchID(branchID, conflictBranchID ledgerstate.BranchID) (newBranchID ledgerstate.BranchID, branchIDUpdated bool, err error) {
-	if branchID == conflictBranchID {
-		return branchID, false, nil
-	}
+// region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-	if newBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchID, conflictBranchID)); err != nil {
-		return ledgerstate.UndefinedBranchID, false, errors.Errorf("failed to combine %s and %s into a new BranchID: %w", branchID, conflictBranchID, cerrors.ErrFatal)
-	}
-
-	// If the combined branches are conflicting when propagating them, it means that there was a like switch set in the future cone.
-	// We can safely ignore the branch propagation in that part of the tangle.
-	if newBranchID == ledgerstate.InvalidBranchID {
-		return ledgerstate.UndefinedBranchID, false, nil
-	}
-
-	return newBranchID, newBranchID != branchID, nil
-}
-
-// updateMarkerFutureCone updates the future cone of a Marker to belong to the given conflict BranchID.
-func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
+// forkMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
+func (b *Booker) forkMarkerFutureCone(marker *markers.Marker, branchID ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
 	markerWalker := walker.New(false)
 	markerWalker.Push(marker)
 
 	for markerWalker.HasNext() {
 		currentMarker := markerWalker.Next().(*markers.Marker)
 
-		if err = b.updateMarker(currentMarker, newConflictBranchID, messageWalker, markerWalker); err != nil {
-			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", newConflictBranchID, currentMarker, err)
+		if err = b.forkSingleMarker(currentMarker, branchID, messageWalker, markerWalker); err != nil {
+			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", branchID, currentMarker, err)
 			return
 		}
 	}
@@ -429,13 +412,14 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 	return
 }
 
-// updateMarker updates a single Marker and queues the next Elements that need to be updated.
-func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, messageWalker, markerWalker *walker.Walker) (err error) {
+// forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
+// visited.
+func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, branchID ledgerstate.BranchID, messageWalker, markerWalker *walker.Walker) (err error) {
 	// update BranchID mapping
 	oldBranchID := b.MarkersManager.BranchID(currentMarker)
-	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, conflictBranchID)
+	newBranchID, branchIDUpdated, err := b.forkedBranchID(oldBranchID, branchID)
 	if err != nil {
-		return errors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), conflictBranchID, err)
+		return errors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), branchID, err)
 	}
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
 		return nil
@@ -460,15 +444,34 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 		markerWalker.Push(referencingMarker)
 
 		// ... and update individually mapped messages that are next to the referencing marker.
-		b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(referencingMarker), currentMarker, conflictBranchID)
+		b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(referencingMarker), currentMarker, branchID)
 	})
 
 	return
 }
 
+// forkedBranchID returns the BranchID that is the result of combining the old BranchID with the new BranchID.
+func (b *Booker) forkedBranchID(oldBranchID, newBranchID ledgerstate.BranchID) (forkedBranchID ledgerstate.BranchID, branchIDUpdated bool, err error) {
+	if oldBranchID == newBranchID {
+		return oldBranchID, false, nil
+	}
+
+	if forkedBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, newBranchID)); err != nil {
+		return ledgerstate.UndefinedBranchID, false, errors.Errorf("failed to combine %s and %s into a new BranchID: %w", oldBranchID, newBranchID, cerrors.ErrFatal)
+	}
+
+	// If the combined branches are conflicting when propagating them, it means that there was a like switch set in the future cone.
+	// We can safely ignore the branch propagation in that part of the tangle.
+	if forkedBranchID == ledgerstate.InvalidBranchID {
+		return ledgerstate.UndefinedBranchID, false, nil
+	}
+
+	return forkedBranchID, forkedBranchID != oldBranchID, nil
+}
+
 // updateIndividuallyMappedMessages updates the Messages that have their BranchID set in the MessageMetadata.
 func (b *Booker) updateIndividuallyMappedMessages(oldChildBranch ledgerstate.BranchID, currentMarker *markers.Marker, newConflictBranchID ledgerstate.BranchID) {
-	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldChildBranch, newConflictBranchID)
+	newBranchID, branchIDUpdated, err := b.forkedBranchID(oldChildBranch, newConflictBranchID)
 	if err != nil {
 		return
 	} else if !branchIDUpdated {
@@ -497,7 +500,7 @@ func (b *Booker) updateMetadataFutureCone(messageMetadata *MessageMetadata, newC
 		return
 	}
 
-	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, newConflictBranchID)
+	newBranchID, branchIDUpdated, err := b.forkedBranchID(oldBranchID, newConflictBranchID)
 	if err != nil {
 		err = errors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
 		return
@@ -516,6 +519,8 @@ func (b *Booker) updateMetadataFutureCone(messageMetadata *MessageMetadata, newC
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
