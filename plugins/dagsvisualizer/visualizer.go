@@ -48,6 +48,9 @@ func registerTangleEvents() {
 					ID:              messageID.Base58(),
 					StrongParentIDs: msg.StrongParents().ToStrings(),
 					WeakParentIDs:   msg.WeakParents().ToStrings(),
+					BranchID:        ledgerstate.UndefinedBranchID.Base58(),
+					IsMarker:        false,
+					ConfirmedTime:   0,
 				},
 			})
 		})

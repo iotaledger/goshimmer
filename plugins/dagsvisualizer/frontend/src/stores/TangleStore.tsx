@@ -1,9 +1,6 @@
-import { action, observable, ObservableMap } from 'mobx';
+import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
-import cytoscape from 'cytoscape';
-import fcose from 'cytoscape-fcose';
-import { fcoseOptions } from 'styles/graphStyle';
-import layoutUtilities from 'cytoscape-layout-utilities';
+import {default as Viva} from 'vivagraphjs';
 
 export class tangleVertex {
     ID:              string;   
@@ -36,27 +33,32 @@ export class tangleMarkerAWUpdated {
     approvalWeight: number;
 }
 
+const vertexSize = 20;
+
 export class TangleStore {
     @observable maxTangleVertices: number = 100;
     @observable messages = new ObservableMap<string, tangleVertex>();
     @observable markerMap = new ObservableMap<string, Array<string>>();
     @observable awMap = new ObservableMap<string, number>();
-    @observable selectedMsg: tangleVertex;
+    @observable selectedMsg: tangleVertex = null;
+    @observable selected_approvers_count = 0;
+    @observable selected_approvees_count = 0;
     msgOrder: Array<any> = [];
-    newVertexCounter = 0;
-    cy;
-    layout;
-    layoutApi;
+    selected_via_click: boolean = false;
+    selected_origin_color: number = 0;
+    vertexChanges = 0;
+    graph;
+    graphics;
+    renderer;
 
     constructor() {        
+        makeObservable(this);
+        
         registerHandler(WSMsgType.Message, this.addMessage);
         registerHandler(WSMsgType.MessageBooked, this.setMessageBranch);
         registerHandler(WSMsgType.MessageConfirmed, this.setMessageConfirmedTime);
         registerHandler(WSMsgType.FutureMarkerUpdated, this.updateFutureMarker);
         registerHandler(WSMsgType.MarkerAWUpdated, this.updateMarkerAW);
-
-        cytoscape.use(fcose);
-        cytoscape.use( layoutUtilities );
     }
 
     unregisterHandlers() {
@@ -92,7 +94,7 @@ export class TangleStore {
         msg.futureMarkers = [];
         this.messages.set(msg.ID, msg);
 
-        //this.drawVertex(msg);
+        this.drawVertex(msg);
     }
 
     @action
@@ -103,8 +105,8 @@ export class TangleStore {
             if (msg.isMarker) {
                 this.markerMap.delete(msgID);
             }
-            this.messages.delete(msgID);
-            //this.removeVertex(msgID);
+            this.removeVertex(msgID);
+            this.messages.delete(msgID);            
         }
     }
 
@@ -114,7 +116,7 @@ export class TangleStore {
         if (!msg) {
             return;
         }
-
+        console.log(branch.branchID);
         msg.branchID = branch.branchID;
         msg.isMarker = branch.isMarker;
 
@@ -174,85 +176,253 @@ export class TangleStore {
         }
     }
 
+    @action
+    deleteApproveeLink = (approveeId: string) => {
+        if (!approveeId) {
+            return;
+        }
+        let approvee = this.messages.get(approveeId);
+        if (approvee) {
+            if (this.selectedMsg && approveeId === this.selectedMsg.ID) {
+                this.clearSelected();
+            }
+            this.messages.delete(approveeId);
+        }
+        this.graph.removeNode(approveeId);
+    }
+
+
     drawVertex = (msg: tangleVertex) => {
-        this.newVertexCounter++;
+        let node;
+        let existing = this.graph.getNode(msg.ID);
+        if (existing) {
+            node = existing
+        } else {
+            node = this.graph.addNode(msg.ID, msg);
+        }
 
-        let v = this.cy.add({
-            group: 'nodes',
-            data: { id: msg.ID },
-        });
-
-        msg.strongParentIDs.forEach((spID) => {
-            let sp = this.messages.get(spID);
-            if (sp) {
-                let edgeID = msg.ID+spID; 
-                this.cy.add({
-                    group: 'edges',
-                    data: { id: edgeID, source: msg.ID, target: spID}
-                });
-            }            
-        });
-
-        msg.weakParentIDs.forEach((wpID) => {
-            let wp = this.messages.get(wpID);
-            if (wp) {
-                let edgeID = msg.ID+wpID; 
-                this.cy.add({
-                    group: 'edges',
-                    data: { id: edgeID, source: msg.ID, target: wpID}
-                });
-            }            
-        });
-        this.layoutApi.placeNewNodes(v);
-
-        if (this.newVertexCounter >= 0) {
-            this.cy.layout(fcoseOptions).run();
-            this.newVertexCounter = 0;
+        if (msg.strongParentIDs) {
+            msg.strongParentIDs.forEach((value) => {
+                // if value is valid AND (links is empty OR there is no between parent and children)
+                if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
+                    // draw the link only when the parent exists
+                    let existing = this.graph.getNode(value);
+                    if (existing) {
+                        this.graph.addLink(value, msg.ID);
+                    }
+                }
+            })
+        }
+        if (msg.weakParentIDs){
+            msg.weakParentIDs.forEach((value) => {
+                // if value is valid AND (links is empty OR there is no between parent and children)
+                if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
+                    // draw the link only when the parent exists
+                    let existing = this.graph.getNode(value);
+                    if (existing) {
+                        this.graph.addLink(value, msg.ID);
+                    }
+                }
+            })
         }
     }
 
     removeVertex = (msgID: string) => {
-        let uiID = '#'+msgID;
-        this.cy.remove(uiID);
-        this.cy.layout( fcoseOptions ).run();
+        let vert = this.messages.get(msgID);
+        if (vert) {
+            this.messages.delete(msgID);
+            this.graph.removeNode(msgID);
+            
+            vert.strongParentIDs.forEach((value) => {
+                this.deleteApproveeLink(value)
+            })
+            vert.weakParentIDs.forEach((value) => {
+                this.deleteApproveeLink(value)
+            })
+        }
+    }
+
+    @action
+    updateSelected = (vert: tangleVertex, viaClick?: boolean) => {
+        if (!vert) return;
+
+        this.selectedMsg = vert;
+        this.selected_via_click = !!viaClick;
+
+        // mutate links
+        let node = this.graph.getNode(vert.ID);
+        let nodeUI = this.graphics.getNodeUI(vert.ID);
+        this.selected_origin_color = nodeUI.color
+        nodeUI.color = parseColor("#859900");
+        nodeUI.size = vertexSize * 1.5;
+
+        const seenForward = [];
+        const seenBackwards = [];
+        dfsIterator(this.graph,
+            node,
+            node => {
+                this.selected_approvers_count++;
+            },
+            true,
+            link => {
+                const linkUI = this.graphics.getLinkUI(link.id);
+                linkUI.color = parseColor("#d33682");
+            },
+            seenForward
+        );
+        dfsIterator(this.graph, node, node => {
+                this.selected_approvees_count++;
+            }, false, link => {
+                const linkUI = this.graphics.getLinkUI(link.id);
+                linkUI.color = parseColor("#b58900");
+            },
+            seenBackwards
+        );
+    }
+
+    resetLinks = () => {
+        this.graph.forEachLink((link) => {
+            const linkUI = this.graphics.getLinkUI(link.id);
+            linkUI.color = parseColor("#586e75");
+        });
+    }
+
+    @action
+    clearSelected = (force_clear?: boolean) => {
+        if (!this.selectedMsg || (this.selected_via_click && !force_clear)) {
+            return;
+        }
+
+        this.selected_approvers_count = 0;
+        this.selected_approvees_count = 0;
+
+        // clear link highlight
+        let node = this.graph.getNode(this.selectedMsg.ID);
+        if (!node) {
+            // clear links
+            this.resetLinks();
+            return;
+        }
+
+        let nodeUI = this.graphics.getNodeUI(this.selectedMsg.ID);
+        nodeUI.color = this.selected_origin_color;
+        nodeUI.size = vertexSize;
+
+        const seenForward = [];
+        const seenBackwards = [];
+        dfsIterator(this.graph, node, node => {
+            }, true,
+            link => {
+                const linkUI = this.graphics.getLinkUI(link.id);
+                linkUI.color = parseColor("#586e75");
+            },
+            seenBackwards
+        );
+        dfsIterator(this.graph, node, node => {
+            }, false,
+            link => {
+                const linkUI = this.graphics.getLinkUI(link.id);
+                linkUI.color = parseColor("#586e75");
+            },
+            seenForward
+        );
+
+        this.selectedMsg = null;
+        this.selected_via_click = false;
     }
 
     start = () => {
-        this.cy = cytoscape({
-            container: document.getElementById("tangleVisualizer"), // container to render in
-            style: [ // the stylesheet for the graph
-                {
-                  selector: 'node',
-                  style: {
-                    'background-color': '#2E8BC0',
-                    'shape': 'round-rectangle',
-                    'width': 15,
-                    'height': 15,
-                  }
-                },            
-                {
-                  selector: 'edge',
-                  style: {
-                    'width': 1,
-                    'curve-style': 'bezier',
-                    'line-color': '#696969',
-                    'control-point-step-size': '10px'
-                  }
-                }
-              ],
-            layout: {
-                name: 'fcose',
-            },
+        this.graph = Viva.Graph.graph();
+
+        let graphics: any = Viva.Graph.View.webglGraphics();
+
+        const layout = Viva.Graph.Layout.forceDirected(this.graph, {
+            springLength: 10,
+            springCoeff: 0.0001,
+            stableThreshold: 0.15,
+            gravity: -2,
+            dragCoeff: 0.02,
+            timeStep: 20,
+            theta: 0.8,
         });
-        this.layoutApi = this.cy.layoutUtilities(
-            {
-              desiredAspectRatio: 1,
-              polyominoGridSizeFactor: 1,
-              utilityFunction: 0,
-              componentSpacing: 80,
-            }
-        );
+
+        graphics.node((node) => {
+            return Viva.Graph.View.webglSquare(vertexSize, "#6c71c4");
+        })
+        graphics.link(() => Viva.Graph.View.webglLine("#586e75"));
+        let ele = document.getElementById('tangleVisualizer');
+        this.renderer = Viva.Graph.View.renderer(this.graph, {
+            container: ele, graphics, layout,
+        });
+
+        let events = Viva.Graph.webglInputEvents(graphics, this.graph);
+
+        events.click((node) => {
+            this.clearSelected(true);
+            this.updateSelected(node.data, true);
+        });
+
+        this.graphics = graphics;
+        this.renderer.run();
+    }
+
+    stop = () => {
+        this.unregisterHandlers();
+        this.renderer.dispose();
+        this.graph = null;
+        this.selectedMsg = null;
     }
 }
 
 export default TangleStore;
+
+// copied over and refactored from https://github.com/glumb/IOTAtangle
+function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) {
+    seenNodes.push(node);
+    let pointer = 0;
+
+    while (seenNodes.length > pointer) {
+        const node = seenNodes[pointer++];
+
+        if (cb(node)) return true;
+
+        for (const link of node.links) {
+            if (cbLinks) cbLinks(link);
+
+            if (!up && link.toId === node.id && !seenNodes.includes(graph.getNode(link.fromId))) {
+                seenNodes.push(graph.getNode(link.fromId));
+                continue;
+            }
+
+            if (up && link.fromId === node.id && !seenNodes.includes(graph.getNode(link.toId))) {
+                seenNodes.push(graph.getNode(link.toId));
+            }
+        }
+    }
+}
+
+function parseColor(color): any {
+    let parsedColor = 0x009ee8ff;
+
+    if (typeof color === 'number') {
+        return color;
+    }
+
+    if (typeof color === 'string' && color) {
+        if (color.length === 4) {
+            // #rgb, duplicate each letter except first #.
+            color = color.replace(/([^#])/g, '$1$1');
+        }
+        if (color.length === 9) {
+            // #rrggbbaa
+            parsedColor = parseInt(color.substr(1), 16);
+        } else if (color.length === 7) {
+            // or #rrggbb.
+            parsedColor = (parseInt(color.substr(1), 16) << 8) | 0xff;
+        } else {
+            throw 'Color expected in hex format with preceding "#". E.g. #00ff00. Got value: ' + color;
+        }
+    }
+
+    return parsedColor;
+}

@@ -2,6 +2,7 @@ import * as React from 'react';
 import Container from 'react-bootstrap/Container'
 import {inject, observer} from "mobx-react";
 import TangleStore from "stores/TangleStore";
+import {MessageInfo} from "components/MessageInfo";
 import "styles/style.css";
 
 interface Props {
@@ -16,23 +17,17 @@ export class TangleDAG extends React.Component<Props, any> {
     }
 
     componentWillUnmount() {
-        this.props.tangleStore.unregisterHandlers();
+        this.props.tangleStore.stop();
     }
 
     render () {
-        let { selectedMsg } = this.props.tangleStore;
-
         return (
             <Container>
                 <h2> Tangle DAG </h2>
                 <div className="graphFrame">
-                    { selectedMsg && 
-                        <div className="selectedInfo">
-                            <p> MsgID: </p>
-                        </div>                       
-                    }
+                    <MessageInfo />
                     <div id="tangleVisualizer" />
-                </div>
+                </div> 
             </Container>
             
         );
