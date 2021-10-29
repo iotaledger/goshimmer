@@ -188,7 +188,7 @@ export class BranchStore {
                 },
               ],
             layout: {
-                name: 'fcose',
+                name: 'dagre',
             },
         });
         this.layout = dagreOptions;
