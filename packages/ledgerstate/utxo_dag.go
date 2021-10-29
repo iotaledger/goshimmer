@@ -834,6 +834,10 @@ func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) 
 type UTXODAGEvents struct {
 	// TransactionBranchIDUpdatedByFork gets triggered when the BranchID of a Transaction is changed after the initial booking.
 	TransactionBranchIDUpdatedByFork *events.Event
+
+	// TransactionBranchIDUpdatedByMerge gets triggered when the BranchID of a Transaction is changed after merging a
+	// branch to the MasterBranch.
+	TransactionBranchIDUpdatedByMerge *events.Event
 }
 
 // TransactionIDEventHandler is an event handler for an event with a TransactionID.
