@@ -113,7 +113,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 					return
 				}
 				b.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-					isAnyParentInvalid = messageMetadata.invalid
+					isAnyParentInvalid = messageMetadata.IsInvalid()
 				})
 			})
 			if isAnyParentInvalid {
@@ -145,15 +145,14 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// finally support has overlapping conflict sets, in which case the Message is invalid
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(supportedBranches.Add(branchIDOfPayload))
 			if inheritedBranch == ledgerstate.InvalidBranchID || inheritErr != nil {
+				if inheritErr == nil {
+					inheritErr = cerrors.ErrFatal
+				}
+				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
+
 				messageMetadata.SetInvalid(true)
 
-				if inheritErr != nil {
-					err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
-					b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-				} else {
-					err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), cerrors.ErrFatal)
-					b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-				}
+				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 
 				return
 			}
@@ -435,7 +434,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 	})
 
 	// propagate updates to later BranchID mappings of the same sequence.
-	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, mappedBranch ledgerstate.BranchID) {
+	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ ledgerstate.BranchID) {
 		markerWalker.Push(mappedMarker)
 	})
 
@@ -678,7 +677,7 @@ func (m *MarkersManager) ForEachMessageApprovingMarker(marker *markers.Marker, c
 func (m *MarkersManager) ForEachBranchIDMapping(sequenceID markers.SequenceID, thresholdIndex markers.Index, callback func(mappedMarker *markers.Marker, mappedBranchID ledgerstate.BranchID)) {
 	currentMarker := markers.NewMarker(sequenceID, thresholdIndex)
 	referencingMarkerIndexInSameSequence, mappedBranchID, exists := m.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1))
-	for ; exists; referencingMarkerIndexInSameSequence, _, exists = m.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1)) {
+	for ; exists; referencingMarkerIndexInSameSequence, mappedBranchID, exists = m.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1)) {
 		currentMarker = markers.NewMarker(currentMarker.SequenceID(), referencingMarkerIndexInSameSequence)
 		callback(currentMarker, mappedBranchID)
 	}
