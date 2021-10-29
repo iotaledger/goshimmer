@@ -16,7 +16,7 @@ export class UTXODAG extends React.Component<Props, any> {
     }
 
     componentWillUnmount() {
-        this.props.utxoStore.unregisterHandlers();
+        this.props.utxoStore.stop();
     }
 
     render () {

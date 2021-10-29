@@ -17,7 +17,7 @@ export class BranchDAG extends React.Component<Props, any> {
     }
 
     componentWillUnmount() {
-        this.props.branchStore.unregisterHandlers();
+        this.props.branchStore.stop();
     }
 
     render () {

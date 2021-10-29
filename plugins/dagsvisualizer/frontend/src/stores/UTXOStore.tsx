@@ -32,8 +32,9 @@ export class UTXOStore {
     @observable selectedTx: utxoVertex = null;
     outputMap = new Map();
     txOrder: Array<any> = [];
-    newVertexCounter = 0;
+    vertexChanges = 0;
     cy;
+    layoutUpdateTimerID;
     layout;
     layoutApi;
 
@@ -103,11 +104,11 @@ export class UTXOStore {
 
         this.cy.remove('#'+txID);
         this.cy.remove(children);
-        this.cy.layout( dagreOptions ).run();
+        this.vertexChanges++;
     }
 
     drawVertex = (tx: utxoVertex) => {
-        this.newVertexCounter++;
+        this.vertexChanges++;
         let collection = this.cy.collection();       
 
         // draw grouping (tx)
@@ -185,7 +186,16 @@ export class UTXOStore {
         }));
 
         this.layoutApi.placeNewNodes(collection);
-        this.cy.layout(dagreOptions).run();
+        this.cy.layout(this.layout).run();
+    }
+
+    updateLayoutTimer = () => {
+      this.layoutUpdateTimerID = setInterval(() => {
+          if (this.vertexChanges > 0) {
+              this.cy.layout(this.layout).run();
+              this.vertexChanges = 0;
+          }
+      }, 10000);
     }
 
     start = () => {
@@ -252,6 +262,7 @@ export class UTXOStore {
                 name: 'dagre',
             },
         });
+        this.layout = dagreOptions;
         this.layoutApi = this.cy.layoutUtilities(
             {
               desiredAspectRatio: 1,
@@ -273,7 +284,17 @@ export class UTXOStore {
         this.cy.on('unselect', 'node', (evt) => {
           this.clearSelected();
         });
+
+        this.updateLayoutTimer();
     }
+
+    stop = () => {
+      this.unregisterHandlers()
+      
+      // stop updating layout.
+      clearInterval(this.layoutUpdateTimerID);
+      // maybe store graph history?
+  }
 }
 
 export default UTXOStore;

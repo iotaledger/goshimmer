@@ -39,10 +39,11 @@ export class BranchStore {
     @observable branches = new ObservableMap<string, branchVertex>();
     @observable selectedBranch: branchVertex = null;
     branchOrder: Array<any> = [];
-    newVertexCounter = 0;
+    vertexChanges = 0;
     cy;
     layout;
     layoutApi;
+    layoutUpdateTimerID;
 
 
     constructor() {      
@@ -119,13 +120,13 @@ export class BranchStore {
     }
 
     removeVertex = (branchID: string) => {
+        this.vertexChanges++;
         let uiID = '#'+branchID;
         this.cy.remove(uiID);
-        this.cy.layout( dagreOptions ).run();
     }
 
     drawVertex = (branch: branchVertex) => {
-        this.newVertexCounter++;
+        this.vertexChanges++;
 
         let v = this.cy.add({
             group: 'nodes',
@@ -144,7 +145,15 @@ export class BranchStore {
         });
 
         this.layoutApi.placeNewNodes(v);
-        this.cy.layout(dagreOptions).run();
+    }
+
+    updateLayoutTimer = () => {
+        this.layoutUpdateTimerID = setInterval(() => {
+            if (this.vertexChanges > 0) {
+                this.cy.layout(this.layout).run();
+                this.vertexChanges = 0;
+            }
+        }, 10000);
     }
 
     start = () => {
@@ -182,6 +191,7 @@ export class BranchStore {
                 name: 'fcose',
             },
         });
+        this.layout = dagreOptions;
         this.layoutApi = this.cy.layoutUtilities(
             {
               desiredAspectRatio: 1,
@@ -203,14 +213,14 @@ export class BranchStore {
         this.branches.set("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", master);
         this.cy.add({
             data: { id: '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM', label: 'master' },
-            style: { // style property overrides 
+            style: { 
                 'background-color': '#616161',
                 'label': 'master'
             },
             classes: 'top-center'
         });
 
-        // set up click event
+        // set up click event.
         this.cy.on('select', 'node', (evt) => {
             var node = evt.target;
             const nodeData = node.json();
@@ -218,10 +228,20 @@ export class BranchStore {
             this.updateSelected(nodeData.data.id);
         });
 
-        // clear selected node
+        // clear selected node.
         this.cy.on('unselect', 'node', (evt) => {
             this.clearSelected();
         });
+
+        // update layout every 10 seconds if needed.
+        this.updateLayoutTimer();
+    }
+
+    stop = () => {
+        this.unregisterHandlers()
+        
+        // stop updating layout.
+        clearInterval(this.layoutUpdateTimerID);
     }
 }
 
