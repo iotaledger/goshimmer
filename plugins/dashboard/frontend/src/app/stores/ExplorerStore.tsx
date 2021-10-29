@@ -38,6 +38,7 @@ export class Message {
     weakApprovers: Array<string>;
     solid: boolean;
     branchID: string;
+    metadataBranchID: string;
     scheduled: boolean;
     scheduledBypass: boolean;
     booked: boolean;
