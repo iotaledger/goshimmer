@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -41,8 +40,8 @@ type GoShimmer struct {
 	Database
 	Gossip
 	POW
-	Webapi
-	Autopeering
+	WebAPI
+	AutoPeering
 	MessageLayer
 	Faucet
 	Mana
@@ -62,8 +61,6 @@ func NewGoShimmer() (config GoShimmer) {
 
 type Network struct {
 	Enabled bool
-
-	local.ParametersDefinitionNetwork
 }
 
 // Database defines the parameters of the database plugin.
@@ -88,19 +85,18 @@ type POW struct {
 }
 
 // Webapi defines the parameters of the Web API plugin.
-type Webapi struct {
+type WebAPI struct {
 	Enabled bool
 
 	webapi.ParametersDefinition
 }
 
 // Autopeering defines the parameters of the autopeering plugin.
-type Autopeering struct {
+type AutoPeering struct {
 	Enabled bool
 
 	autopeering.ParametersDefinition
 	discovery.ParametersDefinitionDiscovery
-	local.ParametersDefinitionLocal
 }
 
 // Faucet defines the parameters of the faucet plugin.

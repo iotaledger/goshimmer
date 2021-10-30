@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	autopeeringWorkerCount     = 1
-	autopeeringWorkerQueueSize = 500
-	autopeeringWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
+	autoPeeringWorkerCount     = 1
+	autoPeeringWorkerQueueSize = 500
+	autoPeeringWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 )
 
 // JSON encoded websocket message for adding a node
@@ -46,7 +46,7 @@ type disconnectNodes struct {
 
 func configureAutopeeringWorkerPool() {
 	// create a new worker pool for processing autopeering updates coming from analysis server
-	autopeeringWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
+	autoPeeringWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		// determine what msg to send based on first parameter
 		// first parameter is always a letter denoting what to do with the following string or strings
 		x := fmt.Sprintf("%v", task.Param(0))
@@ -62,7 +62,7 @@ func configureAutopeeringWorkerPool() {
 		}
 
 		task.Return(nil)
-	}, workerpool.WorkerCount(autopeeringWorkerCount), workerpool.QueueSize(autopeeringWorkerQueueSize))
+	}, workerpool.WorkerCount(autoPeeringWorkerCount), workerpool.QueueSize(autoPeeringWorkerQueueSize))
 }
 
 // send and addNode msg to all connected ws clients
@@ -115,19 +115,19 @@ func sendDisconnectNodes(eventStruct *analysisserver.DisconnectNodesEvent) {
 func runAutopeeringFeed() {
 	// closures for the different events
 	notifyAddNode := events.NewClosure(func(eventStruct *analysisserver.AddNodeEvent) {
-		autopeeringWorkerPool.Submit("A", eventStruct)
+		autoPeeringWorkerPool.Submit("A", eventStruct)
 	})
 	notifyRemoveNode := events.NewClosure(func(eventStruct *analysisserver.RemoveNodeEvent) {
-		autopeeringWorkerPool.Submit("a", eventStruct)
+		autoPeeringWorkerPool.Submit("a", eventStruct)
 	})
 	notifyConnectNodes := events.NewClosure(func(eventStruct *analysisserver.ConnectNodesEvent) {
-		autopeeringWorkerPool.Submit("C", eventStruct)
+		autoPeeringWorkerPool.Submit("C", eventStruct)
 	})
 	notifyDisconnectNodes := events.NewClosure(func(eventStruct *analysisserver.DisconnectNodesEvent) {
-		autopeeringWorkerPool.Submit("c", eventStruct)
+		autoPeeringWorkerPool.Submit("c", eventStruct)
 	})
 
-	if err := daemon.BackgroundWorker("Analysis-Dashboard[AutopeeringVisualizer]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("AnalysisDashboard[AutopeeringVisualizer]", func(shutdownSignal <-chan struct{}) {
 		// connect closures (submitting tasks) to events of the analysis server
 		analysisserver.Events.AddNode.Attach(notifyAddNode)
 		defer analysisserver.Events.AddNode.Detach(notifyAddNode)
@@ -138,9 +138,9 @@ func runAutopeeringFeed() {
 		analysisserver.Events.DisconnectNodes.Attach(notifyDisconnectNodes)
 		defer analysisserver.Events.DisconnectNodes.Detach(notifyDisconnectNodes)
 		<-shutdownSignal
-		log.Info("Stopping Analysis-Dashboard[AutopeeringVisualizer] ...")
-		autopeeringWorkerPool.Stop()
-		log.Info("Stopping Analysis-Dashboard[AutopeeringVisualizer] ... done")
+		log.Info("Stopping AnalysisDashboard[AutopeeringVisualizer] ...")
+		autoPeeringWorkerPool.Stop()
+		log.Info("Stopping AnalysisDashboard[AutopeeringVisualizer] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

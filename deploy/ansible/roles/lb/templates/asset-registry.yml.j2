@@ -1,0 +1,29 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+http:
+  routers:
+    asset-registry-router:
+      rule: "Host(`asset-registry.tokenizedassetsdemo.iota.cafe`) || Host(`asset-registry.nectar.iota.cafe`)"
+      service: "asset-registry"
+      entryPoints:
+        - "web"
+    asset-registry-router-secure:
+      rule: "Host(`asset-registry.tokenizedassetsdemo.iota.cafe`) || Host(`asset-registry.nectar.iota.cafe`)"
+      service: "asset-registry"
+      entryPoints:
+        - "websecure"
+      tls:
+        certResolver: devops
+  services:
+    asset-registry:
+      loadBalancer:
+        servers:
+          {% for host in groups['asset_registries'] %}
+          - url: "http://{{ host }}:80"
+          {% endfor %}
+        passHostHeader: false
+        sticky:
+          cookie: {}
+        healthCheck:
+          path: /
+          interval: "10s"
+          timeout: "3s"

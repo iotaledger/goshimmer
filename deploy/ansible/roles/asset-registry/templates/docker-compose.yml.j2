@@ -20,8 +20,8 @@ services:
     command: >
       --username="{{ mongoDBUser }}"
       --password="{{ mongoDBPassword }}"
-      --basicAuthUser=IOTAisCool
-      --basicAuthPassword=WeAreThereforeCool
+      --basicAuthUser="{{ assetRegistryUser }}"
+      --basicAuthPassword="{{ assetRegistryPassword }}"
     ports:
       - "80:80"
     depends_on:

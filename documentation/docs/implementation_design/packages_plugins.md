@@ -1,4 +1,19 @@
-# Dependency of packages and plugins
+---
+description: GoShimmer uses the adapter design pattern to easily switch between different implementations and internal interfaces just by using a different plugin, without having to rewrite the code using it.
+image: /img/logo/goshimmer_light.png
+keywords:
+- dependency
+- plugins
+- plugin system
+- code
+- internal logic
+- package
+- adapter design pattern
+- adapter
+- circular dependency
+---
+# Dependency of Packages and Plugins
+
 In GoShimmer, new features are added through the [plugin system](plugin.md).
 When creating a new plugin, it must implement an interface shared with all other plugins, so it's easy to add new
 plugins and change their internal implementation without worrying about compatibility. 

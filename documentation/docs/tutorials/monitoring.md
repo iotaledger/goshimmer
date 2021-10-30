@@ -1,11 +1,24 @@
+---
+description: Node operators who wish to have more insights into what is happening within their node have the option to enable a Prometheus exporter plugin that gathers important metrics about their node. To visualize these metrics, a Grafana Dashboard is utilized.
+image: /img/logo/goshimmer_light.png
+keywords:
+- monitoring
+- dashboard
+- prometheus
+- grafana
+- set up
+- VPS
+---
 # Setting up Monitoring Dashboard
 
 ## Motivation
+
 GoShimmer is shipped with its internal node dashboard that you can reach at `127.0.0.1:8081` by default. While this dashboard provides some basic metrics information, its main functionality is to provide a graphical interface to interact with your node.
 
 Node operators who wish to have more insights into what is happening within their node have the option to enable a [Prometheus](https://prometheus.io/) exporter plugin that gathers important metrics about their node. To visualize these metrics, a [Grafana Dashboard](https://grafana.com/oss/grafana/) is utilized.
 
-# Setting up (run GoShimmer from a VPS)
+# Setting Up (Run GoShimmer From a VPS)
+
 To enable the **Monitoring Dashboard** for a GoShimmer node running from a VPS as described [here](setup.md), you need to carry out some additional steps.
 1. Edit `docker-compose.yml`
    TODO
@@ -16,9 +29,12 @@ To enable the **Monitoring Dashboard** for a GoShimmer node running from a VPS a
 4. Run `docker-compose up`.
    TODO
 
-# Setting up (run GoShimmer from your home machine)
+# Setting Up (Run GoShimmer From Your Home Machine)
+
 Depending on how you run your GoShimmer node, there are different ways to set up the **Monitoring Dashboard**.
+
 ## Docker
+
 One of the easiest ways to run a node is to use [Docker](https://www.docker.com/). To automatically launch GoShimmer and the Monitoring Dashboard with docker, follow these steps:
 1. [Install docker](https://docs.docker.com/get-docker/). On Linux, make sure you install both the [Docker Engine](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/).
 2. Clone the GoShimmer repository.
@@ -51,9 +67,11 @@ After initial login, you will be prompted to change your password.
 You can experiment with the dashboard, change layout, add panels and discover metrics. Your changes will be saved into a Grafana database located in the repo at `tools/monitoring/grafana/grafana.db`.
 
 ## Binary
+
 If you run the [released binaries](https://github.com/iotaledger/goshimmer/releases), or build GoShimmer from source, you need to setup Prometheus and Grafana separately, furthermore, you have to configure GoShimmer to export data.
 
 ### GoShimmer Configuration
+
 1. Make sure that the `prometheus.bindAddress` config parameter is set in your `config.json`:
    ```json
      {
@@ -76,8 +94,11 @@ If you run the [released binaries](https://github.com/iotaledger/goshimmer/relea
    }
    ```
 ### Install and Configure Prometheus
+
 First, we take a look on how to configure and run Prometheus as a standalone application. Then, we setup a Linux system service that automatically runs Prometheus in the background.
-#### Prometheus as Standalone App
+
+#### Prometheus as a standalone app
+
 1. [Download](https://prometheus.io/download/) the latest release of Prometheus for your system.
 2. Unpack the downloaded file:
    ```bash
@@ -102,7 +123,8 @@ First, we take a look on how to configure and run Prometheus as a standalone app
 5. You can access the prometheus server at [localhost:9090](http://localhost:9090).
 6. (Optional) Prometheus server is running, but observe that [localhost:9090/targets](http://localhost:9090/targets) shows the target being `DOWN`. Run GoShimmer with the configuration from the previous stage, and you will soon see the `goshimmer_local` target being `UP`.
 
-#### Prometheus as a System Service (Linux)
+#### Prometheus as a system service (Linux)
+
 Note: you have to have root privileges with your user to carry out the following steps.
 1. Create a Prometheus user, directories, and set this user as the owner of those directories.
    ```
@@ -195,10 +217,11 @@ Note: you have to have root privileges with your user to carry out the following
 
 Prometheus now collects metrics from your node, but we need to setup Grafana to visualize the collected data.
 
-### Install and configure Grafana
+### Install and Configure Grafana
 Head over to [Grafana Documentation](https://grafana.com/docs/grafana/latest/installation/) and install Grafana. For Linux, the OSS Release is recommended.
 
-#### Grafana as Standalaon App
+#### Grafana as standalone app
+
 Depending on where you install Grafana from, the configuration directories will change. For clarity, we will proceed with the binary install here.
 1. [Download Grafana](https://grafana.com/grafana/download) binary and extract it into a folder.
    For example:
@@ -242,7 +265,8 @@ Default login credentials are:
 * `username` : admin
 * `password` : admin
 
-#### Grafana as a System Service (Linux)
+#### Grafana as a system service (Linux)
+
 Instead of running the `grafana-server` app each time we can create a service that runs in the background.
 
 When you install Grafana from
@@ -274,7 +298,8 @@ Default login credentials are:
 * `username` : admin
 * `password` : admin
 
-#### Grafana Config via GUI
+#### Grafana config via GUI
+
 If you successfully installed Grafana and would like to set it up using its graphical interface, here are the steps you need to take:
 1. Run Grafana.
 2. Open [localhost:3000](http://localhost:3000) in a browser window.

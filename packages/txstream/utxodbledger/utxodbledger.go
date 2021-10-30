@@ -7,12 +7,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // UtxoDBLedger implements txstream.Ledger by wrapping UTXODB
 type UtxoDBLedger struct {
 	*utxodb.UtxoDB
+	tangleInstance   *tangle.Tangle
 	txConfirmedEvent *events.Event
 	txBookedEvent    *events.Event
 	log              *logger.Logger
@@ -23,9 +24,10 @@ var txEventHandler = func(f interface{}, params ...interface{}) {
 }
 
 // New creates a new empty ledger
-func New(log *logger.Logger) *UtxoDBLedger {
+func New(log *logger.Logger, tangleInstance *tangle.Tangle) *UtxoDBLedger {
 	return &UtxoDBLedger{
 		UtxoDB:           utxodb.New(),
+		tangleInstance:   tangleInstance,
 		txConfirmedEvent: events.NewEvent(txEventHandler),
 		txBookedEvent:    events.NewEvent(txEventHandler),
 		log:              log.Named("txstream/UtxoDBLedger"),
@@ -56,12 +58,10 @@ func (u *UtxoDBLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output
 // GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high
 func (u *UtxoDBLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
 	found = false
-	messagelayer.Tangle().LedgerState.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
+	u.tangleInstance.LedgerState.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
 		if txmeta.GradeOfFinality() == gof.High {
 			found = true
-			messagelayer.Tangle().LedgerState.Transaction(txid).Consume(func(tx *ledgerstate.Transaction) {
-				f(tx)
-			})
+			u.tangleInstance.LedgerState.Transaction(txid).Consume(f)
 		}
 	})
 	return

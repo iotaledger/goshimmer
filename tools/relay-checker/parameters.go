@@ -1,26 +1,28 @@
 package main
 
 import (
-	flag "github.com/spf13/pflag"
+	"time"
+
+	"github.com/iotaledger/hive.go/configuration"
 )
 
-const (
-	// CfgTargetNode defines the config flag of the target node.
-	CfgTargetNode = "relayChecker.targetNode"
-	// CfgTestNodes defines the config flag of the test nodes.
-	CfgTestNodes = "relayChecker.testNodes"
-	// CfgData defines the config flag of the data.
-	CfgData = "relayChecker.data"
-	// CfgCooldownTime defines the config flag of the cooldown time.
-	CfgCooldownTime = "relayChecker.cooldownTime"
-	// CfgRepeat defines the config flag of the repeat.
-	CfgRepeat = "relayChecker.repeat"
-)
+// ParametersDefinition contains the definition of configuration parameters used by the relaychecker.
+type ParametersDefinition struct {
+	// TargetNode defines the target node.
+	TargetNode string `default:"http://127.0.0.1:8080" usage:"the target node from the which message will be broadcasted from"`
+	// TestNodes defines test nodes.
+	TestNodes []string `usage:"the list of nodes to check after the cooldown"`
+	// CfgData defines the data.
+	Data string `default:"TEST99BROADCAST99DATA" usage:"data to broadcast"`
+	// CooldownTime defines the cooldown time.
+	CooldownTime time.Duration `default:"10s" usage:"the cooldown time after broadcasting the data on the specified target node"`
+	// CfgRepeat defines the repeat.
+	Repeat int `default:"1" usage:"the amount of times to repeat the relay-checker queries"`
+}
+
+// Parameters contains the configuration parameters of the relay checker.
+var Parameters = &ParametersDefinition{}
 
 func init() {
-	flag.StringSlice(CfgTargetNode, []string{""}, "the list of nodes to check after the cooldown")
-	flag.String(CfgTestNodes, "http://127.0.0.1:8080", "the target node from the which message will be broadcasted from")
-	flag.String(CfgData, "TEST99BROADCAST99DATA", "data to broadcast")
-	flag.Int(CfgCooldownTime, 10, "the cooldown time after broadcasting the data on the specified target node")
-	flag.Int(CfgRepeat, 1, "the amount of times to repeat the relay-checker queries")
+	configuration.BindParameters(Parameters, "relayChecker")
 }

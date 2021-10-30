@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1631187096314,
+  "iteration": 1633935850165,
   "links": [],
   "panels": [
     {
@@ -1950,7 +1950,8 @@
           "description": "Average time it takes to solidify messages.",
           "fieldConfig": {
             "defaults": {
-              "links": []
+              "links": [],
+              "unit": "ms"
             },
             "overrides": []
           },
@@ -1990,7 +1991,8 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_message_avg_solidification_time",
+              "exemplar": true,
+              "expr": "irate(tangle_message_avg_solidification_time[5m]) ",
               "interval": "",
               "legendFormat": "Avg Solidification Time",
               "refId": "A"
@@ -2345,7 +2347,7 @@
             "h": 3,
             "w": 4,
             "x": 0,
-            "y": 15
+            "y": 5
           },
           "id": 85,
           "options": {
@@ -2366,16 +2368,18 @@
           "pluginVersion": "7.5.6",
           "targets": [
             {
+              "exemplar": true,
               "expr": "mana_access{instance=\"$instance\",nodeID=\"$NodeID\"}",
               "interval": "",
-              "legendFormat": "",
+              "legendFormat": "{{nodeID}}",
               "refId": "A"
             },
             {
+              "exemplar": true,
               "expr": "mana_consensus{instance=\"$instance\",nodeID=\"$NodeID\"}",
               "hide": true,
               "interval": "",
-              "legendFormat": "Consensus",
+              "legendFormat": "Consensus {{nodeID}}",
               "refId": "B"
             }
           ],
@@ -2412,7 +2416,7 @@
             "h": 3,
             "w": 3,
             "x": 4,
-            "y": 15
+            "y": 5
           },
           "id": 101,
           "options": {
@@ -2433,6 +2437,7 @@
           "pluginVersion": "7.5.6",
           "targets": [
             {
+              "exemplar": true,
               "expr": "mana_access_percentile{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Access",
@@ -2473,7 +2478,7 @@
             "h": 3,
             "w": 4,
             "x": 7,
-            "y": 15
+            "y": 5
           },
           "id": 95,
           "options": {
@@ -2534,7 +2539,7 @@
             "h": 3,
             "w": 3,
             "x": 11,
-            "y": 15
+            "y": 5
           },
           "id": 96,
           "options": {
@@ -2555,13 +2560,15 @@
           "pluginVersion": "7.5.6",
           "targets": [
             {
-              "expr": "stddev(mana_access)",
+              "exemplar": true,
+              "expr": "stddev(mana_access{instance=\"$instance\"})",
               "interval": "",
               "legendFormat": "Access",
               "refId": "A"
             },
             {
-              "expr": "stddev(mana_consensus)",
+              "exemplar": true,
+              "expr": "stddev(mana_consensus{instance=\"$instance\"})",
               "interval": "",
               "legendFormat": "Consensus",
               "refId": "B"
@@ -2595,7 +2602,7 @@
             "h": 3,
             "w": 4,
             "x": 14,
-            "y": 15
+            "y": 5
           },
           "id": 109,
           "options": {
@@ -2654,7 +2661,7 @@
             "h": 15,
             "w": 6,
             "x": 18,
-            "y": 15
+            "y": 5
           },
           "hiddenSeries": false,
           "id": 89,
@@ -2757,7 +2764,7 @@
             "h": 12,
             "w": 9,
             "x": 0,
-            "y": 18
+            "y": 8
           },
           "hiddenSeries": false,
           "id": 98,
@@ -2860,7 +2867,7 @@
             "h": 12,
             "w": 9,
             "x": 9,
-            "y": 18
+            "y": 8
           },
           "hiddenSeries": false,
           "id": 99,
@@ -2963,7 +2970,7 @@
             "h": 9,
             "w": 8,
             "x": 0,
-            "y": 30
+            "y": 20
           },
           "hiddenSeries": false,
           "id": 83,
@@ -3062,7 +3069,7 @@
             "h": 9,
             "w": 8,
             "x": 8,
-            "y": 30
+            "y": 20
           },
           "hiddenSeries": false,
           "id": 90,
@@ -3173,7 +3180,7 @@
             "h": 9,
             "w": 8,
             "x": 16,
-            "y": 30
+            "y": 20
           },
           "id": 92,
           "interval": null,
@@ -3201,6 +3208,7 @@
           "pluginVersion": "7.5.6",
           "targets": [
             {
+              "exemplar": true,
               "expr": "mana_access{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
@@ -3232,7 +3240,7 @@
             "h": 9,
             "w": 8,
             "x": 0,
-            "y": 39
+            "y": 29
           },
           "hiddenSeries": false,
           "id": 84,
@@ -3331,7 +3339,7 @@
             "h": 9,
             "w": 8,
             "x": 8,
-            "y": 39
+            "y": 29
           },
           "hiddenSeries": false,
           "id": 91,
@@ -3365,7 +3373,8 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_consensus",
+              "exemplar": true,
+              "expr": "mana_consensus{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
@@ -3442,7 +3451,7 @@
             "h": 9,
             "w": 8,
             "x": 16,
-            "y": 39
+            "y": 29
           },
           "id": 93,
           "interval": null,
@@ -3470,7 +3479,8 @@
           "pluginVersion": "7.1.1",
           "targets": [
             {
-              "expr": "mana_consensus",
+              "exemplar": true,
+              "expr": "mana_consensus{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
@@ -3499,7 +3509,7 @@
             "h": 11,
             "w": 9,
             "x": 0,
-            "y": 48
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 103,
@@ -3604,7 +3614,7 @@
             "h": 11,
             "w": 7,
             "x": 9,
-            "y": 48
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 107,
@@ -3701,7 +3711,7 @@
             "h": 11,
             "w": 7,
             "x": 16,
-            "y": 48
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 114,
@@ -3798,7 +3808,7 @@
             "h": 10,
             "w": 9,
             "x": 0,
-            "y": 59
+            "y": 49
           },
           "hiddenSeries": false,
           "id": 110,
@@ -4137,7 +4147,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "sum(irate(tangle_messages_parent_count_per_type{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_message_total_count{instance=\"$instance\"}[1m])) by (instance)",
+              "expr": "sum(irate(tangle_messages_parent_count_per_type{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_message_finalized_count{instance=\"$instance\"}[1m])) by (instance)",
               "hide": false,
               "interval": "",
               "legendFormat": "{{type}}",
@@ -4430,7 +4440,7 @@
       "type": "row"
     }
   ],
-  "refresh": false,
+  "refresh": "10s",
   "schemaVersion": 27,
   "style": "dark",
   "tags": [],
@@ -4520,5 +4530,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 25
+  "version": 35
 }

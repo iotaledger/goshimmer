@@ -63,7 +63,7 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
-	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(_ *MessageInvalidEvent) {
 		messageTestFramework.messagesBookedWG.Done()
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
@@ -640,11 +640,6 @@ func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakPa
 
 func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
 	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-	return message
-}
-
-func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
-	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return message
 }
 

@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // DiagnosticUTXODAGHandler runs the diagnostic over the Tangle.
@@ -34,8 +33,8 @@ func runDiagnosticUTXODAG(c echo.Context) {
 		panic(err)
 	}
 
-	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
-		messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 			transactionInfo := getDiagnosticUTXODAGInfo(transactionID, messageID)
 			_, err = fmt.Fprintln(c.Response(), transactionInfo.toCSV())
 			if err != nil {
@@ -44,7 +43,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 			c.Response().Flush()
 		})
 
-		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
@@ -94,7 +93,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		ID: transactionID.Base58(),
 	}
 
-	messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		txInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
 		txInfo.AccessManaPledgeID = base58.Encode(transaction.Essence().AccessPledgeID().Bytes())
 		txInfo.ConsensusManaPledgeID = base58.Encode(transaction.Essence().ConsensusPledgeID().Bytes())
@@ -102,15 +101,15 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		txInfo.Outputs = transaction.Essence().Outputs()
 	})
 
-	for _, messageID := range messagelayer.Tangle().Storage.AttachmentMessageIDs(transactionID) {
+	for _, messageID := range deps.Tangle.Storage.AttachmentMessageIDs(transactionID) {
 		txInfo.Attachments = append(txInfo.Attachments, messageID.Base58())
 	}
 
-	messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		txInfo.SolidTime = transactionMetadata.SolidificationTime()
 		txInfo.BranchID = transactionMetadata.BranchID().String()
 
-		txInfo.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
+		txInfo.Conflicting = deps.Tangle.LedgerState.TransactionConflicting(transactionID)
 		txInfo.LazyBooked = transactionMetadata.LazyBooked()
 		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()
 		txInfo.GradeOfFinalityTime = transactionMetadata.GradeOfFinalityTime()

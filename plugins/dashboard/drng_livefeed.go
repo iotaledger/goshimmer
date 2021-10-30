@@ -70,13 +70,13 @@ func runDrngLiveFeed() {
 			default:
 			}
 		})
-		drng.Instance().Events.Randomness.Attach(notifyNewRandomness)
+		deps.DRNGInstance.Events.Randomness.Attach(notifyNewRandomness)
 
 		defer drngLiveFeedWorkerPool.Stop()
 
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[DRNGUpdater] ...")
-		drng.Instance().Events.Randomness.Detach(notifyNewRandomness)
+		deps.DRNGInstance.Events.Randomness.Detach(notifyNewRandomness)
 		log.Info("Stopping Dashboard[DRNGUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
