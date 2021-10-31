@@ -54,6 +54,7 @@ type Genesis struct {
 	Amount uint64
 }
 
+// consensus integration test snapshot, use with cfgGenesisTokenAmount=800000 for mana distribution: 50%, 25%, 25%
 var nodesToPledge = map[string]Pledge{
 	// peer master
 	"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP": {Genesis: true},
@@ -65,7 +66,7 @@ var nodesToPledge = map[string]Pledge{
 		must(err)
 		return Pledge{
 			Address: seed.NewSeed(seedBytes).Address(0).Address(),
-			Amount:  800000,
+			Amount:  1600000,
 		}
 	}(),
 	// base58:HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2
@@ -75,7 +76,7 @@ var nodesToPledge = map[string]Pledge{
 		must(err)
 		return Pledge{
 			Address: seed.NewSeed(seedBytes).Address(0).Address(),
-			Amount:  400000,
+			Amount:  800000,
 		}
 	}(),
 }

@@ -27,24 +27,25 @@ import (
 // The genesis seed contains 800000 tokens which we will use to issue conflicting transactions from both nodes.
 func TestSimpleDoubleSpend(t *testing.T) {
 	const (
-		peer1SeedBase58                      = "Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8" // peerID jnaC6ZyWuw
-		peer2SeedBase58                      = "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2" // peerID iNvPFvkfSDp
-		peer1Pledged                         = 800000.0                                       // 40%
-		peer2Pledged                         = 400000.0                                       // 20%
-		actualGenesisTokenAmount      uint64 = 800000                                         // 40%
-		expectedCManaNode1AfterTxConf        = peer1Pledged + float64(actualGenesisTokenAmount)
-		numberOfConflictingTxs               = 10
+		peer1SeedBase58                 = "Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8" // peerID jnaC6ZyWuw
+		peer2SeedBase58                 = "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2" // peerID iNvPFvkfSDp
+		peer1Pledged                    = 800000.0                                       // 40%
+		peer2Pledged                    = 400000.0                                       // 20%
+		actualGenesisTokenAmount uint64 = 800000                                         // 40%
+		numberOfConflictingTxs          = 10
 	)
 
 	var (
+		expectedCManaNode1AfterTxConf = float64(tests.ConsensusSnapshotDetails.PeersAmountsPledged[0]) + float64(tests.ConsensusSnapshotDetails.GenesisTokenAmount)
+
 		peer1IdentSeed = func() []byte {
-			seedBytes, err := base58.Decode(peer1SeedBase58)
+			seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[0])
 			require.NoError(t, err)
 			return seedBytes
 		}()
 
 		peer2IdentSeed = func() []byte {
-			seedBytes, err := base58.Decode(peer2SeedBase58)
+			seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[1])
 			require.NoError(t, err)
 			return seedBytes
 		}()
@@ -59,7 +60,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Activity:    false,
 			Autopeering: false,
 		}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-			cfg.MessageLayer.Snapshot.File = "/assets/consensus_intgr_snapshot.bin"
+			cfg.MessageLayer.Snapshot.File = tests.ConsensusSnapshotDetails.FilePath
 			cfg.UseNodeSeedAsWalletSeed = true
 			switch peerIndex {
 			case 0:
@@ -81,8 +82,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	)
 
 	// check consensus mana
-	require.EqualValues(t, peer1Pledged, tests.Mana(t, node1).Consensus)
-	require.EqualValues(t, peer2Pledged, tests.Mana(t, node2).Consensus)
+	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
+	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
 
 	txs1 := []*ledgerstate.Transaction{}
 	txs2 := []*ledgerstate.Transaction{}
@@ -91,10 +92,10 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		t.Logf("issuing conflict %d", i+1)
 		// This builds transactions that move the genesis funds on the first partition.
 		// Funds move from address 1 -> address 2 -> address 3...
-		txs1 = append(txs1, sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(i+1)), actualGenesisTokenAmount, node1, gof.Medium))
+		txs1 = append(txs1, sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(i+1)), uint64(tests.ConsensusSnapshotDetails.GenesisTokenAmount), node1, gof.Medium))
 		t.Logf("issuing other conflict %d", i+1)
 		// This builds transactions that move the genesis funds on the second partition
-		txs2 = append(txs2, sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(i+1)), actualGenesisTokenAmount, node2, gof.Low))
+		txs2 = append(txs2, sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(i+1)), uint64(tests.ConsensusSnapshotDetails.GenesisTokenAmount), node2, gof.Low))
 	}
 
 	// merge partitions
