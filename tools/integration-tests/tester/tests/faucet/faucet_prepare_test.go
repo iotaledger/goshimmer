@@ -19,13 +19,14 @@ func TestFaucetPrepare(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true,
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
 	// use faucet parameters
 	var (
+		genesisTokenBalance     = faucet.Config().GenesisTokenAmount
 		supplyOutputsCount      = faucet.Config().SupplyOutputsCount
 		splittingMultiplier     = faucet.Config().SplittingMultiplier
 		tokensPerRequest        = faucet.Config().TokensPerRequest
@@ -33,11 +34,16 @@ func TestFaucetPrepare(t *testing.T) {
 		lastFundingOutputAddr   = supplyOutputsCount*splittingMultiplier + fundingOutputsAddrStart - 1
 	)
 
+	// check consensus mana
+	for i, p := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, p).Consensus)
+	}
+
 	// wait for the faucet to split the supply tx and prepare all outputs
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// check that each of the supplyOutputsCount addresses holds the correct balance
-	remainderBalance := uint64(framework.GenesisTokenAmount - supplyOutputsCount*splittingMultiplier*tokensPerRequest)
+	remainderBalance := genesisTokenBalance - uint64(supplyOutputsCount*splittingMultiplier*tokensPerRequest)
 	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
 	for i := fundingOutputsAddrStart; i <= lastFundingOutputAddr; i++ {
 		require.EqualValues(t, uint64(tokensPerRequest), tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))

@@ -31,7 +31,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	}, tests.EqualDefaultConfigFunc(t))
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -107,7 +107,7 @@ func TestValueAliasPersistence(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	}, tests.EqualDefaultConfigFunc(t))
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -179,7 +179,7 @@ func TestValueAliasDelegation(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	}, tests.EqualDefaultConfigFunc(t))
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 

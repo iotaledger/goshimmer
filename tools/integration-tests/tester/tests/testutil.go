@@ -95,19 +95,23 @@ func getIdentSeeds(t *testing.T) [][]byte {
 }
 
 // EqualDefaultConfigFunc returns configuration for network that uses equal integration test snapshot
-var EqualDefaultConfigFunc = func(t *testing.T) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
 	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
 		cfg.MessageLayer.Snapshot.File = EqualSnapshotDetails.FilePath
 		peerSeeds := getIdentSeeds(t)
+		offset := 0
+		if skipFirst {
+			offset += 1
+		}
 		switch peerIndex {
 		case 0:
-			cfg.Seed = peerSeeds[0]
+			cfg.Seed = peerSeeds[0+offset]
 		case 1:
-			cfg.Seed = peerSeeds[1]
+			cfg.Seed = peerSeeds[1+offset]
 		case 2:
-			cfg.Seed = peerSeeds[2]
+			cfg.Seed = peerSeeds[2+offset]
 		case 3:
-			cfg.Seed = peerSeeds[3]
+			cfg.Seed = peerSeeds[3+offset]
 		}
 		return cfg
 	}

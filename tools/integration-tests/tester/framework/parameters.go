@@ -27,8 +27,6 @@ const (
 )
 
 var (
-	// GenesisTokenAmount is the amount of tokens in the genesis output.
-	GenesisTokenAmount = 1000000000000000
 	// GenesisSeed is the seed of the funds created at genesis.
 	GenesisSeed = []byte{
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
