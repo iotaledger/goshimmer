@@ -87,11 +87,15 @@ func newFaucet() *StateManager {
 	if Parameters.SplittingMultiplier <= 0 {
 		Plugin.LogFatalf("the number of outputs for each supply transaction during funds splitting should be more than 0")
 	}
+	if Parameters.GenesisTokenAmount <= 0 {
+		Plugin.LogFatalf("the total supply should be more than 0")
+	}
 	return NewStateManager(
 		uint64(Parameters.TokensPerRequest),
 		walletseed.NewSeed(seedBytes),
 		uint64(Parameters.SupplyOutputsCount),
 		uint64(Parameters.SplittingMultiplier),
+
 		Parameters.MaxTransactionBookedAwaitTime,
 	)
 }

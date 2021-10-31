@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"log"
 	"testing"
 	"time"
@@ -65,6 +66,51 @@ var ConsensusSnapshotDetails = &SnapshotInfo{
 	PeersAmountsPledged: []int{1600000, 800000, 800000},
 	GenesisTokenAmount:  800000, // pledged to peer master
 
+}
+
+// getIdentSeeds returns decoded seed bytes for equal integration tests snapshot
+func getIdentSeeds(t *testing.T) [][]byte {
+	peerSeeds := make([][]byte, 4)
+	peerSeeds[0] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[0])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[1] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[1])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[2] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[2])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[3] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[3])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	return peerSeeds
+}
+
+// EqualDefaultConfigFunc returns configuration for network that uses equal integration test snapshot
+var EqualDefaultConfigFunc = func(t *testing.T) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+		cfg.MessageLayer.Snapshot.File = EqualSnapshotDetails.FilePath
+		peerSeeds := getIdentSeeds(t)
+		switch peerIndex {
+		case 0:
+			cfg.Seed = peerSeeds[0]
+		case 1:
+			cfg.Seed = peerSeeds[1]
+		case 2:
+			cfg.Seed = peerSeeds[2]
+		case 3:
+			cfg.Seed = peerSeeds[3]
+		}
+		return cfg
+	}
 }
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
