@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
@@ -184,10 +186,10 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, pee
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.
-func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address) []jsonmodels.WalletOutput {
+func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address, numOfExpectedOuts int) []jsonmodels.WalletOutput {
 	resp, err := node.PostAddressUnspentOutputs([]string{address.Base58()})
 	require.NoErrorf(t, err, "node=%s, address=%s, PostAddressUnspentOutputs failed", node, address.Base58())
-	require.Lenf(t, resp.UnspentOutputs, 1, "invalid response")
+	require.Lenf(t, resp.UnspentOutputs[0].Outputs, numOfExpectedOuts, "invalid response")
 	require.Equalf(t, address.Base58(), resp.UnspentOutputs[0].Address.Base58, "invalid response")
 
 	return resp.UnspentOutputs[0].Outputs
@@ -195,7 +197,7 @@ func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgersta
 
 // Balance returns the total balance of color at address.
 func Balance(t *testing.T, node *framework.Node, address ledgerstate.Address, color ledgerstate.Color) uint64 {
-	unspentOutputs := AddressUnspentOutputs(t, node, address)
+	unspentOutputs := AddressUnspentOutputs(t, node, address, 1)
 
 	var sum uint64
 	for _, output := range unspentOutputs {
@@ -230,6 +232,59 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 
 	return resp.ID, sent
 }
+
+// region CreateTransaction from outputs //////////////////////////////
+
+/**
+CreateTransactionFromOutputs takes the given utxos inputs and create a transaction tnat spread the total input balance
+across the targetAddresses. In order to correctly sign we have akeyPair map that maps a given address to its public key.
+Access and Consensus Mana is pledged to the node we specify.
+*/
+func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []*ledgerstate.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...ledgerstate.Output) *ledgerstate.Transaction {
+	// Create Inputs from utxos
+	inputs := ledgerstate.Inputs{}
+	balances := map[ledgerstate.Color]uint64{}
+	for _, output := range utxos {
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			balances[color] += balance
+			return true
+		})
+		inputs = append(inputs, output.Input())
+	}
+
+	// create outputs for each target address
+	numberOfOutputs := len(targetAddresses)
+	outputs := ledgerstate.Outputs{}
+	for i := 0; i < numberOfOutputs; i++ {
+		outBalances := map[ledgerstate.Color]uint64{}
+		for color, balance := range balances {
+			outBalances[color] = balance / uint64(numberOfOutputs)
+			if i == numberOfOutputs-1 {
+				outBalances[color] += balance % uint64(numberOfOutputs)
+			}
+		}
+		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(outBalances), *targetAddresses[i])
+		outputs = append(outputs, output)
+	}
+
+	// create tx essence
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), manaPledgeID,
+		manaPledgeID, inputs, ledgerstate.NewOutputs(outputs...))
+
+	// create signatures
+	unlockBlocks := []ledgerstate.UnlockBlock{}
+	for i := 0; i < len(inputs); i++ {
+		addressKey := utxos[i].Address().String()
+		keyPair := keyPairs[addressKey]
+		require.NotNilf(t, keyPair, "missing key pair for address %s", addressKey)
+		sig := ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes()))
+		unlockBlocks = append(unlockBlocks, ledgerstate.NewSignatureUnlockBlock(sig))
+	}
+
+	return ledgerstate.NewTransaction(txEssence, unlockBlocks)
+}
+
+// endregion
 
 // SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
 func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int) (string, DataMessageSent) {
@@ -271,7 +326,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	inputAddr := from.Seed.Address(txConfig.FromAddressIndex).Address()
 	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
-	unspentOutputs := AddressUnspentOutputs(t, from, inputAddr)
+	unspentOutputs := AddressUnspentOutputs(t, from, inputAddr, 1)
 	require.NotEmptyf(t, unspentOutputs, "address=%s, no unspent outputs", inputAddr.Base58())
 
 	inputColor := color
@@ -421,7 +476,7 @@ func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddre
 func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ...ledgerstate.Address) {
 	for _, node := range nodes {
 		for _, addr := range addresses {
-			unspent := AddressUnspentOutputs(t, node, addr)
+			unspent := AddressUnspentOutputs(t, node, addr, 1)
 			require.Empty(t, unspent, "address %s should not have any UTXOs", addr)
 		}
 	}
