@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"github.com/mr-tron/base58"
 	"log"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ import (
 // are available on all nodes at the end (persistence).
 func TestCommonSynchronization(t *testing.T) {
 	const (
-		initialPeers    = 2
+		initialPeers    = 3
 		numMessages     = 100
 		numSyncMessages = 5 * initialPeers
 	)
@@ -27,7 +28,7 @@ func TestCommonSynchronization(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -38,7 +39,9 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 2. spawn peer without knowledge of previous messages
 	log.Println("Spawning new node to sync...")
-	newPeer, err := n.CreatePeer(ctx, createNewPeerConfig())
+
+	cfg := createNewPeerConfig(t)
+	newPeer, err := n.CreatePeer(ctx, cfg)
 	require.NoError(t, err)
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
@@ -92,8 +95,12 @@ func TestCommonSynchronization(t *testing.T) {
 		"the peer %s did not sync again after restart", newPeer)
 }
 
-func createNewPeerConfig() config.GoShimmer {
+func createNewPeerConfig(t *testing.T) config.GoShimmer {
+	seedBytes, err := base58.Decode(tests.EqualSnapshotDetails.PeersSeedBase58[3])
+	require.NoError(t, err)
 	conf := framework.PeerConfig()
+	conf.Seed = seedBytes
+	conf.MessageLayer.Snapshot.File = tests.EqualSnapshotDetails.FilePath
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
 	conf.MessageLayer.TangleTimeWindow = 30 * time.Second
 	return conf
