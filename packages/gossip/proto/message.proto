@@ -2,7 +2,7 @@ syntax = "proto3";
 
 option go_package = "github.com/iotaledger/goshimmer/packages/gossip/proto";
 
-package proto;
+package gossipproto;
 
 message Packet {
   oneof body {

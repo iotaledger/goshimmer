@@ -43,7 +43,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		return nil, errors.WithStack(err)
 	}
 
-	addressStr := fmt.Sprintf("/ip4%s/tcp/%d/p2p/%s", p.IP(), gossipEndpoint.Port(), libp2pID)
+	addressStr := fmt.Sprintf("/ip4/%s/tcp/%d", p.IP(), gossipEndpoint.Port())
 	address, err := multiaddr.NewMultiaddr(addressStr)
 	if err != nil {
 		return nil, err

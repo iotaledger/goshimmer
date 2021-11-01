@@ -84,12 +84,12 @@ func (n *Neighbor) PacketsWritten() uint64 {
 	return n.packetsWritten.Load()
 }
 
-func disconnected(handler interface{}, params ...interface{}) {
-	handler.(func(*Neighbor))(params[0].(*Neighbor))
+func disconnected(handler interface{}, _ ...interface{}) {
+	handler.(func())()
 }
 
 func packetReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*Neighbor, *pb.Packet))(params[0].(*Neighbor), params[1].(*pb.Packet))
+	handler.(func(*pb.Packet))(params[1].(*pb.Packet))
 }
 
 // ConnectionEstablished returns the connection established.
@@ -108,7 +108,7 @@ func (n *Neighbor) readLoop() {
 				n.log.Warnw("Permanent error", "err", err)
 				return
 			}
-			n.disconnected.Trigger(n, packet)
+			n.packetReceived.Trigger(packet)
 		}
 	}()
 }
@@ -157,7 +157,7 @@ func (n *Neighbor) disconnect() (err error) {
 			return
 		}
 		n.log.Info("Connection closed")
-		n.disconnected.Trigger(n)
+		n.disconnected.Trigger()
 	})
 	return err
 }
