@@ -1,17 +1,17 @@
 package manualpeering
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/cockroachdb/errors"
-	"github.com/labstack/echo"
-	"go.uber.org/dig"
-
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
@@ -59,7 +59,7 @@ func run(*node.Plugin) {
 	}
 }
 
-func startManager(shutdownSignal <-chan struct{}) {
+func startManager(ctx context.Context) {
 	mgr := deps.ManualPeeringMgr
 	mgr.Start()
 	defer func() {
@@ -68,7 +68,7 @@ func startManager(shutdownSignal <-chan struct{}) {
 		}
 	}()
 	addPeersFromConfigToManager(mgr)
-	<-shutdownSignal
+	<-ctx.Done()
 }
 
 func addPeersFromConfigToManager(mgr *manualpeering.Manager) {

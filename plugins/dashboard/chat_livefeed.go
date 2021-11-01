@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"context"
+
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -40,7 +42,7 @@ func configureChatLiveFeed() {
 }
 
 func runChatLiveFeed() {
-	if err := daemon.BackgroundWorker("Dashboard[ChatUpdater]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Dashboard[ChatUpdater]", func(ctx context.Context) {
 		notifyNewMessages := events.NewClosure(func(chatEvent *chat.Event) {
 			chatLiveFeedWorkerPool.TrySubmit(chatEvent)
 		})
@@ -48,7 +50,7 @@ func runChatLiveFeed() {
 
 		defer chatLiveFeedWorkerPool.Stop()
 
-		<-shutdownSignal
+		<-ctx.Done()
 		log.Info("Stopping Dashboard[ChatUpdater] ...")
 		deps.Chat.Events.MessageReceived.Detach(notifyNewMessages)
 		log.Info("Stopping Dashboard[ChatUpdater] ... done")

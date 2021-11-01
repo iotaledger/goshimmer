@@ -2,6 +2,7 @@ package peer
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -57,8 +58,8 @@ func init() {
 }
 
 func run(_ *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
+		<-ctx.Done()
 		prvKey, _ := deps.PeerDB.LocalPrivateKey()
 		if err := deps.PeerDBKVSTore.Close(); err != nil {
 			Plugin.Logger().Errorf("unable to save identity %s: %s", prvKey.Public().String(), err)

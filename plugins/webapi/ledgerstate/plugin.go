@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -102,14 +103,14 @@ func run(*node.Plugin) {
 	deps.Server.POST("ledgerstate/transactions", PostTransaction)
 }
 
-func worker(shutdownSignal <-chan struct{}) {
+func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 	func() {
 		ticker := time.NewTicker(DoubleSpendFilterCleanupInterval)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-shutdownSignal:
+			case <-ctx.Done():
 				return
 			case <-ticker.C:
 				doubleSpendFilter.CleanUp()

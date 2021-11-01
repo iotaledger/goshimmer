@@ -1,18 +1,20 @@
 package tangle
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/timeutil"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 const (
@@ -35,8 +37,8 @@ type TimeManager struct {
 	lastSyncedMutex      sync.RWMutex
 	lastSynced           bool
 
-	shutdownSignal chan struct{}
-	shutdownOnce   sync.Once
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewTimeManager is the constructor for TimeManager.
@@ -45,10 +47,10 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 		Events: &TimeManagerEvents{
 			SyncChanged: events.NewEvent(SyncChangedCaller),
 		},
-		tangle:         tangle,
-		startSynced:    tangle.Options.StartSynced,
-		shutdownSignal: make(chan struct{}),
+		tangle:      tangle,
+		startSynced: tangle.Options.StartSynced,
 	}
+	t.ctx, t.cancel = context.WithCancel(context.Background())
 
 	// initialize with Genesis
 	t.lastConfirmedMessage = LastConfirmedMessage{
@@ -93,9 +95,8 @@ func (t *TimeManager) Shutdown() {
 		return
 	}
 
-	t.shutdownOnce.Do(func() {
-		close(t.shutdownSignal)
-	})
+	// cancel the internal context
+	t.cancel()
 }
 
 // LastConfirmedMessage returns the last confirmed message.
@@ -175,7 +176,7 @@ func (t *TimeManager) mainLoop() {
 			return DefaultSyncTimeWindow
 		}
 		return t.tangle.Options.SyncTimeWindow
-	}(), t.shutdownSignal).WaitForShutdown()
+	}(), t.ctx).WaitForShutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
