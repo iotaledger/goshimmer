@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"fmt"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"log"
 	"testing"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
@@ -62,7 +62,11 @@ var EqualSnapshotDetails = &SnapshotInfo{
 var ConsensusSnapshotDetails = &SnapshotInfo{
 	FilePath: "/assets/consensus_intgr_snapshot_aw75.bin",
 	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
-	PeersSeedBase58:     []string{"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8", "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2", "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"},
+	PeersSeedBase58: []string{
+		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
+		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
+	},
 	PeersAmountsPledged: []int{1600000, 800000, 800000},
 	GenesisTokenAmount:  800000, // pledged to peer master
 
@@ -103,16 +107,10 @@ var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex i
 		if skipFirst {
 			offset += 1
 		}
-		switch peerIndex {
-		case 0:
-			cfg.Seed = peerSeeds[0+offset]
-		case 1:
-			cfg.Seed = peerSeeds[1+offset]
-		case 2:
-			cfg.Seed = peerSeeds[2+offset]
-		case 3:
-			cfg.Seed = peerSeeds[3+offset]
-		}
+		i := peerIndex + offset
+		require.Lessf(t, len(peerSeeds), i, "index=%d out of range for peerSeeds=%d", i, len(peerSeeds))
+		cfg.Seed = peerSeeds[i]
+
 		return cfg
 	}
 }
