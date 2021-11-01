@@ -36,6 +36,7 @@ type tangleVertex struct {
 	WeakParentIDs   []string `json:"weakParentIDs"`
 	BranchID        string   `json:"branchID"`
 	IsMarker        bool     `json:"isMarker"`
+	IsTx            bool     `json:"isTx"`
 	ConfirmedTime   int64    `json:"confirmedTime"`
 }
 

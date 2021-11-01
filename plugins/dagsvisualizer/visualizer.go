@@ -50,6 +50,7 @@ func registerTangleEvents() {
 					WeakParentIDs:   msg.WeakParents().ToStrings(),
 					BranchID:        ledgerstate.UndefinedBranchID.Base58(),
 					IsMarker:        false,
+					IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 					ConfirmedTime:   0,
 				},
 			})

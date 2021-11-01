@@ -8,6 +8,7 @@ export class tangleVertex {
 	weakParentIDs:   Array<string>;
     branchID:        string;
 	isMarker:        boolean;
+    isTx: boolean;
 	confirmedTime:   number;
     futureMarkers:   Array<string>;
 }
@@ -116,11 +117,12 @@ export class TangleStore {
         if (!msg) {
             return;
         }
-        console.log(branch.branchID);
+        
         msg.branchID = branch.branchID;
         msg.isMarker = branch.isMarker;
 
         this.messages.set(msg.ID, msg);
+        this.graph.addNode(msg.ID, msg);
     }
 
     @action
@@ -132,6 +134,8 @@ export class TangleStore {
 
         msg.confirmedTime = info.confirmedTime;
         this.messages.set(msg.ID, msg);
+        this.graph.addNode(info.ID, msg);
+        this.updateNodeColor(info.ID);
     }
 
     @action
@@ -191,7 +195,6 @@ export class TangleStore {
         this.graph.removeNode(approveeId);
     }
 
-
     drawVertex = (msg: tangleVertex) => {
         let node;
         let existing = this.graph.getNode(msg.ID);
@@ -227,6 +230,23 @@ export class TangleStore {
         }
     }
 
+
+    // only update color when finalized
+    updateNodeColor = (msgID: string) => {
+        let msg = this.messages.get(msgID);
+        let nodeUI = this.graphics.getNodeUI(msgID);
+        let color = "";
+        if (!nodeUI || !msg) {
+            color = "#b58900";
+        }
+        if (msg.isTx) {
+            color = "#fad02c";
+        }
+        color = "#6c71c4";
+
+        nodeUI.color = parseColor(color);
+    }
+
     removeVertex = (msgID: string) => {
         let vert = this.messages.get(msgID);
         if (vert) {
@@ -246,7 +266,7 @@ export class TangleStore {
     updateSelected = (vert: tangleVertex, viaClick?: boolean) => {
         if (!vert) return;
 
-        this.selectedMsg = vert;
+        this.selectedMsg = this.messages.get(vert.ID);
         this.selected_via_click = !!viaClick;
 
         // mutate links
@@ -347,7 +367,7 @@ export class TangleStore {
         });
 
         graphics.node((node) => {
-            return Viva.Graph.View.webglSquare(vertexSize, "#6c71c4");
+            return Viva.Graph.View.webglSquare(vertexSize, "#b9b7bd");
         })
         graphics.link(() => Viva.Graph.View.webglLine("#586e75"));
         let ele = document.getElementById('tangleVisualizer');
