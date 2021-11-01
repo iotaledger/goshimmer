@@ -1,15 +1,14 @@
 package finality
 
 import (
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )

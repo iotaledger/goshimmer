@@ -2,10 +2,6 @@ package mana
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	faucetplugin "github.com/iotaledger/goshimmer/plugins/faucet"
-	webapiledgerstate "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"log"
 	"testing"
 
@@ -13,7 +9,11 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	faucetplugin "github.com/iotaledger/goshimmer/plugins/faucet"
+	webapiledgerstate "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )

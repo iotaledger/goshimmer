@@ -2,6 +2,16 @@ package value
 
 import (
 	"context"
+	"log"
+	"testing"
+	"time"
+
+	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
@@ -12,14 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/require"
-	"log"
-	"testing"
-	"time"
 )
 
 // TestValueTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.

@@ -81,7 +81,7 @@ type Genesis struct {
 //	}(),
 //}
 
-// equally, distributed snapshot internal testnet
+// Equally distributed snapshot internal testnet.
 var nodesToPledge = map[string]Pledge{
 	"e3m6WPQXLyuUqEfSHmGVEs6qpyhWNJqtbquX65kFoJQ":  {}, // entrynode
 	"EGgbUaAnfXG2mBtGQwSPPVxLa8uC1hnNsxtnLYbHkm8B": {}, // bootstrap_01

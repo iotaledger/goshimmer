@@ -2,11 +2,11 @@ package common
 
 import (
 	"context"
-	"github.com/mr-tron/base58"
 	"log"
 	"testing"
 	"time"
 
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"

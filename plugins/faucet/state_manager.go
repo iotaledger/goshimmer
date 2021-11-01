@@ -6,16 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/workerpool"
-	"go.uber.org/atomic"
-
-	"github.com/iotaledger/hive.go/typeutils"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/typeutils"
+	"github.com/iotaledger/hive.go/workerpool"
+	"go.uber.org/atomic"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -40,12 +38,12 @@ const (
 
 	// MaxWaitAttempts defines the number of attempts taken while waiting for confirmation during funds preparation.
 	MaxWaitAttempts = 50
+
+	minFaucetBalanceMultiplier = 0.1
 )
 
-var (
-	// MinFaucetBalance defines the min token amount required, before the faucet stops operating.
-	MinFaucetBalance = uint64(0.1 * float64(Parameters.GenesisTokenAmount))
-)
+// MinFaucetBalance defines the min token amount required, before the faucet stops operating.
+var MinFaucetBalance = uint64(minFaucetBalanceMultiplier * float64(Parameters.GenesisTokenAmount))
 
 // FaucetOutput represents an output controlled by the faucet.
 type FaucetOutput struct {
