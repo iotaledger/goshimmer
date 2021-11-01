@@ -108,7 +108,7 @@ var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex i
 			offset += 1
 		}
 		i := peerIndex + offset
-		require.Lessf(t, len(peerSeeds), i, "index=%d out of range for peerSeeds=%d", i, len(peerSeeds))
+		require.Lessf(t, i, len(peerSeeds), "index=%d out of range for peerSeeds=%d", i, len(peerSeeds))
 		cfg.Seed = peerSeeds[i]
 
 		return cfg
