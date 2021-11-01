@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-msgio/protoio"
+	"go.uber.org/atomic"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 )
@@ -42,9 +43,11 @@ type Neighbor struct {
 	disconnected   *events.Event
 	packetReceived *events.Event
 
-	stream network.Stream
-	reader protoio.ReadCloser
-	writer protoio.WriteCloser
+	stream         network.Stream
+	reader         protoio.ReadCloser
+	writer         protoio.WriteCloser
+	packetsRead    *atomic.Uint64
+	packetsWritten *atomic.Uint64
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
@@ -68,7 +71,17 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log 
 
 		disconnected:   events.NewEvent(disconnected),
 		packetReceived: events.NewEvent(packetReceived),
+		packetsRead:    atomic.NewUint64(0),
+		packetsWritten: atomic.NewUint64(0),
 	}
+}
+
+func (n *Neighbor) PacketsRead() uint64 {
+	return n.packetsRead.Load()
+}
+
+func (n *Neighbor) PacketsWritten() uint64 {
+	return n.packetsWritten.Load()
 }
 
 func disconnected(handler interface{}, params ...interface{}) {
@@ -113,13 +126,11 @@ func (n *Neighbor) write(packet *pb.Packet) error {
 		}
 		return errors.CombineErrors(err, disconnectErr)
 	}
+	n.packetsWritten.Inc()
 	return nil
 }
 
 func (n *Neighbor) read(packet *pb.Packet) error {
-	if err := n.stream.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
-		return errors.WithStack(err)
-	}
 	err := n.reader.ReadMsg(packet)
 	if err != nil {
 		disconnectErr := n.disconnect()
@@ -128,6 +139,7 @@ func (n *Neighbor) read(packet *pb.Packet) error {
 		}
 		return errors.CombineErrors(err, disconnectErr)
 	}
+	n.packetsRead.Inc()
 	return nil
 }
 

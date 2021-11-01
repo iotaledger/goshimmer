@@ -9,10 +9,10 @@ import (
 var (
 	fpcInboundBytes          prometheus.Gauge
 	fpcOutboundBytes         prometheus.Gauge
-	analysisOutboundBytes    prometheus.Gauge
-	gossipInboundBytes       prometheus.Gauge
-	gossipOutboundBytes      prometheus.Gauge
-	autopeeringInboundBytes  prometheus.Gauge
+	analysisOutboundBytes prometheus.Gauge
+	gossipInboundPackets    prometheus.Gauge
+	gossipOutboundPackets   prometheus.Gauge
+	autopeeringInboundBytes prometheus.Gauge
 	autopeeringOutboundBytes prometheus.Gauge
 )
 
@@ -33,13 +33,13 @@ func registerNetworkMetrics() {
 		Name: "traffic_autopeering_outbound_bytes",
 		Help: "traffic_autopeering TX network traffic [bytes].",
 	})
-	gossipInboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "traffic_gossip_inbound_bytes",
-		Help: "traffic_gossip RX network traffic [bytes].",
+	gossipInboundPackets = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "traffic_gossip_inbound_packets",
+		Help: "traffic_gossip RX network packets [number].",
 	})
-	gossipOutboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "traffic_gossip_outbound_bytes",
-		Help: "traffic_gossip TX network traffic [bytes].",
+	gossipOutboundPackets = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "traffic_gossip_outbound_packets",
+		Help: "traffic_gossip TX network packets [number].",
 	})
 	analysisOutboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "traffic_analysis_outbound_bytes",
@@ -53,8 +53,8 @@ func registerNetworkMetrics() {
 	registry.MustRegister(fpcInboundBytes)
 	registry.MustRegister(fpcOutboundBytes)
 	registry.MustRegister(analysisOutboundBytes)
-	registry.MustRegister(gossipInboundBytes)
-	registry.MustRegister(gossipOutboundBytes)
+	registry.MustRegister(gossipInboundPackets)
+	registry.MustRegister(gossipOutboundPackets)
 
 	addCollect(collectNetworkMetrics)
 }
@@ -67,6 +67,6 @@ func collectNetworkMetrics() {
 	fpcInboundBytes.Set(float64(metrics.FPCInboundBytes()))
 	fpcOutboundBytes.Set(float64(metrics.FPCOutboundBytes()))
 	analysisOutboundBytes.Set(float64(metrics.AnalysisOutboundBytes()))
-	gossipInboundBytes.Set(float64(metrics.GossipInboundBytes()))
-	gossipOutboundBytes.Set(float64(metrics.GossipOutboundBytes()))
+	gossipInboundPackets.Set(float64(metrics.GossipInboundPackets()))
+	gossipOutboundPackets.Set(float64(metrics.GossipOutboundPackets()))
 }

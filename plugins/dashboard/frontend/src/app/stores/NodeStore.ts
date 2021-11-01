@@ -78,8 +78,8 @@ class NeighborMetrics {
     get currentNetIO(): NetworkIO {
         if (this.current && this.secondLast) {
             return {
-                tx: this.current.bytes_written - this.secondLast.bytes_written,
-                rx: this.current.bytes_read - this.secondLast.bytes_read,
+                tx: this.current.packets_written - this.secondLast.packets_written,
+                rx: this.current.packets_read - this.secondLast.packets_read,
                 ts: dateformat(new Date(), "HH:MM:ss"),
             };
         }
@@ -114,8 +114,8 @@ class NeighborMetric {
     id: string;
     address: string;
     connection_origin: number;
-    bytes_read: number;
-    bytes_written: number;
+    packets_read: number;
+    packets_written: number;
     ts: number;
 }
 

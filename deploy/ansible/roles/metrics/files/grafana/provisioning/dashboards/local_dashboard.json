@@ -1883,13 +1883,13 @@
           "refId": "E"
         },
         {
-          "expr": "irate(traffic_gossip_inbound_bytes{instance=\"$instance\"}[1m])",
+          "expr": "irate(traffic_gossip_inbound_packets{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "Gossip RX",
           "refId": "F"
         },
         {
-          "expr": "irate(traffic_gossip_outbound_bytes{instance=\"$instance\"}[1m])",
+          "expr": "irate(traffic_gossip_outbound_packets{instance=\"$instance\"}[1m])",
           "interval": "",
           "legendFormat": "Gossip Tx",
           "refId": "G"
@@ -2128,7 +2128,7 @@
       "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "traffic_gossip_outbound_bytes{instance=\"$instance\"}",
+          "expr": "traffic_gossip_outbound_packets{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -2182,7 +2182,7 @@
       "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "traffic_gossip_inbound_bytes{instance=\"$instance\"}",
+          "expr": "traffic_gossip_inbound_packets{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
