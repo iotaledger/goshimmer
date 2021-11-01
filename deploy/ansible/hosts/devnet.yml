@@ -57,3 +57,7 @@ drands:
 asset_registries:
   hosts:
     asset-registry-01.devnet.shimmer.iota.cafe:
+
+lbs:
+  hosts:
+    lb.devnet.shimmer.iota.cafe:

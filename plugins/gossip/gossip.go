@@ -60,13 +60,13 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 	return gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger())
 }
 
-func start(shutdownSignal <-chan struct{}) {
+func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 
 	defer deps.GossipMgr.Stop()
 
 	Plugin.LogInfof("%s started: bind-address=%s", PluginName, localAddr.String())
 
-	<-shutdownSignal
+	<-ctx.Done()
 	Plugin.LogInfo("Stopping " + PluginName + " ...")
 }

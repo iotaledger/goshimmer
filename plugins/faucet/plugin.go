@@ -1,6 +1,7 @@
 package faucet
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"time"
@@ -32,15 +33,17 @@ const (
 )
 
 var (
-	// Plugin is the plugin instance of the faucet application.
-	Plugin                 *node.Plugin
-	_faucet                *StateManager
-	powVerifier            = pow.New()
-	fundingWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	fundingWorkerCount     = runtime.GOMAXPROCS(0)
-	fundingWorkerQueueSize = 500
-	targetPoWDifficulty    int
-	startIndex             int
+	// Plugin is the "plugin" instance of the faucet application.
+	Plugin                   *node.Plugin
+	_faucet                  *StateManager
+	powVerifier              = pow.New()
+	fundingWorkerPool        *workerpool.NonBlockingQueuedWorkerPool
+	fundingWorkerCount       = runtime.GOMAXPROCS(0)
+	fundingWorkerQueueSize   = 500
+	preparingWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
+	preparingWorkerCount     = runtime.GOMAXPROCS(0)
+	preparingWorkerQueueSize = MaxFaucetOutputsCount + 1
+	targetPoWDifficulty      int
 	// blacklist makes sure that an address might only request tokens once.
 	blacklist         *orderedmap.OrderedMap
 	blacklistCapacity int
@@ -78,20 +81,23 @@ func newFaucet() *StateManager {
 	if Parameters.MaxTransactionBookedAwaitTime <= 0 {
 		Plugin.LogFatalf("the max transaction booked await time must be more than 0")
 	}
-	if Parameters.PreparedOutputsCount <= 0 {
-		Plugin.LogFatalf("the number of faucet prepared outputs should be more than 0")
+	if Parameters.SupplyOutputsCount <= 0 {
+		Plugin.LogFatalf("the number of faucet supply outputs should be more than 0")
+	}
+	if Parameters.SplittingMultiplier <= 0 {
+		Plugin.LogFatalf("the number of outputs for each supply transaction during funds splitting should be more than 0")
 	}
 	return NewStateManager(
 		uint64(Parameters.TokensPerRequest),
 		walletseed.NewSeed(seedBytes),
-		uint64(Parameters.PreparedOutputsCount),
+		uint64(Parameters.SupplyOutputsCount),
+		uint64(Parameters.SplittingMultiplier),
 		Parameters.MaxTransactionBookedAwaitTime,
 	)
 }
 
 func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
-	startIndex = Parameters.StartIndex
 	blacklist = orderedmap.New()
 	blacklistCapacity = Parameters.BlacklistCapacity
 	_faucet = newFaucet()
@@ -107,21 +113,24 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
+	preparingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(_faucet.prepareTransactionTask,
+		workerpool.WorkerCount(preparingWorkerCount), workerpool.QueueSize(preparingWorkerQueueSize))
+
 	configureEvents()
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		defer plugin.LogInfof("Stopping %s ... done", PluginName)
 
 		plugin.LogInfo("Waiting for node to become synced...")
-		if !waitUntilSynced(shutdownSignal) {
+		if !waitUntilSynced(ctx) {
 			return
 		}
 		plugin.LogInfo("Waiting for node to become synced... done")
 
 		plugin.LogInfo("Waiting for node to have sufficient access mana")
-		if err := waitForMana(shutdownSignal); err != nil {
+		if err := waitForMana(ctx); err != nil {
 			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
@@ -129,23 +138,25 @@ func run(plugin *node.Plugin) {
 
 		plugin.LogInfof("Deriving faucet state from the ledger...")
 		// determine state, prepare more outputs if needed
-		if err := _faucet.DeriveStateFromTangle(startIndex); err != nil {
+		if err := _faucet.DeriveStateFromTangle(ctx.Done()); err != nil {
 			plugin.LogErrorf("failed to derive state: %s", err)
 			return
 		}
 		plugin.LogInfo("Deriving faucet state from the ledger... done")
 
 		defer fundingWorkerPool.Stop()
+		defer preparingWorkerPool.Stop()
+
 		initDone.Store(true)
 
-		<-shutdownSignal
+		<-ctx.Done()
 		plugin.LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
 }
 
-func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
+func waitUntilSynced(ctx context.Context) bool {
 	synced := make(chan struct{}, 1)
 	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
 		if e.Synced {
@@ -168,17 +179,17 @@ func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
 	select {
 	case <-synced:
 		return true
-	case <-shutdownSignal:
+	case <-ctx.Done():
 		return false
 	}
 }
 
-func waitForMana(shutdownSignal <-chan struct{}) error {
+func waitForMana(ctx context.Context) error {
 	nodeID := deps.Tangle.Options.Identity.ID()
 	for {
 		// stop polling, if we are shutting down
 		select {
-		case <-shutdownSignal:
+		case <-ctx.Done():
 			return errors.New("faucet shutting down")
 		default:
 		}
@@ -233,7 +244,7 @@ func configureEvents() {
 			_, added := fundingWorkerPool.TrySubmit(message)
 			if !added {
 				RemoveAddressFromBlacklist(addr)
-				Plugin.LogInfo("dropped funding request for address %s as queue is full", addr.Base58())
+				Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
 				return
 			}
 			Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())

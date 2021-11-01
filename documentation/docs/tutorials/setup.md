@@ -187,7 +187,8 @@ services:
     hostname: goshimmer
     stop_grace_period: 2m
     volumes:
-      - "./db:/tmp/mainnetdb:rw"   
+      - "./db:/tmp/mainnetdb:rw"
+      - "./peerdb:/tmp/peerdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       # Autopeering 
@@ -203,10 +204,10 @@ services:
       # pprof profiling
       - "0.0.0.0:6061:6061/tcp"
     environment:
-      - ANALYSIS_CLIENT_SERVERADDRESS=ressims.iota.cafe:21888
-      - AUTOPEERING_PORT=14626
+      - ANALYSIS_CLIENT_SERVERADDRESS=analysisentry-01.devnet.shimmer.iota.cafe:21888
+      - AUTOPEERING_BINDADDRESS=0.0.0.0:14626
       - DASHBOARD_BINDADDRESS=0.0.0.0:8081
-      - GOSSIP_PORT=14666
+      - GOSSIP_BINDADDRESS=0.0.0.0:14666
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
       - NETWORKDELAY_ORIGINPUBLICKEY=9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd
@@ -214,12 +215,14 @@ services:
       - PROMETHEUS_BINDADDRESS=0.0.0.0:9311
     command: >
       --skip-config=true
-      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
-      --node.disablePlugins=
+      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
+      --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
+      --database.directory=/tmp/mainnetdb
+      --node.peerDBDirectory=/tmp/peerdb
       --logger.level=info
       --logger.disableEvents=false
-      --logger.remotelog.serverAddress=ressims.iota.cafe:5213
+      --logger.remotelog.serverAddress=metrics-01.devnet.shimmer.iota.cafe:5213
       --drng.pollen.instanceID=1
       --drng.pollen.threshold=3
       --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
@@ -371,10 +374,10 @@ docker logs goshimmer > log.txt
 
 If you set up the Grafana dashboard for your node according to the next section "Setting up the Grafana dashboard", the following method will help you to update when a new version is released.
 
-You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
+You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
 Supposing you are at `/opt/goshimmer/`:
 ```
-wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/docker-network/grafana/dashboards/local_dashboard.json
 cp local_dashboard.json grafana/dashboards
 ```
 Restart the grafana container:
@@ -504,9 +507,9 @@ providers:
 ```
 4. Add predefined GoShimmer Local Metrics Dashboard.
 
-Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/master/tools/monitoring/grafana/dashboards/local_dashboard.json).
+Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/dashboards/local_dashboard.json).
 ```
-wget https://raw.githubusercontent.com/iotaledger/goshimmer/master/tools/monitoring/grafana/dashboards/local_dashboard.json
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/docker-network/grafana/dashboards/local_dashboard.json
 cp local_dashboard.json grafana/dashboards
 ```
 5. Add permissions to Grafana config folder

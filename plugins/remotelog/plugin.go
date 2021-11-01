@@ -5,6 +5,7 @@
 package remotelog
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,9 +20,7 @@ import (
 	"go.uber.org/dig"
 	"gopkg.in/src-d/go-git.v4"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
 )
 
@@ -70,7 +69,7 @@ func init() {
 	}))
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	if logger_plugin.Parameters.DisableEvents {
 		return
 	}
@@ -82,7 +81,7 @@ func configure(plugin *node.Plugin) {
 	getGitInfo()
 
 	workerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
+		deps.RemoteLogger.SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(runtime.GOMAXPROCS(0)), workerpool.QueueSize(1000))
@@ -93,9 +92,9 @@ func run(plugin *node.Plugin) {
 		workerPool.TrySubmit(level, name, msg)
 	})
 
-	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		logger.Events.AnyMsg.Attach(logEvent)
-		<-shutdownSignal
+		<-ctx.Done()
 		plugin.LogInfof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)
 		workerPool.Stop()
@@ -103,23 +102,6 @@ func run(plugin *node.Plugin) {
 	}, shutdown.PriorityRemoteLog); err != nil {
 		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
-}
-
-// SendLogMsg sends log message to the remote logger.
-func SendLogMsg(level logger.Level, name, msg string) {
-	m := logMessage{
-		banner.AppVersion,
-		myGitHead,
-		myGitBranch,
-		myID,
-		level.CapitalString(),
-		name,
-		msg,
-		clock.SyncedTime(),
-		remoteLogType,
-	}
-
-	_ = deps.RemoteLogger.Send(m)
 }
 
 func getGitInfo() {

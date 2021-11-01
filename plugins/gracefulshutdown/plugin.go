@@ -35,7 +35,7 @@ func configure(plugin *node.Plugin) {
 	go func() {
 		<-gracefulStop
 
-		plugin.LogWarnf("Received shutdown request - waiting (max %d) to finish processing ...", Parameters.WaitToKillTime)
+		plugin.LogWarnf("Received shutdown request - waiting (max %v) to finish processing ...", Parameters.WaitToKillTime)
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
@@ -52,7 +52,7 @@ func configure(plugin *node.Plugin) {
 						sort.Strings(runningBackgroundWorkers)
 						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
 					}
-					plugin.LogWarnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", Parameters.WaitToKillTime-timeSinceStart, processList)
+					plugin.LogWarnf("Received shutdown request - waiting (max %v) to finish processing %s...", (Parameters.WaitToKillTime - timeSinceStart).Truncate(time.Second), processList)
 				} else {
 					plugin.LogError("Background processes did not terminate in time! Forcing shutdown ...")
 					pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)

@@ -4,6 +4,7 @@
 package remotelogmetrics
 
 import (
+	"context"
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -61,15 +62,13 @@ func configure(_ *node.Plugin) {
 
 func run(plugin *node.Plugin) {
 	// create a background worker that update the metrics every second
-	if err := daemon.BackgroundWorker("Node State Logger Updater", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Node State Logger Updater", func(ctx context.Context) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 		// safely ignore the last execution when shutting down.
-		timeutil.NewTicker(func() {
-			checkSynced()
-		}, updateTime, shutdownSignal)
+		timeutil.NewTicker(func() { checkSynced() }, updateTime, ctx)
 
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
-		<-shutdownSignal
+		<-ctx.Done()
 	}, shutdown.PriorityRemoteLog); err != nil {
 		plugin.Panicf("Failed to start as daemon: %s", err)
 	}

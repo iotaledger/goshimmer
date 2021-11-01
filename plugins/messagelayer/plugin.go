@@ -1,6 +1,7 @@
 package messagelayer
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -49,7 +52,8 @@ type dependencies struct {
 	Local              *peer.Local
 	Discover           *discover.Protocol `optional:"true"`
 	Storage            kvstore.KVStore
-	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
+	Voter              vote.DRNGRoundBasedVoter    `optional:"true"`
+	RemoteLoggerConn   *remotelog.RemoteLoggerConn `optional:"true"`
 	ConsensusMechanism tangle.ConsensusMechanism
 }
 
@@ -155,8 +159,8 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
+	if err := daemon.BackgroundWorker("Tangle", func(ctx context.Context) {
+		<-ctx.Done()
 		deps.Tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
@@ -262,33 +266,17 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	defer deps.Tangle.Booker.Events.MessageBooked.Detach(closure)
 
 	// then issue the message with the tx
+	msg, err := f()
 
-	// channel to receive the result of issuance
-	issueResult := make(chan struct {
-		msg *tangle.Message
-		err error
-	}, 1)
-
-	go func() {
-		msg, err := f()
-		issueResult <- struct {
-			msg *tangle.Message
-			err error
-		}{msg: msg, err: err}
-	}()
-
-	// wait on issuance
-	result := <-issueResult
-
-	if result.err != nil || result.msg == nil {
-		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+	if err != nil || msg == nil {
+		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), err)
 	}
 
 	select {
 	case <-time.After(maxAwait):
 		return nil, ErrMessageWasNotBookedInTime
 	case <-booked:
-		return result.msg, nil
+		return msg, nil
 	}
 }
 
