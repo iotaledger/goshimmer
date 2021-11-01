@@ -89,7 +89,7 @@ func disconnected(handler interface{}, _ ...interface{}) {
 }
 
 func packetReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*pb.Packet))(params[1].(*pb.Packet))
+	handler.(func(*pb.Packet))(params[0].(*pb.Packet))
 }
 
 // ConnectionEstablished returns the connection established.
