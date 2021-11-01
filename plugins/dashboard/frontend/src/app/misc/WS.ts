@@ -21,7 +21,7 @@ export enum WSMsgType {
     MsgTypeMsgOpinionFormed,
     Chat,
     Conflict,
-    Branch,
+    Branch
 }
 
 export interface WSMessage {
