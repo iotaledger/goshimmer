@@ -262,6 +262,7 @@ func (b *boundedConflictMap) conflict(conflictID ledgerstate.ConflictID) (confli
 	conflict, exists = b.conflicts[conflictID]
 	return
 }
+
 func (b *boundedConflictMap) addConflict(c *conflict) {
 	if len(b.conflicts) >= Parameters.Conflicts.MaxCount {
 		element := heap.Pop(b.conflictHeap).(*timeHeapElement)
