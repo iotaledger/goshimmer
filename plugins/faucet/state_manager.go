@@ -39,11 +39,9 @@ const (
 	// MaxWaitAttempts defines the number of attempts taken while waiting for confirmation during funds preparation.
 	MaxWaitAttempts = 50
 
+	// minFaucetBalanceMultiplier defines the multiplier for the min token amount required, before the faucet stops operating.
 	minFaucetBalanceMultiplier = 0.1
 )
-
-// MinFaucetBalance defines the min token amount required, before the faucet stops operating.
-var MinFaucetBalance = uint64(minFaucetBalanceMultiplier * float64(Parameters.GenesisTokenAmount))
 
 // FaucetOutput represents an output controlled by the faucet.
 type FaucetOutput struct {
@@ -332,7 +330,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
 				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
-				if !ok || iotaBalance < MinFaucetBalance {
+				if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
 					return
 				}
 				if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
@@ -349,7 +347,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 		})
 	})
 	if foundRemainderOutput == nil {
-		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinFaucetBalance))
+		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)))
 	}
 	s.replenishmentState.SetRemainderOutput(foundRemainderOutput)
 
