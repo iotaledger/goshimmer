@@ -82,6 +82,7 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 }
 
 func TestScheduler_Discarded(t *testing.T) {
+	t.Skip("Skip test. Zero mana nodes are allowed to issue messages.")
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 

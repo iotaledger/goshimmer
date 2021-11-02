@@ -58,8 +58,8 @@ type Scheduler struct {
 
 // NewScheduler returns a new Scheduler.
 func NewScheduler(tangle *Tangle) *Scheduler {
-	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
-		panic("scheduler: the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
+	if tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc == nil || tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
+		panic("scheduler: the option AccessManaMapRetrieverFunc and AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	}
 
 	// maximum buffer size (in bytes)
@@ -253,10 +253,11 @@ func (s *Scheduler) submit(message *Message) error {
 
 	nodeID := identity.NewID(message.IssuerPublicKey())
 	nodeMana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
-	if nodeMana < MinMana {
-		s.Events.MessageDiscarded.Trigger(message.ID())
-		return schedulerutils.ErrInsufficientMana
-	}
+	// the following part is commented out to allow zero-mana nodes issue messages
+	//if nodeMana < MinMana {
+	//	s.Events.MessageDiscarded.Trigger(message.ID())
+	//	return schedulerutils.ErrInsufficientMana
+	//}
 
 	err := s.buffer.Submit(message, nodeMana)
 	if err != nil {
@@ -292,13 +293,12 @@ func (s *Scheduler) schedule() *Message {
 	}
 
 	getCachedMana := func(id identity.ID) float64 {
-		if mana, ok := manaCache[id]; ok {
+		if mana, ok := manaCache[id]; ok && mana >= MinMana {
 			return mana
 		}
-		// AccessManaRetrieveFunc always returns at least MinMana
-		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(id)
-		manaCache[id] = mana
-		return mana
+		// always return at least MinMana
+		manaCache[id] = MinMana
+		return manaCache[id]
 	}
 
 	var schedulingNode *schedulerutils.NodeQueue
@@ -363,9 +363,9 @@ func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
 	activeNodes := s.buffer.NumActiveNodes()
 	// remove nodes that don't have mana and have empty queue
 	// this allows nodes with zero mana to issue messages, however nodes will only accumulate their deficit
-	// when there are messages in node's queue
+	// when there are messages in the node's queue
 	for i := 0; i < activeNodes; i++ {
-		if nodeMana, exists := manaCache[currentNode.NodeID()]; (!exists || nodeMana < MinMana) && s.buffer.Current().Size() == 0 {
+		if nodeMana, exists := manaCache[currentNode.NodeID()]; (!exists || nodeMana < MinMana) && currentNode.Size() == 0 {
 			s.buffer.RemoveNode(currentNode.NodeID())
 			delete(s.deficits, currentNode.NodeID())
 			currentNode = s.buffer.Current()
