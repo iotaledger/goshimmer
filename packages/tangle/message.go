@@ -1263,14 +1263,22 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
-	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
-	ErrBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
-	ErrParentsOutOfRange                  = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
+	// ErrNoStrongParents is triggered if there no strong parents.
+	ErrNoStrongParents = errors.New("missing strong messages in first parent block")
+	// ErrBlocksNotOrderedByType is triggered when the blocks are not ordered by their type.
+	ErrBlocksNotOrderedByType = errors.New("blocks should be ordered in ascending order according to their type")
+	// ErrBlockTypeIsUnknown is triggered when the block type is unknown.
+	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
+	// ErrParentsOutOfRange is triggered when a block is out of range.
+	ErrParentsOutOfRange = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
+	// ErrParentsNotLexicographicallyOrdered is triggred when parents are not lexicographically ordered.
 	ErrParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
-	ErrRepeatingBlockTypes                = errors.New("block types within a message must not repeat")
-	ErrRepeatingReferencesInBlock         = errors.New("duplicate parents in a message block")
-	ErrRepeatingMessagesAcrossBlocks      = errors.New("different blocks have repeating messages")
+	// ErrRepeatingBlockTypes is triggered if there are repeating block types in the message.
+	ErrRepeatingBlockTypes = errors.New("block types within a message must not repeat")
+	// ErrRepeatingReferencesInBlock is triggered if there are duplicate parents in a message block.
+	ErrRepeatingReferencesInBlock = errors.New("duplicate parents in a message block")
+	// ErrRepeatingMessagesAcrossBlocks is triggered if there are duplicate messages in distinct blocks.
+	ErrRepeatingMessagesAcrossBlocks = errors.New("different blocks have repeating messages")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
