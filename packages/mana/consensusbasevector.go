@@ -206,14 +206,9 @@ func (c *ConsensusBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (r
 	c.Lock()
 	defer c.Unlock()
 	t = time.Now()
-	res = make(map[identity.ID]float64)
-	for ID := range c.vector {
-		var mana float64
-		mana, err = c.getMana(ID)
-		if err != nil {
-			return nil, t, err
-		}
-		res[ID] = mana
+	res = make(map[identity.ID]float64, len(c.vector))
+	for ID, val := range c.vector {
+		res[ID] = val.BaseValue()
 	}
 	return
 }

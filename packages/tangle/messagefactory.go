@@ -186,20 +186,21 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 }
 
 func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
-	if p.Type() == ledgerstate.TransactionType {
+	parents, err = f.selector.Tips(p, parentsCount)
 
+	if p.Type() == ledgerstate.TransactionType {
 		conflictingTransactions := f.tangle.LedgerState.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
 		if len(conflictingTransactions) != 0 {
 			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
 			case nil:
-				return MessageIDs{EmptyMessageID}, nil
+				return
 			default:
 				return earliestAttachment.ParentsByType(StrongParentType), nil
 			}
 		}
 	}
 
-	return f.selector.Tips(p, parentsCount)
+	return
 }
 
 func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.TransactionIDs) (earliestAttachment *Message) {

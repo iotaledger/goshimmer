@@ -3,6 +3,7 @@ package message
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -38,6 +40,28 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("messages/:messageID", GetMessage)
 	deps.Server.GET("messages/:messageID/metadata", GetMessageMetadata)
 	deps.Server.POST("messages/payload", PostPayload)
+
+	deps.Server.GET("messages/sequences/:sequenceID/markerindexbranchidmapping", GetMarkerIndexBranchIDMapping)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetMarkerIndexBranchIDMapping ////////////////////////////////////////////////////////////////////////////////
+
+// GetMarkerIndexBranchIDMapping is the handler for the /messages/sequences/:sequenceID/markerindexbranchidmapping endpoint.
+func GetMarkerIndexBranchIDMapping(c echo.Context) (err error) {
+	sequenceID, err := sequenceIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	if deps.Tangle.Storage.MarkerIndexBranchIDMapping(sequenceID).Consume(func(markerIndexBranchIDMapping *tangle.MarkerIndexBranchIDMapping) {
+		err = c.String(http.StatusOK, markerIndexBranchIDMapping.String())
+	}) {
+		return
+	}
+
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexBranchIDMapping of %s", sequenceID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -164,6 +188,16 @@ func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error
 	}
 
 	return
+}
+
+// sequenceIDFromContext determines the sequenceID from the sequenceID parameter in an echo.Context.
+func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
+	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
+	if err != nil {
+		return
+	}
+
+	return markers.SequenceID(sequenceIDInt), nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
