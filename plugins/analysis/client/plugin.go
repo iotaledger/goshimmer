@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -49,7 +50,7 @@ func run(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	conn = NewConnector("tcp", deps.Config.String(CfgServerAddress))
 
-	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		conn.Start()
 		defer conn.Stop()
 
@@ -57,7 +58,7 @@ func run(_ *node.Plugin) {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-shutdownSignal:
+			case <-ctx.Done():
 				return
 
 			case <-ticker.C:

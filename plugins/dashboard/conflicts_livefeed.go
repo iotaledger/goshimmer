@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"container/heap"
+	"context"
 	"math"
 	"sync"
 	"time"
@@ -104,7 +105,7 @@ func configureConflictLiveFeed() {
 }
 
 func runConflictLiveFeed() {
-	if err := daemon.BackgroundWorker("Dashboard[ConflictsLiveFeed]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Dashboard[ConflictsLiveFeed]", func(ctx context.Context) {
 		defer conflictsLiveFeedWorkerPool.Stop()
 
 		conflicts = &boundedConflictMap{
@@ -118,7 +119,7 @@ func runConflictLiveFeed() {
 		deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.AttachAfter(onBranchWeightChangedClosure)
 
-		<-shutdownSignal
+		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
 		deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)

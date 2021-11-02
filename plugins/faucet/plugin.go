@@ -124,30 +124,23 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		defer plugin.LogInfof("Stopping %s ... done", PluginName)
 
 		plugin.LogInfo("Waiting for node to become synced...")
-		if !waitUntilSynced(shutdownSignal) {
+		if !waitUntilSynced(ctx) {
 			return
 		}
 		plugin.LogInfo("Waiting for node to become synced... done")
 
 		plugin.LogInfo("Waiting for node to have sufficient access mana")
-		if err := waitForMana(shutdownSignal); err != nil {
+		if err := waitForMana(ctx); err != nil {
 			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
 		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
 
 		plugin.LogInfof("Deriving faucet state from the ledger...")
-
-		// TODO: refactor
-		ctx, ctxCancel := context.WithCancel(context.Background())
-		go func() {
-			defer ctxCancel()
-			<-shutdownSignal
-		}()
 
 		// determine state, prepare more outputs if needed
 		if err := _faucet.DeriveStateFromTangle(ctx); err != nil {
@@ -161,14 +154,14 @@ func run(plugin *node.Plugin) {
 
 		initDone.Store(true)
 
-		<-shutdownSignal
+		<-ctx.Done()
 		plugin.LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
 }
 
-func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
+func waitUntilSynced(ctx context.Context) bool {
 	synced := make(chan struct{}, 1)
 	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
 		if e.Synced {
@@ -191,17 +184,17 @@ func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
 	select {
 	case <-synced:
 		return true
-	case <-shutdownSignal:
+	case <-ctx.Done():
 		return false
 	}
 }
 
-func waitForMana(shutdownSignal <-chan struct{}) error {
+func waitForMana(ctx context.Context) error {
 	nodeID := deps.Tangle.Options.Identity.ID()
 	for {
 		// stop polling, if we are shutting down
 		select {
-		case <-shutdownSignal:
+		case <-ctx.Done():
 			return errors.New("faucet shutting down")
 		default:
 		}
