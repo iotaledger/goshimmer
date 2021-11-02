@@ -285,11 +285,11 @@ func (b *boundedConflictMap) addConflict(c *conflict) {
 }
 
 func (b *boundedConflictMap) resolveConflict(conflictID ledgerstate.ConflictID) {
-	if c, exists := conflicts.conflicts[conflictID]; exists && !c.Resolved {
+	if c, exists := b.conflicts[conflictID]; exists && !c.Resolved {
 		c.Resolved = true
 		c.TimeToResolve = clock.Since(c.ArrivalTime)
 		c.UpdatedTime = clock.SyncedTime()
-		conflicts.conflicts[conflictID] = c
+		b.conflicts[conflictID] = c
 		sendConflictUpdate(c)
 	}
 }
