@@ -16,7 +16,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 

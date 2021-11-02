@@ -14,7 +14,7 @@ import (
 	"github.com/libp2p/go-msgio/protoio"
 	"go.uber.org/atomic"
 
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 )
 
 const (
