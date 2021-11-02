@@ -3,8 +3,6 @@ package metrics
 import (
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
-
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 var (
@@ -44,7 +42,7 @@ type gossipTrafficMetric struct {
 }
 
 func gossipCurrentTraffic() (g gossipTrafficMetric) {
-	neighbors := gossip.Manager().AllNeighbors()
+	neighbors := deps.GossipMgr.AllNeighbors()
 
 	currentNeighbors := make(map[identity.ID]bool)
 	for _, neighbor := range neighbors {

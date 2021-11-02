@@ -1,56 +1,59 @@
 package client
 
 import (
-	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
 	// PluginName is the name of  the analysis client plugin.
-	PluginName = "Analysis-Client"
+	PluginName = "AnalysisClient"
 	// CfgServerAddress defines the config flag of the analysis server address.
 	CfgServerAddress = "analysis.client.serverAddress"
-	// defines the report interval of the reporting in seconds.
-	reportIntervalSec = 5
+	// defines the report interval of the reporting.
+	reportInterval = 5 * time.Second
 )
 
+type dependencies struct {
+	dig.In
+
+	Local     *peer.Local
+	Config    *configuration.Configuration
+	Selection *selection.Protocol `optional:"true"`
+}
+
 func init() {
-	flag.String(CfgServerAddress, "ressims.iota.cafe:21888", "tcp server for collecting analysis information")
+	flag.String(CfgServerAddress, "analysisentry-01.devnet.shimmer.iota.cafe:21888", "tcp server for collecting analysis information")
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 }
 
 var (
-	// plugin is the plugin instance of the analysis client plugin.
-	plugin *node.Plugin
-	once   sync.Once
+	// Plugin is the plugin instance of the analysis client plugin.
+	Plugin *node.Plugin
 	log    *logger.Logger
 	conn   *Connector
+	deps   = new(dependencies)
 )
-
-// Plugin gets the plugin instance
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, run)
-	})
-	return plugin
-}
 
 func run(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	conn = NewConnector("tcp", config.Node().String(CfgServerAddress))
+	conn = NewConnector("tcp", deps.Config.String(CfgServerAddress))
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		conn.Start()
 		defer conn.Stop()
 
-		ticker := time.NewTicker(reportIntervalSec * time.Second)
+		ticker := time.NewTicker(reportInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -58,7 +61,9 @@ func run(_ *node.Plugin) {
 				return
 
 			case <-ticker.C:
-				sendHeartbeat(conn, createHeartbeat())
+				if deps.Selection != nil {
+					sendHeartbeat(conn, createHeartbeat())
+				}
 				sendMetricHeartbeat(conn, createMetricHeartbeat())
 			}
 		}

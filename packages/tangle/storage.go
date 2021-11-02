@@ -61,6 +61,9 @@ const (
 
 	// cacheTime defines the number of seconds an object will wait in storage cache
 	cacheTime = 2 * time.Second
+
+	// approvalWeightCacheTime defines the number of seconds an object related to approval weight will wait in storage cache.
+	approvalWeightCacheTime = 20 * time.Second
 )
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,10 +103,10 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
 		Events: &StorageEvents{
@@ -144,10 +147,15 @@ func (s *Storage) StoreMessage(message *Message) {
 	cachedMessage := &CachedMessage{CachedObject: s.messageStorage.Store(message)}
 	defer cachedMessage.Release()
 
-	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
+	})
+	// We treat like parents as strong approvers as they have the same meaning in terms of solidification.
+	message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
+		if cachedObject, likeStored := s.approverStorage.StoreIfAbsent(NewApprover(StrongApprover, parentMessageID, messageID)); likeStored {
+			cachedObject.Release()
+		}
 	})
 	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
 		s.approverStorage.Store(NewApprover(WeakApprover, parentMessageID, messageID)).Release()
@@ -459,8 +467,7 @@ func (s *Storage) Prune() error {
 // DBStats returns the number of solid messages and total number of messages in the database (messageMetadataStorage,
 // that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
 // the average time it takes to solidify messages.
-func (s *Storage) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64, missingMessageCount int) {
-	var sumSolidificationTime time.Duration
+func (s *Storage) DBStats() (solidCount, messageCount int, sumSolidificationTime int64, missingMessageCount int) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			msgMetaData := object.(*MessageMetadata)
@@ -468,14 +475,12 @@ func (s *Storage) DBStats() (solidCount int, messageCount int, avgSolidification
 			received := msgMetaData.ReceivedTime()
 			if msgMetaData.IsSolid() {
 				solidCount++
-				sumSolidificationTime += msgMetaData.solidificationTime.Sub(received)
+				sumSolidificationTime += msgMetaData.solidificationTime.Sub(received).Milliseconds()
 			}
 		})
 		return true
 	})
-	if solidCount > 0 {
-		avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
-	}
+
 	s.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			missingMessageCount++

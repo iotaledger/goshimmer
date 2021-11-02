@@ -1,3 +1,14 @@
+---
+description: Tools API allows retrieving technical info about the state of the node.
+image: /img/logo/goshimmer_light.png
+keywords:
+- client library
+- HTTP API
+- tools
+- message
+- past cone
+- diagnostic
+---
 # Tools API Methods
 
 Tools API allows retrieving technical info about the state of the node.

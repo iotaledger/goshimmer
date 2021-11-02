@@ -1,3 +1,14 @@
+---
+description: The communication layer represents the base Tangle layer where so called `Messages` are gossiped around. A `Message` contains payloads, and it is up to upper layers to interpret and derive functionality out of them.
+image: /img/logo/goshimmer_light.png
+keywords:
+- client library
+- HTTP API
+- message
+- encoded message id
+- consensus
+- payload
+---
 # Communication Layer APIs
 
 The communication layer represents the base Tangle layer where so called `Messages` are gossiped around. A `Message` contains payloads and it is up to upper layers to interpret and derive functionality out of them.
@@ -52,7 +63,7 @@ fmt.Println(string(message.Payload))
 
 Note that we're getting actual `Message` objects from this call which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that this will also return messages which contain a transactions or DRNG payloads.
 
-#### Response examples
+### Response Examples
 
 ```json
 {
@@ -76,7 +87,7 @@ Note that we're getting actual `Message` objects from this call which represent 
 }
 ```
 
-#### Results
+### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -128,7 +139,7 @@ if err != nil {
 fmt.Println(string(message.Finalized))
 ```
 
-#### Response examples
+### Response Examples
 
 ```json
 {
@@ -164,7 +175,7 @@ fmt.Println(string(message.Finalized))
 }
 ```
 
-#### Results
+### Results
 
 |Return field | Type | Description|
 |:-----|:------|:------|
@@ -228,7 +239,7 @@ if err != nil {
 ```
 Note that there is no need to do any additional work, since things like tip-selection, PoW and other tasks are done by the node itself.
 
-### Response examples
+### Response Examples
 
 ```json
 {
@@ -286,7 +297,7 @@ helloPayload := payload.NewData([]byte{"Hello GoShimmer World!"})
 messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 ```
 
-### Response examples
+### Response Examples
 
 ```shell
 {

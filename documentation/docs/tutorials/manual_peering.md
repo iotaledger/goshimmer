@@ -1,3 +1,16 @@
+---
+description: Manual peering enables node operators to exchange their nodes' information and let them peer with each other, orthogonal to autopeering.
+image: /img/logo/goshimmer_light.png
+keywords:
+- peering
+- manual
+- node 
+- node operator
+- known peer
+- json config
+- web api
+- public key
+---
 # Manual Peering
 
 Manual peering enables node operators to exchange their nodes' information and let them peer with each other, orthogonal to autopeering. It can be an additional protection against eclipse attacks as the manual peering is completely in the hands of the node operator based on real world trust. Furthermore, it allows to operate nodes without exposing their IP address to the network.
@@ -38,7 +51,7 @@ Add the following record to the root of your JSON config file that you are using
 | `publicKey` | Public key of the peer. |
 | `address`   | IP address of the peer's node and its gossip port. |
 
-## How to manage Known Peers via web API
+## How to Manage Known Peers Via Web API
 
 See manual peering API docs [page](../apis/manual_peering.md)
 for information on how to manage the known peers list via web API.

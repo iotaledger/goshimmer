@@ -16,14 +16,19 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --autopeering.entryNodes=
+      --node.overwriteStoredSeed=true
+      --autoPeering.entryNodes=
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
-      --analysis.dashboard.manaAddress="http://{{ manaDashboardHost }}:9001"
+      --analysis.dashboard.mongodb.enabled=true
+      --analysis.dashboard.mongodb.hostAddress={{ mongoDBHost }}:27117
+      --analysis.dashboard.mongodb.username="{{ mongoDBUser }}"
+      --analysis.dashboard.mongodb.password="{{ mongoDBPassword }}"
+      --analysis.dashboard.manaDashboardAddress="http://{{ manaDashboardHost }}:9001"
       --prometheus.bindAddress=0.0.0.0:9312
       --metrics.local=false
       --metrics.global=true
-      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=autopeering,portcheck,dashboard,analysis-client,gossip,consensus,drng,issuer,syncbeaconfollower,messagelayer,mana,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus
+      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint
       --logger.level=debug

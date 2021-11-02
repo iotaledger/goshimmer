@@ -1,4 +1,18 @@
+---
+description: The ledgerstate API provides endpoints to retrieve address details, unspent outputs for an address, get branch details, and list child branches amongst others.
+image: /img/logo/goshimmer_light.png
+keywords:
+- client library
+- HTTP API
+- addresses
+- branches
+- outputs
+- transactions
+- UTXO
+- unspent outputs
+---
 # Ledgerstate API Methods 
+
 ## HTTP APIs:
 
 * [/ledgerstate/addresses/:address](#ledgerstateaddressesaddress)
@@ -18,6 +32,7 @@
 
 
 ## Client Lib APIs:
+
 * [GetAddressOutputs()](#client-lib---getaddressoutputs)
 * [GetAddressUnspentOutputs()](#client-lib---getaddressunspentoutputs)
 * [GetBranch()](#client-lib---getbranch)
@@ -34,6 +49,7 @@
 * [PostAddressUnspentOutputs()](#client-lib---postaddressunspentoutputs)
 
 ## `/ledgerstate/addresses/:address`
+
 Get address details for a given base58 encoded address ID, such as output types and balances. For the client library API call balances will not be directly available as values because they are stored as a raw message. Balance can be read after retrieving `ledgerstate.Output` instance, as presented in the examples.
 
 ### Parameters
@@ -71,7 +87,7 @@ for _, output := range resp.Outputs {
 }
 ```
 
-### Response examples
+### Response Examples
 ```json
 {
     "address": {
@@ -167,7 +183,7 @@ for _, output := range resp.Outputs {
     out, err = output.ToLedgerstateOutput()
 }
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "address": {
@@ -260,7 +276,7 @@ fmt.Println("branch parents IDs: ", resp.Parents)
 fmt.Println("branch conflicts IDs: ", resp.ConflictIDs)
 fmt.Printf("liked: %v, finalized: %v, monotonically liked: %v", resp.Liked, resp.Finalized, resp.MonotonicallyLiked)
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "id": "5v6iyxKUSSF73yoZa6YngNN5tqoX8hJQWKGXrgcz3XTg",
@@ -329,7 +345,7 @@ for _, branch := range resp.ChildBranches {
 }
 ```
 
-### Response examples
+### Response Examples
 ```json
 {
     "branchID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
@@ -397,7 +413,7 @@ for _, branch := range resp.Conflicts {
     fmt.Printf("related branches: %v\n", branch.BranchIDs)
 }
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "branchID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
@@ -522,7 +538,7 @@ fmt.Println("outputID: ", resp.OutputID.Base58)
 fmt.Println("output type: ", resp.Type)
 fmt.Println("transactionID: ", resp.OutputID.TransactionID)
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "outputID": {
@@ -593,7 +609,7 @@ for _, consumer := range resp.Consumers {
     fmt.Println("valid: ", consumer.Valid)
 }
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "outputID": {
@@ -675,7 +691,7 @@ fmt.Println("number of consumers: ", resp.ConsumerCount)
 fmt.Printf("finalized: %v, solid: %v\n", resp.Finalized, resp.Solid)
 fmt.Println("solidification time: ",  time.Unix(resp.SolidificationTime, 0))
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "outputID": {
@@ -755,7 +771,7 @@ for _, output := range resp.Outputs{
 fmt.Println("access mana pledgeID:", resp.AccessPledgeID)
 fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "version": 0,
@@ -885,7 +901,7 @@ fmt.Println("branchID:", resp.BranchID)
 fmt.Printf("branch lazy booked: %v, solid: %v, finalized: %v\n", resp.LazyBooked, resp.Solid, resp.Finalized)
 fmt.Println("solidification time:",  time.Unix(resp.SolidificationTime, 0))
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "transactionID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
@@ -940,7 +956,7 @@ for _, msgID := range resp.MessageIDs {
     fmt.Println(msgID)
 }
 ```
-### Response examples
+### Response Examples
 ```json
 {
     "transactionID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
@@ -1024,7 +1040,7 @@ for _, outputs := range resp.UnspentOutputs {
 }
 ```
 
-### Response examples
+### Response Examples
 
 ```json
 {

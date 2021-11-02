@@ -60,7 +60,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysis-client", "profiling", "clock"}
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock"}
 
 	c.Network.Enabled = true
 
@@ -68,17 +68,16 @@ func PeerConfig() config.GoShimmer {
 	c.Database.ForceCacheTime = 0 // disable caching for tests
 
 	c.Gossip.Enabled = true
-	c.Gossip.Port = gossipPort
 
 	c.POW.Enabled = true
-	c.POW.Difficulty = 2
+	c.POW.Difficulty = 1
 
-	c.Webapi.Enabled = true
-	c.Webapi.BindAddress = fmt.Sprintf(":%d", apiPort)
+	c.WebAPI.Enabled = true
+	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
 
-	c.Autopeering.Enabled = false
-	c.Autopeering.Port = peeringPort
-	c.Autopeering.EntryNodes = nil
+	c.AutoPeering.Enabled = false
+	c.AutoPeering.BindAddress = fmt.Sprintf(":%d", peeringPort)
+	c.AutoPeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
 	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeed))
@@ -86,16 +85,16 @@ func PeerConfig() config.GoShimmer {
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeed)
-	c.Faucet.PowDifficulty = 3
-	c.PreparedOutputsCount = 10
+	c.Faucet.PowDifficulty = 1
+	c.Faucet.SupplyOutputsCount = 4
+	c.Faucet.SplittingMultiplier = 4
 
 	c.Mana.Enabled = true
 
 	c.Consensus.Enabled = false
 
 	c.Activity.Enabled = false
-	c.BroadcastIntervalSec = 1 // increase frequency to speedup tests
-	c.DelayOffset = 1
+	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
 
 	c.DRNG.Enabled = false
 
@@ -106,9 +105,12 @@ func PeerConfig() config.GoShimmer {
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
-	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus")
+	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus", "manarefresher", "manualpeering", "chat",
+		"WebAPIDataEndpoint", "WebAPIDRNGEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "Snapshot", "WebAPIToolsDRNGEndpoint",
+		"WebAPIToolsMessageEndpoint", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint")
 	c.Gossip.Enabled = false
-	c.Autopeering.Enabled = true
+	c.POW.Enabled = false
+	c.AutoPeering.Enabled = true
 	c.MessageLayer.Enabled = false
 	c.Faucet.Enabled = false
 	c.Mana.Enabled = false

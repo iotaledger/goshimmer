@@ -1,0 +1,27 @@
+#!/bin/bash
+
+HTTP_STS_CODE="$(/usr/bin/curl -s -o /dev/null -w '%{http_code}\n' http://ressims.iota.cafe:9101/healthz)"
+LATEST_SNAPSHOT="http://127.0.0.1:9101/snapshot"
+DRIVE=/tmp/BACKUPS
+
+if [[ $HTTP_STS_CODE -eq 200 ]]; then
+
+  DATE=$(date -u +%FT%TZ)
+
+  mkdir -p $DRIVE
+  cd ${DRIVE}
+
+  echo 'Downloading latest snapshot...'
+  time wget -O snapshot.bin $LATEST_SNAPSHOT
+
+  echo 'Uploading database to S3...'
+  aws s3 cp $DRIVE/snapshot.bin s3://{{ snapshotterBucket }}/snapshots/nectar/automated/$DATE-snapshot.bin --acl public-read
+  aws s3 cp s3://{{ snapshotterBucket }}/snapshots/nectar/automated/$DATE-snapshot.bin s3://dbfiles-goshimmer/snapshots/nectar/automated/latest-snapshot.bin --acl public-read
+
+  echo 'Cleaning up...'
+  rm -rf $DRIVE/*.bin
+
+else
+  echo 'Node is NOT SYNCED: stopping here...'
+  exit 1
+fi

@@ -3,21 +3,20 @@ package config
 import (
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+	"go.uber.org/dig"
 )
 
 // PluginName is the name of the config plugin.
 const PluginName = "Config"
 
 var (
-	// plugin is the plugin instance of the config plugin.
-	plugin     *node.Plugin
-	pluginOnce sync.Once
+	// Plugin is the plugin instance of the config plugin.
+	Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
 
 	// flags
 	defaultConfigName   = "config.json"
@@ -25,37 +24,16 @@ var (
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// Node is viper
-	_node    *configuration.Configuration
-	nodeOnce sync.Once
+	_node = configuration.New()
 )
 
 // Init triggers the Init event.
-func Init() {
-	plugin.Events.Init.Trigger(plugin)
-}
-
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled)
-	})
-	return plugin
-}
-
-// Node gets the node.
-func Node() *configuration.Configuration {
-	nodeOnce.Do(func() {
-		_node = configuration.New()
-	})
-	return _node
+func Init(container *dig.Container) {
+	Plugin.Events.Init.Trigger(Plugin, container)
 }
 
 func init() {
-	// set the default logger config
-	_node = Node()
-	plugin = Plugin()
-
-	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present
@@ -65,6 +43,12 @@ func init() {
 				// daemon is not running yet, so we just exit
 				os.Exit(1)
 			}
+			panic(err)
+		}
+
+		if err := container.Provide(func() *configuration.Configuration {
+			return _node
+		}); err != nil {
 			panic(err)
 		}
 	}))

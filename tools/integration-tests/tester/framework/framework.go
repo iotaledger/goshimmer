@@ -66,6 +66,19 @@ type CfgAlterFunc func(peerIndex int, cfg config.GoShimmer) config.GoShimmer
 // CreateNetwork creates and returns a network that contains numPeers GoShimmer peers.
 // It blocks until all peers are connected.
 func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int, conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
+	network, err := f.CreateNetworkNoAutomaticManualPeering(ctx, name, numPeers, conf, cfgAlterFunc...)
+	if err == nil && !conf.Autopeering {
+		err = network.DoManualPeering(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "manual peering failed")
+		}
+	}
+
+	return network, err
+}
+
+func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, name string, numPeers int,
+	conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
 	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
@@ -92,11 +105,6 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 		err = network.WaitForPeerDiscovery(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "peer discovery failed")
-		}
-	} else {
-		err = network.DoManualPeering(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "manual peering failed")
 		}
 	}
 
@@ -202,6 +210,7 @@ func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, numMembe
 	}
 
 	conf := PeerConfig()
+	conf.Activity.Enabled = true
 	conf.DRNG.Enabled = true
 	conf.DRNG.Custom.InstanceID = 111
 	conf.DRNG.Custom.Threshold = 3

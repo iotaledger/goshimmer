@@ -9,8 +9,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 	"github.com/markbates/pkger"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.
@@ -62,7 +60,7 @@ func indexRoute(e echo.Context) error {
 }
 
 func setupRoutes(e *echo.Echo) {
-	if config.Node().Bool("dashboard.dev") {
+	if Parameters.Dev {
 		e.Static("/assets", "./plugins/dashboard/frontend/src/assets")
 	} else {
 		// load assets from pkger: either from within the binary or actual disk

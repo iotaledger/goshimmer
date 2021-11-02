@@ -3,7 +3,6 @@ package prometheus
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
@@ -22,8 +21,8 @@ func registerInfoMetrics() {
 		},
 		[]string{"name", "version", "nodeID"},
 	)
-	if local.GetInstance() != nil {
-		nodeID = local.GetInstance().ID().String()
+	if deps.Local != nil {
+		nodeID = deps.Local.ID().String()
 	}
 	infoApp.WithLabelValues(banner.AppName, banner.AppVersion, nodeID).Set(1)
 

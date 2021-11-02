@@ -1,5 +1,18 @@
-# Code guidelines
-## General guidelines
+---
+description: Code guidelines on how to contribute to the GoShimmer project.   
+image: /img/logo/goshimmer_light.png
+keywords:
+- error
+- function call
+- stack trace
+- assign error
+- explicit constant
+- sentinel error
+- 3rd party libs
+---
+# Code Guidelines
+
+## General Guidelines
 
 - Don’t use `log.Fatal()` or `os.Exit()` outside of the main. It immediately terminates the program and all defers are ignored and no graceful shutdown is possible. It can lead to inconsistencies. Propagate the error up to the main and let the main function exit instead. Avoid panics as well, almost always use errors. [Example](https://github.com/iotaledger/goshimmer/blob/f75ce47eeaa3bf930b368754ac24b72f768a5964/plugins/autopeering/autopeering.go#L135).
 - Don’t duplicate code, reuse it. In tests too. Example: [duplicate1](https://github.com/iotaledger/goshimmer/blob/f75ce47eeaa3bf930b368754ac24b72f768a5964/packages/ledgerstate/branch_dag.go#L969) and [duplicate2](https://github.com/iotaledger/goshimmer/blob/f75ce47eeaa3bf930b368754ac24b72f768a5964/packages/ledgerstate/branch_dag.go#L1053)
@@ -24,7 +37,7 @@
 - Don’t write really long and complex functions. Split them into smaller ones.
 - Treat comments as regular text/documentation. Start with a capital letter, set space after `//` and end them with a dot. It’s a good habit since Go package docs are generated automatically from the comments and displayed on the godoc site.
 
-## Error handling
+## Error Handling
 
 We use the new error wrapping API and behavior introduced with Go 1.13 but we use the "github.com/cockroachdb/errors" drop-in replacement which follows the Go 2 design draft and which enables us to have a stack trace for every "wrapping" of the error.
 

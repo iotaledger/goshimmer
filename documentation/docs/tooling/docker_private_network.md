@@ -1,11 +1,23 @@
-# Docker private network
+---
+description: GoShimmer provides a tool at `tools/docker-network` with which a local test network can be set up locally with docker.
+image: /img/tooling/docker-network.png
+keywords:
+- docker 
+- docker network
+- dashboard
+- web api
+- host system
+- port
+- docker compose
+- analysis dashboard
+---
+# Docker Private Network
 
 We provide a tool at `tools/docker-network` with which a local test network can be set up locally with docker. 
  
-![Docker network](/img/tooling/docker-network.png "Docker network")
+[![Docker network](/img/tooling/docker-network.png "Docker network")](/img/tooling/docker-network.png)
 
-
-## How to use the tool
+## How to Use the Tool
 
 In the docker network run for example
 ```shell
@@ -27,7 +39,8 @@ while the analysis and visualizer dashboard, as well as the `peer_master's` dash
 
 The settings for the different containers (`peer_master`, `peer_replica`) can be modified in `docker-compose.yml`.
 
-## How to use as development tool
+## How to Use as Development Tool
+
 Using a standalone throwaway Docker network can be really helpful as a development tool. 
 
 Prerequisites: 
@@ -45,12 +58,13 @@ It is therefore possible to send messages to the local network via the `peer_mas
 docker logs --follow CONTAINERNAME
 ```
 
-## Snapshot tool
+## Snapshot Tool
+
 A snapshot tool is provided in the tools folder. The snapshot file that is created must be moved into the `integration-tests/assets` folder. There, rename and replace the existing bin file (`7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`). After restarting the docker network the snapshot file will be loaded.
 
 Docker Compose uses the `SNAPSHOT_FILE` environment variable to determine the location of the snapshot. Once you have a new snapshot you can simply set `SNAPSHOT_FILE` to the location of your new snapshot and Docker Compose will use your snapshot the next time you run `docker-compose up`.
 
-## How to use message approval check tool
+## How to Use Message Approval Check Tool
 
 `get_approval_csv.sh` script helps you conveniently trigger the message approval checks on all nodes in the docker
 network, and gather their results in the `csv` folder.
@@ -77,7 +91,7 @@ csv
 ```
 Note, that the record length of the files might differ, since the approval check execution time of the nodes might differ.
 
-## Spammer tool
+## Spammer Tool
 
 The Spammer tool lets you add messages to the tangle when running GoShimmer in a Docker network.
 In order to start the spammer, you need to send GET requests to a `/spammer` API endpoint with the following parameters:
@@ -96,7 +110,7 @@ http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform
 http://localhost:8080/spammer?cmd=stop
 ```
 
-## Tangle width
+## Tangle Width
 
 When running GoShimmer locally in a Docker network, the network delay is so small that only 1 tip will be available most of the time. 
 In order to artificially create a tangle structure with multiple tips you can add a `messageLayer.tangleWidth` property to [config.docker.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/config.docker.json)
@@ -111,7 +125,7 @@ Here is an example config that can be added:
   }}
 ```
 
-## Running with `docker-compose` directly
+## Running With `docker-compose` Directly
 
 To get an instance up and running on your machine make sure you have [Docker Compose](https://docs.docker.com/compose/install/) installed.
 
@@ -123,7 +137,7 @@ docker-compose --profile drng --profile grafana up -d
 
 > Note: Docker will build the GoShimmer image which can take several minutes.
 
-### Base components
+### Base Components
 
 These services that are created by default with `docker-compose up -d`.
 
@@ -179,7 +193,7 @@ The following ports are exposed on the host to allow for interacting with the Ta
 | 8081/tcp | Dashboard | 
 <!-- The dashboard has issues displaying on the master peer when the 2.0 DevNet dashboard is running so we display the dashboard on the faucet -->
 
-### Optional components
+### Optional Components
 
 These services can be added to your deployment through `--profile` flags and can be configured with `ENVIRONMENT_VARIABLES`.
 

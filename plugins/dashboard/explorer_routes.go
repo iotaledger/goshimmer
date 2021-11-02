@@ -43,6 +43,7 @@ type ExplorerMessage struct {
 	// Solid defines the solid status of the message.
 	Solid               bool                `json:"solid"`
 	BranchID            string              `json:"branchID"`
+	MetadataBranchID    string              `json:"metadataBranchID"`
 	Scheduled           bool                `json:"scheduled"`
 	ScheduledBypass     bool                `json:"scheduledBypass"`
 	Booked              bool                `json:"booked"`
@@ -65,11 +66,11 @@ type ExplorerMessage struct {
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
-	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
+	cachedMessageMetadata := deps.Tangle.Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
 
-	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
 	if err != nil {
 		branchID = ledgerstate.BranchID{}
 	}
@@ -83,10 +84,11 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
 		ParentsByType:           prepareParentReferences(msg),
-		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
-		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
+		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
+		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
 		BranchID:                branchID.Base58(),
+		MetadataBranchID:        messageMetadata.BranchID().Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		ScheduledBypass:         messageMetadata.ScheduledBypass(),
 		Booked:                  messageMetadata.IsBooked(),
@@ -216,7 +218,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+	if !deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		explorerMsg = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.Base58())
@@ -234,19 +236,19 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
-	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	deps.Tangle.LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
 		var timestamp int64
 
 		// get output metadata + grade of finality status from branch of the output
-		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
 
-		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			timestamp = transaction.Essence().Timestamp().Unix()
 		})
 
@@ -254,7 +256,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
 		// obtain information about the consumer of the output being considered
-		confirmedConsumerID := messagelayer.Tangle().LedgerState.ConfirmedConsumer(output.ID())
+		confirmedConsumerID := deps.Tangle.LedgerState.ConfirmedConsumer(output.ID())
 
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),

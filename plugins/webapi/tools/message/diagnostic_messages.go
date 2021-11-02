@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // DiagnosticMessagesHandler runs the diagnostic over the Tangle.
@@ -58,7 +57,7 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) (err error) {
 		startRank = rank[0]
 	}
 	var writeErr error
-	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
 		messageInfo := getDiagnosticMessageInfo(messageID)
 
 		if messageInfo.Rank >= startRank {
@@ -68,7 +67,7 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) (err error) {
 			}
 		}
 
-		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
@@ -93,7 +92,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 		return errors.Errorf("failed to write table description row: %w", err)
 	}
 	var writeErr error
-	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
 		messageInfo := getDiagnosticMessageInfo(messageID)
 
 		if len(messageInfo.WeakApprovers) > 0 {
@@ -102,7 +101,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 				return
 			}
 
-			messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 				message.ForEachParent(func(parent tangle.Parent) {
 					parentMessageInfo := getDiagnosticMessageInfo(parent.ID)
 					if err := csvWriter.Write(parentMessageInfo.toCSVRow()); err != nil {
@@ -116,7 +115,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 			return
 		}
 
-		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			if approver.Type() == tangle.StrongApprover {
 				walker.Push(approver.ApproverMessageID())
 			}
@@ -209,7 +208,7 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		ID: messageID.Base58(),
 	}
 
-	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		msgInfo.IssuanceTimestamp = message.IssuingTime()
 		msgInfo.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
 		msgInfo.IssuerPublicKey = message.IssuerPublicKey().String()
@@ -223,11 +222,11 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		}
 	})
 
-	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
 	if err != nil {
 		branchID = ledgerstate.BranchID{}
 	}
-	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
+	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
 		msgInfo.BranchID = branchID.String()
@@ -251,8 +250,8 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		}
 	}, false)
 
-	msgInfo.StrongApprovers = messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover)
-	msgInfo.WeakApprovers = messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover)
+	msgInfo.StrongApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover)
+	msgInfo.WeakApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover)
 
 	return msgInfo
 }

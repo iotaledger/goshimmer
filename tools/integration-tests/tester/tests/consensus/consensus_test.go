@@ -33,6 +33,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		peer2Pledged                         = 400000.0                                       // 20%
 		actualGenesisTokenAmount      uint64 = 800000                                         // 40%
 		expectedCManaNode1AfterTxConf        = peer1Pledged + float64(actualGenesisTokenAmount)
+		numberOfConflictingTxs               = 10
 	)
 
 	var (
@@ -51,23 +52,23 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, "test_simple_double_spend", 2, framework.CreateNetworkConfig{
-		StartSynced: true,
-		Faucet:      false,
-		Activity:    false,
-	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-		cfg.MessageLayer.Snapshot.File = "/assets/consensus_intgr_snapshot.bin"
-		cfg.UseNodeSeedAsWalletSeed = true
-		switch peerIndex {
-		case 0:
-			cfg.Autopeering.Seed = "base58:" + peer1SeedBase58
-			cfg.Seed = peer1IdentSeed
-		case 1:
-			cfg.Autopeering.Seed = "base58:" + peer2SeedBase58
-			cfg.Seed = peer2IdentSeed
-		}
-		return cfg
-	})
+	n, err := f.CreateNetworkNoAutomaticManualPeering(ctx, "test_simple_double_spend", 2,
+		framework.CreateNetworkConfig{
+			StartSynced: true,
+			Faucet:      false,
+			Activity:    false,
+			Autopeering: false,
+		}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+			cfg.MessageLayer.Snapshot.File = "/assets/consensus_intgr_snapshot.bin"
+			cfg.UseNodeSeedAsWalletSeed = true
+			switch peerIndex {
+			case 0:
+				cfg.Seed = peer1IdentSeed
+			case 1:
+				cfg.Seed = peer2IdentSeed
+			}
+			return cfg
+		})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -77,26 +78,34 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 		genesis1Wallet = createGenesisWallet(node1)
 		genesis2Wallet = createGenesisWallet(node2)
-
-		// 1G4a9TMsLE59BUbe76dacsFG63Ue2KN14orS5g4rPeNiK
-		node1TargetAddr = node1.Seed.Address(1)
-		// 1B64FizyBfUuycSKmAFADRiZo22SJj5pWrXoYvfY78q7L
-		node2TargetAddr = node2.Seed.Address(1)
 	)
 
 	// check consensus mana
 	require.EqualValues(t, peer1Pledged, tests.Mana(t, node1).Consensus)
 	require.EqualValues(t, peer2Pledged, tests.Mana(t, node2).Consensus)
 
-	// send conflicting txs on both
-	tx1 := sendConflictingTx(t, genesis1Wallet, node1TargetAddr, actualGenesisTokenAmount, node1, gof.Medium)
-	tx2 := sendConflictingTx(t, genesis2Wallet, node2TargetAddr, actualGenesisTokenAmount, node2, gof.Low)
+	txs1 := []*ledgerstate.Transaction{}
+	txs2 := []*ledgerstate.Transaction{}
+	// send transactions on the seperate partitions
+	for i := 0; i < numberOfConflictingTxs; i++ {
+		t.Logf("issuing conflict %d", i+1)
+		// This builds transactions that move the genesis funds on the first partition.
+		// Funds move from address 1 -> address 2 -> address 3...
+		txs1 = append(txs1, sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(i+1)), actualGenesisTokenAmount, node1, gof.Medium))
+		t.Logf("issuing other conflict %d", i+1)
+		// This builds transactions that move the genesis funds on the second partition
+		txs2 = append(txs2, sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(i+1)), actualGenesisTokenAmount, node2, gof.Low))
+	}
+
+	// merge partitions
+	err = n.DoManualPeering(ctx)
+	require.NoError(t, err)
 
 	// conflicting txs should have spawned branches
 	require.Eventually(t, func() bool {
-		res1, err := node1.GetTransactionMetadata(tx1.ID().Base58())
+		res1, err := node1.GetTransactionMetadata(txs1[0].ID().Base58())
 		require.NoError(t, err)
-		res2, err := node2.GetTransactionMetadata(tx2.ID().Base58())
+		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
 		return res1.BranchID != ledgerstate.MasterBranchID.String() &&
 			res2.BranchID != ledgerstate.MasterBranchID.String()
@@ -106,17 +115,18 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	// attachments' GoF. if msgs would only be issued on node 2 or 1, they weight would never surpass 50%.
 	tests.SendDataMessages(t, n.Peers(), 50)
 
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), tests.ExpectedTxsStates{
-		tx1.ID().Base58(): {
-			GradeOfFinality: tests.GoFPointer(gof.High),
-			Solid:           tests.True(),
-		},
-		tx2.ID().Base58(): {
-			GradeOfFinality: tests.GoFPointer(gof.None),
-			Solid:           tests.True(),
-		},
-	}, time.Minute, tests.Tick)
-
+	for i := 0; i < numberOfConflictingTxs; i++ {
+		tests.RequireGradeOfFinalityEqual(t, n.Peers(), tests.ExpectedTxsStates{
+			txs1[i].ID().Base58(): {
+				GradeOfFinality: tests.GoFPointer(gof.High),
+				Solid:           tests.True(),
+			},
+			txs2[i].ID().Base58(): {
+				GradeOfFinality: tests.GoFPointer(gof.None),
+				Solid:           tests.True(),
+			},
+		}, time.Minute, tests.Tick)
+	}
 	require.Eventually(t, func() bool {
 		return expectedCManaNode1AfterTxConf == tests.Mana(t, node1).Consensus
 	}, tests.Timeout, tests.Tick)
@@ -127,7 +137,7 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 		sendoptions.Destination(targetAddr, actualGenesisTokenAmount),
 		sendoptions.ConsensusManaPledgeID(base58.Encode(node.ID().Bytes())),
 		sendoptions.AccessManaPledgeID(base58.Encode(node.ID().Bytes())),
-	)
+		sendoptions.UsePendingOutputs(true))
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {

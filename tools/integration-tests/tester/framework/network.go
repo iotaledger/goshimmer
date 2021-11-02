@@ -57,7 +57,9 @@ func NewNetwork(ctx context.Context, dockerClient *client.Client, name string, t
 
 // Peers returns all available peers in the network.
 func (n *Network) Peers() []*Node {
-	return n.peers
+	peersCopy := make([]*Node, len(n.peers))
+	copy(peersCopy, n.peers)
+	return peersCopy
 }
 
 // CreatePeer creates and returns a new GoShimmer peer.
@@ -315,8 +317,8 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 		conf.MessageLayer.StartSynced = true
 	}
 	if networkConfig.Autopeering {
-		conf.Autopeering.Enabled = true
-		conf.Autopeering.EntryNodes = []string{
+		conf.AutoPeering.Enabled = true
+		conf.AutoPeering.EntryNodes = []string{
 			fmt.Sprintf("%s@%s:%d", base58.Encode(n.entryNode.Identity.PublicKey().Bytes()), n.entryNode.Name(), peeringPort),
 		}
 	}
