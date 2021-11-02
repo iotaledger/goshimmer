@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
@@ -16,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -24,15 +26,25 @@ import (
 
 // TestValueTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
 func TestValueTransactionPersistence(t *testing.T) {
+
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	for i, p := range n.Peers() {
+		resp, _ := p.Info()
+		t.Logf("node %d mana: %v acc %v\n", i, resp.Mana.Consensus, resp.Mana.Access)
+	}
+	// check consensus mana
+	for i, peer := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	}
 
 	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
 	tokensPerRequest := uint64(faucet.Config().Faucet.TokensPerRequest)
@@ -97,9 +109,14 @@ func TestValueAliasPersistence(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	// check consensus mana
+	for i, peer := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	}
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
@@ -164,9 +181,14 @@ func TestValueAliasDelegation(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	// check consensus mana
+	for i, peer := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	}
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
@@ -300,4 +322,9 @@ func (s simpleWallet) unlockBlocks(txEssence *ledgerstate.TransactionEssence) []
 		unlockBlocks[i] = unlockBlock
 	}
 	return unlockBlocks
+}
+
+func createGenesisWallet(node *framework.Node) *wallet.Wallet {
+	webConn := wallet.GenericConnector(wallet.NewWebConnector(node.BaseURL()))
+	return wallet.New(wallet.Import(walletseed.NewSeed(framework.GenesisSeed), 0, []bitmask.BitMask{}, nil), webConn)
 }

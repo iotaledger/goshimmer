@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
@@ -34,6 +35,85 @@ const (
 
 	FaucetFundingOutputsAddrStart = 127
 )
+
+// SnapshotInfo stores the details about snapshots created for integration tests
+type SnapshotInfo struct {
+	FilePath            string
+	PeersSeedBase58     []string
+	PeersAmountsPledged []int
+	GenesisTokenAmount  int // pledged to peer master
+}
+
+// EqualSnapshotDetails defines info for equally distributed consensus mana.
+var EqualSnapshotDetails = &SnapshotInfo{
+	FilePath: "/assets/equal_intgr_snapshot.bin",
+	// nodeIDs: dAnF7pQ6k7a, H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
+	PeersSeedBase58: []string{
+		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
+		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL",
+		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em",
+		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN",
+	},
+	PeersAmountsPledged: []int{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
+	GenesisTokenAmount:  2500000000000000,
+}
+
+// ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
+var ConsensusSnapshotDetails = &SnapshotInfo{
+	FilePath: "/assets/consensus_intgr_snapshot_aw75.bin",
+	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
+	PeersSeedBase58: []string{
+		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
+		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
+	},
+	PeersAmountsPledged: []int{1600000, 800000, 800000},
+	GenesisTokenAmount:  800000, // pledged to peer master
+
+}
+
+// getIdentSeeds returns decoded seed bytes for equal integration tests snapshot
+func getIdentSeeds(t *testing.T) [][]byte {
+	peerSeeds := make([][]byte, 4)
+	peerSeeds[0] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[0])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[1] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[1])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[2] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[2])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[3] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[3])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	return peerSeeds
+}
+
+// EqualDefaultConfigFunc returns configuration for network that uses equal integration test snapshot
+var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+		cfg.MessageLayer.Snapshot.File = EqualSnapshotDetails.FilePath
+		peerSeeds := getIdentSeeds(t)
+		offset := 0
+		if skipFirst {
+			offset += 1
+		}
+		i := peerIndex + offset
+		require.Lessf(t, i, len(peerSeeds), "index=%d out of range for peerSeeds=%d", i, len(peerSeeds))
+		cfg.Seed = peerSeeds[i]
+
+		return cfg
+	}
+}
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
 type DataMessageSent struct {
