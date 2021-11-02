@@ -297,9 +297,7 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message3":   testFramework.BranchID("Message3"),
 			"Message4":   testFramework.BranchID("Message3+Message4"),
 		})
-
 	}
-
 }
 
 func TestBookerMarkerGap2(t *testing.T) {
@@ -543,7 +541,7 @@ func TestBookerMarkerGap2(t *testing.T) {
 	}
 }
 
-// Please refer to packages/tangle/images/TestBookerMarkerMappings.html for a diagram of this test
+// Please refer to packages/tangle/images/TestBookerMarkerMappings.html for a diagram of this test.
 func TestBookerMarkerMappings(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()

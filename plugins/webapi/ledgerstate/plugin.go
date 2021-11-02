@@ -54,7 +54,6 @@ var (
 	// closure to be executed on transaction confirmation.
 	onTransactionConfirmed *events.Closure
 
-	// logger
 	log *logger.Logger
 )
 

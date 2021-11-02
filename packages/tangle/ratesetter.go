@@ -14,15 +14,15 @@ import (
 )
 
 const (
-	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes
+	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes.
 	MaxLocalQueueSize = 20 * MaxMessageSize
-	// Backoff is the local threshold for rate setting; < MaxQueueWeight
+	// Backoff is the local threshold for rate setting; < MaxQueueWeight.
 	Backoff = 25.0
 	// RateSettingIncrease is the global additive increase parameter.
 	RateSettingIncrease = 1.0
-	// RateSettingDecrease global multiplicative decrease parameter  (larger than 1)
+	// RateSettingDecrease global multiplicative decrease parameter (larger than 1).
 	RateSettingDecrease = 1.5
-	// RateSettingPause is the time to wait before next rate's update after a backoff
+	// RateSettingPause is the time to wait before next rate's update after a backoff.
 	RateSettingPause = 2
 )
 
@@ -33,7 +33,7 @@ var (
 	ErrStopped = errors.New("rate setter stopped")
 )
 
-// Initial is the rate in bytes per second
+// Initial is the rate in bytes per second.
 var Initial = 20000.0
 
 // region RateSetterParams /////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,7 +45,7 @@ type RateSetterParams struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region RateSetter /////////////////////////////////////////////////////////////////////////////////////////////
+// region RateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // RateSetter is a Tangle component that takes care of congestion control of local node.
 type RateSetter struct {

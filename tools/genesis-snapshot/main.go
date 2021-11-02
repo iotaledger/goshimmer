@@ -231,7 +231,6 @@ func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, txMap Transac
 		)
 
 		switch {
-
 		case pledgeCfg.Genesis:
 			if genesisPledged {
 				log.Fatal("genesis token amount can only be pledged once, check your config")

@@ -318,7 +318,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	return foundPreparedOutputs
 }
 
-// findUnspentRemainderOutput finds the remainder output and updates the state manager
+// findUnspentRemainderOutput finds the remainder output and updates the state manager.
 func (s *StateManager) findUnspentRemainderOutput() error {
 	var foundRemainderOutput *FaucetOutput
 

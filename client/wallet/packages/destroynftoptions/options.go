@@ -45,7 +45,7 @@ func Alias(aliasID string) DestroyNFTOption {
 	}
 }
 
-// RemainderAddress specifies the address where the funds of the destroyed NFT will be sent. (optional)
+// RemainderAddress specifies the address where the funds of the destroyed NFT will be sent (optional).
 func RemainderAddress(address string) DestroyNFTOption {
 	return func(options *DestroyNFTOptions) error {
 		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)

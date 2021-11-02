@@ -60,7 +60,7 @@ func (r *Refresher) Refresh() (err error) {
 }
 
 // prepareRefreshingTransaction prepares a transaction moving delegated outputs with state transition only and pledging mana
-// to the node itself
+// to the node itself.
 func (r *Refresher) prepareRefreshingTransaction(toBeRefreshed []*ledgerstate.AliasOutput) (tx *ledgerstate.Transaction, err error) {
 	// prepare inputs
 	inputs := make(ledgerstate.Inputs, len(toBeRefreshed))
@@ -96,7 +96,6 @@ func (r *Refresher) prepareRefreshingTransaction(toBeRefreshed []*ledgerstate.Al
 	return tx, nil
 }
 
-// sendTransaction
 func (r *Refresher) sendTransaction(tx *ledgerstate.Transaction) (err error) {
 	issueTransaction := func() (*tangle.Message, error) {
 		return deps.Tangle.IssuePayload(tx)

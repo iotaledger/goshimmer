@@ -10,21 +10,21 @@ import (
 	"github.com/iotaledger/goshimmer/packages/txstream"
 )
 
-// TangleLedger imlpements txstream.TangleLedger with the GoShimmer tangle as backend
+// TangleLedger imlpements txstream.TangleLedger with the GoShimmer tangle as backend.
 type TangleLedger struct {
 	tangleInstance  *tangle.Tangle
 	txBookedClosure *events.Closure
 	txBookedEvent   *events.Event
 }
 
-// ensure conformance to Ledger interface
+// ensure conformance to Ledger interface.
 var _ txstream.Ledger = &TangleLedger{}
 
 var txEventHandler = func(f interface{}, params ...interface{}) {
 	f.(func(tx *ledgerstate.Transaction))(params[0].(*ledgerstate.Transaction))
 }
 
-// New returns an implementation for txstream.Ledger
+// New returns an implementation for txstream.Ledger.
 func New(tangleInstance *tangle.Tangle) *TangleLedger {
 	t := &TangleLedger{
 		tangleInstance: tangleInstance,
@@ -43,17 +43,17 @@ func New(tangleInstance *tangle.Tangle) *TangleLedger {
 	return t
 }
 
-// Detach detaches the event handlers
+// Detach detaches the event handlers.
 func (t *TangleLedger) Detach() {
 	t.tangleInstance.Booker.Events.MessageBooked.Detach(t.txBookedClosure)
 }
 
-// EventTransactionBooked returns an event that triggers when a transaction is booked
+// EventTransactionBooked returns an event that triggers when a transaction is booked.
 func (t *TangleLedger) EventTransactionBooked() *events.Event {
 	return t.txBookedEvent
 }
 
-// GetUnspentOutputs returns the available UTXOs for an address
+// GetUnspentOutputs returns the available UTXOs for an address.
 func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output ledgerstate.Output)) {
 	t.tangleInstance.LedgerState.CachedOutputsOnAddress(addr).Consume(func(output ledgerstate.Output) {
 		ok := true
@@ -69,7 +69,7 @@ func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output
 	})
 }
 
-// GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high
+// GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high.
 func (t *TangleLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
 	found = false
 	t.tangleInstance.LedgerState.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
@@ -81,7 +81,7 @@ func (t *TangleLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f f
 	return
 }
 
-// PostTransaction posts a transaction to the ledger
+// PostTransaction posts a transaction to the ledger.
 func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	_, err := t.tangleInstance.IssuePayload(tx)
 	if err != nil {
@@ -90,12 +90,12 @@ func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	return nil
 }
 
-// GetOutput finds an output by ID (either spent or unspent)
+// GetOutput finds an output by ID (either spent or unspent).
 func (t *TangleLedger) GetOutput(outID ledgerstate.OutputID, f func(ledgerstate.Output)) bool {
 	return t.tangleInstance.LedgerState.CachedOutput(outID).Consume(f)
 }
 
-// GetOutputMetadata finds an output by ID and returns its metadata
+// GetOutputMetadata finds an output by ID and returns its metadata.
 func (t *TangleLedger) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgerstate.OutputMetadata)) bool {
 	return t.tangleInstance.LedgerState.CachedOutputMetadata(outID).Consume(f)
 }

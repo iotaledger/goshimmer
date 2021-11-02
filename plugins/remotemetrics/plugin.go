@@ -1,4 +1,4 @@
-// Package remotelogmetrics is a plugin that enables log metrics too complex for Prometheus, but still interesting in terms of analysis and debugging.
+// Package remotemetrics is a plugin that enables log metrics too complex for Prometheus, but still interesting in terms of analysis and debugging.
 // It is enabled by default.
 // The destination can be set via logger.remotelog.serverAddress.
 package remotemetrics

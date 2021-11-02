@@ -8,14 +8,14 @@ import (
 )
 
 const (
-	// basic routes
+	// basic routes.
 	routeGetAddresses     = "ledgerstate/addresses/"
 	routeGetBranches      = "ledgerstate/branches/"
 	routeGetOutputs       = "ledgerstate/outputs/"
 	routeGetTransactions  = "ledgerstate/transactions/"
 	routePostTransactions = "ledgerstate/transactions"
 
-	// route path modifiers
+	// route path modifiers.
 	pathUnspentOutputs = "/unspentOutputs"
 	pathChildren       = "/children"
 	pathConflicts      = "/conflicts"

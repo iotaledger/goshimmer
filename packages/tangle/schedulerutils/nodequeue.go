@@ -44,7 +44,7 @@ type Element interface {
 
 // region NodeQueue /////////////////////////////////////////////////////////////////////////////////////////////
 
-// NodeQueue keeps the submitted messages of a node
+// NodeQueue keeps the submitted messages of a node.
 type NodeQueue struct {
 	nodeID    identity.ID
 	submitted map[ElementID]*Element
@@ -52,7 +52,7 @@ type NodeQueue struct {
 	size      atomic.Int64
 }
 
-// NewNodeQueue returns a new NodeQueue
+// NewNodeQueue returns a new NodeQueue.
 func NewNodeQueue(nodeID identity.ID) *NodeQueue {
 	return &NodeQueue{
 		nodeID:    nodeID,

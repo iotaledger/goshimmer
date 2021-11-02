@@ -186,6 +186,7 @@ func (ids MessageIDs) ToStrings() []string {
 
 // region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ParentsType is a type that defines the type of the parent.
 type ParentsType uint8
 
 const (
@@ -203,11 +204,12 @@ const (
 	NumberOfUniqueBlocks = 2
 )
 
-// String returns string representation of ParentsType
+// String returns string representation of ParentsType.
 func (bp ParentsType) String() string {
 	return []string{"Strong Parent", "Weak Parent", "Dislike Parent", "Like Parent"}[bp]
 }
 
+// ParentsBlock is the container for parents in a Message.
 type ParentsBlock struct {
 	ParentsType
 	References MessageIDs
@@ -279,16 +281,14 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	return newMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, sequenceNumber)
 }
 
-/**
-newMessageWithValidation creates a new message while performing ths following syntactical checks:
-1. A Strong Parents Block must exist.
-2. Parents Block types cannot repeat.
-3. Parent count per block 1 <= x <= 8.
-4. Parents unique within block.
-5. Parents lexicographically sorted within block.
-6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
-7. Blocks should be ordered by type in ascending order.
-**/
+// newMessageWithValidation creates a new message while performing ths following syntactical checks:
+// 1. A Strong Parents Block must exist.
+// 2. Parents Block types cannot repeat.
+// 3. Parent count per block 1 <= x <= 8.
+// 4. Parents unique within block.
+// 5. Parents lexicographically sorted within block.
+// 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
+// 7. Blocks should be ordered by type in ascending order.
 func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
 	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
 	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
@@ -347,7 +347,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 }
 
 // validate messagesIDs are unique across blocks
-// there may be repetition across strong and like parents
+// there may be repetition across strong and like parents.
 func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
 	combinedParents := make(map[MessageID]types.Empty, NumberOfBlockTypes*MaxParentsCount)
 	uniqueParents := make(MessageIDs, 0, MaxParentsCount*NumberOfUniqueBlocks)
@@ -1260,7 +1260,8 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Errors /////////////////////////////tangle.m//////////////////////////////////////////////////////////////////////////
+// region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 var (
 	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
 	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")

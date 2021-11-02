@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
+// Gadget is an interface that describes the finality gadget.
 type Gadget interface {
 	HandleMarker(marker *markers.Marker, aw float64) (err error)
 	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)

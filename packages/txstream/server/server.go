@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/txstream/chopper"
 )
 
-// Connection handles the server-side part of the txstream protocol
+// Connection handles the server-side part of the txstream protocol.
 type Connection struct {
 	bconn         *buffconn.BufferedConnection
 	chopper       *chopper.Chopper
@@ -33,7 +33,7 @@ type (
 
 const rcvClientIDTimeout = 5 * time.Second
 
-// Listen starts a TCP listener and starts a Connection for each accepted connection
+// Listen starts a TCP listener and starts a Connection for each accepted connection.
 func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shutdownSignal <-chan struct{}) error {
 	listener, err := net.Listen("tcp", bindAddress)
 	if err != nil {
@@ -63,7 +63,7 @@ func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shut
 	return nil
 }
 
-// Run starts the server-side handling code for an already accepted connection from a client
+// Run starts the server-side handling code for an already accepted connection from a client.
 func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSignal <-chan struct{}) {
 	c := &Connection{
 		bconn:         buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize),
@@ -199,7 +199,7 @@ func (c *Connection) txSubscribedAddresses(tx *ledgerstate.Transaction) map[[led
 }
 
 // processConfirmedTransaction receives only confirmed transactions
-// it parses SC transaction incoming from the ledger. Forwards it to the client if subscribed
+// it parses SC transaction incoming from the ledger. Forwards it to the client if subscribed.
 func (c *Connection) processConfirmedTransaction(tx *ledgerstate.Transaction) {
 	for _, addr := range c.txSubscribedAddresses(tx) {
 		c.log.Debugf("confirmed tx -> client -- addr: %s txid: %s", addr.Base58(), tx.ID().Base58())

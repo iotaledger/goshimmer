@@ -3,29 +3,30 @@ package metrics
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 var (
-	// total number of branches in the database at startup
+	// total number of branches in the database at startup.
 	initialBranchTotalCountDB uint64
 
-	// total number of finalized branches in the database at startup
+	// total number of finalized branches in the database at startup.
 	initialFinalizedBranchCountDB uint64
 
-	// total number of confirmed branches in the database at startup
+	// total number of confirmed branches in the database at startup.
 	initialConfirmedBranchCountDB uint64
 
-	// number of branches created since the node started
+	// number of branches created since the node started.
 	branchTotalCountDB atomic.Uint64
 
-	// number of branches finalized since the node started
+	// number of branches finalized since the node started.
 	finalizedBranchCountDB atomic.Uint64
 
-	// current number of confirmed  branches
+	// current number of confirmed branches.
 	confirmedBranchCount atomic.Uint64
 
 	// total time it took all branches to finalize. unit is milliseconds!

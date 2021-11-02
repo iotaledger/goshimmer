@@ -109,9 +109,7 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 }
 
 // Shutdown shuts down the ApprovalWeightManager and persists its state.
-func (a *ApprovalWeightManager) Shutdown() {
-
-}
+func (a *ApprovalWeightManager) Shutdown() {}
 
 func (a *ApprovalWeightManager) statementFromMessage(message *Message, optionalBranchID ...ledgerstate.BranchID) (statement *Statement, isNewStatement bool) {
 	nodeID := identity.NewID(message.IssuerPublicKey())
@@ -441,7 +439,7 @@ func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID
 	})
 }
 
-// take everything in future cone because it was not conflicting before and move to new branch
+// take everything in future cone because it was not conflicting before and move to new branch.
 func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
 	a.migrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
 
@@ -657,7 +655,7 @@ func (b *BranchWeight) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ objectstorage.StorableObject = &BranchWeight{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -720,7 +718,7 @@ type Statement struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewStatement creates a new Statement
+// NewStatement creates a new Statement.
 func NewStatement(branchID ledgerstate.BranchID, supporter Supporter) (statement *Statement) {
 	statement = &Statement{
 		branchID:  branchID,
@@ -844,7 +842,7 @@ func (s *Statement) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ objectstorage.StorableObject = &Statement{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1139,7 +1137,7 @@ func (b *BranchSupporters) ObjectStorageValue() []byte {
 	return marshalUtil.Bytes()
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ objectstorage.StorableObject = &BranchSupporters{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1351,7 +1349,7 @@ func (s *SequenceSupporters) ObjectStorageValue() []byte {
 	return marshalUtil.Bytes()
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ objectstorage.StorableObject = &SequenceSupporters{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

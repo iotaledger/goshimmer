@@ -7,12 +7,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/txstream"
 )
 
-// Subscribe subscribes to real-time updates for the given address
+// Subscribe subscribes to real-time updates for the given address.
 func (n *Client) Subscribe(addr ledgerstate.Address) {
 	n.chSubscribe <- addr
 }
 
-// Unsubscribe unsubscribes the address
+// Unsubscribe unsubscribes the address.
 func (n *Client) Unsubscribe(addr ledgerstate.Address) {
 	n.chUnsubscribe <- addr
 }

@@ -111,7 +111,7 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 			*decodeTo.(*csv.Reader) = *csv.NewReader(bufio.NewReader(bytes.NewReader(resBody)))
 			return nil
 		default:
-			return fmt.Errorf("Can't decode %s content-type", contType)
+			return fmt.Errorf("can't decode %s content-type", contType)
 		}
 	}
 	errRes := &errorresponse{}

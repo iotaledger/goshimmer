@@ -28,9 +28,6 @@ import (
 const (
 	// PluginName is the name of the mana plugin.
 	PluginName = "Mana"
-
-	// maxConsensusEventsInStorage = 110000
-	// slidingEventsInterval       = 10000 // 10% of maxConsensusEventsInStorage
 )
 
 var (
@@ -44,11 +41,11 @@ var (
 	// consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
-	// consensusEventsLogsStorageSize             atomic.Uint32
+	// consensusEventsLogsStorageSize             atomic.Uint32.
 	onTransactionConfirmedClosure *events.Closure
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
-	// debuggingEnabled              bool
+	// debuggingEnabled              bool.
 )
 
 func init() {
@@ -355,7 +352,7 @@ func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (floa
 	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID, optionalUpdateTime...)
 }
 
-// GetNeighborsMana returns the type mana of the nodes neighbors
+// GetNeighborsMana returns the type mana of the nodes neighbors.
 func GetNeighborsMana(manaType mana.Type, neighbors []*gossip.Neighbor, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
 	if !QueryAllowed() {
 		return mana.NodeMap{}, ErrQueryNotAllowed
@@ -383,7 +380,7 @@ func GetAllManaMaps(optionalUpdateTime ...time.Time) (map[mana.Type]mana.NodeMap
 }
 
 // OverrideMana sets the nodes mana to a specific value.
-// It can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated
+// It can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated.
 func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.AccessBaseMana) {
 	baseManaVectors[manaType].SetMana(nodeID, bm)
 }
@@ -796,7 +793,7 @@ func QueryAllowed() (allowed bool) {
 	return true
 }
 
-// loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions
+// loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
 func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 	txSnapshotByNode := make(map[identity.ID]mana.SortedTxSnapshot)
 

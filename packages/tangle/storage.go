@@ -59,7 +59,7 @@ const (
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
 
-	// cacheTime defines the number of seconds an object will wait in storage cache
+	// cacheTime defines the number of seconds an object will wait in storage cache.
 	cacheTime = 2 * time.Second
 
 	// approvalWeightCacheTime defines the number of seconds an object related to approval weight will wait in storage cache.

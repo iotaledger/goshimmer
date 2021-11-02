@@ -178,7 +178,6 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	copyLedgerState := l.Transactions() // consider that this may take quite some time
 
 	for _, transaction := range copyLedgerState {
-
 		// skip transactions that are not confirmed
 		var isUnconfirmed bool
 		l.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {

@@ -33,15 +33,15 @@ import (
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// DefaultPollingInterval is the polling interval of the wallet when waiting for confirmation. (in ms)
+	// DefaultPollingInterval is the polling interval of the wallet when waiting for confirmation (in ms).
 	DefaultPollingInterval = 500 * time.Millisecond
-	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms)
+	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms).
 	DefaultConfirmationTimeout = 150000 * time.Millisecond
 	// DefaultAssetRegistryNetwork is the default asset registry network.
 	DefaultAssetRegistryNetwork = "nectar"
 )
 
-// ErrTooManyOutputs is an error returned when the number of outputs/inputs exceeds the protocol wide constant
+// ErrTooManyOutputs is an error returned when the number of outputs/inputs exceeds the protocol wide constant.
 var ErrTooManyOutputs = errors.New("number of outputs is more, than supported for a single transaction")
 
 // Wallet is a wallet that can handle aliases and extendedlockedoutputs.
@@ -106,7 +106,7 @@ func New(options ...Option) (wallet *Wallet) {
 
 // region SendFunds ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// SendFunds sends funds from the wallet
+// SendFunds sends funds from the wallet.
 func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *ledgerstate.Transaction, err error) {
 	sendOptions, err := sendoptions.Build(options...)
 	if err != nil {
@@ -1735,7 +1735,7 @@ func (wallet *Wallet) ConditionalBalances(refresh ...bool) (confirmed, pending T
 
 // region AliasBalance /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// AliasBalance returns the aliases held by this wallet
+// AliasBalance returns the aliases held by this wallet.
 func (wallet *Wallet) AliasBalance(refresh ...bool) (
 	confirmedGovernedAliases,
 	confirmedStateControlledAliases,
@@ -1940,7 +1940,7 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 // region Internal Methods /////////////////////////////////////////////////////////////////////////////////////////////
 
 // waitForBalanceConfirmation waits until the balance of the wallet changes compared to the provided argument.
-// (a transaction modifying the wallet balance got confirmed)
+// (a transaction modifying the wallet balance got confirmed).
 func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledgerstate.Color]uint64) (err error) {
 	timeoutCounter := time.Duration(0)
 	for {
@@ -1964,7 +1964,7 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledger
 }
 
 // waitForGovAliasBalanceConfirmation waits until the balance of the confirmed governed aliases changes in the wallet.
-// (a tx submitting an alias governance transition is confirmed)
+// (a tx submitting an alias governance transition is confirmed).
 func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput) (err error) {
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
@@ -1983,7 +1983,7 @@ func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[
 }
 
 // waitForStateAliasBalanceConfirmation waits until the balance of the state controlled aliases changes in the wallet.
-// (a tx submitting an alias state transition is confirmed)
+// (a tx submitting an alias state transition is confirmed).
 func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput) (err error) {
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
@@ -2125,7 +2125,7 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 	)
 }
 
-// enoughCollected checks if collected has at least target funds
+// enoughCollected checks if collected has at least target funds.
 func enoughCollected(collected, target map[ledgerstate.Color]uint64) bool {
 	for color, balance := range target {
 		if collected[color] < balance {

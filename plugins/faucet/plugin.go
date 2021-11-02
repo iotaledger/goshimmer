@@ -48,7 +48,7 @@ var (
 	blacklist         *orderedmap.OrderedMap
 	blacklistCapacity int
 	blackListMutex    sync.RWMutex
-	// signals that the faucet has initialized itself and can start funding requests
+	// signals that the faucet has initialized itself and can start funding requests.
 	initDone atomic.Bool
 
 	waitForManaWindow = 5 * time.Second
