@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"container/heap"
 	"math"
 	"sync"
 	"time"
@@ -22,8 +23,7 @@ const precision float64 = 1000
 
 var (
 	mu                               sync.RWMutex
-	conflicts                        map[ledgerstate.ConflictID]*conflict
-	branches                         map[ledgerstate.BranchID]*branch
+	conflicts                        *boundedConflictMap
 	conflictsLiveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 	conflictsLiveFeedWorkerCount     = 1
 	conflictsLiveFeedWorkerQueueSize = 50
@@ -34,6 +34,7 @@ type conflict struct {
 	ArrivalTime   time.Time              `json:"arrivalTime"`
 	Resolved      bool                   `json:"resolved"`
 	TimeToResolve time.Duration          `json:"timeToResolve"`
+	UpdatedTime   time.Time              `json:"updatedTime"`
 }
 
 type conflictJSON struct {
@@ -59,6 +60,7 @@ type branch struct {
 	GoF          gof.GradeOfFinality     `json:"gof"`
 	IssuingTime  time.Time               `json:"issuingTime"`
 	IssuerNodeID identity.ID             `json:"issuerNodeID"`
+	UpdatedTime  time.Time               `json:"updatedTime"`
 }
 
 type branchJSON struct {
@@ -105,8 +107,11 @@ func runConflictLiveFeed() {
 	if err := daemon.BackgroundWorker("Dashboard[ConflictsLiveFeed]", func(shutdownSignal <-chan struct{}) {
 		defer conflictsLiveFeedWorkerPool.Stop()
 
-		conflicts = make(map[ledgerstate.ConflictID]*conflict)
-		branches = make(map[ledgerstate.BranchID]*branch)
+		conflicts = &boundedConflictMap{
+			conflicts:    make(map[ledgerstate.ConflictID]*conflict),
+			branches:     make(map[ledgerstate.BranchID]*branch),
+			conflictHeap: &timeHeap{},
+		}
 
 		onBranchCreatedClosure := events.NewClosure(onBranchCreated)
 		onBranchWeightChangedClosure := events.NewClosure(onBranchWeightChanged)
@@ -126,7 +131,8 @@ func runConflictLiveFeed() {
 
 func onBranchCreated(branchID ledgerstate.BranchID) {
 	b := &branch{
-		BranchID: branchID,
+		BranchID:    branchID,
+		UpdatedTime: clock.SyncedTime(),
 	}
 
 	deps.Tangle.LedgerState.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
@@ -144,36 +150,32 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 		b.ConflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 
 		for conflictID := range b.ConflictIDs {
-			_, exists := conflicts[conflictID]
+			_, exists := conflicts.conflict(conflictID)
 			// if this is the first conflict of this conflict set we add it to the map
 			if !exists {
 				c := &conflict{
 					ConflictID:  conflictID,
 					ArrivalTime: clock.SyncedTime(),
+					UpdatedTime: clock.SyncedTime(),
 				}
-				conflicts[conflictID] = c
-				sendConflictUpdate(c)
+				conflicts.addConflict(c)
 			}
 
 			// update all existing branches with a possible new conflict membership
 			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-				if cm, exists := branches[conflictMember.BranchID()]; exists {
-					cm.ConflictIDs.Add(conflictID)
-					sendBranchUpdate(cm)
-				}
+				conflicts.addConflictMember(conflictMember.BranchID(), conflictID)
 			})
 		}
 	})
 
-	branches[b.BranchID] = b
-	sendBranchUpdate(b)
+	conflicts.addBranch(b)
 }
 
 func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := branches[e.BranchID]
+	b, exists := conflicts.branch(e.BranchID)
 	if !exists {
 		log.Warnf("branch %s did not yet exist", e.BranchID)
 		return
@@ -187,16 +189,12 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 
 	b.AW = math.Round(e.Weight*precision) / precision
 	b.GoF, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(b.BranchID)
-	sendBranchUpdate(b)
+	b.UpdatedTime = clock.SyncedTime()
+	conflicts.addBranch(b)
 
 	if messagelayer.FinalityGadget().IsBranchConfirmed(b.BranchID) {
 		for conflictID := range b.ConflictIDs {
-			c := conflicts[conflictID]
-			if !c.Resolved {
-				c.Resolved = true
-				c.TimeToResolve = clock.Since(c.ArrivalTime)
-				sendConflictUpdate(c)
-			}
+			conflicts.resolveConflict(conflictID)
 		}
 	}
 }
@@ -205,13 +203,7 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 func sendAllConflicts() {
 	mu.RLock()
 	defer mu.RUnlock()
-
-	for _, c := range conflicts {
-		sendConflictUpdate(c)
-	}
-	for _, b := range branches {
-		sendBranchUpdate(b)
-	}
+	conflicts.sendAllConflicts()
 }
 
 func issuerOfOldestAttachment(branchID ledgerstate.BranchID) (id identity.ID) {
@@ -224,5 +216,107 @@ func issuerOfOldestAttachment(branchID ledgerstate.BranchID) (id identity.ID) {
 			}
 		})
 	})
+	return
+}
+
+type timeHeapElement struct {
+	conflictID  ledgerstate.ConflictID
+	updatedTime time.Time
+}
+
+type timeHeap []*timeHeapElement
+
+func (h timeHeap) Len() int {
+	return len(h)
+}
+
+func (h timeHeap) Less(i, j int) bool {
+	return h[i].updatedTime.Before(h[j].updatedTime)
+}
+
+func (h timeHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+}
+
+func (h *timeHeap) Push(x interface{}) {
+	*h = append(*h, x.(*timeHeapElement))
+}
+
+func (h *timeHeap) Pop() interface{} {
+	n := len(*h)
+	data := (*h)[n-1]
+	(*h)[n-1] = nil
+	*h = (*h)[:n-1]
+	return data
+}
+
+var _ heap.Interface = &timeHeap{}
+
+type boundedConflictMap struct {
+	conflicts    map[ledgerstate.ConflictID]*conflict
+	branches     map[ledgerstate.BranchID]*branch
+	conflictHeap *timeHeap
+}
+
+func (b *boundedConflictMap) conflict(conflictID ledgerstate.ConflictID) (conflict *conflict, exists bool) {
+	conflict, exists = b.conflicts[conflictID]
+	return
+}
+
+func (b *boundedConflictMap) addConflict(c *conflict) {
+	if len(b.conflicts) >= Parameters.Conflicts.MaxCount {
+		element := heap.Pop(b.conflictHeap).(*timeHeapElement)
+		delete(b.conflicts, element.conflictID)
+
+		// cleanup branches. delete is a no-op if key is not found in map.
+		for _, branch := range b.branches {
+			delete(branch.ConflictIDs, element.conflictID)
+			if len(branch.ConflictIDs) == 0 {
+				delete(b.branches, branch.BranchID)
+			}
+		}
+	}
+	b.conflicts[c.ConflictID] = c
+	heap.Push(b.conflictHeap, &timeHeapElement{
+		conflictID:  c.ConflictID,
+		updatedTime: c.UpdatedTime,
+	})
+	sendConflictUpdate(c)
+}
+
+func (b *boundedConflictMap) resolveConflict(conflictID ledgerstate.ConflictID) {
+	if c, exists := b.conflicts[conflictID]; exists && !c.Resolved {
+		c.Resolved = true
+		c.TimeToResolve = clock.Since(c.ArrivalTime)
+		c.UpdatedTime = clock.SyncedTime()
+		b.conflicts[conflictID] = c
+		sendConflictUpdate(c)
+	}
+}
+
+func (b *boundedConflictMap) sendAllConflicts() {
+	for _, c := range b.conflicts {
+		sendConflictUpdate(c)
+	}
+	for _, b := range b.branches {
+		sendBranchUpdate(b)
+	}
+}
+
+func (b *boundedConflictMap) addBranch(br *branch) {
+	b.branches[br.BranchID] = br
+	sendBranchUpdate(br)
+}
+
+func (b *boundedConflictMap) addConflictMember(branchID ledgerstate.BranchID, conflictID ledgerstate.ConflictID) {
+	if _, exists := b.branches[branchID]; exists {
+		b.branches[branchID].ConflictIDs.Add(conflictID)
+		b.branches[branchID].UpdatedTime = clock.SyncedTime()
+		sendBranchUpdate(b.branches[branchID])
+	}
+}
+
+func (b *boundedConflictMap) branch(branchID ledgerstate.BranchID) (branch *branch, exists bool) {
+	branch, exists = b.branches[branchID]
 	return
 }
