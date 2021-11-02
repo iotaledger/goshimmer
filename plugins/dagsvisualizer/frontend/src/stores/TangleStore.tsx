@@ -44,6 +44,8 @@ export class TangleStore {
     @observable selectedMsg: tangleVertex = null;
     @observable selected_approvers_count = 0;
     @observable selected_approvees_count = 0;
+    @observable paused: boolean = false;
+    @observable search: string = "";
     msgOrder: Array<any> = [];
     selected_via_click: boolean = false;
     selected_origin_color: number = 0;
@@ -195,6 +197,39 @@ export class TangleStore {
         this.graph.removeNode(approveeId);
     }
 
+    @action
+    pauseResume = () => {
+        if (this.paused) {
+            this.renderer.resume();
+            this.paused = false;
+            return;
+        }
+        this.renderer.pause();
+        this.paused = true;
+    }
+
+    @action
+    updateVerticesLimit = (num: number) => {
+        this.maxTangleVertices = num;
+    }
+
+    @action
+    updateSearch = (search: string) => {
+        this.search = search.trim();
+    }
+
+    @action
+    searchAndHighlight = () => {
+        this.clearSelected(true);
+        console.log(this.selectedMsg);
+        if (!this.search) return;
+        
+        let msgNode = this.graph.getNode(this.search);
+        if (!msgNode) return;
+        
+        this.updateSelected(msgNode.data, false);
+    }
+    
     drawVertex = (msg: tangleVertex) => {
         let node;
         let existing = this.graph.getNode(msg.ID);
@@ -229,7 +264,6 @@ export class TangleStore {
             })
         }
     }
-
 
     // only update color when finalized
     updateNodeColor = (msgID: string) => {
