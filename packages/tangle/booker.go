@@ -65,7 +65,7 @@ func (b *Booker) Setup() {
 	}))
 
 	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByForkEvent) {
-		if err := b.PropagateForkedTransaction(event.TransactionID, event.ForkedBranchID); err != nil {
+		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
@@ -178,8 +178,8 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	return
 }
 
-// PropagateForkedTransaction propagates the forked BranchID to the future cone .
-func (b *Booker) PropagateForkedTransaction(transactionID ledgerstate.TransactionID, forkedBranchID ledgerstate.BranchID) (err error) {
+// PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
+func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, forkedBranchID ledgerstate.BranchID) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
 		if !messageMetadata.IsBooked() {
 			return
