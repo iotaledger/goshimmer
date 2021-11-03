@@ -489,6 +489,7 @@ func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Pe
 		libp2pIdentity,
 		libp2p.DisableRelay(),
 	)
+	require.NoError(t, err)
 	lis := host.Addrs()[0]
 	tcpPortStr, err := lis.ValueForProtocol(multiaddr.P_TCP)
 	require.NoError(t, err)

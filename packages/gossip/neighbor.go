@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	ioTimeout         = 4 * time.Second
+	ioTimeout = 4 * time.Second
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
@@ -52,7 +52,6 @@ type Neighbor struct {
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
 func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log *logger.Logger) *Neighbor {
-
 	log = log.With(
 		"id", p.ID(),
 		"localAddr", stream.Conn().LocalMultiaddr(),
@@ -76,10 +75,12 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log 
 	}
 }
 
+// PacketsRead returns number of packets this neighbor has received.
 func (n *Neighbor) PacketsRead() uint64 {
 	return n.packetsRead.Load()
 }
 
+// PacketsWritten returns number of packets this neighbor has sent.
 func (n *Neighbor) PacketsWritten() uint64 {
 	return n.packetsWritten.Load()
 }
@@ -112,7 +113,6 @@ func (n *Neighbor) readLoop() {
 		}
 	}()
 }
-
 
 func (n *Neighbor) write(packet *pb.Packet) error {
 	if err := n.stream.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {

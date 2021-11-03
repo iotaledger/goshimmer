@@ -56,6 +56,9 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		libp2pIdentity,
 		libp2p.NATPortMap(),
 	)
+	if err != nil {
+		Plugin.LogFatalf("Could create libp2p host: %s", err)
+	}
 
 	return gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger())
 }

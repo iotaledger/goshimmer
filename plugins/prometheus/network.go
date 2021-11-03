@@ -9,10 +9,10 @@ import (
 var (
 	fpcInboundBytes          prometheus.Gauge
 	fpcOutboundBytes         prometheus.Gauge
-	analysisOutboundBytes prometheus.Gauge
-	gossipInboundPackets    prometheus.Gauge
-	gossipOutboundPackets   prometheus.Gauge
-	autopeeringInboundBytes prometheus.Gauge
+	analysisOutboundBytes    prometheus.Gauge
+	gossipInboundPackets     prometheus.Gauge
+	gossipOutboundPackets    prometheus.Gauge
+	autopeeringInboundBytes  prometheus.Gauge
 	autopeeringOutboundBytes prometheus.Gauge
 )
 

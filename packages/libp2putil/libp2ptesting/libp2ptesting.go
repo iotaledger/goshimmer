@@ -11,19 +11,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// NewStreamsPipe returns a pair of libp2p Stream that are talking to each other.
 func NewStreamsPipe(t testing.TB) (network.Stream, network.Stream, func()) {
 	ctx := context.Background()
 	mn, err := mocknet.FullMeshConnected(ctx, 2)
+	require.NoError(t, err)
 	host1, host2 := mn.Hosts()[0], mn.Hosts()[1]
 
 	acceptStremCh := make(chan network.Stream, 1)
 	host2.SetStreamHandler(protocol.TestingID, func(s network.Stream) {
 		b := make([]byte, 4)
-		_, err := io.ReadFull(s, b)
-		require.NoError(t, err)
+		_, err1 := io.ReadFull(s, b)
+		require.NoError(t, err1)
 		require.Equal(t, b, []byte("beep"))
-		_, err = s.Write([]byte("boop"))
-		require.NoError(t, err)
+		_, err1 = s.Write([]byte("boop"))
+		require.NoError(t, err1)
 		acceptStremCh <- s
 	})
 
@@ -37,10 +39,10 @@ func NewStreamsPipe(t testing.TB) (network.Stream, network.Stream, func()) {
 	require.Equal(t, b, []byte("boop"))
 	acceptStream := <-acceptStremCh
 	tearDown := func() {
-		err := dialStream.Close()
-		require.NoError(t, err)
-		err = acceptStream.Close()
-		require.NoError(t, err)
+		err2 := dialStream.Close()
+		require.NoError(t, err2)
+		err2 = acceptStream.Close()
+		require.NoError(t, err2)
 	}
 	return dialStream, acceptStream, tearDown
 }

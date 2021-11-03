@@ -103,9 +103,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 			m.log.Debugw("context error", "id", am.peer.ID(), "err", err)
 			return nil, errors.WithStack(err)
 		}
-
 	}()
-
 	if err != nil {
 		return nil, fmt.Errorf(
 			"accept %s / %s failed: %w",
@@ -118,7 +116,6 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		"addr", stream.Conn().RemoteMultiaddr(),
 	)
 	return stream, nil
-
 }
 
 type acceptMatcher struct {
@@ -157,7 +154,6 @@ func (m *Manager) removeAcceptMatcher(am *acceptMatcher) {
 }
 
 func (m *Manager) streamHandler(stream network.Stream) {
-
 	am := m.matchNewStream(stream)
 	if am != nil {
 		am.streamCh <- stream

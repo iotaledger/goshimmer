@@ -22,8 +22,8 @@ type NeighborsEvents struct {
 // NewNeighborsEvents returns a new instance of NeighborsEvents.
 func NewNeighborsEvents() NeighborsEvents {
 	return NeighborsEvents{
-		NeighborAdded:    events.NewEvent(neighborCaller),
-		NeighborRemoved:  events.NewEvent(neighborCaller),
+		NeighborAdded:   events.NewEvent(neighborCaller),
+		NeighborRemoved: events.NewEvent(neighborCaller),
 	}
 }
 

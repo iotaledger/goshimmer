@@ -9,6 +9,7 @@ import (
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 )
 
+// GetLibp2pIdentity returns libp2p Host option for Identity from local peer object.
 func GetLibp2pIdentity(lPeer *peer.Local) (libp2p.Option, error) {
 	ourPrivateKey, err := lPeer.Database().LocalPrivateKey()
 	if err != nil {
@@ -21,6 +22,7 @@ func GetLibp2pIdentity(lPeer *peer.Local) (libp2p.Option, error) {
 	return libp2p.Identity(libp2pPrivateKey), nil
 }
 
+// ToLibp2pPrivateKey transforms private key in our type to libp2p type.
 func ToLibp2pPrivateKey(ourPrivateKey ed25519.PrivateKey) (libp2pcrypto.PrivKey, error) {
 	libp2pPrivateKey, err := libp2pcrypto.UnmarshalEd25519PrivateKey(ourPrivateKey.Bytes())
 	if err != nil {
@@ -29,6 +31,7 @@ func ToLibp2pPrivateKey(ourPrivateKey ed25519.PrivateKey) (libp2pcrypto.PrivKey,
 	return libp2pPrivateKey, nil
 }
 
+// ToLibp2pPeerID computes libp2p peer ID from our peer object.
 func ToLibp2pPeerID(p *peer.Peer) (libp2ppeer.ID, error) {
 	pubKeyBytes := p.PublicKey().Bytes()
 	pubKeyLibp2p, err := libp2pcrypto.UnmarshalEd25519PublicKey(pubKeyBytes)
