@@ -38,8 +38,14 @@ export class BranchStore {
     @observable maxBranchVertices: number = 500;
     @observable branches = new ObservableMap<string, branchVertex>();
     @observable selectedBranch: branchVertex = null;
+    @observable paused: boolean = false;
+    @observable search: string = "";
     branchOrder: Array<any> = [];
+
     vertexChanges = 0;
+    branchToRemoveAfterResume = [];
+    branchToAddAfterResume = [];
+
     cy;
     layout;
     layoutApi;
@@ -67,14 +73,23 @@ export class BranchStore {
         if (this.branchOrder.length >= this.maxBranchVertices) {
             let removed = this.branchOrder.shift();
             this.branches.delete(removed);
-            this.removeVertex(removed.ID);
+
+            if (this.paused) {
+                // keep the removed tx that should be removed from the graph after resume.
+                this.branchToRemoveAfterResume.push(removed);              
+              } else {
+                this.removeVertex(removed);
+            }
         }
-        console.log(branch.conflicts);
 
         this.branchOrder.push(branch.ID);
         this.branches.set(branch.ID, branch);
 
-        this.drawVertex(branch);
+        if (this.paused) {
+            this.branchToAddAfterResume.push(branch.ID);
+        } else {
+            this.drawVertex(branch);
+        }
     }
 
     @action
@@ -111,12 +126,69 @@ export class BranchStore {
     @action
     updateSelected = (branchID: string) => {
       let b = this.branches.get(branchID);
+      if (!b) return;
       this.selectedBranch = b;
     }
 
     @action
-    clearSelected = () => {
+    clearSelected = (removePreSelectedNode?: boolean) => {
+        // unselect preselected node manually
+        if (removePreSelectedNode && this.selectedBranch) {
+            this.cy.getElementById(this.selectedBranch.ID).unselect();
+        }
+
         this.selectedBranch = null;
+    }
+
+    @action
+    pauseResume = () => {
+        if (this.paused) {
+            this.resumeAndSyncGraph();
+            this.paused = false;
+            return;
+        }
+        this.paused = true;
+    }
+
+    @action
+    updateVerticesLimit = (num: number) => {
+        this.maxBranchVertices = num;
+    }
+
+    @action
+    updateSearch = (search: string) => {
+        this.search = search.trim();
+    }
+
+    @action
+    searchAndHighlight = () => {
+        if (!this.search) return;
+
+        this.clearSelected(true);
+        
+        let branchNode = this.cy.getElementById(this.search);
+        if (!branchNode) return;
+        // select the node manually
+        branchNode.select();
+        
+        this.updateSelected(this.search);
+    }
+
+    resumeAndSyncGraph = () => {
+      // add buffered tx
+      this.branchToAddAfterResume.forEach((branchID) => {
+        let b = this.branches.get(branchID);
+        if (b) {
+          this.drawVertex(b);
+        }        
+      })
+      this.branchToAddAfterResume = [];
+
+      // remove removed tx
+      this.branchToRemoveAfterResume.forEach((branchID) => {
+        this.removeVertex(branchID);
+      })
+      this.branchToRemoveAfterResume = [];
     }
 
     removeVertex = (branchID: string) => {
@@ -134,7 +206,6 @@ export class BranchStore {
         });
 
         branch.parents.forEach((pID) => {
-            console.log(pID);
             let b = this.branches.get(pID);
             if (b) {
                 this.cy.add({
@@ -149,7 +220,7 @@ export class BranchStore {
 
     updateLayoutTimer = () => {
         this.layoutUpdateTimerID = setInterval(() => {
-            if (this.vertexChanges > 0) {
+            if (this.vertexChanges > 0 && !this.paused) {
                 this.cy.layout(this.layout).run();
                 this.vertexChanges = 0;
             }
