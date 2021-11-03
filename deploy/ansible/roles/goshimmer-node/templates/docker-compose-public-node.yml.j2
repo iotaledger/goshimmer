@@ -38,7 +38,7 @@ services:
       --node.overwriteStoredSeed=true
       --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
       {% if networkVersion|default(None) %}
-      --autopeering.networkVersion={{ networkVersion }}
+      --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
