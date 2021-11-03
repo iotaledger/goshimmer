@@ -69,6 +69,12 @@ func (b *Booker) Setup() {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
+
+	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByMerge.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByMergeEvent) {
+		if err := b.PropagateMergedBranch(event.TransactionID, event.BranchDAGUpdates); err != nil {
+			b.Events.Error.Trigger(errors.Errorf("failed to propagate merged Branch with %s to future cone of Transaction with %s: %w", event.MergedBranchID, event.TransactionID, err))
+		}
+	}))
 }
 
 func (b *Booker) run() {
@@ -91,6 +97,46 @@ func (b *Booker) run() {
 		}
 	}()
 }
+
+// MessageBranchID returns the BranchID of the given Message.
+func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.BranchID, err error) {
+	if messageID == EmptyMessageID {
+		return ledgerstate.MasterBranchID, nil
+	}
+
+	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		if branchID = messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
+			return
+		}
+
+		structureDetails := messageMetadata.StructureDetails()
+		if structureDetails == nil {
+			err = errors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
+			return
+		}
+		if structureDetails.PastMarkers.Size() != 1 {
+			err = errors.Errorf("BranchID of %s should have been mapped in the MessageMetadata (multiple PastMarkers): %w", messageID, cerrors.ErrFatal)
+			return
+		}
+
+		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.Marker())
+	}) {
+		err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
+		return
+	}
+
+	return
+}
+
+// Shutdown shuts down the Booker and persists its state.
+func (b *Booker) Shutdown() {
+	close(b.shutdown)
+	b.shutdownWG.Wait()
+
+	b.MarkersManager.Shutdown()
+}
+
+// region BOOK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds. If the Message is invalid it fires a MessageInvalid event.
@@ -176,69 +222,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	})
 
 	return
-}
-
-// PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
-func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, forkedBranchID ledgerstate.BranchID) (err error) {
-	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
-		if !messageMetadata.IsBooked() {
-			return
-		}
-
-		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID, walker); err != nil {
-				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
-				walker.StopWalk()
-			}
-			return
-		}
-
-		if err = b.propagateForkedTransactionToMetadataFutureCone(messageMetadata, forkedBranchID, walker); err != nil {
-			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", forkedBranchID, messageMetadata.ID(), err)
-			walker.StopWalk()
-			return
-		}
-	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), false)
-
-	return
-}
-
-// MessageBranchID returns the BranchID of the given Message.
-func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	if messageID == EmptyMessageID {
-		return ledgerstate.MasterBranchID, nil
-	}
-
-	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		if branchID = messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
-			return
-		}
-
-		structureDetails := messageMetadata.StructureDetails()
-		if structureDetails == nil {
-			err = errors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
-			return
-		}
-		if structureDetails.PastMarkers.Size() != 1 {
-			err = errors.Errorf("BranchID of %s should have been mapped in the MessageMetadata (multiple PastMarkers): %w", messageID, cerrors.ErrFatal)
-			return
-		}
-
-		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.Marker())
-	}) {
-		err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
-		return
-	}
-
-	return
-}
-
-// Shutdown shuts down the Booker and persists its state.
-func (b *Booker) Shutdown() {
-	close(b.shutdown)
-	b.shutdownWG.Wait()
-
-	b.MarkersManager.Shutdown()
 }
 
 // allMessagesContainTransactions checks whether all passed messages contain a transaction.
@@ -391,7 +374,34 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	return branchID, nil
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
+func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, forkedBranchID ledgerstate.BranchID) (err error) {
+	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+		if !messageMetadata.IsBooked() {
+			return
+		}
+
+		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
+			if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID, walker); err != nil {
+				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
+				walker.StopWalk()
+			}
+			return
+		}
+
+		if err = b.propagateForkedTransactionToMetadataFutureCone(messageMetadata, forkedBranchID, walker); err != nil {
+			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", forkedBranchID, messageMetadata.ID(), err)
+			walker.StopWalk()
+			return
+		}
+	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), false)
+
+	return
+}
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
 func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
@@ -515,6 +525,16 @@ func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata 
 		walk.Push(approvingMessageID)
 	}
 
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MERGE LOGIC //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// PropagateMergedBranch propagates the updates of the BranchDAG to the future cone of the attachments of the given
+// transaction.
+func (b *Booker) PropagateMergedBranch(transactionID ledgerstate.TransactionID, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
 	return
 }
 

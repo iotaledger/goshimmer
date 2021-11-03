@@ -89,7 +89,8 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
-			TransactionBranchIDUpdatedByFork: events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
+			TransactionBranchIDUpdatedByFork:  events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
+			TransactionBranchIDUpdatedByMerge: events.NewEvent(TransactionBranchIDUpdatedByMergeEventHandler),
 		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, options.transactionMetadataStorageOptions...),
@@ -847,7 +848,7 @@ func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region TransactionBranchIDUpdatedEvent //////////////////////////////////////////////////////////////////////////////
+// region TransactionBranchIDUpdatedByForkEvent ////////////////////////////////////////////////////////////////////////
 
 // TransactionBranchIDUpdatedByForkEvent is an event that gets triggered, whenever the BranchID of a Transaction is
 // changed.
@@ -861,6 +862,24 @@ type TransactionBranchIDUpdatedByForkEvent struct {
 // TransactionBranchIDUpdatedByForkEvent.
 func TransactionBranchIDUpdatedByForkEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(*TransactionBranchIDUpdatedByForkEvent))(params[0].(*TransactionBranchIDUpdatedByForkEvent))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionBranchIDUpdatedByMergeEvent ///////////////////////////////////////////////////////////////////////
+
+// TransactionBranchIDUpdatedByMergeEvent is an event that gets triggered, whenever the BranchID of a Transaction is
+// changed after merging a Branch to back to the MasterBranch.
+type TransactionBranchIDUpdatedByMergeEvent struct {
+	TransactionID    TransactionID
+	MergedBranchID   BranchID
+	BranchDAGUpdates map[BranchID]BranchID
+}
+
+// TransactionBranchIDUpdatedByMergeEventHandler is an event handler for an event with a
+// TransactionBranchIDUpdatedByMergeEvent.
+func TransactionBranchIDUpdatedByMergeEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*TransactionBranchIDUpdatedByMergeEvent))(params[0].(*TransactionBranchIDUpdatedByMergeEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
