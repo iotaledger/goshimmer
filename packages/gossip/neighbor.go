@@ -11,10 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-msgio/protoio"
 	"go.uber.org/atomic"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
+	"github.com/iotaledger/goshimmer/packages/libp2putil"
 )
 
 const (
@@ -44,8 +44,8 @@ type Neighbor struct {
 	packetReceived *events.Event
 
 	stream         network.Stream
-	reader         protoio.ReadCloser
-	writer         protoio.WriteCloser
+	reader         *libp2putil.UvarintReader
+	writer         *libp2putil.UvarintWriter
 	packetsRead    *atomic.Uint64
 	packetsWritten *atomic.Uint64
 }
@@ -66,8 +66,8 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log 
 		log: log,
 
 		stream: stream,
-		reader: protoio.NewDelimitedReader(stream, maxMsgSize),
-		writer: protoio.NewDelimitedWriter(stream),
+		reader: libp2putil.NewDelimitedReader(stream),
+		writer: libp2putil.NewDelimitedWriter(stream),
 
 		disconnected:   events.NewEvent(disconnected),
 		packetReceived: events.NewEvent(packetReceived),
