@@ -36,7 +36,7 @@ func init() {
 	Plugin = node.NewPlugin("ManaRefresher", deps, node.Enabled, configure, run)
 }
 
-// configure events
+// configure events.
 func configure(plugin *node.Plugin) {
 	plugin.LogInfof("starting node with manarefresher plugin")
 	nodeIDPrivateKey, err := deps.Local.Database().LocalPrivateKey()

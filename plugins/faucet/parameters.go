@@ -31,6 +31,9 @@ type ParametersDefinition struct {
 	// SplittingMultiplier defines how many outputs each splitting transaction will have.
 	// SplittingMultiplier * SupplyOutputsCount indicates how many funding outputs during funds replenishment.
 	SplittingMultiplier int `default:"25" usage:"SplittingMultiplier defines how many outputs each supply transaction will have."`
+
+	// GenesisTokenAmount is the total supply.
+	GenesisTokenAmount uint64 `default:"1000000000000000" usage:"GenesisTokenAmount is the total supply."`
 }
 
 // Parameters contains the configuration parameters of the faucet plugin.

@@ -19,7 +19,7 @@ type DelegationReceiver struct {
 	localTimeNow time.Time
 }
 
-// Scan scans for unspent delegation outputs on the delegation receiver address
+// Scan scans for unspent delegation outputs on the delegation receiver address.
 func (d *DelegationReceiver) Scan() []*ledgerstate.AliasOutput {
 	d.Lock()
 	defer d.Unlock()
@@ -85,11 +85,7 @@ func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) 
 	isConfirmed := false
 	deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		isUnspent = outputMetadata.ConsumerCount() == 0
-		incState, err := deps.Tangle.LedgerState.TransactionInclusionState(output.ID().TransactionID())
-		if err != nil {
-			return
-		}
-		isConfirmed = incState == ledgerstate.Confirmed
+		isConfirmed = deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID())
 	})
 	if !isUnspent || !isConfirmed {
 		return false

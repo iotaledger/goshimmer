@@ -36,7 +36,6 @@ type dependencies struct {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-	configureFPCLiveFeed()
 	configureAutopeeringWorkerPool()
 	configureServer()
 }
@@ -61,8 +60,6 @@ func configureServer() {
 }
 
 func run(*node.Plugin) {
-	// run FPC stat reporting
-	runFPCLiveFeed()
 	// run data reporting for autopeering visualizer
 	runAutopeeringFeed()
 

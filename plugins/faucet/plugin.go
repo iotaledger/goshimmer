@@ -48,7 +48,7 @@ var (
 	blacklist         *orderedmap.OrderedMap
 	blacklistCapacity int
 	blackListMutex    sync.RWMutex
-	// signals that the faucet has initialized itself and can start funding requests
+	// signals that the faucet has initialized itself and can start funding requests.
 	initDone atomic.Bool
 
 	waitForManaWindow = 5 * time.Second
@@ -87,11 +87,15 @@ func newFaucet() *StateManager {
 	if Parameters.SplittingMultiplier <= 0 {
 		Plugin.LogFatalf("the number of outputs for each supply transaction during funds splitting should be more than 0")
 	}
+	if Parameters.GenesisTokenAmount <= 0 {
+		Plugin.LogFatalf("the total supply should be more than 0")
+	}
 	return NewStateManager(
 		uint64(Parameters.TokensPerRequest),
 		walletseed.NewSeed(seedBytes),
 		uint64(Parameters.SupplyOutputsCount),
 		uint64(Parameters.SplittingMultiplier),
+
 		Parameters.MaxTransactionBookedAwaitTime,
 	)
 }
@@ -137,8 +141,9 @@ func run(plugin *node.Plugin) {
 		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
 
 		plugin.LogInfof("Deriving faucet state from the ledger...")
+
 		// determine state, prepare more outputs if needed
-		if err := _faucet.DeriveStateFromTangle(ctx.Done()); err != nil {
+		if err := _faucet.DeriveStateFromTangle(ctx); err != nil {
 			plugin.LogErrorf("failed to derive state: %s", err)
 			return
 		}
@@ -208,7 +213,7 @@ func waitForMana(ctx context.Context) error {
 }
 
 func configureEvents() {
-	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		// Do not start picking up request while waiting for initialization.
 		// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
 		// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in

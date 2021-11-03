@@ -30,7 +30,6 @@ func init() {
 	Plugin = node.NewPlugin("Activity", deps, node.Disabled, configure, run)
 }
 
-// configure events
 func configure(plugin *node.Plugin) {
 	plugin.LogInfof("starting node with activity plugin")
 }

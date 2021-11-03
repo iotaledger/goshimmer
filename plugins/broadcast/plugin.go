@@ -32,7 +32,7 @@ func init() {
 	configuration.BindParameters(Parameters, "Broadcast")
 }
 
-// ParametersDefinition contains the configuration parameters used by the plugin
+// ParametersDefinition contains the configuration parameters used by the plugin.
 type ParametersDefinition struct {
 	// BindAddress defines on which address the broadcast plugin should listen on.
 	BindAddress string `default:"0.0.0.0:5050" usage:"the bind address for the broadcast plugin"`
@@ -41,9 +41,8 @@ type ParametersDefinition struct {
 // Parameters contains the configuration parameters of the broadcast plugin.
 var Parameters = &ParametersDefinition{}
 
-//Run
 func run(_ *node.Plugin) {
-	//Server to connect to
+	// Server to connect to.
 	Plugin.LogInfof("Starting Broadcast plugin on %s", Parameters.BindAddress)
 	if err := daemon.BackgroundWorker("Broadcast worker", func(ctx context.Context) {
 		if err := server.Listen(Parameters.BindAddress, Plugin, ctx.Done()); err != nil {
@@ -54,7 +53,7 @@ func run(_ *node.Plugin) {
 		Plugin.LogFatalf("Failed to start Broadcast daemon: %v", err)
 	}
 
-	//Get Messages from node
+	// Get Messages from node.
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			go func() {

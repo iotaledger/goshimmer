@@ -6,16 +6,17 @@ import (
 
 	"github.com/iotaledger/hive.go/marshalutil"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// MessageType represents the type of a message in the txstream protocol
+// MessageType represents the type of a message in the txstream protocol.
 type MessageType byte
 
 const (
-	// FlagClientToServer is set in a message type if the message is client to server
+	// FlagClientToServer is set in a message type if the message is client to server.
 	FlagClientToServer = byte(0x80)
-	// FlagServerToClient is set in a message type if the message is server to client
+	// FlagServerToClient is set in a message type if the message is server to client.
 	FlagServerToClient = byte(0x40)
 
 	msgTypeChunk = MessageType((FlagClientToServer | FlagServerToClient) + iota)
@@ -30,22 +31,22 @@ const (
 	msgTypeSetID
 
 	msgTypeTransaction = MessageType(FlagServerToClient + iota)
-	msgTypeTxInclusionState
+	msgTypeTxGoF
 	msgTypeOutput
 	msgTypeUnspentAliasOutput
 )
 
-// Message is the common interface of all messages in the txstream protocol
+// Message is the common interface of all messages in the txstream protocol.
 type Message interface {
 	Write(w *marshalutil.MarshalUtil)
 	Read(r *marshalutil.MarshalUtil) error
 	Type() MessageType
 }
 
-// ChunkMessageHeaderSize is the amount of bytes added by MsgChunk as overhead to each chunk
+// ChunkMessageHeaderSize is the amount of bytes added by MsgChunk as overhead to each chunk.
 const ChunkMessageHeaderSize = 3
 
-// MsgChunk is a special message for big data packets chopped into pieces
+// MsgChunk is a special message for big data packets chopped into pieces.
 type MsgChunk struct {
 	Data []byte
 }
@@ -76,7 +77,7 @@ type MsgGetConfirmedTransaction struct {
 }
 
 // MsgGetConfirmedOutput is a request to get a specific confirmed output from the ledger.
-// It may or may not be consumed
+// It may or may not be consumed.
 type MsgGetConfirmedOutput struct {
 	Address  ledgerstate.Address
 	OutputID ledgerstate.OutputID
@@ -118,22 +119,22 @@ type MsgTransaction struct {
 	Tx *ledgerstate.Transaction
 }
 
-// MsgTxInclusionState informs the client with the inclusion state of a given
+// MsgTxGoF informs the client with the GoF of a given
 // transaction as a response from the given address.
-type MsgTxInclusionState struct {
-	Address ledgerstate.Address
-	TxID    ledgerstate.TransactionID
-	State   ledgerstate.InclusionState
+type MsgTxGoF struct {
+	Address         ledgerstate.Address
+	TxID            ledgerstate.TransactionID
+	GradeOfFinality gof.GradeOfFinality
 }
 
-// MsgOutput is the response for MsgGetConfirmedOutput
+// MsgOutput is the response for MsgGetConfirmedOutput.
 type MsgOutput struct {
 	Address        ledgerstate.Address
 	Output         ledgerstate.Output
 	OutputMetadata *ledgerstate.OutputMetadata
 }
 
-// MsgUnspentAliasOutput is the response for MsgGetUnspentAliasOutput
+// MsgUnspentAliasOutput is the response for MsgGetUnspentAliasOutput.
 type MsgUnspentAliasOutput struct {
 	AliasAddress   *ledgerstate.AliasAddress
 	AliasOutput    *ledgerstate.AliasOutput
@@ -143,7 +144,7 @@ type MsgUnspentAliasOutput struct {
 
 // endregion
 
-// EncodeMsg encodes the given Message as a byte slice
+// EncodeMsg encodes the given Message as a byte slice.
 func EncodeMsg(msg Message) []byte {
 	m := marshalutil.New()
 	m.WriteByte(byte(msg.Type()))
@@ -151,7 +152,7 @@ func EncodeMsg(msg Message) []byte {
 	return m.Bytes()
 }
 
-// DecodeMsg decodes a Message from the given bytes
+// DecodeMsg decodes a Message from the given bytes.
 func DecodeMsg(data []byte, expectedFlags uint8) (interface{}, error) {
 	if len(data) < 1 {
 		return nil, fmt.Errorf("wrong message")
@@ -188,8 +189,8 @@ func DecodeMsg(data []byte, expectedFlags uint8) (interface{}, error) {
 	case msgTypeTransaction:
 		ret = &MsgTransaction{}
 
-	case msgTypeTxInclusionState:
-		ret = &MsgTxInclusionState{}
+	case msgTypeTxGoF:
+		ret = &MsgTxGoF{}
 
 	case msgTypeGetConfirmedOutput:
 		ret = &MsgGetConfirmedOutput{}
@@ -224,7 +225,7 @@ func (msg *MsgPostTransaction) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgPostTransaction) Type() MessageType {
 	return msgTypePostTransaction
 }
@@ -251,7 +252,7 @@ func (msg *MsgUpdateSubscriptions) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgUpdateSubscriptions) Type() MessageType {
 	return msgTypeSubscribe
 }
@@ -270,7 +271,7 @@ func (msg *MsgGetConfirmedTransaction) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgGetConfirmedTransaction) Type() MessageType {
 	return msgTypeGetConfirmedTransaction
 }
@@ -291,7 +292,7 @@ func (msg *MsgGetTxInclusionState) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgGetTxInclusionState) Type() MessageType {
 	return msgTypeGetTxInclusionState
 }
@@ -306,7 +307,7 @@ func (msg *MsgGetBacklog) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgGetBacklog) Type() MessageType {
 	return msgTypeGetBacklog
 }
@@ -330,7 +331,7 @@ func (msg *MsgSetID) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgSetID) Type() MessageType {
 	return msgTypeSetID
 }
@@ -351,23 +352,20 @@ func (msg *MsgTransaction) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgTransaction) Type() MessageType {
 	return msgTypeTransaction
 }
 
-func (msg *MsgTxInclusionState) Write(w *marshalutil.MarshalUtil) {
+func (msg *MsgTxGoF) Write(w *marshalutil.MarshalUtil) {
 	w.Write(msg.Address)
-	w.Write(msg.State)
+	w.Write(msg.GradeOfFinality)
 	w.Write(msg.TxID)
 }
 
-func (msg *MsgTxInclusionState) Read(m *marshalutil.MarshalUtil) error {
+func (msg *MsgTxGoF) Read(m *marshalutil.MarshalUtil) error {
 	var err error
 	if msg.Address, err = ledgerstate.AddressFromMarshalUtil(m); err != nil {
-		return err
-	}
-	if msg.State, err = ledgerstate.InclusionStateFromMarshalUtil(m); err != nil {
 		return err
 	}
 	if msg.TxID, err = ledgerstate.TransactionIDFromMarshalUtil(m); err != nil {
@@ -376,9 +374,9 @@ func (msg *MsgTxInclusionState) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
-// Type returns the Message type
-func (msg *MsgTxInclusionState) Type() MessageType {
-	return msgTypeTxInclusionState
+// Type returns the Message type.
+func (msg *MsgTxGoF) Type() MessageType {
+	return msgTypeTxGoF
 }
 
 func (msg *MsgGetConfirmedOutput) Write(w *marshalutil.MarshalUtil) {
@@ -395,7 +393,7 @@ func (msg *MsgGetConfirmedOutput) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgGetConfirmedOutput) Type() MessageType {
 	return msgTypeGetConfirmedOutput
 }
@@ -412,7 +410,7 @@ func (msg *MsgGetUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgGetUnspentAliasOutput) Type() MessageType {
 	return msgTypeGetUnspentAliasOutput
 }
@@ -443,7 +441,7 @@ func (msg *MsgOutput) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgOutput) Type() MessageType {
 	return msgTypeOutput
 }
@@ -478,7 +476,7 @@ func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgUnspentAliasOutput) Type() MessageType {
 	return msgTypeUnspentAliasOutput
 }
@@ -498,7 +496,7 @@ func (msg *MsgChunk) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
-// Type returns the Message type
+// Type returns the Message type.
 func (msg *MsgChunk) Type() MessageType {
 	return msgTypeChunk
 }

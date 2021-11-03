@@ -132,7 +132,7 @@ To get an instance up and running on your machine make sure you have [Docker Com
 Then you just need to run this command:
 ```bash
 docker-compose build
-MONGO_DB_ENABLED=true docker-compose --profile drng --profile grafana up -d
+docker-compose --profile drng --profile grafana up -d
 ```
 
 > Note: Docker will build the GoShimmer image which can take several minutes.
@@ -143,7 +143,6 @@ These services that are created by default with `docker-compose up -d`.
 
 #### Configuration
 
-- MONGO_DB_ENABLED: Determines if the analysis tools should use a MongoDB instance for storing analysis data. Defaults to `false`. **Required if using [`--profile grafana`](#grafana)**.
 - SNAPSHOT_FILE: The full path to the message snapshot file. Defaults to `./goshimmer/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`
 - GOSHIMMER_TAG: (Optional) The [iotaledger/goshimmer](https://hub.docker.com/r/iotaledger/goshimmer) tag to use. Defaults to `develop`.
 - GOSHIMMER_CONFIG: The location of the GoShimmer config file. Defaults to `./config.docker.json`.
@@ -198,7 +197,7 @@ The following ports are exposed on the host to allow for interacting with the Ta
 
 These services can be added to your deployment through `--profile` flags and can be configured with `ENVIRONMENT_VARIABLES`.
 
-#### Grafana + Prometheus + MongoDB
+#### Grafana + Prometheus
 
 A set of containers to enable dashboards and monitoring.
 
@@ -208,19 +207,14 @@ In order to enable these containers you must set the `--profile grafana` flag wh
 
 ##### Configuration
 
-- MONGO_DB_ENABLED: __(REQUIRED if using `--profile grafana`)__ Determines if the analysis tools should use a MongoDB instance for storing analysis data and configures the `peer_master` to use MongoDB for analysis storage. Defaults to `false`.
 - PROMETHEUS_CONFIG: Location of the prometheus config yaml file. Defaults to `./prometheus.yml`.
- 
-##### Volumes
-
-Docker Compose creates a `mongodb_data_container` volume to maintain MongoDB data even after tearing down the containers. Run `docker-compose down -v` to clear the volume.
 
 ##### Example
 
 You can set the environment variable configuration inline as seen in this example.
 
 ```bash
-MONGO_DB_ENABLED=true docker-compose --profile grafana up -d
+docker-compose --profile grafana up -d
 ```
 
 ##### Ports

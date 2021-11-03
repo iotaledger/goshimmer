@@ -22,7 +22,7 @@ var (
 func TestRateSetter_StartStop(t *testing.T) {
 	localID := identity.GenerateLocalIdentity()
 
-	tangle := newTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
+	tangle := NewTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 	defer tangle.Shutdown()
 	time.Sleep(10 * time.Millisecond)
 }
@@ -31,7 +31,7 @@ func TestRateSetter_Submit(t *testing.T) {
 	localID := identity.GenerateLocalIdentity()
 	localNode := identity.New(localID.PublicKey())
 
-	tangle := newTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
+	tangle := NewTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 	defer tangle.Shutdown()
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
@@ -45,7 +45,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	localID := identity.GenerateLocalIdentity()
 	localNode := identity.New(localID.PublicKey())
 
-	tangle := newTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
+	tangle := NewTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 	defer tangle.Shutdown()
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
@@ -54,9 +54,11 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	discardedCounter := events.NewClosure(func(id MessageID) { messageDiscarded <- id })
 	rateSetter.Events.MessageDiscarded.Attach(discardedCounter)
 
-	msg := NewMessage(
+	msg, _ := NewMessage(
 		[]MessageID{EmptyMessageID},
 		[]MessageID{},
+		nil,
+		nil,
 		time.Now(),
 		localNode.PublicKey(),
 		0,

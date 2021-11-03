@@ -48,7 +48,7 @@ func init() {
 	}))
 }
 
-// CacheTimeProvider  returns the cacheTimeProvider instance
+// CacheTimeProvider returns the cacheTimeProvider instance.
 func CacheTimeProvider() *database.CacheTimeProvider {
 	cacheProviderOnce.Do(createCacheTimeProvider)
 	return cacheTimeProvider

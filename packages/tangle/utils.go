@@ -2,6 +2,9 @@ package tangle
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/typeutils"
 
@@ -129,13 +132,13 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
-				return message.WeakParents()
+				return message.ParentsByType(WeakParentType)
 			}, nil)
 			if approved {
 				return
 			}
 			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
-				return message.StrongParents()
+				return message.ParentsByType(StrongParentType)
 			}, &bookedParents)
 		})
 		if approved {
@@ -157,7 +160,7 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 	return
 }
 
-// checkBookedParents check if message parents are booked and add then to bookedParents. If we find attachmentMessageId in the parents we stop and return true
+// checkBookedParents check if message parents are booked and add then to bookedParents. If we find attachmentMessageId in the parents we stop and return true.
 func (u *Utils) checkBookedParents(message *Message, attachmentMessageID *MessageID, getParents func(*Message) MessageIDs, bookedParents *MessageIDs) bool {
 	for _, parentID := range getParents(message) {
 		var parentBooked bool
@@ -282,6 +285,27 @@ func (u *Utils) ComputeIfTransaction(messageID MessageID, compute func(ledgersta
 			computed = true
 		}
 	})
+	return
+}
+
+// FirstAttachment returns the MessageID and timestamp of the first (oldest) attachment of a given transaction.
+func (u *Utils) FirstAttachment(transactionID ledgerstate.TransactionID) (oldestAttachmentTime time.Time, oldestAttachmentMessageID MessageID, err error) {
+	var transaction *ledgerstate.Transaction
+	oldestAttachmentTime = time.Unix(0, 0)
+	oldestAttachmentMessageID = EmptyMessageID
+	if !u.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+		u.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+			if oldestAttachmentTime.Unix() == 0 || message.IssuingTime().Before(oldestAttachmentTime) {
+				oldestAttachmentTime = message.IssuingTime()
+				oldestAttachmentMessageID = message.ID()
+			}
+			if transaction == nil {
+				transaction = message.Payload().(*ledgerstate.Transaction)
+			}
+		})
+	}) {
+		err = errors.Errorf("could not find any attachments of transaction: %s", transactionID.String())
+	}
 	return
 }
 

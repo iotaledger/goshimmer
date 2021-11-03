@@ -30,7 +30,7 @@ const (
 
 func indexRoute(e echo.Context) error {
 	if Parameters.Dev {
-		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://127.0.0.1:9090/", nil /* body */)
+		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", Parameters.DevDashboardAddress, nil /* body */)
 		if err != nil {
 			return err
 		}

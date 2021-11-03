@@ -115,9 +115,6 @@ func websocketRoute(c echo.Context) error {
 	// replay autopeering events from the past upon connecting a new client
 	analysisserver.ReplayAutopeeringEvents(createAutopeeringEventHandlers(ws))
 
-	// replay FPC past events
-	replayFPCRecords(ws)
-
 	for {
 		msg := <-wsClient.channel
 		if err := sendJSON(ws, msg); err != nil {

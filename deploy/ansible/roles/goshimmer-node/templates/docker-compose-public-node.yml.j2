@@ -38,7 +38,7 @@ services:
       --node.overwriteStoredSeed=true
       --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
       {% if networkVersion|default(None) %}
-      --autopeering.networkVersion={{ networkVersion }}
+      --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
@@ -54,9 +54,7 @@ services:
       --logger.level={{ logLevel }}
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
-      {% if bootstrap|default(false) %}
       --messageLayer.startSynced=true
-      {% endif %}
       --drng.pollen.instanceID=1
       --drng.pollen.threshold=3
       --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga

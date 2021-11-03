@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 const (
@@ -82,7 +81,7 @@ func (t *TimeManager) Start() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TimeManager) Setup() {
-	t.tangle.ApprovalWeightManager.Events.MarkerConfirmation.Attach(events.NewClosure(t.updateTime))
+	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(t.updateTime))
 }
 
 // Shutdown shuts down the TimeManager and persists its state.
@@ -144,13 +143,7 @@ func (t *TimeManager) updateSyncedState() {
 }
 
 // updateTime updates the last confirmed message.
-func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
-	if transition != events.ThresholdLevelIncreased {
-		return
-	}
-
-	messageID := t.tangle.Booker.MarkersManager.MessageID(&marker)
-
+func (t *TimeManager) updateTime(messageID MessageID) {
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		t.lastConfirmedMutex.Lock()
 		defer t.lastConfirmedMutex.Unlock()
@@ -204,7 +197,7 @@ func lastConfirmedMessageFromBytes(bytes []byte) (lcm LastConfirmedMessage, cons
 // lastConfirmedMessageFromMarshalUtil unmarshals a LastConfirmedMessage object using a MarshalUtil (for easier unmarshaling).
 func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lcm LastConfirmedMessage, err error) {
 	lcm = LastConfirmedMessage{}
-	if lcm.MessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if lcm.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}

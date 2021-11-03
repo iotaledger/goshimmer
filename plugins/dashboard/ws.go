@@ -52,8 +52,7 @@ func configureWebSocketWorkerPool() {
 			broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
 			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
 			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, &tipsInfo{
-				TotalTips: deps.Tangle.TipManager.StrongTipCount() + deps.Tangle.TipManager.WeakTipCount(),
-				WeakTips:  deps.Tangle.TipManager.WeakTipCount(),
+				TotalTips: deps.Tangle.TipManager.TipCount(),
 			}})
 		case *componentsmetric:
 			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
@@ -153,6 +152,8 @@ func sendInitialData(ws *websocket.Conn) error {
 	if err := ManaBufferInstance().SendMapOnline(ws); err != nil {
 		return err
 	}
+	sendAllConflicts()
+
 	return nil
 }
 

@@ -28,7 +28,7 @@ An example of the HTTP JSON request:
         "publicKey": "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
         "address": "172.19.0.3:14666"
     }
-]
+].
 */
 func addPeersHandler(c echo.Context) error {
 	var peers []*manualpeering.KnownPeerToAdd
@@ -55,7 +55,7 @@ An example of the HTTP JSON request:
     {
         "publicKey": "8qN1yD95fhbfDZtKX49RYFEXqej5fvsXJ2NPmF1LCqbd"
     }
-]
+].
 */
 func removePeersHandler(c echo.Context) error {
 	var peersToRemove []*jsonmodels.PeerToRemove

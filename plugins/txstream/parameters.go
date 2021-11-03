@@ -10,7 +10,7 @@ type ParametersDefinition struct {
 	BindAddress string `default:"0.0.0.0:5000" usage:"the bind address for the txStream plugin"`
 }
 
-// Parameters contains the configuration used by the txStream plugin
+// Parameters contains the configuration used by the txStream plugin.
 var Parameters = &ParametersDefinition{}
 
 func init() {

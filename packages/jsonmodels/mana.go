@@ -62,7 +62,7 @@ type GetOnlineResponse struct {
 	Timestamp int64           `json:"timestamp"`
 }
 
-// OnlineNodeStr holds information about online rank, nodeID and mana,
+// OnlineNodeStr holds information about online rank, nodeID and mana.
 type OnlineNodeStr struct {
 	OnlineRank int     `json:"rank"`
 	ShortID    string  `json:"shortNodeID"`

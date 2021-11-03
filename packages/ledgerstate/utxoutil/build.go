@@ -31,7 +31,7 @@ type Builder struct {
 	consumedUnspent map[ledgerstate.Color]uint64
 }
 
-// NewBuilder creates new builder for outputs
+// NewBuilder creates new builder for outputs.
 func NewBuilder(inputs ...ledgerstate.Output) *Builder {
 	ret := &Builder{
 		timestamp:       time.Now(),
@@ -43,12 +43,12 @@ func NewBuilder(inputs ...ledgerstate.Output) *Builder {
 	return ret
 }
 
-// AddConsumable adds a new consumable output to the builder
+// AddConsumable adds a new consumable output to the builder.
 func (b *Builder) AddConsumable(input ledgerstate.Output) {
 	b.consumables = append(b.consumables, NewConsumable(input))
 }
 
-// Clone creates deep copy of the builder
+// Clone creates deep copy of the builder.
 func (b *Builder) Clone() *Builder {
 	ret := *b
 	ret.consumables = make([]*ConsumableOutput, len(b.consumables))
@@ -66,31 +66,31 @@ func (b *Builder) Clone() *Builder {
 	return &ret
 }
 
-// WithVersion sets Version property
+// WithVersion sets Version property.
 func (b *Builder) WithVersion(v ledgerstate.TransactionEssenceVersion) *Builder {
 	b.version = v
 	return b
 }
 
-// WithTimestamp sets timestamp
+// WithTimestamp sets timestamp.
 func (b *Builder) WithTimestamp(t time.Time) *Builder {
 	b.timestamp = t
 	return b
 }
 
-// WithAccessPledge sets the access mana pledge
+// WithAccessPledge sets the access mana pledge.
 func (b *Builder) WithAccessPledge(id identity.ID) *Builder {
 	b.accessPledgeID = id
 	return b
 }
 
-// WithConsensusPledge sets the consensus mana pledge
+// WithConsensusPledge sets the consensus mana pledge.
 func (b *Builder) WithConsensusPledge(id identity.ID) *Builder {
 	b.consensusPledgeID = id
 	return b
 }
 
-// AddOutputAndSpendUnspent spends the consumed-unspent tokens and adds output
+// AddOutputAndSpendUnspent spends the consumed-unspent tokens and adds output.
 func (b *Builder) AddOutputAndSpendUnspent(out ledgerstate.Output) error {
 	b.SpendConsumedUnspent()
 	return b.addOutput(out)
@@ -113,7 +113,7 @@ func (b *Builder) addToConsumedUnspent(bals map[ledgerstate.Color]uint64) {
 	}
 }
 
-// ConsumeAmounts consumes specified amounts and adds it to consumed-unspent pool
+// ConsumeAmounts consumes specified amounts and adds it to consumed-unspent pool.
 func (b *Builder) ConsumeAmounts(amounts map[ledgerstate.Color]uint64) bool {
 	if !ConsumeMany(amounts, b.consumables...) {
 		return false
@@ -151,14 +151,14 @@ func (b *Builder) mustSpendAmounts(amounts map[ledgerstate.Color]uint64) {
 	}
 }
 
-// SpendConsumedUnspent spends all consumed-unspent pool (empties it) and returns what was spent
+// SpendConsumedUnspent spends all consumed-unspent pool (empties it) and returns what was spent.
 func (b *Builder) SpendConsumedUnspent() map[ledgerstate.Color]uint64 {
 	ret := b.consumedUnspent
 	b.consumedUnspent = make(map[ledgerstate.Color]uint64)
 	return ret
 }
 
-// Spend spends from consumed-unspend. Return an error if not enough funds
+// Spend spends from consumed-unspend. Return an error if not enough funds.
 func (b *Builder) Spend(spend map[ledgerstate.Color]uint64) error {
 	// check if enough
 	for color, needed := range spend {
@@ -174,7 +174,7 @@ func (b *Builder) Spend(spend map[ledgerstate.Color]uint64) error {
 }
 
 // AddExtendedOutputSpend adds extended output using unspent amounts and spends it. Fails of not enough.
-// Do not consume inputs
+// Do not consume inputs.
 func (b *Builder) AddExtendedOutputSpend(
 	targetAddress ledgerstate.Address,
 	data []byte,
@@ -212,7 +212,7 @@ func (b *Builder) AddExtendedOutputSpend(
 // prepareColoredBalancesOutput:
 // - ensures enough tokens in unspentAmounts
 // - spends them
-// - handles minting of new colors (if any) and returns final map of tokens with valid minting
+// - handles minting of new colors (if any) and returns final map of tokens with valid minting.
 func (b *Builder) prepareColoredBalancesOutput(amounts map[ledgerstate.Color]uint64, mint ...uint64) (map[ledgerstate.Color]uint64, error) {
 	if len(amounts) == 0 {
 		return nil, xerrors.New("prepareColoredBalancesOutput: no tokens to transfer")
@@ -244,7 +244,7 @@ func (b *Builder) prepareColoredBalancesOutput(amounts map[ledgerstate.Color]uin
 	return amountsCopy, nil
 }
 
-// AddSigLockedColoredOutput creates output, consumes inputs if needed
+// AddSigLockedColoredOutput creates output, consumes inputs if needed.
 func (b *Builder) AddSigLockedColoredOutput(targetAddress ledgerstate.Address, amounts map[ledgerstate.Color]uint64, mint ...uint64) error {
 	balances, err := b.prepareColoredBalancesOutput(amounts, mint...)
 	if err != nil {
@@ -259,7 +259,7 @@ func (b *Builder) AddSigLockedColoredOutput(targetAddress ledgerstate.Address, a
 }
 
 // AddSigLockedIOTAOutput adds output with iotas by consuming inputs
-// supports minting (coloring) of part of consumed iotas
+// supports minting (coloring) of part of consumed iotas.
 func (b *Builder) AddSigLockedIOTAOutput(targetAddress ledgerstate.Address, amount uint64, mint ...uint64) error {
 	balances, err := b.prepareColoredBalancesOutput(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: amount}, mint...)
 	if err != nil {
@@ -277,7 +277,7 @@ func (b *Builder) AddSigLockedIOTAOutput(targetAddress ledgerstate.Address, amou
 	return nil
 }
 
-// AddExtendedOutputConsume add new output. Ensures enough unspent funds by consuming if necessary
+// AddExtendedOutputConsume add new output. Ensures enough unspent funds by consuming if necessary.
 func (b *Builder) AddExtendedOutputConsume(targetAddress ledgerstate.Address, data []byte, amounts map[ledgerstate.Color]uint64, mint ...uint64) error {
 	balances, err := b.prepareColoredBalancesOutput(amounts, mint...)
 	if err != nil {
@@ -309,7 +309,7 @@ func (b *Builder) AddRemainderOutputIfNeeded(remainderAddr ledgerstate.Address, 
 	return b.AddExtendedOutputConsume(remainderAddr, data, unspent)
 }
 
-// AddMintingOutputConsume mints new tokens. Consumes additional iotas if needed
+// AddMintingOutputConsume mints new tokens. Consumes additional iotas if needed.
 func (b *Builder) AddMintingOutputConsume(targetAddress ledgerstate.Address, amount uint64, payload ...[]byte) error {
 	amounts := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: amount}
 	if !b.ensureEnoughUnspendAmounts(amounts) {
@@ -331,7 +331,7 @@ func (b *Builder) AddMintingOutputConsume(targetAddress ledgerstate.Address, amo
 }
 
 // AddNewAliasMint creates new self governed chain.
-// The identity of the chain is not known until the full transaction is produced
+// The identity of the chain is not known until the full transaction is produced.
 func (b *Builder) AddNewAliasMint(balances map[ledgerstate.Color]uint64, stateAddress ledgerstate.Address, stateData []byte) error {
 	output, err := ledgerstate.NewAliasOutputMint(balances, stateAddress)
 	if err != nil {
@@ -350,7 +350,7 @@ func (b *Builder) AddNewAliasMint(balances map[ledgerstate.Color]uint64, stateAd
 	return nil
 }
 
-// ConsumedUnspent return consumed-unspend pool
+// ConsumedUnspent return consumed-unspend pool.
 func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
 	ret := make(map[ledgerstate.Color]uint64)
 	for col, bal := range b.consumedUnspent {
@@ -361,7 +361,7 @@ func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
 	return ret
 }
 
-// ConsumeAliasInput consumes chain input by alias
+// ConsumeAliasInput consumes chain input by alias.
 func (b *Builder) ConsumeAliasInput(addressAlias ledgerstate.Address) error {
 	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
@@ -373,7 +373,7 @@ func (b *Builder) ConsumeAliasInput(addressAlias ledgerstate.Address) error {
 	return nil
 }
 
-// AliasNextChainedOutput creates chained output without consuming it
+// AliasNextChainedOutput creates chained output without consuming it.
 func (b *Builder) AliasNextChainedOutput(addressAlias ledgerstate.Address) (*ledgerstate.AliasOutput, error) {
 	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
@@ -409,7 +409,7 @@ func (b *Builder) AddAliasOutputAsRemainder(addressAlias ledgerstate.Address, st
 	return nil
 }
 
-// ConsumeInputByOutputID consumes input by outputID
+// ConsumeInputByOutputID consumes input by outputID.
 func (b *Builder) ConsumeInputByOutputID(id ledgerstate.OutputID) error {
 	for _, consumable := range b.consumables {
 		if consumable.output.ID() == id {
@@ -420,7 +420,7 @@ func (b *Builder) ConsumeInputByOutputID(id ledgerstate.OutputID) error {
 	return xerrors.Errorf("ConsumeInputByOutputID: output not found")
 }
 
-// ConsumeRemainingBalances consumes touched balances
+// ConsumeRemainingBalances consumes touched balances.
 func (b *Builder) ConsumeRemainingBalances(compress bool) []*ConsumableOutput {
 	inputConsumables := b.consumables
 	if !compress {
@@ -433,7 +433,7 @@ func (b *Builder) ConsumeRemainingBalances(compress bool) []*ConsumableOutput {
 // BuildEssence builds essence of the transaction.
 // Compress option:
 // - true means take all consumable inputs
-// - false means take only touched (consumed) outputs. This is the default
+// - false means take only touched (consumed) outputs. This is the default.
 func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssence, []ledgerstate.Output, error) {
 	if len(b.consumedUnspent) > 0 {
 		return nil, nil, xerrors.New("BuildEssence: not all consumed balances were spent")
@@ -458,7 +458,7 @@ func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssenc
 	return ret, consumedOutputs, nil
 }
 
-// BuildWithED25519 build complete transaction and signs/unlocks with provided keys
+// BuildWithED25519 build complete transaction and signs/unlocks with provided keys.
 func (b *Builder) BuildWithED25519(keyPairs ...*ed25519.KeyPair) (*ledgerstate.Transaction, error) {
 	essence, consumedOutputs, err := b.BuildEssence()
 	if err != nil {

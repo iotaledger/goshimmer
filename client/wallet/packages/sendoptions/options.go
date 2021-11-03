@@ -89,6 +89,14 @@ func WaitForConfirmation(wait bool) SendFundsOption {
 	}
 }
 
+// UsePendingOutputs defines if we can collect outputs that are still pending confirmation.
+func UsePendingOutputs(usePendingOutputs bool) SendFundsOption {
+	return func(options *SendFundsOptions) error {
+		options.UsePendingOutputs = usePendingOutputs
+		return nil
+	}
+}
+
 // LockUntil is an option for SendFunds call that defines if the created outputs should be locked until a certain time.
 func LockUntil(until time.Time) SendFundsOption {
 	return func(options *SendFundsOptions) error {
@@ -134,6 +142,7 @@ type SendFundsOptions struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	WaitForConfirmation   bool
+	UsePendingOutputs     bool
 }
 
 // RequiredFunds derives how much funds are needed based on the Destinations to fund the transfer.

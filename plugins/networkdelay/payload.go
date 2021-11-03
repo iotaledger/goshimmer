@@ -120,7 +120,7 @@ func (p *Payload) Bytes() (bytes []byte) {
 
 	bytes = marshalUtil.Bytes()
 
-	return
+	return bytes
 }
 
 // String returns a human-friendly representation of the Payload.
