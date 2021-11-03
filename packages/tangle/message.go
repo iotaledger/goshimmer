@@ -190,9 +190,13 @@ func (ids MessageIDs) ToStrings() []string {
 type ParentsType uint8
 
 const (
+	// StrongParentType is the ParentsType for a strong parent.
 	StrongParentType ParentsType = iota
+	// WeakParentType is the ParentsType for a weak parent.
 	WeakParentType
+	// DislikeParentType is the ParentsType for a dislike parent.
 	DislikeParentType
+	// LikeParentType is thee ParentsType for the like parent.
 	LikeParentType
 
 	// NumberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents.
