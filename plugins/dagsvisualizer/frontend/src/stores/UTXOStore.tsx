@@ -30,9 +30,15 @@ export class UTXOStore {
     @observable maxUTXOVertices: number = 500;
     @observable transactions = new ObservableMap<string, utxoVertex>();
     @observable selectedTx: utxoVertex = null;
+    @observable paused: boolean = false;
+    @observable search: string = "";
     outputMap = new Map();
     txOrder: Array<any> = [];
+
     vertexChanges = 0;
+    txToRemoveAfterResume = [];
+    txToAddAfterResume = [];
+
     cy;
     layoutUpdateTimerID;
     layout;
@@ -62,9 +68,13 @@ export class UTXOStore {
             });
             this.transactions.delete(removed);
 
-            this.removeVertex(tx.ID);
+            if (this.paused) {
+              // keep the removed tx that should be removed from the graph after resume.
+              this.txToRemoveAfterResume.push(removed);              
+            } else {
+              this.removeVertex(removed);
+            }
         }
-        console.log(tx.ID)
 
         this.txOrder.push(tx.ID);
         this.transactions.set(tx.ID, tx);
@@ -72,7 +82,11 @@ export class UTXOStore {
           this.outputMap.set(outputID, {});
         })
 
-        this.drawVertex(tx);
+        if (this.paused) {
+          this.txToAddAfterResume.push(tx.ID);
+        } else {
+          this.drawVertex(tx);
+        }
     }
 
     @action
@@ -90,13 +104,68 @@ export class UTXOStore {
     @action
     updateSelected = (txID: string) => {
       let tx = this.transactions.get(txID);
-      console.log("update here", tx);
+      if (!tx) return;
       this.selectedTx = tx;
     }
 
     @action
-    clearSelected = () => {
+    clearSelected = (removePreSelectedNode?: boolean) => {
+      // unselect preselected node manually
+      if (removePreSelectedNode && this.selectedTx) {
+          this.cy.getElementById(this.selectedTx.ID).unselect();
+      }
+
       this.selectedTx = null;
+    }
+
+    @action
+    pauseResume = () => {
+        if (this.paused) {
+            this.resumeAndSyncGraph();
+            this.paused = false;
+            return;
+        }
+        this.paused = true;
+    }
+
+    @action
+    updateVerticesLimit = (num: number) => {
+        this.maxUTXOVertices = num;
+    }
+
+    @action
+    updateSearch = (search: string) => {
+        this.search = search.trim();
+    }
+
+    @action
+    searchAndHighlight = () => {
+        if (!this.search) return;
+
+        this.clearSelected(true);
+        
+        let txNode = this.cy.getElementById(this.search);
+        if (!txNode) return;
+        // select the node manually
+        txNode.select();
+        
+        this.updateSelected(this.search);
+    }
+
+    resumeAndSyncGraph = () => {
+      // add buffered tx
+      this.txToAddAfterResume.forEach((txID) => {
+        let tx = this.transactions.get(txID);
+        if (tx) {
+          this.drawVertex(tx);
+        }        
+      })
+
+      // remove removed tx
+      this.txToRemoveAfterResume.forEach((txID) => {
+        this.removeVertex(txID);
+      })
+      this.txToRemoveAfterResume = [];
     }
 
     removeVertex = (txID: string) => {
@@ -191,7 +260,7 @@ export class UTXOStore {
 
     updateLayoutTimer = () => {
       this.layoutUpdateTimerID = setInterval(() => {
-          if (this.vertexChanges > 0) {
+          if (this.vertexChanges > 0 && !this.paused) {
               this.cy.layout(this.layout).run();
               this.vertexChanges = 0;
           }
