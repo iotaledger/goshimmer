@@ -160,6 +160,7 @@ export class UTXOStore {
           this.drawVertex(tx);
         }        
       })
+      this.txToAddAfterResume = [];
 
       // remove removed tx
       this.txToRemoveAfterResume.forEach((txID) => {
