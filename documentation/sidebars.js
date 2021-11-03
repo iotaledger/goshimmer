@@ -344,9 +344,9 @@ module.exports = {
     ],
   },
   {
-    type: 'doc',
+    type: 'link',
     label: 'Release Notes',
-    id: 'release_notes'
+    href: 'https://github.com/iotaledger/goshimmer/releases'
   }
   ],
 };
