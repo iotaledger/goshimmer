@@ -765,7 +765,7 @@ func totalAccessManaRetriever() float64 {
 	return totalAMana
 }
 
-// NewTestTangle returns a Tangle instance with a testing schedulerConfig
+// NewTestTangle returns a Tangle instance with a testing schedulerConfig.
 func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 

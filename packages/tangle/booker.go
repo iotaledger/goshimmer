@@ -303,7 +303,6 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 	})
 
 	return branchIDs
-
 }
 
 // likedParentsBranchIDs returns all the payload branches of the Message's liked parents.
@@ -1142,7 +1141,7 @@ func (i *IndividuallyMappedMessage) ObjectStorageValue() []byte {
 	return i.pastMarkers.Bytes()
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = &IndividuallyMappedMessage{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1348,7 +1347,7 @@ func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
 	return m.messageID.Bytes()
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = &MarkerMessageMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

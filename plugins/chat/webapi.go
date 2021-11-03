@@ -44,7 +44,7 @@ func SendChatMessage(c echo.Context) error {
 	return c.JSON(http.StatusOK, Response{MessageID: msg.ID().Base58()})
 }
 
-// Request defines the chat message to send
+// Request defines the chat message to send.
 type Request struct {
 	From    string `json:"from"`
 	To      string `json:"to"`

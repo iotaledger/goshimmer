@@ -102,7 +102,7 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	return
 }
 
-// Events returns all events of the UTXODAG
+// Events returns all events of the UTXODAG.
 func (u *UTXODAG) Events() *UTXODAGEvents {
 	return u.events
 }

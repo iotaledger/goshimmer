@@ -13,7 +13,7 @@ const (
 	// the age of the oldest event depends on number of utxo inputs spent recently
 	// note, that this is aggregate for both access and consensus events.
 	maxManaEventsBufferSize = 200
-	// oldest data is 10s * 100 = 17 mins before dropping it
+	// oldest data is 10s * 100 = 17 mins before dropping it.
 	maxManaValuesBufferSize = 100
 )
 

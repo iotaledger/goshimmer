@@ -1,6 +1,7 @@
 package messagelayer
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -148,8 +149,8 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
+	if err := daemon.BackgroundWorker("Tangle", func(ctx context.Context) {
+		<-ctx.Done()
 		deps.Tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)

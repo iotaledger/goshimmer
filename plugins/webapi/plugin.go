@@ -124,7 +124,7 @@ func run(*node.Plugin) {
 	}
 }
 
-func worker(shutdownSignal <-chan struct{}) {
+func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
@@ -141,7 +141,7 @@ func worker(shutdownSignal <-chan struct{}) {
 
 	// stop if we are shutting down or the server could not be started
 	select {
-	case <-shutdownSignal:
+	case <-ctx.Done():
 	case <-stopped:
 	}
 

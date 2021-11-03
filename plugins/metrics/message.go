@@ -67,32 +67,32 @@ var (
 	// Total number of processed messages since start of the node.
 	messageTotalCount atomic.Uint64
 
-	// number of messages in the database at startup
+	// number of messages in the database at startup.
 	initialMessageTotalCountDB uint64
 
-	// current number of messages in the node's database
+	// current number of messages in the node's database.
 	messageTotalCountDB atomic.Uint64
 
-	// number of solid messages in the database at startup
+	// number of solid messages in the database at startup.
 	initialMessageSolidCountDB uint64
 
-	// current number of solid messages in the node's database
+	// current number of solid messages in the node's database.
 	messageSolidCountDBInc atomic.Uint64
 
 	// helper variable that is only calculated at init phase. unit is milliseconds!
 	initialSumSolidificationTime int64
 
-	// sum of solidification time (since start of the node)
+	// sum of solidification time (since start of the node).
 	sumSolidificationTime time.Duration
 	solidTimeMutex        syncutils.RWMutex
 
-	// initial number of missing messages in missingMessageStorage (at startup)
+	// initial number of missing messages in missingMessageStorage (at startup).
 	initialMissingMessageCountDB uint64
 
-	// current number of missing messages in missingMessageStorage
+	// current number of missing messages in missingMessageStorage.
 	missingMessageCountDB atomic.Uint64
 
-	// current number of finalized messages
+	// current number of finalized messages.
 	finalizedMessageCount = make(map[MessageType]uint64)
 
 	// protect map from concurrent read/write.
@@ -107,7 +107,7 @@ var (
 	// current number of message tips.
 	messageTips atomic.Uint64
 
-	// total number of parents of all messages per parent type
+	// total number of parents of all messages per parent type.
 	parentsCountPerType = make(map[tangle.ParentsType]uint64)
 
 	// protect map from concurrent read/write.
@@ -206,7 +206,7 @@ func MessageTotalCountDB() uint64 {
 	return initialMessageTotalCountDB + messageTotalCountDB.Load()
 }
 
-// SolidificationTime returns the cumulative time it took for all message to become solid. [milliseconds]
+// SolidificationTime returns the cumulative time it took for all message to become solid [milliseconds].
 func SolidificationTime() (result int64) {
 	solidTimeMutex.RLock()
 	defer solidTimeMutex.RUnlock()
@@ -297,7 +297,7 @@ func increasePerParentType(c tangle.ParentsType) {
 	parentsCountPerType[c]++
 }
 
-// measures the Component Counter value per second
+// measures the Component Counter value per second.
 func measurePerComponentCounter() {
 	// sample the current counter value into a measured MPS value
 	componentCounters := MessageCountSinceStartPerComponentDashboard()

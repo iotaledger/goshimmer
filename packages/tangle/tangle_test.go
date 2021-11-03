@@ -582,7 +582,6 @@ func TestTangle_Flow(t *testing.T) {
 	assert.EqualValues(t, 0, atomic.LoadInt32(&invalidMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&rejectedMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
-
 }
 
 // IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
