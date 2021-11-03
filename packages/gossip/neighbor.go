@@ -116,7 +116,7 @@ func (n *Neighbor) readLoop() {
 
 func (n *Neighbor) write(packet *pb.Packet) error {
 	if err := n.stream.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {
-		return errors.WithStack(err)
+		n.log.Warnw("Can't set write deadline on stream", "err", err)
 	}
 	err := n.writer.WriteMsg(packet)
 	if err != nil {

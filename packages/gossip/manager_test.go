@@ -305,8 +305,6 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 	mgrB, closeB, peerB := newMockedManager(t, "B")
 	defer closeB()
 
-	mgrA.On("connectionFailed", peerB, mock.Anything).Once()
-
 	err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 	assert.Error(t, err)
 

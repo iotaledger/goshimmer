@@ -53,7 +53,7 @@ func TestNeighborWrite(t *testing.T) {
 
 	var count uint32
 	neighborB.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
-		assert.Equal(t, testPacket, packet)
+		assert.Equal(t, testPacket.String(), packet.String())
 		atomic.AddUint32(&count, 1)
 	}))
 	neighborB.readLoop()
