@@ -23,8 +23,6 @@ services:
       - "0.0.0.0:14626:14626/udp"
       # Gossip
       - "0.0.0.0:14666:14666/tcp"
-      # FPC
-      - "0.0.0.0:10895:10895/tcp"
       # HTTP API
       - "0.0.0.0:8080:8080/tcp"
       # Dashboard
@@ -39,7 +37,6 @@ services:
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
       - NETWORKDELAY_ORIGINPUBLICKEY=9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd
-      - FPC_BINDADDRESS=0.0.0.0:10895
       - PROMETHEUS_BINDADDRESS=0.0.0.0:9311
     command: >
       --skip-config=true

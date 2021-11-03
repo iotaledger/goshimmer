@@ -12,6 +12,9 @@ type ParametersDefinition struct {
 	// Dev defines the config flag of the  dashboard dev mode.
 	Dev bool `default:"false" usage:"whether the dashboard runs in dev mode"`
 
+	// DevDashboardAddress defines the address of dashboard running in development mode.
+	DevDashboardAddress string `default:"127.0.0.1:9090" usage:"address of the dashboard when running in dev mode, e.g. with yarn start"`
+
 	BasicAuth struct {
 		// Enabled defines the config flag of the dashboard basic auth enabler.
 		Enabled bool `default:"false" usage:"whether to enable HTTP basic auth"`
@@ -21,6 +24,12 @@ type ParametersDefinition struct {
 
 		// Password defines the config flag of the dashboard basic auth password.
 		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
+	}
+
+	// Conflicts defines the config flag for the configs tab of the dashboard.
+	Conflicts struct {
+		// MaxCount defines the max number of conflicts stored on the dashboard.
+		MaxCount int `default:"100" usage:"max number of conflicts stored on the dashboard"`
 	}
 }
 

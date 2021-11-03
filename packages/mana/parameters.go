@@ -25,11 +25,11 @@ const (
 
 var (
 	// default values are for half life of 6 hours, unit is 1/s
-	// exponential moving average coefficient for Mana 1 calculation (used in consensus mana)
+	// exponential moving average coefficient for Mana 1 calculation (used in consensus mana).
 	emaCoeff1 = 0.00003209
-	// exponential moving average coefficient for Mana 2 calculation (used in access mana)
+	// exponential moving average coefficient for Mana 2 calculation (used in access mana).
 	emaCoeff2 = 0.00003209
-	// Decay is the mana decay (gamma) (used in access mana), in 1/sec
+	// Decay is the mana decay (gamma) (used in access mana), in 1/sec.
 	Decay = 0.00003209
 )
 

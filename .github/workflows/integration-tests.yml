@@ -130,9 +130,6 @@ jobs:
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             -t iotaledger/goshimmer .
 
-      - name: Pull additional Docker images
-        run: |
-          docker pull angelocapossele/drand:v1.1.4
 
       - name: Run integration tests
         run: |
@@ -150,7 +147,6 @@ jobs:
         with:
           name: ${{ env.TEST_NAME }}
           path: tools/integration-tests/logs
-
 
   drng:
     name: drng

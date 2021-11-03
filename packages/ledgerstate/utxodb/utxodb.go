@@ -6,12 +6,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// Supply returns supply of the instance
+// Supply returns supply of the instance.
 func (u *UtxoDB) Supply() uint64 {
 	return u.supply
 }
 
-// IsConfirmed checks if the transaction is in the UTXODB ledger
+// IsConfirmed checks if the transaction is in the UTXODB ledger.
 func (u *UtxoDB) IsConfirmed(txid *ledgerstate.TransactionID) bool {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -19,7 +19,7 @@ func (u *UtxoDB) IsConfirmed(txid *ledgerstate.TransactionID) bool {
 	return ok
 }
 
-// GetOutput finds an output by ID (either spent or unspent)
+// GetOutput finds an output by ID (either spent or unspent).
 func (u *UtxoDB) GetOutput(outID ledgerstate.OutputID, f func(ledgerstate.Output)) bool {
 	out, ok := u.utxo[outID]
 	if ok {
@@ -34,7 +34,7 @@ func (u *UtxoDB) GetOutput(outID ledgerstate.OutputID, f func(ledgerstate.Output
 	return false
 }
 
-// GetOutputMetadata finds an output by ID and returns its (mocked) metadata
+// GetOutputMetadata finds an output by ID and returns its (mocked) metadata.
 func (u *UtxoDB) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgerstate.OutputMetadata)) bool {
 	var out ledgerstate.Output
 	u.GetOutput(outID, func(o ledgerstate.Output) {
@@ -48,14 +48,13 @@ func (u *UtxoDB) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgersta
 	if consumed {
 		meta.RegisterConsumer(txID)
 	}
-	meta.SetFinalized(true)
 	meta.SetSolid(true)
 	f(meta)
 	return true
 }
 
 // AddTransaction adds transaction to UTXODB or return an error.
-// The function ensures consistency of the UTXODB ledger
+// The function ensures consistency of the UTXODB ledger.
 func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -92,7 +91,7 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 	return nil
 }
 
-// GetTransaction retrieves value transaction by its hash (ID)
+// GetTransaction retrieves value transaction by its hash (ID).
 func (u *UtxoDB) GetTransaction(id ledgerstate.TransactionID) (*ledgerstate.Transaction, bool) {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
@@ -100,14 +99,14 @@ func (u *UtxoDB) GetTransaction(id ledgerstate.TransactionID) (*ledgerstate.Tran
 	return u.getTransaction(id)
 }
 
-// MustGetTransaction same as GetTransaction only panics if transaction is not in UTXODB
+// MustGetTransaction same as GetTransaction only panics if transaction is not in UTXODB.
 func (u *UtxoDB) MustGetTransaction(id ledgerstate.TransactionID) *ledgerstate.Transaction {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 	return u.mustGetTransaction(id)
 }
 
-// GetAddressOutputs returns unspent outputs contained in the address
+// GetAddressOutputs returns unspent outputs contained in the address.
 func (u *UtxoDB) GetAddressOutputs(addr ledgerstate.Address) []ledgerstate.Output {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
@@ -115,7 +114,7 @@ func (u *UtxoDB) GetAddressOutputs(addr ledgerstate.Address) []ledgerstate.Outpu
 	return u.getAddressOutputs(addr)
 }
 
-// GetAddressBalances return all colored balances of the address
+// GetAddressBalances return all colored balances of the address.
 func (u *UtxoDB) GetAddressBalances(addr ledgerstate.Address) map[ledgerstate.Color]uint64 {
 	ret := make(map[ledgerstate.Color]uint64)
 	outputs := u.GetAddressOutputs(addr)
@@ -129,19 +128,19 @@ func (u *UtxoDB) GetAddressBalances(addr ledgerstate.Address) map[ledgerstate.Co
 	return ret
 }
 
-// Balance returns balances of specific color
+// Balance returns balances of specific color.
 func (u *UtxoDB) Balance(addr ledgerstate.Address, color ledgerstate.Color) uint64 {
 	bals := u.GetAddressBalances(addr)
 	ret := bals[color]
 	return ret
 }
 
-// BalanceIOTA number of iotas in the address
+// BalanceIOTA number of iotas in the address.
 func (u *UtxoDB) BalanceIOTA(addr ledgerstate.Address) uint64 {
 	return u.Balance(addr, ledgerstate.ColorIOTA)
 }
 
-// CollectUnspentOutputsFromInputs returns unspent outputs by inputs of the transaction
+// CollectUnspentOutputsFromInputs returns unspent outputs by inputs of the transaction.
 func (u *UtxoDB) CollectUnspentOutputsFromInputs(essence *ledgerstate.TransactionEssence) ([]ledgerstate.Output, error) {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
@@ -149,7 +148,7 @@ func (u *UtxoDB) CollectUnspentOutputsFromInputs(essence *ledgerstate.Transactio
 	return u.collectUnspentOutputsFromInputs(essence)
 }
 
-// CheckNewTransaction checks consistency of the transaction the same way as ledgerstate
+// CheckNewTransaction checks consistency of the transaction the same way as ledgerstate.
 func (u *UtxoDB) CheckNewTransaction(tx *ledgerstate.Transaction, lock ...bool) error {
 	if len(lock) > 0 && lock[0] {
 		u.mutex.RLock()
@@ -168,7 +167,7 @@ func (u *UtxoDB) CheckNewTransaction(tx *ledgerstate.Transaction, lock ...bool) 
 	return nil
 }
 
-// GetAliasOutputs collects all outputs of type ledgerstate.AliasOutput for the transaction
+// GetAliasOutputs collects all outputs of type ledgerstate.AliasOutput for the transaction.
 func (u *UtxoDB) GetAliasOutputs(addr ledgerstate.Address) []*ledgerstate.AliasOutput {
 	outs := u.GetAddressOutputs(addr)
 	ret := make([]*ledgerstate.AliasOutput, 0)
@@ -180,7 +179,7 @@ func (u *UtxoDB) GetAliasOutputs(addr ledgerstate.Address) []*ledgerstate.AliasO
 	return ret
 }
 
-// findUnspentOutputByID returns unspent output with existence flag
+// findUnspentOutputByID returns unspent output with existence flag.
 func (u *UtxoDB) findUnspentOutputByID(id ledgerstate.OutputID) (ledgerstate.Output, bool) {
 	if out, ok := u.utxo[id]; ok {
 		return out, true

@@ -17,6 +17,7 @@ import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
 import {Drng} from "app/components/Drng";
 import {Chat} from "app/components/Chat";
+import {Conflicts} from "app/components/Conflicts";
 import {Mana} from "app/components/Mana";
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerOutputQueryResult} from "app/components/ExplorerOutputQueryResult";
@@ -75,6 +76,11 @@ export class Root extends React.Component<Props, any> {
                                 Mana
                             </Nav.Link>
                         </LinkContainer>
+                        <LinkContainer to="/conflicts">
+                            <Nav.Link>
+                                Conflicts
+                            </Nav.Link>
+                        </LinkContainer>
                         <LinkContainer to="/chat">
                             <Nav.Link>
                                 Chat
@@ -101,6 +107,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/drng" component={Drng}/>
                     <Route exact path="/chat" component={Chat}/>
+                    <Route exact path="/conflicts" component={Conflicts}/>
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/visualizer/history" component={Visualizer}/>

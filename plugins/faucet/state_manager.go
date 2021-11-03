@@ -2,19 +2,18 @@ package faucet
 
 import (
 	"container/list"
+	"context"
 	"sync"
 	"time"
-
-	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/workerpool"
-	"go.uber.org/atomic"
-
-	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/typeutils"
+	"github.com/iotaledger/hive.go/workerpool"
+	"go.uber.org/atomic"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -25,14 +24,8 @@ import (
 )
 
 const (
-	// GenesisTokenAmount is the total supply.
-	GenesisTokenAmount = 1000000000000000
-
 	// RemainderAddressIndex is the RemainderAddressIndex.
 	RemainderAddressIndex = 0
-
-	// MinFaucetBalance defines the min token amount required, before the faucet stops operating.
-	MinFaucetBalance = 0.1 * GenesisTokenAmount
 
 	// MinFundingOutputsPercentage defines the min percentage of prepared funding outputs left that triggers a replenishment.
 	MinFundingOutputsPercentage = 0.3
@@ -45,6 +38,9 @@ const (
 
 	// MaxWaitAttempts defines the number of attempts taken while waiting for confirmation during funds preparation.
 	MaxWaitAttempts = 50
+
+	// minFaucetBalanceMultiplier defines the multiplier for the min token amount required, before the faucet stops operating.
+	minFaucetBalanceMultiplier = 0.1
 )
 
 // FaucetOutput represents an output controlled by the faucet.
@@ -133,17 +129,15 @@ func NewStateManager(
 //  - supply outputs should be held on address indices 1-126
 //  - funding outputs start from address index 127
 //  - if no funding outputs are found, the faucet creates them from the remainder output.
-func (s *StateManager) DeriveStateFromTangle(shutdownSignal <-chan struct{}) (err error) {
+func (s *StateManager) DeriveStateFromTangle(ctx context.Context) (err error) {
 	s.replenishmentState.IsReplenishing.Set()
 	defer s.replenishmentState.IsReplenishing.UnSet()
-
-	s.shutdownSignal = shutdownSignal
 
 	if err = s.findUnspentRemainderOutput(); err != nil {
 		return
 	}
 
-	endIndex := (GenesisTokenAmount-s.replenishmentState.RemainderOutputBalance())/s.tokensPerRequest + MaxFaucetOutputsCount
+	endIndex := (Parameters.GenesisTokenAmount-s.replenishmentState.RemainderOutputBalance())/s.tokensPerRequest + MaxFaucetOutputsCount
 	Plugin.LogInfof("Set last funding output address index to %d (%d outputs have been prepared in the faucet's lifetime)", endIndex, endIndex-MaxFaucetOutputsCount)
 
 	s.replenishmentState.SetLastFundingOutputAddressIndex(endIndex)
@@ -311,7 +305,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 							ID:           output.ID(),
 							Balance:      iotaBalance,
 							Address:      output.Address(),
-							AddressIndex: uint64(i),
+							AddressIndex: i,
 						})
 					}
 				}
@@ -324,7 +318,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	return foundPreparedOutputs
 }
 
-// findUnspentRemainderOutput finds the remainder output and updates the state manager
+// findUnspentRemainderOutput finds the remainder output and updates the state manager.
 func (s *StateManager) findUnspentRemainderOutput() error {
 	var foundRemainderOutput *FaucetOutput
 
@@ -333,10 +327,10 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	// remainder output should sit on address 0
 	deps.Tangle.LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
 		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
-				outputMetadata.Finalized() {
+			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
+				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
-				if !ok || iotaBalance < MinFaucetBalance {
+				if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
 					return
 				}
 				if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
@@ -353,7 +347,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 		})
 	})
 	if foundRemainderOutput == nil {
-		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinFaucetBalance))
+		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)))
 	}
 	s.replenishmentState.SetRemainderOutput(foundRemainderOutput)
 
@@ -375,24 +369,22 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 			if foundOnCurrentAddress {
 				return
 			}
-			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-				if outputMetadata.ConfirmedConsumer().Base58() == ledgerstate.GenesisTransactionID.Base58() &&
-					outputMetadata.Finalized() {
-					iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
-					if !ok || iotaBalance != s.tokensPerSupplyOutput {
-						return
-					}
-					supplyOutput := &FaucetOutput{
-						ID:           output.ID(),
-						Balance:      iotaBalance,
-						Address:      output.Address(),
-						AddressIndex: supplyAddr,
-					}
-					s.replenishmentState.AddSupplyOutput(supplyOutput)
-					foundSupplyCount++
-					foundOnCurrentAddress = true
+			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()).Base58() == ledgerstate.GenesisTransactionID.Base58() &&
+				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
+				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
+				if !ok || iotaBalance != s.tokensPerSupplyOutput {
+					return
 				}
-			})
+				supplyOutput := &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: supplyAddr,
+				}
+				s.replenishmentState.AddSupplyOutput(supplyOutput)
+				foundSupplyCount++
+				foundOnCurrentAddress = true
+			}
 		})
 	}
 
@@ -519,8 +511,8 @@ func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparat
 	})
 
 	// listen on confirmation
-	deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
+	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()

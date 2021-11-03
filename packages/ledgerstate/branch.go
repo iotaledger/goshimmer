@@ -48,6 +48,11 @@ func NewBranchID(transactionID TransactionID) (branchID BranchID) {
 	return
 }
 
+// BranchIDEventHandler is an event handler for an event with a BranchID.
+func BranchIDEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(BranchID))(params[0].(BranchID))
+}
+
 // BranchIDFromBytes unmarshals a BranchID from a sequence of bytes.
 func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -112,7 +117,7 @@ func (b BranchID) Base58() string {
 	return base58.Encode(b.Bytes())
 }
 
-// String returns a human readable version of the BranchID.
+// String returns a human-readable version of the BranchID.
 func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
@@ -204,14 +209,46 @@ func (b BranchIDs) Add(branchID BranchID) BranchIDs {
 	return b
 }
 
-// Contains checks if the given target BranchID is part of the BranchIDs.
-func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
-	for branchID := range b {
-		if contains = branchID == targetBranchID; contains {
-			return
+// AddAll adds all BranchIDs to the collection and returns the collection to enable chaining.
+func (b BranchIDs) AddAll(branchIDs BranchIDs) BranchIDs {
+	for branchID := range branchIDs {
+		b.Add(branchID)
+	}
+
+	return b
+}
+
+// Subtract removes all other from the collection and returns the collection to enable chaining.
+func (b BranchIDs) Subtract(other BranchIDs) BranchIDs {
+	for branchID := range other {
+		delete(b, branchID)
+	}
+
+	return b
+}
+
+// Intersect removes all BranchIDs from the collection that are not contained in the argument collection.
+// It returns the collection to enable chaining.
+func (b BranchIDs) Intersect(branchIDs BranchIDs) (res BranchIDs) {
+	// Iterate over the smallest map to increase performance.
+	target, source := branchIDs, b
+	if len(source) < len(target) {
+		target, source = source, target
+	}
+
+	res = NewBranchIDs()
+	for branchID := range target {
+		if source.Contains(branchID) {
+			res.Add(branchID)
 		}
 	}
 
+	return
+}
+
+// Contains checks if the given target BranchID is part of the BranchIDs.
+func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
+	_, contains = b[targetBranchID]
 	return
 }
 
@@ -337,33 +374,6 @@ type Branch interface {
 
 	// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
 	Parents() BranchIDs
-
-	// Liked returns true if the branch is "liked within it's scope" (ignoring monotonicity).
-	Liked() bool
-
-	// setLiked sets the liked property to the given value. It returns true if the value has been updated.
-	setLiked(liked bool) (modified bool)
-
-	// MonotonicallyLiked returns true if the branch is monotonically liked (all parents are also liked).
-	MonotonicallyLiked() bool
-
-	// setMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has
-	// been updated.
-	setMonotonicallyLiked(monotonicallyLiked bool) (modified bool)
-
-	// Finalized returns true if the decision whether it is liked has been finalized.
-	Finalized() bool
-
-	// setFinalized sets the finalized property to the given value. It returns true if the value has been updated.
-	setFinalized(finalized bool) (modified bool)
-
-	// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
-	// ledger state.
-	InclusionState() InclusionState
-
-	// setInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
-	// ledger state. It returns true if the value has been updated.
-	setInclusionState(inclusionState InclusionState) (modified bool)
 
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
@@ -518,19 +528,11 @@ func (c *CachedBranch) String() string {
 // ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type ConflictBranch struct {
-	id                      BranchID
-	parents                 BranchIDs
-	parentsMutex            sync.RWMutex
-	conflicts               ConflictIDs
-	conflictsMutex          sync.RWMutex
-	liked                   bool
-	likedMutex              sync.RWMutex
-	monotonicallyLiked      bool
-	monotonicallyLikedMutex sync.RWMutex
-	finalized               bool
-	finalizedMutex          sync.RWMutex
-	inclusionState          InclusionState
-	inclusionStateMutex     sync.RWMutex
+	id             BranchID
+	parents        BranchIDs
+	parentsMutex   sync.RWMutex
+	conflicts      ConflictIDs
+	conflictsMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -579,22 +581,6 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 	}
 	if conflictBranch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse conflicts: %w", err)
-		return
-	}
-	if conflictBranch.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if conflictBranch.monotonicallyLiked, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse monotonicallyLiked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if conflictBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -657,105 +643,6 @@ func (c *ConflictBranch) AddConflict(conflictID ConflictID) (added bool) {
 	return
 }
 
-// Liked returns true if the branch is "liked within it's scope" (ignoring monotonicity).
-func (c *ConflictBranch) Liked() bool {
-	c.likedMutex.RLock()
-	defer c.likedMutex.RUnlock()
-
-	return c.liked
-}
-
-// setLiked sets the liked property to the given value. It returns true if the value has been updated.
-func (c *ConflictBranch) setLiked(liked bool) (modified bool) {
-	c.likedMutex.Lock()
-	defer c.likedMutex.Unlock()
-
-	if c.liked == liked {
-		return
-	}
-
-	c.liked = liked
-	c.SetModified()
-	modified = true
-
-	return
-}
-
-// MonotonicallyLiked returns true if the branch is monotonically liked (all parents are also liked).
-func (c *ConflictBranch) MonotonicallyLiked() bool {
-	c.monotonicallyLikedMutex.RLock()
-	defer c.monotonicallyLikedMutex.RUnlock()
-
-	return c.monotonicallyLiked
-}
-
-// setMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has been
-// updated.
-func (c *ConflictBranch) setMonotonicallyLiked(monotonicallyLiked bool) (modified bool) {
-	c.monotonicallyLikedMutex.Lock()
-	defer c.monotonicallyLikedMutex.Unlock()
-
-	if c.monotonicallyLiked == monotonicallyLiked {
-		return
-	}
-
-	c.monotonicallyLiked = monotonicallyLiked
-	c.SetModified()
-	modified = true
-
-	return
-}
-
-// Finalized returns true if the decision whether it is liked has been finalized.
-func (c *ConflictBranch) Finalized() bool {
-	c.finalizedMutex.RLock()
-	defer c.finalizedMutex.RUnlock()
-
-	return c.finalized
-}
-
-// setFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
-func (c *ConflictBranch) setFinalized(finalized bool) (modified bool) {
-	c.finalizedMutex.Lock()
-	defer c.finalizedMutex.Unlock()
-
-	if c.finalized == finalized {
-		return
-	}
-
-	c.finalized = finalized
-	c.SetModified()
-	modified = true
-
-	return
-}
-
-// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
-// ledger state.
-func (c *ConflictBranch) InclusionState() (inclusionState InclusionState) {
-	c.inclusionStateMutex.RLock()
-	defer c.inclusionStateMutex.RUnlock()
-
-	return c.inclusionState
-}
-
-// setInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
-// ledger state. It returns true if the value has been updated.
-func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modified bool) {
-	c.inclusionStateMutex.Lock()
-	defer c.inclusionStateMutex.Unlock()
-
-	if c.inclusionState == inclusionState {
-		return
-	}
-
-	c.inclusionState = inclusionState
-	c.SetModified()
-	modified = true
-
-	return
-}
-
 // Bytes returns a marshaled version of the Branch.
 func (c *ConflictBranch) Bytes() []byte {
 	return c.ObjectStorageValue()
@@ -767,10 +654,6 @@ func (c *ConflictBranch) String() string {
 		stringify.StructField("id", c.ID()),
 		stringify.StructField("parents", c.Parents()),
 		stringify.StructField("conflicts", c.Conflicts()),
-		stringify.StructField("liked", c.Liked()),
-		stringify.StructField("monotonicallyLiked", c.MonotonicallyLiked()),
-		stringify.StructField("finalized", c.Finalized()),
-		stringify.StructField("inclusionState", c.InclusionState()),
 	)
 }
 
@@ -793,10 +676,6 @@ func (c *ConflictBranch) ObjectStorageValue() []byte {
 		WriteBytes(c.ID().Bytes()).
 		WriteBytes(c.Parents().Bytes()).
 		WriteBytes(c.Conflicts().Bytes()).
-		WriteBool(c.Liked()).
-		WriteBool(c.MonotonicallyLiked()).
-		WriteBool(c.Finalized()).
-		Write(c.InclusionState()).
 		Bytes()
 }
 
@@ -810,17 +689,9 @@ var _ Branch = &ConflictBranch{}
 // AggregatedBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type AggregatedBranch struct {
-	id                      BranchID
-	parents                 BranchIDs
-	parentsMutex            sync.RWMutex
-	liked                   bool
-	likedMutex              sync.RWMutex
-	monotonicallyLiked      bool
-	monotonicallyLikedMutex sync.RWMutex
-	finalized               bool
-	finalizedMutex          sync.RWMutex
-	inclusionState          InclusionState
-	inclusionStateMutex     sync.RWMutex
+	id           BranchID
+	parents      BranchIDs
+	parentsMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -879,22 +750,6 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggr
 		err = errors.Errorf("failed to parse parents: %w", err)
 		return
 	}
-	if aggregatedBranch.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if aggregatedBranch.monotonicallyLiked, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse monotonicallyLiked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if aggregatedBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if aggregatedBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
-		return
-	}
 
 	return
 }
@@ -917,105 +772,6 @@ func (a *AggregatedBranch) Parents() BranchIDs {
 	return a.parents
 }
 
-// Liked returns true if the branch is "liked within it's scope" (ignoring monotonicity).
-func (a *AggregatedBranch) Liked() bool {
-	a.likedMutex.RLock()
-	defer a.likedMutex.RUnlock()
-
-	return a.liked
-}
-
-// setLiked sets the liked property to the given value. It returns true if the value has been updated.
-func (a *AggregatedBranch) setLiked(liked bool) (modified bool) {
-	a.likedMutex.Lock()
-	defer a.likedMutex.Unlock()
-
-	if a.liked == liked {
-		return
-	}
-
-	a.liked = liked
-	a.SetModified()
-	modified = true
-
-	return
-}
-
-// MonotonicallyLiked returns true if the branch is monotonically liked (all parents are also liked).
-func (a *AggregatedBranch) MonotonicallyLiked() bool {
-	a.monotonicallyLikedMutex.RLock()
-	defer a.monotonicallyLikedMutex.RUnlock()
-
-	return a.monotonicallyLiked
-}
-
-// setMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has been
-// updated.
-func (a *AggregatedBranch) setMonotonicallyLiked(monotonicallyLiked bool) (modified bool) {
-	a.monotonicallyLikedMutex.Lock()
-	defer a.monotonicallyLikedMutex.Unlock()
-
-	if a.monotonicallyLiked == monotonicallyLiked {
-		return
-	}
-
-	a.monotonicallyLiked = monotonicallyLiked
-	a.SetModified()
-	modified = true
-
-	return
-}
-
-// Finalized returns true if the decision whether it is liked has been finalized.
-func (a *AggregatedBranch) Finalized() bool {
-	a.finalizedMutex.RLock()
-	defer a.finalizedMutex.RUnlock()
-
-	return a.finalized
-}
-
-// setFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
-func (a *AggregatedBranch) setFinalized(finalized bool) (modified bool) {
-	a.finalizedMutex.Lock()
-	defer a.finalizedMutex.Unlock()
-
-	if a.finalized == finalized {
-		return
-	}
-
-	a.finalized = finalized
-	a.SetModified()
-	modified = true
-
-	return
-}
-
-// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
-// ledger state.
-func (a *AggregatedBranch) InclusionState() (inclusionState InclusionState) {
-	a.inclusionStateMutex.RLock()
-	defer a.inclusionStateMutex.RUnlock()
-
-	return a.inclusionState
-}
-
-// setInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
-// ledger state. It returns true if the value has been updated.
-func (a *AggregatedBranch) setInclusionState(inclusionState InclusionState) (modified bool) {
-	a.inclusionStateMutex.Lock()
-	defer a.inclusionStateMutex.Unlock()
-
-	if a.inclusionState == inclusionState {
-		return
-	}
-
-	a.inclusionState = inclusionState
-	a.SetModified()
-	modified = true
-
-	return
-}
-
 // Bytes returns a marshaled version of the Branch.
 func (a *AggregatedBranch) Bytes() []byte {
 	return a.ObjectStorageValue()
@@ -1026,10 +782,6 @@ func (a *AggregatedBranch) String() string {
 	return stringify.Struct("AggregatedBranch",
 		stringify.StructField("id", a.ID()),
 		stringify.StructField("parents", a.Parents()),
-		stringify.StructField("liked", a.Liked()),
-		stringify.StructField("monotonicallyLiked", a.MonotonicallyLiked()),
-		stringify.StructField("finalized", a.Finalized()),
-		stringify.StructField("inclusionState", a.InclusionState()),
 	)
 }
 
@@ -1051,10 +803,6 @@ func (a *AggregatedBranch) ObjectStorageValue() []byte {
 		WriteByte(byte(a.Type())).
 		WriteBytes(a.ID().Bytes()).
 		WriteBytes(a.Parents().Bytes()).
-		WriteBool(a.Liked()).
-		WriteBool(a.MonotonicallyLiked()).
-		WriteBool(a.Finalized()).
-		Write(a.InclusionState()).
 		Bytes()
 }
 

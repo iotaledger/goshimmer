@@ -25,6 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
@@ -32,15 +33,15 @@ import (
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// DefaultPollingInterval is the polling interval of the wallet when waiting for confirmation. (in ms)
+	// DefaultPollingInterval is the polling interval of the wallet when waiting for confirmation (in ms).
 	DefaultPollingInterval = 500 * time.Millisecond
-	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms)
+	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms).
 	DefaultConfirmationTimeout = 150000 * time.Millisecond
 	// DefaultAssetRegistryNetwork is the default asset registry network.
 	DefaultAssetRegistryNetwork = "nectar"
 )
 
-// ErrTooManyOutputs is an error returned when the number of outputs/inputs exceeds the protocol wide constant
+// ErrTooManyOutputs is an error returned when the number of outputs/inputs exceeds the protocol wide constant.
 var ErrTooManyOutputs = errors.New("number of outputs is more, than supported for a single transaction")
 
 // Wallet is a wallet that can handle aliases and extendedlockedoutputs.
@@ -105,7 +106,7 @@ func New(options ...Option) (wallet *Wallet) {
 
 // region SendFunds ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// SendFunds sends funds from the wallet
+// SendFunds sends funds from the wallet.
 func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *ledgerstate.Transaction, err error) {
 	sendOptions, err := sendoptions.Build(options...)
 	if err != nil {
@@ -115,7 +116,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *led
 	// how much funds will we need to fund this transfer?
 	requiredFunds := sendOptions.RequiredFunds()
 	// collect that many outputs for funding
-	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds)
+	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, sendOptions.UsePendingOutputs)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -191,7 +192,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		return
 	}
 	// collect outputs
-	allOutputs, err := wallet.collectOutputsForFunding(confirmedAvailableBalance)
+	allOutputs, err := wallet.collectOutputsForFunding(confirmedAvailableBalance, false)
 	if err != nil && !errors.Is(err, ErrTooManyOutputs) {
 		return
 	}
@@ -347,7 +348,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	// where will we spend from?
-	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Supply})
+	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Supply}, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -364,6 +365,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	tx, err := wallet.SendFunds(
 		sendoptions.Destination(receiveAddress, asset.Supply, ledgerstate.ColorMint),
 		sendoptions.WaitForConfirmation(wait),
+		sendoptions.UsePendingOutputs(false),
 	)
 	if err != nil {
 		return
@@ -409,7 +411,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOpti
 	// how much funds will we need to fund this transfer?
 	requiredFunds := delegateOptions.RequiredFunds()
 	// collect that many outputs for funding
-	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds)
+	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -549,7 +551,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 		return
 	}
 	// collect funds required for an alias input
-	consumedOutputs, err := wallet.collectOutputsForFunding(createNFTOptions.InitialBalance)
+	consumedOutputs, err := wallet.collectOutputsForFunding(createNFTOptions.InitialBalance, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -985,7 +987,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	}
 
 	// collect funds required for a deposit
-	consumedOutputs, err := wallet.collectOutputsForFunding(depositBalances)
+	consumedOutputs, err := wallet.collectOutputsForFunding(depositBalances, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -1509,13 +1511,9 @@ func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance
 	// iterate through the unspent outputs
 	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
-			// skip if the output was rejected or spent already
-			if output.InclusionState.Spent || output.InclusionState.Rejected {
-				continue
-			}
 			// determine target map
 			var targetMap map[ledgerstate.Color]uint64
-			if output.InclusionState.Confirmed {
+			if output.GradeOfFinalityReached {
 				targetMap = confirmedBalance
 			} else {
 				targetMap = pendingBalance
@@ -1604,13 +1602,9 @@ func (wallet *Wallet) AvailableBalance(refresh ...bool) (confirmedBalance, pendi
 	// iterate through the unspent outputs
 	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
-			// skip if the output was rejected or spent already
-			if output.InclusionState.Spent || output.InclusionState.Rejected {
-				continue
-			}
 			// determine target map
 			var targetMap map[ledgerstate.Color]uint64
-			if output.InclusionState.Confirmed {
+			if output.GradeOfFinalityReached {
 				targetMap = confirmedBalance
 			} else {
 				targetMap = pendingBalance
@@ -1669,10 +1663,6 @@ func (wallet *Wallet) TimelockedBalances(refresh ...bool) (confirmed, pending Ti
 	// iterate through the unspent outputs
 	for _, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
-			// skip if the output was rejected or spent already
-			if output.InclusionState.Spent || output.InclusionState.Rejected {
-				continue
-			}
 			if output.Object.Type() != ledgerstate.ExtendedLockedOutputType {
 				continue
 			}
@@ -1682,7 +1672,7 @@ func (wallet *Wallet) TimelockedBalances(refresh ...bool) (confirmed, pending Ti
 					Balance: casted.Balances().Map(),
 					Time:    casted.TimeLock(),
 				}
-				if output.InclusionState.Confirmed {
+				if output.GradeOfFinalityReached {
 					confirmed = append(confirmed, tBal)
 				} else {
 					pending = append(pending, tBal)
@@ -1718,10 +1708,6 @@ func (wallet *Wallet) ConditionalBalances(refresh ...bool) (confirmed, pending T
 	// iterate through the unspent outputs
 	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
-			// skip if the output was rejected or spent already
-			if output.InclusionState.Spent || output.InclusionState.Rejected {
-				continue
-			}
 			if output.Object.Type() != ledgerstate.ExtendedLockedOutputType {
 				continue
 			}
@@ -1733,7 +1719,7 @@ func (wallet *Wallet) ConditionalBalances(refresh ...bool) (confirmed, pending T
 					Balance: casted.Balances().Map(),
 					Time:    fallbackDeadline,
 				}
-				if output.InclusionState.Confirmed {
+				if output.GradeOfFinalityReached {
 					confirmed = append(confirmed, cBal)
 				} else {
 					pending = append(pending, cBal)
@@ -1749,7 +1735,7 @@ func (wallet *Wallet) ConditionalBalances(refresh ...bool) (confirmed, pending T
 
 // region AliasBalance /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// AliasBalance returns the aliases held by this wallet
+// AliasBalance returns the aliases held by this wallet.
 func (wallet *Wallet) AliasBalance(refresh ...bool) (
 	confirmedGovernedAliases,
 	confirmedStateControlledAliases,
@@ -1779,13 +1765,9 @@ func (wallet *Wallet) AliasBalance(refresh ...bool) (
 			if output.Object.Type() != ledgerstate.AliasOutputType {
 				continue
 			}
-			// skip if the output was rejected or spent already
-			if output.InclusionState.Spent || output.InclusionState.Rejected {
-				continue
-			}
 			// target maps
 			var governedAliases, stateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
-			if output.InclusionState.Confirmed {
+			if output.GradeOfFinalityReached {
 				governedAliases = confirmedGovernedAliases
 				stateControlledAliases = confirmedStateControlledAliases
 			} else {
@@ -1877,13 +1859,13 @@ func (wallet *Wallet) DelegatedAliasBalance(refresh ...bool) (
 				continue
 			}
 			alias := output.Object.(*ledgerstate.AliasOutput)
-			// skip if the output was rejected, spent already or not a delegated one
-			if output.InclusionState.Spent || output.InclusionState.Rejected || !alias.IsDelegated() {
+			// skip if the output was delegated
+			if !alias.IsDelegated() {
 				continue
 			}
 			// target maps
 			var delegatedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
-			if output.InclusionState.Confirmed {
+			if output.GradeOfFinalityReached {
 				delegatedAliases = confirmedDelegatedAliases
 			} else {
 				delegatedAliases = pendingDelegatedAliases
@@ -1934,21 +1916,18 @@ func (wallet *Wallet) ExportState() []byte {
 
 // region WaitForTxConfirmation ////////////////////////////////////////////////////////////////////////////////////////
 
-// WaitForTxConfirmation waits for the given tx to confirm. If the transaction is rejected, an error is returned.
+// WaitForTxConfirmation waits for the given tx to reach a high grade of finalty.
 func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err error) {
 	timeoutCounter := time.Duration(0)
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
 		timeoutCounter += wallet.ConfirmationPollInterval
-		state, fetchErr := wallet.connector.GetTransactionInclusionState(txID)
+		finality, fetchErr := wallet.connector.GetTransactionGoF(txID)
 		if fetchErr != nil {
 			return fetchErr
 		}
-		if state == ledgerstate.Confirmed {
+		if finality == gof.High {
 			return
-		}
-		if state == ledgerstate.Rejected {
-			return errors.Errorf("transaction %s has been rejected", txID.Base58())
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {
 			return errors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/time.Second)
@@ -1961,7 +1940,7 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 // region Internal Methods /////////////////////////////////////////////////////////////////////////////////////////////
 
 // waitForBalanceConfirmation waits until the balance of the wallet changes compared to the provided argument.
-// (a transaction modifying the wallet balance got confirmed)
+// (a transaction modifying the wallet balance got confirmed).
 func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledgerstate.Color]uint64) (err error) {
 	timeoutCounter := time.Duration(0)
 	for {
@@ -1985,7 +1964,7 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledger
 }
 
 // waitForGovAliasBalanceConfirmation waits until the balance of the confirmed governed aliases changes in the wallet.
-// (a tx submitting an alias governance transition is confirmed)
+// (a tx submitting an alias governance transition is confirmed).
 func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput) (err error) {
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
@@ -2004,7 +1983,7 @@ func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[
 }
 
 // waitForStateAliasBalanceConfirmation waits until the balance of the state controlled aliases changes in the wallet.
-// (a tx submitting an alias state transition is confirmed)
+// (a tx submitting an alias state transition is confirmed).
 func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput) (err error) {
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
@@ -2089,15 +2068,16 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *ledgerstate.Al
 	return nil, err
 }
 
-// collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance
-func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Color]uint64) (OutputsByAddressAndOutputID, error) {
+// collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance.
+// It may collect pending outputs according to flag.
+func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Color]uint64, includePending bool) (OutputsByAddressAndOutputID, error) {
 	if fundingBalance == nil {
 		return nil, errors.Errorf("can't collect fund: empty fundingBalance provided")
 	}
 
 	_ = wallet.outputManager.Refresh()
 	addresses := wallet.addressManager.Addresses()
-	unspentOutputs := wallet.outputManager.UnspentValueOutputs(false, addresses...)
+	unspentOutputs := wallet.outputManager.UnspentValueOutputs(includePending, addresses...)
 
 	collected := make(map[ledgerstate.Color]uint64)
 	outputsToConsume := NewAddressToOutputs()
@@ -2105,10 +2085,6 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 	now := time.Now()
 	for _, addy := range addresses {
 		for outputID, output := range unspentOutputs[addy] {
-			if output.InclusionState.Spent || !output.InclusionState.Confirmed {
-				// skip counting spent and not confirmed outputs
-				continue
-			}
 			if output.Object.Type() == ledgerstate.ExtendedLockedOutputType {
 				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
 				if casted.TimeLockedNow(now) || !casted.UnlockAddressNow(now).Equals(addy.Address()) {
@@ -2149,7 +2125,7 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 	)
 }
 
-// enoughCollected checks if collected has at least target funds
+// enoughCollected checks if collected has at least target funds.
 func enoughCollected(collected, target map[ledgerstate.Color]uint64) bool {
 	for color, balance := range target {
 		if collected[color] < balance {

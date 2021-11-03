@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// OutputManager keeps track of the outputs
+// OutputManager keeps track of the outputs.
 type OutputManager struct {
 	addressManager *AddressManager
 	connector      Connector
@@ -45,8 +45,8 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 				o.unspentOutputs[addy] = make(map[ledgerstate.OutputID]*Output)
 			}
 			// mark the output as spent if we already marked it as spent locally
-			if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.InclusionState.Spent {
-				output.InclusionState.Spent = true
+			if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
+				output.Spent = true
 			}
 			o.unspentOutputs[addy][outputID] = output
 		}
@@ -96,11 +96,11 @@ func (o *OutputManager) getOutputs(includePending bool, addresses ...address.Add
 		// iterate through outputs
 		for transactionID, output := range unspentOutputsOnAddress {
 			// skip spent outputs
-			if output.InclusionState.Spent {
+			if output.Spent {
 				continue
 			}
 			// discard non-confirmed if includePending is false
-			if !includePending && !output.InclusionState.Confirmed {
+			if !includePending && !output.GradeOfFinalityReached {
 				continue
 			}
 
@@ -127,5 +127,5 @@ func (o *OutputManager) MarkOutputSpent(addy address.Address, outputID ledgersta
 	}
 
 	// mark output as spent
-	output.InclusionState.Spent = true
+	output.Spent = true
 }

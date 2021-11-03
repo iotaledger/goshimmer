@@ -3,11 +3,13 @@ package tangle
 import (
 	"context"
 	"crypto/ed25519"
-	"crypto/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/consensus"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -28,14 +30,19 @@ const (
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
 	selfLocalIdentity := identity.GenerateLocalIdentity()
-	tangle := newTestTangle(Identity(selfLocalIdentity))
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
+	mockOTV := &SimpleMockOnTangleVoting{}
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			return []MessageID{EmptyMessageID}, []MessageID{}, nil
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+			return []MessageID{EmptyMessageID}, nil
 		}),
+		func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
+			return []MessageID{}, nil
+		},
 	)
 	tangle.MessageFactory.SetTimeout(powTimeout)
 	defer tangle.MessageFactory.Shutdown()
@@ -55,7 +62,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// TODO: approval switch: make test case with weak parents
-		assert.NotEmpty(t, msg.StrongParents())
+		assert.NotEmpty(t, msg.ParentsByType(StrongParentType))
 
 		// time in range of 0.1 seconds
 		assert.InDelta(t, clock.SyncedTime().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
@@ -81,7 +88,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				require.NoError(t, err)
 
 				// TODO: approval switch: make test case with weak parents
-				assert.NotEmpty(t, msg.StrongParents())
+				assert.NotEmpty(t, msg.ParentsByType(StrongParentType))
 
 				// time in range of 0.1 seconds
 				assert.InDelta(t, clock.SyncedTime().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
@@ -118,14 +125,20 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
-	tangle := newTestTangle()
+	mockOTV := &SimpleMockOnTangleVoting{}
+
+	tangle := NewTestTangle()
 	defer tangle.Shutdown()
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	msgFactory := NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			return []MessageID{EmptyMessageID}, []MessageID{}, nil
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+			return []MessageID{EmptyMessageID}, nil
 		}),
+		func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
+			return []MessageID{}, nil
+		},
 	)
 	defer msgFactory.Shutdown()
 
@@ -147,35 +160,175 @@ func TestMessageFactory_POW(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestWorkerFunc_PayloadSize(t *testing.T) {
-	testTangle := newTestTangle()
-	defer testTangle.Shutdown()
+func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
 
-	msgFactory := NewMessageFactory(
-		testTangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			result := make(MessageIDs, 0, MaxParentsCount)
-			for i := 0; i < MaxParentsCount; i++ {
-				b := make([]byte, MessageIDLength)
-				_, _ = rand.Read(b)
-				randID, _, _ := MessageIDFromBytes(b)
-				result = append(result, randID)
-			}
-			return result, MessageIDs{}, nil
-		}),
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("O1", 500),
+		WithGenesisOutput("O2", 500),
 	)
-	defer msgFactory.Shutdown()
 
-	// issue message with max allowed payload size
-	// dataPayload headers: type|32bit + size|32bit
-	data := make([]byte, payload.MaxSize-4-4)
-	msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload(data))
+	tangle.Setup()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Logf("Error fired: %v", err)
+	}))
+
+	// Message 1
+	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
+
+	// Message 2
+	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
+
+	// Message 3
+	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
+	testFramework.IssueMessages("1", "2", "3").WaitMessagesBooked()
+
+	testFramework.RegisterBranchID("1", "1")
+	testFramework.RegisterBranchID("2", "2")
+	testFramework.RegisterBranchID("3", "3")
+
+	mockOTV := &SimpleMockOnTangleVoting{
+		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3")),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{testFramework.BranchID("3"): {
+			consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")},
+			consensus.OpinionTuple{Liked: testFramework.BranchID("1"), Disliked: testFramework.BranchID("3")},
+		}},
+	}
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
+
+	references, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
+
 	require.NoError(t, err)
-	assert.Truef(t, MaxMessageSize == len(msg.Bytes()), "message size should be exactly %d bytes but is %d", MaxMessageSize, len(msg.Bytes()))
 
-	// issue message bigger than max allowed payload size
-	data = make([]byte, payload.MaxSize)
-	msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload(data))
+	assert.Contains(t, references, testFramework.Message("1").ID())
+	assert.Contains(t, references, testFramework.Message("2").ID())
+	assert.Len(t, references, 2)
+}
+
+func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("O1", 500),
+		WithGenesisOutput("O2", 500),
+	)
+
+	tangle.Setup()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Logf("Error fired: %v", err)
+	}))
+
+	// Message 1
+	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500), WithIssuingTime(time.Now().Add(5*time.Minute)))
+
+	// Message 2
+	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500), WithIssuingTime(time.Now().Add(5*time.Minute)))
+
+	// Message 3
+	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O4", 500))
+
+	// Message 4
+	testFramework.CreateMessage("4", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O6", 500))
+	testFramework.IssueMessages("1", "2", "3", "4").WaitMessagesBooked()
+
+	testFramework.RegisterBranchID("1", "1")
+	testFramework.RegisterBranchID("2", "2")
+	testFramework.RegisterBranchID("3", "3")
+	testFramework.RegisterBranchID("4", "4")
+
+	mockOTV := &SimpleMockOnTangleVoting{
+		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3"), testFramework.BranchID("4")),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{
+			testFramework.BranchID("3"): {consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")}},
+			testFramework.BranchID("4"): {consensus.OpinionTuple{Liked: testFramework.BranchID("1"), Disliked: testFramework.BranchID("4")}},
+		},
+	}
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
+
+	// Test first set of parents
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, MessageIDs{testFramework.Message("2").ID()}, time.Now())
+
+	// Test second set of parents
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("2").ID(), testFramework.Message("1").ID()}, MessageIDs{}, time.Now())
+
+	// Test third set of parents
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("1").ID(), testFramework.Message("2").ID()}, time.Now())
+
+	// Test fourth set of parents
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("1").ID(), testFramework.Message("2").ID(), testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("1").ID(), testFramework.Message("2").ID()}, time.Now())
+
+	// Test empty set of parents
+	checkReferences(t, tangle, MessageIDs{}, MessageIDs{}, time.Now())
+
+	// Add reattachment that is older than the original message
+	// Message 5 (reattachment)
+	testFramework.CreateMessage("5", WithStrongParents("Genesis"), WithReattachment("1"))
+	testFramework.IssueMessages("5").WaitMessagesBooked()
+
+	// Select oldest attachment of the message.
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("2").ID(), testFramework.Message("5").ID()}, time.Now())
+
+	// Do not return too old like reference
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("2").ID()}, time.Now().Add(maxParentsTimeDifference))
+}
+
+// Tests if error is returned when non-existing transaction is tried to be liked.
+func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("O1", 500),
+		WithGenesisOutput("O2", 500),
+	)
+
+	tangle.Setup()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Logf("Error fired: %v", err)
+	}))
+
+	// Message 1
+	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
+
+	// Message 2
+	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
+
+	// Message 3
+	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
+	testFramework.IssueMessages("1", "2", "3").WaitMessagesBooked()
+
+	testFramework.RegisterBranchID("1", "1")
+	testFramework.RegisterBranchID("2", "2")
+	testFramework.RegisterBranchID("3", "3")
+
+	nonExistingBranchID := ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2"))).ID()
+
+	mockOTV := &SimpleMockOnTangleVoting{
+		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3")),
+		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{testFramework.BranchID("3"): {
+			consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")},
+			consensus.OpinionTuple{Liked: nonExistingBranchID, Disliked: testFramework.BranchID("3")},
+		}},
+	}
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
+
+	_, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
 	require.Error(t, err)
-	assert.Nil(t, msg)
+}
+
+func checkReferences(t *testing.T, tangle *Tangle, parents, expected MessageIDs, issuingTime time.Time) {
+	ref, err := PrepareLikeReferences(parents, issuingTime, tangle)
+	require.NoError(t, err)
+	for _, e := range expected {
+		assert.Contains(t, ref, e)
+	}
+	assert.Len(t, ref, len(expected))
 }

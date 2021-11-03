@@ -1,10 +1,8 @@
 package tangle
 
 import (
+	"encoding/binary"
 	"fmt"
-	"math"
-	"reflect"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,12 +11,70 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
+
+func toByteArray(i uint32) (arr []byte) {
+	arr = make([]byte, 4)
+	binary.BigEndian.PutUint32(arr, i)
+	return
+}
+
+func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
+	supporters := map[string]*identity.Identity{
+		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
+		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
+	}
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		m := make(map[identity.ID]float64)
+		for _, s := range supporters {
+			weightProvider.Update(time.Now(), s.ID())
+			m[s.ID()] = 100
+		}
+		return m
+	}
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+
+	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+	defer tangle.Shutdown()
+	approvalWeightManager := tangle.ApprovalWeightManager
+
+	approvalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *MarkerWeightChangedEvent) {
+		fmt.Println(e.Marker.SequenceID(), e.Marker.Index(), e.Weight)
+	}))
+
+	// build markers DAG where each sequence has only 1 marker building a chain of sequences
+	totalMarkers := 10000
+	{
+		var previousMarker *markers.StructureDetails
+		for i := uint32(1); i < uint32(totalMarkers); i++ {
+			if previousMarker == nil {
+				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+				fmt.Println(previousMarker.SequenceID, previousMarker.PastMarkers)
+				continue
+			}
+
+			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+		}
+		fmt.Println(previousMarker.SequenceID, previousMarker.PastMarkers)
+	}
+
+	// measure time for each marker
+	for i := 1; i < 3; i++ {
+		measurements := 100
+		var total time.Duration
+		for m := 0; m < measurements; m++ {
+			start := time.Now()
+			approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
+			total += time.Since(start)
+		}
+		fmt.Printf("(%d,%d): %s\n", i, i, total/time.Duration(measurements))
+	}
+}
 
 func TestBranchWeightMarshalling(t *testing.T) {
 	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
@@ -76,7 +132,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := newTestTangle(ApprovalWeights(weightProvider))
+	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
@@ -210,25 +266,25 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 // TestApprovalWeightManager_updateSequenceSupporters tests the ApprovalWeightManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
 func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
-	keyPair := ed25519.GenerateKeyPair()
-
-	var weightProvider *CManaWeightProvider
-	manaRetrieverMock := func() map[identity.ID]float64 {
-		nodeID := identity.NewID(keyPair.PublicKey)
-		weightProvider.Update(time.Now(), nodeID)
-		return map[identity.ID]float64{
-			nodeID: 100,
-		}
-	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
-
-	tangle := newTestTangle(ApprovalWeights(weightProvider))
-	defer tangle.Shutdown()
-	approvalWeightManager := tangle.ApprovalWeightManager
 	supporters := map[string]*identity.Identity{
 		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
 		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
 	}
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		m := make(map[identity.ID]float64)
+		for _, s := range supporters {
+			weightProvider.Update(time.Now(), s.ID())
+			m[s.ID()] = 100
+		}
+		return m
+	}
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+
+	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+	defer tangle.Shutdown()
+	approvalWeightManager := tangle.ApprovalWeightManager
+
 	markersMap := make(map[string]*markers.StructureDetails)
 
 	// build markers DAG
@@ -341,375 +397,15 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 // TestApprovalWeightManager_ProcessMessage tests the whole functionality of the ApprovalWeightManager.
 // The scenario can be found in images/approvalweight-processMessage.png.
 func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
-	nodes := make(map[string]*identity.Identity)
-	for _, node := range []string{"A", "B", "C", "D", "E"} {
-		nodes[node] = identity.GenerateIdentity()
-	}
-
-	var weightProvider *CManaWeightProvider
-	manaRetrieverMock := func() map[identity.ID]float64 {
-		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+	processMsgScenario := ProcessMessageScenario(t)
+	defer func(processMsgScenario *TestScenario, t *testing.T) {
+		if err := processMsgScenario.Cleanup(t); err != nil {
+			require.NoError(t, err)
 		}
-		return map[identity.ID]float64{
-			nodes["A"].ID(): 30,
-			nodes["B"].ID(): 15,
-			nodes["C"].ID(): 25,
-			nodes["D"].ID(): 20,
-			nodes["E"].ID(): 10,
-		}
-	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	}(processMsgScenario, t)
 
-	tangle := newTestTangle(ApprovalWeights(weightProvider))
-	defer tangle.Shutdown()
-	tangle.Setup()
-
-	testEventMock := newEventMock(t, tangle.ApprovalWeightManager)
-	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("A", 500))
-
-	// ISSUE Message1
-	{
-		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
-
-		issueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.30,
-		})
-	}
-
-	// ISSUE Message2
-	{
-		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
-
-		issueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.45,
-			*markers.NewMarker(1, 2): 0.15,
-		})
-	}
-
-	// ISSUE Message3
-	{
-		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()))
-
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 1), 1, events.ThresholdLevelIncreased)
-
-		issueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.70,
-			*markers.NewMarker(1, 2): 0.40,
-			*markers.NewMarker(1, 3): 0.25,
-		})
-	}
-
-	// ISSUE Message4
-	{
-		testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
-
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 2), 1, events.ThresholdLevelIncreased)
-
-		issueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.90,
-			*markers.NewMarker(1, 2): 0.60,
-			*markers.NewMarker(1, 3): 0.45,
-			*markers.NewMarker(1, 4): 0.20,
-		})
-	}
-
-	// ISSUE Message5
-	{
-		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch1")
-
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 3), 1, events.ThresholdLevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 4), 1, events.ThresholdLevelIncreased)
-
-		issueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.90,
-			*markers.NewMarker(1, 2): 0.90,
-			*markers.NewMarker(1, 3): 0.75,
-			*markers.NewMarker(1, 4): 0.50,
-			*markers.NewMarker(1, 5): 0.30,
-		})
-	}
-
-	// ISSUE Message6
-	{
-		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500))
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch2")
-
-		issueAndValidateMessageApproval(t, "Message6", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"): 0.3,
-			testFramework.BranchID("Message6"): 0.1,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 0.85,
-			*markers.NewMarker(1, 4): 0.60,
-			*markers.NewMarker(1, 5): 0.30,
-			*markers.NewMarker(2, 5): 0.10,
-		})
-	}
-
-	// ISSUE Message7
-	{
-		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
-
-		testFramework.PreventNewMarkers(true)
-		issueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"): 0.55,
-			testFramework.BranchID("Message6"): 0.1,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 0.85,
-			*markers.NewMarker(1, 4): 0.85,
-			*markers.NewMarker(1, 5): 0.55,
-			*markers.NewMarker(2, 5): 0.10,
-		})
-		testFramework.PreventNewMarkers(false)
-	}
-
-	// ISSUE Message7.1
-	{
-		testFramework.CreateMessage("Message7.1", WithStrongParents("Message7"), WithIssuer(nodes["A"].PublicKey()))
-
-		testFramework.PreventNewMarkers(true)
-		issueAndValidateMessageApproval(t, "Message7.1", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"): 0.55,
-			testFramework.BranchID("Message6"): 0.1,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 0.85,
-			*markers.NewMarker(1, 4): 0.85,
-			*markers.NewMarker(1, 5): 0.55,
-			*markers.NewMarker(2, 5): 0.10,
-		})
-		testFramework.PreventNewMarkers(false)
-	}
-
-	// ISSUE Message8
-	{
-		testFramework.CreateMessage("Message8", WithStrongParents("Message6"), WithIssuer(nodes["D"].PublicKey()))
-
-		issueAndValidateMessageApproval(t, "Message8", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"): 0.55,
-			testFramework.BranchID("Message6"): 0.30,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 0.85,
-			*markers.NewMarker(1, 4): 0.85,
-			*markers.NewMarker(1, 5): 0.55,
-			*markers.NewMarker(2, 5): 0.30,
-			*markers.NewMarker(2, 6): 0.20,
-		})
-	}
-
-	// ISSUE Message9
-	{
-		testFramework.CreateMessage("Message9", WithStrongParents("Message8"), WithIssuer(nodes["A"].PublicKey()))
-
-		issueAndValidateMessageApproval(t, "Message9", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"): 0.25,
-			testFramework.BranchID("Message6"): 0.60,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 0.85,
-			*markers.NewMarker(1, 4): 0.85,
-			*markers.NewMarker(1, 5): 0.25,
-			*markers.NewMarker(2, 5): 0.60,
-			*markers.NewMarker(2, 6): 0.50,
-			*markers.NewMarker(2, 7): 0.30,
-		})
-	}
-
-	// ISSUE Message10
-	{
-		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
-
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 1, events.ThresholdLevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 5), 1, events.ThresholdLevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 6), 1, events.ThresholdLevelIncreased)
-
-		issueAndValidateMessageApproval(t, "Message10", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"): 0.25,
-			testFramework.BranchID("Message6"): 0.75,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 0.25,
-			*markers.NewMarker(2, 5): 0.75,
-			*markers.NewMarker(2, 6): 0.65,
-			*markers.NewMarker(2, 7): 0.45,
-			*markers.NewMarker(2, 8): 0.15,
-		})
-	}
-
-	// ISSUE Message11
-	{
-		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch3")
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message11")), "Branch4")
-
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message7"), 1, events.ThresholdLevelIncreased)
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message7"), 0, events.ThresholdLevelDecreased)
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 0, events.ThresholdLevelDecreased)
-
-		issueAndValidateMessageApproval(t, "Message11", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"):  0.55,
-			testFramework.BranchID("Message6"):  0.45,
-			testFramework.BranchID("Message7"):  0.25,
-			testFramework.BranchID("Message11"): 0.30,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 0.55,
-			*markers.NewMarker(2, 5): 0.45,
-			*markers.NewMarker(2, 6): 0.35,
-			*markers.NewMarker(2, 7): 0.15,
-			*markers.NewMarker(2, 8): 0.15,
-			*markers.NewMarker(3, 6): 0.30,
-		})
-	}
-
-	// ISSUE Message12
-	{
-		testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
-
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message5"), 1, events.ThresholdLevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 5), 1, events.ThresholdLevelIncreased)
-
-		issueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"):  0.75,
-			testFramework.BranchID("Message6"):  0.25,
-			testFramework.BranchID("Message7"):  0.25,
-			testFramework.BranchID("Message11"): 0.50,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 0.75,
-			*markers.NewMarker(2, 5): 0.25,
-			*markers.NewMarker(2, 6): 0.15,
-			*markers.NewMarker(2, 7): 0.15,
-			*markers.NewMarker(2, 8): 0.15,
-			*markers.NewMarker(3, 6): 0.50,
-			*markers.NewMarker(3, 7): 0.20,
-		})
-	}
-
-	// ISSUE Message13
-	{
-		testFramework.CreateMessage("Message13", WithStrongParents("Message12"), WithIssuer(nodes["E"].PublicKey()))
-
-		issueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"):  0.85,
-			testFramework.BranchID("Message6"):  0.15,
-			testFramework.BranchID("Message7"):  0.25,
-			testFramework.BranchID("Message11"): 0.60,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 0.85,
-			*markers.NewMarker(2, 5): 0.15,
-			*markers.NewMarker(2, 6): 0.15,
-			*markers.NewMarker(2, 7): 0.15,
-			*markers.NewMarker(2, 8): 0.15,
-			*markers.NewMarker(3, 6): 0.60,
-			*markers.NewMarker(3, 7): 0.30,
-			*markers.NewMarker(3, 8): 0.10,
-		})
-	}
-
-	// ISSUE Message14
-	{
-		testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
-
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message11"), 1, events.ThresholdLevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(3, 6), 1, events.ThresholdLevelIncreased)
-
-		issueAndValidateMessageApproval(t, "Message14", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"):  1,
-			testFramework.BranchID("Message6"):  0,
-			testFramework.BranchID("Message7"):  0.25,
-			testFramework.BranchID("Message11"): 0.75,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 1,
-			*markers.NewMarker(2, 5): 0,
-			*markers.NewMarker(2, 6): 0,
-			*markers.NewMarker(2, 7): 0,
-			*markers.NewMarker(2, 8): 0,
-			*markers.NewMarker(3, 6): 0.75,
-			*markers.NewMarker(3, 7): 0.45,
-			*markers.NewMarker(3, 8): 0.25,
-			*markers.NewMarker(3, 9): 0.15,
-		})
-	}
-
-	// ISSUE Message15
-	{
-		testFramework.CreateMessage("Message15", WithStrongParents("Message11", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
-
-		issueAndValidateMessageApproval(t, "Message15", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"):  1,
-			testFramework.BranchID("Message6"):  0,
-			testFramework.BranchID("Message7"):  0.25,
-			testFramework.BranchID("Message11"): 0.75,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 1,
-			*markers.NewMarker(2, 5): 0,
-			*markers.NewMarker(2, 6): 0,
-			*markers.NewMarker(2, 7): 0,
-			*markers.NewMarker(2, 8): 0,
-			*markers.NewMarker(3, 6): 0.75,
-			*markers.NewMarker(3, 7): 0.45,
-			*markers.NewMarker(3, 8): 0.25,
-			*markers.NewMarker(3, 9): 0.15,
-		})
-	}
-
-	// ISSUE Message16
-	{
-		testFramework.CreateMessage("Message16", WithStrongParents("Message12", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message15")), "Branch4")
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message16")), "Branch5")
-
-		issueAndValidateMessageApproval(t, "Message16", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
-			testFramework.BranchID("Message5"):  1,
-			testFramework.BranchID("Message6"):  0,
-			testFramework.BranchID("Message7"):  0.25,
-			testFramework.BranchID("Message11"): 0.75,
-		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 1,
-			*markers.NewMarker(1, 5): 1,
-			*markers.NewMarker(2, 5): 0,
-			*markers.NewMarker(2, 6): 0,
-			*markers.NewMarker(2, 7): 0,
-			*markers.NewMarker(2, 8): 0,
-			*markers.NewMarker(3, 6): 0.75,
-			*markers.NewMarker(3, 7): 0.45,
-			*markers.NewMarker(3, 8): 0.25,
-			*markers.NewMarker(3, 9): 0.15,
-		})
+	for processMsgScenario.HasNext() {
+		processMsgScenario.Next(nil)
 	}
 }
 
@@ -734,7 +430,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := newTestTangle(ApprovalWeights(weightProvider))
+	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	tangle.Setup()
 
@@ -782,8 +478,8 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch5")
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
 			ledgerstate.BranchIDs{
-				testFramework.BranchID("Message4"): types.Void,
-				testFramework.BranchID("Message5"): types.Void,
+				testFramework.BranchIDFromMessage("Message4"): types.Void,
+				testFramework.BranchIDFromMessage("Message5"): types.Void,
 			}).ID(),
 			"Branch4+5",
 		)
@@ -812,9 +508,9 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch7")
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
 			ledgerstate.BranchIDs{
-				testFramework.BranchID("Message4"): types.Void,
-				testFramework.BranchID("Message5"): types.Void,
-				testFramework.BranchID("Message7"): types.Void,
+				testFramework.BranchIDFromMessage("Message4"): types.Void,
+				testFramework.BranchIDFromMessage("Message5"): types.Void,
+				testFramework.BranchIDFromMessage("Message7"): types.Void,
 			}).ID(),
 			"Branch4+5+7",
 		)
@@ -829,9 +525,9 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message8")), "Branch8")
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
 			ledgerstate.BranchIDs{
-				testFramework.BranchID("Message4"): types.Void,
-				testFramework.BranchID("Message5"): types.Void,
-				testFramework.BranchID("Message8"): types.Void,
+				testFramework.BranchIDFromMessage("Message4"): types.Void,
+				testFramework.BranchIDFromMessage("Message5"): types.Void,
+				testFramework.BranchIDFromMessage("Message8"): types.Void,
 			}).ID(),
 			"Branch4+5+8",
 		)
@@ -842,29 +538,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			fmt.Println(branch)
 		})
 	}
-}
-
-func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *eventMock, testFramework *MessageTestFramework, expectedBranchWeights map[ledgerstate.BranchID]float64, expectedMarkerWeights map[markers.Marker]float64) {
-	eventMock.Expect("MessageProcessed", testFramework.Message(messageAlias).ID())
-
-	t.Logf("ISSUE:\tMessageID(%s)", messageAlias)
-	testFramework.IssueMessages(messageAlias).WaitApprovalWeightProcessed()
-
-	for branchID, expectedWeight := range expectedBranchWeights {
-		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfBranch(branchID)
-		if expectedWeight != actualWeight {
-			assert.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", branchID, actualWeight, expectedWeight)
-		}
-	}
-
-	for marker, expectedWeight := range expectedMarkerWeights {
-		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfMarker(&marker, testFramework.Message(messageAlias).IssuingTime())
-		if expectedWeight != actualWeight {
-			assert.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", marker, actualWeight, expectedWeight)
-		}
-	}
-
-	eventMock.AssertExpectations(t)
 }
 
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
@@ -910,99 +583,11 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		supporters := approvalWeightManager.supportersOfBranch(branchIDs[branchIDString])
+		supporters := approvalWeightManager.SupportersOfAggregatedBranch(branchIDs[branchIDString])
 		if supporters != nil {
 			actualResult = supporters.Has(supporter)
 		}
 
 		assert.Equalf(t, expectedResult, actualResult, "%s(%s) does not match", branchIDString, branchIDs[branchIDString])
 	}
-}
-
-type eventMock struct {
-	mock.Mock
-	expectedEvents uint64
-	calledEvents   uint64
-	test           *testing.T
-
-	attached []struct {
-		*events.Event
-		*events.Closure
-	}
-}
-
-func newEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *eventMock {
-	e := &eventMock{
-		test: t,
-	}
-	e.Test(t)
-
-	approvalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(e.BranchConfirmed))
-	approvalWeightManager.Events.MarkerConfirmation.Attach(events.NewClosure(e.MarkerConfirmed))
-
-	// attach all events
-	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
-	e.attach(approvalWeightManager.Events.MessageFinalized, func(MessageID) {})
-
-	// assure that all available events are mocked
-	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
-
-	return e
-}
-
-func (e *eventMock) DetachAll() {
-	for _, a := range e.attached {
-		a.Event.Detach(a.Closure)
-	}
-}
-
-func (e *eventMock) Expect(eventName string, arguments ...interface{}) {
-	e.On(eventName, arguments...)
-	atomic.AddUint64(&e.expectedEvents, 1)
-}
-
-func (e *eventMock) attach(event *events.Event, f interface{}) {
-	closure := events.NewClosure(f)
-	event.Attach(closure)
-	e.attached = append(e.attached, struct {
-		*events.Event
-		*events.Closure
-	}{event, closure})
-}
-
-func (e *eventMock) AssertExpectations(t mock.TestingT) bool {
-	calledEvents := atomic.LoadUint64(&e.calledEvents)
-	expectedEvents := atomic.LoadUint64(&e.expectedEvents)
-	if calledEvents != expectedEvents {
-		t.Errorf("number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
-		return false
-	}
-
-	defer func() {
-		e.Calls = make([]mock.Call, 0)
-		e.ExpectedCalls = make([]*mock.Call, 0)
-		e.expectedEvents = 0
-		e.calledEvents = 0
-	}()
-
-	return e.Mock.AssertExpectations(t)
-}
-
-func (e *eventMock) BranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
-	e.Called(branchID, newLevel, transition)
-
-	atomic.AddUint64(&e.calledEvents, 1)
-}
-
-func (e *eventMock) MarkerConfirmed(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
-	e.Called(marker, newLevel, transition)
-
-	atomic.AddUint64(&e.calledEvents, 1)
-}
-
-func (e *eventMock) MessageProcessed(messageID MessageID) {
-	e.Called(messageID)
-
-	atomic.AddUint64(&e.calledEvents, 1)
 }

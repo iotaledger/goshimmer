@@ -45,14 +45,12 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 		return
 	}
 
-	branchIDsContainRejectedBranch, inheritedBranch := l.BranchDAG.BranchIDsContainRejectedBranch(referencedBranchIDs)
-	if branchIDsContainRejectedBranch {
-		return
-	}
-
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
 		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
+			l.tangle.Events.Error.Trigger(err)
+
+			// We book under the InvalidBranch, no error.
 			inheritedBranch = ledgerstate.InvalidBranchID
 			err = nil
 			return
@@ -102,18 +100,13 @@ func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledg
 func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
 	targetBranch, err = l.UTXODAG.BookTransaction(transaction)
 	if err != nil {
-		if !errors.Is(err, ledgerstate.ErrTransactionInvalid) && !errors.Is(err, ledgerstate.ErrTransactionNotSolid) {
-			err = errors.Errorf("failed to book Transaction: %w", err)
-			return
-		}
+		err = errors.Errorf("failed to book Transaction: %w", err)
 
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
 			messagemetadata.SetInvalid(true)
 		})
 		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 
-		// non-fatal errors should not bubble up - we trigger a MessageInvalid event instead
-		err = nil
 		return
 	}
 
@@ -135,21 +128,6 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 		})
 	}
 
-	return
-}
-
-// TransactionInclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
-// Pending, Confirmed or Rejected.
-func (l *LedgerState) TransactionInclusionState(transactionID ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
-	return l.UTXODAG.InclusionState(transactionID)
-}
-
-// BranchInclusionState returns the InclusionState of the Branch with the given BranchID which can either be
-// Pending, Confirmed or Rejected.
-func (l *LedgerState) BranchInclusionState(branchID ledgerstate.BranchID) (inclusionState ledgerstate.InclusionState) {
-	l.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		inclusionState = branch.InclusionState()
-	})
 	return
 }
 
@@ -200,11 +178,18 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	copyLedgerState := l.Transactions() // consider that this may take quite some time
 
 	for _, transaction := range copyLedgerState {
-		// skip unconfirmed transactions
-		inclusionState, err := l.TransactionInclusionState(transaction.ID())
-		if err != nil || inclusionState != ledgerstate.Confirmed {
+		// skip transactions that are not confirmed
+		var isUnconfirmed bool
+		l.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			if !l.tangle.ConfirmationOracle.IsBranchConfirmed(transactionMetadata.BranchID()) {
+				isUnconfirmed = true
+			}
+		})
+
+		if isUnconfirmed {
 			continue
 		}
+
 		// skip transactions that are too recent before startSnapshot
 		if startSnapshot.Sub(transaction.Essence().Timestamp()) < minAge {
 			continue
@@ -212,19 +197,18 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 		unspentOutputs := make([]bool, len(transaction.Essence().Outputs()))
 		includeTransaction := false
 		for i, output := range transaction.Essence().Outputs() {
-			l.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-				if outputMetadata.ConfirmedConsumer() == ledgerstate.GenesisTransactionID { // no consumer yet
-					unspentOutputs[i] = true
-					includeTransaction = true
-				} else {
-					tx, exist := copyLedgerState[outputMetadata.ConfirmedConsumer()]
-					// ignore consumers that are not confirmed long enough or even in the future.
-					if !exist || startSnapshot.Sub(tx.Essence().Timestamp()) < minAge {
-						unspentOutputs[i] = true
-						includeTransaction = true
-					}
+			unspentOutputs[i] = true
+			includeTransaction = true
+
+			confirmedConsumerID := l.ConfirmedConsumer(output.ID())
+			if confirmedConsumerID != ledgerstate.GenesisTransactionID {
+				tx := copyLedgerState[confirmedConsumerID]
+				// If the Confirmed Consumer is old enough we consider the output spent
+				if startSnapshot.Sub(tx.Essence().Timestamp()) >= minAge {
+					unspentOutputs[i] = false
+					includeTransaction = false
 				}
-			})
+			}
 		}
 		// include only transactions with at least one unspent output
 		if includeTransaction {
@@ -261,6 +245,11 @@ func (l *LedgerState) CachedOutputMetadata(outputID ledgerstate.OutputID) *ledge
 	return l.UTXODAG.CachedOutputMetadata(outputID)
 }
 
+// CachedTransactionMetadata returns the TransactionMetadata with the given ID.
+func (l *LedgerState) CachedTransactionMetadata(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransactionMetadata {
+	return l.UTXODAG.CachedTransactionMetadata(transactionID)
+}
+
 // CachedOutputsOnAddress retrieves all the Outputs that are associated with an address.
 func (l *LedgerState) CachedOutputsOnAddress(address ledgerstate.Address) (cachedOutputs ledgerstate.CachedOutputs) {
 	l.UTXODAG.CachedAddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
@@ -282,6 +271,21 @@ func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cac
 // Consumers returns the (cached) consumers of the given outputID.
 func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
 	return l.UTXODAG.CachedConsumers(outputID)
+}
+
+// ConfirmedConsumer returns the confirmed transactionID consuming the given outputID.
+func (l *LedgerState) ConfirmedConsumer(outputID ledgerstate.OutputID) (consumerID ledgerstate.TransactionID) {
+	// default to no consumer, i.e. Genesis
+	consumerID = ledgerstate.GenesisTransactionID
+	l.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
+		if consumerID != ledgerstate.GenesisTransactionID {
+			return
+		}
+		if l.tangle.ConfirmationOracle.IsTransactionConfirmed(consumer.TransactionID()) {
+			consumerID = consumer.TransactionID()
+		}
+	})
+	return
 }
 
 // TotalSupply returns the total supply.

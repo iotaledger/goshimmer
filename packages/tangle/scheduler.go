@@ -26,7 +26,7 @@ const (
 	oldMessageThreshold = 5 * time.Minute
 )
 
-// ErrNotRunning is returned when a message is submitted when the scheduler has been stopped
+// ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
 var ErrNotRunning = errors.New("scheduler stopped")
 
 // SchedulerParams defines the scheduler config parameters.
@@ -109,7 +109,7 @@ func (s *Scheduler) Shutdown() {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
-	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
 		// avoid scheduling old messages
 		skipScheduler := false
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {

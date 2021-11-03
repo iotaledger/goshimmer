@@ -32,7 +32,6 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0
 	go.dedis.ch/kyber/v3 v3.0.13
-	go.mongodb.org/mongo-driver v1.5.1
 	go.uber.org/atomic v1.9.0
 	go.uber.org/dig v1.12.0
 	go.uber.org/zap v1.19.0
@@ -40,7 +39,7 @@ require (
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	google.golang.org/genproto v0.0.0-20201203001206-6486ece9c497 // indirect
-	google.golang.org/grpc v1.34.0
+	google.golang.org/grpc v1.34.0 // indirect
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )

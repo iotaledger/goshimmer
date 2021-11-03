@@ -8,9 +8,8 @@ import (
 
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // DiagnosticBranchesHandler runs the diagnostic over the Tangle.
@@ -92,28 +91,18 @@ var DiagnosticBranchesTableDescription = []string{
 	"ConflictSet",
 	"IssuanceTime",
 	"SolidTime",
-	"OpinionFormedTime",
-	"Liked",
-	"MonotonicallyLiked",
-	"InclusionState",
-	"Finalized",
 	"LazyBooked",
-	"TransactionLiked",
+	"GradeOfFinality",
 }
 
 // DiagnosticBranchInfo holds the information of a branch.
 type DiagnosticBranchInfo struct {
-	ID                 string
-	ConflictSet        []string
-	IssuanceTimestamp  time.Time
-	SolidTime          time.Time
-	OpinionFormedTime  time.Time
-	Liked              bool
-	MonotonicallyLiked bool
-	InclusionState     string
-	Finalized          bool
-	LazyBooked         bool
-	TransactionLiked   bool
+	ID                string
+	ConflictSet       []string
+	IssuanceTimestamp time.Time
+	SolidTime         time.Time
+	LazyBooked        bool
+	GradeOfFinality   gof.GradeOfFinality
 }
 
 func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchInfo {
@@ -122,9 +111,7 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 	}
 
 	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		conflictInfo.Liked = branch.Liked()
-		conflictInfo.MonotonicallyLiked = branch.MonotonicallyLiked()
-		conflictInfo.InclusionState = deps.Tangle.LedgerState.BranchInclusionState(branchID).String()
+		conflictInfo.GradeOfFinality, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 
 		if branch.Type() == ledgerstate.AggregatedBranchType {
 			return
@@ -136,16 +123,11 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 
 		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
-			deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
-				conflictInfo.OpinionFormedTime = deps.ConsensusMechanism.(*fcob.ConsensusMechanism).OpinionFormedTime(attachment.MessageID())
-			})
 		})
 
 		deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
-			conflictInfo.Finalized = transactionMetadata.Finalized()
 			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
-			conflictInfo.TransactionLiked = deps.ConsensusMechanism.(*fcob.ConsensusMechanism).TransactionLiked(transactionID)
 		})
 	})
 
@@ -158,13 +140,7 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		strings.Join(d.ConflictSet, ";"),
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
-		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
-		fmt.Sprint(d.Liked),
-		fmt.Sprint(d.MonotonicallyLiked),
-		d.InclusionState,
-		fmt.Sprint(d.Finalized),
 		fmt.Sprint(d.LazyBooked),
-		fmt.Sprint(d.TransactionLiked),
 	}
 
 	result = strings.Join(row, ",")

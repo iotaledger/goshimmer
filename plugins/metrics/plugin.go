@@ -11,14 +11,16 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
+	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 )
 
@@ -36,9 +38,8 @@ type dependencies struct {
 	dig.In
 
 	Tangle    *tangle.Tangle
-	GossipMgr *gossip.Manager          `optional:"true"`
-	Selection *selection.Protocol      `optional:"true"`
-	Voter     vote.DRNGRoundBasedVoter `optional:"true"`
+	GossipMgr *gossip.Manager     `optional:"true"`
+	Selection *selection.Protocol `optional:"true"`
 	Local     *peer.Local
 }
 
@@ -55,6 +56,7 @@ func run(_ *node.Plugin) {
 	if Parameters.Local {
 		// initial measurement, since we have to know how many messages are there in the db
 		measureInitialDBStats()
+		measureInitialBranchStats()
 		registerLocalMetrics()
 	}
 	// Events from analysis server
@@ -176,38 +178,58 @@ func registerLocalMetrics() {
 		increasePerComponentCounter(Booker)
 	}))
 
-	// // Value payload attached
-	// valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
-	// 	cachedPayloadEvent.Payload.Release()
-	// 	cachedPayloadEvent.PayloadMetadata.Release()
-	// 	valueTransactionCounter.Inc()
-	// }))
+	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messageType := DataMessage
+		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
+			messageType = Transaction
+		})
 
-	if deps.Voter != nil {
-		// FPC round executed
-		deps.Voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-			processRoundStats(roundStats)
-		}))
-
-		// a conflict has been finalized
-		deps.Voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-			processFinalized(ev.Ctx)
-		}))
-
-		// consensus failure in conflict resolution
-		deps.Voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-			processFailed(ev.Ctx)
-		}))
-	}
-
-	//// Events coming from metrics package ////
-
-	metrics.Events().FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		_FPCInboundBytes.Add(amountBytes)
+		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			message.ForEachParent(func(parent tangle.Parent) {
+				increasePerParentType(parent.Type)
+			})
+		})
+		if deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			messageFinalizationTotalTime[messageType] += uint64(clock.Since(messageMetadata.ReceivedTime()).Milliseconds())
+		}) {
+			finalizedMessageCount[messageType]++
+		}
 	}))
-	metrics.Events().FPCOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		_FPCOutboundBytes.Add(amountBytes)
+
+	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		activeBranchesMutex.Lock()
+		defer activeBranchesMutex.Unlock()
+		if _, exists := activeBranches[branchID]; !exists {
+			return
+		}
+
+		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(branchID.TransactionID())
+
+		if err != nil {
+			return
+		}
+		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+			if _, exists := activeBranches[branchID]; exists && conflictingBranchID != branchID {
+				finalizedBranchCountDB.Inc()
+				delete(activeBranches, conflictingBranchID)
+			}
+		})
+		finalizedBranchCountDB.Inc()
+		confirmedBranchCount.Inc()
+		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
+
+		delete(activeBranches, branchID)
 	}))
+
+	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		activeBranchesMutex.Lock()
+		defer activeBranchesMutex.Unlock()
+		if _, exists := activeBranches[branchID]; !exists {
+			branchTotalCountDB.Inc()
+			activeBranches[branchID] = types.Void
+		}
+	}))
+
 	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
 		analysisOutboundBytes.Add(amountBytes)
 	}))
@@ -231,13 +253,6 @@ func registerLocalMetrics() {
 
 	metrics.Events().MessageTips.Attach(events.NewClosure(func(tipsCount uint64) {
 		messageTips.Store(tipsCount)
-	}))
-
-	metrics.Events().QueryReceived.Attach(events.NewClosure(func(ev *metrics.QueryReceivedEvent) {
-		processQueryReceived(ev)
-	}))
-	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
-		processQueryReplyError(ev)
 	}))
 
 	// mana pledge events

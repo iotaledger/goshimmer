@@ -17,7 +17,7 @@ import (
 
 type connection struct {
 	bufferedConn *buffconn.BufferedConnection
-	log          *node.Plugin //Is just used for logging
+	log          *node.Plugin // Just used for logging.
 	active       bool
 }
 
@@ -27,7 +27,9 @@ var (
 	index               atomic.Uint32
 )
 
-// Listen starts a TCP listener and starts a Connection for each accepted connection
+const indexThreshold = 250
+
+// Listen starts a TCP listener and starts a Connection for each accepted connection.
 func Listen(bindAddress string, log *node.Plugin, shutdownSignal <-chan struct{}) error {
 	listener, err := net.Listen("tcp", bindAddress)
 	if err != nil {
@@ -83,7 +85,7 @@ func handleConnection(conn net.Conn, log *node.Plugin, shutdownSignal <-chan str
 
 	select {
 	case data := <-bufferedConnDataReceived:
-		//No input required. For debugging it will be printed
+		// No input required. For debugging it will be printed.
 		connectionList[idx].log.LogDebugf("Data received:%v", data)
 	case <-shutdownSignal:
 		connectionList[idx].log.LogInfof("Shutdown signal received")
@@ -123,6 +125,7 @@ func (connection *connection) readLoop() (chan []byte, chan bool) {
 	return bufferedConnDataReceived, bufferedConnClosed
 }
 
+// Broadcast sends data to all active connections.
 func Broadcast(data []byte) {
 	connectionListMutex.Lock()
 	defer connectionListMutex.Unlock()
@@ -137,13 +140,13 @@ func Broadcast(data []byte) {
 			connectionList[i].active = false
 		}
 	}
-	//Tidy up array of unused connections
+	// Tidy up array of unused connections.
 	removeInactiveConnections()
 }
 
 func removeInactiveConnections() {
 	idx := int(index.Load())
-	if idx >= 250 {
+	if idx >= indexThreshold {
 		newIndex := 0
 		var newConnectionList = [256]connection{}
 		for i := 0; i < idx; i++ {

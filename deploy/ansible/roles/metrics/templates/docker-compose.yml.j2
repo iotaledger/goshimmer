@@ -2,22 +2,6 @@
 version: "3"
 
 services:
-  mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    restart: unless-stopped
-    ports:
-      - "27117:27117"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: "{{ mongoDBUser }}"
-      MONGO_INITDB_ROOT_PASSWORD: "{{ mongoDBPassword }}"
-    volumes:
-      - mongodb_data:/data/db
-    command: >
-      --port=27117
-    networks:
-      - back-tier
-
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -128,6 +112,5 @@ networks:
     driver: bridge
 
 volumes:
-  mongodb_data:
   grafana_data:
   elasticsearch_data:

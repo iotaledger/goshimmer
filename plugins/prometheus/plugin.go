@@ -63,7 +63,6 @@ func configure(plugin *node.Plugin) {
 			registerAutopeeringMetrics()
 		}
 		registerDBMetrics()
-		registerFPCMetrics()
 		registerInfoMetrics()
 		registerNetworkMetrics()
 		registerProcessMetrics()
