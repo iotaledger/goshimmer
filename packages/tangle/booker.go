@@ -71,7 +71,7 @@ func (b *Booker) Setup() {
 	}))
 
 	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByMerge.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByMergeEvent) {
-		if err := b.PropagateMergedBranch(event.TransactionID, event.BranchDAGUpdates); err != nil {
+		if err := b.PropagateMergedBranch(event.TransactionID, event.MergedBranchID, event.BranchDAGUpdates); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate merged Branch with %s to future cone of Transaction with %s: %w", event.MergedBranchID, event.TransactionID, err))
 		}
 	}))
@@ -532,9 +532,37 @@ func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata 
 
 // region MERGE LOGIC //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// PropagateMergedBranch propagates the updates of the BranchDAG to the future cone of the attachments of the given
-// transaction.
-func (b *Booker) PropagateMergedBranch(transactionID ledgerstate.TransactionID, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
+// PropagateMergedBranch propagates the updates of the BranchDAG after a merge to the future cone of the attachments of
+// the given transaction.
+func (b *Booker) PropagateMergedBranch(transactionID ledgerstate.TransactionID, mergedBranch ledgerstate.BranchID, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
+	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+		if !messageMetadata.IsBooked() {
+			return
+		}
+
+		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
+			if err = b.propagateMergedBranchToMarkerFutureCone(structureDetails.PastMarkers.Marker(), branchDAGUpdates, walker); err != nil {
+				err = errors.Errorf("failed to propagate merged Branch with %s to future cone of Transaction with %s using the %s: %w", mergedBranch, transactionID, structureDetails.PastMarkers.Marker(), err)
+				walker.StopWalk()
+			}
+			return
+		}
+
+		if err = b.propagateMergedBranchToMetadataFutureCone(messageMetadata, branchDAGUpdates, walker); err != nil {
+			err = errors.Errorf("failed to propagate merged Branch with %s to metadata future cone of %s containing Transaction with %s: %w", mergedBranch, messageMetadata.ID(), transactionID, err)
+			walker.StopWalk()
+			return
+		}
+	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), false)
+
+	return
+}
+
+func (b *Booker) propagateMergedBranchToMarkerFutureCone(marker *markers.Marker, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
+	return
+}
+
+func (b *Booker) propagateMergedBranchToMetadataFutureCone(messageMetadata *MessageMetadata, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
 	return
 }
 
