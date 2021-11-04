@@ -36,7 +36,11 @@ RUN go mod verify
 RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
     if [ $RUN_TEST -gt 0 ]; then \
-    go test ./... -tags rocksdb -count=1; \
+    go test ./... -tags rocksdb -count=1 & \
+            while kill -0 $! > /dev/null 2>&1; do \
+            free -m \
+            sleep 1 \
+            done \
     fi
 
 # 1. Mount everything from the current directory to the PWD(Present Working Directory) inside the container
