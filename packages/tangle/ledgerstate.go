@@ -48,7 +48,11 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
 		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
+			l.tangle.Events.Error.Trigger(err)
+
+			// We book under the InvalidBranch, no error.
 			inheritedBranch = ledgerstate.InvalidBranchID
+			err = nil
 			return
 		}
 
@@ -174,7 +178,6 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	copyLedgerState := l.Transactions() // consider that this may take quite some time
 
 	for _, transaction := range copyLedgerState {
-
 		// skip transactions that are not confirmed
 		var isUnconfirmed bool
 		l.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {

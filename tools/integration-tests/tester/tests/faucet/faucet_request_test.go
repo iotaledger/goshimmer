@@ -14,7 +14,7 @@ import (
 // TestFaucetRequest sends funds by faucet request.
 func TestFaucetRequest(t *testing.T) {
 	const (
-		numPeers    = 5
+		numPeers    = 4
 		numRequests = 2
 	)
 
@@ -24,9 +24,14 @@ func TestFaucetRequest(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true,
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	// check consensus mana
+	for i, peer := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	}
 
 	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())

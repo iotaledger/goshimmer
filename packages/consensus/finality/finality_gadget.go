@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
+// Gadget is an interface that describes the finality gadget.
 type Gadget interface {
 	HandleMarker(marker *markers.Marker, aw float64) (err error)
 	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)
@@ -27,9 +28,9 @@ type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
 type BranchThresholdTranslation func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality
 
 const (
-	lowLowerBound    = 0.2
-	mediumLowerBound = 0.3
-	highLowerBound   = 0.5
+	lowLowerBound    = 0.25
+	mediumLowerBound = 0.45
+	highLowerBound   = 0.67
 )
 
 var (
@@ -146,6 +147,7 @@ func (s *SimpleFinalityGadget) Events() *tangle.ConfirmationEvents {
 	return s.events
 }
 
+// IsMarkerConfirmed returns whether the given marker is confirmed.
 func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker *markers.Marker) (confirmed bool) {
 	messageID := s.tangle.Booker.MarkersManager.MessageID(marker)
 	if messageID == tangle.EmptyMessageID {
@@ -198,10 +200,11 @@ func (s *SimpleFinalityGadget) IsOutputConfirmed(outputID ledgerstate.OutputID) 
 	return
 }
 
+// HandleMarker receives a marker and its current approval weight. It propagates the GoF according to AW to its past cone.
 func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) (err error) {
 	gradeOfFinality := s.opts.MessageTransFunc(aw)
 	if gradeOfFinality == gof.None {
-		return
+		return nil
 	}
 
 	// get message ID of marker
@@ -245,9 +248,11 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 
 	s.tangle.Utils.WalkMessageAndMetadata(propagateGoF, tangle.MessageIDs{messageID}, false)
 
-	return
+	return err
 }
 
+// HandleBranch receives a branchID and its approval weight. It propagates the GoF according to AW to transactions
+// in the branch (UTXO future cone) and their outputs.
 func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error) {
 	newGradeOfFinality := s.opts.BranchTransFunc(branchID, aw)
 

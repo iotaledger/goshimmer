@@ -109,9 +109,7 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 }
 
 // Shutdown shuts down the ApprovalWeightManager and persists its state.
-func (a *ApprovalWeightManager) Shutdown() {
-
-}
+func (a *ApprovalWeightManager) Shutdown() {}
 
 func (a *ApprovalWeightManager) statementFromMessage(message *Message, optionalBranchID ...ledgerstate.BranchID) (statement *Statement, isNewStatement bool) {
 	nodeID := identity.NewID(message.IssuerPublicKey())
@@ -168,8 +166,8 @@ func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
 	return supporterWeight/totalWeight >= minSupporterWeight
 }
 
-// SupportersOfBranch returns the Supporters of the given ledgerstate.BranchID.
-func (a *ApprovalWeightManager) SupportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
+// SupportersOfAggregatedBranch returns the Supporters of the given aggregatedbranch ledgerstate.BranchID.
+func (a *ApprovalWeightManager) SupportersOfAggregatedBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
 	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
 		panic(err)
@@ -191,6 +189,16 @@ func (a *ApprovalWeightManager) SupportersOfBranch(branchID ledgerstate.BranchID
 	return
 }
 
+// SupportersOfConflictBranch returns the Supporters of the given conflictbranch ledgerstate.BranchID.
+func (a *ApprovalWeightManager) SupportersOfConflictBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
+	if !a.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {
+		supporters = branchSupporters.Supporters()
+	}) {
+		supporters = NewSupporters()
+	}
+	return
+}
+
 // supportersOfMarker returns the Supporters of the given markers.Marker.
 func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
 	if !a.tangle.Storage.SequenceSupporters(marker.SequenceID()).Consume(func(sequenceSupporters *SequenceSupporters) {
@@ -203,6 +211,11 @@ func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supp
 }
 
 func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
+	// Don't do anything if the supporter is not relevant.
+	if !a.isRelevantSupporter(message) {
+		return
+	}
+
 	statement, isNewStatement := a.statementFromMessage(message)
 	if !isNewStatement {
 		return
@@ -217,7 +230,7 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 		panic(err)
 	}
 
-	supportWalker := walker.New()
+	supportWalker := walker.New(false)
 	for conflictBranchID := range conflictBranchIDs {
 		supportWalker.Push(conflictBranchID)
 	}
@@ -228,7 +241,7 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 }
 
 func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
-	if branchID == ledgerstate.MasterBranchID || !a.isRelevantSupporter(message) {
+	if branchID == ledgerstate.MasterBranchID {
 		return
 	}
 
@@ -242,16 +255,19 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 		added = branchSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()))
 	})
 
-	if added {
-		a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-			revokeWalker := walker.New()
-			revokeWalker.Push(conflictingBranchID)
-
-			for revokeWalker.HasNext() {
-				a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), message, revokeWalker)
-			}
-		})
+	// Abort if this node already supported this branch.
+	if !added {
+		return
 	}
+
+	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		revokeWalker := walker.New(false)
+		revokeWalker.Push(conflictingBranchID)
+
+		for revokeWalker.HasNext() {
+			a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), message, revokeWalker)
+		}
+	})
 
 	a.updateBranchWeight(branchID, message)
 
@@ -271,6 +287,7 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 	a.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
 		deleted = branchSupporters.DeleteSupporter(identity.NewID(message.IssuerPublicKey()))
 	})
+
 	// Abort if this node did not support this branch.
 	if !deleted {
 		return
@@ -288,12 +305,22 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 }
 
 func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
+	// Don't do anything if the supporter is not relevant.
+	if !a.isRelevantSupporter(message) {
+		return
+	}
+
 	a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// Do not revisit markers that have already been visited. With the like switch there can be cycles in the sequence DAG
 		// which results in endless walks.
 		supportWalker := walker.New(false)
 
 		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			// Avoid adding and tracking support of markers in sequence 0.
+			if sequenceID == 0 {
+				return true
+			}
+
 			supportWalker.Push(*markers.NewMarker(sequenceID, index))
 
 			return true
@@ -306,8 +333,11 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 }
 
 func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, message *Message, walk *walker.Walker) {
-	// Avoid tracking support of markers in sequence 0.
-	if marker.SequenceID() == 0 || !a.isRelevantSupporter(message) {
+	// TODO: check map size
+	// We don't add the supporter and abort if the marker is already confirmed. This prevents walking too much in the sequence DAG.
+	// However, it might lead to inaccuracies when creating a new branch once a conflict arrives and we copy over the
+	// supporters of the marker to the branch. Since the marker is already seen as confirmed it should not matter too much though.
+	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
 		return
 	}
 
@@ -317,8 +347,6 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 		sequenceSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()), marker.Index())
 		a.updateMarkerWeight(&marker, message)
 
-		// TODO: this degrades performance over time: the more references between sequences there are, the more we need to walk.
-		//   we need to find a way to not need to visit the referenced sequences/markers.
 		a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 			sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 				// Avoid adding and tracking support of markers in sequence 0.
@@ -340,36 +368,27 @@ func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *marke
 		panic(err)
 	}
 
+	supportersOfOldBranch := a.SupportersOfAggregatedBranch(oldBranchID)
+	supportersOfMarker := a.supportersOfMarker(marker)
+	intersectionOfSupporters := supportersOfMarker.Intersect(supportersOfOldBranch)
+
 	for conflictBranchID := range conflictBranchIDs {
 		a.tangle.Storage.BranchSupporters(conflictBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-			supportersOfMarker := a.supportersOfMarker(marker)
-
 			if oldBranchID == ledgerstate.MasterBranchID {
-				supportersOfMarker.ForEach(func(supporter Supporter) {
-					branchSupporters.AddSupporter(supporter)
-				})
+				branchSupporters.AddSupporters(supportersOfMarker)
 				return
 			}
 
-			a.SupportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
-				if supportersOfMarker.Has(supporter) {
-					branchSupporters.AddSupporter(supporter)
-				}
-			})
+			branchSupporters.AddSupporters(intersectionOfSupporters)
 		})
 
 		a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
-			a.updateBranchWeight(newBranchID, message)
+			a.updateBranchWeight(conflictBranchID, message)
 		})
 	}
 }
 
 func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Message) {
-	// TODO: check map size
-	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
-		return
-	}
-
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
 	for i := a.firstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
@@ -399,39 +418,19 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
 	var supporterWeight float64
-	a.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+	a.SupportersOfConflictBranch(branchID).ForEach(func(supporter Supporter) {
 		supporterWeight += activeWeights[supporter]
 	})
 
 	newBranchWeight := supporterWeight / totalWeight
 
-	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	if err != nil {
-		panic(err)
-	}
-
-	for conflictBranchID := range conflictBranchIDs {
-		switch isAggregatedBranch := len(conflictBranchIDs) != 1; isAggregatedBranch {
-		case false:
-			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
-				if !branchWeight.SetWeight(newBranchWeight) {
-					return
-				}
-
-				a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
-			})
-		default:
-			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
-				if newBranchWeight > branchWeight.Weight() {
-					if !branchWeight.SetWeight(newBranchWeight) {
-						return
-					}
-
-					a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{conflictBranchID, newBranchWeight})
-				}
-			})
+	a.tangle.Storage.BranchWeight(branchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
+		if !branchWeight.SetWeight(newBranchWeight) {
+			return
 		}
-	}
+
+		a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{branchID, newBranchWeight})
+	})
 }
 
 func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
@@ -440,7 +439,7 @@ func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID
 	})
 }
 
-// take everything in future cone because it was not conflicting before and move to new branch
+// take everything in future cone because it was not conflicting before and move to new branch.
 func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
 	a.migrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
 
@@ -448,7 +447,7 @@ func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Mark
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 		branchWeight := float64(0)
-		a.SupportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
+		a.SupportersOfAggregatedBranch(newBranchID).ForEach(func(supporter Supporter) {
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
@@ -656,7 +655,7 @@ func (b *BranchWeight) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ objectstorage.StorableObject = &BranchWeight{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -719,7 +718,7 @@ type Statement struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewStatement creates a new Statement
+// NewStatement creates a new Statement.
 func NewStatement(branchID ledgerstate.BranchID, supporter Supporter) (statement *Statement) {
 	statement = &Statement{
 		branchID:  branchID,
@@ -843,7 +842,7 @@ func (s *Statement) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ objectstorage.StorableObject = &Statement{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1062,6 +1061,21 @@ func (b *BranchSupporters) AddSupporter(supporter Supporter) (added bool) {
 	return
 }
 
+// AddSupporters adds the supporters set to the tracked ledgerstate.BranchID.
+func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
+	supporters.ForEach(func(supporter Supporter) {
+		if b.supporters.Add(supporter) {
+			added = true
+		}
+	})
+
+	if added {
+		b.SetModified()
+	}
+
+	return
+}
+
 // DeleteSupporter deletes a Supporter from the tracked ledgerstate.BranchID.
 func (b *BranchSupporters) DeleteSupporter(supporter Supporter) (deleted bool) {
 	b.supportersMutex.Lock()
@@ -1123,7 +1137,7 @@ func (b *BranchSupporters) ObjectStorageValue() []byte {
 	return marshalUtil.Bytes()
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ objectstorage.StorableObject = &BranchSupporters{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1335,7 +1349,7 @@ func (s *SequenceSupporters) ObjectStorageValue() []byte {
 	return marshalUtil.Bytes()
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ objectstorage.StorableObject = &SequenceSupporters{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

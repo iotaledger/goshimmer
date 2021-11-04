@@ -15,7 +15,7 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// autopeering constants
+// autopeering constants.
 const (
 	ProtocolVersion = 0 // update on protocol changes
 

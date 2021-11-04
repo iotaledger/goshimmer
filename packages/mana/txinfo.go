@@ -48,7 +48,7 @@ type SnapshotNode struct {
 	SortedTxSnapshot SortedTxSnapshot
 }
 
-// AccessManaSnapshot defines the record for the aMana snapshot of one node
+// AccessManaSnapshot defines the record for the aMana snapshot of one node.
 type AccessManaSnapshot struct {
 	Value     float64
 	Timestamp time.Time

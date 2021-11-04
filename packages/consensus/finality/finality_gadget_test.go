@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,6 +16,40 @@ import (
 type EventHandlerMock struct {
 	mock.Mock
 }
+
+const (
+	testingLowBound    = 0.2
+	testingMediumBound = 0.3
+	testingHighBound   = 0.5
+)
+
+var (
+	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality {
+		switch {
+		case aw >= testingLowBound && aw < testingMediumBound:
+			return gof.Low
+		case aw >= testingMediumBound && aw < testingHighBound:
+			return gof.Medium
+		case aw >= testingHighBound:
+			return gof.High
+		default:
+			return gof.None
+		}
+	}
+
+	TestMessageGoFTranslation MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
+		switch {
+		case aw >= testingLowBound && aw < testingMediumBound:
+			return gof.Low
+		case aw >= testingMediumBound && aw < testingHighBound:
+			return gof.Medium
+		case aw >= testingHighBound:
+			return gof.High
+		default:
+			return gof.None
+		}
+	}
+)
 
 func (handler *EventHandlerMock) MessageConfirmed(msgID tangle.MessageID) {
 	handler.Called(msgID)
@@ -44,7 +77,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		}
 	}(processMsgScenario, t)
 
-	sfg := NewSimpleFinalityGadget(processMsgScenario.Tangle)
+	testOpts := []Option{
+		WithBranchThresholdTranslation(TestBranchGoFTranslation),
+		WithMessageThresholdTranslation(TestMessageGoFTranslation),
+	}
+
+	sfg := NewSimpleFinalityGadget(processMsgScenario.Tangle, testOpts...)
 	wireUpEvents(t, processMsgScenario.Tangle, sfg)
 
 	eventHandlerMock := &EventHandlerMock{}

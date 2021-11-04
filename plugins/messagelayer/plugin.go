@@ -1,6 +1,7 @@
 package messagelayer
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -148,8 +149,8 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
+	if err := daemon.BackgroundWorker("Tangle", func(ctx context.Context) {
+		<-ctx.Done()
 		deps.Tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
@@ -309,7 +310,7 @@ func AwaitMessageToBeIssued(f func() (*tangle.Message, error), issuer ed25519.Pu
 	result := <-issueResult
 
 	if result.err != nil || result.msg == nil {
-		return nil, errors.Errorf("Failed to issue data %s: %w", result.msg.ID().Base58(), result.err)
+		return nil, errors.Errorf("Failed to issue data: %w", result.err)
 	}
 
 	ticker := time.NewTicker(maxAwait)

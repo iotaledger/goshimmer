@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// OutputManager keeps track of the outputs
+// OutputManager keeps track of the outputs.
 type OutputManager struct {
 	addressManager *AddressManager
 	connector      Connector

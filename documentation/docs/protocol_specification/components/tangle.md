@@ -179,7 +179,6 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
                         </td>
                     </tr>
                     <tr>
-                    <tr>
                         <td>Reference <code>between(1,8)</code></td>
                         <td>ByteArray[32]</td>
                         <td>Reference to a Message ID.</td>
@@ -218,6 +217,8 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
                     </tr>
                 </table>
             </details>
+        </td>
+    </tr>
     <tr>
         <td>Issuer public key (Ed25519)</td>
         <td>ByteArray[32]</td>
@@ -268,7 +269,7 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
                     </tr>
                 </table>
             </details>
-            </td>
+        </td>
     </tr>
     <tr>
         <td>Nonce</td>

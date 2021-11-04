@@ -112,8 +112,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
-			parents, err = f.selector.Tips(p, countParents)
-			if err != nil {
+			if parents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
 				f.issuanceMutex.Unlock()
@@ -184,6 +183,41 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	}
 
 	return issuingTime
+}
+
+func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
+	parents, err = f.selector.Tips(p, parentsCount)
+
+	if p.Type() == ledgerstate.TransactionType {
+		conflictingTransactions := f.tangle.LedgerState.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
+		if len(conflictingTransactions) != 0 {
+			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
+			case nil:
+				return
+			default:
+				return earliestAttachment.ParentsByType(StrongParentType), nil
+			}
+		}
+	}
+
+	return
+}
+
+func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.TransactionIDs) (earliestAttachment *Message) {
+	earliestIssuingTime := time.Now()
+	for transactionID := range transactionIDs {
+		f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+			f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+				f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+					if messageMetadata.IsBooked() && message.IssuingTime().Before(earliestIssuingTime) {
+						earliestAttachment = message
+					}
+				})
+			})
+		})
+	}
+
+	return earliestAttachment
 }
 
 // Shutdown closes the MessageFactory and persists the sequence number.

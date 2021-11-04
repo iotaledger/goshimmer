@@ -19,7 +19,7 @@ type DelegationReceiver struct {
 	localTimeNow time.Time
 }
 
-// Scan scans for unspent delegation outputs on the delegation receiver address
+// Scan scans for unspent delegation outputs on the delegation receiver address.
 func (d *DelegationReceiver) Scan() []*ledgerstate.AliasOutput {
 	d.Lock()
 	defer d.Unlock()

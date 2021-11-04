@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// UtxoDBLedger implements txstream.Ledger by wrapping UTXODB
+// UtxoDBLedger implements txstream.Ledger by wrapping UTXODB.
 type UtxoDBLedger struct {
 	*utxodb.UtxoDB
 	tangleInstance   *tangle.Tangle
@@ -23,7 +23,7 @@ var txEventHandler = func(f interface{}, params ...interface{}) {
 	f.(func(tx *ledgerstate.Transaction))(params[0].(*ledgerstate.Transaction))
 }
 
-// New creates a new empty ledger
+// New creates a new empty ledger.
 func New(log *logger.Logger, tangleInstance *tangle.Tangle) *UtxoDBLedger {
 	return &UtxoDBLedger{
 		UtxoDB:           utxodb.New(),
@@ -34,7 +34,7 @@ func New(log *logger.Logger, tangleInstance *tangle.Tangle) *UtxoDBLedger {
 	}
 }
 
-// PostTransaction posts a transaction to the ledger
+// PostTransaction posts a transaction to the ledger.
 func (u *UtxoDBLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	_, ok := u.UtxoDB.GetTransaction(tx.ID())
 	if ok {
@@ -48,14 +48,14 @@ func (u *UtxoDBLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	return err
 }
 
-// GetUnspentOutputs returns the available UTXOs for an address
+// GetUnspentOutputs returns the available UTXOs for an address.
 func (u *UtxoDBLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output ledgerstate.Output)) {
 	for _, out := range u.GetAddressOutputs(addr) {
 		f(out)
 	}
 }
 
-// GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high
+// GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high.
 func (u *UtxoDBLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
 	found = false
 	u.tangleInstance.LedgerState.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
@@ -67,21 +67,21 @@ func (u *UtxoDBLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f f
 	return
 }
 
-// RequestFunds requests funds from the faucet
+// RequestFunds requests funds from the faucet.
 func (u *UtxoDBLedger) RequestFunds(target ledgerstate.Address) error {
 	_, err := u.UtxoDB.RequestFunds(target)
 	return err
 }
 
-// EventTransactionConfirmed returns an event that triggers when a transaction is confirmed
+// EventTransactionConfirmed returns an event that triggers when a transaction is confirmed.
 func (u *UtxoDBLedger) EventTransactionConfirmed() *events.Event {
 	return u.txConfirmedEvent
 }
 
-// EventTransactionBooked returns an event that triggers when a transaction is booked
+// EventTransactionBooked returns an event that triggers when a transaction is booked.
 func (u *UtxoDBLedger) EventTransactionBooked() *events.Event {
 	return u.txBookedEvent
 }
 
-// Detach detaches the event handlers
+// Detach detaches the event handlers.
 func (u *UtxoDBLedger) Detach() {}

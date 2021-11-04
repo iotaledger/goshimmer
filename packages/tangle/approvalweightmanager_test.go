@@ -1,12 +1,13 @@
-//nolint:dupl
 package tangle
 
 import (
+	"encoding/binary"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,65 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
+
+func toByteArray(i uint32) (arr []byte) {
+	arr = make([]byte, 4)
+	binary.BigEndian.PutUint32(arr, i)
+	return
+}
+
+func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
+	supporters := map[string]*identity.Identity{
+		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
+		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
+	}
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		m := make(map[identity.ID]float64)
+		for _, s := range supporters {
+			weightProvider.Update(time.Now(), s.ID())
+			m[s.ID()] = 100
+		}
+		return m
+	}
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+
+	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+	defer tangle.Shutdown()
+	approvalWeightManager := tangle.ApprovalWeightManager
+
+	approvalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *MarkerWeightChangedEvent) {
+		fmt.Println(e.Marker.SequenceID(), e.Marker.Index(), e.Weight)
+	}))
+
+	// build markers DAG where each sequence has only 1 marker building a chain of sequences
+	totalMarkers := 10000
+	{
+		var previousMarker *markers.StructureDetails
+		for i := uint32(1); i < uint32(totalMarkers); i++ {
+			if previousMarker == nil {
+				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+				fmt.Println(previousMarker.SequenceID, previousMarker.PastMarkers)
+				continue
+			}
+
+			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+		}
+		fmt.Println(previousMarker.SequenceID, previousMarker.PastMarkers)
+	}
+
+	// measure time for each marker
+	for i := 1; i < 3; i++ {
+		measurements := 100
+		var total time.Duration
+		for m := 0; m < measurements; m++ {
+			start := time.Now()
+			approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
+			total += time.Since(start)
+		}
+		fmt.Printf("(%d,%d): %s\n", i, i, total/time.Duration(measurements))
+	}
+}
 
 func TestBranchWeightMarshalling(t *testing.T) {
 	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
@@ -523,7 +583,7 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		supporters := approvalWeightManager.SupportersOfBranch(branchIDs[branchIDString])
+		supporters := approvalWeightManager.SupportersOfAggregatedBranch(branchIDs[branchIDString])
 		if supporters != nil {
 			actualResult = supporters.Has(supporter)
 		}

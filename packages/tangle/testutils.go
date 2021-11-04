@@ -86,12 +86,7 @@ func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...
 		branch := m.BranchIDFromMessage(messageAlias)
 		aggregation.Add(branch)
 	}
-	cachedAggregatedBranch, _, err := m.tangle.LedgerState.BranchDAG.AggregateBranches(aggregation)
-	if err != nil {
-		panic("my mom beats me with an aggregated branch")
-	}
-	defer cachedAggregatedBranch.Release()
-	branchID := cachedAggregatedBranch.ID()
+	branchID := ledgerstate.NewAggregatedBranch(aggregation).ID()
 	m.branchIDs[alias] = branchID
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)
 }
@@ -770,7 +765,7 @@ func totalAccessManaRetriever() float64 {
 	return totalAMana
 }
 
-// NewTestTangle returns a Tangle instance with a testing schedulerConfig
+// NewTestTangle returns a Tangle instance with a testing schedulerConfig.
 func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 

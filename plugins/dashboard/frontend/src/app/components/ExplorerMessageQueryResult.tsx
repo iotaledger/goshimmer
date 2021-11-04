@@ -58,7 +58,10 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
             case PayloadType.Drng:
                 return <DrngPayload/>
             case PayloadType.Transaction:
-                return <TransactionPayload/>
+                if (!this.props.explorerStore.msg.invalid) {
+                    return <TransactionPayload/>
+                }
+                return <BasicPayload/>
             case PayloadType.Statement:
                 return <StatementPayload/>
             case PayloadType.Data:
@@ -129,6 +132,10 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                     <ListGroup.Item>
                                         BranchID: <Link
                                         to={`/explorer/branch/${msg.branchID}`}>{resolveBase58BranchID(msg.branchID)}</Link>
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        MetadataBranchID: <Link
+                                        to={`/explorer/branch/${msg.metadataBranchID}`}>{resolveBase58BranchID(msg.metadataBranchID)}</Link>
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Solid: {msg.solid ? 'Yes' : 'No'}
