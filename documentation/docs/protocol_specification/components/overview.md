@@ -46,7 +46,7 @@ The diagram below represents the interaction between the different modules in th
 
 As an example, take the Parser component. The function `ProcessGossipMessage` will trigger the method `Parse`, which is the only entry to the component. There are three possible outcomes to the `Parser`: triggering a `ParsingFailed` event, a `MessageRejected` event, or a `MessageParsed` event. In the last case, the event will trigger the `StoreMessage` method (which is the entry to the Storage component), whereas the first two events do not trigger any other component.
 
-[![Data Flow - Overview](https://i.imgur.com/G9DkOuH.png "Data Flow - Overview")](https://i.imgur.com/G9DkOuH.png)
+[![Data Flow - Overview](/img/protocol_specification/data-flow.png "Data Flow - Overview")](/img/protocol_specification/data-flow.png)
 
 We call this the data flow, i.e., the [life cycle of a message](../protocol.md), from message reception (meaning that we focus here on the point of view of a node receiving a message issued by another node) up until acceptance in the Tangle. Notice that any message, either created locally by the node or received from a neighbor needs to pass through the data flow.
 

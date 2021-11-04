@@ -45,7 +45,8 @@ Approval weight AW increases because of supporters (nodes) that cast votes for b
 Tracking supporters of [branches](ledgerstate.md#branches) is an effective way of objective virtual voting. It allows nodes to express their opinion simply by attaching a statement to a branch they like (see [like switch](#Like-Switch)). This statement needs to propagate down the branch DAG, adding support to each of the branch's parents. In case a supporter changes their opinion, support needs to be revoked from all conflicting branches and their children. Thus, a node can only support one branch of a conflict set.
 
 To make this more clear consider the following example:
-![Branch Supporter](https://i.imgur.com/EkmQEmx.png)
+
+[![Branch Supporter](/img/protocol_specification/branches.png)](/img/protocol_specification/branches.png)
 
 
 
@@ -77,8 +78,8 @@ Rather than keeping a list of supporters for each marker and collecting supporte
 
 For each marker sequence, we keep a map of supporter to marker index, meaning a supporter supports a marker index `i`. This implies that the supporter supports all markers with index `<= i`.
 
-Take the figure below as an example:
-![MarkersApprovalWeight SequenceSupporters-Page-2](https://user-images.githubusercontent.com/11289354/112416694-21012780-8d61-11eb-8089-cb9f5b236f30.png)
+Take the figure below as an example: 
+![MarkersApprovalWeight SequenceSupporters](/img/protocol_specification/MarkersApprovalWeight.png)
 
 The purple circles represent markers of the same sequence, the numbers are marker indices.
 
@@ -89,7 +90,7 @@ This is a fast look-up and avoids walking through a marker's future cone when it
 For example, to find all supporter of marker 2, we iterate through the map and filter out those support marker with `index >= 2`. In this case, all nodes are its supporters. As for marker 5, it has supporters node A and D, which fulfill the check: `index >= 5`.
 
 Here is another more complicated example with parent sequences:
-![MarkersApprovalWeight SequenceSupporters-Page-2(1)](https://user-images.githubusercontent.com/11289354/112433680-8cf18900-8d7d-11eb-8944-54030581a033.png)
+![MarkersApprovalWeight SequenceSupporters](/img/protocol_specification/MarkersApprovalWeightSequenceSupporters.png)
 
 The supporter will be propagated to the parent sequence.
 
@@ -143,7 +144,7 @@ The example below shows how applying the heavier branch rule recursively results
 
 `E = 0.35` is heavier than `D = 0.15` and is therefore liked. An (aggregated) branch can only be liked if all its parents are liked which is the case with `C+E`.
 
-![](https://i.imgur.com/W96sHOP.png)
+![OTV example 1](/img/protocol_specification/otv-example-1.png)
 
 **Example 2**
 This example is exactly the same as example 1, except that branch `C` has a weight of `0.25` instead of `0.4`. Now the end result is branches `B` and `E` liked. Branch `B` is heavier than branch `C` and `A` (winning in all its conflict sets) and becomes liked. Therefore, neither `A` nor `C` can be liked.
@@ -151,7 +152,7 @@ This example is exactly the same as example 1, except that branch `C` has a weig
 
 Again, `E = 0.35` is heavier than `D = 0.15` and is therefore liked. An (aggregated) branch can only be liked if all its parents are liked which is not the case with `C+E` in this example.
 
-![](https://i.imgur.com/bmTtezM.png)
+![OTV example 2](/img/protocol_specification/otv-example-2.png)
 
 
 
@@ -179,7 +180,7 @@ To make this more clear, let's consider the following examples. The branches `A`
 **Message creation**
 A node performs random tip selection (e.g. URTS) and in this example selects messages `5` and `11` as strong parents. Now the node needs to determine whether it currently *likes* all the branches of the selected messages (`red, yellow, green`) in order to apply the like switch (if necessary) and vote for its liked branches.
 
-![](https://i.imgur.com/tg4oP7y.png)
+![Like switch: message creation undecided](/img/protocol_specification/like-switch-message-creation-1.png)
 
 When performing the conflict selection function with pure OTV it will yield the result:
 - `red` is disliked, instead like `purple`
@@ -192,7 +193,7 @@ Therefore, the message needs to set two like references to the messages that int
 - message `6` (and its entire past cone, `4`, `2`, `1`)
 - message `7` (and its entire past cone, `1`)
 
-![](https://i.imgur.com/q3sMIaT.png)
+![Like switch: message creation](/img/protocol_specification/like-switch-message-creation-2.png)
 
 
 **Message booking**
@@ -204,9 +205,7 @@ In this example the final result is the following (message `17` supports):
 - message `11` and its entire past cone
 - message `4` and its entire past cone
 
-
-![](https://i.imgur.com/tjy1Ejz.png)
-
+![Like switch: message booking](/img/protocol_specification/like-switch-message-booking.png)
 
 ## Active cMana
 The consensus mechanism weighs votes on branches (messages in future cone with like switch) or message inclusion (all messages in future cone) by the limited resource cMana, which is thus our Sybil-protection mechanism. cMana can be pledged to any nodeID, including offline or non-existing nodes, when transferring funds (in the proportion of the funds) and is instantly available (current implementation without EMA). Funds might get lost/locked over time, and, therefore, the total accessible cMana declines as well. **Consequently, a fixed cMana threshold cannot be used to determine a voting outcome.**
@@ -225,7 +224,7 @@ Active cMana in GoShimmer basically combines two components in an active cMana W
 #### TangleTime
 The TangleTime is the issuing time of the last confirmed message. It cannot be attacked without controlling enough mana to accept incorrect timestamps, making it a reliable, attack-resistant quantity.
 
-![TangleTime](https://goshimmer.docs.iota.org/assets/images/tangle_time-99909b3022bc3113b4598b3035f951d8.jpg)
+![Tangle Time](/img/protocol_specification/tangle_time.jpg)
 
 #### cMana
 The current state of cMana is simply the current cMana vector, at the time the active cMana is requested.
@@ -236,7 +235,7 @@ Every node keeps track of a list of active nodes locally. Whenever a node issues
 - the node has more than `minimumManaThreshold=0` cMana to prevent bloating attacks with too little cMana
 - there is a message that fulfills the condition `issuing time <= TangleTime && TangleTime - issuing time <= activeTimeThreshold` where `activeTimeThreshold=30min` (see the following example, messages `1` and `3` are not within the window)
 
-![](https://i.imgur.com/Vr9NRhX.png)
+![Active cMana window](/img/protocol_specification/active-cMana-window.png)
 
 
 ### Example
