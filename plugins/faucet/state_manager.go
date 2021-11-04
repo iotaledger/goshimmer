@@ -34,7 +34,7 @@ const (
 	MaxFaucetOutputsCount = ledgerstate.MaxOutputCount - 1
 
 	// WaitForConfirmation defines the wait time before considering a transaction confirmed.
-	WaitForConfirmation = 10 * time.Second
+	WaitForConfirmation = 60 * time.Second
 
 	// MaxWaitAttempts defines the number of attempts taken while waiting for confirmation during funds preparation.
 	MaxWaitAttempts = 50
