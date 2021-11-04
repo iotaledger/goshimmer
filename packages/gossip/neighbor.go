@@ -57,7 +57,6 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log 
 		"localAddr", stream.Conn().LocalMultiaddr(),
 		"remoteAddr", stream.Conn().RemoteMultiaddr(),
 	)
-	const maxMsgSize = 1024 * 1024
 	return &Neighbor{
 		Peer:  p,
 		Group: group,

@@ -8,15 +8,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// UvarintWriter writes protobuf messages.
 type UvarintWriter struct {
 	w      io.Writer
 	lenBuf []byte
 }
 
+// NewDelimitedWriter returns a new UvarintWriter.
 func NewDelimitedWriter(w io.Writer) *UvarintWriter {
 	return &UvarintWriter{w, make([]byte, varint.MaxLenUvarint63)}
 }
 
+// WriteMsg writes protobuf message.
 func (uw *UvarintWriter) WriteMsg(msg proto.Message) (err error) {
 	var data []byte
 	data, err = proto.Marshal(msg)
@@ -33,15 +36,18 @@ func (uw *UvarintWriter) WriteMsg(msg proto.Message) (err error) {
 	return err
 }
 
+// UvarintReader read protobuf messages.
 type UvarintReader struct {
 	r   *bufio.Reader
 	buf []byte
 }
 
+// NewDelimitedReader returns a new UvarintReader.
 func NewDelimitedReader(r io.Reader) *UvarintReader {
 	return &UvarintReader{r: bufio.NewReader(r)}
 }
 
+// ReadMsg read protobuf messages.
 func (ur *UvarintReader) ReadMsg(msg proto.Message) error {
 	length64, err := varint.ReadUvarint(ur.r)
 	if err != nil {
