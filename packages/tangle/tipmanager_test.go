@@ -110,6 +110,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 	{
 		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
 		tipManager.AddTip(messages["1"])
+		tangle.TimeManager.updateTime(messages["1"].ID())
 
 		assert.Equal(t, 1, tipManager.TipCount())
 		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID())
