@@ -31,12 +31,6 @@ goshimmers:
           seed: "{{ FAUCET_01_SEED }}"
           faucet: true
           faucetSeed: "{{ FAUCET_01_FAUCET_SEED }}"
-    public_nodes:
-      hosts:
-        public-node-01.pre-devnet.shimmer.iota.cafe:
-        public-node-02.pre-devnet.shimmer.iota.cafe:
-        public-node-03.pre-devnet.shimmer.iota.cafe:
-
   vars:
     analysisServerHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
     entryNodeHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
