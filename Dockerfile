@@ -39,8 +39,8 @@ RUN --mount=target=. \
     go test ./... -tags rocksdb -count=1 & \
             while kill -0 $! > /dev/null 2>&1; do \
             free -m \
-            sleep 1 \
-            done \
+            sleep 1; \
+            done; \
     fi
 
 # 1. Mount everything from the current directory to the PWD(Present Working Directory) inside the container
