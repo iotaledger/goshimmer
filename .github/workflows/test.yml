@@ -39,9 +39,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Run Tests
-        run: |
-        go test ./... -tags rocksdb -count=1 &
-        while kill -0 $! > /dev/null 2>&1; do
-        free -m
-        sleep 1;
-        done
+        run: go test ./... -tags rocksdb -count=1

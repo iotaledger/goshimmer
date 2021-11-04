@@ -318,7 +318,7 @@ func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
 		}
 
 	default:
-		return ErrInvalidPacket
+		return errors.Newf("unsupported packet; packet=%+v, packetBody=%T-%+v", packet, packetBody, packetBody)
 	}
 
 	return nil
