@@ -19,7 +19,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/libp2putil/libp2ptesting"
 )
 
-var testPacket = &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: []byte("foobar")}}}
+var (
+	testPacket1 = &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: []byte("foo")}}}
+	testPacket2 = &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: []byte("bar")}}}
+)
 
 func TestNeighborClose(t *testing.T) {
 	a, _, teardown := libp2ptesting.NewStreamsPipe(t)
@@ -46,22 +49,30 @@ func TestNeighborWrite(t *testing.T) {
 
 	neighborA := newTestNeighbor("A", a)
 	defer neighborA.disconnect()
+	var countA uint32
+	neighborA.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
+		assert.Equal(t, testPacket2.String(), packet.String())
+		atomic.AddUint32(&countA, 1)
+	}))
 	neighborA.readLoop()
 
 	neighborB := newTestNeighbor("B", b)
 	defer neighborB.disconnect()
 
-	var count uint32
+	var countB uint32
 	neighborB.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
-		assert.Equal(t, testPacket.String(), packet.String())
-		atomic.AddUint32(&count, 1)
+		assert.Equal(t, testPacket1.String(), packet.String())
+		atomic.AddUint32(&countB, 1)
 	}))
 	neighborB.readLoop()
 
-	err := neighborA.write(testPacket)
+	err := neighborA.write(testPacket1)
+	require.NoError(t, err)
+	err = neighborB.write(testPacket2)
 	require.NoError(t, err)
 
-	assert.Eventually(t, func() bool { return atomic.LoadUint32(&count) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countA) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countB) == 1 }, time.Second, 10*time.Millisecond)
 }
 
 func newTestNeighbor(name string, stream network.Stream) *Neighbor {
