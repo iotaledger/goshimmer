@@ -54,7 +54,9 @@ services:
       --logger.level={{ logLevel }}
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
-      {% if bootstrap|default(false) %}
+      {% if faucet|default(false) %}
+      --messageLayer.startSynced=false
+      {% else %}
       --messageLayer.startSynced=true
       {% endif %}
       --drng.pollen.instanceID=1
