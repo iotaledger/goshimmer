@@ -14,8 +14,6 @@ services:
       - "0.0.0.0:14626:14626/udp"
       # Gossip
       - "0.0.0.0:14666:14666/tcp"
-      # FPC
-      - "0.0.0.0:10895:10895/tcp"
       # HTTP API
       - "0.0.0.0:8080:8080/tcp"
       # Dashboard
@@ -31,7 +29,6 @@ services:
       - GOSSIP_BINDADDRESS=0.0.0.0:14666
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
-      - FPC_BINDADDRESS=0.0.0.0:10895
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
