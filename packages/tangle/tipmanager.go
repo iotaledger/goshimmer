@@ -389,12 +389,11 @@ func (t *TipManager) processMarker(pastMarker *markers.Marker, messageWalker, ma
 
 	// add unconfirmed marker to the walker
 	markerWalker.Push(*pastMarker)
-
 }
 
 func (t *TipManager) processMessage(messageID MessageID, messageWalker, markerWalker *walker.Walker, minSupportedTimestamp time.Time, processMarkers bool) (success bool) {
 	success = t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers.Size() == 0 || true {
+		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers.Size() == 0 {
 			// need to walk messages
 			messageWalker.Push(messageID)
 			return
