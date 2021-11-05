@@ -176,7 +176,7 @@ func (m *Manager) matchNewStream(stream network.Stream) *acceptMatcher {
 }
 
 func (m *Manager) closeStream(s network.Stream) {
-	if err := s.Reset(); err != nil {
+	if err := s.Close(); err != nil {
 		m.log.Warnw("close error", "err", err)
 	}
 }

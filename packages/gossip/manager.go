@@ -262,7 +262,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	// create and add the neighbor
 	nbr := NewNeighbor(p, group, stream, m.log)
 	if err := m.setNeighbor(nbr); err != nil {
-		if resetErr := stream.Reset(); resetErr != nil {
+		if resetErr := stream.Close(); resetErr != nil {
 			err = errors.CombineErrors(err, resetErr)
 		}
 		return errors.WithStack(err)
