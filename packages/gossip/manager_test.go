@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -13,12 +14,15 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/logger"
+	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/libp2putil"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -80,52 +84,53 @@ func TestClosedConnection(t *testing.T) {
 	mgrB.AssertExpectations(t)
 }
 
-//func TestP2PSend(t *testing.T) {
-//	mgrA, closeA, peerA := newTestManagers(t, "A")
-//	mgrB, closeB, peerB := newTestManagers(t, "B")
-//
-//	var wg sync.WaitGroup
-//	wg.Add(2)
-//
-//	// connect in the following way
-//	// B -> A
-//	mgrA.On("neighborAdded", mock.Anything).Once()
-//	mgrB.On("neighborAdded", mock.Anything).Once()
-//
-//	go func() {
-//		defer wg.Done()
-//		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
-//		assert.NoError(t, err)
-//	}()
-//	time.Sleep(graceTime)
-//	go func() {
-//		defer wg.Done()
-//		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
-//		assert.NoError(t, err)
-//	}()
-//
-//	// wait for the connections to establish
-//	wg.Wait()
-//
-//	mgrB.On("messageReceived", &MessageReceivedEvent{
-//		Data: testMessageData,
-//		Peer: peerA,
-//	}).Once()
-//
-//	mgrA.SendMessage(testMessageData)
-//	time.Sleep(graceTime)
-//
-//	mgrA.On("neighborRemoved", mock.Anything).Once()
-//	mgrB.On("neighborRemoved", mock.Anything).Once()
-//
-//	closeA()
-//	closeB()
-//	time.Sleep(graceTime)
-//
-//	// the events should be there even before we close
-//	mgrA.AssertExpectations(t)
-//	mgrB.AssertExpectations(t)
-//}
+func TestP2PSend(t *testing.T) {
+	testMgrs := newTestManagers(t, "A", "B")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// connect in the following way
+	// B -> A
+	mgrA.On("neighborAdded", mock.Anything).Once()
+	mgrB.On("neighborAdded", mock.Anything).Once()
+
+	go func() {
+		defer wg.Done()
+		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
+		assert.NoError(t, err)
+	}()
+	time.Sleep(graceTime)
+	go func() {
+		defer wg.Done()
+		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
+		assert.NoError(t, err)
+	}()
+
+	// wait for the connections to establish
+	wg.Wait()
+
+	mgrB.On("messageReceived", &MessageReceivedEvent{
+		Data: testMessageData,
+		Peer: peerA,
+	}).Once()
+
+	mgrA.SendMessage(testMessageData)
+	time.Sleep(graceTime)
+
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrB.On("neighborRemoved", mock.Anything).Once()
+
+	closeA()
+	closeB()
+	time.Sleep(graceTime)
+
+	// the events should be there even before we close
+	mgrA.AssertExpectations(t)
+	mgrB.AssertExpectations(t)
+}
 
 func TestP2PSendTwice(t *testing.T) {
 	testMgrs := newTestManagers(t, "A", "B")
@@ -306,177 +311,180 @@ func TestSingleSend(t *testing.T) {
 	mgrC.AssertExpectations(t)
 }
 
-//
-//func TestDropUnsuccessfulAccept(t *testing.T) {
-//	mgrA, closeA, _ := newTestManagers(t, "A")
-//	defer closeA()
-//	mgrB, closeB, peerB := newTestManagers(t, "B")
-//	defer closeB()
-//
-//	err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
-//	assert.Error(t, err)
-//
-//	mgrA.AssertExpectations(t)
-//	mgrB.AssertExpectations(t)
-//}
-//
-//func TestMessageRequest(t *testing.T) {
-//	mgrA, closeA, peerA := newTestManagers(t, "A")
-//	mgrB, closeB, peerB := newTestManagers(t, "B")
-//
-//	var wg sync.WaitGroup
-//	wg.Add(2)
-//
-//	// connect in the following way
-//	// B -> A
-//	mgrA.On("neighborAdded", mock.Anything).Once()
-//	mgrB.On("neighborAdded", mock.Anything).Once()
-//
-//	go func() {
-//		defer wg.Done()
-//		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
-//		assert.NoError(t, err)
-//	}()
-//	time.Sleep(graceTime)
-//	go func() {
-//		defer wg.Done()
-//		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
-//		assert.NoError(t, err)
-//	}()
-//
-//	// wait for the connections to establish
-//	wg.Wait()
-//
-//	id := tangle.MessageID{}
-//
-//	// mgrA should eventually receive the message
-//	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()
-//
-//	b, err := proto.Marshal(&pb.MessageRequest{Id: id[:]})
-//	require.NoError(t, err)
-//	mgrA.RequestMessage(b)
-//	time.Sleep(graceTime)
-//
-//	mgrA.On("neighborRemoved", mock.Anything).Once()
-//	mgrB.On("neighborRemoved", mock.Anything).Once()
-//
-//	closeA()
-//	closeB()
-//	time.Sleep(graceTime)
-//
-//	mgrA.AssertExpectations(t)
-//	mgrB.AssertExpectations(t)
-//}
-//
-//func TestDropNeighbor(t *testing.T) {
-//	mgrA, closeA, peerA := newTestManagers(t, "A")
-//	defer closeA()
-//	mgrB, closeB, peerB := newTestManagers(t, "B")
-//	defer closeB()
-//
-//	// establish connection
-//	connect := func() {
-//		var wg sync.WaitGroup
-//		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
-//		// we are expecting two signals
-//		wg.Add(2)
-//
-//		// signal as soon as the neighbor is added
-//		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
-//		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
-//		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
-//		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
-//
-//		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)) }()
-//		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)) }()
-//		wg.Wait() // wait until the events were triggered and the peers are connected
-//	}
-//	// close connection
-//	disconnect := func() {
-//		var wg sync.WaitGroup
-//		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
-//		// we are expecting two signals
-//		wg.Add(2)
-//
-//		// signal as soon as the neighbor is added
-//		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(signal)
-//		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Detach(signal)
-//		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(signal)
-//		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Detach(signal)
-//
-//		// assure that no DropNeighbor calls are leaking
-//		wg.Add(2)
-//		go func() {
-//			defer wg.Done()
-//			_ = mgrA.DropNeighbor(peerB.ID(), NeighborsGroupAuto)
-//		}()
-//		go func() {
-//			defer wg.Done()
-//			_ = mgrB.DropNeighbor(peerA.ID(), NeighborsGroupAuto)
-//		}()
-//		wg.Wait() // wait until the events were triggered and the go routines are done
-//	}
-//
-//	// drop and connect many many times
-//	for i := 0; i < 100; i++ {
-//		connect()
-//		assert.NotEmpty(t, mgrA.AllNeighbors())
-//		assert.NotEmpty(t, mgrB.AllNeighbors())
-//		disconnect()
-//		assert.Empty(t, mgrA.AllNeighbors())
-//		assert.Empty(t, mgrB.AllNeighbors())
-//	}
-//}
-//
-//func TestDropNeighborDifferentGroup(t *testing.T) {
-//	mgrA, closeA, peerA := newTestManagers(t, "A")
-//	defer closeA()
-//	mgrB, closeB, peerB := newTestManagers(t, "B")
-//	defer closeB()
-//
-//	// establish connection
-//	connect := func() {
-//		var wg sync.WaitGroup
-//		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
-//		// we are expecting two signals
-//		wg.Add(2)
-//
-//		// signal as soon as the neighbor is added
-//		mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
-//		defer mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
-//		mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
-//		defer mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
-//
-//		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupManual)) }()
-//		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupManual)) }()
-//		wg.Wait() // wait until the events were triggered and the peers are connected
-//	}
-//	// close connection
-//	disconnect := func() {
-//		var wg sync.WaitGroup
-//		// assure that no DropNeighbor calls are leaking
-//		wg.Add(2)
-//		go func() {
-//			defer wg.Done()
-//			_ = mgrA.DropNeighbor(peerB.ID(), NeighborsGroupAuto)
-//		}()
-//		go func() {
-//			defer wg.Done()
-//			_ = mgrB.DropNeighbor(peerA.ID(), NeighborsGroupAuto)
-//		}()
-//		wg.Wait() // wait until the events were triggered and the go routines are done
-//	}
-//	connect()
-//	assert.NotEmpty(t, mgrA.AllNeighbors())
-//	assert.NotEmpty(t, mgrB.AllNeighbors())
-//	// drop many many times
-//	for i := 0; i < 100; i++ {
-//		disconnect()
-//		assert.NotEmpty(t, mgrA.AllNeighbors())
-//		assert.NotEmpty(t, mgrB.AllNeighbors())
-//	}
-//}
-//
+func TestDropUnsuccessfulAccept(t *testing.T) {
+	testMgrs := newTestManagers(t, "A", "B")
+	mgrA, closeA, _ := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+	defer closeA()
+	defer closeB()
+
+	err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
+	assert.Error(t, err)
+
+	mgrA.AssertExpectations(t)
+	mgrB.AssertExpectations(t)
+}
+
+func TestMessageRequest(t *testing.T) {
+	testMgrs := newTestManagers(t, "A", "B")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// connect in the following way
+	// B -> A
+	mgrA.On("neighborAdded", mock.Anything).Once()
+	mgrB.On("neighborAdded", mock.Anything).Once()
+
+	go func() {
+		defer wg.Done()
+		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
+		assert.NoError(t, err)
+	}()
+	time.Sleep(graceTime)
+	go func() {
+		defer wg.Done()
+		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
+		assert.NoError(t, err)
+	}()
+
+	// wait for the connections to establish
+	wg.Wait()
+
+	id := tangle.MessageID{}
+
+	// mgrA should eventually receive the message
+	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()
+
+	b, err := proto.Marshal(&pb.MessageRequest{Id: id[:]})
+	require.NoError(t, err)
+	mgrA.RequestMessage(b)
+	time.Sleep(graceTime)
+
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrB.On("neighborRemoved", mock.Anything).Once()
+
+	closeA()
+	closeB()
+	time.Sleep(graceTime)
+
+	mgrA.AssertExpectations(t)
+	mgrB.AssertExpectations(t)
+}
+
+func TestDropNeighbor(t *testing.T) {
+	testMgrs := newTestManagers(t, "A", "B")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+	defer closeA()
+	defer closeB()
+
+	// establish connection
+	connect := func() {
+		var wg sync.WaitGroup
+		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		// we are expecting two signals
+		wg.Add(2)
+
+		// signal as soon as the neighbor is added
+		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
+		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
+		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
+		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
+
+		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)) }()
+		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)) }()
+		wg.Wait() // wait until the events were triggered and the peers are connected
+	}
+	// close connection
+	disconnect := func() {
+		var wg sync.WaitGroup
+		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		// we are expecting two signals
+		wg.Add(2)
+
+		// signal as soon as the neighbor is added
+		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(signal)
+		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Detach(signal)
+		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(signal)
+		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Detach(signal)
+
+		// assure that no DropNeighbor calls are leaking
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = mgrA.DropNeighbor(peerB.ID(), NeighborsGroupAuto)
+		}()
+		go func() {
+			defer wg.Done()
+			_ = mgrB.DropNeighbor(peerA.ID(), NeighborsGroupAuto)
+		}()
+		wg.Wait() // wait until the events were triggered and the go routines are done
+	}
+
+	// drop and connect many many times
+	for i := 0; i < 100; i++ {
+		connect()
+		assert.NotEmpty(t, mgrA.AllNeighbors())
+		assert.NotEmpty(t, mgrB.AllNeighbors())
+		disconnect()
+		assert.Empty(t, mgrA.AllNeighbors())
+		assert.Empty(t, mgrB.AllNeighbors())
+	}
+}
+
+func TestDropNeighborDifferentGroup(t *testing.T) {
+	testMgrs := newTestManagers(t, "A", "B")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+	defer closeA()
+	defer closeB()
+
+	// establish connection
+	connect := func() {
+		var wg sync.WaitGroup
+		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		// we are expecting two signals
+		wg.Add(2)
+
+		// signal as soon as the neighbor is added
+		mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
+		defer mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
+		mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
+		defer mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
+
+		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupManual)) }()
+		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupManual)) }()
+		wg.Wait() // wait until the events were triggered and the peers are connected
+	}
+	// close connection
+	disconnect := func() {
+		var wg sync.WaitGroup
+		// assure that no DropNeighbor calls are leaking
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = mgrA.DropNeighbor(peerB.ID(), NeighborsGroupAuto)
+		}()
+		go func() {
+			defer wg.Done()
+			_ = mgrB.DropNeighbor(peerA.ID(), NeighborsGroupAuto)
+		}()
+		wg.Wait() // wait until the events were triggered and the go routines are done
+	}
+	connect()
+	assert.NotEmpty(t, mgrA.AllNeighbors())
+	assert.NotEmpty(t, mgrB.AllNeighbors())
+	// drop many many times
+	for i := 0; i < 100; i++ {
+		disconnect()
+		assert.NotEmpty(t, mgrA.AllNeighbors())
+		assert.NotEmpty(t, mgrB.AllNeighbors())
+	}
+}
+
 func newTestDB(t require.TestingT) *peer.DB {
 	db, err := peer.NewDB(mapdb.NewMapDB())
 	require.NoError(t, err)
@@ -505,7 +513,16 @@ func newTestManagers(t testing.TB, names ...string) []*testManager {
 		require.NoError(t, err)
 		libp2pPrivKey, err := libp2putil.ToLibp2pPrivateKey(ourPrivKey)
 		require.NoError(t, err)
-		addr, err := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/0")
+		id, err := libp2ppeer.IDFromPrivateKey(libp2pPrivKey)
+		require.NoError(t, err)
+		suffix := id
+		if len(id) > 8 {
+			suffix = id[len(id)-8:]
+		}
+		var blackholeIP6 = net.ParseIP("100::")
+		ip := append(net.IP{}, blackholeIP6...)
+		copy(ip[net.IPv6len-len(suffix):], suffix)
+		addr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/4242", ip))
 		require.NoError(t, err)
 		hst, err := mn.AddPeer(libp2pPrivKey, addr)
 		require.NoError(t, err)
