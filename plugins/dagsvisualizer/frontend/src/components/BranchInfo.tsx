@@ -29,8 +29,7 @@ export class BranchInfo extends React.Component<Props, any> {
                                         {selectedBranch.parents.map((p,i) => <ListGroup.Item key={i}>{p}</ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
-                                <ListGroup.Item>Approval Weight: {selectedBranch.approvalWeight}</ListGroup.Item>
-                                <ListGroup.Item>Confirmed Time: {dateformat(new Date(selectedBranch.confirmedTime/1000000), "dd.mm.yyyy HH:MM:ss")}</ListGroup.Item>
+                                <ListGroup.Item>Confirmed: {selectedBranch.confirmed.toString()}</ListGroup.Item>
                                 { selectedBranch.type === "ConflictBranchType" && selectedBranch.conflicts &&
                                     <ListGroup.Item>
                                         Conflicts:

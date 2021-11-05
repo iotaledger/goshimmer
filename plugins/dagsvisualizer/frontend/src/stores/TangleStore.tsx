@@ -6,9 +6,11 @@ export class tangleVertex {
     ID:              string;   
 	strongParentIDs: Array<string>;
 	weakParentIDs:   Array<string>;
+    likedParentIDs:  Array<string>;
     branchID:        string;
 	isMarker:        boolean;
-    isTx: boolean;
+    isTx:            boolean;
+    gof:             string;
 	confirmedTime:   number;
     futureMarkers:   Array<string>;
 }
@@ -19,8 +21,9 @@ export class tangleBooked {
 	branchID: string;
 }
 
-export class tangleFinalized {
+export class tangleConfirmed {
     ID:            string;
+    gof:            string;
     confirmedTime: number;
 }
 
@@ -29,18 +32,13 @@ export class tangleFutureMarkerUpdated {
     futureMarkerID: string;
 }
 
-export class tangleMarkerAWUpdated {
-    ID:             string;
-    approvalWeight: number;
-}
-
 const vertexSize = 20;
 
 export class TangleStore {
     @observable maxTangleVertices: number = 100;
     @observable messages = new ObservableMap<string, tangleVertex>();
+    // might still need markerMap for advanced features
     @observable markerMap = new ObservableMap<string, Array<string>>();
-    @observable awMap = new ObservableMap<string, number>();
     @observable selectedMsg: tangleVertex = null;
     @observable selected_approvers_count = 0;
     @observable selected_approvees_count = 0;
@@ -61,7 +59,6 @@ export class TangleStore {
         registerHandler(WSMsgType.MessageBooked, this.setMessageBranch);
         registerHandler(WSMsgType.MessageConfirmed, this.setMessageConfirmedTime);
         registerHandler(WSMsgType.FutureMarkerUpdated, this.updateFutureMarker);
-        registerHandler(WSMsgType.MarkerAWUpdated, this.updateMarkerAW);
     }
 
     unregisterHandlers() {
@@ -69,7 +66,6 @@ export class TangleStore {
         unregisterHandler(WSMsgType.MessageBooked);
         unregisterHandler(WSMsgType.MessageConfirmed);
         unregisterHandler(WSMsgType.FutureMarkerUpdated);
-        unregisterHandler(WSMsgType.MarkerAWUpdated);
     }
 
     connect() {
@@ -93,8 +89,8 @@ export class TangleStore {
         }
 
         this.msgOrder.push(msg.ID);
-        this.awMap.set(msg.ID, 0);
         msg.futureMarkers = [];
+        msg.gof = "";
         this.messages.set(msg.ID, msg);
 
         this.drawVertex(msg);
@@ -104,7 +100,6 @@ export class TangleStore {
     removeMessage = (msgID: string) => {
         let msg = this.messages.get(msgID);
         if (msg) {
-            this.awMap.delete(msgID);
             if (msg.isMarker) {
                 this.markerMap.delete(msgID);
             }
@@ -128,12 +123,13 @@ export class TangleStore {
     }
 
     @action
-    setMessageConfirmedTime = (info: tangleFinalized) => {
+    setMessageConfirmedTime = (info: tangleConfirmed) => {
         let msg = this.messages.get(info.ID);
         if (!msg) {
             return;
         }
 
+        msg.gof = info.gof;
         msg.confirmedTime = info.confirmedTime;
         this.messages.set(msg.ID, msg);
         this.graph.addNode(info.ID, msg);
@@ -159,30 +155,6 @@ export class TangleStore {
     }
 
     @action
-    updateMarkerAW = (updatedAW: tangleMarkerAWUpdated) => {
-        // update AW of the marker
-        this.awMap.set(updatedAW.ID, updatedAW.approvalWeight);
-
-        // iterate the past cone of marker to update AW
-        let pastcone = this.markerMap.get(updatedAW.ID);
-        if (pastcone) {
-            pastcone.forEach((msgID) => {
-                let msg = this.messages.get(msgID);
-                if (msg) {
-                    let aw = 0;
-                    msg.futureMarkers.forEach((fm) => {
-                        let fmAW = this.awMap.get(fm);
-                        if (fmAW) {
-                            aw += fmAW;
-                        }
-                    })
-                    this.awMap.set(msgID, aw);
-                }
-            });
-        }
-    }
-
-    @action
     deleteApproveeLink = (approveeId: string) => {
         if (!approveeId) {
             return;
@@ -193,6 +165,9 @@ export class TangleStore {
                 this.clearSelected();
             }
             this.messages.delete(approveeId);
+            if (approvee.isMarker) {
+                this.markerMap.delete(approveeId);
+            }
         }
         this.graph.removeNode(approveeId);
     }
@@ -221,7 +196,6 @@ export class TangleStore {
     @action
     searchAndHighlight = () => {
         this.clearSelected(true);
-        console.log(this.selectedMsg);
         if (!this.search) return;
         
         let msgNode = this.graph.getNode(this.search);

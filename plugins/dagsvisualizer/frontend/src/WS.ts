@@ -3,12 +3,11 @@ export enum WSMsgType {
 	MessageBooked,
 	MessageConfirmed,
 	FutureMarkerUpdated,
-	MarkerAWUpdated,
 	Transaction,
 	TransactionConfirmed,
 	Branch,
 	BranchParentsUpdate,
-    BranchAWUpdate,
+    BranchConfirmed,
 }
 
 export interface WSMessage {
@@ -36,7 +35,7 @@ export function connectWebSocket(path: string, onOpen, onClose, onError) {
         uri = 'wss:';
     }
     uri += '//' + loc.host + path;
-
+    //uri += '//' + path;
     let ws = new WebSocket(uri);
 
     ws.onopen = onOpen;

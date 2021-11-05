@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -31,7 +32,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle *tangle.Tangle
+	Tangle         *tangle.Tangle
+	FinalityGadget finality.Gadget
 }
 
 func init() {

@@ -11,7 +11,7 @@ export class utxoVertex {
 	ID:             string;
 	inputs:         Array<input>;
   outputs:        Array<string>;
-	approvalWeight: number;
+	gof:            string;
 	confirmedTime:  number;
 }
 
@@ -20,8 +20,8 @@ export class input {
     referencedOutputID: any;
 }
 export class utxoConfirmed {
-    ID: string;
-    approvalWeight: number;
+    ID:            string;
+    gof:           string;
     confirmedTime: number;
 }
 
@@ -97,7 +97,7 @@ export class UTXOStore {
         }
 
         tx.confirmedTime = txConfirmed.confirmedTime;
-        tx.approvalWeight = txConfirmed.approvalWeight;
+        tx.gof = txConfirmed.gof;
         this.transactions.set(txConfirmed.ID, tx);
     }
 

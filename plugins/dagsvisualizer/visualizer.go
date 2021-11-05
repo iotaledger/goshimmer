@@ -3,6 +3,7 @@ package dagsvisualizer
 import (
 	"context"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -26,11 +27,7 @@ func setupVisualizer() {
 }
 
 func runVisualizer() {
-	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
-		log.Panicf("Error starting as daemon: %s", err)
-	}
-
-	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
+	if err := daemon.BackgroundWorker("Dags Visualizer[Visualizer]", func(ctx context.Context) {
 		// register to events
 		registerTangleEvents()
 		registerUTXOEvents()
@@ -54,6 +51,7 @@ func registerTangleEvents() {
 					ID:              messageID.Base58(),
 					StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
 					WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
+					LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
 					BranchID:        ledgerstate.UndefinedBranchID.Base58(),
 					IsMarker:        false,
 					IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
@@ -76,17 +74,18 @@ func registerTangleEvents() {
 		})
 	})
 
-	// finalizedClosure := events.NewClosure(func(messageID tangle.MessageID) {
-	// 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-	// 		visualizerWorkerPool.TrySubmit(&wsMessage{
-	// 			Type: MsgTypeTangleConfirmed,
-	// 			Data: &tangleFinalized{
-	// 				ID:            messageID.Base58(),
-	// 				ConfirmedTime: msgMetadata.FinalizedTime().UnixNano(),
-	// 			},
-	// 		})
-	// 	})
-	// })
+	msgConfirmedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+			visualizerWorkerPool.TrySubmit(&wsMessage{
+				Type: MsgTypeTangleConfirmed,
+				Data: &tangleConfirmed{
+					ID:            messageID.Base58(),
+					GoF:           msgMetadata.GradeOfFinality().String(),
+					ConfirmedTime: msgMetadata.GradeOfFinalityTime().UnixNano(),
+				},
+			})
+		})
+	})
 
 	fmUpdateClosure := events.NewClosure(func(fmUpdate *tangle.FutureMarkerUpdate) {
 		visualizerWorkerPool.TrySubmit(&wsMessage{
@@ -98,23 +97,10 @@ func registerTangleEvents() {
 		})
 	})
 
-	// markerConfirmedClosure := events.NewClosure(func(markerAWUpdate *tangle.MarkerAWUpdated) {
-	// 	// get message ID of marker
-	// 	visualizerWorkerPool.TrySubmit(&wsMessage{
-	// 		Type: MsgTypeMarkerAWUpdated,
-	// 		Data: &tangleMarkerAWUpdated{
-	// 			ID:             markerAWUpdate.ID.Base58(),
-	// 			ApprovalWeight: markerAWUpdate.ApprovalWeight,
-	// 		},
-	// 	})
-
-	// })
-
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
 	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
-	// deps.Tangle.ApprovalWeightManager.Events.MarkerAWUpdated.Attach(markerConfirmedClosure)
-	// deps.Tangle.ApprovalWeightManager.Events.MessageFinalized.Attach(finalizedClosure)
+	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
 }
 
 func registerUTXOEvents() {
@@ -136,32 +122,32 @@ func registerUTXOEvents() {
 				visualizerWorkerPool.TrySubmit(&wsMessage{
 					Type: MsgTypeUTXOVertex,
 					Data: &utxoVertex{
-						MsgID:          messageID.Base58(),
-						ID:             tx.ID().Base58(),
-						Inputs:         inputs,
-						Outputs:        outputs,
-						ApprovalWeight: 0,
+						MsgID:   messageID.Base58(),
+						ID:      tx.ID().Base58(),
+						Inputs:  inputs,
+						Outputs: outputs,
+						GoF:     gof.GradeOfFinality(0).String(),
 					},
 				})
 			}
 		})
 	})
 
-	// txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
-	// 	deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
-	// 		visualizerWorkerPool.TrySubmit(&wsMessage{
-	// 			Type: MsgTypeUTXOConfirmed,
-	// 			Data: &utxoConfirmed{
-	// 				ID:             txID.Base58(),
-	// 				ApprovalWeight: 0,
-	// 				ConfirmedTime:  txMetadata.FinalizedTime().UnixNano(),
-	// 			},
-	// 		})
-	// 	})
-	// })
+	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
+		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+			visualizerWorkerPool.TrySubmit(&wsMessage{
+				Type: MsgTypeUTXOConfirmed,
+				Data: &utxoConfirmed{
+					ID:            txID.Base58(),
+					GoF:           txMetadata.GradeOfFinality().String(),
+					ConfirmedTime: txMetadata.GradeOfFinalityTime().UnixNano(),
+				},
+			})
+		})
+	})
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
-	//deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(txConfirmedClosure)
+	deps.FinalityGadget.Events().TransactionConfirmed.Attach(txConfirmedClosure)
 }
 
 func registerBranchEvents() {
@@ -181,11 +167,11 @@ func registerBranchEvents() {
 			visualizerWorkerPool.TrySubmit(&wsMessage{
 				Type: MsgTypeBranchVertex,
 				Data: &branchVertex{
-					ID:             branch.ID().Base58(),
-					Type:           branch.Type().String(),
-					Parents:        branch.Parents().Strings(),
-					ApprovalWeight: 0,
-					Conflicts:      jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
+					ID:        branch.ID().Base58(),
+					Type:      branch.Type().String(),
+					Parents:   branch.Parents().Strings(),
+					Conflicts: jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
+					Confirmed: false,
 				},
 			})
 		})
@@ -201,17 +187,16 @@ func registerBranchEvents() {
 		})
 	})
 
-	// awUpdateClosure := events.NewClosure(func(branchAW *tangle.BranchAWUpdated) {
-	// 	visualizerWorkerPool.TrySubmit(&wsMessage{
-	// 		Type: MsgTypeBranchAWUpdate,
-	// 		Data: &branchAWUpdate{
-	// 			ID:             branchAW.ID.Base58(),
-	// 			Conflicts:      branchAW.Conflicts.Strings(),
-	// 			ApprovalWeight: branchAW.ApprovalWeight,
-	// 		},
-	// 	})
-	// })
+	branchConfirmedClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
+		visualizerWorkerPool.TrySubmit(&wsMessage{
+			Type: MsgTypeBranchConfirmed,
+			Data: &branchConfirmed{
+				ID: branchID.Base58(),
+			},
+		})
+	})
 
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
+	deps.FinalityGadget.Events().BranchConfirmed.Attach(branchConfirmedClosure)
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 }

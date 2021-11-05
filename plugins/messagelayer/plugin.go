@@ -70,6 +70,10 @@ func init() {
 			Plugin.Panic(err)
 		}
 
+		if err := container.Provide(FinalityGadget); err != nil {
+			Plugin.Panic(err)
+		}
+
 		if err := container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("messagelayer")); err != nil {

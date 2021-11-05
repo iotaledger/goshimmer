@@ -35,7 +35,7 @@ export class TransactionInfo extends React.Component<Props, any> {
                                         {selectedTx.outputs.map((p,i) => <ListGroup.Item key={i}>{p}</ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
-                                <ListGroup.Item>Approval Weight: {selectedTx.approvalWeight}</ListGroup.Item>
+                                <ListGroup.Item>GoF: {selectedTx.gof}</ListGroup.Item>
                                 <ListGroup.Item>Confirmed Time: {dateformat(new Date(selectedTx.confirmedTime/1000000), "dd.mm.yyyy HH:MM:ss")}</ListGroup.Item>
                             </ListGroup>
                         </Card.Body>

@@ -19,7 +19,6 @@
   },
   "dashboard": {
     "bindAddress": "0.0.0.0:8081",
-    "devDashboardAddress": "http://127.0.0.1:9090/",
     "dev": false,
     "basicAuth": {
       "enabled": false,
@@ -80,5 +79,8 @@
   },
   "faucet": {
     "powDifficulty": 12
+  },
+  "messageLayer": {
+    "tangleWidth": 10
   }
 }

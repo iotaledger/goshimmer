@@ -22,6 +22,7 @@ services:
       --mana.snapshotResetTime=true
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
+      --messageLayer.startSynced=true
       --metrics.global=true
       --metrics.local=true
       --metrics.manaResearch=false
@@ -39,6 +40,7 @@ services:
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
+      - "8061:8061/tcp" # dags visualizer
       - "9000:9000/tcp" # analysis dashboard
       - "6081:6061/tcp" # pprof
     expose:
@@ -55,6 +57,7 @@ services:
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
+      --messageLayer.startSynced=true
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
       --webAPI.exportPath=/tmp/
@@ -79,6 +82,7 @@ services:
       --node.enablePlugins="webapi tools endpoint",activity,spammer
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
+      --messageLayer.startSynced=true
       --node.disablePlugins=portcheck,clock
       --mana.snapshotResetTime=true
     secrets:
@@ -116,7 +120,6 @@ services:
     ports:
       - "8090:8080/tcp" # web API
       - "8091:8081/tcp" # dashboard
-      - "8061:8061/tcp" # dags visualizer
       - "6091:6061/tcp" # pprof
     networks:
       - shimmer

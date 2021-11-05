@@ -6,12 +6,11 @@ import { dagreOptions } from 'styles/graphStyle';
 import layoutUtilities from 'cytoscape-layout-utilities';
 
 export class branchVertex {  
-	ID:             string;
-    type:           string;
-	parents:        Array<string>;
-	approvalWeight: number;
-	confirmedTime:  number;
-    conflicts:      conflictBranches;
+	ID:        string;
+    type:      string;
+	parents:   Array<string>;
+	confirmed: boolean;
+    conflicts: conflictBranches;
 }
 
 export class conflictBranches {
@@ -28,10 +27,8 @@ export class branchParentUpdate {
     parents: Array<string>;
 }
 
-export class branchAWUpdate {
+export class branchConfirmed {
     ID:             string;
-    conflicts:      Array<string>;
-    approvalWeight: number;
 }
 
 export class BranchStore {
@@ -56,7 +53,7 @@ export class BranchStore {
         makeObservable(this);  
         registerHandler(WSMsgType.Branch, this.addBranch);
         registerHandler(WSMsgType.BranchParentsUpdate, this.updateParents);
-        registerHandler(WSMsgType.BranchAWUpdate, this.updateAW);
+        registerHandler(WSMsgType.BranchConfirmed, this.branchConfirmed);
 
         cytoscape.use(dagre);
         cytoscape.use(layoutUtilities);
@@ -65,7 +62,6 @@ export class BranchStore {
     unregisterHandlers() {
         unregisterHandler(WSMsgType.Branch);
         unregisterHandler(WSMsgType.BranchParentsUpdate);
-        unregisterHandler(WSMsgType.BranchAWUpdate);
     }
 
     @action
@@ -104,23 +100,14 @@ export class BranchStore {
     }
 
     @action
-    updateAW = (newAW: branchAWUpdate) => {
-        let b = this.branches.get(newAW.ID);
+    branchConfirmed = (confirmedBranch: branchConfirmed) => {
+        let b = this.branches.get(confirmedBranch.ID);
         if (!b) {
             return;
         }
-
-        b.approvalWeight = newAW.approvalWeight;
-        this.branches.set(newAW.ID, b);
-
-        // update AW of conflict branches
-        newAW.conflicts.forEach((id) => {
-            let b = this.branches.get(id);
-            if (b) {    
-                b.approvalWeight = newAW.approvalWeight;
-                this.branches.set(id, b);
-            }
-        })
+        
+        b.confirmed = true;
+        this.branches.set(confirmedBranch.ID, b);
     }
 
     @action
@@ -277,8 +264,7 @@ export class BranchStore {
             ID:             '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
             type:           'ConflictBranchType',
 	        parents:        [],
-	        approvalWeight: 1.0,
-	        confirmedTime:  123,
+	        confirmed:      true,
             conflicts:      null
         }
         this.branches.set("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", master);
