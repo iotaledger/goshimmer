@@ -28,7 +28,11 @@ services:
       # HTTP API
       - "127.0.0.1:8080:8080/tcp"
       # Dashboard
+      {% if bootstrap|default(false) %}
+      - "0.0.0.0:8081:8081/tcp"
+      {% else %}
       - "127.0.0.1:8081:8081/tcp"
+      {% endif %}
       # pprof profiling
       - "127.0.0.1:6061:6061/tcp"
     {% endif %}
