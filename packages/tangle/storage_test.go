@@ -10,7 +10,7 @@ import (
 )
 
 func TestStorage_StoreAttachment(t *testing.T) {
-	tangle := newTestTangle()
+	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
 	transactionID, err := ledgerstate.TransactionIDFromRandomness()
@@ -28,7 +28,7 @@ func TestStorage_StoreAttachment(t *testing.T) {
 }
 
 func TestStorage_Attachments(t *testing.T) {
-	tangle := newTestTangle()
+	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
 	attachments := make(map[ledgerstate.TransactionID]int)

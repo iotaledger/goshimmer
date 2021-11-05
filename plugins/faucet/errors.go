@@ -13,4 +13,12 @@ var (
 	ErrNotEnoughFunds = errors.New("not enough funds in the faucet")
 	// ErrConfirmationTimeoutExpired is returned when a faucet transaction was not confirmed in expected time.
 	ErrConfirmationTimeoutExpired = errors.New("tx confirmation time expired")
+	// ErrFundingCanceled is returned when a faucet funding is canceled.
+	ErrFundingCanceled = errors.New("tx funding canceled")
+	// ErrSupplyPreparationFailed is returned when a supply transaction preparation failed.
+	ErrSupplyPreparationFailed = errors.New("supply transaction preparation failed")
+	// ErrSplittingFundsFailed is returned when none of funding outputs has been confirmed during funds preparation.
+	ErrSplittingFundsFailed = errors.New("none of funding outputs has been confirmed during funds preparation")
+	// ErrNotEnoughSupplyOutputs if there are not enough supply outputs in the faucet.
+	ErrNotEnoughSupplyOutputs = errors.New("not enough supply outputs to prepare more funds in the faucet")
 )

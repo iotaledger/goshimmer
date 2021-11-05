@@ -166,7 +166,7 @@ func configureEvents() {
 	}))
 }
 
-func start(shutdownSignal <-chan struct{}) {
+func start(ctx context.Context) {
 	defer Plugin.Logger().Info("Stopping " + PluginName + " ... done")
 
 	conn, err := net.ListenUDP(localAddr.Network(), localAddr)
@@ -192,7 +192,7 @@ func start(shutdownSignal <-chan struct{}) {
 
 	Plugin.Logger().Infof("%s started: ID=%s Address=%s/%s", PluginName, lPeer.ID(), localAddr.String(), localAddr.Network())
 
-	<-shutdownSignal
+	<-ctx.Done()
 
 	Plugin.Logger().Infof("Stopping %s ...", PluginName)
 	deps.Selection.Close()

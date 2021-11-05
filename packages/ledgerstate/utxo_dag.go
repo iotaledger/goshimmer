@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 )
 
@@ -36,9 +36,6 @@ type IUTXODAG interface {
 	CheckTransaction(transaction *Transaction) (err error)
 	// BookTransaction books a Transaction into the ledger state.
 	BookTransaction(transaction *Transaction) (targetBranch BranchID, err error)
-	// InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
-	// Pending, Confirmed or Rejected.
-	InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error)
 	// CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
 	CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction)
 	// Transaction returns a specific transaction, consumed.
@@ -57,15 +54,18 @@ type IUTXODAG interface {
 	LoadSnapshot(snapshot *Snapshot)
 	// CachedAddressOutputMapping retrieves the outputs for the given address.
 	CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings)
-	// SetTransactionConfirmed marks a Transaction (and all Transactions in its past cone) as confirmed. It also marks the
-	// conflicting Transactions to be rejected.
-	SetTransactionConfirmed(transactionID TransactionID) (err error)
 	// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
 	ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs)
 	// ManageStoreAddressOutputMapping mangages how to store the address-output mapping dependent on which type of output it is.
 	ManageStoreAddressOutputMapping(output Output)
 	// StoreAddressOutputMapping stores the address-output mapping.
 	StoreAddressOutputMapping(address Address, outputID OutputID)
+	// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
+	TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error)
+	// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
+	BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error)
+	// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
+	ConflictingTransactions(transaction *Transaction) (conflictingTransactions TransactionIDs)
 }
 
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
@@ -89,8 +89,7 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
-			TransactionBranchIDUpdated: events.NewEvent(transactionIDEventHandler),
-			TransactionConfirmed:       events.NewEvent(transactionIDEventHandler),
+			TransactionBranchIDUpdatedByFork: events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
 		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, options.transactionMetadataStorageOptions...),
@@ -103,7 +102,7 @@ func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	return
 }
 
-// Events returns all events of the UTXODAG
+// Events returns all events of the UTXODAG.
 func (u *UTXODAG) Events() *UTXODAGEvents {
 	return u.events
 }
@@ -186,22 +185,6 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 		return
 	}
 
-	// check if transaction is attaching to something rejected
-	if rejected, rejectedBranch := u.inputsInRejectedBranch(inputsMetadata); rejected {
-		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, rejectedBranch)
-		targetBranch = rejectedBranch
-		return
-	}
-
-	// check if any Input was spent by a confirmed Transaction already
-	if inputsSpentByConfirmedTransaction, tmpErr := u.inputsSpentByConfirmedTransaction(inputsMetadata); tmpErr != nil {
-		err = errors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
-		return
-	} else if inputsSpentByConfirmedTransaction {
-		targetBranch, err = u.bookRejectedConflictingTransaction(transaction, transactionMetadata, inputsMetadata)
-		return
-	}
-
 	// mark transaction as "permanently rejected"
 	if !u.consumedOutputsPastConeValid(consumedOutputs, inputsMetadata) {
 		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
@@ -220,6 +203,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	if branchesOfInputsConflicting {
 		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
 		targetBranch = InvalidBranchID
+		err = errors.Errorf("branches of inputs are conflicting: %w", err)
 		return
 	}
 
@@ -233,37 +217,56 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	return
 }
 
-// InclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
-// Pending, Confirmed or Rejected.
-func (u *UTXODAG) InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error) {
-	cachedTransactionMetadata := u.CachedTransactionMetadata(transactionID)
-	defer cachedTransactionMetadata.Release()
-	transactionMetadata := cachedTransactionMetadata.Unwrap()
-	if transactionMetadata == nil {
-		err = errors.Errorf("failed to load TransactionMetadata with %s: %w", transactionID, cerrors.ErrFatal)
-		return
-	}
+// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
+func (u *UTXODAG) ConflictingTransactions(transaction *Transaction) (conflictingTransactions TransactionIDs) {
+	conflictingTransactions = make(TransactionIDs)
+	for _, input := range transaction.Essence().Inputs() {
+		u.CachedConsumers(input.(*UTXOInput).ReferencedOutputID()).Consume(func(consumer *Consumer) {
+			if consumer.TransactionID() == transaction.ID() {
+				return
+			}
 
-	cachedBranch := u.branchDAG.Branch(transactionMetadata.BranchID())
-	defer cachedBranch.Release()
-	branch := cachedBranch.Unwrap()
-	if branch == nil {
-		err = errors.Errorf("failed to load Branch with %s: %w", transactionMetadata.BranchID(), cerrors.ErrFatal)
-		return
+			conflictingTransactions[consumer.TransactionID()] = types.Void
+		})
 	}
-
-	if branch.InclusionState() != Confirmed {
-		inclusionState = branch.InclusionState()
-		return
-	}
-
-	if transactionMetadata.Finalized() {
-		inclusionState = Confirmed
-		return
-	}
-
-	inclusionState = Pending
 	return
+}
+
+// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
+func (u *UTXODAG) TransactionGradeOfFinality(transactionID TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		gradeOfFinality = transactionMetadata.GradeOfFinality()
+	}) {
+		return gof.None, errors.Errorf("failed to load TransactionMetadata with %s: %w", transactionID, cerrors.ErrFatal)
+	}
+
+	return
+}
+
+// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
+func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if branchID == MasterBranchID {
+		return gof.High, nil
+	}
+
+	normalizedBranches, err := u.branchDAG.normalizeBranches(NewBranchIDs(branchID))
+	if err != nil {
+		return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
+	}
+
+	gradeOfFinality = gof.High
+	for conflictBranchID := range normalizedBranches {
+		conflictBranchGoF, gofErr := u.TransactionGradeOfFinality(conflictBranchID.TransactionID())
+		if gofErr != nil {
+			return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
+		}
+
+		if conflictBranchGoF < gradeOfFinality {
+			gradeOfFinality = conflictBranchGoF
+		}
+	}
+
+	return gradeOfFinality, nil
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
@@ -344,7 +347,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			metadata := NewOutputMetadata(output.ID())
 			metadata.SetBranchID(MasterBranchID)
 			metadata.SetSolid(true)
-			metadata.SetFinalized(true)
+			metadata.SetGradeOfFinality(gof.High)
 			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
 			if stored {
 				cachedMetadata.Release()
@@ -355,7 +358,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		txMetadata := NewTransactionMetadata(txID)
 		txMetadata.SetSolid(true)
 		txMetadata.SetBranchID(MasterBranchID)
-		txMetadata.SetFinalized(true)
+		txMetadata.SetGradeOfFinality(gof.High)
 
 		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) objectstorage.StorableObject {
 			txMetadata.Persist()
@@ -374,83 +377,6 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 	return
 }
 
-// SetTransactionConfirmed marks a Transaction (and all Transactions in its past cone) as confirmed. It also marks the
-// conflicting Transactions to be rejected.
-func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err error) {
-	confirmationWalker := walker.New()
-	confirmationWalker.Push(transactionID)
-
-	u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		err = u.branchDAG.SetBranchConfirmed(transactionMetadata.BranchID())
-	})
-	if err != nil {
-		return errors.Errorf("failed to set Branch of Transaction with %s to be confirmed: %w", transactionID, cerrors.ErrFatal)
-	}
-
-	seenTransactions := set.New()
-	confirmedTransactions := list.New()
-	for confirmationWalker.HasNext() {
-		u.setTransactionConfirmed(confirmationWalker.Next().(TransactionID), confirmedTransactions, seenTransactions, confirmationWalker)
-	}
-
-	triggeredEvents := set.New()
-	for confirmedTransactions.Len() > 0 {
-		currentElement := confirmedTransactions.Front()
-		confirmedTransactions.Remove(currentElement)
-		currentTransactionID := currentElement.Value.(TransactionID)
-
-		if !triggeredEvents.Add(currentTransactionID) {
-			continue
-		}
-
-		u.Events().TransactionConfirmed.Trigger(currentTransactionID)
-	}
-
-	return err
-}
-
-func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmedTransactions *list.List, seenTransactions set.Set, confirmationWalker *walker.Walker) {
-	u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		if !transactionMetadata.SetFinalized(true) {
-			return
-		}
-
-		seenTransactions.Add(transactionID)
-		confirmedTransactions.PushFront(transactionID)
-
-		u.CachedTransaction(transactionID).Consume(func(transaction *Transaction) {
-			for _, output := range transaction.Essence().Outputs() {
-				u.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
-					outputMetadata.SetFinalized(true)
-				})
-			}
-
-			for _, input := range transaction.Essence().Inputs() {
-				referencedOutputID := input.(*UTXOInput).ReferencedOutputID()
-				u.CachedOutputMetadata(referencedOutputID).Consume(func(outputMetadata *OutputMetadata) {
-					outputMetadata.SetConfirmedConsumer(*transaction.id)
-				})
-			}
-
-			for referencedTransactionID := range transaction.ReferencedTransactionIDs() {
-				u.CachedTransactionMetadata(referencedTransactionID).Consume(func(referencedTransactionMetadata *TransactionMetadata) {
-					if referencedTransactionMetadata.Finalized() {
-						if seenTransactions.Has(referencedTransactionID) {
-							confirmedTransactions.PushFront(referencedTransactionID)
-						}
-
-						return
-					}
-
-					confirmationWalker.Push(referencedTransactionID)
-				})
-			}
-		})
-	})
-
-	return
-}
-
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
 
 // bookInvalidTransaction is an internal utility function that books the given Transaction into the Branch identified by
@@ -458,45 +384,10 @@ func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmed
 func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata) {
 	transactionMetadata.SetBranchID(InvalidBranchID)
 	transactionMetadata.SetSolid(true)
-	transactionMetadata.SetFinalized(true)
+	transactionMetadata.SetGradeOfFinality(gof.High)
 
 	u.bookConsumers(inputsMetadata, transaction.ID(), types.False)
 	u.bookOutputs(transaction, InvalidBranchID)
-}
-
-// bookRejectedTransaction is an internal utility function that "lazy" books the given Transaction into a rejected
-// Branch.
-func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, rejectedBranch BranchID) {
-	transactionMetadata.SetBranchID(rejectedBranch)
-	transactionMetadata.SetSolid(true)
-	transactionMetadata.SetLazyBooked(true)
-
-	u.bookConsumers(inputsMetadata, transaction.ID(), types.Maybe)
-	u.bookOutputs(transaction, rejectedBranch)
-}
-
-// bookRejectedConflictingTransaction is an internal utility function that "lazy" books the given Transaction into its
-// own ConflictBranch which is immediately rejected and only kept in the DAG for possible reorgs.
-func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata) (targetBranch BranchID, err error) {
-	targetBranch = NewBranchID(transaction.ID())
-	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(targetBranch, NewBranchIDs(LazyBookedConflictsBranchID), nil)
-	if conflictBranchErr != nil {
-		err = errors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
-		return
-	}
-
-	if !cachedConflictBranch.Consume(func(branch Branch) {
-		branch.setLiked(false)
-		branch.setMonotonicallyLiked(false)
-		branch.setFinalized(true)
-		branch.setInclusionState(Rejected)
-
-		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, targetBranch)
-	}) {
-		err = errors.Errorf("failed to load ConflictBranch with %s: %w", cachedConflictBranch.ID(), cerrors.ErrFatal)
-	}
-
-	return
 }
 
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
@@ -534,7 +425,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 
 	// create new ConflictBranch
 	targetBranch = NewBranchID(transaction.ID())
-	cachedConflictBranch, _, err := u.branchDAG.createConflictBranchFromNormalizedParentBranchIDs(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
+	cachedConflictBranch, _, err := u.branchDAG.CreateConflictBranch(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
 		panic(fmt.Errorf("failed to create ConflictBranch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
@@ -564,23 +455,20 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		if err != nil {
 			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
 		}
+		cachedConsumingConflictBranch.Release()
+
 		// We don't need to propagate updates if the branch did already exist.
 		// Though CreateConflictBranch needs to be called so that conflict sets and conflict membership are properly updated.
 		if txMetadata.BranchID() == conflictBranchID {
-			cachedConsumingConflictBranch.Release()
 			return
 		}
 
-		cachedConsumingConflictBranch.Consume(func(newBranch Branch) {
-			// copying the branch metadata properties from the original branch to the newly created.
-			u.branchDAG.Branch(txMetadata.BranchID()).Consume(func(oldBranch Branch) {
-				newBranch.setLiked(oldBranch.Liked())
-				newBranch.setMonotonicallyLiked(oldBranch.MonotonicallyLiked())
-			})
-		})
-
 		txMetadata.SetBranchID(conflictBranchID)
-		u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
+		u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
+			TransactionID:  transactionID,
+			NewBranchID:    conflictBranchID,
+			ForkedBranchID: conflictBranchID,
+		})
 
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
@@ -591,7 +479,9 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 			}
 		}
 
-		u.walkFutureCone(outputIds, u.propagateBranchUpdates, types.True)
+		u.walkFutureCone(outputIds, func(transactionID TransactionID) (updatedOutputs []OutputID) {
+			return u.propagateBranchUpdates(transactionID, conflictBranchID)
+		}, types.True)
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
@@ -599,7 +489,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 // propagateBranchUpdates is an internal utility function that propagates changes in the perception of the BranchDAG
 // after introducing a new ConflictBranch.
-func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, conflictBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		// if the BranchID is the TransactionID we have a ConflictBranch
 		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
@@ -615,7 +505,7 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 		}
 		defer cachedAggregatedBranch.Release()
 
-		updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID())
+		updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID(), conflictBranchID)
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
@@ -625,19 +515,23 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 
 // updateBranchOfTransaction is an internal utility function that updates the Branch that a Transaction and its Outputs
 // are booked into.
-func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, newBranchID, conflictBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		if transactionMetadata.SetBranchID(branchID) {
-			u.Events().TransactionBranchIDUpdated.Trigger(transactionID)
-
+		if transactionMetadata.SetBranchID(newBranchID) {
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {
 				if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
-					outputMetadata.SetBranchID(branchID)
+					outputMetadata.SetBranchID(newBranchID)
 				}) {
 					panic(fmt.Errorf("failed to load OutputMetadata with %s", outputID))
 				}
 			}
+
+			u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
+				TransactionID:  transactionID,
+				NewBranchID:    newBranchID,
+				ForkedBranchID: conflictBranchID,
+			})
 		}
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
@@ -760,28 +654,6 @@ func (u *UTXODAG) inputsInInvalidBranch(inputsMetadata OutputsMetadata) (invalid
 	return
 }
 
-// inputsInRejectedBranch checks if any of the Inputs is booked into a rejected Branch.
-func (u *UTXODAG) inputsInRejectedBranch(inputsMetadata OutputsMetadata) (rejected bool, rejectedBranch BranchID) {
-	seenBranchIDs := set.New()
-	for _, inputMetadata := range inputsMetadata {
-		if rejectedBranch = inputMetadata.BranchID(); !seenBranchIDs.Add(rejectedBranch) {
-			continue
-		}
-
-		if !u.branchDAG.Branch(rejectedBranch).Consume(func(branch Branch) {
-			rejected = branch.InclusionState() == Rejected
-		}) {
-			panic(fmt.Sprintf("failed to load Branch with %s", rejectedBranch))
-		}
-
-		if rejected {
-			return
-		}
-	}
-
-	return
-}
-
 // consumedOutputsPastConeValid is an internal utility function that checks if the given Outputs do not directly or
 // indirectly reference each other in their own past cone.
 func (u *UTXODAG) consumedOutputsPastConeValid(outputs Outputs, outputsMetadata OutputsMetadata) (pastConeValid bool) {
@@ -844,34 +716,6 @@ func (u *UTXODAG) outputsUnspent(outputsMetadata OutputsMetadata) (outputsUnspen
 	}
 
 	return true
-}
-
-// inputsSpentByConfirmedTransaction is an internal utility function that checks if any of the given inputs was spent by
-// a confirmed Transaction already.
-func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata OutputsMetadata) (inputsSpentByConfirmedTransaction bool, err error) {
-	for _, inputMetadata := range inputsMetadata {
-		if inputMetadata.ConsumerCount() >= 1 {
-			cachedConsumers := u.CachedConsumers(inputMetadata.ID())
-			consumers := cachedConsumers.Unwrap()
-			for _, consumer := range consumers {
-				inclusionState, inclusionStateErr := u.InclusionState(consumer.TransactionID())
-				if inclusionStateErr != nil {
-					cachedConsumers.Release()
-					err = errors.Errorf("failed to determine InclusionState of Transaction with %s: %w", consumer.TransactionID(), inclusionStateErr)
-					return
-				}
-
-				if inclusionState == Confirmed {
-					cachedConsumers.Release()
-					inputsSpentByConfirmedTransaction = true
-					return
-				}
-			}
-			cachedConsumers.Release()
-		}
-	}
-
-	return
 }
 
 // consumedOutputIDsOfTransaction is an internal utility function returns a list of OutputIDs that were consumed by a
@@ -982,35 +826,37 @@ func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) 
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// TODO: IMPLEMENT A GOOD SYNCHRONIZATION MECHANISM FOR THE UTXODAG
-/*
-func (u *UTXODAG) lockTransaction(transaction *Transaction) {
-	var lockBuilder syncutils.MultiMutexLockBuilder
-	for _, input := range transaction.Essence().Inputs() {
-		lockBuilder.AddLock(input.(*UTXOInput).ReferencedOutputID())
-	}
-	for outputIndex := range transaction.Essence().Outputs() {
-		lockBuilder.AddLock(NewOutputID(transaction.ID(), uint16(outputIndex)))
-	}
-	var mutex syncutils.RWMultiMutex
-	mutex.Lock(lockBuilder.Build()...)
-}
-*/
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region UTXODAGEvents ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // UTXODAGEvents is a container for all of the UTXODAG related events.
 type UTXODAGEvents struct {
-	// TransactionBranchIDUpdated gets triggered when the BranchID of a Transaction is changed after the initial booking.
-	TransactionBranchIDUpdated *events.Event
-	// Fired when a transaction gets confirmed.
-	TransactionConfirmed *events.Event
+	// TransactionBranchIDUpdatedByFork gets triggered when the BranchID of a Transaction is changed after the initial booking.
+	TransactionBranchIDUpdatedByFork *events.Event
 }
 
-func transactionIDEventHandler(handler interface{}, params ...interface{}) {
+// TransactionIDEventHandler is an event handler for an event with a TransactionID.
+func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(TransactionID))(params[0].(TransactionID))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionBranchIDUpdatedEvent //////////////////////////////////////////////////////////////////////////////
+
+// TransactionBranchIDUpdatedByForkEvent is an event that gets triggered, whenever the BranchID of a Transaction is
+// changed.
+type TransactionBranchIDUpdatedByForkEvent struct {
+	TransactionID  TransactionID
+	NewBranchID    BranchID
+	ForkedBranchID BranchID
+}
+
+// TransactionBranchIDUpdatedByForkEventHandler is an event handler for an event with a
+// TransactionBranchIDUpdatedByForkEvent.
+func TransactionBranchIDUpdatedByForkEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*TransactionBranchIDUpdatedByForkEvent))(params[0].(*TransactionBranchIDUpdatedByForkEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1097,7 +943,7 @@ func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (a *AddressOutputMapping) Update(other objectstorage.StorableObject) {
+func (a *AddressOutputMapping) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -1154,7 +1000,7 @@ func (c *CachedAddressOutputMapping) Consume(consumer func(addressOutputMapping 
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedAddressOutputMapping.
+// String returns a human-readable version of the CachedAddressOutputMapping.
 func (c *CachedAddressOutputMapping) String() string {
 	return stringify.Struct("CachedAddressOutputMapping",
 		stringify.StructField("CachedObject", c.Unwrap()),
@@ -1335,7 +1181,7 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Consumer) Update(other objectstorage.StorableObject) {
+func (c *Consumer) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 

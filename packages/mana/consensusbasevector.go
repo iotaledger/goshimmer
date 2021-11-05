@@ -130,43 +130,43 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 		// first, revoke mana from previous owners
 		for _, inputInfo := range txInfo.InputInfos {
 			// which node did the input pledge mana to?
-			pledgeNodeID := inputInfo.PledgeID[c.Type()]
-			if _, exist := c.vector[pledgeNodeID]; !exist {
+			oldPledgeNodeID := inputInfo.PledgeID[c.Type()]
+			if _, exist := c.vector[oldPledgeNodeID]; !exist {
 				// first time we see this node
-				c.vector[pledgeNodeID] = &ConsensusBaseMana{}
+				c.vector[oldPledgeNodeID] = &ConsensusBaseMana{}
 			}
 			// save old mana
-			oldMana := *c.vector[pledgeNodeID]
+			oldMana := *c.vector[oldPledgeNodeID]
 			// revoke BM1
-			err := c.vector[pledgeNodeID].revoke(inputInfo.Amount)
+			err := c.vector[oldPledgeNodeID].revoke(inputInfo.Amount)
 			if errors.Is(err, ErrBaseManaNegative) {
-				panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
+				panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, oldPledgeNodeID.String()))
 			}
 			// save events for later triggering
-			revokeEvents = append(revokeEvents, &RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID, inputInfo.InputID})
-			updateEvents = append(updateEvents, &UpdatedEvent{pledgeNodeID, &oldMana, c.vector[pledgeNodeID], c.Type()})
+			revokeEvents = append(revokeEvents, &RevokedEvent{oldPledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID, inputInfo.InputID})
+			updateEvents = append(updateEvents, &UpdatedEvent{oldPledgeNodeID, &oldMana, c.vector[oldPledgeNodeID], c.Type()})
 		}
 		// second, pledge mana to new nodes
-		pledgeNodeID := txInfo.PledgeID[c.Type()]
-		if _, exist := c.vector[pledgeNodeID]; !exist {
+		newPledgeNodeID := txInfo.PledgeID[c.Type()]
+		if _, exist := c.vector[newPledgeNodeID]; !exist {
 			// first time we see this node
-			c.vector[pledgeNodeID] = &ConsensusBaseMana{}
+			c.vector[newPledgeNodeID] = &ConsensusBaseMana{}
 		}
 		// save it for proper event trigger
-		oldMana := *c.vector[pledgeNodeID]
+		oldMana := *c.vector[newPledgeNodeID]
 		// actually pledge and update
-		pledged := c.vector[pledgeNodeID].pledge(txInfo)
+		pledged := c.vector[newPledgeNodeID].pledge(txInfo)
 		pledgeEvents = append(pledgeEvents, &PledgedEvent{
-			NodeID:        pledgeNodeID,
+			NodeID:        newPledgeNodeID,
 			Amount:        pledged,
 			Time:          txInfo.TimeStamp,
 			ManaType:      c.Type(),
 			TransactionID: txInfo.TransactionID,
 		})
 		updateEvents = append(updateEvents, &UpdatedEvent{
-			NodeID:   pledgeNodeID,
+			NodeID:   newPledgeNodeID,
 			OldMana:  &oldMana,
-			NewMana:  c.vector[pledgeNodeID],
+			NewMana:  c.vector[newPledgeNodeID],
 			ManaType: c.Type(),
 		})
 	}()
@@ -206,14 +206,9 @@ func (c *ConsensusBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (r
 	c.Lock()
 	defer c.Unlock()
 	t = time.Now()
-	res = make(map[identity.ID]float64)
-	for ID := range c.vector {
-		var mana float64
-		mana, err = c.getMana(ID)
-		if err != nil {
-			return nil, t, err
-		}
-		res[ID] = mana
+	res = make(map[identity.ID]float64, len(c.vector))
+	for ID, val := range c.vector {
+		res[ID] = val.BaseValue()
 	}
 	return
 }

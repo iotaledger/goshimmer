@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// simple wallet with 1 keypair (there is only one address)
+// simple wallet with 1 keypair (there is only one address).
 type wallet struct {
 	keyPair ed25519.KeyPair
 	address *ledgerstate.ED25519Address

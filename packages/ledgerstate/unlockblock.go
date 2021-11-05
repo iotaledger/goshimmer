@@ -20,7 +20,7 @@ const (
 	// ReferenceUnlockBlockType represents the type of a ReferenceUnlockBlock.
 	ReferenceUnlockBlockType
 
-	// AliasUnlockBlockType represents the type of a AliasUnlockBlock
+	// AliasUnlockBlockType represents the type of a AliasUnlockBlock.
 	AliasUnlockBlockType
 )
 
@@ -247,7 +247,7 @@ func (s *SignatureUnlockBlock) String() string {
 	)
 }
 
-// Signature return the signature itself
+// Signature return the signature itself.
 func (s *SignatureUnlockBlock) Signature() Signature {
 	return s.signature
 }
@@ -336,7 +336,7 @@ var _ UnlockBlock = &ReferenceUnlockBlock{}
 
 // region AliasUnlockBlock /////////////////////////////////////////////////////////////////////////////////////////
 
-// AliasUnlockBlock defines an UnlockBlock which contains an index of corresponding AliasOutput
+// AliasUnlockBlock defines an UnlockBlock which contains an index of corresponding AliasOutput.
 type AliasUnlockBlock struct {
 	referencedIndex uint16
 }
@@ -380,7 +380,7 @@ func AliasUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlo
 	return
 }
 
-// AliasInputIndex returns the index of the input, the AliasOutput which contains AliasAddress
+// AliasInputIndex returns the index of the input, the AliasOutput which contains AliasAddress.
 func (r *AliasUnlockBlock) AliasInputIndex() uint16 {
 	return r.referencedIndex
 }
@@ -405,7 +405,7 @@ func (r *AliasUnlockBlock) String() string {
 	)
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ UnlockBlock = &AliasUnlockBlock{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

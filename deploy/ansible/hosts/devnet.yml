@@ -6,7 +6,6 @@ supports:
   hosts:
     analysisentry-01.devnet.shimmer.iota.cafe:
       entryNodeSeed: "{{ ANALYSISSENTRY_01_ENTRYNODE_SEED }}"
-      mongoDBHost: "metrics-01.devnet.shimmer.iota.cafe"
       manaDashboardHost: "bootstrap-01.devnet.shimmer.iota.cafe"
 
 goshimmers:
@@ -57,3 +56,7 @@ drands:
 asset_registries:
   hosts:
     asset-registry-01.devnet.shimmer.iota.cafe:
+
+lbs:
+  hosts:
+    lb.devnet.shimmer.iota.cafe:

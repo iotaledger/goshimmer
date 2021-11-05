@@ -99,6 +99,8 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		}
 		options = append(options, sendoptions.Fallback(fAddy, fDeadline))
 	}
+	// set pending outputs explicitly to false (even though it should be false by default)
+	options = append(options, sendoptions.UsePendingOutputs(false))
 	fmt.Println("Sending funds...")
 	_, err = cliWallet.SendFunds(options...)
 	if err != nil {

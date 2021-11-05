@@ -100,6 +100,30 @@ func NewGetBranchConflictsResponse(branchID ledgerstate.BranchID, branchIDsPerCo
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region GetBranchSupportersResponse ///////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchSupportersResponse represents the JSON model of a response from the GetBranchSupporters endpoint.
+type GetBranchSupportersResponse struct {
+	BranchID   string   `json:"branchID"`
+	Supporters []string `json:"supporters"`
+}
+
+// NewGetBranchSupportersResponse returns a GetBranchSupportersResponse from the given details.
+func NewGetBranchSupportersResponse(branchID ledgerstate.BranchID, supporters *tangle.Supporters) *GetBranchSupportersResponse {
+	return &GetBranchSupportersResponse{
+		BranchID: branchID.Base58(),
+		Supporters: func() (supportersStr []string) {
+			supportersStr = make([]string, 0)
+			supporters.ForEach(func(supporter tangle.Supporter) {
+				supportersStr = append(supportersStr, supporter.String())
+			})
+			return
+		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region GetOutputConsumersResponse ///////////////////////////////////////////////////////////////////////////////////
 
 // GetOutputConsumersResponse represents the JSON model of a response from the GetOutputConsumers endpoint.

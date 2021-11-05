@@ -8,21 +8,20 @@ import (
 )
 
 const (
-	// basic routes
+	// basic routes.
 	routeGetAddresses     = "ledgerstate/addresses/"
 	routeGetBranches      = "ledgerstate/branches/"
 	routeGetOutputs       = "ledgerstate/outputs/"
 	routeGetTransactions  = "ledgerstate/transactions/"
 	routePostTransactions = "ledgerstate/transactions"
 
-	// route path modifiers
+	// route path modifiers.
 	pathUnspentOutputs = "/unspentOutputs"
 	pathChildren       = "/children"
 	pathConflicts      = "/conflicts"
 	pathConsumers      = "/consumers"
 	pathMetadata       = "/metadata"
-	pathInclusionState = "/inclusionState"
-	pathConsensus      = "/consensus"
+	pathSupporters     = "/supporters"
 	pathAttachments    = "/attachments"
 )
 
@@ -92,6 +91,17 @@ func (api *GoShimmerAPI) GetBranchConflicts(base58EncodedBranchID string) (*json
 	return res, nil
 }
 
+// GetBranchSupporters gets the supporters of a branch.
+func (api *GoShimmerAPI) GetBranchSupporters(base58EncodedBranchID string) (*jsonmodels.GetBranchSupportersResponse, error) {
+	res := &jsonmodels.GetBranchSupportersResponse{}
+	if err := api.do(http.MethodGet, func() string {
+		return strings.Join([]string{routeGetBranches, base58EncodedBranchID, pathSupporters}, "")
+	}(), nil, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 // GetOutput gets the output corresponding to OutputID.
 func (api *GoShimmerAPI) GetOutput(base58EncodedOutputID string) (*jsonmodels.Output, error) {
 	res := &jsonmodels.Output{}
@@ -141,28 +151,6 @@ func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID strin
 	res := &jsonmodels.TransactionMetadata{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathMetadata}, "")
-	}(), nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-// GetTransactionInclusionState gets inclusion state of the transaction corresponding to TransactionID.
-func (api *GoShimmerAPI) GetTransactionInclusionState(base58EncodedTransactionID string) (*jsonmodels.TransactionInclusionState, error) {
-	res := &jsonmodels.TransactionInclusionState{}
-	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathInclusionState}, "")
-	}(), nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-// GetTransactionConsensusMetadata gets the consensus metadata of the transaction corresponding to TransactionID.
-func (api *GoShimmerAPI) GetTransactionConsensusMetadata(base58EncodedTransactionID string) (*jsonmodels.TransactionConsensusMetadata, error) {
-	res := &jsonmodels.TransactionConsensusMetadata{}
-	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathConsensus}, "")
 	}(), nil, res); err != nil {
 		return nil, err
 	}

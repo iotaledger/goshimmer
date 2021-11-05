@@ -135,10 +135,10 @@ func parseDistributedPublicKey(pubKey string) (dpk []byte, err error) {
 	if pubKey != "" {
 		dpk, err = hex.DecodeString(pubKey)
 		if err != nil {
-			return []byte{}, fmt.Errorf("Invalid %s: %s", pubKey, err)
+			return []byte{}, fmt.Errorf("invalid %s: %s", pubKey, err)
 		}
 		if l := len(dpk); l != drng.PublicKeySize {
-			return []byte{}, fmt.Errorf("Invalid %s length: %d, need %d", pubKey, l, drng.PublicKeySize)
+			return []byte{}, fmt.Errorf("invalid %s length: %d, need %d", pubKey, l, drng.PublicKeySize)
 		}
 	}
 	return

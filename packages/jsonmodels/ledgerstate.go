@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -193,7 +193,7 @@ func UnmarshalSigLockedSingleOutputFromBytes(data []byte) (*SigLockedSingleOutpu
 
 // region SigLockedColoredOutput ///////////////////////////////////////////////////////////////////////////////////////
 
-// SigLockedColoredOutput is the JSON model of a ledgerstate.SigLockedColoredOutput
+// SigLockedColoredOutput is the JSON model of a ledgerstate.SigLockedColoredOutput.
 type SigLockedColoredOutput struct {
 	Balances map[string]uint64 `json:"balances"`
 	Address  string            `json:"address"`
@@ -241,7 +241,7 @@ func UnmarshalSigLockedColoredOutputFromBytes(data []byte) (*SigLockedColoredOut
 
 // region AliasOutput //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// AliasOutput is the JSON model of a ledgerstate.AliasOutput
+// AliasOutput is the JSON model of a ledgerstate.AliasOutput.
 type AliasOutput struct {
 	Balances           map[string]uint64 `json:"balances"`
 	AliasAddress       string            `json:"aliasAddress"`
@@ -379,7 +379,7 @@ func UnmarshalAliasOutputFromBytes(data []byte) (*AliasOutput, error) {
 
 // region ExtendedLockOutput ///////////////////////////////////////////////////////////////////////////////////////////
 
-// ExtendedLockedOutput is the JSON model of a ledgerstate.ExtendedLockedOutput
+// ExtendedLockedOutput is the JSON model of a ledgerstate.ExtendedLockedOutput.
 type ExtendedLockedOutput struct {
 	Balances         map[string]uint64 `json:"balances"`
 	Address          string            `json:"address"`
@@ -479,37 +479,27 @@ func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
 
 // OutputMetadata represents the JSON model of the ledgerstate.OutputMetadata.
 type OutputMetadata struct {
-	OutputID           *OutputID `json:"outputID"`
-	BranchID           string    `json:"branchID"`
-	Solid              bool      `json:"solid"`
-	SolidificationTime int64     `json:"solidificationTime"`
-	ConsumerCount      int       `json:"consumerCount"`
-	FirstConsumer      string    `json:"firstConsumer,omitempty"`
-	ConfirmedConsumer  string    `json:"confirmedConsumer,omitempty"`
-	Finalized          bool      `json:"finalized"`
+	OutputID            *OutputID           `json:"outputID"`
+	BranchID            string              `json:"branchID"`
+	Solid               bool                `json:"solid"`
+	SolidificationTime  int64               `json:"solidificationTime"`
+	ConsumerCount       int                 `json:"consumerCount"`
+	ConfirmedConsumer   string              `json:"confirmedConsumer,omitempty"`
+	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
-func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
-	firstConsumer := ""
-	// omit firstConsumer field if it hasn't been consumed yet
-	if outputMetadata.FirstConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
-		firstConsumer = outputMetadata.FirstConsumer().Base58()
-	}
-	confirmedConsumer := ""
-	// omit confirmedConsumer field if it hasn't been consumed yet by a confirmed transaction
-	if outputMetadata.ConfirmedConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
-		confirmedConsumer = outputMetadata.ConfirmedConsumer().Base58()
-	}
+func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedConsumerID ledgerstate.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
-		OutputID:           NewOutputID(outputMetadata.ID()),
-		BranchID:           outputMetadata.BranchID().Base58(),
-		Solid:              outputMetadata.Solid(),
-		SolidificationTime: outputMetadata.SolidificationTime().Unix(),
-		ConsumerCount:      outputMetadata.ConsumerCount(),
-		FirstConsumer:      firstConsumer,
-		ConfirmedConsumer:  confirmedConsumer,
-		Finalized:          outputMetadata.Finalized(),
+		OutputID:            NewOutputID(outputMetadata.ID()),
+		BranchID:            outputMetadata.BranchID().Base58(),
+		Solid:               outputMetadata.Solid(),
+		SolidificationTime:  outputMetadata.SolidificationTime().Unix(),
+		ConsumerCount:       outputMetadata.ConsumerCount(),
+		ConfirmedConsumer:   confirmedConsumerID.Base58(),
+		GradeOfFinality:     outputMetadata.GradeOfFinality(),
+		GradeOfFinalityTime: outputMetadata.GradeOfFinalityTime().Unix(),
 	}
 }
 
@@ -537,18 +527,16 @@ func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 
 // Branch represents the JSON model of a ledgerstate.Branch.
 type Branch struct {
-	ID                 string   `json:"id"`
-	Type               string   `json:"type"`
-	Parents            []string `json:"parents"`
-	ConflictIDs        []string `json:"conflictIDs,omitempty"`
-	Liked              bool     `json:"liked"`
-	MonotonicallyLiked bool     `json:"monotonicallyLiked"`
-	Finalized          bool     `json:"finalized"`
-	InclusionState     string   `json:"inclusionState"`
+	ID              string              `json:"id"`
+	Type            string              `json:"type"`
+	Parents         []string            `json:"parents"`
+	ConflictIDs     []string            `json:"conflictIDs,omitempty"`
+	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
+	ApprovalWeight  float64             `json:"approvalWeight"`
 }
 
 // NewBranch returns a Branch from the given ledgerstate.Branch.
-func NewBranch(branch ledgerstate.Branch) Branch {
+func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
 	return Branch{
 		ID:   branch.ID().Base58(),
 		Type: branch.Type().String(),
@@ -572,10 +560,8 @@ func NewBranch(branch ledgerstate.Branch) Branch {
 
 			return conflictIDs
 		}(),
-		Liked:              branch.Liked(),
-		MonotonicallyLiked: branch.MonotonicallyLiked(),
-		Finalized:          branch.Finalized(),
-		InclusionState:     branch.InclusionState().String(),
+		GradeOfFinality: gradeOfFinality,
+		ApprovalWeight:  aw,
 	}
 }
 
@@ -753,73 +739,25 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 
 // TransactionMetadata represents the JSON model of the ledgerstate.TransactionMetadata.
 type TransactionMetadata struct {
-	TransactionID      string `json:"transactionID"`
-	BranchID           string `json:"branchID"`
-	Solid              bool   `json:"solid"`
-	SolidificationTime int64  `json:"solidificationTime"`
-	Finalized          bool   `json:"finalized"`
-	LazyBooked         bool   `json:"lazyBooked"`
+	TransactionID       string              `json:"transactionID"`
+	BranchID            string              `json:"branchID"`
+	Solid               bool                `json:"solid"`
+	SolidificationTime  int64               `json:"solidificationTime"`
+	LazyBooked          bool                `json:"lazyBooked"`
+	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
 
 // NewTransactionMetadata returns the TransactionMetadata from the given ledgerstate.TransactionMetadata.
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
-		TransactionID:      transactionMetadata.ID().Base58(),
-		BranchID:           transactionMetadata.BranchID().Base58(),
-		Solid:              transactionMetadata.Solid(),
-		SolidificationTime: transactionMetadata.SolidificationTime().Unix(),
-		Finalized:          transactionMetadata.Finalized(),
-		LazyBooked:         transactionMetadata.LazyBooked(),
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionInclusionState ///////////////////////////////////////////////////////////////////////////////////////////
-
-// TransactionInclusionState represents the JSON model of the ledgerstate.InclusionState.
-type TransactionInclusionState struct {
-	TransactionID string `json:"transactionID"`
-	Pending       bool   `json:"pending"`
-	Confirmed     bool   `json:"confirmed"`
-	Rejected      bool   `json:"rejected"`
-	Conflicting   bool   `json:"conflicting"`
-}
-
-// NewTransactionInclusionState returns the TransactionInclusionState from the given ledgerstate.InclusionState.
-func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, id ledgerstate.TransactionID, conflicting bool) *TransactionInclusionState {
-	return &TransactionInclusionState{
-		TransactionID: id.Base58(),
-		Pending:       inclusionState == ledgerstate.Pending,
-		Confirmed:     inclusionState == ledgerstate.Confirmed,
-		Rejected:      inclusionState == ledgerstate.Rejected,
-		Conflicting:   conflicting,
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionConsensusMetadata /////////////////////////////////////////////////////////////////////////////////
-
-// TransactionConsensusMetadata represents the JSON model of the transaction's consensus metadata.
-type TransactionConsensusMetadata struct {
-	TransactionID string `json:"transactionID"`
-	Timestamp     int64  `json:"timestamp"`
-	Liked         bool   `json:"liked"`
-	LoK           string `json:"lok"`
-	FCOBTime1     int64  `json:"fcobTime1"`
-	FCOBTime2     int64  `json:"fcobTime2"`
-}
-
-// NewTransactionConsensusMetadata returns the TransactionConsensusMetadata from the given transaction ID.
-func NewTransactionConsensusMetadata(transactionID ledgerstate.TransactionID, opinion *fcob.Opinion) *TransactionConsensusMetadata {
-	return &TransactionConsensusMetadata{
-		TransactionID: transactionID.Base58(),
-		Timestamp:     opinion.Timestamp().Unix(),
-		Liked:         opinion.Liked(),
-		LoK:           opinion.LevelOfKnowledge().String(),
-		FCOBTime1:     opinion.FCOBTime1().Unix(),
-		FCOBTime2:     opinion.FCOBTime2().Unix(),
+		TransactionID:       transactionMetadata.ID().Base58(),
+		BranchID:            transactionMetadata.BranchID().Base58(),
+		Solid:               transactionMetadata.Solid(),
+		SolidificationTime:  transactionMetadata.SolidificationTime().Unix(),
+		LazyBooked:          transactionMetadata.LazyBooked(),
+		GradeOfFinality:     transactionMetadata.GradeOfFinality(),
+		GradeOfFinalityTime: transactionMetadata.GradeOfFinalityTime().Unix(),
 	}
 }
 
@@ -827,7 +765,7 @@ func NewTransactionConsensusMetadata(transactionID ledgerstate.TransactionID, op
 
 // region utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// getStringBalances translates colored balances to map[string]uint64
+// getStringBalances translates colored balances to map[string]uint64.
 func getStringBalances(output ledgerstate.Output) map[string]uint64 {
 	balances := output.Balances().Map()
 	stringBalances := make(map[string]uint64, len(balances))
@@ -837,7 +775,7 @@ func getStringBalances(output ledgerstate.Output) map[string]uint64 {
 	return stringBalances
 }
 
-// getColoredBalances translates a map[string]uint64 to ledgerstate.ColoredBalances
+// getColoredBalances translates a map[string]uint64 to ledgerstate.ColoredBalances.
 func getColoredBalances(stringBalances map[string]uint64) (*ledgerstate.ColoredBalances, error) {
 	cBalances := make(map[ledgerstate.Color]uint64, len(stringBalances))
 	for stringColor, balance := range stringBalances {

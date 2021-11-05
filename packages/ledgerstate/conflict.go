@@ -154,6 +154,13 @@ func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictI
 	return
 }
 
+// Add adds a ConflictID to the collection and returns the collection to enable chaining.
+func (c ConflictIDs) Add(conflictID ConflictID) ConflictIDs {
+	c[conflictID] = types.Void
+
+	return c
+}
+
 // Slice returns a slice of ConflictIDs.
 func (c ConflictIDs) Slice() (list []ConflictID) {
 	list = make([]ConflictID, 0, len(c))

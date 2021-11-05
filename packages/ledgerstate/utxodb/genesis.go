@@ -16,13 +16,13 @@ const (
 	defaultSupply    = uint64(defaultSupplyInt)
 	genesisIndex     = 31415926535
 
-	// RequestFundsAmount is how many iotas are returned from the faucet
+	// RequestFundsAmount is how many iotas are returned from the faucet.
 	RequestFundsAmount = 1000000 // 1Mi
 )
 
 var essenceVersion = ledgerstate.TransactionEssenceVersion(0)
 
-// UtxoDB is the structure which contains all UTXODB transactions and ledger
+// UtxoDB is the structure which contains all UTXODB transactions and ledger.
 type UtxoDB struct {
 	seed            *ed25519.Seed
 	supply          uint64
@@ -36,7 +36,7 @@ type UtxoDB struct {
 	genesisTxID     ledgerstate.TransactionID
 }
 
-// New creates new UTXODB instance
+// New creates new UTXODB instance.
 func newUtxodb(seed *ed25519.Seed, supply uint64, timestamp time.Time) *UtxoDB {
 	genesisKeyPair := seed.KeyPair(uint64(genesisIndex))
 	genesisAddress := ledgerstate.NewED25519Address(genesisKeyPair.PublicKey)
@@ -56,7 +56,7 @@ func newUtxodb(seed *ed25519.Seed, supply uint64, timestamp time.Time) *UtxoDB {
 }
 
 // New creates new utxodb instance with predefined genesis seed and optional supply.
-// Supply defaults to the standard IOTA supply
+// Supply defaults to the standard IOTA supply.
 func New(supply ...uint64) *UtxoDB {
 	s := defaultSupply
 	if len(supply) > 0 {
@@ -73,7 +73,7 @@ func NewWithTimestamp(timestamp time.Time, supply ...uint64) *UtxoDB {
 	return newUtxodb(ed25519.NewSeed([]byte("EFonzaUz5ngYeDxbRKu8qV5aoSogUQ5qVSTSjn7hJ8FQ")), s, timestamp)
 }
 
-// NewRandom creates utxodb with random genesis seed
+// NewRandom creates utxodb with random genesis seed.
 func NewRandom(supply ...uint64) *UtxoDB {
 	s := defaultSupply
 	if len(supply) > 0 {
@@ -84,7 +84,7 @@ func NewRandom(supply ...uint64) *UtxoDB {
 	return newUtxodb(ed25519.NewSeed(rnd[:]), s, time.Now())
 }
 
-// NewKeyPairByIndex creates key pair and address generated from the seed and the index
+// NewKeyPairByIndex creates key pair and address generated from the seed and the index.
 func (u *UtxoDB) NewKeyPairByIndex(index int) (*ed25519.KeyPair, *ledgerstate.ED25519Address) {
 	kp := u.seed.KeyPair(uint64(index))
 	return kp, ledgerstate.NewED25519Address(kp.PublicKey)
@@ -109,12 +109,12 @@ func (u *UtxoDB) GenesisTransactionID() ledgerstate.TransactionID {
 	return u.genesisTxID
 }
 
-// GetGenesisKeyPair return signature scheme used by creator of genesis
+// GetGenesisKeyPair return signature scheme used by creator of genesis.
 func (u *UtxoDB) GetGenesisKeyPair() *ed25519.KeyPair {
 	return u.genesisKeyPair
 }
 
-// GetGenesisAddress return address of genesis
+// GetGenesisAddress return address of genesis.
 func (u *UtxoDB) GetGenesisAddress() ledgerstate.Address {
 	return u.genesisAddress
 }
@@ -124,9 +124,9 @@ func (u *UtxoDB) mustRequestFundsTx(target ledgerstate.Address, timestamp time.T
 	if len(sourceOutputs) != 1 {
 		panic("number of genesis outputs must be 1")
 	}
-	reminder, _ := sourceOutputs[0].Balances().Get(ledgerstate.ColorIOTA)
+	remainder, _ := sourceOutputs[0].Balances().Get(ledgerstate.ColorIOTA)
 	o1 := ledgerstate.NewSigLockedSingleOutput(RequestFundsAmount, target)
-	o2 := ledgerstate.NewSigLockedSingleOutput(reminder-RequestFundsAmount, u.GetGenesisAddress())
+	o2 := ledgerstate.NewSigLockedSingleOutput(remainder-RequestFundsAmount, u.GetGenesisAddress())
 	outputs := ledgerstate.NewOutputs(o1, o2)
 	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(sourceOutputs[0].ID()))
 	essence := ledgerstate.NewTransactionEssence(0, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)

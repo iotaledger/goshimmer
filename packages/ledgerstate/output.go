@@ -20,6 +20,9 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
@@ -53,10 +56,10 @@ const (
 	// SigLockedColoredOutputType represents an Output that holds colored coins that gets unlocked by a signature.
 	SigLockedColoredOutputType
 
-	// AliasOutputType represents an Output which makes a chain with optional governance
+	// AliasOutputType represents an Output which makes a chain with optional governance.
 	AliasOutputType
 
-	// ExtendedLockedOutputType represents an Output which extends SigLockedColoredOutput with alias locking and fallback
+	// ExtendedLockedOutputType represents an Output which extends SigLockedColoredOutput with alias locking and fallback.
 	ExtendedLockedOutputType
 )
 
@@ -654,15 +657,15 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
-			return false, errors.New("SigLockedSingleOutput: referenced input must be AliasOutput")
+			return false, errors.New("sigLockedSingleOutput: referenced input must be AliasOutput")
 		}
 		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
-			return false, errors.New("SigLockedSingleOutput: wrong alias referenced")
+			return false, errors.New("sigLockedSingleOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
 
 	default:
-		err = errors.Errorf("SigLockedSingleOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("sigLockedSingleOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
 	}
 
 	return
@@ -701,7 +704,7 @@ func (s *SigLockedSingleOutput) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
-// UpdateMintingColor does nothing for SigLockedSingleOutput
+// UpdateMintingColor does nothing for SigLockedSingleOutput.
 func (s *SigLockedSingleOutput) UpdateMintingColor() Output {
 	return s
 }
@@ -847,15 +850,15 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
-			return false, errors.New("SigLockedColoredOutput: referenced input must be AliasOutput")
+			return false, errors.New("sigLockedColoredOutput: referenced input must be AliasOutput")
 		}
 		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
-			return false, errors.New("SigLockedColoredOutput: wrong alias referenced")
+			return false, errors.New("sigLockedColoredOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
 
 	default:
-		err = errors.Errorf("SigLockedColoredOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("sigLockedColoredOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
 	}
 
 	return
@@ -947,13 +950,13 @@ var _ Output = &SigLockedColoredOutput{}
 // region AliasOutput ///////////////////////////////////////////////////////////////////////////////////////
 
 // DustThresholdAliasOutputIOTA is minimum number of iotas enforced for the output to be correct
-// TODO protocol-wide dust threshold configuration
+// TODO protocol-wide dust threshold configuration.
 const DustThresholdAliasOutputIOTA = uint64(100)
 
 // MaxOutputPayloadSize size limit on the data payload in the output.
 const MaxOutputPayloadSize = 4 * 1024
 
-// flags use to compress serialized bytes
+// flags use to compress serialized bytes.
 const (
 	flagAliasOutputGovernanceUpdate = uint(iota)
 	flagAliasOutputGovernanceSet
@@ -966,7 +969,7 @@ const (
 )
 
 // AliasOutput represents output which defines as AliasAddress.
-// It can only be used in a chained manner
+// It can only be used in a chained manner.
 type AliasOutput struct {
 	// common for all outputs
 	outputID      OutputID
@@ -1010,10 +1013,10 @@ type AliasOutput struct {
 // NewAliasOutputMint creates new AliasOutput as minting output, i.e. the one which does not contain corresponding input.
 func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableData ...[]byte) (*AliasOutput, error) {
 	if !IsAboveDustThreshold(balances) {
-		return nil, errors.New("AliasOutput: colored balances are below dust threshold")
+		return nil, errors.New("aliasOutput: colored balances are below dust threshold")
 	}
 	if stateAddr == nil {
-		return nil, errors.New("AliasOutput: mandatory state address cannot be nil")
+		return nil, errors.New("aliasOutput: mandatory state address cannot be nil")
 	}
 	ret := &AliasOutput{
 		balances:     NewColoredBalances(balances),
@@ -1029,7 +1032,7 @@ func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 	return ret, nil
 }
 
-// NewAliasOutputNext creates new AliasOutput as state transition from the previous one
+// NewAliasOutputNext creates new AliasOutput as state transition from the previous one.
 func (a *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput {
 	ret := a.clone()
 	ret.isOrigin = false
@@ -1061,15 +1064,15 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	var ret *AliasOutput
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		return nil, errors.Errorf("AliasOutput: failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, errors.Errorf("aliasOutput: failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if OutputType(outputType) != AliasOutputType {
-		return nil, errors.Errorf("AliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
+		return nil, errors.Errorf("aliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 	}
 	ret = &AliasOutput{}
 	flagsByte, err1 := marshalUtil.ReadByte()
 	if err1 != nil {
-		return nil, errors.Errorf("AliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
+		return nil, errors.Errorf("aliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
 	}
 	flags := bitmask.BitMask(flagsByte)
 	ret.isOrigin = flags.HasBit(flagAliasOutputIsOrigin)
@@ -1078,7 +1081,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 
 	addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
 	if err2 != nil {
-		return nil, errors.Errorf("AliasOutput: failed to parse alias address (%v): %w", err2, cerrors.ErrParseBytesFailed)
+		return nil, errors.Errorf("aliasOutput: failed to parse alias address (%v): %w", err2, cerrors.ErrParseBytesFailed)
 	}
 	ret.aliasAddress = *addr
 	cb, err3 := ColoredBalancesFromMarshalUtil(marshalUtil)
@@ -1088,52 +1091,52 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	ret.balances = cb
 	ret.stateAddress, err = AddressFromMarshalUtil(marshalUtil)
 	if err != nil {
-		return nil, errors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, errors.Errorf("aliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	ret.stateIndex, err = marshalUtil.ReadUint32()
 	if err != nil {
-		return nil, errors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, errors.Errorf("aliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if flags.HasBit(flagAliasOutputStateDataPresent) {
 		size, err4 := marshalUtil.ReadUint16()
 		if err4 != nil {
-			return nil, errors.Errorf("AliasOutput: failed to parse state data size: %w", err4)
+			return nil, errors.Errorf("aliasOutput: failed to parse state data size: %w", err4)
 		}
 		ret.stateData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
-			return nil, errors.Errorf("AliasOutput: failed to parse state data: %w", err)
+			return nil, errors.Errorf("aliasOutput: failed to parse state data: %w", err)
 		}
 	}
 	if flags.HasBit(flagAliasOutputGovernanceMetadataPresent) {
 		size, err5 := marshalUtil.ReadUint16()
 		if err5 != nil {
-			return nil, errors.Errorf("AliasOutput: failed to parse governance metadata size: %w", err5)
+			return nil, errors.Errorf("aliasOutput: failed to parse governance metadata size: %w", err5)
 		}
 		ret.governanceMetadata, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
-			return nil, errors.Errorf("AliasOutput: failed to parse governance metadata data: %w", err)
+			return nil, errors.Errorf("aliasOutput: failed to parse governance metadata data: %w", err)
 		}
 	}
 	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
 		size, err6 := marshalUtil.ReadUint16()
 		if err6 != nil {
-			return nil, errors.Errorf("AliasOutput: failed to parse immutable data size: %w", err6)
+			return nil, errors.Errorf("aliasOutput: failed to parse immutable data size: %w", err6)
 		}
 		ret.immutableData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
-			return nil, errors.Errorf("AliasOutput: failed to parse immutable data: %w", err)
+			return nil, errors.Errorf("aliasOutput: failed to parse immutable data: %w", err)
 		}
 	}
 	if flags.HasBit(flagAliasOutputGovernanceSet) {
 		ret.governingAddress, err = AddressFromMarshalUtil(marshalUtil)
 		if err != nil {
-			return nil, errors.Errorf("AliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return nil, errors.Errorf("aliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		}
 	}
 	if flags.HasBit(flagAliasOutputDelegationTimelockPresent) {
 		ret.delegationTimelock, err = marshalUtil.ReadTime()
 		if err != nil {
-			return nil, errors.Errorf("AliasOutput: failed to parse delegation timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return nil, errors.Errorf("aliasOutput: failed to parse delegation timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
 		}
 	}
 	if err7 := ret.checkBasicValidity(); err7 != nil {
@@ -1142,16 +1145,16 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	return ret, nil
 }
 
-// SetBalances sets colored balances of the output
+// SetBalances sets colored balances of the output.
 func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 	if !IsAboveDustThreshold(balances) {
-		return errors.New("AliasOutput: balances are less than dust threshold")
+		return errors.New("aliasOutput: balances are less than dust threshold")
 	}
 	a.balances = NewColoredBalances(balances)
 	return nil
 }
 
-// GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value
+// GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value.
 func (a *AliasOutput) GetAliasAddress() *AliasAddress {
 	if a.aliasAddress.IsNil() {
 		return NewAliasAddress(a.ID().Bytes())
@@ -1164,7 +1167,7 @@ func (a *AliasOutput) SetAliasAddress(addr *AliasAddress) {
 	a.aliasAddress = *addr
 }
 
-// IsOrigin returns true if it starts the chain
+// IsOrigin returns true if it starts the chain.
 func (a *AliasOutput) IsOrigin() bool {
 	return a.isOrigin
 }
@@ -1184,26 +1187,26 @@ func (a *AliasOutput) SetIsDelegated(isDelegated bool) {
 	a.isDelegated = isDelegated
 }
 
-// IsSelfGoverned returns if governing address is not set which means that stateAddress is same as governingAddress
+// IsSelfGoverned returns if governing address is not set which means that stateAddress is same as governingAddress.
 func (a *AliasOutput) IsSelfGoverned() bool {
 	return a.governingAddress == nil
 }
 
-// GetStateAddress return state controlling address
+// GetStateAddress return state controlling address.
 func (a *AliasOutput) GetStateAddress() Address {
 	return a.stateAddress
 }
 
-// SetStateAddress sets the state controlling address
+// SetStateAddress sets the state controlling address.
 func (a *AliasOutput) SetStateAddress(addr Address) error {
 	if addr == nil {
-		return errors.New("AliasOutput: mandatory state address cannot be nil")
+		return errors.New("aliasOutput: mandatory state address cannot be nil")
 	}
 	a.stateAddress = addr
 	return nil
 }
 
-// SetGoverningAddress sets the governing address or nil for self-governing
+// SetGoverningAddress sets the governing address or nil for self-governing.
 func (a *AliasOutput) SetGoverningAddress(addr Address) {
 	if addr == nil {
 		a.governingAddress = nil
@@ -1216,7 +1219,7 @@ func (a *AliasOutput) SetGoverningAddress(addr Address) {
 	a.governingAddress = addr
 }
 
-// GetGoverningAddress return governing address. If self-governed, it is the same as state controlling address
+// GetGoverningAddress return governing address. If self-governed, it is the same as state controlling address.
 func (a *AliasOutput) GetGoverningAddress() Address {
 	if a.IsSelfGoverned() {
 		return a.stateAddress
@@ -1224,37 +1227,37 @@ func (a *AliasOutput) GetGoverningAddress() Address {
 	return a.governingAddress
 }
 
-// SetStateData sets state data
+// SetStateData sets state data.
 func (a *AliasOutput) SetStateData(data []byte) error {
 	if len(data) > MaxOutputPayloadSize {
-		return errors.New("AliasOutput: state data too big")
+		return errors.New("aliasOutput: state data too big")
 	}
 	a.stateData = make([]byte, len(data))
 	copy(a.stateData, data)
 	return nil
 }
 
-// GetStateData gets the state data
+// GetStateData gets the state data.
 func (a *AliasOutput) GetStateData() []byte {
 	return a.stateData
 }
 
-// SetGovernanceMetadata sets governance metadata
+// SetGovernanceMetadata sets governance metadata.
 func (a *AliasOutput) SetGovernanceMetadata(data []byte) error {
 	if len(data) > MaxOutputPayloadSize {
-		return errors.New("AliasOutput: governance metadata too big")
+		return errors.New("aliasOutput: governance metadata too big")
 	}
 	a.governanceMetadata = make([]byte, len(data))
 	copy(a.governanceMetadata, data)
 	return nil
 }
 
-// GetGovernanceMetadata gets the governance metadata
+// GetGovernanceMetadata gets the governance metadata.
 func (a *AliasOutput) GetGovernanceMetadata() []byte {
 	return a.governanceMetadata
 }
 
-// SetStateIndex sets the state index in the input. It is enforced to increment by 1 with each state transition
+// SetStateIndex sets the state index in the input. It is enforced to increment by 1 with each state transition.
 func (a *AliasOutput) SetStateIndex(index uint32) {
 	a.stateIndex = index
 }
@@ -1269,12 +1272,12 @@ func (a *AliasOutput) SetIsGovernanceUpdated(i bool) {
 	a.isGovernanceUpdate = i
 }
 
-// GetStateIndex returns the state index
+// GetStateIndex returns the state index.
 func (a *AliasOutput) GetStateIndex() uint32 {
 	return a.stateIndex
 }
 
-// GetImmutableData gets the state data
+// GetImmutableData gets the state data.
 func (a *AliasOutput) GetImmutableData() []byte {
 	return a.immutableData
 }
@@ -1282,7 +1285,7 @@ func (a *AliasOutput) GetImmutableData() []byte {
 // SetImmutableData sets the immutable data field of the alias output.
 func (a *AliasOutput) SetImmutableData(data []byte) error {
 	if len(data) > MaxOutputPayloadSize {
-		return errors.New("AliasOutput: immutable data too big")
+		return errors.New("aliasOutput: immutable data too big")
 	}
 	a.immutableData = make([]byte, len(data))
 	copy(a.immutableData, data)
@@ -1292,7 +1295,7 @@ func (a *AliasOutput) SetImmutableData(data []byte) error {
 // SetDelegationTimelock sets the delegation timelock. An error is returned if the output is not a delegated.
 func (a *AliasOutput) SetDelegationTimelock(timelock time.Time) error {
 	if !a.isDelegated {
-		return errors.Errorf("AliasOutput: delegation timelock can only be set on a delegated output")
+		return errors.Errorf("aliasOutput: delegation timelock can only be set on a delegated output")
 	}
 	a.delegationTimelock = timelock
 	return nil
@@ -1315,7 +1318,7 @@ func (a *AliasOutput) DelegationTimeLockedNow(nowis time.Time) bool {
 	return a.delegationTimelock.After(nowis)
 }
 
-// Clone clones the structure
+// Clone clones the structure.
 func (a *AliasOutput) Clone() Output {
 	return a.clone()
 }
@@ -1346,7 +1349,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 	return ret
 }
 
-// ID is the ID of the output
+// ID is the ID of the output.
 func (a *AliasOutput) ID() OutputID {
 	a.outputIDMutex.RLock()
 	defer a.outputIDMutex.RUnlock()
@@ -1354,7 +1357,7 @@ func (a *AliasOutput) ID() OutputID {
 	return a.outputID
 }
 
-// SetID set the output ID after unmarshalling
+// SetID set the output ID after unmarshalling.
 func (a *AliasOutput) SetID(outputID OutputID) Output {
 	a.outputIDMutex.Lock()
 	defer a.outputIDMutex.Unlock()
@@ -1363,22 +1366,22 @@ func (a *AliasOutput) SetID(outputID OutputID) Output {
 	return a
 }
 
-// Type return the type of the output
+// Type return the type of the output.
 func (a *AliasOutput) Type() OutputType {
 	return AliasOutputType
 }
 
-// Balances return colored balances of the output
+// Balances return colored balances of the output.
 func (a *AliasOutput) Balances() *ColoredBalances {
 	return a.balances
 }
 
-// Address AliasOutput is searchable in the ledger through its AliasAddress
+// Address AliasOutput is searchable in the ledger through its AliasAddress.
 func (a *AliasOutput) Address() Address {
 	return a.GetAliasAddress()
 }
 
-// Input makes input from the output
+// Input makes input from the output.
 func (a *AliasOutput) Input() Input {
 	if a.ID() == EmptyOutputID {
 		panic("AliasOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
@@ -1387,12 +1390,12 @@ func (a *AliasOutput) Input() Input {
 	return NewUTXOInput(a.ID())
 }
 
-// Bytes serialized form
+// Bytes serialized form.
 func (a *AliasOutput) Bytes() []byte {
 	return a.ObjectStorageValue()
 }
 
-// String human readable form
+// String human readable form.
 func (a *AliasOutput) String() string {
 	ret := "AliasOutput:\n"
 	ret += fmt.Sprintf("   address: %s\n", a.Address())
@@ -1404,22 +1407,22 @@ func (a *AliasOutput) String() string {
 	return ret
 }
 
-// Compare the two outputs
+// Compare the two outputs.
 func (a *AliasOutput) Compare(other Output) int {
 	return bytes.Compare(a.Bytes(), other.Bytes())
 }
 
-// Update is disabled
+// Update is disabled.
 func (a *AliasOutput) Update(other objectstorage.StorableObject) {
 	panic("AliasOutput: storage object updates disabled")
 }
 
-// ObjectStorageKey a key
+// ObjectStorageKey a key.
 func (a *AliasOutput) ObjectStorageKey() []byte {
 	return a.ID().Bytes()
 }
 
-// ObjectStorageValue binary form
+// ObjectStorageValue binary form.
 func (a *AliasOutput) ObjectStorageValue() []byte {
 	flags := a.mustFlags()
 	ret := marshalutil.New().
@@ -1450,7 +1453,7 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 	return ret.Bytes()
 }
 
-// UnlockValid check unlock and validates chain
+// UnlockValid check unlock and validates chain.
 func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error) {
 	// find the chained output in the tx
 	chained, err := a.findChainedOutputAndCheckFork(tx)
@@ -1528,7 +1531,7 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 }
 
 // UpdateMintingColor replaces minting code with computed color code, and calculates the alias address if it is a
-// freshly minted alias output
+// freshly minted alias output.
 func (a *AliasOutput) UpdateMintingColor() Output {
 	coloredBalances := a.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
@@ -1546,16 +1549,16 @@ func (a *AliasOutput) UpdateMintingColor() Output {
 	return updatedOutput
 }
 
-// checkBasicValidity checks basic validity of the output
+// checkBasicValidity checks basic validity of the output.
 func (a *AliasOutput) checkBasicValidity() error {
 	if !IsAboveDustThreshold(a.balances.Map()) {
-		return errors.New("AliasOutput: balances are below dust threshold")
+		return errors.New("aliasOutput: balances are below dust threshold")
 	}
 	if a.stateAddress == nil {
-		return errors.New("AliasOutput: state address must not be nil")
+		return errors.New("aliasOutput: state address must not be nil")
 	}
 	if a.IsOrigin() && a.stateIndex != 0 {
-		return errors.New("AliasOutput: origin must have stateIndex == 0")
+		return errors.New("aliasOutput: origin must have stateIndex == 0")
 	}
 	// a.aliasAddress is not set if the output is origin. It is only set after the output has been included in a tx, and
 	// its outputID is known. To cover this edge case, TransactionFromMarshalUtil() performs the two checks below after
@@ -1567,31 +1570,31 @@ func (a *AliasOutput) checkBasicValidity() error {
 		return errors.New("governing address cannot be the output's own alias address")
 	}
 	if len(a.stateData) > MaxOutputPayloadSize {
-		return errors.Errorf("AliasOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
+		return errors.Errorf("aliasOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
 			len(a.stateData), MaxOutputPayloadSize)
 	}
 	if len(a.governanceMetadata) > MaxOutputPayloadSize {
-		return errors.Errorf("AliasOutput: size of the governance metadata (%d) exceeds maximum allowed (%d)",
+		return errors.Errorf("aliasOutput: size of the governance metadata (%d) exceeds maximum allowed (%d)",
 			len(a.governanceMetadata), MaxOutputPayloadSize)
 	}
 	if len(a.immutableData) > MaxOutputPayloadSize {
-		return errors.Errorf("AliasOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
+		return errors.Errorf("aliasOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
 			len(a.immutableData), MaxOutputPayloadSize)
 	}
 	if !a.isDelegated && !a.delegationTimelock.IsZero() {
-		return errors.Errorf("AliasOutput: delegation timelock is present, but output is not delegated")
+		return errors.Errorf("aliasOutput: delegation timelock is present, but output is not delegated")
 	}
 	return nil
 }
 
-// mustValidate internal validity assertion
+// mustValidate internal validity assertion.
 func (a *AliasOutput) mustValidate() {
 	if err := a.checkBasicValidity(); err != nil {
 		panic(err)
 	}
 }
 
-// mustFlags produces flags for serialization
+// mustFlags produces flags for serialization.
 func (a *AliasOutput) mustFlags() bitmask.BitMask {
 	a.mustValidate()
 	var ret bitmask.BitMask
@@ -1624,7 +1627,7 @@ func (a *AliasOutput) mustFlags() bitmask.BitMask {
 
 // findChainedOutputAndCheckFork finds corresponding chained output.
 // If it is not unique, returns an error
-// If there's no such output, return nil and no error
+// If there's no such output, return nil and no error.
 func (a *AliasOutput) findChainedOutputAndCheckFork(tx *Transaction) (*AliasOutput, error) {
 	var ret *AliasOutput
 	aliasAddress := a.GetAliasAddress()
@@ -1644,7 +1647,7 @@ func (a *AliasOutput) findChainedOutputAndCheckFork(tx *Transaction) (*AliasOutp
 	return ret, nil
 }
 
-// equalColoredBalances utility to compare colored balances
+// equalColoredBalances utility to compare colored balances.
 func equalColoredBalances(b1, b2 *ColoredBalances) bool {
 	allColors := make(map[Color]bool)
 	b1.ForEach(func(col Color, bal uint64) bool {
@@ -1665,7 +1668,7 @@ func equalColoredBalances(b1, b2 *ColoredBalances) bool {
 	return true
 }
 
-// IsAboveDustThreshold internal utility to check if balances pass dust constraint
+// IsAboveDustThreshold internal utility to check if balances pass dust constraint.
 func IsAboveDustThreshold(m map[Color]uint64) bool {
 	if iotas, ok := m[ColorIOTA]; ok && iotas >= DustThresholdAliasOutputIOTA {
 		return true
@@ -1673,7 +1676,7 @@ func IsAboveDustThreshold(m map[Color]uint64) bool {
 	return false
 }
 
-// IsExactDustMinimum checks if colored balances are exactly what is required by dust constraint
+// IsExactDustMinimum checks if colored balances are exactly what is required by dust constraint.
 func IsExactDustMinimum(b *ColoredBalances) bool {
 	bals := b.Map()
 	if len(bals) != 1 {
@@ -1686,34 +1689,34 @@ func IsExactDustMinimum(b *ColoredBalances) bool {
 	return true
 }
 
-// validateTransition enforces transition constraints between input and output chain outputs
+// validateTransition enforces transition constraints between input and output chain outputs.
 func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) error {
 	// enforce immutability of alias address and immutable data
 	if !a.GetAliasAddress().Equals(chained.GetAliasAddress()) {
-		return errors.New("AliasOutput: can't modify alias address")
+		return errors.New("aliasOutput: can't modify alias address")
 	}
 	if !bytes.Equal(a.immutableData, chained.immutableData) {
-		return errors.New("AliasOutput: can't modify immutable data")
+		return errors.New("aliasOutput: can't modify immutable data")
 	}
 	// depending on update type, enforce valid transition
 	if chained.isGovernanceUpdate {
 		// GOVERNANCE TRANSITION
 		// should not modify state data
 		if !bytes.Equal(a.stateData, chained.stateData) {
-			return errors.New("AliasOutput: state data is not unlocked for modification")
+			return errors.New("aliasOutput: state data is not unlocked for modification")
 		}
 		// should not modify state index
 		if a.stateIndex != chained.stateIndex {
-			return errors.New("AliasOutput: state index is not unlocked for modification")
+			return errors.New("aliasOutput: state index is not unlocked for modification")
 		}
 		// should not modify tokens
 		if !equalColoredBalances(a.balances, chained.balances) {
-			return errors.New("AliasOutput: tokens are not unlocked for modification")
+			return errors.New("aliasOutput: tokens are not unlocked for modification")
 		}
 		// if delegation timelock is set and active, governance transition is invalid
 		// It means delegating party can't take funds back before timelock deadline
 		if a.IsDelegated() && a.DelegationTimeLockedNow(tx.Essence().Timestamp()) {
-			return errors.Errorf("AliasOutput: governance transition not allowed until %s, transaction timestamp is: %s",
+			return errors.Errorf("aliasOutput: governance transition not allowed until %s, transaction timestamp is: %s",
 				a.delegationTimelock.String(), tx.Essence().Timestamp().String())
 		}
 		// can modify state address
@@ -1726,99 +1729,99 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) 
 		// can modify state data
 		// should increment state index
 		if a.stateIndex+1 != chained.stateIndex {
-			return errors.Errorf("AliasOutput: expected state index is %d found %d", a.stateIndex+1, chained.stateIndex)
+			return errors.Errorf("aliasOutput: expected state index is %d found %d", a.stateIndex+1, chained.stateIndex)
 		}
 		// can modify tokens
 		// should not modify stateAddress
 		if !a.stateAddress.Equals(chained.stateAddress) {
-			return errors.New("AliasOutput: state address is not unlocked for modification")
+			return errors.New("aliasOutput: state address is not unlocked for modification")
 		}
 		// should not modify governing address
 		if a.IsSelfGoverned() != chained.IsSelfGoverned() ||
 			(a.governingAddress != nil && !a.governingAddress.Equals(chained.governingAddress)) {
-			return errors.New("AliasOutput: governing address is not unlocked for modification")
+			return errors.New("aliasOutput: governing address is not unlocked for modification")
 		}
 		// should not modify governance metadata
 		if !bytes.Equal(a.governanceMetadata, chained.governanceMetadata) {
-			return errors.New("AliasOutput: governance metadata is not unlocked for modification")
+			return errors.New("aliasOutput: governance metadata is not unlocked for modification")
 		}
 		// should not modify token balances if delegation constraint is set
 		if a.IsDelegated() && !equalColoredBalances(a.balances, chained.balances) {
-			return errors.New("AliasOutput: delegated output funds can't be changed")
+			return errors.New("aliasOutput: delegated output funds can't be changed")
 		}
 		// should not modify delegation status in state transition
 		if a.IsDelegated() != chained.IsDelegated() {
-			return errors.New("AliasOutput: delegation status can't be changed")
+			return errors.New("aliasOutput: delegation status can't be changed")
 		}
 		// should not modify delegation timelock
 		if !a.DelegationTimelock().Equal(chained.DelegationTimelock()) {
-			return errors.New("AliasOutput: delegation timelock can't be changed")
+			return errors.New("aliasOutput: delegation timelock can't be changed")
 		}
 		// can only be accepted:
 		//    - if no delegation timelock, state update can happen whenever
 		//    - if delegation timelock is present, need to check if the timelock is active, otherwise state update not allowed
 		if a.IsDelegated() && !a.DelegationTimelock().IsZero() && !a.DelegationTimeLockedNow(tx.Essence().Timestamp()) {
-			return errors.Errorf("AliasOutput: state transition of delegated output not allowed after %s, transaction timestamp is %s",
+			return errors.Errorf("aliasOutput: state transition of delegated output not allowed after %s, transaction timestamp is %s",
 				a.delegationTimelock.String(), tx.Essence().Timestamp().String())
 		}
 	}
 	return nil
 }
 
-// validateDestroyTransitionNow check validity if input is not chained (destroyed)
+// validateDestroyTransitionNow check validity if input is not chained (destroyed).
 func (a *AliasOutput) validateDestroyTransitionNow(nowis time.Time) error {
 	if !a.IsDelegated() && !IsExactDustMinimum(a.balances) {
 		// if the output is delegated, it can be destroyed with more than minimum balance
-		return errors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for non-delegated alias destruction")
+		return errors.New("aliasOutput: didn't find chained output and there are more tokens then upper limit for non-delegated alias destruction")
 	}
 	if a.IsDelegated() && a.DelegationTimeLockedNow(nowis) {
-		return errors.New("AliasOutput: didn't find expected chained output for delegated output")
+		return errors.New("aliasOutput: didn't find expected chained output for delegated output")
 	}
 	return nil
 }
 
-// unlockedGovernanceTransitionByAliasIndex unlocks one step of alias dereference for governance transition
+// unlockedGovernanceTransitionByAliasIndex unlocks one step of alias dereference for governance transition.
 func (a *AliasOutput) unlockedGovernanceTransitionByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
 	// when output is self governed, a.GetGoverningAddress() returns the state address
 	if a.GetGoverningAddress().Type() != AliasAddressType {
-		return false, errors.New("AliasOutput: expected governing address of AliasAddress type")
+		return false, errors.New("aliasOutput: expected governing address of AliasAddress type")
 	}
 	if int(refIndex) > len(inputs) {
-		return false, errors.New("AliasOutput: wrong alias reference index")
+		return false, errors.New("aliasOutput: wrong alias reference index")
 	}
 	refInput, ok := inputs[refIndex].(*AliasOutput)
 	if !ok {
-		return false, errors.New("AliasOutput: the referenced output is not of AliasOutput type")
+		return false, errors.New("aliasOutput: the referenced output is not of AliasOutput type")
 	}
 	if !refInput.GetAliasAddress().Equals(a.GetGoverningAddress().(*AliasAddress)) {
-		return false, errors.New("AliasOutput: wrong alias reference address")
+		return false, errors.New("aliasOutput: wrong alias reference address")
 	}
 	// the referenced output must be unlocked for state update
 	return !refInput.hasToBeUnlockedForGovernanceUpdate(tx), nil
 }
 
-// unlockedStateTransitionByAliasIndex unlocks one step of alias dereference for state transition
+// unlockedStateTransitionByAliasIndex unlocks one step of alias dereference for state transition.
 func (a *AliasOutput) unlockedStateTransitionByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
 	// when output is self governed, a.GetGoverningAddress() returns the state address
 	if a.GetStateAddress().Type() != AliasAddressType {
-		return false, errors.New("AliasOutput: expected state address of AliasAddress type")
+		return false, errors.New("aliasOutput: expected state address of AliasAddress type")
 	}
 	if int(refIndex) > len(inputs) {
-		return false, errors.New("AliasOutput: wrong alias reference index")
+		return false, errors.New("aliasOutput: wrong alias reference index")
 	}
 	refInput, ok := inputs[refIndex].(*AliasOutput)
 	if !ok {
-		return false, errors.New("AliasOutput: the referenced output is not of AliasOutput type")
+		return false, errors.New("aliasOutput: the referenced output is not of AliasOutput type")
 	}
 	if !refInput.GetAliasAddress().Equals(a.GetStateAddress().(*AliasAddress)) {
-		return false, errors.New("AliasOutput: wrong alias reference address")
+		return false, errors.New("aliasOutput: wrong alias reference address")
 	}
 	// the referenced output must be unlocked for state update
 	return !refInput.hasToBeUnlockedForGovernanceUpdate(tx), nil
 }
 
 // hasToBeUnlockedForGovernanceUpdate finds chained output and checks if it is unlocked governance flags set
-// If there's no chained output it means governance unlock is required to destroy the output
+// If there's no chained output it means governance unlock is required to destroy the output.
 func (a *AliasOutput) hasToBeUnlockedForGovernanceUpdate(tx *Transaction) bool {
 	chained, err := a.findChainedOutputAndCheckFork(tx)
 	if err != nil {
@@ -1832,7 +1835,7 @@ func (a *AliasOutput) hasToBeUnlockedForGovernanceUpdate(tx *Transaction) bool {
 	return chained.isGovernanceUpdate
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ Output = &AliasOutput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1845,7 +1848,7 @@ var _ Output = &AliasOutput{}
 // - fallback address and fallback timeout
 // - can be unlocked by AliasUnlockBlock (if address is of AliasAddress type)
 // - can be time locked until deadline
-// - data payload for arbitrary metadata (size limits apply)
+// - data payload for arbitrary metadata (size limits apply).
 type ExtendedLockedOutput struct {
 	id       OutputID
 	idMutex  sync.RWMutex
@@ -2041,19 +2044,19 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
 		if addr.Type() != AliasAddressType {
-			return false, errors.Errorf("ExtendedLockedOutput: %s address can't be unlocked by alias reference", addr.Type().String())
+			return false, errors.Errorf("extendedLockedOutput: %s address can't be unlocked by alias reference", addr.Type().String())
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
-			return false, errors.New("ExtendedLockedOutput: referenced input must be AliasOutput")
+			return false, errors.New("extendedLockedOutput: referenced input must be AliasOutput")
 		}
 		if !addr.Equals(refAliasOutput.GetAliasAddress()) {
-			return false, errors.New("ExtendedLockedOutput: wrong alias referenced")
+			return false, errors.New("extendedLockedOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
 
 	default:
-		err = errors.Errorf("ExtendedLockedOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("extendedLockedOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
 	}
 	return unlockValid, err
 }
@@ -2179,27 +2182,27 @@ func (o *ExtendedLockedOutput) String() string {
 	)
 }
 
-// GetPayload return a data payload associated with the output
+// GetPayload return a data payload associated with the output.
 func (o *ExtendedLockedOutput) GetPayload() []byte {
 	return o.payload
 }
 
-// TimeLock is a time after which output can be unlocked
+// TimeLock is a time after which output can be unlocked.
 func (o *ExtendedLockedOutput) TimeLock() time.Time {
 	return o.timelock
 }
 
-// TimeLockedNow checks if output is unlocked for the specific moment
+// TimeLockedNow checks if output is unlocked for the specific moment.
 func (o *ExtendedLockedOutput) TimeLockedNow(nowis time.Time) bool {
 	return o.TimeLock().After(nowis)
 }
 
-// FallbackOptions returns fallback options of the output. The address is nil if fallback options are not set
+// FallbackOptions returns fallback options of the output. The address is nil if fallback options are not set.
 func (o *ExtendedLockedOutput) FallbackOptions() (Address, time.Time) {
 	return o.fallbackAddress, o.fallbackDeadline
 }
 
-// UnlockAddressNow return unlock address which is valid for the specific moment of time
+// UnlockAddressNow return unlock address which is valid for the specific moment of time.
 func (o *ExtendedLockedOutput) UnlockAddressNow(nowis time.Time) Address {
 	if o.fallbackAddress == nil {
 		return o.address
@@ -2210,7 +2213,7 @@ func (o *ExtendedLockedOutput) UnlockAddressNow(nowis time.Time) Address {
 	return o.address
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ Output = &ExtendedLockedOutput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2328,12 +2331,10 @@ type OutputMetadata struct {
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
 	consumerCount           int
-	firstConsumer           TransactionID
 	consumerMutex           sync.RWMutex
-	finalized               bool
-	finalizedMutex          sync.RWMutex
-	confirmedConsumer       TransactionID // not nil if the spending transaction of the output is finalized
-	confirmedConsumerMutex  sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityTime     time.Time
+	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -2382,19 +2383,16 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	outputMetadata.consumerCount = int(consumerCount)
-	if outputMetadata.firstConsumer, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse first consumer: %w", err)
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if outputMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if outputMetadata.confirmedConsumer, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse confirmed consumer: %w", err)
-		return
-	}
-
 	return
 }
 
@@ -2490,70 +2488,40 @@ func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsu
 	o.consumerMutex.Lock()
 	defer o.consumerMutex.Unlock()
 
-	if previousConsumerCount = o.consumerCount; previousConsumerCount == 0 {
-		o.firstConsumer = consumer
-	}
 	o.consumerCount++
 	o.SetModified()
 
 	return
 }
 
-// FirstConsumer returns the first TransactionID that ever spent the Output.
-func (o *OutputMetadata) FirstConsumer() TransactionID {
-	o.consumerMutex.RLock()
-	defer o.consumerMutex.RUnlock()
-
-	return o.firstConsumer
+// GradeOfFinality returns the grade of finality.
+func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
+	o.gradeOfFinalityMutex.RLock()
+	defer o.gradeOfFinalityMutex.RUnlock()
+	return o.gradeOfFinality
 }
 
-// Finalized returns a boolean flag that indicates if the Transaction has been finalized regarding its decision of being
-// included in the ledger state.
-func (o *OutputMetadata) Finalized() (finalized bool) {
-	o.finalizedMutex.RLock()
-	defer o.finalizedMutex.RUnlock()
+// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
+func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	o.gradeOfFinalityMutex.Lock()
+	defer o.gradeOfFinalityMutex.Unlock()
 
-	return o.finalized
-}
-
-// ConfirmedConsumer returns the consumer that spent the transaction if the consumer is confirmed already
-func (o *OutputMetadata) ConfirmedConsumer() TransactionID {
-	o.confirmedConsumerMutex.RLock()
-	defer o.confirmedConsumerMutex.RUnlock()
-
-	return o.confirmedConsumer
-}
-
-// SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
-func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
-	o.finalizedMutex.Lock()
-	defer o.finalizedMutex.Unlock()
-
-	if o.finalized == finalized {
+	if o.gradeOfFinality == gradeOfFinality {
 		return
 	}
 
-	o.finalized = finalized
+	o.gradeOfFinality = gradeOfFinality
+	o.gradeOfFinalityTime = clock.SyncedTime()
 	o.SetModified()
 	modified = true
-
 	return
 }
 
-// SetConfirmedConsumer updates the confirmedConsumer of the output.
-func (o *OutputMetadata) SetConfirmedConsumer(confirmedConsumer TransactionID) (modified bool) {
-	o.confirmedConsumerMutex.Lock()
-	defer o.confirmedConsumerMutex.Unlock()
-
-	if o.confirmedConsumer == confirmedConsumer {
-		return
-	}
-
-	o.confirmedConsumer = confirmedConsumer
-	o.SetModified()
-	modified = true
-
-	return
+// GradeOfFinalityTime returns the time the Output's gradeOfFinality was set.
+func (o *OutputMetadata) GradeOfFinalityTime() time.Time {
+	o.gradeOfFinalityMutex.RLock()
+	defer o.gradeOfFinalityMutex.RUnlock()
+	return o.gradeOfFinalityTime
 }
 
 // Bytes marshals the OutputMetadata into a sequence of bytes.
@@ -2569,9 +2537,8 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("solid", o.Solid()),
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("consumerCount", o.ConsumerCount()),
-		stringify.StructField("firstConsumer", o.FirstConsumer()),
-		stringify.StructField("finalized", o.Finalized()),
-		stringify.StructField("confirmedConsumer", o.ConfirmedConsumer()),
+		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
+		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
 	)
 }
 
@@ -2594,9 +2561,8 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		WriteBool(o.Solid()).
 		WriteTime(o.SolidificationTime()).
 		WriteUint64(uint64(o.ConsumerCount())).
-		Write(o.FirstConsumer()).
-		WriteBool(o.Finalized()).
-		Write(o.ConfirmedConsumer()).
+		WriteUint8(uint8(o.GradeOfFinality())).
+		WriteTime(o.GradeOfFinalityTime()).
 		Bytes()
 }
 

@@ -31,7 +31,10 @@ func main() {
 		panic(err)
 	}
 	defer func() {
-		if err := os.Remove(file.Name()); err != nil {
+		if err = file.Close(); err != nil {
+			panic(err)
+		}
+		if err = os.Remove(file.Name()); err != nil {
 			panic(err)
 		}
 	}()
@@ -129,7 +132,7 @@ func main() {
 }
 
 // ensures the cwd is where the actual go executable
-// currently doesn't work well with symlinks (or shortcuts)
+// currently doesn't work well with symlinks (or shortcuts).
 func setCWD() {
 	ex, err := os.Executable()
 	if err != nil {

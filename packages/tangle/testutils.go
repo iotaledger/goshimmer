@@ -2,17 +2,21 @@ package tangle
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
-
-	"github.com/iotaledger/goshimmer/packages/database"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
+	"github.com/iotaledger/goshimmer/packages/consensus"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -24,6 +28,7 @@ import (
 // simplified way.
 type MessageTestFramework struct {
 	tangle                   *Tangle
+	branchIDs                map[string]ledgerstate.BranchID
 	messagesByAlias          map[string]*Message
 	walletsByAlias           map[string]wallet
 	walletsByAddress         map[ledgerstate.Address]wallet
@@ -40,6 +45,7 @@ type MessageTestFramework struct {
 func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
 	messageTestFramework = &MessageTestFramework{
 		tangle:           tangle,
+		branchIDs:        make(map[string]ledgerstate.BranchID),
 		messagesByAlias:  make(map[string]*Message),
 		walletsByAlias:   make(map[string]wallet),
 		walletsByAddress: make(map[ledgerstate.Address]wallet),
@@ -65,14 +71,58 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	return
 }
 
+// RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
+// also an alias when printing the BranchID.
+func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...string) {
+	if len(messageAliases) == 1 {
+		branchID := m.BranchIDFromMessage(messageAliases[0])
+		m.branchIDs[alias] = branchID
+		ledgerstate.RegisterBranchIDAlias(branchID, alias)
+		return
+	}
+
+	aggregation := ledgerstate.NewBranchIDs()
+	for _, messageAlias := range messageAliases {
+		branch := m.BranchIDFromMessage(messageAlias)
+		aggregation.Add(branch)
+	}
+	branchID := ledgerstate.NewAggregatedBranch(aggregation).ID()
+	m.branchIDs[alias] = branchID
+	ledgerstate.RegisterBranchIDAlias(branchID, alias)
+}
+
+// BranchID returns the BranchID registered with the given alias.
+func (m *MessageTestFramework) BranchID(alias string) ledgerstate.BranchID {
+	branchID, ok := m.branchIDs[alias]
+	if !ok {
+		panic("no branch registered with such alias " + alias)
+	}
+	return branchID
+}
+
 // CreateMessage creates a Message with the given alias and MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
 	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
 
-	if transaction := m.buildTransaction(options); transaction != nil {
-		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
+	if options.reattachmentMessageAlias != "" {
+		reattachmentPayload := m.Message(options.reattachmentMessageAlias).Payload()
+		if options.issuingTime.IsZero() {
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
+		} else {
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
+		}
 	} else {
-		m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
+		transaction := m.buildTransaction(options)
+
+		if transaction != nil && options.issuingTime.IsZero() {
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
+		} else if transaction != nil && !options.issuingTime.IsZero() {
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
+		} else if options.issuingTime.IsZero() {
+			m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
+		} else {
+			m.messagesByAlias[messageAlias] = newTestParentsDataMessageTimestampIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
+		}
 	}
 
 	RegisterMessageIDAlias(m.messagesByAlias[messageAlias].ID(), messageAlias)
@@ -153,14 +203,50 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.Tr
 	return messagePayload.(*ledgerstate.Transaction).ID()
 }
 
-// BranchID returns the BranchID of the Transaction contained in the Message associated with the given alias.
-func (m *MessageTestFramework) BranchID(messageAlias string) ledgerstate.BranchID {
+// TransactionMetadata returns the transaction metadata of the transaction contained within the given message.
+// Panics if the message's payload isn't a transaction.
+func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta *ledgerstate.TransactionMetadata) {
+	m.tangle.LedgerState.TransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		txMeta = transactionMetadata
+	})
+	return
+}
+
+// Transaction returns the transaction contained within the given message.
+// Panics if the message's payload isn't a transaction.
+func (m *MessageTestFramework) Transaction(messageAlias string) (tx *ledgerstate.Transaction) {
+	m.tangle.LedgerState.Transaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledgerstate.Transaction) {
+		tx = transaction
+	})
+	return
+}
+
+// OutputMetadata returns the given output metadata.
+func (m *MessageTestFramework) OutputMetadata(outputID ledgerstate.OutputID) (outMeta *ledgerstate.OutputMetadata) {
+	m.tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		outMeta = outputMetadata
+	})
+	return
+}
+
+// BranchIDFromMessage returns the BranchID of the Transaction contained in the Message associated with the given alias.
+func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerstate.BranchID {
 	messagePayload := m.messagesByAlias[messageAlias].Payload()
 	if messagePayload.Type() != ledgerstate.TransactionType {
 		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
 	}
 
 	return ledgerstate.NewBranchID(messagePayload.(*ledgerstate.Transaction).ID())
+}
+
+// Branch returns the branch emerging from the transaction contained within the given message.
+// This function thus only works on the message creating ledgerstate.ConflictBranch.
+// Panics if the message's payload isn't a transaction.
+func (m *MessageTestFramework) Branch(messageAlias string) (b ledgerstate.Branch) {
+	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch ledgerstate.Branch) {
+		b = branch
+	})
+	return
 }
 
 // createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
@@ -190,8 +276,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
 	}
 
-	outputs := []ledgerstate.Output{}
-	unspentOutputs := []bool{}
+	var outputs []ledgerstate.Output
+	var unspentOutputs []bool
 
 	for address, balance := range genesisOutputs {
 		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
@@ -219,10 +305,9 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		},
 	}
 
-	fmt.Println("............... snapshot: ")
-	fmt.Println(snapshot)
-
-	m.tangle.LedgerState.LoadSnapshot(snapshot)
+	if err := m.tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
+		panic(err)
+	}
 
 	for alias := range m.options.genesisOutputs {
 		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
@@ -327,6 +412,23 @@ func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessag
 	return
 }
 
+// likeParentIDs returns the MessageIDs that were defined to be the like parents of the
+// MessageTestFrameworkMessageOptions.
+func (m *MessageTestFramework) likeParentIDs(options *MessageTestFrameworkMessageOptions) (likeParentIDs MessageIDs) {
+	likeParentIDs = make(MessageIDs, 0)
+	for likeParentAlias := range options.likeParents {
+		if likeParentAlias == "Genesis" {
+			likeParentIDs = append(likeParentIDs, EmptyMessageID)
+
+			continue
+		}
+
+		likeParentIDs = append(likeParentIDs, m.messagesByAlias[likeParentAlias].ID())
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MessageTestFrameworkOptions //////////////////////////////////////////////////////////////////////////////////
@@ -393,12 +495,15 @@ func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint6
 // MessageTestFrameworkMessageOptions is a struct that represents a collection of options that can be set when creating
 // a Message with the MessageTestFramework.
 type MessageTestFrameworkMessageOptions struct {
-	inputs         map[string]types.Empty
-	outputs        map[string]uint64
-	coloredOutputs map[string]map[ledgerstate.Color]uint64
-	strongParents  map[string]types.Empty
-	weakParents    map[string]types.Empty
-	issuer         ed25519.PublicKey
+	inputs                   map[string]types.Empty
+	outputs                  map[string]uint64
+	coloredOutputs           map[string]map[ledgerstate.Color]uint64
+	strongParents            map[string]types.Empty
+	weakParents              map[string]types.Empty
+	likeParents              map[string]types.Empty
+	issuer                   ed25519.PublicKey
+	issuingTime              time.Time
+	reattachmentMessageAlias string
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
@@ -408,6 +513,7 @@ func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOpt
 		outputs:       make(map[string]uint64),
 		strongParents: make(map[string]types.Empty),
 		weakParents:   make(map[string]types.Empty),
+		likeParents:   make(map[string]types.Empty),
 	}
 
 	for _, option := range options {
@@ -462,10 +568,33 @@ func WithWeakParents(messageAliases ...string) MessageOption {
 	}
 }
 
+// WithLikeParents returns a MessageOption that is used to define the like parents of the Message.
+func WithLikeParents(messageAliases ...string) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		for _, messageAlias := range messageAliases {
+			options.likeParents[messageAlias] = types.Void
+		}
+	}
+}
+
 // WithIssuer returns a MessageOption that is used to define the issuer of the Message.
 func WithIssuer(issuer ed25519.PublicKey) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.issuer = issuer
+	}
+}
+
+// WithIssuingTime returns a MessageOption that is used to set issuing time of the Message.
+func WithIssuingTime(issuingTime time.Time) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.issuingTime = issuingTime
+	}
+}
+
+// WithReattachment returns a MessageOption that is used to select payload of which Message should be reattached.
+func WithReattachment(messageAlias string) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.reattachmentMessageAlias = messageAlias
 	}
 }
 
@@ -480,39 +609,53 @@ func nextSequenceNumber() uint64 {
 }
 
 func newTestNonceMessage(nonce uint64) *Message {
-	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
+	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
+	return message
 }
 
 func newTestDataMessage(payloadString string) *Message {
-	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
 func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
-	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
-func newTestParentsDataMessage(payloadString string, strongParents, weakParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessage(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID) *Message {
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
-func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
-	return NewMessage(strongParents, weakParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey) *Message {
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
-func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return message
 }
 
-func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID) *Message {
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return message
 }
 
-func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
-	return NewMessage(strongParents, weakParents, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey) *Message {
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return message
 }
 
-func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return message
+}
+
+func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
+	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return message
 }
 
 type wallet struct {
@@ -571,19 +714,6 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 	}
 }
 
-func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	return tangle.Booker.MessageBranchID(messageID)
-}
-
-func transactionBranchID(tangle *Tangle, transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID, err error) {
-	if !tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(metadata *ledgerstate.TransactionMetadata) {
-		branchID = metadata.BranchID()
-	}) {
-		return branchID, fmt.Errorf("missing transaction metadata")
-	}
-	return
-}
-
 func makeTransaction(inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, outputsByID map[ledgerstate.OutputID]ledgerstate.Output, walletsByAddress map[ledgerstate.Address]wallet, genesisWallet ...wallet) *ledgerstate.Transaction {
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
@@ -635,10 +765,202 @@ func totalAccessManaRetriever() float64 {
 	return totalAMana
 }
 
-// newTestTangle returns a Tangle instance with a testing schedulerConfig
-func newTestTangle(options ...Option) *Tangle {
+// NewTestTangle returns a Tangle instance with a testing schedulerConfig.
+func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
-	return New(options...)
+
+	t := New(options...)
+	t.ConfirmationOracle = &MockConfirmationOracle{}
+	if t.WeightProvider == nil {
+		t.WeightProvider = &MockWeightProvider{}
+	}
+
+	return t
+}
+
+// MockConfirmationOracle is a mock of a ConfirmationOracle.
+type MockConfirmationOracle struct{}
+
+// IsMarkerConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
+	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
+	// beginning of the sequence for all markers.
+	return false
+}
+
+// IsMessageConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsMessageConfirmed(msgID MessageID) bool {
+	return false
+}
+
+// IsBranchConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID) bool {
+	return false
+}
+
+// IsTransactionConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool {
+	return false
+}
+
+// IsOutputConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsOutputConfirmed(outputID ledgerstate.OutputID) bool {
+	return false
+}
+
+// Events mocks its interface function.
+func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
+	return &ConfirmationEvents{
+		MessageConfirmed:     events.NewEvent(nil),
+		TransactionConfirmed: events.NewEvent(nil),
+		BranchConfirmed:      events.NewEvent(nil),
+	}
+}
+
+// MockWeightProvider is a mock of a WeightProvider.
+type MockWeightProvider struct{}
+
+// Update mocks its interface function.
+func (m *MockWeightProvider) Update(t time.Time, nodeID identity.ID) {
+}
+
+// Weight mocks its interface function.
+func (m *MockWeightProvider) Weight(message *Message) (weight, totalWeight float64) {
+	return 1, 1
+}
+
+// WeightsOfRelevantSupporters mocks its interface function.
+func (m *MockWeightProvider) WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64) {
+	return
+}
+
+// Shutdown mocks its interface function.
+func (m *MockWeightProvider) Shutdown() {
+}
+
+// SimpleMockOnTangleVoting is mock of OTV mechanism.
+type SimpleMockOnTangleVoting struct {
+	disliked     ledgerstate.BranchIDs
+	likedInstead map[ledgerstate.BranchID][]consensus.OpinionTuple
+}
+
+// Opinion returns liked and disliked branches as predefined.
+func (o *SimpleMockOnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
+	liked = ledgerstate.NewBranchIDs()
+	disliked = ledgerstate.NewBranchIDs()
+	for branchID := range branchIDs {
+		if o.disliked.Contains(branchID) {
+			disliked.Add(branchID)
+		} else {
+			liked.Add(branchID)
+		}
+	}
+	return
+}
+
+// LikedInstead returns branches that are liked instead of a disliked branch as predefined.
+func (o *SimpleMockOnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
+	opinionTuple = o.likedInstead[branchID]
+	return
+}
+
+func emptyLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
+	return []MessageID{}, nil
+}
+
+// EventMock acts as a container for event mocks.
+type EventMock struct {
+	mock.Mock
+	expectedEvents uint64
+	calledEvents   uint64
+	test           *testing.T
+
+	attached []struct {
+		*events.Event
+		*events.Closure
+	}
+}
+
+// NewEventMock creates a new EventMock.
+func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *EventMock {
+	e := &EventMock{
+		test: t,
+	}
+	e.Test(t)
+
+	approvalWeightManager.Events.BranchWeightChanged.Attach(events.NewClosure(e.BranchWeightChanged))
+	approvalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(e.MarkerWeightChanged))
+
+	// attach all events
+	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
+
+	// assure that all available events are mocked
+	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
+	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
+
+	return e
+}
+
+// DetachAll detaches all event handlers.
+func (e *EventMock) DetachAll() {
+	for _, a := range e.attached {
+		a.Event.Detach(a.Closure)
+	}
+}
+
+// Expect is a proxy for Mock.On() but keeping track of num of calls.
+func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
+	e.On(eventName, arguments...)
+	atomic.AddUint64(&e.expectedEvents, 1)
+}
+
+func (e *EventMock) attach(event *events.Event, f interface{}) {
+	closure := events.NewClosure(f)
+	event.Attach(closure)
+	e.attached = append(e.attached, struct {
+		*events.Event
+		*events.Closure
+	}{event, closure})
+}
+
+// AssertExpectations assets expectations.
+func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
+	calledEvents := atomic.LoadUint64(&e.calledEvents)
+	expectedEvents := atomic.LoadUint64(&e.expectedEvents)
+	if calledEvents != expectedEvents {
+		t.Errorf("number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
+		return false
+	}
+
+	defer func() {
+		e.Calls = make([]mock.Call, 0)
+		e.ExpectedCalls = make([]*mock.Call, 0)
+		e.expectedEvents = 0
+		e.calledEvents = 0
+	}()
+
+	return e.Mock.AssertExpectations(t)
+}
+
+// BranchWeightChanged is the mocked BranchWeightChanged function.
+func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
+	e.Called(event.BranchID, event.Weight)
+
+	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// MarkerWeightChanged is the mocked MarkerWeightChanged function.
+func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
+	e.Called(event.Marker, event.Weight)
+
+	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// MessageProcessed is the mocked MessageProcessed function.
+func (e *EventMock) MessageProcessed(messageID MessageID) {
+	e.Called(messageID)
+
+	atomic.AddUint64(&e.calledEvents, 1)
 }

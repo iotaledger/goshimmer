@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-// msgChunk is a special wrapper message for chunks of larger than buffer messages
+// msgChunk is a special wrapper message for chunks of larger than buffer messages.
 type msgChunk struct {
 	msgID       uint32
 	chunkSeqNum uint16

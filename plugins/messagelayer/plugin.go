@@ -1,6 +1,7 @@
 package messagelayer
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -15,12 +16,14 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/finality"
+	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
@@ -45,30 +48,24 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle             *tangle.Tangle
-	Local              *peer.Local
-	Discover           *discover.Protocol `optional:"true"`
-	Storage            kvstore.KVStore
-	Voter              vote.DRNGRoundBasedVoter `optional:"true"`
-	ConsensusMechanism tangle.ConsensusMechanism
+	Tangle           *tangle.Tangle
+	Local            *peer.Local
+	Discover         *discover.Protocol `optional:"true"`
+	Storage          kvstore.KVStore
+	RemoteLoggerConn *remotelog.RemoteLoggerConn `optional:"true"`
 }
 
 type tangledeps struct {
 	dig.In
 
-	Storage            kvstore.KVStore
-	Local              *peer.Local
-	ConsensusMechanism tangle.ConsensusMechanism
+	Storage kvstore.KVStore
+	Local   *peer.Local
 }
 
 func init() {
 	Plugin = node.NewPlugin("MessageLayer", deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(fcob.NewConsensusMechanism); err != nil {
-			Plugin.Panic(err)
-		}
-
 		if err := container.Provide(newTangle); err != nil {
 			Plugin.Panic(err)
 		}
@@ -148,15 +145,12 @@ func configure(plugin *node.Plugin) {
 		}
 	}
 
-	fcob.LikedThreshold = Parameters.FCOB.QuarantineTime
-	fcob.LocallyFinalizedThreshold = 2 * Parameters.FCOB.QuarantineTime
-
-	configureApprovalWeight()
+	configureFinality()
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
+	if err := daemon.BackgroundWorker("Tangle", func(ctx context.Context) {
+		<-ctx.Done()
 		deps.Tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
@@ -175,7 +169,6 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.Store(deps.Storage),
 		tangle.Identity(deps.Local.LocalIdentity()),
 		tangle.Width(Parameters.TangleWidth),
-		tangle.Consensus(deps.ConsensusMechanism),
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		tangle.SchedulerConfig(tangle.SchedulerParams{
 			MaxBufferSize:               SchedulerParameters.MaxBufferSize,
@@ -193,9 +186,12 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, deps.Storage)
+	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
+
+	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
+	tangleInstance.ConfirmationOracle = finalityGadget
 
 	tangleInstance.Setup()
-
 	return tangleInstance
 }
 
@@ -262,33 +258,17 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	defer deps.Tangle.Booker.Events.MessageBooked.Detach(closure)
 
 	// then issue the message with the tx
+	msg, err := f()
 
-	// channel to receive the result of issuance
-	issueResult := make(chan struct {
-		msg *tangle.Message
-		err error
-	}, 1)
-
-	go func() {
-		msg, err := f()
-		issueResult <- struct {
-			msg *tangle.Message
-			err error
-		}{msg: msg, err: err}
-	}()
-
-	// wait on issuance
-	result := <-issueResult
-
-	if result.err != nil || result.msg == nil {
-		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+	if err != nil || msg == nil {
+		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), err)
 	}
 
 	select {
 	case <-time.After(maxAwait):
 		return nil, ErrMessageWasNotBookedInTime
 	case <-booked:
-		return result.msg, nil
+		return msg, nil
 	}
 }
 
@@ -330,7 +310,7 @@ func AwaitMessageToBeIssued(f func() (*tangle.Message, error), issuer ed25519.Pu
 	result := <-issueResult
 
 	if result.err != nil || result.msg == nil {
-		return nil, errors.Errorf("Failed to issue data %s: %w", result.msg.ID().Base58(), result.err)
+		return nil, errors.Errorf("Failed to issue data: %w", result.err)
 	}
 
 	ticker := time.NewTicker(maxAwait)

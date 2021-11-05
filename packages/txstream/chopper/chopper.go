@@ -14,15 +14,15 @@ import (
 
 const (
 	// for the final data packet to be not bigger than tangle.MaxMessageSize
-	// 4 - chunk id, 2 seq nr, 2 num chunks, 2 - data len
+	// 4 - chunk id, 2 seq nr, 2 num chunks, 2 - data len.
 	chunkHeaderSize     = 4 + 2 + 2 + 2
 	maxTTL              = 5 * time.Minute
 	cleanupLoopInterval = 10 * time.Second
-	// MaxNChunks maximum number of chunks
+	// MaxNChunks maximum number of chunks.
 	MaxNChunks = math.MaxUint16
 )
 
-// Chopper handles the splitting and joining of large messages
+// Chopper handles the splitting and joining of large messages.
 type Chopper struct {
 	nextID  uint32
 	mutex   sync.Mutex
@@ -36,7 +36,7 @@ type dataInProgress struct {
 	numReceived int
 }
 
-// NewChopper creates a new chopper instance
+// NewChopper creates a new chopper instance.
 func NewChopper() *Chopper {
 	c := Chopper{
 		nextID:  0,
@@ -47,7 +47,7 @@ func NewChopper() *Chopper {
 	return &c
 }
 
-// Close stops the internal cleanup goroutine
+// Close stops the internal cleanup goroutine.
 func (c *Chopper) Close() {
 	close(c.closeCh)
 }
@@ -81,7 +81,7 @@ func (c *Chopper) getNextMsgID() uint32 {
 	return c.nextID
 }
 
-// NumChunks returns the expected amount of chunks for the given data length
+// NumChunks returns the expected amount of chunks for the given data length.
 func NumChunks(dataLen, maxMsgSize, includingChoppingOverhead int) (uint16, int, error) {
 	if dataLen <= maxMsgSize {
 		return 0, 0, nil // no need to split
@@ -102,7 +102,7 @@ func NumChunks(dataLen, maxMsgSize, includingChoppingOverhead int) (uint16, int,
 }
 
 // ChopData chops data into pieces (not more than 255) and adds chopper header to each piece
-// for IncomingChunk function to reassemble it
+// for IncomingChunk function to reassemble it.
 func (c *Chopper) ChopData(data []byte, maxMsgSize, includingChoppingOverhead int) ([][]byte, bool, error) {
 	numChunks, maxChunkSize, err := NumChunks(len(data), maxMsgSize, includingChoppingOverhead)
 	if err != nil {
@@ -139,7 +139,7 @@ func (c *Chopper) ChopData(data []byte, maxMsgSize, includingChoppingOverhead in
 
 // IncomingChunk collects all incoming chunks.
 // Returned != nil value of the reassembled data
-// maxChunkSize parameter must be the same on both sides
+// maxChunkSize parameter must be the same on both sides.
 func (c *Chopper) IncomingChunk(data []byte, maxMsgSize, includingChoppingOverhead int) ([]byte, error) {
 	maxChunkSize := maxMsgSize - includingChoppingOverhead
 	maxSizeWithoutHeader := maxChunkSize - chunkHeaderSize
@@ -149,10 +149,10 @@ func (c *Chopper) IncomingChunk(data []byte, maxMsgSize, includingChoppingOverhe
 	}
 	switch {
 	case len(msg.data) > maxChunkSize:
-		return nil, fmt.Errorf("IncomingChunk: too long data chunk")
+		return nil, fmt.Errorf("incomingChunk: too long data chunk")
 
 	case msg.chunkSeqNum >= msg.numChunks:
-		return nil, fmt.Errorf("IncomingChunk: wrong incoming data chunk seq number")
+		return nil, fmt.Errorf("incomingChunk: wrong incoming data chunk seq number")
 	}
 
 	c.mutex.Lock()
@@ -166,7 +166,7 @@ func (c *Chopper) IncomingChunk(data []byte, maxMsgSize, includingChoppingOverhe
 		}
 		c.chunks[msg.msgID] = dip
 	} else if dip.buffer[msg.chunkSeqNum] != nil {
-		return nil, fmt.Errorf("IncomingChunk: repeating seq number")
+		return nil, fmt.Errorf("incomingChunk: repeating seq number")
 	}
 	dip.buffer[msg.chunkSeqNum] = msg.data
 	dip.numReceived++

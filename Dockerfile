@@ -1,8 +1,8 @@
 # syntax = docker/dockerfile:1.2.1
 
 ############################
-# golang 1.17.1-buster multi-arch
-FROM golang@sha256:d2710b111354dd7d8a64454d80c22ffd62f90993d811e57a9fce7ff76a235b5f AS build
+# golang 1.17.2-buster multi-arch
+FROM golang@sha256:5b036db95aaf91b8c75be815e2ba0ca0eecbfc3f57952c24c5d8c125970e2634 AS build
 
 ARG BUILD_TAGS=rocksdb,builtin_static
 # Download and include snapshot into resulting image by default.
@@ -53,8 +53,6 @@ FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5d
 EXPOSE 14666/tcp
 # AutoPeering
 EXPOSE 14626/udp
-# FPC
-EXPOSE 10895/tcp
 # Pprof Profiling
 EXPOSE 6061/tcp
 # Prometheus exporter

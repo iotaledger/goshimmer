@@ -16,7 +16,7 @@ type ParametersDefinition struct {
 
 	// MaxTransactionBookedAwaitTime defines the time to await for the transaction fulfilling a funding request
 	// to become booked in the value layer.
-	MaxTransactionBookedAwaitTime time.Duration `default:"5s" usage:"the max amount of time for a funding transaction to become booked in the value layer"`
+	MaxTransactionBookedAwaitTime time.Duration `default:"15s" usage:"the max amount of time for a funding transaction to become booked in the value layer"`
 
 	// PowDifficulty defines the PoW difficulty for faucet payloads.
 	PowDifficulty int `default:"22" usage:"defines the PoW difficulty for faucet payloads"`
@@ -25,11 +25,15 @@ type ParametersDefinition struct {
 	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
 	BlacklistCapacity int `default:"10000" usage:"holds the maximum amount the address blacklist holds"`
 
-	// PreparedOutputsCount is the number of outputs the faucet prepares for requests.
-	PreparedOutputsCount int `default:"126" usage:"number of outputs the faucet prepares"`
+	// SupplyOutputsCount is the number of supply outputs, and splitting transactions accordingly, the faucet prepares.
+	SupplyOutputsCount int `default:"20" usage:"the number of supply outputs, and splitting transactions accordingly, the faucet prepares."`
 
-	// StartIndex defines from which address index the faucet should start gathering outputs.
-	StartIndex int `default:"0" usage:"address index to start faucet with"`
+	// SplittingMultiplier defines how many outputs each splitting transaction will have.
+	// SplittingMultiplier * SupplyOutputsCount indicates how many funding outputs during funds replenishment.
+	SplittingMultiplier int `default:"25" usage:"SplittingMultiplier defines how many outputs each supply transaction will have."`
+
+	// GenesisTokenAmount is the total supply.
+	GenesisTokenAmount uint64 `default:"1000000000000000" usage:"GenesisTokenAmount is the total supply."`
 }
 
 // Parameters contains the configuration parameters of the faucet plugin.

@@ -26,5 +26,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Cache Go build and dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}-${{ github.event.action }}${{ github.event.after }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+            ${{ runner.os }}-go-
+
       - name: Run Tests
-        run: go test ./... -tags rocksdb
+        run: go test ./... -tags rocksdb -count=1

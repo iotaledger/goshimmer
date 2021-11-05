@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
@@ -16,6 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -23,59 +26,70 @@ import (
 
 // TestValueTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
 func TestValueTransactionPersistence(t *testing.T) {
+
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	faucet, peers := n.Peers()[0], n.Peers()[1:]
+	for i, p := range n.Peers() {
+		resp, _ := p.Info()
+		t.Logf("node %d mana: %v acc %v\n", i, resp.Mana.Consensus, resp.Mana.Access)
+	}
+	// check consensus mana
+	for i, peer := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	}
+
+	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
 	tokensPerRequest := uint64(faucet.Config().Faucet.TokensPerRequest)
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	addrBalance := make(map[string]map[ledgerstate.Color]uint64)
 
 	// request funds from faucet
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		addr := peer.Address(0)
 		tests.SendFaucetRequest(t, peer, addr)
 		addrBalance[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: tokensPerRequest}
 	}
 
 	// wait for messages to be gossiped
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		require.Eventually(t, func() bool {
 			return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) == tokensPerRequest
 		}, tests.Timeout, tests.Tick)
 	}
 
 	// send IOTA tokens from every peer
-	expectedStates := make(map[string]tests.ExpectedInclusionState)
-	for _, peer := range peers {
+	expectedStates := make(map[string]tests.ExpectedState)
+	for _, peer := range nonFaucetPeers {
 		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
 		require.NoError(t, err)
-		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
+		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
 	}
 
 	// check ledger state
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	// send colored tokens from every peer
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
-		expectedStates[txID] = tests.ExpectedInclusionState{Confirmed: tests.True()}
+		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
 	}
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
-	log.Printf("Restarting %d peers...", len(peers))
-	for _, peer := range peers {
+	log.Printf("Restarting %d peers...", len(nonFaucetPeers))
+	for _, peer := range nonFaucetPeers {
 		require.NoError(t, peer.Restart(ctx))
 	}
 	log.Println("Restarting peers... done")
@@ -83,7 +97,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 }
 
@@ -95,11 +109,17 @@ func TestValueAliasPersistence(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
+	// check consensus mana
+	for i, peer := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	}
+
 	faucet, peer := n.Peers()[0], n.Peers()[1]
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
@@ -113,13 +133,12 @@ func TestValueAliasPersistence(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	inclusionState := map[string]tests.ExpectedInclusionState{
+	expectedState := map[string]tests.ExpectedState{
 		tx.ID().Base58(): {
-			Confirmed: tests.True(),
-			Rejected:  tests.False(),
+			GradeOfFinality: tests.GoFPointer(gof.High),
 		},
 	}
-	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)
 
 	aliasOutputID := checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -133,7 +152,7 @@ func TestValueAliasPersistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
-	tests.RequireInclusionStateEqual(t, n.Peers(), inclusionState, tests.Timeout, tests.Tick)
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)
 
 	checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -162,11 +181,17 @@ func TestValueAliasDelegation(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
+	// check consensus mana
+	for i, peer := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	}
+
 	faucet, peer := n.Peers()[0], n.Peers()[1]
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
@@ -221,9 +246,9 @@ func TestValueAliasDelegation(t *testing.T) {
 	_, err = peer.PostTransaction(tx.Bytes())
 	require.NoError(t, err)
 
-	tests.RequireInclusionStateEqual(t, n.Peers(), map[string]tests.ExpectedInclusionState{
+	tests.RequireGradeOfFinalityEqual(t, n.Peers(), map[string]tests.ExpectedState{
 		tx.ID().Base58(): {
-			Confirmed: tests.True(),
+			GradeOfFinality: tests.GoFPointer(gof.High),
 		},
 	}, tests.Timeout, tests.Tick)
 
@@ -297,4 +322,9 @@ func (s simpleWallet) unlockBlocks(txEssence *ledgerstate.TransactionEssence) []
 		unlockBlocks[i] = unlockBlock
 	}
 	return unlockBlocks
+}
+
+func createGenesisWallet(node *framework.Node) *wallet.Wallet {
+	webConn := wallet.GenericConnector(wallet.NewWebConnector(node.BaseURL()))
+	return wallet.New(wallet.Import(walletseed.NewSeed(framework.GenesisSeed), 0, []bitmask.BitMask{}, nil), webConn)
 }

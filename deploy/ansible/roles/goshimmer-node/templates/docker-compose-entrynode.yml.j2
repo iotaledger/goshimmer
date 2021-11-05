@@ -19,6 +19,7 @@ services:
     command: >
       --skip-config=true
       --node.overwriteStoredSeed=true
+      --messageLayer.snapshot.genesisNode=7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k
       --autoPeering.bindAddress=0.0.0.0:15626
       {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}

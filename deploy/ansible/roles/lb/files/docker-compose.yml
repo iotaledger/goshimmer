@@ -1,0 +1,33 @@
+version: '3'
+
+networks:
+  default:
+    name: web
+
+services:
+  reverse-proxy:
+    image: traefik:v2.4
+    restart: always
+    container_name: traefik
+    command:
+      - "--log.level=DEBUG"
+      - "--accesslog=false"
+      - "--providers.docker"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/opt/config"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.devops.acme.tlschallenge=true"
+      - "--certificatesresolvers.devops.acme.email=devops@iota.org"
+      - "--certificatesresolvers.devops.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config:/opt/config
+      - ./letsencrypt/:/letsencrypt
+    labels:
+      - "traefik.enable=true"

@@ -1,6 +1,8 @@
 package dagsvisualizer
 
 import (
+	"context"
+
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -24,13 +26,17 @@ func setupVisualizer() {
 }
 
 func runVisualizer() {
-	if err := daemon.BackgroundWorker("DAGs Visualizer", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
+		log.Panicf("Error starting as daemon: %s", err)
+	}
+
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		// register to events
 		registerTangleEvents()
 		registerUTXOEvents()
 		registerBranchEvents()
 
-		<-shutdownSignal
+		<-ctx.Done()
 		log.Info("Stopping DAGs Visualizer ...")
 		visualizerWorkerPool.Stop()
 		log.Info("Stopping DAGs Visualizer ... done")
@@ -46,8 +52,8 @@ func registerTangleEvents() {
 				Type: MsgTypeTangleVertex,
 				Data: &tangleVertex{
 					ID:              messageID.Base58(),
-					StrongParentIDs: msg.StrongParents().ToStrings(),
-					WeakParentIDs:   msg.WeakParents().ToStrings(),
+					StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
+					WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
 					BranchID:        ledgerstate.UndefinedBranchID.Base58(),
 					IsMarker:        false,
 					IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
@@ -70,17 +76,17 @@ func registerTangleEvents() {
 		})
 	})
 
-	finalizedClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			visualizerWorkerPool.TrySubmit(&wsMessage{
-				Type: MsgTypeTangleConfirmed,
-				Data: &tangleFinalized{
-					ID:            messageID.Base58(),
-					ConfirmedTime: msgMetadata.FinalizedTime().UnixNano(),
-				},
-			})
-		})
-	})
+	// finalizedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	// 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+	// 		visualizerWorkerPool.TrySubmit(&wsMessage{
+	// 			Type: MsgTypeTangleConfirmed,
+	// 			Data: &tangleFinalized{
+	// 				ID:            messageID.Base58(),
+	// 				ConfirmedTime: msgMetadata.FinalizedTime().UnixNano(),
+	// 			},
+	// 		})
+	// 	})
+	// })
 
 	fmUpdateClosure := events.NewClosure(func(fmUpdate *tangle.FutureMarkerUpdate) {
 		visualizerWorkerPool.TrySubmit(&wsMessage{
@@ -92,23 +98,23 @@ func registerTangleEvents() {
 		})
 	})
 
-	markerConfirmedClosure := events.NewClosure(func(markerAWUpdate *tangle.MarkerAWUpdated) {
-		// get message ID of marker
-		visualizerWorkerPool.TrySubmit(&wsMessage{
-			Type: MsgTypeMarkerAWUpdated,
-			Data: &tangleMarkerAWUpdated{
-				ID:             markerAWUpdate.ID.Base58(),
-				ApprovalWeight: markerAWUpdate.ApprovalWeight,
-			},
-		})
+	// markerConfirmedClosure := events.NewClosure(func(markerAWUpdate *tangle.MarkerAWUpdated) {
+	// 	// get message ID of marker
+	// 	visualizerWorkerPool.TrySubmit(&wsMessage{
+	// 		Type: MsgTypeMarkerAWUpdated,
+	// 		Data: &tangleMarkerAWUpdated{
+	// 			ID:             markerAWUpdate.ID.Base58(),
+	// 			ApprovalWeight: markerAWUpdate.ApprovalWeight,
+	// 		},
+	// 	})
 
-	})
+	// })
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
 	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
-	deps.Tangle.ApprovalWeightManager.Events.MarkerAWUpdated.Attach(markerConfirmedClosure)
-	deps.Tangle.ApprovalWeightManager.Events.MessageFinalized.Attach(finalizedClosure)
+	// deps.Tangle.ApprovalWeightManager.Events.MarkerAWUpdated.Attach(markerConfirmedClosure)
+	// deps.Tangle.ApprovalWeightManager.Events.MessageFinalized.Attach(finalizedClosure)
 }
 
 func registerUTXOEvents() {
@@ -141,26 +147,26 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
-		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
-			visualizerWorkerPool.TrySubmit(&wsMessage{
-				Type: MsgTypeUTXOConfirmed,
-				Data: &utxoConfirmed{
-					ID:             txID.Base58(),
-					ApprovalWeight: 0,
-					ConfirmedTime:  txMetadata.FinalizedTime().UnixNano(),
-				},
-			})
-		})
-	})
+	// txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
+	// 	deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+	// 		visualizerWorkerPool.TrySubmit(&wsMessage{
+	// 			Type: MsgTypeUTXOConfirmed,
+	// 			Data: &utxoConfirmed{
+	// 				ID:             txID.Base58(),
+	// 				ApprovalWeight: 0,
+	// 				ConfirmedTime:  txMetadata.FinalizedTime().UnixNano(),
+	// 			},
+	// 		})
+	// 	})
+	// })
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
-	deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(txConfirmedClosure)
+	//deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(txConfirmedClosure)
 }
 
 func registerBranchEvents() {
-	createdClosure := events.NewClosure(func(branchDAGEvent *ledgerstate.BranchDAGEvent) {
-		branchDAGEvent.Branch.Consume(func(branch ledgerstate.Branch) {
+	createdClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
+		deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 			conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
 			// get conflicts for Conflict branch
 			if branch.Type() == ledgerstate.ConflictBranchType {
@@ -195,18 +201,17 @@ func registerBranchEvents() {
 		})
 	})
 
-	awUpdateClosure := events.NewClosure(func(branchAW *tangle.BranchAWUpdated) {
-		visualizerWorkerPool.TrySubmit(&wsMessage{
-			Type: MsgTypeBranchAWUpdate,
-			Data: &branchAWUpdate{
-				ID:             branchAW.ID.Base58(),
-				Conflicts:      branchAW.Conflicts.Strings(),
-				ApprovalWeight: branchAW.ApprovalWeight,
-			},
-		})
-	})
+	// awUpdateClosure := events.NewClosure(func(branchAW *tangle.BranchAWUpdated) {
+	// 	visualizerWorkerPool.TrySubmit(&wsMessage{
+	// 		Type: MsgTypeBranchAWUpdate,
+	// 		Data: &branchAWUpdate{
+	// 			ID:             branchAW.ID.Base58(),
+	// 			Conflicts:      branchAW.Conflicts.Strings(),
+	// 			ApprovalWeight: branchAW.ApprovalWeight,
+	// 		},
+	// 	})
+	// })
 
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
-	deps.Tangle.ApprovalWeightManager.Events.BranchAWUpdated.Attach(awUpdateClosure)
 }

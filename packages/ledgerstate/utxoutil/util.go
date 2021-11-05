@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// signatureUnlockBlockWithIndex internal structure used to track signature and indices where it was used in the transaction
+// signatureUnlockBlockWithIndex internal structure used to track signature and indices where it was used in the transaction.
 type signatureUnlockBlockWithIndex struct {
 	unlockBlock   *ledgerstate.SignatureUnlockBlock
 	indexUnlocked int
@@ -26,7 +26,7 @@ type signatureUnlockBlockWithIndex struct {
 // It unlocks inputs by using the following unlock block types:
 // - ledgerstate.SignatureUnlockBlock
 // - ledgerstate.ReferenceUnlockBlock
-// - ledgerstate.AliasUnlockBlock
+// - ledgerstate.AliasUnlockBlock.
 func UnlockInputsWithED25519KeyPairs(inputs []ledgerstate.Output, essence *ledgerstate.TransactionEssence, keyPairs ...*ed25519.KeyPair) ([]ledgerstate.UnlockBlock, error) {
 	sigs := make(map[[33]byte]*signatureUnlockBlockWithIndex)
 	for _, keyPair := range keyPairs {
@@ -44,7 +44,7 @@ func UnlockInputsWithED25519KeyPairs(inputs []ledgerstate.Output, essence *ledge
 	return unlockInputsWithSignatureBlocks(inputs, sigs)
 }
 
-// unlockInputsWithSignatureBlocks does the optimized unlocking
+// unlockInputsWithSignatureBlocks does the optimized unlocking.
 func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlocks map[[33]byte]*signatureUnlockBlockWithIndex) ([]ledgerstate.UnlockBlock, error) {
 	// unlock ChainOutputs
 	ret := make([]ledgerstate.UnlockBlock, len(inputs))
@@ -132,7 +132,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 }
 
 // collectAliasOutputs scans all outputs and collects ledgerstate.AliasOutput into a map by the Address.Array
-// Returns an error if finds duplicate
+// Returns an error if finds duplicate.
 func collectAliasOutputs(tx *ledgerstate.Transaction) (map[[33]byte]*ledgerstate.AliasOutput, error) {
 	ret := make(map[[33]byte]*ledgerstate.AliasOutput)
 	for i, o := range tx.Essence().Outputs() {
@@ -152,7 +152,7 @@ func collectAliasOutputs(tx *ledgerstate.Transaction) (map[[33]byte]*ledgerstate
 // GetSingleChainedAliasOutput expects exactly one chained output in the transaction and returns it
 // returns:
 // - nil and no error if found none
-// - error if there's more than 1
+// - error if there's more than 1.
 func GetSingleChainedAliasOutput(tx *ledgerstate.Transaction) (*ledgerstate.AliasOutput, error) {
 	ch, err := collectAliasOutputs(tx)
 	if err != nil {
@@ -173,7 +173,7 @@ func GetSingleChainedAliasOutput(tx *ledgerstate.Transaction) (*ledgerstate.Alia
 // GetSingleSender analyzes transaction and signatures and retrieves single address which is consistent
 // to be a 'sender':
 // if it do not have alias input, the address corresponding to the only signature is returned
-// if it has a single alias input (i.e. output is not an origin) it returns a alias address of the chain
+// if it has a single alias input (i.e. output is not an origin) it returns a alias address of the chain.
 func GetSingleSender(tx *ledgerstate.Transaction) (ledgerstate.Address, error) {
 	// only accepting one signature in the transaction
 	var sigBlock *ledgerstate.SignatureUnlockBlock
@@ -208,7 +208,7 @@ func GetSingleSender(tx *ledgerstate.Transaction) (ledgerstate.Address, error) {
 }
 
 // GetMintedAmounts analyzes outputs and extracts information of new colors
-// which were minted and respective amounts of tokens
+// which were minted and respective amounts of tokens.
 func GetMintedAmounts(tx *ledgerstate.Transaction) map[ledgerstate.Color]uint64 {
 	ret := make(map[ledgerstate.Color]uint64)
 	for _, out := range tx.Essence().Outputs() {

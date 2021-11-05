@@ -59,3 +59,7 @@
 - hosts: asset_registries
   roles:
     - asset-registry
+
+- hosts: lbs
+  roles:
+    - lb

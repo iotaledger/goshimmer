@@ -70,45 +70,233 @@ Messages are created and signed by nodes. Next to several fields of metadata, th
 BLAKE2b-256 hash of the byte contents of the message. It should be used by the nodes to index the messages and by external APIs.
 
 ### Message structure
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>Version</td>
+        <td>uint8</td>
+        <td>The message version. The schema specified in this RFC is for version <strong>1</strong> only. </td>
+    </tr>
+    <tr>
+        <td>Parents blocks count</td>
+        <td>uint8</td>
+        <td>The amount of parents block preceding the current message.</td>
+    </tr>
+    <tr>
+        <td valign="top">Parents Blocks <code>anyOf</code></td>
+        <td colspan="2">
+            <details open="true">
+                <summary>Strong Parents Block</summary>
+                <blockquote>
+                Defines a parents block containing strong parents references.
+                </blockquote>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Parent Type</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>value 0</strong> to denote a <i>Strong Parents Block</i>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Parent Count</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>number</strong> of parent references in this block.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Reference <code>between(1,8)</code></td>
+                        <td>ByteArray[32]</td>
+                        <td>Reference to a Message ID.</td>
+                    </tr>
+                </table>
+            </details>
+            <details open="true">
+                <summary>Weak Parents Block</summary>
+                <blockquote>
+                Defines a parents block containing weak parents references.
+                </blockquote>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Parent Type</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>value 1</strong> to denote a <i>Weak Parents Block</i>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Parent Count</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>number</strong> of parent references in this block.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Reference <code>between(1,8)</code></td>
+                        <td>ByteArray[32]</td>
+                        <td>Reference to a Message ID.</td>
+                    </tr>
+                </table>
+            </details>
+            <details open="true">
+                <summary>Dislike Parents Block</summary>
+                <blockquote>
+                Defines a parents block containing dislike parents references.
+                </blockquote>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Parent Type</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>value 2</strong> to denote a <i>Dislike Parents Block</i>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Parent Count</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>number</strong> of parent references in this block.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Reference <code>between(1,8)</code></td>
+                        <td>ByteArray[32]</td>
+                        <td>Reference to a Message ID.</td>
+                    </tr>
+                </table>
+            </details>
+            <details open="true">
+                <summary>Like Parents Block</summary>
+                <blockquote>
+                Defines a parents block containing like parents references.
+                </blockquote>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Parent Type</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>value 3</strong> to denote a <i>Like Parents Block</i>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Parent Count</td>
+                        <td>uint8</td>
+                        <td>
+                            Set to <strong>number</strong> of parent references in this block.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Reference <code>between(1,8)</code></td>
+                        <td>ByteArray[32]</td>
+                        <td>Reference to a Message ID.</td>
+                    </tr>
+                </table>
+            </details>
+        </td>
+    </tr>
+    <tr>
+        <td>Issuer public key (Ed25519)</td>
+        <td>ByteArray[32]</td>
+        <td>The public key of the node issuing the message.</td>
+    </tr>
+    <tr>
+        <td>Issuing time</td>
+        <td>time</td>
+        <td>The time the message was issued.</td>
+    </tr>
+    <tr>
+        <td>Sequence number</td>
+        <td>uint64</td>
+        <td>The always increasing number of issued messages of the issuing node.</td>
+    </tr>
+    <tr>
+        <td>Payload length</td>
+        <td>uint32</td>
+        <td>The length of the Payload. Since its type may be unknown to the node, it must be declared in advance. 0 length means no payload will be attached.</td>
+    </tr>
+    <tr>
+        <td colspan="1">
+            Payload
+        </td>
+        <td colspan="2">
+            <details open="true">
+                <summary>Generic Payload</summary>
+                <blockquote>
+                An outline of a general payload
+                </blockquote>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>Payload Type</td>
+                        <td>uint32</td>
+                        <td>
+                            The type of the payload. It will instruct the node how to parse the fields that follow. Types in the range of 0-127 are "core types", that all nodes are expected to know.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Data Fields</td>
+                        <td>ANY</td>
+                        <td>A sequence of fields, where the structure depends on <code>payload type</code>.</td>
+                    </tr>
+                </table>
+            </details>
+        </td>
+    </tr>
+    <tr>
+        <td>Nonce</td>
+        <td>uint64</td>
+        <td>The nonce which lets this message fulfill the adaptive Proof-of-Work requirement.</td>
+    </tr>
+    <tr>
+        <td>Signature (Ed25519)</td>
+        <td>ByteArray[64]</td>
+        <td>Signature of the issuing node's private key signing the entire message bytes.</td>
+    </tr>
+</table>
 
-| Name                        | Type                                | Description                                                                                                                                                                                                                    |
-| --------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Version                     | uint8                               | The message version. The schema specified in this RFC is for version 1 only.                                                                                                                                                   |
-| Parents count               | uint8                               | The amount of parents preceding the current message.                                                                                                                                                                           |
-| Parents type                | uint8                               | Bitwise encoding of parent type matching the order of preceding parents starting at least significant bit. 1 indicates a strong parent, while 0 signals a weak parent. At least MIN_STRONG_PARENTS parent type must be strong. |
-| Parents between(1,8)        | [Parent](#parent)                   | Parents, ordered by hash ASC                                                                                                                                                                                                   |
-| Issuer public key (Ed25519) | ByteArray[32]                       | The public key of the node issuing the message.                                                                                                                                                                                |
-| Issuing time                | time                                | The time the message was issued.                                                                                                                                                                                               |
-| Sequence number             | uint64                              | The always increasing number of issued messages of the issuing node.                                                                                                                                                           |
-| Payload length              | uint32                              | The length of the Payload. Since its type may be unknown to the node, it must be declared in advance. 0 length means no payload will be attached.                                                                              |
-| Payload                     | [Generic Payload](#generic-payload) | An outline of a general payload                                                                                                                                                                                                |
-| Nonce                       | uint64                              | The nonce which lets this message fulfill the adaptive Proof-of-Work requirement.                                                                                                                                              |
-| Signature (Ed25519)         | ByteArray[64]                       | Signature of the issuing node's private key signing the entire message bytes.                                                                                                                                                  |
 
-
-#### Parent
-
-| Name   | Type          | Description                           |
-| ------ | ------------- | ------------------------------------- |
-| Parent | ByteArray[32] | The Message ID of the parent Message. |
-
-
-#### Generic Payload
-
-| Name         | Type   | Description                                                                                                                                                                |
-| ------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Payload Type | uint32 | The type of the payload. It will instruct the node how to parse the fields that follow. Types in the range of 0-127 are "core types", that all nodes are expected to know. |
-| Data Fields  | ANY    | A sequence of fields, where the structure depends on payload type.                                                                                                         |
-
-            
 ### Syntactical Validation
 
 Messages that do no pass the Syntactical Validation are discarded. Only syntactically valid messages continue in the data flow, i.e., pass to the Semantic Validation.
 
 A message is syntactically valid if:
 1. The message length does not exceed `MAX_MESSAGE_SIZE` bytes.
-2. When the message parsing is complete, there are not any trailing bytes left that were not parsed.
-4. At least 1 and at most 8 distinct parents are given, ordered ASC and at least `MIN_STRONG_PARENTS` are strong parents.
+1. When the message parsing is complete, there are not any trailing bytes left that were not parsed.
+1. Parents Blocks must be ordered by ASC type with no repetitions.
+1. A <i>Strong Parents Block</i> must exist.
+1. There must be at least 1 parent per block and no more than 8.
+1. Parents in each Parents Block types must be ordered ASC without repetition. 
+1. Parents must be unique across Parents Blocks. But there may be repetitions across the <i>Strong</i> and <i>Liked</i> blocks.
+1. <i>Parents Block Count</i> and <i>Parents Count</i> must match the actual number of blocks and parents respectively.
 
 ### Semantic Validation
 
@@ -118,6 +306,18 @@ A message is semantically valid if:
 1. The Message PoW Hash contains at least the number of leading 0 defined as required by the PoW.
 2. The signature of the issuing node is valid.
 3. It passes [parents age checks](#age-of-parents).
+
+
+#### Votes Validation
+
+1. Only one dislike parent is allowed per conflict set.
+1. Only one like parent is allowed per conflict set.
+1. Every dislike parent must be in the past cone of a strong parent.
+1. For each like parent, only one dislike parent must exist pointing to a message containing a transaction within the same conflict set.
+1. For every dislike parent and for every conflict set it belongs to, a like parent must also exist pointing to a message within the considered conflict set, provided that such transaction is not already present in the past cone of any strong parent.
+1. For each referenced conflict set, from all parents types, for each referenced conflict set, must result in only a single transaction support.
+1. Only one like or weak parent can be within the same conflict set.
+
 
 
 ## Payloads

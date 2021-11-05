@@ -9,27 +9,111 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
 
 const (
 	// Timeout denotes the default condition polling timout duration.
-	Timeout = 3 * time.Minute
+	Timeout = 1 * time.Minute
 	// Tick denotes the default condition polling tick time.
 	Tick = 500 * time.Millisecond
 
 	shutdownGraceTime = time.Minute
+
+	FaucetFundingOutputsAddrStart = 127
 )
+
+// SnapshotInfo stores the details about snapshots created for integration tests
+type SnapshotInfo struct {
+	FilePath            string
+	PeersSeedBase58     []string
+	PeersAmountsPledged []int
+	GenesisTokenAmount  int // pledged to peer master
+}
+
+// EqualSnapshotDetails defines info for equally distributed consensus mana.
+var EqualSnapshotDetails = &SnapshotInfo{
+	FilePath: "/assets/equal_intgr_snapshot.bin",
+	// nodeIDs: dAnF7pQ6k7a, H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
+	PeersSeedBase58: []string{
+		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
+		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL",
+		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em",
+		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN",
+	},
+	PeersAmountsPledged: []int{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
+	GenesisTokenAmount:  2500000000000000,
+}
+
+// ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
+var ConsensusSnapshotDetails = &SnapshotInfo{
+	FilePath: "/assets/consensus_intgr_snapshot_aw75.bin",
+	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
+	PeersSeedBase58: []string{
+		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
+		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
+	},
+	PeersAmountsPledged: []int{1600000, 800000, 800000},
+	GenesisTokenAmount:  800000, // pledged to peer master
+
+}
+
+// getIdentSeeds returns decoded seed bytes for equal integration tests snapshot
+func getIdentSeeds(t *testing.T) [][]byte {
+	peerSeeds := make([][]byte, 4)
+	peerSeeds[0] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[0])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[1] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[1])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[2] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[2])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	peerSeeds[3] = func() []byte {
+		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[3])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+	return peerSeeds
+}
+
+// EqualDefaultConfigFunc returns configuration for network that uses equal integration test snapshot
+var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+		cfg.MessageLayer.Snapshot.File = EqualSnapshotDetails.FilePath
+		peerSeeds := getIdentSeeds(t)
+		offset := 0
+		if skipFirst {
+			offset += 1
+		}
+		i := peerIndex + offset
+		require.Lessf(t, i, len(peerSeeds), "index=%d out of range for peerSeeds=%d", i, len(peerSeeds))
+		cfg.Seed = peerSeeds[i]
+
+		return cfg
+	}
+}
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
 type DataMessageSent struct {
@@ -67,6 +151,36 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 	info, err := node.Info()
 	require.NoError(t, err)
 	return info.Mana
+}
+
+// AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
+func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node) {
+	supplyOutputsCount := faucet.Config().SupplyOutputsCount
+	splittingMultiplier := faucet.Config().SplittingMultiplier
+	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplier + FaucetFundingOutputsAddrStart - 1
+	addrToCheck := faucet.Address(lastFundingOutputAddress).Base58()
+
+	confirmed := make(map[int]types.Empty)
+	require.Eventually(t, func() bool {
+		if len(confirmed) == supplyOutputsCount*splittingMultiplier {
+			return true
+		}
+		// wait for confirmation of each fundingOutput
+		for fundingIndex := FaucetFundingOutputsAddrStart; fundingIndex <= lastFundingOutputAddress; fundingIndex++ {
+			if _, ok := confirmed[fundingIndex]; !ok {
+				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
+				require.NoError(t, err)
+				if len(resp.UnspentOutputs[0].Outputs) != 0 {
+					if resp.UnspentOutputs[0].Outputs[0].GradeOfFinality == gof.High {
+						confirmed[fundingIndex] = types.Void
+					}
+				}
+			}
+		}
+		return false
+	}, time.Minute, Tick)
+	// give the faucet time to save the latest confirmed output
+	time.Sleep(3 * time.Second)
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.
@@ -110,6 +224,10 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 		data:            nil,
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
+
+	// Make sure the message is available on the peer itself and has gof.High.
+	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.High)
+
 	return resp.ID, sent
 }
 
@@ -213,7 +331,8 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 }
 
 // RequireMessagesAvailable asserts that all nodes have received MessageIDs in waitFor time, periodically checking each tick.
-func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
+// Optionally, a GradeOfFinality can be specified, which then requires the messages to reach this GradeOfFinality.
+func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration, gradeOfFinality ...gof.GradeOfFinality) {
 	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
 	for _, node := range nodes {
 		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
@@ -226,12 +345,21 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 		for _, node := range nodes {
 			nodeMissing := missing[node.ID()]
 			for messageID := range nodeMissing {
-				msg, err := node.GetMessage(messageID)
+				msg, err := node.GetMessageMetadata(messageID)
 				// retry, when the message could not be found
 				if errors.Is(err, client.ErrNotFound) {
+					log.Printf("node=%s, messageID=%s; message not found", node, messageID)
 					continue
 				}
-				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessage' failed", node, messageID)
+				// retry, if the message has not yet reached the specified GoF
+				if len(gradeOfFinality) > 0 {
+					if msg.GradeOfFinality < gradeOfFinality[0] {
+						log.Printf("node=%s, messageID=%s, expected GoF=%s, actual GoF=%s; GoF not reached", node, messageID, gradeOfFinality[0], msg.GradeOfFinality)
+						continue
+					}
+				}
+
+				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
 				require.Equal(t, messageID, msg.ID)
 				delete(nodeMissing, messageID)
 				if len(nodeMissing) == 0 {
@@ -272,6 +400,9 @@ func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID ma
 	}
 }
 
+// ExpectedAddrsBalances is a map of base58 encoded addresses to the balances they should hold.
+type ExpectedAddrsBalances map[string]map[ledgerstate.Color]uint64
+
 // RequireBalancesEqual asserts that all nodes report the balances as specified in balancesByAddress.
 func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddress map[string]map[ledgerstate.Color]uint64) {
 	for _, node := range nodes {
@@ -296,21 +427,13 @@ func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ..
 	}
 }
 
-// ExpectedInclusionState is an expected inclusion state.
+// ExpectedState is an expected state.
 // All fields are optional.
-type ExpectedInclusionState struct {
-	// The optional confirmed state to check against.
-	Confirmed *bool
-	// The optional finalized state to check against.
-	Finalized *bool
-	// The optional conflict state to check against.
-	Conflicting *bool
+type ExpectedState struct {
+	// The optional grade of finality state to check against.
+	GradeOfFinality *gof.GradeOfFinality
 	// The optional solid state to check against.
 	Solid *bool
-	// The optional rejected state to check against.
-	Rejected *bool
-	// The optional liked state to check against.
-	Liked *bool
 }
 
 // True returns a pointer to a true bool.
@@ -323,6 +446,11 @@ func True() *bool {
 func False() *bool {
 	x := false
 	return &x
+}
+
+// GoFPointer returns a pointer to the given grade of finality value.
+func GoFPointer(gradeOfFinality gof.GradeOfFinality) *gof.GradeOfFinality {
+	return &gradeOfFinality
 }
 
 // ExpectedTransaction defines the expected data of a transaction.
@@ -357,9 +485,12 @@ func RequireTransactionsEqual(t *testing.T, nodes []*framework.Node, transaction
 	}
 }
 
-// RequireInclusionStateEqual asserts that all nodes have received the transaction and have correct expectedStates
+// ExpectedTxsStates is a map of base58 encoded transactionIDs to their ExpectedState(s).
+type ExpectedTxsStates map[string]ExpectedState
+
+// RequireGradeOfFinalityEqual asserts that all nodes have received the transaction and have correct expectedStates
 // in waitFor time, periodically checking each tick.
-func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedStates map[string]ExpectedInclusionState, waitFor time.Duration, tick time.Duration) {
+func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedStates ExpectedTxsStates, waitFor time.Duration, tick time.Duration) {
 	condition := func() bool {
 		for _, node := range nodes {
 			for txID, expInclState := range expectedStates {
@@ -370,18 +501,22 @@ func RequireInclusionStateEqual(t *testing.T, nodes []*framework.Node, expectedS
 				}
 				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
-				// the inclusion state can change, so we should check all transactions every time
-				if !inclusionStateEqual(t, node, txID, expInclState) {
+				// the grade of finality can change, so we should check all transactions every time
+				stateEqual, gof := txMetadataStateEqual(t, node, txID, expInclState)
+				if !stateEqual {
+					t.Logf("Current grade of finality for txId %s is %d", txID, gof)
 					return false
 				}
+				t.Logf("Current grade of finality for txId %s is %d", txID, gof)
+
 			}
 		}
 		return true
 	}
 
-	log.Printf("Waiting for %d transactions to reach the correct inclusion state...", len(expectedStates))
+	log.Printf("Waiting for %d transactions to reach the correct grade of finality...", len(expectedStates))
 	require.Eventually(t, condition, waitFor, tick)
-	log.Println("Waiting for inclusion state... done")
+	log.Println("Waiting for grade of finality... done")
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
@@ -401,21 +536,13 @@ func OutputIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 	panic("invalid address")
 }
 
-func inclusionStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedInclusionState) bool {
-	inclusionState, err := node.GetTransactionInclusionState(txID)
-	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionInclusionState' failed")
+func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) (bool, gof.GradeOfFinality) {
 	metadata, err := node.GetTransactionMetadata(txID)
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
-	consensusData, err := node.GetTransactionConsensusMetadata(txID)
-	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionConsensusMetadata' failed")
 
-	if (expInclState.Confirmed != nil && *expInclState.Confirmed != inclusionState.Confirmed) ||
-		(expInclState.Finalized != nil && *expInclState.Finalized != metadata.Finalized) ||
-		(expInclState.Conflicting != nil && *expInclState.Conflicting != inclusionState.Conflicting) ||
-		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) ||
-		(expInclState.Rejected != nil && *expInclState.Rejected != inclusionState.Rejected) ||
-		(expInclState.Liked != nil && *expInclState.Liked != consensusData.Liked) {
-		return false
+	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
+		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) {
+		return false, metadata.GradeOfFinality
 	}
-	return true
+	return true, metadata.GradeOfFinality
 }

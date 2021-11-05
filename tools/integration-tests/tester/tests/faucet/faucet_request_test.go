@@ -14,7 +14,7 @@ import (
 // TestFaucetRequest sends funds by faucet request.
 func TestFaucetRequest(t *testing.T) {
 	const (
-		numPeers    = 5
+		numPeers    = 4
 		numRequests = 2
 	)
 
@@ -23,21 +23,28 @@ func TestFaucetRequest(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-	})
+		Activity:    true,
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	faucet, peers := n.Peers()[0], n.Peers()[1:]
+	// check consensus mana
+	for i, peer := range n.Peers() {
+		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	}
+
+	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
+	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// each non-faucet peer issues numRequests requests
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		for idx := 0; idx < numRequests; idx++ {
 			tests.SendFaucetRequest(t, peer, peer.Address(idx))
 		}
 	}
 
 	// wait for all peers to register their new balances
-	for _, peer := range peers {
+	for _, peer := range nonFaucetPeers {
 		for idx := 0; idx < numRequests; idx++ {
 			require.Eventuallyf(t, func() bool {
 				balance := tests.Balance(t, peer, peer.Address(idx), ledgerstate.ColorIOTA)

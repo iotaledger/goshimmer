@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+
+	"github.com/iotaledger/hive.go/logger"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 // RemoteLoggerConn is a wrapper for a connection to our RemoteLog server.
@@ -18,6 +23,23 @@ func newRemoteLoggerConn(address string) (*RemoteLoggerConn, error) {
 	}
 
 	return &RemoteLoggerConn{conn: c}, nil
+}
+
+// SendLogMsg sends log message to the remote logger.
+func (r *RemoteLoggerConn) SendLogMsg(level logger.Level, name, msg string) {
+	m := logMessage{
+		banner.AppVersion,
+		myGitHead,
+		myGitBranch,
+		myID,
+		level.CapitalString(),
+		name,
+		msg,
+		clock.SyncedTime(),
+		remoteLogType,
+	}
+
+	_ = deps.RemoteLogger.Send(m)
 }
 
 // Send sends a message on the RemoteLoggers connection.

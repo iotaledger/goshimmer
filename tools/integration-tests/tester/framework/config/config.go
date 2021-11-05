@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -31,6 +30,11 @@ type GoShimmer struct {
 	DisabledPlugins []string
 	// Seed specifies identity.
 	Seed []byte
+	// Whether to use the same seed for the node's wallet.
+	UseNodeSeedAsWalletSeed bool
+
+	// Network specifies network-level configurations
+	Network
 
 	// individual plugin configurations
 	Database
@@ -42,7 +46,6 @@ type GoShimmer struct {
 	Faucet
 	Mana
 	Consensus
-	FPC
 	Activity
 	DRNG
 	Prometheus
@@ -54,6 +57,10 @@ func NewGoShimmer() (config GoShimmer) {
 	config = GoShimmer{}
 	fillStructFromDefaultTag(reflect.ValueOf(&config).Elem())
 	return
+}
+
+type Network struct {
+	Enabled bool
 }
 
 // Database defines the parameters of the database plugin.
@@ -77,14 +84,14 @@ type POW struct {
 	pow.ParametersDefinition
 }
 
-// WebAPI defines the parameters of the Web API plugin.
+// Webapi defines the parameters of the Web API plugin.
 type WebAPI struct {
 	Enabled bool
 
 	webapi.ParametersDefinition
 }
 
-// AutoPeering defines the parameters of the autopeering plugin.
+// Autopeering defines the parameters of the autopeering plugin.
 type AutoPeering struct {
 	Enabled bool
 
@@ -116,13 +123,6 @@ type MessageLayer struct {
 // Consensus defines the parameters of the consensus plugin.
 type Consensus struct {
 	Enabled bool
-}
-
-// FPC defines the parameters used by the FPC consensus.
-type FPC struct {
-	Enabled bool
-
-	consensus.FPCParametersDefinition
 }
 
 // Activity defines the parameters of the activity plugin.

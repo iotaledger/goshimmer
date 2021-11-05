@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/networkdelay"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/goshimmer/plugins/remotelogmetrics"
+	"github.com/iotaledger/goshimmer/plugins/remotemetrics"
 	"github.com/iotaledger/goshimmer/plugins/txstream"
 )
 
@@ -22,7 +22,7 @@ var Research = node.Plugins(
 	analysisclient.Plugin,
 	analysisdashboard.Plugin,
 	prometheus.Plugin,
-	remotelogmetrics.Plugin,
+	remotemetrics.Plugin,
 	networkdelay.App(),
 	txstream.Plugin,
 	activity.Plugin,
