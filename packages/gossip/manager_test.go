@@ -500,8 +500,12 @@ func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Pe
 
 	// start the actual gossipping
 	mgr := NewManager(host, local, loadTestMessage, l)
-
-	return mgr, mgr.Stop, local.Peer
+	tearDown := func() {
+		mgr.Stop()
+		err := host.Close()
+		require.NoError(t, err)
+	}
+	return mgr, tearDown, local.Peer
 }
 
 func newMockedManager(t *testing.T, name string) (*mockedManager, func(), *peer.Peer) {

@@ -43,6 +43,10 @@ func NewStreamsPipe(t testing.TB) (network.Stream, network.Stream, func()) {
 		require.NoError(t, err2)
 		err2 = acceptStream.Close()
 		require.NoError(t, err2)
+		err2 = host1.Close()
+		require.NoError(t, err)
+		err2 = host2.Close()
+		require.NoError(t, err)
 	}
 	return dialStream, acceptStream, tearDown
 }
