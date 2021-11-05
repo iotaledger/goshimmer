@@ -40,7 +40,7 @@ const (
 	PrefixAddressOutputMappingStorage
 )
 
-// block of default cache time
+// block of default cache time.
 const (
 	branchCacheTime      = 60 * time.Second
 	conflictCacheTime    = 60 * time.Second

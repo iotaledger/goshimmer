@@ -42,7 +42,8 @@ export class ExplorerTransactionMetadata extends React.Component<Props, any> {
                     <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${txMetadata.branchID}`}>{resolveBase58BranchID(txMetadata.branchID)}</a></ListGroup.Item>
                     <ListGroup.Item>Solid: {txMetadata.solid.toString()}</ListGroup.Item>
                     <ListGroup.Item>Solidification time: {new Date(txMetadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
-                    <ListGroup.Item>Finalized: {txMetadata.finalized.toString()}</ListGroup.Item>
+                    <ListGroup.Item>Grade of Finality: {txMetadata.gradeOfFinality}</ListGroup.Item>
+                    <ListGroup.Item>Grade of Finality Time: {new Date(txMetadata.gradeOfFinalityTime * 1000).toLocaleString()}</ListGroup.Item>
                     <ListGroup.Item>Lazy booked: {txMetadata.lazyBooked.toString()}</ListGroup.Item>
                 </ListGroup>}
             </div>

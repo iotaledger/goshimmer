@@ -10,37 +10,26 @@ import (
 	"github.com/iotaledger/goshimmer/packages/txstream"
 )
 
-// TangleLedger imlpements txstream.TangleLedger with the GoShimmer tangle as backend
+// TangleLedger imlpements txstream.TangleLedger with the GoShimmer tangle as backend.
 type TangleLedger struct {
-	tangleInstance     *tangle.Tangle
-	txConfirmedClosure *events.Closure
-	txBookedClosure    *events.Closure
-
-	txConfirmedEvent *events.Event
-	txBookedEvent    *events.Event
+	tangleInstance  *tangle.Tangle
+	txBookedClosure *events.Closure
+	txBookedEvent   *events.Event
 }
 
-// ensure conformance to Ledger interface
+// ensure conformance to Ledger interface.
 var _ txstream.Ledger = &TangleLedger{}
 
 var txEventHandler = func(f interface{}, params ...interface{}) {
 	f.(func(tx *ledgerstate.Transaction))(params[0].(*ledgerstate.Transaction))
 }
 
-// New returns an implementation for txstream.Ledger
+// New returns an implementation for txstream.Ledger.
 func New(tangleInstance *tangle.Tangle) *TangleLedger {
 	t := &TangleLedger{
-		tangleInstance:   tangleInstance,
-		txConfirmedEvent: events.NewEvent(txEventHandler),
-		txBookedEvent:    events.NewEvent(txEventHandler),
+		tangleInstance: tangleInstance,
+		txBookedEvent:  events.NewEvent(txEventHandler),
 	}
-
-	t.txConfirmedClosure = events.NewClosure(func(id ledgerstate.TransactionID) {
-		t.tangleInstance.LedgerState.UTXODAG.CachedTransaction(id).Consume(func(transaction *ledgerstate.Transaction) {
-			go t.txConfirmedEvent.Trigger(transaction)
-		})
-	})
-	t.tangleInstance.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(t.txConfirmedClosure)
 
 	t.txBookedClosure = events.NewClosure(func(id tangle.MessageID) {
 		t.tangleInstance.Storage.Message(id).Consume(func(msg *tangle.Message) {
@@ -54,29 +43,20 @@ func New(tangleInstance *tangle.Tangle) *TangleLedger {
 	return t
 }
 
-// Detach detaches the event handlers
+// Detach detaches the event handlers.
 func (t *TangleLedger) Detach() {
-	t.tangleInstance.LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(t.txConfirmedClosure)
 	t.tangleInstance.Booker.Events.MessageBooked.Detach(t.txBookedClosure)
 }
 
-// EventTransactionConfirmed returns an event that triggers when a transaction is confirmed
-func (t *TangleLedger) EventTransactionConfirmed() *events.Event {
-	return t.txConfirmedEvent
-}
-
-// EventTransactionBooked returns an event that triggers when a transaction is booked
+// EventTransactionBooked returns an event that triggers when a transaction is booked.
 func (t *TangleLedger) EventTransactionBooked() *events.Event {
 	return t.txBookedEvent
 }
 
-// GetUnspentOutputs returns the available UTXOs for an address
+// GetUnspentOutputs returns the available UTXOs for an address.
 func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output ledgerstate.Output)) {
 	t.tangleInstance.LedgerState.CachedOutputsOnAddress(addr).Consume(func(output ledgerstate.Output) {
 		ok := true
-		if state, err := t.GetTxInclusionState(output.ID().TransactionID()); err != nil || state != ledgerstate.Confirmed {
-			return
-		}
 		t.tangleInstance.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if outputMetadata.ConsumerCount() != 0 {
 				ok = false
@@ -89,25 +69,19 @@ func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output
 	})
 }
 
-// GetConfirmedTransaction fetches a transaction by ID, and executes the given callback if found
-func (t *TangleLedger) GetConfirmedTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
+// GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high.
+func (t *TangleLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
 	found = false
-	t.tangleInstance.LedgerState.Transaction(txid).Consume(func(tx *ledgerstate.Transaction) {
-		state, _ := t.GetTxInclusionState(txid)
-		if state == ledgerstate.Confirmed {
+	t.tangleInstance.LedgerState.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
+		if t.tangleInstance.ConfirmationOracle.IsBranchConfirmed(txmeta.BranchID()) {
 			found = true
-			f(tx)
+			t.tangleInstance.LedgerState.Transaction(txid).Consume(f)
 		}
 	})
 	return
 }
 
-// GetTxInclusionState returns the inclusion state of the given transaction
-func (t *TangleLedger) GetTxInclusionState(txid ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
-	return t.tangleInstance.LedgerState.TransactionInclusionState(txid)
-}
-
-// PostTransaction posts a transaction to the ledger
+// PostTransaction posts a transaction to the ledger.
 func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	_, err := t.tangleInstance.IssuePayload(tx)
 	if err != nil {
@@ -116,12 +90,12 @@ func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	return nil
 }
 
-// GetOutput finds an output by ID (either spent or unspent)
+// GetOutput finds an output by ID (either spent or unspent).
 func (t *TangleLedger) GetOutput(outID ledgerstate.OutputID, f func(ledgerstate.Output)) bool {
 	return t.tangleInstance.LedgerState.CachedOutput(outID).Consume(f)
 }
 
-// GetOutputMetadata finds an output by ID and returns its metadata
+// GetOutputMetadata finds an output by ID and returns its metadata.
 func (t *TangleLedger) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgerstate.OutputMetadata)) bool {
 	return t.tangleInstance.LedgerState.CachedOutputMetadata(outID).Consume(f)
 }

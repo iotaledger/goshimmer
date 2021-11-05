@@ -13,7 +13,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -76,7 +75,6 @@ var DiagnosticDRNGMessagesTableDescription = []string{
 	"SolidTime",
 	"ScheduledTime",
 	"BookedTime",
-	"OpinionFormedTime",
 	"dRNGPayloadType",
 	"InstanceID",
 	"Round",
@@ -95,7 +93,6 @@ type DiagnosticDRNGMessagesInfo struct {
 	SolidTime         time.Time
 	ScheduledTime     time.Time
 	BookedTime        time.Time
-	OpinionFormedTime time.Time
 	PayloadType       string
 	InstanceID        uint32
 	Round             uint64
@@ -132,7 +129,6 @@ func getDiagnosticDRNGMessageInfo(message *tangle.Message) *DiagnosticDRNGMessag
 		msgInfo.SolidTime = metadata.SolidificationTime()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
-		msgInfo.OpinionFormedTime = deps.ConsensusMechanism.(*fcob.ConsensusMechanism).OpinionFormedTime(message.ID())
 	}, false)
 
 	return msgInfo
@@ -148,7 +144,6 @@ func (d *DiagnosticDRNGMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.SolidTime.UnixNano()),
 		fmt.Sprint(d.ScheduledTime.UnixNano()),
 		fmt.Sprint(d.BookedTime.UnixNano()),
-		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
 		d.PayloadType,
 		fmt.Sprint(d.InstanceID),
 		fmt.Sprint(d.Round),

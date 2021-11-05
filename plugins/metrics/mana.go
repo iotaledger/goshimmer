@@ -69,10 +69,10 @@ var (
 	averageNeighborsAccess    atomic.Float64
 	averageNeighborsConsensus atomic.Float64
 
-	// internal metrics for delegated mana
+	// internal metrics for delegated mana.
 	delegationAmount atomic.Uint64
 
-	// internal metrics for pledges
+	// internal metrics for pledges.
 	pledges     = NodePledgeMap{}
 	pledgesLock sync.RWMutex
 )

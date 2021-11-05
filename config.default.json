@@ -65,9 +65,6 @@
       "committeeMembers": []
     }
   },
-  "fpc": {
-    "bindAddress": "0.0.0.0:10895"
-  },
   "gossip": {
     "bindAddress": "0.0.0.0:14666"
   },
@@ -106,7 +103,7 @@
     "enablePlugins": []
   },
   "pow": {
-    "difficulty": 22,
+    "difficulty": 21,
     "numThreads": 1,
     "timeout": "1m"
   },

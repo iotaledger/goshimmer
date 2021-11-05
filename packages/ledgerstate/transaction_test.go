@@ -18,7 +18,7 @@ func TestTransaction_Bytes(t *testing.T) {
 
 	wallets := createWallets(2)
 	input := generateOutput(utxoDAG, wallets[0].address, 0)
-	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input)
 	bytes := tx.Bytes()
 	_tx, _, err := TransactionFromBytes(bytes)
 	assert.NoError(t, err)

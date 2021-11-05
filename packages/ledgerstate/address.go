@@ -22,7 +22,7 @@ const (
 	// BLSAddressType represents an Address secured by the BLS signature scheme.
 	BLSAddressType
 
-	// AliasAddressType represents ID used in AliasOutput and AliasLockOutput
+	// AliasAddressType represents ID used in AliasOutput and AliasLockOutput.
 	AliasAddressType
 )
 
@@ -380,7 +380,7 @@ var _ Address = &BLSAddress{}
 const AliasAddressDigestSize = 32
 
 // AliasAddress represents a special type of Address which is not backed by a private key directly,
-// but is indirectly backed by a private key defined by corresponding AliasOutput parameters
+// but is indirectly backed by a private key defined by corresponding AliasOutput parameters.
 type AliasAddress struct {
 	digest [AliasAddressDigestSize]byte
 }
@@ -493,7 +493,7 @@ func (a *AliasAddress) IsNil() bool {
 	return a.digest == [32]byte{}
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ Address = &AliasAddress{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

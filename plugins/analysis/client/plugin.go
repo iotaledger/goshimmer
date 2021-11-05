@@ -1,21 +1,19 @@
 package client
 
 import (
+	"context"
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
 const (
@@ -25,8 +23,6 @@ const (
 	CfgServerAddress = "analysis.client.serverAddress"
 	// defines the report interval of the reporting.
 	reportInterval = 5 * time.Second
-	// voteContextChunkThreshold defines the maximum number of vote context to fit into an FPC update.
-	voteContextChunkThreshold = 50
 )
 
 type dependencies struct {
@@ -34,8 +30,7 @@ type dependencies struct {
 
 	Local     *peer.Local
 	Config    *configuration.Configuration
-	Voter     vote.DRNGRoundBasedVoter `optional:"true"`
-	Selection *selection.Protocol      `optional:"true"`
+	Selection *selection.Protocol `optional:"true"`
 }
 
 func init() {
@@ -52,28 +47,18 @@ var (
 )
 
 func run(_ *node.Plugin) {
-	finalized = make(map[string]opinion.Opinion)
 	log = logger.NewLogger(PluginName)
 	conn = NewConnector("tcp", deps.Config.String(CfgServerAddress))
 
-	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		conn.Start()
 		defer conn.Stop()
 
-		if deps.Voter != nil {
-			onFinalizedClosure := events.NewClosure(onFinalized)
-			deps.Voter.Events().Finalized.Attach(onFinalizedClosure)
-			defer deps.Voter.Events().Finalized.Detach(onFinalizedClosure)
-
-			onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
-			deps.Voter.Events().RoundExecuted.Attach(onRoundExecutedClosure)
-			defer deps.Voter.Events().RoundExecuted.Detach(onRoundExecutedClosure)
-		}
 		ticker := time.NewTicker(reportInterval)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-shutdownSignal:
+			case <-ctx.Done():
 				return
 
 			case <-ticker.C:

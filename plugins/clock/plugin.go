@@ -1,6 +1,7 @@
 package clock
 
 import (
+	"context"
 	"math/rand"
 	"time"
 
@@ -43,14 +44,14 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker(plugin.Name, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(plugin.Name, func(ctx context.Context) {
 		// sync clock on startup
 		queryNTPPool()
 
 		// sync clock every 30min to counter drift
-		timeutil.NewTicker(queryNTPPool, syncInterval, shutdownSignal)
+		timeutil.NewTicker(queryNTPPool, syncInterval, ctx)
 
-		<-shutdownSignal
+		<-ctx.Done()
 	}, shutdown.PrioritySynchronization); err != nil {
 		plugin.Panicf("Failed to start as daemon: %s", err)
 	}

@@ -71,6 +71,7 @@ func configure(plugin *node.Plugin) {
 	configureVisualizer()
 	configureManaFeed()
 	configureServer()
+	configureConflictLiveFeed()
 }
 
 func configureServer() {
@@ -105,7 +106,7 @@ func run(*node.Plugin) {
 	// run the visualizer vertex feed
 	runVisualizer()
 	runManaFeed()
-
+	runConflictLiveFeed()
 	if deps.DRNGInstance != nil {
 		runDrngLiveFeed()
 	}
@@ -120,7 +121,7 @@ func run(*node.Plugin) {
 	}
 }
 
-func worker(shutdownSignal <-chan struct{}) {
+func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	defer wsSendWorkerPool.Stop()
@@ -143,7 +144,7 @@ func worker(shutdownSignal <-chan struct{}) {
 
 	// stop if we are shutting down or the server could not be started
 	select {
-	case <-shutdownSignal:
+	case <-ctx.Done():
 	case <-stopped:
 	}
 
@@ -198,6 +199,10 @@ const (
 	MsgTypeMsgOpinionFormed
 	// MsgTypeChat defines a chat message.
 	MsgTypeChat
+	// MsgTypeConflictsConflict defines a message that contains a conflict update for the conflict tab.
+	MsgTypeConflictsConflict
+	// MsgTypeConflictsBranch defines a message that contains a branch update for the conflict tab.
+	MsgTypeConflictsBranch
 )
 
 type wsmsg struct {
@@ -245,7 +250,6 @@ type neighbormetric struct {
 
 type tipsInfo struct {
 	TotalTips int `json:"totaltips"`
-	WeakTips  int `json:"weaktips"`
 }
 
 type componentsmetric struct {

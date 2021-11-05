@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 )
 
@@ -57,12 +56,6 @@ type Essence struct {
 	Inputs            []*jsonmodels.Output `json:"inputs"`
 	Outputs           []*jsonmodels.Output `json:"outputs"`
 	Data              string               `json:"data"`
-}
-
-// StatementPayload is a JSON serializable statement payload.
-type StatementPayload struct {
-	Conflicts  []Conflict  `json:"conflicts"`
-	Timestamps []Timestamp `json:"timestamps"`
 }
 
 // Conflict is a JSON serializable conflict.
@@ -115,8 +108,6 @@ func ProcessPayload(p payload.Payload) interface{} {
 		}
 	case ledgerstate.TransactionType:
 		return processTransactionPayload(p)
-	case statement.StatementType:
-		return processStatementPayload(p)
 	case faucet.Type:
 		// faucet payload
 		return BasicStringPayload{
@@ -189,31 +180,5 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 		})
 	}
 
-	return
-}
-
-func processStatementPayload(p payload.Payload) (sp StatementPayload) {
-	tmp := p.(*statement.Statement)
-
-	for _, c := range tmp.Conflicts {
-		sc := Conflict{
-			ID: c.ID.String(),
-			Opinion: Opinion{
-				Value: c.Value.String(),
-				Round: c.Round,
-			},
-		}
-		sp.Conflicts = append(sp.Conflicts, sc)
-	}
-	for _, t := range tmp.Timestamps {
-		st := Timestamp{
-			ID: t.ID.Base58(),
-			Opinion: Opinion{
-				Value: t.Value.String(),
-				Round: t.Round,
-			},
-		}
-		sp.Timestamps = append(sp.Timestamps, st)
-	}
 	return
 }

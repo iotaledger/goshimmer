@@ -1,6 +1,8 @@
 package drng
 
 import (
+	"context"
+
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -10,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/consensus"
 )
 
 // PluginName is the name of the DRNG plugin.
@@ -40,12 +41,6 @@ func init() {
 		if err := container.Provide(configureDRNG); err != nil {
 			Plugin.Panic(err)
 		}
-
-		if err := container.Provide(func(drngInstance *drng.DRNG) *drng.State {
-			return drngInstance.LoadState(consensus.FPCParameters.DRNGInstanceID)
-		}); err != nil {
-			Plugin.Panic(err)
-		}
 	}))
 }
 
@@ -54,11 +49,11 @@ func configure(_ *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker("dRNG-plugin", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("dRNG-plugin", func(ctx context.Context) {
 	loop:
 		for {
 			select {
-			case <-shutdownSignal:
+			case <-ctx.Done():
 				plugin.LogInfof("Stopping %s ...", "dRNG-plugin")
 				break loop
 			case messageID := <-inbox:
@@ -87,7 +82,7 @@ func run(plugin *node.Plugin) {
 		}
 
 		Plugin.LogInfof("Stopping %s ... done", "dRNG-plugin")
-	}, shutdown.PriorityFPC); err != nil {
+	}, shutdown.PriorityDRNG); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
@@ -98,19 +93,10 @@ func configureEvents() {
 		return
 	}
 
-	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		select {
 		case inbox <- messageID:
 		default:
-		}
-	}))
-
-	// Section to update the randomness for the dRNG ticker used by FPC.
-	deps.DRNGInstance.Events.Randomness.Attach(events.NewClosure(func(state *drng.State) {
-		if state.Committee().InstanceID == consensus.FPCParameters.DRNGInstanceID {
-			if deps.DRNGTTicker != nil {
-				deps.DRNGTTicker.UpdateRandomness(state.Randomness())
-			}
 		}
 	}))
 }

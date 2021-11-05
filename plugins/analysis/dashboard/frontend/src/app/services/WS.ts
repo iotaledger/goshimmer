@@ -1,4 +1,3 @@
-import { IFPCMessage } from "../models/messages/IFPCMessage";
 import { IAddNodeMessage } from "../models/messages/IAddNodeMessage";
 import { IRemoveNodeMessage } from "../models/messages/IRemoveNodeMessage";
 import { IConnectNodesMessage } from "../models/messages/IConnectNodesMessage";
@@ -10,7 +9,6 @@ type DataHandler<T> = (data: T) => void;
 
 const handlers: { [id in WSMsgType]?: DataHandler<unknown> } = {};
 
-export function registerHandler(msgTypeID: WSMsgType.fpc, handler: DataHandler<IFPCMessage>);
 export function registerHandler(msgTypeID: WSMsgType.addNode, handler: DataHandler<IAddNodeMessage>);
 export function registerHandler(msgTypeID: WSMsgType.removeNode, handler: DataHandler<IRemoveNodeMessage>);
 export function registerHandler(msgTypeID: WSMsgType.connectNodes, handler: DataHandler<IConnectNodesMessage>);

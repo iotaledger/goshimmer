@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -52,9 +52,8 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionConfirmedClosure *events.Closure
+	onTransactionConfirmed *events.Closure
 
-	// logger
 	log *logger.Logger
 )
 
@@ -72,10 +71,10 @@ func Filter() *DoubleSpendFilter {
 
 func configure(_ *node.Plugin) {
 	doubleSpendFilter = Filter()
-	onTransactionConfirmedClosure = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	onTransactionConfirmed = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		doubleSpendFilter.Remove(transactionID)
 	})
-	deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmed)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -91,25 +90,22 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/branches/:branchID", GetBranch)
 	deps.Server.GET("ledgerstate/branches/:branchID/children", GetBranchChildren)
 	deps.Server.GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
-	deps.Server.GET("ledgerstate/outputs/:outputID", GetOutput)
+	deps.Server.GET("ledgerstate/branches/:branchID/supporters", GetBranchSupporters)
 	deps.Server.GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID", GetTransaction)
 	deps.Server.GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
-	deps.Server.GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
-	deps.Server.GET("ledgerstate/transactions/:transactionID/consensus", GetTransactionConsensusMetadata)
-	deps.Server.GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
 	deps.Server.POST("ledgerstate/transactions", PostTransaction)
 }
 
-func worker(shutdownSignal <-chan struct{}) {
+func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 	func() {
 		ticker := time.NewTicker(DoubleSpendFilterCleanupInterval)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-shutdownSignal:
+			case <-ctx.Done():
 				return
 			case <-ticker.C:
 				doubleSpendFilter.CleanUp()
@@ -117,7 +113,7 @@ func worker(shutdownSignal <-chan struct{}) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Tangle.LedgerState.UTXODAG.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(onTransactionConfirmed)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -200,25 +196,15 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 			cachedOutputMetadata := deps.Tangle.LedgerState.CachedOutputMetadata(output.ID())
 			cachedOutputMetadata.Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() == 0 {
-					inclusionState := jsonmodels.InclusionState{}
-					txID := output.ID().TransactionID()
-					txInclusionState, err := deps.Tangle.LedgerState.TransactionInclusionState(txID)
-					if err != nil {
-						return
-					}
-					inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
-					inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
-					inclusionState.Conflicting = len(deps.Tangle.LedgerState.ConflictSet(txID)) != 0
-
 					cachedTx := deps.Tangle.LedgerState.Transaction(output.ID().TransactionID())
 					var timestamp time.Time
 					cachedTx.Consume(func(tx *ledgerstate.Transaction) {
 						timestamp = tx.Essence().Timestamp()
 					})
 					res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
-						Output:         *jsonmodels.NewOutput(output),
-						InclusionState: inclusionState,
-						Metadata:       jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
+						Output:          *jsonmodels.NewOutput(output),
+						GradeOfFinality: outputMetadata.GradeOfFinality(),
+						Metadata:        jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
 					})
 				}
 			})
@@ -241,7 +227,9 @@ func GetBranch(c echo.Context) (err error) {
 	}
 
 	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch))
+		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+
+		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID)))
 	}) {
 		return
 	}
@@ -301,6 +289,22 @@ func GetBranchConflicts(c echo.Context) (err error) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region GetBranchSupporters ///////////////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchSupporters is the handler for the /ledgerstate/branches/:branchID/supporters endpoint.
+func GetBranchSupporters(c echo.Context) (err error) {
+	branchID, err := branchIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	supporters := deps.Tangle.ApprovalWeightManager.SupportersOfAggregatedBranch(branchID)
+
+	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchSupportersResponse(branchID, supporters))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region GetOutput ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetOutput is the handler for the /ledgerstate/outputs/:outputID endpoint.
@@ -348,7 +352,11 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	}
 
 	if !deps.Tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewOutputMetadata(outputMetadata))
+		confirmedConsumerID := deps.Tangle.LedgerState.ConfirmedConsumer(outputID)
+
+		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
+
+		err = c.JSON(http.StatusOK, jsonOutputMetadata)
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
 	}
@@ -395,50 +403,6 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 	}
 
 	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region GetTransactionInclusionState /////////////////////////////////////////////////////////////////////////////////
-
-// GetTransactionInclusionState is the handler for the ledgerstate/transactions/:transactionID/inclusionState endpoint.
-func GetTransactionInclusionState(c echo.Context) (err error) {
-	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	inclusionState, err := deps.Tangle.LedgerState.TransactionInclusionState(transactionID)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	conflicting := len(deps.Tangle.LedgerState.ConflictSet(transactionID)) != 0
-
-	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID, conflicting))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region GetTransactionConsensusMetadata //////////////////////////////////////////////////////////////////////////////
-
-// GetTransactionConsensusMetadata is the handler for the ledgerstate/transactions/:transactionID/consensus endpoint.
-func GetTransactionConsensusMetadata(c echo.Context) (err error) {
-	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	consensusMechanism := deps.Tangle.Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
-	if consensusMechanism != nil {
-		if consensusMechanism.Storage.Opinion(transactionID).Consume(func(opinion *fcob.Opinion) {
-			err = c.JSON(http.StatusOK, jsonmodels.NewTransactionConsensusMetadata(transactionID, opinion))
-		}) {
-			return
-		}
-	}
-
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionConsensusMetadata of Transaction with %s", transactionID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

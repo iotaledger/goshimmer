@@ -6,6 +6,7 @@ package server
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
@@ -42,16 +43,16 @@ func (c *Connection) sendMsgToClient(msg txstream.Message) {
 	}
 }
 
-func (c *Connection) sendTxInclusionState(txid ledgerstate.TransactionID, addr ledgerstate.Address, state ledgerstate.InclusionState) {
-	c.sendMsgToClient(&txstream.MsgTxInclusionState{
-		Address: addr,
-		TxID:    txid,
-		State:   state,
+func (c *Connection) sendTxInclusionState(txid ledgerstate.TransactionID, addr ledgerstate.Address, gradeOfFinality gof.GradeOfFinality) {
+	c.sendMsgToClient(&txstream.MsgTxGoF{
+		Address:         addr,
+		TxID:            txid,
+		GradeOfFinality: gradeOfFinality,
 	})
 }
 
 func (c *Connection) pushTransaction(txid ledgerstate.TransactionID, addr ledgerstate.Address) {
-	found := c.ledger.GetConfirmedTransaction(txid, func(tx *ledgerstate.Transaction) {
+	found := c.ledger.GetHighGoFTransaction(txid, func(tx *ledgerstate.Transaction) {
 		c.sendMsgToClient(&txstream.MsgTransaction{
 			Address: addr,
 			Tx:      tx,
@@ -64,7 +65,7 @@ func (c *Connection) pushTransaction(txid ledgerstate.TransactionID, addr ledger
 
 func (c *Connection) sendOutput(outputID ledgerstate.OutputID, addr ledgerstate.Address) {
 	validOutput := true
-	foundTx := c.ledger.GetConfirmedTransaction(outputID.TransactionID(), func(tx *ledgerstate.Transaction) {
+	foundTx := c.ledger.GetHighGoFTransaction(outputID.TransactionID(), func(tx *ledgerstate.Transaction) {
 		idx := outputID.OutputIndex()
 		if int(idx) >= len(tx.Essence().Outputs()) {
 			validOutput = false
@@ -91,7 +92,7 @@ func (c *Connection) sendUnspentAliasOutput(addr *ledgerstate.AliasAddress) {
 		}
 		if aliasOut, ok := out.(*ledgerstate.AliasOutput); ok {
 			var timestamp time.Time
-			c.ledger.GetConfirmedTransaction(aliasOut.ID().TransactionID(), func(tx *ledgerstate.Transaction) {
+			c.ledger.GetHighGoFTransaction(aliasOut.ID().TransactionID(), func(tx *ledgerstate.Transaction) {
 				timestamp = tx.Essence().Timestamp()
 			})
 			c.ledger.GetOutputMetadata(out.ID(), func(meta *ledgerstate.OutputMetadata) {

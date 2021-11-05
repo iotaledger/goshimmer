@@ -58,7 +58,10 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
             case PayloadType.Drng:
                 return <DrngPayload/>
             case PayloadType.Transaction:
-                return <TransactionPayload/>
+                if (!this.props.explorerStore.msg.invalid) {
+                    return <TransactionPayload/>
+                }
+                return <BasicPayload/>
             case PayloadType.Statement:
                 return <StatementPayload/>
             case PayloadType.Data:
@@ -94,7 +97,6 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                 </Container>
             );
         }
-
         return (
             <Container>
                 <h3>Message</h3>
@@ -128,7 +130,12 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Sequence Number: {msg.sequence_number}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        BranchID: <Link to={`/explorer/branch/${msg.branchID}`}>{resolveBase58BranchID(msg.branchID)}</Link>
+                                        BranchID: <Link
+                                        to={`/explorer/branch/${msg.branchID}`}>{resolveBase58BranchID(msg.branchID)}</Link>
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        MetadataBranchID: <Link
+                                        to={`/explorer/branch/${msg.metadataBranchID}`}>{resolveBase58BranchID(msg.metadataBranchID)}</Link>
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Solid: {msg.solid ? 'Yes' : 'No'}
@@ -143,13 +150,13 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Booked: {msg.booked ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Eligible: {msg.eligible ? 'Yes' : 'No'}
-                                    </ListGroup.Item>
-                                    <ListGroup.Item>
                                         Invalid: {msg.invalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Finalized: {msg.finalized ? 'Yes' : 'No'}
+                                        Grade of Finality: {msg.gradeOfFinality}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Grade of Finality Time: {dateformat(new Date(msg.gradeOfFinalityTime * 1000), "dd.mm.yyyy HH:MM:ss")}
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>
@@ -200,43 +207,27 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                 </ListGroup>
                             </Col>
                         </Row>
-
-                        <Row className={"mb-3"}>
-                            <Col>
-                                <ListGroup>
-                                    {
-                                        msg.strongParents.map((value, index) => {
-                                            return (
-                                                <ListGroup.Item className="text-break">
-                                                    Strong Parent {index + 1}: {' '}
-                                                    <Link to={`/explorer/message/${msg.strongParents[index]}`}>
-                                                        {msg.strongParents[index]}
-                                                    </Link>
-                                                </ListGroup.Item>
-                                                )
-                                        })
-                                    }
-                                </ListGroup>
-                            </Col>
-                        </Row>
-                        <Row>
-                            <Col>
-                                <ListGroup>
-                                        {
-                                            msg.weakParents.map((value, index) => {
-                                                return (
+                        {
+                            Object.keys(msg.parentsByType).map(parentsTypeName =>
+                                <Row className={"mb-3"}>
+                                    <Col>
+                                        <ListGroup>
+                                            {
+                                                msg.parentsByType[parentsTypeName].map((value, index) =>
                                                     <ListGroup.Item className="text-break">
-                                                        Weak Parent {index + 1}: {' '}
-                                                        <Link to={`/explorer/message/${msg.weakParents[index]}`}>
-                                                            {msg.weakParents[index]}
+                                                        {parentsTypeName} {index + 1}: {' '}
+                                                        <Link
+                                                            to={`/explorer/message/${msg.parentsByType[parentsTypeName][index]}`}>
+                                                            {msg.parentsByType[parentsTypeName][index]}
                                                         </Link>
                                                     </ListGroup.Item>
                                                 )
-                                            })
-                                        }
-                                </ListGroup>
-                            </Col>
-                        </Row>
+                                            }
+                                        </ListGroup>
+                                    </Col>
+                                </Row>
+                            )
+                        }
 
                         <Row>
                             <Col>
@@ -244,7 +235,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                     {
                                         msg.strongApprovers.map((value, index) => {
                                             return (
-                                                <ListGroup.Item className="text-break">
+                                                <ListGroup.Item key={"Strong Approver" + index + 1}
+                                                                className="text-break">
                                                     Strong Approver {index + 1}: {' '}
                                                     <Link to={`/explorer/message/${msg.strongApprovers[index]}`}>
                                                         {msg.strongApprovers[index]}
@@ -263,7 +255,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                     {
                                         msg.weakApprovers.map((value, index) => {
                                             return (
-                                                <ListGroup.Item className="text-break">
+                                                <ListGroup.Item key={"Weak Approver" + index + 1}
+                                                                className="text-break">
                                                     Weak Approver {index + 1}: {' '}
                                                     <Link to={`/explorer/message/${msg.weakApprovers[index]}`}>
                                                         {msg.weakApprovers[index]}

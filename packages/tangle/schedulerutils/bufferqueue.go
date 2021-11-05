@@ -18,7 +18,7 @@ var (
 
 // region BufferQueue /////////////////////////////////////////////////////////////////////////////////////////////
 
-// BufferQueue represents a buffer of NodeQueue
+// BufferQueue represents a buffer of NodeQueue.
 type BufferQueue struct {
 	maxBuffer int
 	maxQueue  float64

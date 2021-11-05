@@ -23,34 +23,33 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle             *tangle.Tangle
-	ConsensusMechanism tangle.ConsensusMechanism
-	Local              *peer.Local
-	Config             *configuration.Configuration
-	Server             *echo.Echo
+	Tangle *tangle.Tangle
+	Local  *peer.Local
+	Config *configuration.Configuration
+	Server *echo.Echo
 }
 
 const (
 	routeDiagnostics = "tools/diagnostic"
-	// RouteDiagnosticMessages is the API route for message diagnostics
+	// RouteDiagnosticMessages is the API route for message diagnostics.
 	RouteDiagnosticMessages = routeDiagnostics + "/messages"
-	// RouteDiagnosticsFirstWeakMessageReferences is the API route for first weak message diagnostics
+	// RouteDiagnosticsFirstWeakMessageReferences is the API route for first weak message diagnostics.
 	RouteDiagnosticsFirstWeakMessageReferences = RouteDiagnosticMessages + "/firstweakreferences"
-	// RouteDiagnosticsMessageRank is the API route for message diagnostics with a rank filter
+	// RouteDiagnosticsMessageRank is the API route for message diagnostics with a rank filter.
 	RouteDiagnosticsMessageRank = RouteDiagnosticMessages + "/rank/:rank"
-	// RouteDiagnosticsUtxoDag is the API route for Utxo Dag diagnostics
+	// RouteDiagnosticsUtxoDag is the API route for Utxo Dag diagnostics.
 	RouteDiagnosticsUtxoDag = routeDiagnostics + "/utxodag"
-	// RouteDiagnosticsBranches is the API route for branches diagnostics
+	// RouteDiagnosticsBranches is the API route for branches diagnostics.
 	RouteDiagnosticsBranches = routeDiagnostics + "/branches"
-	// RouteDiagnosticsLazyBookedBranches is the API route for booked branches diagnostics
+	// RouteDiagnosticsLazyBookedBranches is the API route for booked branches diagnostics.
 	RouteDiagnosticsLazyBookedBranches = RouteDiagnosticsBranches + "/lazybooked"
-	// RouteDiagnosticsInvalidBranches is the API route for invalid branches diagnostics
+	// RouteDiagnosticsInvalidBranches is the API route for invalid branches diagnostics.
 	RouteDiagnosticsInvalidBranches = RouteDiagnosticsBranches + "/invalid"
-	// RouteDiagnosticsTips is the API route for tips diagnostics
+	// RouteDiagnosticsTips is the API route for tips diagnostics.
 	RouteDiagnosticsTips = routeDiagnostics + "/tips"
-	// RouteDiagnosticsStrongTips is the API route for strong tips diagnostics
+	// RouteDiagnosticsStrongTips is the API route for strong tips diagnostics.
 	RouteDiagnosticsStrongTips = RouteDiagnosticsTips + "/strong"
-	// RouteDiagnosticsWeakTips is the API route for weak tips diagnostics
+	// RouteDiagnosticsWeakTips is the API route for weak tips diagnostics.
 	RouteDiagnosticsWeakTips = RouteDiagnosticsTips + "/weak"
 )
 
@@ -67,6 +66,4 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET(RouteDiagnosticsLazyBookedBranches, DiagnosticLazyBookedBranchesHandler)
 	deps.Server.GET(RouteDiagnosticsInvalidBranches, DiagnosticInvalidBranchesHandler)
 	deps.Server.GET(RouteDiagnosticsTips, TipsDiagnosticHandler)
-	deps.Server.GET(RouteDiagnosticsStrongTips, StrongTipsDiagnosticHandler)
-	deps.Server.GET(RouteDiagnosticsWeakTips, WeakTipsDiagnosticHandler)
 }

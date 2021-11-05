@@ -127,7 +127,7 @@ export class Visualizer extends React.Component<Props, any> {
                         </InputGroup>
                     </Col>
                     <Col xs={{span: 5, offset: 2}}>
-                        <p>                            
+                        <p>
                             <Badge pill style={{background: "#b9b7bd", color: "white"}}>
                                 MSG Pending
                             </Badge>
@@ -166,20 +166,10 @@ export class Visualizer extends React.Component<Props, any> {
                             <span>{selected_approvers_count}/{selected_approvees_count}</span>
                             : '-/-'}
                             <br/>
-                            Strong/Weak:{' '}
                             {
-                                selected && selected.strongParentIDs && selected.weakParentIDs ?
-                                    <span>
-                                        {selected.strongParentIDs.map((parent) => {
-                                            return (
-                                                <Link to={`/explorer/message/${parent}`}>
-                                                    {parent.substr(0, 10) + " "}
-                                                </Link>
-                                            )
-
-                                        })}
-                                        /
-                                        {selected.weakParentIDs.map((parent) => {
+                                selected ? Object.keys(selected.parentIDsByType).map((parentType) =>
+                                    <span> {parentType}:{' '}
+                                        {selected.parentIDsByType[parentType].map((parent) => {
                                             return (
                                                 <Link to={`/explorer/message/${parent}`}>
                                                     {parent.substr(0, 10) + " "}
@@ -188,7 +178,8 @@ export class Visualizer extends React.Component<Props, any> {
 
                                         })}
                                     </span>
-                                    : "-"}
+                                ) : ""
+                            }
                         </p>
                     </Col>
                 </Row>

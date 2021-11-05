@@ -27,7 +27,7 @@ We want to emphasize that running a GoShimmer node requires proper knowledge in 
 Running a node in the GoShimmer testnet helps us in the following ways:
 * It increases the amount of nodes in the network and thus lets it form a more realistic network.
 * Your node will be configured to send debug log messages to a centralized logger from which we can assess and debug research questions and occurring problems.
-* Your node is configured to send metric data to a centralized analysis server where we store information such as resource consumption, traffic, FPC vote context processing and so on. This data helps us further fostering the development of GoShimmer and assessing network behavior.
+* Your node is configured to send metric data to a centralized analysis server where we store information such as resource consumption, traffic, and so on. This data helps us further fostering the development of GoShimmer and assessing network behavior.
 * If you expose your HTTP API port, you provide an entrypoint for other people to interact with the network.
 
 :::note
@@ -195,8 +195,6 @@ services:
       - "0.0.0.0:14626:14626/udp"
       # Gossip
       - "0.0.0.0:14666:14666/tcp"
-      # FPC
-      - "0.0.0.0:10895:10895/tcp"
       # HTTP API
       - "0.0.0.0:8080:8080/tcp"
       # Dashboard
@@ -211,7 +209,6 @@ services:
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
       - NETWORKDELAY_ORIGINPUBLICKEY=9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd
-      - FPC_BINDADDRESS=0.0.0.0:10895
       - PROMETHEUS_BINDADDRESS=0.0.0.0:9311
     command: >
       --skip-config=true
@@ -246,12 +243,11 @@ Note how we are setting up NATs for different ports:
 | ----- | -------------- | -------- |
 | 14626 | Autopeering    | UDP      |
 | 14666 | Gossip         | TCP      |
-| 10895 | FPC            | TCP/HTTP |
 | 8080  | HTTP API      | TCP/HTTP |
 | 8081  | Dashboard       | TCP/HTTP |
 | 6061  | pprof HTTP API | TCP/HTTP |
 
-It is important that the ports are correctly mapped so that the node for example actively participates in FPC votes or can gain inbound neighbors.
+It is important that the ports are correctly mapped so that the node can gain inbound neighbors.
 
 :::warning INFO
 
@@ -374,10 +370,10 @@ docker logs goshimmer > log.txt
 
 If you set up the Grafana dashboard for your node according to the next section "Setting up the Grafana dashboard", the following method will help you to update when a new version is released.
 
-You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
+You have to manually copy the new [dashboard file](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/dashboards/local_dashboard.json) into `/opt/goshimmer/grafana/dashboards` directory.
 Supposing you are at `/opt/goshimmer/`:
 ```
-wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/monitoring/grafana/dashboards/local_dashboard.json
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/docker-network/grafana/dashboards/local_dashboard.json
 cp local_dashboard.json grafana/dashboards
 ```
 Restart the grafana container:
@@ -507,9 +503,9 @@ providers:
 ```
 4. Add predefined GoShimmer Local Metrics Dashboard.
 
-Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json).
+Head over to the GoShimmer repository and download [local_dashboard.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/grafana/dashboards/local_dashboard.json).
 ```
-wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/monitoring/grafana/dashboards/local_dashboard.json
+wget https://raw.githubusercontent.com/iotaledger/goshimmer/develop/tools/docker-network/grafana/dashboards/local_dashboard.json
 cp local_dashboard.json grafana/dashboards
 ```
 5. Add permissions to Grafana config folder
