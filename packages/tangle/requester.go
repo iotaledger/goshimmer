@@ -108,6 +108,7 @@ func (r *Requester) StartRequest(id MessageID) {
 	r.scheduledRequestsMutex.Unlock()
 
 	r.Events.RequestStarted.Trigger(id)
+	r.Events.RequestIssued.Trigger(&SendRequestEvent{ID: id})
 }
 
 // StopRequest stops requests for the given message to further happen.
