@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/timedexecutor"
 )
 
 const (
@@ -47,24 +48,23 @@ func RetryInterval(interval time.Duration) RequesterOption {
 // Requester takes care of requesting messages.
 type Requester struct {
 	tangle            *Tangle
-	scheduledRequests map[MessageID]*time.Timer
+	timedExecutor     *timedexecutor.TimedExecutor
+	scheduledRequests map[MessageID]*timedexecutor.ScheduledTask
 	options           *RequesterOptions
 	Events            *MessageRequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
 }
 
-// MessageExistsFunc is a function that tells if a message exists.
-type MessageExistsFunc func(messageId MessageID) bool
-
 // NewRequester creates a new message requester.
 func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester {
 	requester := &Requester{
 		tangle:            tangle,
-		scheduledRequests: make(map[MessageID]*time.Timer),
+		scheduledRequests: make(map[MessageID]*timedexecutor.ScheduledTask),
 		options:           newRequesterOptions(optionalOptions),
 		Events: &MessageRequesterEvents{
-			SendRequest: events.NewEvent(sendRequestEventHandler),
+			SendRequest:   events.NewEvent(sendRequestEventHandler),
+			RequestFailed: events.NewEvent(MessageIDCaller),
 		},
 	}
 
@@ -73,7 +73,7 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 	defer requester.scheduledRequestsMutex.Unlock()
 
 	for _, id := range tangle.Storage.MissingMessages() {
-		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, requester.createReRequest(id, 0))
+		requester.scheduledRequests[id] = requester.timedExecutor.ExecuteAfter(requester.createReRequest(id, 0), requester.options.retryInterval)
 	}
 
 	return requester
@@ -83,6 +83,11 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 func (r *Requester) Setup() {
 	r.tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(r.StartRequest))
 	r.tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(r.StopRequest))
+}
+
+// Shutdown shuts down the Requester.
+func (r *Requester) Shutdown() {
+	r.timedExecutor.Shutdown(timedexecutor.CancelPendingTasks)
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
@@ -96,7 +101,7 @@ func (r *Requester) StartRequest(id MessageID) {
 	}
 
 	// schedule the next request and trigger the event
-	r.scheduledRequests[id] = time.AfterFunc(r.options.retryInterval, r.createReRequest(id, 0))
+	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.retryInterval)
 	r.scheduledRequestsMutex.Unlock()
 	r.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 }
@@ -107,7 +112,7 @@ func (r *Requester) StopRequest(id MessageID) {
 	defer r.scheduledRequestsMutex.Unlock()
 
 	if timer, ok := r.scheduledRequests[id]; ok {
-		timer.Stop()
+		timer.Cancel()
 		delete(r.scheduledRequests, id)
 	}
 }
@@ -128,10 +133,12 @@ func (r *Requester) reRequest(id MessageID, count int) {
 		if count > maxRequestThreshold {
 			delete(r.scheduledRequests, id)
 
+			r.Events.RequestFailed.Trigger(id)
+
 			return
 		}
 
-		r.scheduledRequests[id] = time.AfterFunc(r.options.retryInterval, r.createReRequest(id, count))
+		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.options.retryInterval)
 		return
 	}
 }
@@ -155,6 +162,9 @@ func (r *Requester) createReRequest(msgID MessageID, count int) func() {
 type MessageRequesterEvents struct {
 	// Fired when a request for a given message should be sent.
 	SendRequest *events.Event
+
+	// RequestFailed is an event that is triggered when a request is stopped after too many attempts.
+	RequestFailed *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
