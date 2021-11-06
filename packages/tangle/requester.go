@@ -64,7 +64,7 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 		scheduledRequests: make(map[MessageID]*timedexecutor.ScheduledTask),
 		options:           newRequesterOptions(optionalOptions),
 		Events: &MessageRequesterEvents{
-			SendRequest:    events.NewEvent(sendRequestEventHandler),
+			RequestIssued:  events.NewEvent(sendRequestEventHandler),
 			RequestStarted: events.NewEvent(MessageIDCaller),
 			RequestStopped: events.NewEvent(MessageIDCaller),
 			RequestFailed:  events.NewEvent(MessageIDCaller),
@@ -128,7 +128,7 @@ func (r *Requester) StopRequest(id MessageID) {
 }
 
 func (r *Requester) reRequest(id MessageID, count int) {
-	r.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
+	r.Events.RequestIssued.Trigger(&SendRequestEvent{ID: id})
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	r.scheduledRequestsMutex.Lock()
@@ -170,8 +170,9 @@ func (r *Requester) createReRequest(msgID MessageID, count int) func() {
 
 // MessageRequesterEvents represents events happening on a message requester.
 type MessageRequesterEvents struct {
-	// Fired when a request for a given message should be sent.
-	SendRequest *events.Event
+	// RequestIssued is an event that is triggered when the requester wants to request the given Message from its
+	// neighbors.
+	RequestIssued *events.Event
 
 	// RequestStarted is an event that is triggered when a new request is started.
 	RequestStarted *events.Event

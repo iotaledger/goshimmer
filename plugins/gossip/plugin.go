@@ -80,7 +80,7 @@ func configureMessageLayer() {
 	}))
 
 	// request missing messages
-	deps.Tangle.Requester.Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
+	deps.Tangle.Requester.Events.RequestIssued.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
 		deps.GossipMgr.RequestMessage(sendRequest.ID[:])
 	}))
 }
