@@ -64,8 +64,10 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 		scheduledRequests: make(map[MessageID]*timedexecutor.ScheduledTask),
 		options:           newRequesterOptions(optionalOptions),
 		Events: &MessageRequesterEvents{
-			SendRequest:   events.NewEvent(sendRequestEventHandler),
-			RequestFailed: events.NewEvent(MessageIDCaller),
+			SendRequest:    events.NewEvent(sendRequestEventHandler),
+			RequestStarted: events.NewEvent(MessageIDCaller),
+			RequestStopped: events.NewEvent(MessageIDCaller),
+			RequestFailed:  events.NewEvent(MessageIDCaller),
 		},
 	}
 
@@ -104,18 +106,25 @@ func (r *Requester) StartRequest(id MessageID) {
 	// schedule the next request and trigger the event
 	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.retryInterval)
 	r.scheduledRequestsMutex.Unlock()
-	r.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
+
+	r.Events.RequestStarted.Trigger(id)
 }
 
 // StopRequest stops requests for the given message to further happen.
 func (r *Requester) StopRequest(id MessageID) {
 	r.scheduledRequestsMutex.Lock()
-	defer r.scheduledRequestsMutex.Unlock()
 
-	if timer, ok := r.scheduledRequests[id]; ok {
-		timer.Cancel()
-		delete(r.scheduledRequests, id)
+	timer, ok := r.scheduledRequests[id]
+	if !ok {
+		r.scheduledRequestsMutex.Unlock()
+		return
 	}
+
+	timer.Cancel()
+	delete(r.scheduledRequests, id)
+	r.scheduledRequestsMutex.Unlock()
+
+	r.Events.RequestStopped.Trigger(id)
 }
 
 func (r *Requester) reRequest(id MessageID, count int) {
@@ -163,6 +172,12 @@ func (r *Requester) createReRequest(msgID MessageID, count int) func() {
 type MessageRequesterEvents struct {
 	// Fired when a request for a given message should be sent.
 	SendRequest *events.Event
+
+	// RequestStarted is an event that is triggered when a new request is started.
+	RequestStarted *events.Event
+
+	// RequestStopped is an event that is triggered when a request is stopped.
+	RequestStopped *events.Event
 
 	// RequestFailed is an event that is triggered when a request is stopped after too many attempts.
 	RequestFailed *events.Event
