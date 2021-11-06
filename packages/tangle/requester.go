@@ -60,6 +60,7 @@ type Requester struct {
 func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester {
 	requester := &Requester{
 		tangle:            tangle,
+		timedExecutor:     timedexecutor.New(1),
 		scheduledRequests: make(map[MessageID]*timedexecutor.ScheduledTask),
 		options:           newRequesterOptions(optionalOptions),
 		Events: &MessageRequesterEvents{
