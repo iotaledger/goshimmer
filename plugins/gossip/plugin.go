@@ -64,6 +64,15 @@ func configureLogging() {
 	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		Plugin.LogInfof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
+	deps.Tangle.Requester.Events.RequestStarted.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Plugin.LogInfof("started to request missing Message with %s", messageID)
+	}))
+	deps.Tangle.Requester.Events.RequestStopped.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Plugin.LogInfof("stopped to request missing Message with %s", messageID)
+	}))
+	deps.Tangle.Requester.Events.RequestFailed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Plugin.LogWarnf("failed to request missing Message with %s", messageID)
+	}))
 }
 
 func configureMessageLayer() {
