@@ -16,8 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -25,6 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 var (
