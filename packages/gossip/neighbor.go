@@ -107,7 +107,7 @@ func (n *Neighbor) readLoop() {
 			err := n.read(packet)
 			// the problem is here
 			if err != nil {
-				if !isCloseError(err) && !errors.Is(err, io.EOF) {
+				if !isAlreadyClosedError(err) && !errors.Is(err, io.EOF) {
 					n.log.Warnw("Permanent error", "err", err)
 				}
 				return
@@ -151,7 +151,6 @@ func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
 		if streamErr := n.stream.Close(); streamErr != nil {
 			err = errors.WithStack(streamErr)
-			return
 		}
 		n.log.Info("Connection closed")
 		n.disconnected.Trigger()
@@ -159,7 +158,7 @@ func (n *Neighbor) disconnect() (err error) {
 	return err
 }
 
-func isCloseError(err error) bool {
+func isAlreadyClosedError(err error) bool {
 	return strings.Contains(err.Error(), "use of closed network connection") ||
 		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset)
 }
