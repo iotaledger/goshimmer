@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/network"
 	"go.uber.org/atomic"
 
@@ -159,5 +160,6 @@ func (n *Neighbor) disconnect() (err error) {
 }
 
 func isCloseError(err error) bool {
-	return strings.Contains(err.Error(), "use of closed network connection") || errors.Is(err, io.ErrClosedPipe)
+	return strings.Contains(err.Error(), "use of closed network connection") ||
+		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset)
 }
