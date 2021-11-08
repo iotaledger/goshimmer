@@ -163,7 +163,8 @@ func (m *Manager) streamHandler(stream network.Stream) {
 		am.streamCh <- stream
 	} else {
 		// close the connection if not matched
-		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr())
+		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
+			"id", stream.Conn().RemotePeer())
 		m.closeStream(stream)
 	}
 }

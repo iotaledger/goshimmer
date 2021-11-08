@@ -374,7 +374,7 @@ func TestMessageRequest(t *testing.T) {
 }
 
 func TestDropNeighbor(t *testing.T) {
-	testMgrs := newTestManagers(t, false /* doMock */, "A", "B")
+	testMgrs := newTestManagers(t, false /* doMock */, t.Name()+"_A", t.Name()+"_B")
 	mgrA, closeA, peerA := testMgrs[0].manager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].manager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
@@ -383,17 +383,25 @@ func TestDropNeighbor(t *testing.T) {
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signalA := events.NewClosure(func(_ *Neighbor) {
+			t.Log("Manager A: neighbor added")
+			wg.Done()
+		})
+		signalB := events.NewClosure(func(_ *Neighbor) {
+			t.Log("Manager B: neighbor added")
+			wg.Done()
+		})
 		// we are expecting two signals
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
-		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
-		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
-		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
+		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signalA)
+		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signalA)
+		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signalB)
+		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signalB)
 
 		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)) }()
+		time.Sleep(graceTime)
 		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)) }()
 		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
