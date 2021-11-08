@@ -37,12 +37,12 @@ var (
 func loadTestMessage(tangle.MessageID) ([]byte, error) { return testMessageData, nil }
 
 func TestClose(t *testing.T) {
-	testMgrs := newTestManagers(t, "A")
+	testMgrs := newTestManagers(t, true /* doMock */, "A")
 	testMgrs[0].close()
 }
 
 func TestClosedConnection(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B")
+	testMgrs := newTestManagers(t, true /* doMock */, "A", "B")
 	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
@@ -85,7 +85,7 @@ func TestClosedConnection(t *testing.T) {
 }
 
 func TestP2PSend(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B")
+	testMgrs := newTestManagers(t, true /* doMock */, "A", "B")
 	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 
@@ -133,7 +133,7 @@ func TestP2PSend(t *testing.T) {
 }
 
 func TestP2PSendTwice(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B")
+	testMgrs := newTestManagers(t, true /* doMock */, "A", "B")
 	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
@@ -185,7 +185,7 @@ func TestP2PSendTwice(t *testing.T) {
 }
 
 func TestBroadcast(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B", "C")
+	testMgrs := newTestManagers(t, true /* doMock */, "A", "B", "C")
 	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 	mgrC, closeC, peerC := testMgrs[2].mockManager, testMgrs[2].close, testMgrs[2].peer
@@ -250,7 +250,7 @@ func TestBroadcast(t *testing.T) {
 
 
 func TestSingleSend(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B", "C")
+	testMgrs := newTestManagers(t, true /* doMock */, "A", "B", "C")
 	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 	mgrC, closeC, peerC := testMgrs[2].mockManager, testMgrs[2].close, testMgrs[2].peer
@@ -312,7 +312,7 @@ func TestSingleSend(t *testing.T) {
 }
 
 func TestDropUnsuccessfulAccept(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B")
+	testMgrs := newTestManagers(t, true /* doMock */, "A", "B")
 	mgrA, closeA, _ := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
@@ -326,7 +326,7 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 }
 
 func TestMessageRequest(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B")
+	testMgrs := newTestManagers(t, true /* doMock */, "A", "B")
 	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 
@@ -375,9 +375,9 @@ func TestMessageRequest(t *testing.T) {
 }
 
 func TestDropNeighbor(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B")
-	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
-	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+	testMgrs := newTestManagers(t, false /* doMock */, "A", "B")
+	mgrA, closeA, peerA := testMgrs[0].manager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].manager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
 	defer closeB()
 
@@ -436,9 +436,9 @@ func TestDropNeighbor(t *testing.T) {
 }
 
 func TestDropNeighborDifferentGroup(t *testing.T) {
-	testMgrs := newTestManagers(t, "A", "B")
-	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
-	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+	testMgrs := newTestManagers(t, false /* doMock */, "A", "B")
+	mgrA, closeA, peerA := testMgrs[0].manager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].manager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
 	defer closeB()
 
@@ -498,7 +498,7 @@ type testManager struct {
 	peer        *peer.Peer
 }
 
-func newTestManagers(t testing.TB, names ...string) []*testManager {
+func newTestManagers(t testing.TB, doMock bool, names ...string) []*testManager {
 	ctx := context.Background()
 	mn := mocknet.New(ctx)
 	var results []*testManager
@@ -541,9 +541,13 @@ func newTestManagers(t testing.TB, names ...string) []*testManager {
 			err := hst.Close()
 			require.NoError(t, err)
 		}
+		var mockMgr *mockedManager
+		if doMock {
+			mockMgr = mockManager(t, mgr)
+		}
 		results = append(results, &testManager{
 			manager:     mgr,
-			mockManager: mockManager(t, mgr),
+			mockManager: mockMgr,
 			peer:        local.Peer,
 			close:       tearDown,
 		})

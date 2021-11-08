@@ -104,8 +104,11 @@ func (n *Neighbor) readLoop() {
 		for {
 			packet := &pb.Packet{}
 			err := n.read(packet)
+			// the problem is here
 			if err != nil {
-				n.log.Warnw("Permanent error", "err", err)
+				if !isCloseError(err) && !errors.Is(err, io.EOF) {
+					n.log.Warnw("Permanent error", "err", err)
+				}
 				return
 			}
 			n.packetReceived.Trigger(packet)
@@ -120,9 +123,6 @@ func (n *Neighbor) write(packet *pb.Packet) error {
 	err := n.writer.WriteMsg(packet)
 	if err != nil {
 		disconnectErr := n.disconnect()
-		if isCloseError(err) {
-			return nil
-		}
 		return errors.CombineErrors(err, disconnectErr)
 	}
 	n.packetsWritten.Inc()
@@ -162,5 +162,5 @@ func (n *Neighbor) disconnect() (err error) {
 }
 
 func isCloseError(err error) bool {
-	return strings.Contains(err.Error(), "use of closed network connection")
+	return strings.Contains(err.Error(), "use of closed network connection") || errors.Is(err, io.ErrClosedPipe)
 }
