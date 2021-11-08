@@ -383,14 +383,8 @@ func TestDropNeighbor(t *testing.T) {
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signalA := events.NewClosure(func(_ *Neighbor) {
-			t.Log("Manager A: neighbor added")
-			wg.Done()
-		})
-		signalB := events.NewClosure(func(_ *Neighbor) {
-			t.Log("Manager B: neighbor added")
-			wg.Done()
-		})
+		signalA := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signalB := events.NewClosure(func(_ *Neighbor) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
@@ -463,6 +457,7 @@ func TestDropNeighborDifferentGroup(t *testing.T) {
 		defer mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
 
 		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupManual)) }()
+		time.Sleep(graceTime)
 		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupManual)) }()
 		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
