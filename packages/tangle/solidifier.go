@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
@@ -112,13 +113,13 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 	}
 
 	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
-		fmt.Printf("tried to check solidity of missing Message with %s\n", messageID)
+		fmt.Fprintf(os.Stderr, "tried to check solidity of missing Message with %s\n", messageID)
 
 		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
-			fmt.Printf("created MissingMessage for Message with %s\n", messageID)
+			fmt.Fprintf(os.Stderr, "created MissingMessage for Message with %s\n", messageID)
 
 			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
-				fmt.Printf("triggering MessageMissing for Message with %s\n", messageID)
+				fmt.Fprintf(os.Stderr, "triggering MessageMissing for Message with %s\n", messageID)
 
 				s.Events.MessageMissing.Trigger(messageID)
 			})
