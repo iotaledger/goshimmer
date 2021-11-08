@@ -248,7 +248,6 @@ func TestBroadcast(t *testing.T) {
 	mgrC.AssertExpectations(t)
 }
 
-
 func TestSingleSend(t *testing.T) {
 	testMgrs := newTestManagers(t, true /* doMock */, "A", "B", "C")
 	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
@@ -519,7 +518,7 @@ func newTestManagers(t testing.TB, doMock bool, names ...string) []*testManager 
 		if len(id) > 8 {
 			suffix = id[len(id)-8:]
 		}
-		var blackholeIP6 = net.ParseIP("100::")
+		blackholeIP6 := net.ParseIP("100::")
 		ip := append(net.IP{}, blackholeIP6...)
 		copy(ip[net.IPv6len-len(suffix):], suffix)
 		addr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/4242", ip))
