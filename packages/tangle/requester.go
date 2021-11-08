@@ -95,7 +95,6 @@ func (r *Requester) Shutdown() {
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
 func (r *Requester) StartRequest(id MessageID) {
-
 	r.scheduledRequestsMutex.Lock()
 
 	// ignore already scheduled requests
