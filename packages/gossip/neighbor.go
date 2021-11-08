@@ -133,9 +133,6 @@ func (n *Neighbor) read(packet *pb.Packet) error {
 	err := n.reader.ReadMsg(packet)
 	if err != nil {
 		disconnectErr := n.disconnect()
-		if isCloseError(err) || errors.Is(err, io.EOF) {
-			return nil
-		}
 		return errors.CombineErrors(err, disconnectErr)
 	}
 	n.packetsRead.Inc()
