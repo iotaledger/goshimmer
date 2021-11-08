@@ -292,6 +292,7 @@ func (s *Scheduler) schedule() *Message {
 		return nil
 	}
 
+	// wrap the AccessManaMap to always return at least MinMana for now
 	getCachedMana := func(id identity.ID) float64 {
 		if mana, ok := manaCache[id]; ok && mana >= MinMana {
 			return mana
@@ -305,19 +306,26 @@ func (s *Scheduler) schedule() *Message {
 	rounds := math.MaxInt32
 	now := clock.SyncedTime()
 	for q := start; ; {
+		nodeMana := getCachedMana(q.NodeID())
+		// clear the node from the queue, if its mana dropped below MinMana
+		if nodeMana < MinMana {
+			s.buffer.RemoveNode(q.NodeID())
+			q = s.buffer.Current()
+			if q == start {
+				break
+			}
+			continue
+		}
+
 		msg := q.Front()
 		// a message can be scheduled, if it is ready, and its issuing time is not in the future
 		if msg != nil && !now.Before(msg.IssuingTime()) {
 			// compute how often the deficit needs to be incremented until the message can be scheduled
 			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-			nodeMana := getCachedMana(q.NodeID())
-			if nodeMana > 0 {
-				r := int(math.Ceil(remainingDeficit / nodeMana))
-				// find the first node that will be allowed to schedule a message
-				if r < rounds {
-					rounds = r
-					schedulingNode = q
-				}
+			// find the first node that will be allowed to schedule a message
+			if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
+				rounds = r
+				schedulingNode = q
 			}
 		}
 
