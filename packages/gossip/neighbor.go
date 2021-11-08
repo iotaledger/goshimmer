@@ -118,7 +118,7 @@ func (n *Neighbor) writeLoop() {
 				continue
 			}
 
-			n.log.Debugf("popped request from queue / remaining size %d: ", len(n.queue))
+			n.log.Infof("popped request from queue / remaining size %d: ", len(n.queue))
 
 			if _, err := n.BufferedConnection.Write(msg); err != nil {
 				n.log.Warnw("Write error", "err", err)
