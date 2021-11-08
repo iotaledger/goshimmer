@@ -65,13 +65,13 @@ func configureLogging() {
 		Plugin.LogInfof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
 	deps.Tangle.Requester.Events.RequestStarted.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		Plugin.LogDebugf("started to request missing Message with %s", messageID)
+		Plugin.LogInfof("started to request missing Message with %s", messageID)
 	}))
 	deps.Tangle.Requester.Events.RequestStopped.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		Plugin.LogDebugf("stopped to request missing Message with %s", messageID)
+		Plugin.LogInfof("stopped to request missing Message with %s", messageID)
 	}))
 	deps.Tangle.Requester.Events.RequestFailed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		Plugin.LogWarnf("failed to request missing Message with %s", messageID)
+		Plugin.LogInfof("failed to request missing Message with %s", messageID)
 	}))
 }
 
@@ -90,6 +90,8 @@ func configureMessageLayer() {
 
 	// request missing messages
 	deps.Tangle.Requester.Events.RequestIssued.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
+		Plugin.LogInfof("requesting missing Message with %s", sendRequest.ID)
+
 		deps.GossipMgr.RequestMessage(sendRequest.ID[:])
 	}))
 }
