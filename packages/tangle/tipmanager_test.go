@@ -183,6 +183,24 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, parents, 1)
 	}
+
+	// check that message bypassed by the scheduler is not addedd as a tip and its parents are removed from the tip set.
+	{
+		messageBypassed := createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["8"].ID(), messages["7"].ID()}, []MessageID{})
+
+		tangle.Storage.MessageMetadata(messageBypassed.ID()).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetScheduledBypass(true)
+		})
+
+		tipManager.AddTip(messageBypassed)
+		// Tips(6) -> 4
+		{
+			parents, err := tipManager.Tips(nil, 6)
+			assert.NoError(t, err)
+			assert.Len(t, parents, 4)
+		}
+	}
+
 }
 
 func TestTipManager_TransactionTips(t *testing.T) {

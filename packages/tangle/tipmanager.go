@@ -158,7 +158,9 @@ func (t *TipManager) AddTip(message *Message) {
 		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 	}
 
-	if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
+	// avoid adding messages bypassed by the scheduler or older than tipLifeGracePeriod as tips.
+	if messageMetadata.ScheduledBypass() || clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
+		message.ForEachParentByType(StrongParentType, t.removeTip)
 		return
 	}
 
@@ -182,13 +184,7 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	// a tip loses its tip status if it is referenced by another message
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
-		if _, deleted := t.tips.Delete(parentMessageID); deleted {
-			t.Events.TipRemoved.Trigger(&TipEvent{
-				MessageID: parentMessageID,
-			})
-		}
-	})
+	message.ForEachParentByType(StrongParentType, t.removeTip)
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
@@ -219,6 +215,15 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 	}
 
 	return
+}
+
+// removeTip removes a given messageID from the tip manager and triggers the TipRemoved event.
+func (t *TipManager) removeTip(messageID MessageID) {
+	if _, deleted := t.tips.Delete(messageID); deleted {
+		t.Events.TipRemoved.Trigger(&TipEvent{
+			MessageID: messageID,
+		})
+	}
 }
 
 // selectTips returns a list of parents. In case of a transaction, it references young enough attachments
