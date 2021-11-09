@@ -168,6 +168,21 @@ func (t *TipManager) AddTip(message *Message) {
 	//  To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
 	//  before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
 
+	var hasApprover bool
+	cachedApprovers := t.tangle.Storage.Approvers(messageID)
+	defer cachedApprovers.Release()
+	for _, cachedApprover := range cachedApprovers {
+		approverMessageID := cachedApprover.Unwrap().ApproverMessageID()
+		t.tangle.Storage.MessageMetadata(approverMessageID).Consume(func(approverMetadata *MessageMetadata) {
+			if approverMetadata.ScheduledBypass() || approverMetadata.Scheduled() {
+				hasApprover = true
+			}
+		})
+		if hasApprover {
+			return
+		}
+	}
+
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(&TipEvent{
 			MessageID: messageID,
