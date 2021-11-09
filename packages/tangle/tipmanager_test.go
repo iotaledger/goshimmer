@@ -200,7 +200,6 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 			assert.Len(t, parents, 4)
 		}
 	}
-
 }
 
 func TestTipManager_TransactionTips(t *testing.T) {
