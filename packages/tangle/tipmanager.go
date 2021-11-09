@@ -164,10 +164,9 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	// TODO: possible logical race condition if a child message gets added before its parents.
-	//  To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
-	//  before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
-
+	// possible logical race condition if a child message gets added before its parents.
+	// To be sure we check that it is not directly referenced by any scheduled or scheduledBypassed message
+	// before adding a message as a tip.
 	var hasApprover bool
 	cachedApprovers := t.tangle.Storage.Approvers(messageID)
 	defer cachedApprovers.Release()
