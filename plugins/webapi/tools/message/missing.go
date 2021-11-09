@@ -1,10 +1,15 @@
 package message
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
+	"sync"
+	"time"
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
 
@@ -17,4 +22,50 @@ func MissingHandler(c echo.Context) error {
 	}
 	res.Count = len(missingIDs)
 	return c.JSON(http.StatusOK, res)
+}
+
+func MissingAvailableHandler(c echo.Context) error {
+	maxNum, err := strconv.Atoi(c.QueryParam("maxNum"))
+	if err != nil {
+		maxNum = 0
+	}
+	result := &jsonmodels.MissingAvailableResponse{}
+	missingIDs := deps.Tangle.Storage.MissingMessages()
+	if maxNum > 0 && len(missingIDs) > maxNum {
+		missingIDs = missingIDs[:maxNum]
+	}
+	peersEndpoints := make(map[string]*client.GoShimmerAPI)
+	if deps.GossipMgr != nil {
+		for _, neighbor := range deps.GossipMgr.AllNeighbors() {
+			timedClient := http.Client{
+				Timeout: 5 * time.Second,
+			}
+			peersEndpoints[neighbor.ID().String()] = client.NewGoShimmerAPI("http://"+neighbor.IP().String()+":8080", client.WithHTTPClient(timedClient))
+		}
+	}
+
+	msgAvailability := make(map[string][]string)
+	var msgAvailabilityLock sync.Mutex
+	var wg sync.WaitGroup
+	for _, missingID := range missingIDs {
+		missingIDBase58 := missingID.Base58()
+		msgAvailability[missingIDBase58] = make([]string, 0)
+		for peerId, c := range peersEndpoints {
+			wg.Add(1)
+			go func(peerId string, c *client.GoShimmerAPI) {
+				fmt.Println("Querying", peerId, "about", missingIDBase58)
+				resp, err := c.GetMessageMetadata(missingIDBase58)
+				if err == nil {
+					msgAvailabilityLock.Lock()
+					msgAvailability[resp.ID] = append(msgAvailability[missingIDBase58], peerId)
+					msgAvailabilityLock.Unlock()
+				}
+				wg.Done()
+			}(peerId, c)
+		}
+	}
+	wg.Wait()
+	result.Availability = msgAvailability
+	result.Count = len(missingIDs)
+	return c.JSON(http.StatusOK, result)
 }
