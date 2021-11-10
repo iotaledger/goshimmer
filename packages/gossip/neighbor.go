@@ -12,10 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/netutil"
 	"github.com/iotaledger/hive.go/netutil/buffconn"
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/proto"
-
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
@@ -122,19 +118,7 @@ func (n *Neighbor) writeLoop() {
 				continue
 			}
 
-			packet := new(pb.MessageRequest)
-			if err := proto.Unmarshal(msg[1:], packet); err != nil {
-				n.log.Debugw("invalid packet", "err", err)
-				return
-			}
-
-			msgID, _, err := tangle.MessageIDFromBytes(packet.GetId())
-			if err != nil {
-				n.log.Debugw("invalid message id:", "err", err)
-				return
-			}
-
-			n.log.Infof("popped request for %s from queue / remaining size %d", msgID, len(n.queue))
+			n.log.Infof("popped request from queue / remaining size %d: ", len(n.queue))
 
 			if _, err := n.BufferedConnection.Write(msg); err != nil {
 				n.log.Warnw("Write error", "err", err)
