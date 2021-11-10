@@ -35,8 +35,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		Plugin.LogFatalf("could not update services: %s", err)
 	}
 
-	var gossipManager *gossip.Manager
-	gossipManager = gossip.NewManager(lPeer, func(msgID tangle.MessageID) ([]byte, error) {
+	return gossip.NewManager(lPeer, func(msgID tangle.MessageID) ([]byte, error) {
 		cachedMessage := t.Storage.Message(msgID)
 		defer cachedMessage.Release()
 		if !cachedMessage.Exists() {
@@ -49,8 +48,6 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		msg := cachedMessage.Unwrap()
 		return msg.Bytes(), nil
 	}, Plugin.Logger())
-
-	return gossipManager
 }
 
 func start(ctx context.Context) {
