@@ -78,11 +78,13 @@ func (o *Orderer) run() {
 func (o *Orderer) parentsToGossip(messageID MessageID) (parents MessageIDs) {
 	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		message.ForEachParent(func(parent Parent) {
-			o.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-				if !messageMetadata.IsOrdered() && !messageMetadata.ScheduledBypass() {
-					parents = append(parents, parent.ID)
-				}
-			})
+			if parent.ID != EmptyMessageID { // skip Genesis
+				o.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+					if !messageMetadata.IsOrdered() && !messageMetadata.ScheduledBypass() {
+						parents = append(parents, parent.ID)
+					}
+				})
+			}
 		})
 	})
 
