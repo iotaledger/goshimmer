@@ -98,6 +98,10 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("message with %s rejected in Parser: %v", ev.Message.ID().Base58(), err)
 	}))
 
+	deps.Tangle.Parser.Events.BytesRejected.Attach(events.NewClosure(func(ev *tangle.BytesRejectedEvent, err error) {
+		plugin.LogInfof("bytes reject from peer %s: %v", ev.Peer.ID(), err)
+	}))
+
 	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		plugin.LogInfof("message rejected in Scheduler: %s", messageID.Base58())
 	}))
