@@ -68,11 +68,25 @@ func (o *Orderer) run() {
 				o.updateParentsMap(messageID, parentsToGossip)
 
 			case <-o.shutdownSignal:
-				// no need to wait for unordered messages
+				o.flush()
 				return
 			}
 		}
 	}()
+}
+
+// flush consumes the orderer inbox marking all of its content as ordered.
+func (o *Orderer) flush() {
+	for {
+		select {
+		case messageID := <-o.inbox:
+			o.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+				messageMetadata.SetOrdered(true)
+			})
+		default:
+			return
+		}
+	}
 }
 
 func (o *Orderer) parentsToGossip(messageID MessageID) (parents MessageIDs) {
