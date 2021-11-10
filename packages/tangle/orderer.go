@@ -80,9 +80,8 @@ func (o *Orderer) flush() {
 	for {
 		select {
 		case messageID := <-o.inbox:
-			o.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				messageMetadata.SetOrdered(true)
-			})
+			parentsToGossip := o.tryToGossip(messageID)
+			o.updateParentsMap(messageID, parentsToGossip)
 		default:
 			return
 		}
