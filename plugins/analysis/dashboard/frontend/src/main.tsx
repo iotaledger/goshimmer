@@ -1,6 +1,5 @@
 import App from "./app/App";
 import { AutopeeringStore } from "./app/stores/AutopeeringStore";
-import FPCStore from "./app/stores/FPCStore";
 import { Provider } from "mobx-react";
 import React from "react";
 import ReactDOM from "react-dom";
@@ -9,12 +8,10 @@ import { BrowserRouter as Router } from "react-router-dom";
 import "./main.scss";
 import ManaStore from "./app/stores/ManaStore";
 
-const fpcStore = new FPCStore();
 export const autopeeringStore = new AutopeeringStore();
 export const manaStore = new ManaStore();
 
 const stores = {
-    "fpcStore": fpcStore,
     "autopeeringStore": autopeeringStore,
     "manaStore": manaStore,
 };

@@ -7,8 +7,31 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
+
+// MessageType defines the component for the different MPS metrics.
+type MessageType byte
+
+const (
+	// DataMessage denotes data message type.
+	DataMessage MessageType = iota
+	// Transaction denotes transaction message.
+	Transaction
+)
+
+// String returns the stringified component type.
+func (c MessageType) String() string {
+	switch c {
+	case DataMessage:
+		return "DataMessage"
+	case Transaction:
+		return "Transaction"
+	default:
+		return "Unknown"
+	}
+}
 
 // ComponentType defines the component for the different MPS metrics.
 type ComponentType byte
@@ -44,33 +67,51 @@ var (
 	// Total number of processed messages since start of the node.
 	messageTotalCount atomic.Uint64
 
-	// number of messages in the database at startup
+	// number of messages in the database at startup.
 	initialMessageTotalCountDB uint64
 
-	// current number of messages in the node's database
+	// current number of messages in the node's database.
 	messageTotalCountDB atomic.Uint64
 
-	// number of solid messages in the database at startup
+	// number of solid messages in the database at startup.
 	initialMessageSolidCountDB uint64
 
-	// current number of solid messages in the node's database
+	// current number of solid messages in the node's database.
 	messageSolidCountDBInc atomic.Uint64
 
 	// helper variable that is only calculated at init phase. unit is milliseconds!
-	initialSumSolidificationTime float64
+	initialSumSolidificationTime int64
 
-	// sum of solidification time (since start of the node)
+	// sum of solidification time (since start of the node).
 	sumSolidificationTime time.Duration
 	solidTimeMutex        syncutils.RWMutex
 
-	// initial number of missing messages in missingMessageStorage (at startup)
+	// initial number of missing messages in missingMessageStorage (at startup).
 	initialMissingMessageCountDB uint64
 
-	// current number of missing messages in missingMessageStorage
+	// current number of missing messages in missingMessageStorage.
 	missingMessageCountDB atomic.Uint64
+
+	// current number of finalized messages.
+	finalizedMessageCount = make(map[MessageType]uint64)
+
+	// protect map from concurrent read/write.
+	finalizedMessageCountMutex syncutils.RWMutex
+
+	// total time it took all messages to finalize. unit is milliseconds!
+	messageFinalizationTotalTime = make(map[MessageType]uint64)
+
+	// protect map from concurrent read/write.
+	messageFinalizationTotalTimeMutex syncutils.RWMutex
 
 	// current number of message tips.
 	messageTips atomic.Uint64
+
+	// total number of parents of all messages per parent type.
+	parentsCountPerType = make(map[tangle.ParentsType]uint64)
+
+	// protect map from concurrent read/write.
+	parentsCountPerTypeMutex syncutils.RWMutex
 
 	// counter for the received MPS
 	mpsReceivedSinceLastMeasurement atomic.Uint64
@@ -165,13 +206,13 @@ func MessageTotalCountDB() uint64 {
 	return initialMessageTotalCountDB + messageTotalCountDB.Load()
 }
 
-// AvgSolidificationTime returns the average time it takes for a message to become solid. [milliseconds]
-func AvgSolidificationTime() (result float64) {
+// SolidificationTime returns the cumulative time it took for all message to become solid [milliseconds].
+func SolidificationTime() (result int64) {
 	solidTimeMutex.RLock()
 	defer solidTimeMutex.RUnlock()
 	totalSolid := MessageSolidCountDB()
 	if totalSolid > 0 {
-		result = (initialSumSolidificationTime + float64(sumSolidificationTime.Milliseconds())) / float64(totalSolid)
+		result = initialSumSolidificationTime + sumSolidificationTime.Milliseconds()
 	}
 	return
 }
@@ -179,6 +220,48 @@ func AvgSolidificationTime() (result float64) {
 // MessageMissingCountDB returns the number of messages in missingMessageStore.
 func MessageMissingCountDB() uint64 {
 	return initialMissingMessageCountDB + missingMessageCountDB.Load()
+}
+
+// MessageFinalizationTotalTimePerType returns total time it took for all messages to finalize per message type.
+func MessageFinalizationTotalTimePerType() map[MessageType]uint64 {
+	messageFinalizationTotalTimeMutex.RLock()
+	defer messageFinalizationTotalTimeMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[MessageType]uint64)
+	for key, element := range messageFinalizationTotalTime {
+		clone[key] = element
+	}
+
+	return clone
+}
+
+// FinalizedMessageCountPerType returns the number of messages finalized per message type.
+func FinalizedMessageCountPerType() map[MessageType]uint64 {
+	finalizedMessageCountMutex.RLock()
+	defer finalizedMessageCountMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[MessageType]uint64)
+	for key, element := range finalizedMessageCount {
+		clone[key] = element
+	}
+
+	return clone
+}
+
+// ParentCountPerType returns a map of parent counts per parent type.
+func ParentCountPerType() map[tangle.ParentsType]uint64 {
+	parentsCountPerTypeMutex.RLock()
+	defer parentsCountPerTypeMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[tangle.ParentsType]uint64)
+	for key, element := range parentsCountPerType {
+		clone[key] = element
+	}
+
+	return clone
 }
 
 // ReceivedMessagesPerSecond retrieves the current messages per second number.
@@ -206,7 +289,15 @@ func increasePerComponentCounter(c ComponentType) {
 	messageCountPerComponentGrafana[c]++
 }
 
-// measures the Component Counter value per second
+func increasePerParentType(c tangle.ParentsType) {
+	parentsCountPerTypeMutex.Lock()
+	defer parentsCountPerTypeMutex.Unlock()
+
+	// increase cumulative metrics
+	parentsCountPerType[c]++
+}
+
+// measures the Component Counter value per second.
 func measurePerComponentCounter() {
 	// sample the current counter value into a measured MPS value
 	componentCounters := MessageCountSinceStartPerComponentDashboard()
@@ -223,7 +314,7 @@ func measurePerComponentCounter() {
 }
 
 func measureMessageTips() {
-	metrics.Events().MessageTips.Trigger(uint64(deps.Tangle.TipManager.StrongTipCount()))
+	metrics.Events().MessageTips.Trigger(uint64(deps.Tangle.TipManager.TipCount()))
 }
 
 // increases the received MPS counter
@@ -261,9 +352,9 @@ func measureRequestQueueSize() {
 }
 
 func measureInitialDBStats() {
-	solid, total, avgSolidTime, missing := deps.Tangle.Storage.DBStats()
+	solid, total, sumSolidTime, missing := deps.Tangle.Storage.DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
-	initialSumSolidificationTime = avgSolidTime * float64(solid)
+	initialSumSolidificationTime = sumSolidTime
 	initialMissingMessageCountDB = uint64(missing)
 }

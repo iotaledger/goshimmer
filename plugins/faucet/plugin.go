@@ -1,6 +1,7 @@
 package faucet
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"time"
@@ -47,7 +48,7 @@ var (
 	blacklist         *orderedmap.OrderedMap
 	blacklistCapacity int
 	blackListMutex    sync.RWMutex
-	// signals that the faucet has initialized itself and can start funding requests
+	// signals that the faucet has initialized itself and can start funding requests.
 	initDone atomic.Bool
 
 	waitForManaWindow = 5 * time.Second
@@ -86,11 +87,15 @@ func newFaucet() *StateManager {
 	if Parameters.SplittingMultiplier <= 0 {
 		Plugin.LogFatalf("the number of outputs for each supply transaction during funds splitting should be more than 0")
 	}
+	if Parameters.GenesisTokenAmount <= 0 {
+		Plugin.LogFatalf("the total supply should be more than 0")
+	}
 	return NewStateManager(
 		uint64(Parameters.TokensPerRequest),
 		walletseed.NewSeed(seedBytes),
 		uint64(Parameters.SupplyOutputsCount),
 		uint64(Parameters.SplittingMultiplier),
+
 		Parameters.MaxTransactionBookedAwaitTime,
 	)
 }
@@ -119,25 +124,26 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		defer plugin.LogInfof("Stopping %s ... done", PluginName)
 
 		plugin.LogInfo("Waiting for node to become synced...")
-		if !waitUntilSynced(shutdownSignal) {
+		if !waitUntilSynced(ctx) {
 			return
 		}
 		plugin.LogInfo("Waiting for node to become synced... done")
 
 		plugin.LogInfo("Waiting for node to have sufficient access mana")
-		if err := waitForMana(shutdownSignal); err != nil {
+		if err := waitForMana(ctx); err != nil {
 			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
 		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
 
 		plugin.LogInfof("Deriving faucet state from the ledger...")
+
 		// determine state, prepare more outputs if needed
-		if err := _faucet.DeriveStateFromTangle(shutdownSignal); err != nil {
+		if err := _faucet.DeriveStateFromTangle(ctx); err != nil {
 			plugin.LogErrorf("failed to derive state: %s", err)
 			return
 		}
@@ -148,14 +154,14 @@ func run(plugin *node.Plugin) {
 
 		initDone.Store(true)
 
-		<-shutdownSignal
+		<-ctx.Done()
 		plugin.LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
 }
 
-func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
+func waitUntilSynced(ctx context.Context) bool {
 	synced := make(chan struct{}, 1)
 	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
 		if e.Synced {
@@ -178,17 +184,17 @@ func waitUntilSynced(shutdownSignal <-chan struct{}) bool {
 	select {
 	case <-synced:
 		return true
-	case <-shutdownSignal:
+	case <-ctx.Done():
 		return false
 	}
 }
 
-func waitForMana(shutdownSignal <-chan struct{}) error {
+func waitForMana(ctx context.Context) error {
 	nodeID := deps.Tangle.Options.Identity.ID()
 	for {
 		// stop polling, if we are shutting down
 		select {
-		case <-shutdownSignal:
+		case <-ctx.Done():
 			return errors.New("faucet shutting down")
 		default:
 		}
@@ -207,7 +213,7 @@ func waitForMana(shutdownSignal <-chan struct{}) error {
 }
 
 func configureEvents() {
-	deps.Tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		// Do not start picking up request while waiting for initialization.
 		// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
 		// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in

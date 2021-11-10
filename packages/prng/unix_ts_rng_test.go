@@ -17,13 +17,13 @@ func TestResolveNextTimePoint(t *testing.T) {
 }
 
 func TestUnixTsPrng(t *testing.T) {
-	unixTsRng := prng.NewUnixTimestampPRNG(1 * time.Second)
-	unixTsRng.Start()
-	defer unixTsRng.Stop()
+	unixTSRng := prng.NewUnixTimestampPRNG(1 * time.Second)
+	unixTSRng.Start()
+	defer unixTSRng.Stop()
 
 	var last float64
 	for i := 0; i < 3; i++ {
-		r := <-unixTsRng.C()
+		r := <-unixTSRng.C()
 		assert.Less(t, r, 1.0)
 		assert.Greater(t, r, 0.0)
 		assert.NotEqual(t, last, r)

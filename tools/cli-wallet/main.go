@@ -132,7 +132,7 @@ func main() {
 }
 
 // ensures the cwd is where the actual go executable
-// currently doesn't work well with symlinks (or shortcuts)
+// currently doesn't work well with symlinks (or shortcuts).
 func setCWD() {
 	ex, err := os.Executable()
 	if err != nil {

@@ -36,7 +36,6 @@ type dependencies struct {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-	configureFPCLiveFeed()
 	configureAutopeeringWorkerPool()
 	configureServer()
 }
@@ -61,8 +60,6 @@ func configureServer() {
 }
 
 func run(*node.Plugin) {
-	// run FPC stat reporting
-	runFPCLiveFeed()
 	// run data reporting for autopeering visualizer
 	runAutopeeringFeed()
 
@@ -72,7 +69,7 @@ func run(*node.Plugin) {
 	}
 }
 
-func worker(shutdownSignal <-chan struct{}) {
+func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
@@ -96,7 +93,7 @@ func worker(shutdownSignal <-chan struct{}) {
 			select {
 			case <-ticker.C:
 				broadcastWsMessage(&wsmsg{MsgTypePing, ""})
-			case <-shutdownSignal:
+			case <-ctx.Done():
 				return
 			case <-stopped:
 				return
@@ -105,6 +102,10 @@ func worker(shutdownSignal <-chan struct{}) {
 	}()
 
 	log.Infof("Stopping %s ...", PluginName)
+	stopServer()
+}
+
+func stopServer() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {

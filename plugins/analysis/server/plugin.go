@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"io"
 	"net"
 	"strconv"
@@ -78,7 +79,7 @@ func run(_ *node.Plugin) {
 		log.Fatal("invalid port in %s: %s", CfgAnalysisServerBindAddress, err)
 	}
 
-	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		defer log.Infof("Stopping %s ... done", PluginName)
 
@@ -88,7 +89,7 @@ func run(_ *node.Plugin) {
 
 		go server.Listen(addr, port)
 
-		<-shutdownSignal
+		<-ctx.Done()
 		log.Info("Stopping Server ...")
 		server.Shutdown()
 	}, shutdown.PriorityAnalysis); err != nil {
@@ -128,9 +129,6 @@ func wireUp(p *protocol.Protocol) {
 	p.Events.Received[packet.MessageTypeHeartbeat].Attach(events.NewClosure(func(data []byte) {
 		processHeartbeatPacket(data)
 	}))
-	p.Events.Received[packet.MessageTypeFPCHeartbeat].Attach(events.NewClosure(func(data []byte) {
-		processFPCHeartbeatPacket(data)
-	}))
 	p.Events.Received[packet.MessageTypeMetricHeartbeat].Attach(events.NewClosure(func(data []byte) {
 		processMetricHeartbeatPacket(data)
 	}))
@@ -146,20 +144,6 @@ func processHeartbeatPacket(data []byte) {
 		return
 	}
 	updateAutopeeringMap(heartbeatPacket)
-}
-
-// processHeartbeatPacket parses the serialized data into a FPC Heartbeat packet and triggers its event.
-// Note that the processFPCHeartbeatPacket function will return an error if the hb version field is different than banner.SimplifiedAppVersion,
-// thus the hb will be discarded.
-func processFPCHeartbeatPacket(data []byte) {
-	hb, err := packet.ParseFPCHeartbeat(data)
-	if err != nil {
-		if !errors.Is(err, packet.ErrInvalidFPCHeartbeatVersion) {
-			Events.Error.Trigger(err)
-		}
-		return
-	}
-	Events.FPCHeartbeat.Trigger(hb)
 }
 
 // processMetricHeartbeatPacket parses the serialized data into a Metric Heartbeat packet and triggers its event.

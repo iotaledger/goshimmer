@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// limit the number of max allowed go routines created during spam
+	// limit the number of max allowed go routines created during spam.
 	maxGoroutines = 2
 )
 

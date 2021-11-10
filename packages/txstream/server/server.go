@@ -11,13 +11,14 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil/buffconn"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/packages/txstream/chopper"
 )
 
-// Connection handles the server-side part of the txstream protocol
+// Connection handles the server-side part of the txstream protocol.
 type Connection struct {
 	bconn         *buffconn.BufferedConnection
 	chopper       *chopper.Chopper
@@ -27,13 +28,12 @@ type Connection struct {
 }
 
 type (
-	wrapConfirmedTx *ledgerstate.Transaction
-	wrapBookedTx    *ledgerstate.Transaction
+	wrapBookedTx *ledgerstate.Transaction
 )
 
 const rcvClientIDTimeout = 5 * time.Second
 
-// Listen starts a TCP listener and starts a Connection for each accepted connection
+// Listen starts a TCP listener and starts a Connection for each accepted connection.
 func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shutdownSignal <-chan struct{}) error {
 	listener, err := net.Listen("tcp", bindAddress)
 	if err != nil {
@@ -63,7 +63,7 @@ func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shut
 	return nil
 }
 
-// Run starts the server-side handling code for an already accepted connection from a client
+// Run starts the server-side handling code for an already accepted connection from a client.
 func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSignal <-chan struct{}) {
 	c := &Connection{
 		bconn:         buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize),
@@ -103,15 +103,6 @@ func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSign
 
 	{
 		cl := events.NewClosure(func(tx *ledgerstate.Transaction) {
-			c.log.Debugf("on transaction confirmed: %s", tx.ID().Base58())
-			txFromLedgerQueue <- wrapConfirmedTx(tx)
-		})
-		c.ledger.EventTransactionConfirmed().Attach(cl)
-		defer c.ledger.EventTransactionConfirmed().Detach(cl)
-	}
-
-	{
-		cl := events.NewClosure(func(tx *ledgerstate.Transaction) {
 			c.log.Debugf("on transaction booked: %s", tx.ID().Base58())
 			txFromLedgerQueue <- wrapBookedTx(tx)
 		})
@@ -127,8 +118,6 @@ func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSign
 		select {
 		case tx := <-txFromLedgerQueue:
 			switch tx := tx.(type) {
-			case wrapConfirmedTx:
-				c.processConfirmedTransaction(tx)
 			case wrapBookedTx:
 				c.processBookedTransaction(tx)
 			default:
@@ -210,7 +199,7 @@ func (c *Connection) txSubscribedAddresses(tx *ledgerstate.Transaction) map[[led
 }
 
 // processConfirmedTransaction receives only confirmed transactions
-// it parses SC transaction incoming from the ledger. Forwards it to the client if subscribed
+// it parses SC transaction incoming from the ledger. Forwards it to the client if subscribed.
 func (c *Connection) processConfirmedTransaction(tx *ledgerstate.Transaction) {
 	for _, addr := range c.txSubscribedAddresses(tx) {
 		c.log.Debugf("confirmed tx -> client -- addr: %s txid: %s", addr.Base58(), tx.ID().Base58())
@@ -221,17 +210,8 @@ func (c *Connection) processConfirmedTransaction(tx *ledgerstate.Transaction) {
 func (c *Connection) processBookedTransaction(tx *ledgerstate.Transaction) {
 	for _, addr := range c.txSubscribedAddresses(tx) {
 		c.log.Debugf("booked tx -> client -- addr: %s. txid: %s", addr.Base58(), tx.ID().Base58())
-		c.sendTxInclusionState(tx.ID(), addr, ledgerstate.Pending)
+		c.sendTxInclusionState(tx.ID(), addr, gof.Low)
 	}
-}
-
-func (c *Connection) getTxInclusionState(txid ledgerstate.TransactionID, addr ledgerstate.Address) {
-	state, err := c.ledger.GetTxInclusionState(txid)
-	if err != nil {
-		c.log.Warnf("getTxInclusionState: %v", err)
-		return
-	}
-	c.sendTxInclusionState(txid, addr, state)
 }
 
 func (c *Connection) getBacklog(addr ledgerstate.Address) {

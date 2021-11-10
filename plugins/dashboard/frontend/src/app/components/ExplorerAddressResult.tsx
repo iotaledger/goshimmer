@@ -4,7 +4,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
-import {ExplorerStore, ExplorerOutput, OutputMetadata, InclusionState} from "app/stores/ExplorerStore";
+import {ExplorerStore, ExplorerOutput, OutputMetadata} from "app/stores/ExplorerStore";
 import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
@@ -213,7 +213,6 @@ class OutputButton extends React.Component<oProps, any> {
                         {
                             this.state.enabled? <OutputMeta
                                 metadata={this.props.output.metadata}
-                                inclusion={this.props.output.inclusionState}
                                 timestamp={this.props.output.txTimestamp}
                                 pendingMana={this.props.output.pendingMana}
                             />: null
@@ -227,7 +226,6 @@ class OutputButton extends React.Component<oProps, any> {
 
 interface omProps {
     metadata: OutputMetadata;
-    inclusion: InclusionState;
     timestamp: number;
     pendingMana: number;
 }
@@ -235,47 +233,24 @@ interface omProps {
 class OutputMeta extends React.Component<omProps, any> {
     render() {
         let metadata = this.props.metadata;
-        let inclusion = this.props.inclusion;
         let timestamp = this.props.timestamp;
         let pendingMana = this.props.pendingMana;
         return (
             <ListGroup>
-                <ListGroup.Item>Status: {deriveStatus(inclusion)} {deriveSolid(metadata)} {deriveLiked(inclusion)} {deriveFinalized(inclusion)} {deriveConflicting(inclusion)}</ListGroup.Item>
+                <ListGroup.Item>Grade of Finality: {deriveSolid(metadata)} {metadata.gradeOfFinality}</ListGroup.Item>
                 <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${metadata.branchID}`}>{resolveBase58BranchID(metadata.branchID)}</a> </ListGroup.Item>
                 <ListGroup.Item>Pending mana: {displayManaUnit(pendingMana)}</ListGroup.Item>
                 <ListGroup.Item>Timestamp: {new Date(timestamp * 1000).toLocaleString()}</ListGroup.Item>
                 <ListGroup.Item>Solidification Time: {new Date(metadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                 <ListGroup.Item>Consumer Count: {metadata.consumerCount}</ListGroup.Item>
-                { metadata.firstConsumer && <ListGroup.Item>First Consumer: <a href={`/explorer/transaction/${metadata.firstConsumer}`}>{metadata.firstConsumer}</a> </ListGroup.Item>}
                 { metadata.confirmedConsumer && <ListGroup.Item>Confirmed Consumer: <a href={`/explorer/transaction/${metadata.confirmedConsumer}`}>{metadata.confirmedConsumer}</a> </ListGroup.Item>}
             </ListGroup>
         );
     }
 }
 
-let deriveStatus = (i: InclusionState) => {
-    if (i.confirmed) {
-        return <Badge variant={"success"}>confirmed</Badge>;
-    } else if (i.rejected) {
-        return <Badge variant={"danger"}>rejected</Badge>;
-    }
-    return <Badge variant={"warning"}>pending</Badge>;
-}
-
 let deriveSolid = (m: OutputMetadata) => {
     return m.solid? <Badge variant={"success"}>solid</Badge>: <Badge variant={"danger"}>not solid</Badge>;
-}
-
-let deriveLiked = (i: InclusionState) => {
-    return i.liked? <Badge variant={"success"}>liked</Badge>: <Badge variant={"danger"}>not liked</Badge>;
-}
-
-let deriveFinalized = (i: InclusionState) => {
-    return i.finalized? <Badge variant={"success"}>finalized</Badge>: <Badge variant={"danger"}>pending</Badge>;
-}
-
-let deriveConflicting = (i: InclusionState) => {
-    return i.conflicting && <Badge variant={"danger"}>conflicting</Badge>;
 }
 
 let getVariant = (outputType) => {

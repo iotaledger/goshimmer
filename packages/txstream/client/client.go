@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/txstream"
 )
 
-// Client represents the client-side connection to a txstream server
+// Client represents the client-side connection to a txstream server.
 type Client struct {
 	clientID      string
 	log           *logger.Logger
@@ -21,7 +21,7 @@ type Client struct {
 	Events        Events
 }
 
-// Events contains all events emitted by the Client
+// Events contains all events emitted by the Client.
 type Events struct {
 	// TransactionReceived is triggered when a transaction message is received from the server
 	TransactionReceived *events.Event
@@ -35,7 +35,7 @@ type Events struct {
 	Connected *events.Event
 }
 
-// DialFunc is a function that performs the TCP connection to the server
+// DialFunc is a function that performs the TCP connection to the server.
 type DialFunc func() (addr string, conn net.Conn, err error)
 
 func handleTransactionReceived(handler interface{}, params ...interface{}) {
@@ -51,14 +51,14 @@ func handleUnspentAliasOutputReceived(handler interface{}, params ...interface{}
 }
 
 func handleInclusionStateReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*txstream.MsgTxInclusionState))(params[0].(*txstream.MsgTxInclusionState))
+	handler.(func(*txstream.MsgTxGoF))(params[0].(*txstream.MsgTxGoF))
 }
 
 func handleConnected(handler interface{}, params ...interface{}) {
 	handler.(func())()
 }
 
-// New creates a new client
+// New creates a new client.
 func New(clientID string, log *logger.Logger, dial DialFunc) *Client {
 	n := &Client{
 		clientID:      clientID,
@@ -82,7 +82,7 @@ func New(clientID string, log *logger.Logger, dial DialFunc) *Client {
 	return n
 }
 
-// Close shuts down the client
+// Close shuts down the client.
 func (n *Client) Close() {
 	close(n.shutdown)
 	n.Events.TransactionReceived.DetachAll()

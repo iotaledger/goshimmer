@@ -22,7 +22,7 @@ const (
 	retryAfter   = 8 * time.Second
 )
 
-// retry net.Dial once, on fail after 0.5s
+// retry net.Dial once, on fail after 0.5s.
 var dialRetryPolicy = backoff.ConstantBackOff(backoffDelay).With(backoff.MaxRetries(dialRetries))
 
 func (n *Client) connectLoop(dial DialFunc) {
@@ -41,7 +41,7 @@ func (n *Client) connectLoop(dial DialFunc) {
 	}
 }
 
-// dials outbound address and established connection
+// dials outbound address and established connection.
 func (n *Client) connect(dial DialFunc, msgChopper *chopper.Chopper) bool {
 	var addr string
 	var conn net.Conn
@@ -141,7 +141,7 @@ func (n *Client) decodeReceivedMessage(data []byte, msgChopper *chopper.Chopper)
 		n.log.Debugf("received message from server: %T", msg)
 		n.Events.TransactionReceived.Trigger(msg)
 
-	case *txstream.MsgTxInclusionState:
+	case *txstream.MsgTxGoF:
 		n.log.Debugf("received message from server: %T", msg)
 		n.Events.InclusionStateReceived.Trigger(msg)
 
@@ -159,12 +159,12 @@ func (n *Client) decodeReceivedMessage(data []byte, msgChopper *chopper.Chopper)
 	return nil
 }
 
-// sendMessage is a thread-safe request to send a message to the server
+// sendMessage is a thread-safe request to send a message to the server.
 func (n *Client) sendMessage(msg txstream.Message) {
 	n.chSend <- msg
 }
 
-// send writes a message into the server connection
+// send writes a message into the server connection.
 func (n *Client) send(msg txstream.Message, bconn *buffconn.BufferedConnection, msgChopper *chopper.Chopper) error {
 	n.log.Debugf("sending message to server: %T", msg)
 	data := txstream.EncodeMsg(msg)

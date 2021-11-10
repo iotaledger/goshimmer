@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -51,8 +52,7 @@ func configureWebSocketWorkerPool() {
 			broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
 			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
 			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, &tipsInfo{
-				TotalTips: deps.Tangle.TipManager.StrongTipCount() + deps.Tangle.TipManager.WeakTipCount(),
-				WeakTips:  deps.Tangle.TipManager.WeakTipCount(),
+				TotalTips: deps.Tangle.TipManager.TipCount(),
 			}})
 		case *componentsmetric:
 			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
@@ -84,11 +84,11 @@ func runWebSocketStreams() {
 		})
 	})
 
-	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
 		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
 		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
 		metrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
-		<-shutdownSignal
+		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
 		metrics.Events.ReceivedMPSUpdated.Detach(updateStatus)
 		metrics.Events.RateSetterUpdated.Detach(updateRateSetterMetrics)
@@ -163,6 +163,8 @@ func sendInitialData(ws *websocket.Conn) error {
 	if err := ManaBufferInstance().SendMapOnline(ws); err != nil {
 		return err
 	}
+	sendAllConflicts()
+
 	return nil
 }
 

@@ -10,7 +10,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// process first message from client
+// process first message from client.
 func (c *Connection) receiveClientID(data []byte) (string, error) {
 	msg, err := txstream.DecodeMsg(data, txstream.FlagClientToServer)
 	if err != nil {
@@ -23,7 +23,7 @@ func (c *Connection) receiveClientID(data []byte) (string, error) {
 	return "", xerrors.Errorf("wrong msg type: %T", msg)
 }
 
-// process messages received from the clien
+// process messages received from the client.
 func (c *Connection) processMessageFromClient(data []byte) error {
 	msg, err := txstream.DecodeMsg(data, txstream.FlagClientToServer)
 	if err != nil {
@@ -52,9 +52,6 @@ func (c *Connection) processMessageFromClient(data []byte) error {
 
 	case *txstream.MsgGetConfirmedTransaction:
 		c.pushTransaction(msg.TxID, msg.Address)
-
-	case *txstream.MsgGetTxInclusionState:
-		c.getTxInclusionState(msg.TxID, msg.Address)
 
 	case *txstream.MsgGetBacklog:
 		c.getBacklog(msg.Address)

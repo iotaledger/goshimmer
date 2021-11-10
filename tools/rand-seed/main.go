@@ -13,8 +13,7 @@ import (
 
 func main() {
 	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
+	if _, err := rand.Read(b); err != nil {
 		fmt.Println(err)
 		return
 	}

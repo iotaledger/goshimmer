@@ -1,6 +1,8 @@
 package spammer
 
 import (
+	"context"
+
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -43,8 +45,8 @@ func configure(_ *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("spammer", func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
+	if err := daemon.BackgroundWorker("spammer", func(ctx context.Context) {
+		<-ctx.Done()
 
 		messageSpammer.Shutdown()
 	}, shutdown.PrioritySpammer); err != nil {

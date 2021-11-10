@@ -17,7 +17,6 @@ The communication layer represents the base Tangle layer where so called `Messag
 The API provides the following functions to interact with this primitive layer:
 * [/messages/:messageID](#messagesmessageid)
 * [/messages/:messageID/metadata](#messagesmessageidmetadata)
-* [/messages/:messageID/consensus](#messagesmessageidconsensus)
 * [/data](#data)
 * [/messages/payload](#messagespayload)
 
@@ -170,10 +169,9 @@ fmt.Println(string(message.Finalized))
     "branchID": "BranchID(MasterBranchID)",
     "scheduled": false,
     "booked": true,
-    "eligible": true,
     "invalid": false,
-    "finalized": true,
-    "finalizedTime": 1621873310
+    "gradeOfFinality": 3,
+    "gradeOfFinalityTime": 1621873310
 }
 ```
 
@@ -193,62 +191,6 @@ fmt.Println(string(message.Finalized))
 | `invalid`  | `bool` | Flag indicating whether the message is invalid. |
 | `finalized`  | `bool` | Flag indicating whether the message is finalized. |
 | `finalizedTime`   | `string` | Time when message was finalized.    |
-| `error`   | `string` | Error message. Omitted if success.    |
-
-##  `/messages/:messageID/consensus`
-
-Return message consensus info such as opinion and FCoB data.
-
-### Parameters
-
-| **Parameter**            | `messageID`      |
-|--------------------------|----------------|
-| **Required or Optional** | required       |
-| **Description**          | ID of a message to retrieve   |
-| **Type**                 | string         |
-
-
-
-### Examples
-
-#### cURL
-
-```shell
-curl --location --request GET 'http://localhost:8080/messages/:messageID/consensus'
-```
-where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
-
-#### Client lib
-
-This method is not available in the client library.
-
-### Response Examples
-
-```json
-{
-  "id": "MessageID(4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc)",
-  "opinionFormedTime": 1621873309,
-  "payloadOpinionFormed": true,
-  "timestampOpinionFormed": true,
-  "messageOpinionFormed": true,
-  "messageOpinionTriggered": true,
-  "timestampOpinion": "Like",
-  "timestampLoK": "LevelOfKnowledge(Two)"
-}
-```
-
-### Results
-
-|Return field | Type | Description|
-|:-----|:------|:------|
-| `id`  | `string` | Message ID. |
-| `opinionFormedTime`  | `int64` | Time when the node formed full opinion. |
-| `payloadOpinionFormed`  | `bool` | Flag indicating whether the node formed opinion about the payload. |
-| `timestampOpinionFormed`  | `bool` | Flag indicating whether the node formed opinion about the timestamp. |
-| `messageOpinionFormed`  | `bool` | Flag indicating whether the node formed opinion about the message. |
-| `messageOpinionTriggered`  | `bool` | Flag indicating whether the node triggered an opinion formed event for the message. |
-| `timestampOpinion`  | `string` | Opinion about the message's timestamp. |
-| `timestampLoK`  | `bool` | Level of knowledge about message's timestamp. |
 | `error`   | `string` | Error message. Omitted if success.    |
 
 

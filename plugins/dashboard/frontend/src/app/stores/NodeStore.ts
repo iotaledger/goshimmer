@@ -34,7 +34,6 @@ class MemoryMetrics {
 
 class TipsMetric {
     totaltips: number;
-    weaktips: number;
     ts: string;
 }
 
@@ -350,21 +349,17 @@ export class NodeStore {
         let totaltips = Object.assign({}, chartSeriesOpts,
             series("All tips", 'rgba(67, 196, 99,1)', 'rgba(67, 196, 99,0.4)')
         );
-        let weaktips = Object.assign({}, chartSeriesOpts,
-            series("Weak tips", 'rgba(250, 140, 30,1)', 'rgba(250, 140, 30,0.4)')
-        );
 
         let labels = [];
         for (let i = 0; i < this.collected_tips_metrics.length; i++) {
             let metric: TipsMetric = this.collected_tips_metrics[i];
             labels.push(metric.ts);
             totaltips.data.push(metric.totaltips);
-            weaktips.data.push(metric.weaktips);
         }
 
         return {
             labels: labels,
-            datasets: [totaltips, weaktips],
+            datasets: [totaltips],
         };
     }
 

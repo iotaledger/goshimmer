@@ -27,7 +27,7 @@ The network is maintained by the network layer modules, which can be characteriz
 
 ## Communication Layer
 
-The communication layer concerns the information propagated through the network layer, which is contained in objects called messages. This layer forms a DAG with messages as vertices called the [Tangle](tangle.md): a replicated, shared and distributed data structure that emerges—through a combination of deterministic rules, cooperation, and (either direct or virtual) voting—as FPC and approval weight based finality.
+The communication layer concerns the information propagated through the network layer, which is contained in objects called messages. This layer forms a DAG with messages as vertices called the [Tangle](tangle.md): a replicated, shared and distributed data structure that emerges—through a combination of deterministic rules, cooperation, and virtual voting.
 Since nodes have finite capabilities, the number of messages that the network can process is limited. Thus, the network might become overloaded, either simply because of honest heavy usage or because of malicious (spam) attacks. To protect the network from halting or even from getting inconsistent, the rate control (currently a static PoW) and [congestion control](congestion_control.md) modules control when and how many messages can be gossiped.
 
 ## (Decentralized) Application Layer
@@ -36,9 +36,8 @@ On top of the communication layer lives the application layer. Anybody can devel
 There are several core applications that must be run by all nodes, as the value transfer applications, which maintains the [ledger state](ledgerstate.md) (including  advanced [output types](advanced_outputs.md)), and a quantity called [Mana](mana.md), that serves as a scarce resource as our Sybil protection mechanism.
 Additionally, all nodes must run what we call the consensus applications, which regulate timestamps in the messages and resolve conflicts.
 The consensus mechanism implemented in GoShimmer is leaderless and consists out of multiple components:
-1. The [Fast Probabilistic Consensus (FPC)](consensus_mechanism.md#fpc) provides pre-consensus in form of a binary voting protocol that produces consensus on a bit and uses a [distributed Random Number Generator (dRNG)](consensus_mechanism.md#drng) to be resilient against metastable states.
-2. A virtual [voting protocol (Approval Weight)](consensus_mechanism.md#approval-weight-aw) that provides finality similarly to the longest chain rule in Nakamoto consensus (i.e., heaviest branch) for branches and messages.
-
+1. [Approval Weight](consensus_mechanism.md#approval-weight-aw) is an objective measure to determine the grade of finality of messages and branches based on [active cMana](consensus_mechanism.md#Active-cMana).
+2. The [Modular Conflict Selection Function](consensus_mechanism.md#modular-conflict-selection-function) is an abstraction on how a node sets an initial opinion on conflicts based on the .
 
 ## Data Flow - Overview
 
@@ -111,13 +110,7 @@ At this point, the missing steps are the most computationally expensive:
 Finally, after a message is booked, it might become a [marker](markers.md) (depending on the marker policy) and can be gossiped.
 
 ### Consensus Mechanism
-Before we form a local opinion on a message we add its weight to its branch and past markers. In that way we always keep track of the [approval weight](consensus_mechanism.md#approval-weight-aw), and an incoming message might trigger the confirmation of branches and/or messages in its past cone.
-
-Afterwards, we form opinions in two independent processes, that can be done in parallel: the payload opinion setting, and the message timestamp opinion setting. The message timestamp opinion setting is currently not integrated, and we simply like all timestamps.
-
-In parallel to the message timestamp opinion setting, a payload evaluation is also done. If the message does not contain a transaction payload, the payload opinion is automatically set to `liked`. Otherwise, it has to pass the FCoB rule (and possibly, an FPC voting) in order to be `liked`, as described [here](consensus_mechanism.md#fpc).
-
-[![Consensus Mechanism](/img/protocol_specification/consensus_mechanism.png "Consensus Mechanism")](/img/protocol_specification/consensus_mechanism.png)
+A detailed description can be found [here](consensus_mechanism.md).
 
 
 ### Tip Manager

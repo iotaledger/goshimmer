@@ -115,7 +115,7 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 	return bytesTransactions + bytesAccessMana, nil
 }
 
-// readTransactions reads the transactions from the snapshot
+// readTransactions reads the transactions from the snapshot.
 func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 	s.Transactions = make(map[TransactionID]Record)
 	var bytesRead int64
@@ -197,7 +197,7 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 	return bytesRead, nil
 }
 
-// readAccessMana reads the access mana from the snapshot
+// readAccessMana reads the access mana from the snapshot.
 func (s *Snapshot) readAccessMana(reader io.Reader) (int64, error) {
 	s.AccessManaByNode = make(map[identity.ID]AccessMana)
 	var bytesRead int64

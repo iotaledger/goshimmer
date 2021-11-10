@@ -19,9 +19,6 @@ const (
 	// PrefixMana defines the storage prefix for the mana package.
 	PrefixMana
 
-	// PrefixFCOB defines the storage prefix for the fcob consensus package.
-	PrefixFCOB
-
 	// PrefixEpochs defines the storage prefix for the epochs package.
 	PrefixEpochs
 )

@@ -343,5 +343,10 @@ module.exports = {
       },
     ],
   },
+  {
+    type: 'link',
+    label: 'Release Notes',
+    href: 'https://github.com/iotaledger/goshimmer/releases'
+  }
   ],
 };

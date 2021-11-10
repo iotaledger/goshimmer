@@ -65,9 +65,10 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 
 	lockBuilder := syncutils.MultiMutexLockBuilder{}
 	lockBuilder.AddLock(messageMetadata.ID())
-	for _, parentMessageID := range message.Parents() {
-		lockBuilder.AddLock(parentMessageID)
-	}
+
+	message.ForEachParent(func(parent Parent) {
+		lockBuilder.AddLock(parent.ID)
+	})
 	lock := lockBuilder.Build()
 
 	s.triggerMutex.Lock(lock...)

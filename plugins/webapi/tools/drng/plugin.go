@@ -20,14 +20,13 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle             *tangle.Tangle
-	ConsensusMechanism tangle.ConsensusMechanism
-	Server             *echo.Echo
+	Tangle *tangle.Tangle
+	Server *echo.Echo
 }
 
 const (
 	routeDiagnostics = "tools/diagnostic"
-	// RouteDiagnosticsDRNG is the API route for DRNG diagnostics
+	// RouteDiagnosticsDRNG is the API route for DRNG diagnostics.
 	RouteDiagnosticsDRNG = routeDiagnostics + "/drng"
 )
 
