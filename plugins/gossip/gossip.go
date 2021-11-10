@@ -7,6 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/crypto"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -34,18 +35,22 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		Plugin.LogFatalf("could not update services: %s", err)
 	}
 
-	// loads the given message from the message layer and returns it or an error if not found.
-	loadMessage := func(msgID tangle.MessageID) ([]byte, error) {
+	var gossipManager *gossip.Manager
+	gossipManager = gossip.NewManager(lPeer, func(msgID tangle.MessageID) ([]byte, error) {
 		cachedMessage := t.Storage.Message(msgID)
 		defer cachedMessage.Release()
 		if !cachedMessage.Exists() {
+			if crypto.Randomness.Float64() < Parameters.MissingMessageRequestRelayProbability {
+				t.Solidifier.RetrieveMissingMessage(msgID)
+			}
+
 			return nil, ErrMessageNotFound
 		}
 		msg := cachedMessage.Unwrap()
 		return msg.Bytes(), nil
-	}
+	}, Plugin.Logger())
 
-	return gossip.NewManager(lPeer, loadMessage, Plugin.Logger())
+	return gossipManager
 }
 
 func start(ctx context.Context) {

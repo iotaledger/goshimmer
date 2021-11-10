@@ -145,6 +145,7 @@ func (r *Requester) reRequest(id MessageID, count int) {
 			delete(r.scheduledRequests, id)
 
 			r.Events.RequestFailed.Trigger(id)
+			r.tangle.Storage.DeleteMissingMessage(id)
 
 			return
 		}
