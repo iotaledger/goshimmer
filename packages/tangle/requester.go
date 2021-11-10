@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
@@ -76,7 +77,7 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 	defer requester.scheduledRequestsMutex.Unlock()
 
 	for _, id := range tangle.Storage.MissingMessages() {
-		requester.scheduledRequests[id] = requester.timedExecutor.ExecuteAfter(requester.createReRequest(id, 0), requester.options.retryInterval)
+		requester.scheduledRequests[id] = requester.timedExecutor.ExecuteAfter(requester.createReRequest(id, 0), requester.options.retryInterval+(time.Duration(rand.Int()%10)*time.Second))
 	}
 
 	return requester
@@ -104,7 +105,7 @@ func (r *Requester) StartRequest(id MessageID) {
 	}
 
 	// schedule the next request and trigger the event
-	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.retryInterval)
+	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.retryInterval+(time.Duration(rand.Int()%10)*time.Second))
 	r.scheduledRequestsMutex.Unlock()
 
 	r.Events.RequestStarted.Trigger(id)
@@ -149,7 +150,7 @@ func (r *Requester) reRequest(id MessageID, count int) {
 			return
 		}
 
-		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.options.retryInterval)
+		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.options.retryInterval+(time.Duration(rand.Int()%10)*time.Second))
 		return
 	}
 }
