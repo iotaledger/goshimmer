@@ -164,23 +164,27 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
+	// ONLY FOR DEBUGGING / MULTI-THREADED BOOKING:
+
 	// possible logical race condition if a child message gets added before its parents.
 	// To be sure we check that it is not directly referenced by any scheduled or scheduledBypassed message
 	// before adding a message as a tip.
-	var hasApprover bool
-	cachedApprovers := t.tangle.Storage.Approvers(messageID)
-	defer cachedApprovers.Release()
-	for _, cachedApprover := range cachedApprovers {
-		approverMessageID := cachedApprover.Unwrap().ApproverMessageID()
-		t.tangle.Storage.MessageMetadata(approverMessageID).Consume(func(approverMetadata *MessageMetadata) {
-			if approverMetadata.ScheduledBypass() || approverMetadata.Scheduled() {
-				hasApprover = true
-			}
-		})
-		if hasApprover {
-			return
-		}
-	}
+
+	// var hasApprover bool
+	// cachedApprovers := t.tangle.Storage.Approvers(messageID)
+	// defer cachedApprovers.Release()
+	// for _, cachedApprover := range cachedApprovers {
+	// 	approverMessageID := cachedApprover.Unwrap().ApproverMessageID()
+	// 	t.tangle.Storage.MessageMetadata(approverMessageID).Consume(func(approverMetadata *MessageMetadata) {
+	// 		if approverMetadata.IsOrdered() {
+	// 			hasApprover = true
+	// 		}
+	// 	})
+	// 	if hasApprover {
+	// 		fmt.Println("************** I SHOULD DEFENTIVELY NOT BE A TIP! ", messageID)
+	// 		return
+	// 	}
+	// }
 
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(&TipEvent{

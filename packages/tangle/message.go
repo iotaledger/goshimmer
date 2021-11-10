@@ -795,6 +795,8 @@ type MessageMetadata struct {
 	scheduledBypass     bool
 	booked              bool
 	bookedTime          time.Time
+	ordered             bool
+	orderedTime         time.Time
 	invalid             bool
 	gradeOfFinality     gof.GradeOfFinality
 	gradeOfFinalityTime time.Time
@@ -808,6 +810,8 @@ type MessageMetadata struct {
 	scheduledBypassMutex    sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
+	orderedMutex            sync.RWMutex
+	orderedTimeMutex        sync.RWMutex
 	invalidMutex            sync.RWMutex
 	gradeOfFinalityMutex    sync.RWMutex
 }
@@ -875,6 +879,14 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.bookedTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
+		return
+	}
+	if result.ordered, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse ordered flag of message metadata: %w", err)
+		return
+	}
+	if result.orderedTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse ordered time of message metadata: %w", err)
 		return
 	}
 	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
@@ -1101,6 +1113,43 @@ func (m *MessageMetadata) BookedTime() time.Time {
 	return m.bookedTime
 }
 
+// SetOrdered sets the message associated with this metadata as ordered.
+// It returns true if the ordered status is modified. False otherwise.
+func (m *MessageMetadata) SetOrdered(ordered bool) (modified bool) {
+	m.orderedMutex.Lock()
+	defer m.orderedMutex.Unlock()
+	m.orderedTimeMutex.Lock()
+	defer m.orderedTimeMutex.Unlock()
+
+	if m.ordered == ordered {
+		return false
+	}
+
+	m.ordered = ordered
+	m.orderedTime = clock.SyncedTime()
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// IsOrdered returns true if the message represented by this metadata is ordered. False otherwise.
+func (m *MessageMetadata) IsOrdered() (result bool) {
+	m.orderedMutex.RLock()
+	defer m.orderedMutex.RUnlock()
+	result = m.ordered
+
+	return
+}
+
+// OrderedTime returns the time when the message represented by this metadata was ordered.
+func (m *MessageMetadata) OrderedTime() time.Time {
+	m.orderedTimeMutex.RLock()
+	defer m.orderedTimeMutex.RUnlock()
+
+	return m.orderedTime
+}
+
 // IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
 func (m *MessageMetadata) IsInvalid() (result bool) {
 	m.invalidMutex.RLock()
@@ -1186,6 +1235,8 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBool(m.ScheduledBypass()).
 		WriteBool(m.IsBooked()).
 		WriteTime(m.BookedTime()).
+		WriteBool(m.IsOrdered()).
+		WriteTime(m.OrderedTime()).
 		WriteBool(m.IsInvalid()).
 		WriteUint8(uint8(m.GradeOfFinality())).
 		WriteTime(m.GradeOfFinalityTime()).
@@ -1212,6 +1263,8 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("scheduledBypass", m.ScheduledBypass()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
+		stringify.StructField("ordered", m.IsOrdered()),
+		stringify.StructField("orderedTime", m.OrderedTime()),
 		stringify.StructField("invalid", m.IsInvalid()),
 		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", m.GradeOfFinalityTime()),

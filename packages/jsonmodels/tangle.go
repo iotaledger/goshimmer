@@ -37,6 +37,8 @@ type MessageMetadata struct {
 	Scheduled           bool                `json:"scheduled"`
 	ScheduledTime       int64               `json:"scheduledTime"`
 	ScheduledBypass     bool                `json:"scheduledBypass"`
+	OrderedTime         int64               `json:"orderedTime"`
+	Ordered             bool                `json:"ordered"`
 	Booked              bool                `json:"booked"`
 	BookedTime          int64               `json:"bookedTime"`
 	Invalid             bool                `json:"invalid"`

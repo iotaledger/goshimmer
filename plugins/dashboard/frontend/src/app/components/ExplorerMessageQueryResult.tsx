@@ -147,6 +147,9 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         ScheduledBypass: {msg.scheduledBypass ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
+                                        Ordered: {msg.ordered ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
                                         Booked: {msg.booked ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>

@@ -79,7 +79,7 @@ func (o *Orderer) parentsToGossip(messageID MessageID) (parents MessageIDs) {
 	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		message.ForEachParent(func(parent Parent) {
 			o.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-				if !messageMetadata.Scheduled() && !messageMetadata.ScheduledBypass() {
+				if !messageMetadata.IsOrdered() && !messageMetadata.ScheduledBypass() {
 					parents = append(parents, parent.ID)
 				}
 			})
@@ -96,7 +96,16 @@ func (o *Orderer) tryToGossip(messageID MessageID) (parentsToGossip []MessageID)
 	}
 
 	// all parents are scheduled
-	o.Events.MessageOrdered.Trigger(messageID)
+	o.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		messageMetadata.SetOrdered(true)
+
+		// don't propagate to TSA and gossip
+		if messageMetadata.ScheduledBypass() {
+			return
+		}
+
+		o.Events.MessageOrdered.Trigger(messageID)
+	})
 
 	return
 }

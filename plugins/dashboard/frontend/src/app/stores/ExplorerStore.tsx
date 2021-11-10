@@ -41,6 +41,7 @@ export class Message {
     metadataBranchID: string;
     scheduled: boolean;
     scheduledBypass: boolean;
+    ordered: boolean;
     booked: boolean;
     invalid: boolean;
     gradeOfFinality: number;

@@ -140,6 +140,8 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		Scheduled:           metadata.Scheduled(),
 		ScheduledTime:       metadata.ScheduledTime().Unix(),
 		ScheduledBypass:     metadata.ScheduledBypass(),
+		OrderedTime:         metadata.OrderedTime().Unix(),
+		Ordered:             metadata.IsOrdered(),
 		Booked:              metadata.IsBooked(),
 		BookedTime:          metadata.BookedTime().Unix(),
 		Invalid:             metadata.IsInvalid(),
