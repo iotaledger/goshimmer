@@ -39,7 +39,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		cachedMessage := t.Storage.Message(msgID)
 		defer cachedMessage.Release()
 		if !cachedMessage.Exists() {
-			if false && crypto.Randomness.Float64() < Parameters.MissingMessageRequestRelayProbability {
+			if crypto.Randomness.Float64() < Parameters.MissingMessageRequestRelayProbability {
 				t.Solidifier.RetrieveMissingMessage(msgID)
 			}
 
