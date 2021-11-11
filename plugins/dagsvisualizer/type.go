@@ -37,6 +37,7 @@ type tangleVertex struct {
 	IsMarker        bool     `json:"isMarker"`
 	IsTx            bool     `json:"isTx"`
 	ConfirmedTime   int64    `json:"confirmedTime"`
+	GoF             string   `json:"gof",omitempty`
 }
 
 type tangleBooked struct {

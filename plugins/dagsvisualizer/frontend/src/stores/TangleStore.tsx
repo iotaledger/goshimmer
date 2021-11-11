@@ -47,6 +47,7 @@ export class TangleStore {
     msgOrder: Array<any> = [];
     selected_via_click: boolean = false;
     selected_origin_color: number = 0;
+    draw: boolean = true;
     vertexChanges = 0;
     graph;
     graphics;
@@ -93,7 +94,9 @@ export class TangleStore {
         msg.gof = "";
         this.messages.set(msg.ID, msg);
 
-        this.drawVertex(msg);
+        if (this.draw) {
+            this.drawVertex(msg);
+        }
     }
 
     @action
@@ -119,7 +122,10 @@ export class TangleStore {
         msg.isMarker = branch.isMarker;
 
         this.messages.set(msg.ID, msg);
-        this.graph.addNode(msg.ID, msg);
+        // TODO: improve the updated information
+        if (this.draw) {
+            this.graph.addNode(msg.ID, msg);
+        }        
     }
 
     @action
@@ -132,8 +138,10 @@ export class TangleStore {
         msg.gof = info.gof;
         msg.confirmedTime = info.confirmedTime;
         this.messages.set(msg.ID, msg);
-        this.graph.addNode(info.ID, msg);
-        this.updateNodeColor(info.ID);
+        if (this.draw) {
+            this.graph.addNode(info.ID, msg);
+            this.updateNodeColor(msg);
+        }
     }
 
     @action
@@ -204,6 +212,20 @@ export class TangleStore {
         this.updateSelected(msgNode.data, false);
     }
     
+    drawExistedMsgs = () => {
+        this.messages.forEach((msg) => {
+            this.drawVertex(msg);
+        })
+    }
+
+    updateDrawStatus = (draw: boolean) => {
+        this.draw = draw;
+    }
+
+    clearGraph = () => {
+        this.graph.clear();
+    }
+
     drawVertex = (msg: tangleVertex) => {
         let node;
         let existing = this.graph.getNode(msg.ID);
@@ -211,6 +233,7 @@ export class TangleStore {
             node = existing
         } else {
             node = this.graph.addNode(msg.ID, msg);
+            this.updateNodeColor(msg);
         }
 
         if (msg.strongParentIDs) {
@@ -239,12 +262,12 @@ export class TangleStore {
         }
     }
 
+    // TODO: take tangleVertex instead
     // only update color when finalized
-    updateNodeColor = (msgID: string) => {
-        let msg = this.messages.get(msgID);
-        let nodeUI = this.graphics.getNodeUI(msgID);
+    updateNodeColor = (msg: tangleVertex) => {
+        let nodeUI = this.graphics.getNodeUI(msg.ID);
         let color = "";
-        if (!nodeUI || !msg) {
+        if (!nodeUI || !msg || msg.gof === "GoF(None)") {
             color = "#b58900";
         }
         if (msg.isTx) {
@@ -274,7 +297,7 @@ export class TangleStore {
     updateSelected = (vert: tangleVertex, viaClick?: boolean) => {
         if (!vert) return;
 
-        this.selectedMsg = this.messages.get(vert.ID);
+        this.selectedMsg = vert;
         this.selected_via_click = !!viaClick;
 
         // mutate links

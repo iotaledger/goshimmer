@@ -91,6 +91,10 @@ func setupRoutes(e *echo.Echo) {
 	// used to route into the dashboard index
 	e.GET("*", indexRoute)
 
+	apiRoutes := e.Group("/api")
+
+	setupDagsVisualizerRoutes(apiRoutes)
+
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		log.Warnf("Request failed: %s", err)
 

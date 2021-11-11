@@ -34,6 +34,7 @@ export class UTXOStore {
     @observable search: string = "";
     outputMap = new Map();
     txOrder: Array<any> = [];
+    draw: boolean = true;
 
     vertexChanges = 0;
     txToRemoveAfterResume = [];
@@ -84,7 +85,9 @@ export class UTXOStore {
 
         if (this.paused) {
           this.txToAddAfterResume.push(tx.ID);
-        } else {
+          return;
+        }
+        if(this.draw) {
           this.drawVertex(tx);
         }
     }
@@ -167,6 +170,20 @@ export class UTXOStore {
         this.removeVertex(txID);
       })
       this.txToRemoveAfterResume = [];
+    }
+
+    drawExistedTxs = () => {
+      this.transactions.forEach((tx) => {
+          this.drawVertex(tx);
+      })
+  }
+
+    updateDrawStatus = (draw: boolean) => {
+      this.draw = draw;
+    }
+
+    clearGraph = () => {
+      this.cy.elements().remove();
     }
 
     removeVertex = (txID: string) => {

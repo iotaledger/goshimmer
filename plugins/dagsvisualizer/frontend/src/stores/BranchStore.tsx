@@ -38,6 +38,7 @@ export class BranchStore {
     @observable paused: boolean = false;
     @observable search: string = "";
     branchOrder: Array<any> = [];
+    draw: boolean = true;
 
     vertexChanges = 0;
     branchToRemoveAfterResume = [];
@@ -83,7 +84,8 @@ export class BranchStore {
 
         if (this.paused) {
             this.branchToAddAfterResume.push(branch.ID);
-        } else {
+        } 
+        if (this.draw) {
             this.drawVertex(branch);
         }
     }
@@ -159,6 +161,20 @@ export class BranchStore {
         branchNode.select();
         
         this.updateSelected(this.search);
+    }
+
+    drawExistedBranches = () => {
+        this.branches.forEach((branch) => {
+            this.drawVertex(branch);
+        })
+    }
+
+    updateDrawStatus = (draw: boolean) => {
+        this.draw = draw;
+    }
+
+    clearGraph = () => {
+        this.cy.elements().remove();
     }
 
     resumeAndSyncGraph = () => {

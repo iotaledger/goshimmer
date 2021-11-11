@@ -6,6 +6,7 @@ import TangleStore from 'stores/TangleStore';
 import {TangleDAG} from 'components/TangleDAG';
 import {UTXODAG} from 'components/UTXODAG';
 import {BranchDAG} from 'components/BranchDAG';
+import { GlobalSettings } from 'components/GlobalSettings';
 
 interface Props {
     tangleStore?: TangleStore;
@@ -21,6 +22,9 @@ export class Root extends React.Component<Props, any> {
     render() {
         return (
             <Container>
+                <Row>
+                    <GlobalSettings />
+                </Row>
                 <Row>
                     <TangleDAG />
                 </Row>
