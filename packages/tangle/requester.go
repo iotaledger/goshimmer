@@ -9,42 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/timedexecutor"
 )
 
-const (
-	// DefaultRetryInterval defines the Default Retry Interval of the message requester.
-	DefaultRetryInterval = 10 * time.Second
-
-	// the maximum amount of requests before we abort
-	maxRequestThreshold = 500
-)
-
-// RequesterOptions holds options for a message requester.
-type RequesterOptions struct {
-	retryInterval time.Duration
-}
-
-func newRequesterOptions(optionalOptions []RequesterOption) *RequesterOptions {
-	result := &RequesterOptions{
-		retryInterval: DefaultRetryInterval,
-	}
-
-	for _, optionalOption := range optionalOptions {
-		optionalOption(result)
-	}
-
-	return result
-}
-
-// RequesterOption is a function which inits an option.
-type RequesterOption func(*RequesterOptions)
-
-// RetryInterval creates an option which sets the retry interval to the given value.
-func RetryInterval(interval time.Duration) RequesterOption {
-	return func(args *RequesterOptions) {
-		args.retryInterval = interval
-	}
-}
-
-// region Requester /////////////////////////////////////////////////////////////////////////////////////////////
+// region Requester ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Requester takes care of requesting messages.
 type Requester struct {
@@ -52,7 +17,7 @@ type Requester struct {
 	timedExecutor     *timedexecutor.TimedExecutor
 	scheduledRequests map[MessageID]*timedexecutor.ScheduledTask
 	options           *RequesterOptions
-	Events            *MessageRequesterEvents
+	Events            *RequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
 }
@@ -63,8 +28,8 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 		tangle:            tangle,
 		timedExecutor:     timedexecutor.New(1),
 		scheduledRequests: make(map[MessageID]*timedexecutor.ScheduledTask),
-		options:           newRequesterOptions(optionalOptions),
-		Events: &MessageRequesterEvents{
+		options:           DefaultRequesterOptions.Apply(optionalOptions...),
+		Events: &RequesterEvents{
 			RequestIssued:  events.NewEvent(sendRequestEventHandler),
 			RequestStarted: events.NewEvent(MessageIDCaller),
 			RequestStopped: events.NewEvent(MessageIDCaller),
@@ -77,7 +42,7 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 	defer requester.scheduledRequestsMutex.Unlock()
 
 	for _, id := range tangle.Storage.MissingMessages() {
-		requester.scheduledRequests[id] = requester.timedExecutor.ExecuteAfter(requester.createReRequest(id, 0), requester.options.retryInterval+(time.Duration(rand.Int()%10)*time.Second))
+		requester.scheduledRequests[id] = requester.timedExecutor.ExecuteAfter(requester.createReRequest(id, 0), requester.options.RetryInterval+(time.Duration(rand.Int()%requester.options.RetryJitter)*time.Second))
 	}
 
 	return requester
@@ -105,7 +70,7 @@ func (r *Requester) StartRequest(id MessageID) {
 	}
 
 	// schedule the next request and trigger the event
-	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.retryInterval+(time.Duration(rand.Int()%10)*time.Second))
+	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.RetryInterval+(time.Duration(rand.Int()%r.options.RetryJitter)*time.Second))
 	r.scheduledRequestsMutex.Unlock()
 
 	r.Events.RequestStarted.Trigger(id)
@@ -142,7 +107,7 @@ func (r *Requester) reRequest(id MessageID, count int) {
 		count++
 
 		// if we have requested too often => stop the requests
-		if count > maxRequestThreshold {
+		if count > r.options.MaxRequestThreshold {
 			delete(r.scheduledRequests, id)
 
 			r.Events.RequestFailed.Trigger(id)
@@ -151,7 +116,7 @@ func (r *Requester) reRequest(id MessageID, count int) {
 			return
 		}
 
-		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.options.retryInterval+(time.Duration(rand.Int()%10)*time.Second))
+		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.options.RetryInterval+(time.Duration(rand.Int()%r.options.RetryJitter)*time.Second))
 		return
 	}
 }
@@ -169,10 +134,71 @@ func (r *Requester) createReRequest(msgID MessageID, count int) func() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageRequesterEvents ///////////////////////////////////////////////////////////////////////////////////////
+// region RequesterOptions /////////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageRequesterEvents represents events happening on a message requester.
-type MessageRequesterEvents struct {
+// DefaultRequesterOptions defines the default options that are used when creating Requester instances.
+var DefaultRequesterOptions = &RequesterOptions{
+	RetryInterval:       10 * time.Second,
+	RetryJitter:         10,
+	MaxRequestThreshold: 500,
+}
+
+// RequesterOptions holds options for a message requester.
+type RequesterOptions struct {
+	// RetryInterval represents an option which defines in which intervals the Requester will try to ask for missing
+	// messages.
+	RetryInterval time.Duration
+
+	// RetryJitter defines how much the RetryInterval should be randomized, so that the nodes don't always send messages
+	// at exactly the same interval.
+	RetryJitter int
+
+	// MaxRequestThreshold represents an option which defines how often the Requester should try to request messages
+	// before cancelling the request
+	MaxRequestThreshold int
+}
+
+// Apply applies the optional Options to the RequesterOptions.
+func (r *RequesterOptions) Apply(optionalOptions ...RequesterOption) (options *RequesterOptions) {
+	*options = *r
+	for _, optionalOption := range optionalOptions {
+		optionalOption(options)
+	}
+
+	return options
+}
+
+// RequesterOption is a function which inits an option.
+type RequesterOption func(*RequesterOptions)
+
+// RetryInterval creates an option which sets the retry interval to the given value.
+func RetryInterval(interval time.Duration) RequesterOption {
+	return func(args *RequesterOptions) {
+		args.RetryInterval = interval
+	}
+}
+
+// RetryJitter creates an option which sets the retry jitter to the given value.
+func RetryJitter(jitter int) RequesterOption {
+	return func(args *RequesterOptions) {
+		args.RetryJitter = jitter
+	}
+}
+
+// MaxRequestThreshold creates an option which defines how often the Requester should try to request messages before
+// cancelling the request.
+func MaxRequestThreshold(maxRequestThreshold int) RequesterOption {
+	return func(args *RequesterOptions) {
+		args.MaxRequestThreshold = maxRequestThreshold
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region RequesterEvents //////////////////////////////////////////////////////////////////////////////////////////////
+
+// RequesterEvents represents events happening on a message requester.
+type RequesterEvents struct {
 	// RequestIssued is an event that is triggered when the requester wants to request the given Message from its
 	// neighbors.
 	RequestIssued *events.Event
