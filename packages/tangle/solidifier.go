@@ -1,8 +1,6 @@
 package tangle
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
@@ -54,11 +52,8 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 // RetrieveMissingMessage checks if the message is missing and triggers the corresponding events to request it. It returns true if the message has been missing.
 func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMissing bool) {
 	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
-		fmt.Fprintf(os.Stderr, "tried to check if Message with %s is missing\n", messageID)
-
 		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
 			cachedMissingMessage.Release()
-			fmt.Fprintf(os.Stderr, "created MissingMessage for Message with %s\n", messageID)
 
 			messageWasMissing = true
 			s.Events.MessageMissing.Trigger(messageID)
