@@ -1,3 +1,17 @@
+# v0.8.1 - 2021-11-11
+
+> This release introduces some minor changes to the message solidification and requesting mechanisms.
+
+The snapshot has been taken at 2021-11-05 12:18pm CET.
+
+Changelog:
+- There is now a 10% chance that an inbound request for a missing message gets relayed to neighbors to get resolved.
+- Messages requests are enqueued for retry with a random jitter.
+- Use of TimedExecutor for the message requester.
+- Better logging for message requester and filters.
+- Messages that could not be retrieved and get removed from the requester can be requested another time later.
+- Fixed analysis dashboard.
+
 # v0.8.0 - 2021-11-05
 
 > This release introduces changes to the consensus mechanism. Specifically, a first implementation of pure On Tangle Voting (OTV), like switch, and the Grades of Finality (GoF) is included. This release does not entail algorithmic optimizations of these components. Therefore, it is to be expected, that performance degrades over time.
