@@ -1,10 +1,10 @@
 package tangle
 
 import (
-	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timedexecutor"
 )
@@ -42,7 +42,7 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 	defer requester.scheduledRequestsMutex.Unlock()
 
 	for _, id := range tangle.Storage.MissingMessages() {
-		requester.scheduledRequests[id] = requester.timedExecutor.ExecuteAfter(requester.createReRequest(id, 0), requester.options.RetryInterval+(time.Duration(rand.Int()%requester.options.RetryJitter)*time.Second))
+		requester.scheduledRequests[id] = requester.timedExecutor.ExecuteAfter(requester.createReRequest(id, 0), requester.options.RetryInterval+time.Duration(crypto.Randomness.Float64()*float64(requester.options.RetryJitter)))
 	}
 
 	return requester
@@ -70,7 +70,7 @@ func (r *Requester) StartRequest(id MessageID) {
 	}
 
 	// schedule the next request and trigger the event
-	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.RetryInterval+(time.Duration(rand.Int()%r.options.RetryJitter)*time.Second))
+	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.RetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.options.RetryJitter)))
 	r.scheduledRequestsMutex.Unlock()
 
 	r.Events.RequestStarted.Trigger(id)
@@ -116,7 +116,7 @@ func (r *Requester) reRequest(id MessageID, count int) {
 			return
 		}
 
-		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.options.RetryInterval+(time.Duration(rand.Int()%r.options.RetryJitter)*time.Second))
+		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.options.RetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.options.RetryJitter)))
 		return
 	}
 }
@@ -139,7 +139,7 @@ func (r *Requester) createReRequest(msgID MessageID, count int) func() {
 // DefaultRequesterOptions defines the default options that are used when creating Requester instances.
 var DefaultRequesterOptions = &RequesterOptions{
 	RetryInterval:       10 * time.Second,
-	RetryJitter:         10,
+	RetryJitter:         10 * time.Second,
 	MaxRequestThreshold: 500,
 }
 
@@ -151,7 +151,7 @@ type RequesterOptions struct {
 
 	// RetryJitter defines how much the RetryInterval should be randomized, so that the nodes don't always send messages
 	// at exactly the same interval.
-	RetryJitter int
+	RetryJitter time.Duration
 
 	// MaxRequestThreshold represents an option which defines how often the Requester should try to request messages
 	// before canceling the request
@@ -179,9 +179,9 @@ func RetryInterval(interval time.Duration) RequesterOption {
 }
 
 // RetryJitter creates an option which sets the retry jitter to the given value.
-func RetryJitter(jitter int) RequesterOption {
+func RetryJitter(retryJitter time.Duration) RequesterOption {
 	return func(args *RequesterOptions) {
-		args.RetryJitter = jitter
+		args.RetryJitter = retryJitter
 	}
 }
 

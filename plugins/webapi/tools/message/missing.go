@@ -24,6 +24,7 @@ func MissingHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+// MissingAvailableHandler is the handler for requests that check if a Message is available at a nodes neighbors.
 func MissingAvailableHandler(c echo.Context) error {
 	maxNum, err := strconv.Atoi(c.QueryParam("maxNum"))
 	if err != nil {
@@ -50,18 +51,18 @@ func MissingAvailableHandler(c echo.Context) error {
 	for _, missingID := range missingIDs {
 		missingIDBase58 := missingID.Base58()
 		msgAvailability[missingIDBase58] = make([]string, 0)
-		for peerId, c := range peersEndpoints {
+		for peerID, c := range peersEndpoints {
 			wg.Add(1)
 			go func(peerId string, c *client.GoShimmerAPI) {
 				fmt.Println("Querying", peerId, "about", missingIDBase58)
-				resp, err := c.GetMessageMetadata(missingIDBase58)
+				_, err := c.GetMessageMetadata(missingIDBase58)
 				if err == nil {
 					msgAvailabilityLock.Lock()
-					msgAvailability[resp.ID] = append(msgAvailability[missingIDBase58], peerId)
+					msgAvailability[missingIDBase58] = append(msgAvailability[missingIDBase58], peerId)
 					msgAvailabilityLock.Unlock()
 				}
 				wg.Done()
-			}(peerId, c)
+			}(peerID, c)
 		}
 	}
 	wg.Wait()
