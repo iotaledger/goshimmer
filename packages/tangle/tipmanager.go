@@ -130,7 +130,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID MessageID) {
+	t.tangle.Dispatcher.Events.MessageDispatched.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
 	}))
 
@@ -162,9 +162,10 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	// TODO: possible logical race condition if a child message gets added before its parents.
-	//  To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
-	//  before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
+	// Make sure that a candidate tip does not have any approver either scheduled or confirmed.
+	if !t.eligibleTip(messageID) {
+		return
+	}
 
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(&TipEvent{
@@ -189,6 +190,26 @@ func (t *TipManager) AddTip(message *Message) {
 			})
 		}
 	})
+}
+
+// eligibleTip returns true if the given messageID is an eligible tip, false if the messageID has any approver
+// that has been already scheduled or the message itself has been confirmed.
+func (t *TipManager) eligibleTip(messageID MessageID) (eligibleTip bool) {
+	eligibleTip = true
+	cachedApprovers := t.tangle.Storage.Approvers(messageID)
+	defer cachedApprovers.Release()
+	for _, cachedApprover := range cachedApprovers {
+		approverMessageID := cachedApprover.Unwrap().ApproverMessageID()
+		t.tangle.Storage.MessageMetadata(approverMessageID).Consume(func(approverMetadata *MessageMetadata) {
+			if approverMetadata.Scheduled() || t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
+				eligibleTip = false
+			}
+		})
+		if !eligibleTip {
+			break
+		}
+	}
+	return eligibleTip
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
@@ -286,8 +307,10 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 		messageID := tip.(MessageID)
 
 		if _, ok := parentsMap[messageID]; !ok {
-			parentsMap[messageID] = types.Void
-			parents = append(parents, messageID)
+			if t.eligibleTip(messageID) {
+				parentsMap[messageID] = types.Void
+				parents = append(parents, messageID)
+			}
 		}
 	}
 
