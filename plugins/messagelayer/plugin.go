@@ -99,7 +99,12 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	deps.Tangle.Parser.Events.BytesRejected.Attach(events.NewClosure(func(ev *tangle.BytesRejectedEvent, err error) {
-		plugin.LogDebugf("bytes rejected from peer %s: %v", ev.Peer.ID(), err)
+		if errors.Is(err, tangle.ErrReceivedDuplicateBytes) {
+			plugin.LogDebugf("bytes rejected from peer %s: %v", ev.Peer.ID(), err)
+			return
+		}
+
+		plugin.LogWarnf("bytes rejected from peer %s: %v", ev.Peer.ID(), err)
 	}))
 
 	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
