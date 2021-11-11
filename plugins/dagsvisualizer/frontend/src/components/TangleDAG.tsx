@@ -54,7 +54,7 @@ export class TangleDAG extends React.Component<Props, any> {
                     <Col>
                         <InputGroup className="mb-1">
                             <OverlayTrigger
-                                trigger={['hover', 'focus']} placement="bottom" overlay={
+                                trigger={['hover', 'focus']} placement="right" overlay={
                                 <Popover id="popover-basic">
                                     <Popover.Body>
                                         Pauses/resumes rendering the graph.

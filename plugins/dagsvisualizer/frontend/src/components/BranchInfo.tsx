@@ -3,7 +3,6 @@ import Card from 'react-bootstrap/Card';
 import ListGroup from "react-bootstrap/ListGroup";
 import {inject, observer} from "mobx-react";
 import BranchStore from "stores/BranchStore";
-import * as dateformat from 'dateformat';
 
 interface Props {
     branchStore?: BranchStore;
