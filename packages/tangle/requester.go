@@ -154,7 +154,7 @@ type RequesterOptions struct {
 	RetryJitter int
 
 	// MaxRequestThreshold represents an option which defines how often the Requester should try to request messages
-	// before cancelling the request
+	// before canceling the request
 	MaxRequestThreshold int
 }
 
@@ -186,7 +186,7 @@ func RetryJitter(jitter int) RequesterOption {
 }
 
 // MaxRequestThreshold creates an option which defines how often the Requester should try to request messages before
-// cancelling the request.
+// canceling the request.
 func MaxRequestThreshold(maxRequestThreshold int) RequesterOption {
 	return func(args *RequesterOptions) {
 		args.MaxRequestThreshold = maxRequestThreshold
