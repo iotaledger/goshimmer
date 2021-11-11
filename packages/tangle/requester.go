@@ -16,8 +16,8 @@ type Requester struct {
 	tangle            *Tangle
 	timedExecutor     *timedexecutor.TimedExecutor
 	scheduledRequests map[MessageID]*timedexecutor.ScheduledTask
-	options           *RequesterOptions
-	Events            *RequesterEvents
+	options           RequesterOptions
+	Events            RequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
 }
@@ -29,7 +29,7 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 		timedExecutor:     timedexecutor.New(1),
 		scheduledRequests: make(map[MessageID]*timedexecutor.ScheduledTask),
 		options:           DefaultRequesterOptions.Apply(optionalOptions...),
-		Events: &RequesterEvents{
+		Events: RequesterEvents{
 			RequestIssued:  events.NewEvent(sendRequestEventHandler),
 			RequestStarted: events.NewEvent(MessageIDCaller),
 			RequestStopped: events.NewEvent(MessageIDCaller),
@@ -159,13 +159,13 @@ type RequesterOptions struct {
 }
 
 // Apply applies the optional Options to the RequesterOptions.
-func (r *RequesterOptions) Apply(optionalOptions ...RequesterOption) (options *RequesterOptions) {
-	*options = *r
+func (r RequesterOptions) Apply(optionalOptions ...RequesterOption) (updatedOptions RequesterOptions) {
+	updatedOptions = r
 	for _, optionalOption := range optionalOptions {
-		optionalOption(options)
+		optionalOption(&updatedOptions)
 	}
 
-	return options
+	return updatedOptions
 }
 
 // RequesterOption is a function which inits an option.
