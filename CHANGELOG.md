@@ -5,7 +5,7 @@
 The snapshot has been taken at 2021-11-05 12:18pm CET.
 
 Changelog:
-- There is now a 10% chance that an inbound request for a missing message gets relayed to neighbors to get resolved.
+- There is now a 1% chance that an inbound request for a missing message gets relayed to neighbors to get resolved.
 - Messages requests are enqueued for retry with a random jitter.
 - Use of TimedExecutor for the message requester.
 - Better logging for message requester and filters.
