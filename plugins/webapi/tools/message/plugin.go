@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/configuration"
 
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -23,10 +24,11 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle *tangle.Tangle
-	Local  *peer.Local
-	Config *configuration.Configuration
-	Server *echo.Echo
+	Tangle    *tangle.Tangle
+	Local     *peer.Local
+	Config    *configuration.Configuration
+	Server    *echo.Echo
+	GossipMgr *gossip.Manager `optional:"true"`
 }
 
 const (
@@ -56,6 +58,7 @@ const (
 func configure(_ *node.Plugin) {
 	deps.Server.GET("tools/message/pastcone", PastconeHandler)
 	deps.Server.GET("tools/message/missing", MissingHandler)
+	deps.Server.GET("tools/message/missingavailable", MissingAvailableHandler)
 	deps.Server.GET("tools/message/approval", ApprovalHandler)
 	deps.Server.GET("tools/message/orphanage", OrphanageHandler)
 	deps.Server.GET(RouteDiagnosticMessages, DiagnosticMessagesHandler)
