@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -208,7 +207,6 @@ func (s *Storage) Approvers(messageID MessageID, optionalApproverType ...Approve
 
 // StoreMissingMessage stores a new MissingMessage entry in the object storage.
 func (s *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMissingMessage *CachedMissingMessage, stored bool) {
-	fmt.Fprintln(os.Stderr, ">> Storing missing message", missingMessage.messageID)
 	cachedObject, stored := s.missingMessageStorage.StoreIfAbsent(missingMessage)
 	cachedMissingMessage = &CachedMissingMessage{CachedObject: cachedObject}
 
