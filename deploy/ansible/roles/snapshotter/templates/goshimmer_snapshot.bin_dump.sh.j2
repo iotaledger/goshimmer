@@ -1,7 +1,7 @@
 #!/bin/bash
 
-HTTP_STS_CODE="$(/usr/bin/curl -s -o /dev/null -w '%{http_code}\n' http://ressims.iota.cafe:9101/healthz)"
-LATEST_SNAPSHOT="http://127.0.0.1:9101/snapshot"
+HTTP_STS_CODE="$(/usr/bin/curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/healthz)"
+LATEST_SNAPSHOT="http://127.0.0.1:8080/snapshot"
 DRIVE=/tmp/BACKUPS
 
 if [[ $HTTP_STS_CODE -eq 200 ]]; then
