@@ -10,7 +10,7 @@ type ParametersDefinition struct {
 	BindAddress string `default:"0.0.0.0:14666" usage:"the bind address for the gossip"`
 
 	// MissingMessageRequestRelayProbability defines the probability of missing message requests being relayed to other neighbors.
-	MissingMessageRequestRelayProbability float64 `default:"0.1" usage:"the probability of missing message requests being relayed to other neighbors"`
+	MissingMessageRequestRelayProbability float64 `default:"0.01" usage:"the probability of missing message requests being relayed to other neighbors"`
 }
 
 // Parameters contains the configuration parameters of the gossip plugin.
