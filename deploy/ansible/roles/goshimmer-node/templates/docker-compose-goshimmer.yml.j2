@@ -58,8 +58,6 @@ services:
       --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000
      {% endif %}
-      --faucet.powDifficulty=22
-      --pow.difficulty=22
       --pow.numThreads=8
       --pow.timeout=60s
       --logger.level={{ logLevel }}
