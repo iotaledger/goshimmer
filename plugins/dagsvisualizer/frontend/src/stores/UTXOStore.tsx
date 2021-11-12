@@ -186,6 +186,10 @@ export class UTXOStore {
       this.cy.elements().remove();
     }
 
+    centerEntireGraph = () => {
+      this.cy.center();
+    }
+
     removeVertex = (txID: string) => {
         let children = this.cy.getElementById(txID).children();
 

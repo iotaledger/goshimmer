@@ -70,7 +70,7 @@ export class TangleStore {
     }
 
     connect() {
-        connectWebSocket("/ws",
+        connectWebSocket("localhost:8061/ws",
         () => {console.log("connection opened")},
         this.reconnect,
         () => {console.log("connection error")});
@@ -225,6 +225,14 @@ export class TangleStore {
     clearGraph = () => {
         this.graph.clear();
     }
+
+    centerEntireGraph = () => {
+        let graph = document.getElementById('tangleVisualizer');
+        let centerY = graph.offsetHeight / 2;
+        let centerX = graph.offsetWidth / 2;
+
+        this.renderer.moveTo(centerX, centerY);
+      }
 
     drawVertex = (msg: tangleVertex) => {
         let node;

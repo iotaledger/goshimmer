@@ -44,6 +44,10 @@ export class TangleDAG extends React.Component<Props, any> {
         this.props.tangleStore.searchAndHighlight();
     }
 
+    centerGraph = () => {
+        this.props.tangleStore.centerEntireGraph();
+    }
+
     render () {
         let { paused, maxTangleVertices, search } = this.props.tangleStore;
 
@@ -51,7 +55,7 @@ export class TangleDAG extends React.Component<Props, any> {
             <Container>
                 <h2> Tangle DAG </h2>
                 <Row xs={5}>
-                    <Col>
+                    <Col className="align-self-end" style={{display: "flex", justifyContent: "space-evenly"}}>
                         <InputGroup className="mb-1">
                             <OverlayTrigger
                                 trigger={['hover', 'focus']} placement="right" overlay={
@@ -65,6 +69,11 @@ export class TangleDAG extends React.Component<Props, any> {
                                     {paused ? "Resume Rendering" : "Pause Rendering"}
                                 </Button>
                             </OverlayTrigger>
+                        </InputGroup>
+                        <InputGroup className="mb-1">
+                            <Button onClick={this.centerGraph} variant="outline-secondary">
+                                Center Graph
+                            </Button>
                         </InputGroup>
                     </Col>
                     <Col>

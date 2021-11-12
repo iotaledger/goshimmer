@@ -177,6 +177,10 @@ export class BranchStore {
         this.cy.elements().remove();
     }
 
+    centerEntireGraph = () => {
+        this.cy.center();
+    }
+
     resumeAndSyncGraph = () => {
       // add buffered tx
       this.branchToAddAfterResume.forEach((branchID) => {
