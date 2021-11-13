@@ -49,6 +49,22 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, MessageIDs{messageID}, true)
 }
 
+// RetrieveMissingMessage checks if the message is missing and triggers the corresponding events to request it. It returns true if the message has been missing.
+func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMissing bool) {
+	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
+		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
+			cachedMissingMessage.Release()
+
+			messageWasMissing = true
+			s.Events.MessageMissing.Trigger(messageID)
+		}
+
+		return nil
+	}).Release()
+
+	return messageWasMissing
+}
+
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
 func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
 	if !s.isMessageSolid(message, messageMetadata) {
@@ -110,17 +126,11 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 		return true
 	}
 
-	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
-		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
-			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
-				s.Events.MessageMissing.Trigger(messageID)
-			})
-		}
+	if s.RetrieveMissingMessage(messageID) {
+		return false
+	}
 
-		// do not initialize the metadata here, we execute this in the optional ComputeIfAbsent callback to be secure
-		// from race conditions
-		return nil
-	}).Consume(func(messageMetadata *MessageMetadata) {
+	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		solid = messageMetadata.IsSolid()
 	})
 

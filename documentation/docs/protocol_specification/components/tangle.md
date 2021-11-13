@@ -179,7 +179,6 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
                         </td>
                     </tr>
                     <tr>
-                    <tr>
                         <td>Reference <code>between(1,8)</code></td>
                         <td>ByteArray[32]</td>
                         <td>Reference to a Message ID.</td>
@@ -218,6 +217,8 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
                     </tr>
                 </table>
             </details>
+        </td>
+    </tr>
     <tr>
         <td>Issuer public key (Ed25519)</td>
         <td>ByteArray[32]</td>
@@ -268,7 +269,7 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
                     </tr>
                 </table>
             </details>
-            </td>
+        </td>
     </tr>
     <tr>
         <td>Nonce</td>
@@ -338,8 +339,6 @@ The core protocol defines a number of payloads that every node needs to interpre
 - **Transactions:** Value transfers that constitute the ledger state.
 - **Data:**  Pure data payloads allow to send unsigned messages.
 - **dRNG:** Messages that contain randomness or committee declarations.
-- **FPC:** Opinions on conflicts of transactions and timestamps of the messages, mainly issued by high mana nodes.
-
 
 ## Solidification
 
@@ -447,8 +446,6 @@ In order to enable snapshotting based on time constraints rather than special me
 
 Having consensus on the creation time of messages enables not only total ordering but also new applications that require certain guarantees regarding time. Specifically, we use message timestamps to enforce timestamps in transactions, which may also be used in computing the Mana associated to a particular node ID.
 
-In this document, we propose a mechanism to achieve consensus on message timestamps by combining a synchronous and an asynchronous approach. While online nodes may leverage FPC to vote on timestamps, nodes that join the network at a later time use an approach based on the *approval weight* (described in section X.X) to determine the validity of timestamps.
-
 
 ### Clock Synchronization
 
@@ -460,7 +457,7 @@ Every message contains a timestamp, which is signed by the issuing node. Thus, t
 
 In order for a message to be eligible for tip selection, the timestamp of every message in its past cone (both weak and strong) must satisfy certain requirements. These requirements fall into two categories: objective and subjective. The objective criteria only depend on information written directly in the Tangle and are applied immediately upon solidification.  Thus, all nodes immediately have consensus on the objective criteria.  In this section, we will discuss these objective criteria.
 
-The quality of the timestamp is a subjective criterion since it is based on the solidification time of the message.  Thus, nodes must use a consensus algorithm, e.g. FPC, to decide which messages should be rejected based on subjective criteria. However, currently this feature is not yet implemented in GoShimmer, and we assume all timestamps to be good.
+The quality of the timestamp is a subjective criterion since it is based on the solidification time of the message.  Thus, nodes must use a consensus algorithm, to decide which messages should be rejected based on subjective criteria. However, currently this feature is not yet implemented in GoShimmer, and we assume all timestamps to be good.
 
 ### Age of parents
 It is problematic when incoming messages reference extremely old messages. If any new message may reference any message in the Tangle, then a node will need to keep all messages readily available, precluding snapshotting. For this reason, we require that the difference between the timestamp of a message, and the timestamp of its parents must be at most `30min`. Additionally, we require that timestamps are monotonic, i.e., parents must have a timestamp smaller than their children's timestamps.
@@ -490,9 +487,7 @@ In other words, all inputs to a transaction need to have a smaller or equal time
 For a variety of reasons, a node needs to be able to determine if it is in sync with the rest of the network, including the following:
 - to signal to clients that its perception is healthy,
 - to know when to issue messages (nodes out of sync should not issue messages, lest they are added to the wrong part of the Tangle),
-- to schedule messages at the correct rate: out of sync nodes should schedule faster in order to catch up with the network,
-- and to optimize FPC: nodes should not query while syncing, but instead rely on the approval weight.
-
+- to schedule messages at the correct rate: out of sync nodes should schedule faster in order to catch up with the network.
 
 Every DLT is a clock, or more specifically a network of synchronized clocks. This clock has a natural correspondence with "real time". If the DLT clock differs significantly from local time, then we can conclude that our DLT clock is off from all the other clocks, and thus the node is out of sync.
 

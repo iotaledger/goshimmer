@@ -5,21 +5,47 @@ services:
   goshimmer:
     image: iotaledger/goshimmer:{{goshimmerDockerTag}}
     container_name: goshimmer
-    network_mode: "host"
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
+    ports:
+    {% if debugPorts|default(false) %}
+      # Autopeering
+      - "0.0.0.0:14626:14626/udp"
+      # Gossip
+      - "0.0.0.0:14666:14666/tcp"
+      # HTTP API
+      - "0.0.0.0:8080:8080/tcp"
+      # Dashboard
+      - "0.0.0.0:8081:8081/tcp"
+      # pprof profiling
+      - "0.0.0.0:6061:6061/tcp"
+    {% else %}
+      # Autopeering
+      - "0.0.0.0:14626:14626/udp"
+      # Gossip
+      - "0.0.0.0:14666:14666/tcp"
+      # HTTP API
+      - "127.0.0.1:8080:8080/tcp"
+      # Dashboard
+      {% if bootstrap|default(false) %}
+      - "0.0.0.0:8081:8081/tcp"
+      {% else %}
+      - "127.0.0.1:8081:8081/tcp"
+      {% endif %}
+      # pprof profiling
+      - "127.0.0.1:6061:6061/tcp"
+    {% endif %}
     environment:
+      - NODE_SEED={{ seed }}
       - DATABASE_DIRECTORY=/db/mainnetdb
       - NODE_PEERDBDIRECTORY=/db/peerdb
       - ANALYSIS_CLIENT_SERVERADDRESS={{ analysisServerHost }}:21888
-      - NODE_SEED={{ seed }}
-      - AUTOPEERING_BINDADDRESS=0.0.0.0:33501
-      - DASHBOARD_BINDADDRESS=0.0.0.0:9001
-      - GOSSIP_BINDADDRESS=0.0.0.0:33601
-      - WEBAPI_BINDADDRESS=0.0.0.0:9101
+      - AUTOPEERING_BINDADDRESS=0.0.0.0:14626
+      - DASHBOARD_BINDADDRESS=0.0.0.0:8081
+      - GOSSIP_BINDADDRESS=0.0.0.0:14666
+      - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
-      - FPC_BINDADDRESS=0.0.0.0:10891
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
@@ -36,17 +62,17 @@ services:
       --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000
      {% endif %}
-      --faucet.powDifficulty=22
-      --pow.difficulty=22
       --pow.numThreads=8
       --pow.timeout=60s
       --logger.level={{ logLevel }}
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
-      {% if bootstrap|default(false) %}
+      {% if faucet|default(false) %}
+      --messageLayer.startSynced=false
+      {% else %}
       --messageLayer.startSynced=true
       {% endif %}
-      --statement.writeStatement=true
+      --messageLayer.tangleTimeWindow=10m
       --drng.pollen.instanceID=1
       --drng.pollen.threshold=3
       --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
