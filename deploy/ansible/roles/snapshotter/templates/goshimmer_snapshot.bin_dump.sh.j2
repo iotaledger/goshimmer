@@ -14,6 +14,11 @@ if [[ $HTTP_STS_CODE -eq 200 ]]; then
   echo 'Downloading latest snapshot...'
   time wget -O snapshot.bin $LATEST_SNAPSHOT
 
+  if [ ! -s snapshot.bin ]; then
+    echo 'Failed to download snapshot from node...'
+    exit 1
+  fi
+
   echo 'Uploading database to S3...'
   aws s3 cp $DRIVE/snapshot.bin s3://{{ snapshotterBucket }}/snapshots/nectar/automated/$DATE-snapshot.bin --acl public-read
   aws s3 cp s3://{{ snapshotterBucket }}/snapshots/nectar/automated/$DATE-snapshot.bin s3://dbfiles-goshimmer/snapshots/nectar/automated/latest-snapshot.bin --acl public-read
