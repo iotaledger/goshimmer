@@ -147,6 +147,7 @@ func PostTransactions(t *testing.T, peers []*framework.Node, peerIndex int, atta
 			attackName, tx.ID().Base58(), peers[peerIndex].Name())
 		require.Empty(t, resp.Error, "%s: There was an error in the response while posting transaction %s to peer %s",
 			attackName, tx.ID().Base58(), peers[peerIndex].Name())
+		time.Sleep(time.Second)
 	}
 }
 
