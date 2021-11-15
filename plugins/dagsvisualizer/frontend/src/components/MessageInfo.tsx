@@ -44,6 +44,7 @@ export class MessageInfo extends React.Component<Props, any> {
                                 <ListGroup.Item>Branch: {resolveBase58BranchID(selectedMsg.branchID)}</ListGroup.Item>
                                 <ListGroup.Item>isMarker: {selectedMsg.isMarker.toString()}</ListGroup.Item>
                                 <ListGroup.Item>GoF: {selectedMsg.gof}</ListGroup.Item>
+                                <ListGroup.Item>Confrimed: {selectedMsg.isConfirmed.toString()}</ListGroup.Item>                                
                                 <ListGroup.Item>Confirmed Time: {dateformat(new Date(selectedMsg.confirmedTime/1000000), "dd.mm.yyyy HH:MM:ss")}</ListGroup.Item>
                             </ListGroup>
                         </Card.Body>

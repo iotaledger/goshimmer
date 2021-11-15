@@ -10,6 +10,7 @@ export class tangleVertex {
     branchID:        string;
 	isMarker:        boolean;
     isTx:            boolean;
+    isConfirmed:     boolean;
     gof:             string;
 	confirmedTime:   number;
     futureMarkers:   Array<string>;
@@ -70,7 +71,7 @@ export class TangleStore {
     }
 
     connect() {
-        connectWebSocket("localhost:8061/ws",
+        connectWebSocket("/ws",
         () => {console.log("connection opened")},
         this.reconnect,
         () => {console.log("connection error")});
@@ -91,7 +92,6 @@ export class TangleStore {
 
         this.msgOrder.push(msg.ID);
         msg.futureMarkers = [];
-        msg.gof = "";
         this.messages.set(msg.ID, msg);
 
         if (this.draw) {
@@ -136,6 +136,7 @@ export class TangleStore {
         }
 
         msg.gof = info.gof;
+        msg.isConfirmed = true;
         msg.confirmedTime = info.confirmedTime;
         this.messages.set(msg.ID, msg);
         if (this.draw) {

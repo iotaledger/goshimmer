@@ -240,6 +240,7 @@ func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
 				BranchID:        ledgerstate.UndefinedBranchID.Base58(),
 				IsMarker:        msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
+				IsConfirmed:     deps.FinalityGadget.IsMessageConfirmed(messageID),
 				ConfirmedTime:   msgMetadata.GradeOfFinalityTime().UnixNano(),
 				GoF:             msgMetadata.GradeOfFinality().String(),
 			}
@@ -271,6 +272,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 		ID:            tx.ID().Base58(),
 		Inputs:        inputs,
 		Outputs:       outputs,
+		IsConfirmed:   deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
 		GoF:           gof,
 		ConfirmedTime: confirmedTime,
 	}
@@ -292,11 +294,11 @@ func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
 		}
 
 		ret = &branchVertex{
-			ID:        branchID.Base58(),
-			Type:      branch.Type().String(),
-			Parents:   branch.Parents().Strings(),
-			Conflicts: jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
-			Confirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
+			ID:          branchID.Base58(),
+			Type:        branch.Type().String(),
+			Parents:     branch.Parents().Strings(),
+			Conflicts:   jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
+			IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
 		}
 	})
 	return

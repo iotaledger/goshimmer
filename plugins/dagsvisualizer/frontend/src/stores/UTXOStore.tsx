@@ -11,6 +11,7 @@ export class utxoVertex {
 	ID:             string;
 	inputs:         Array<input>;
   outputs:        Array<string>;
+  isConfirmed:    boolean;
 	gof:            string;
 	confirmedTime:  number;
 }
@@ -99,6 +100,7 @@ export class UTXOStore {
             return;
         }
 
+        tx.isConfirmed = true;
         tx.confirmedTime = txConfirmed.confirmedTime;
         tx.gof = txConfirmed.gof;
         this.transactions.set(txConfirmed.ID, tx);

@@ -36,6 +36,7 @@ type tangleVertex struct {
 	BranchID        string   `json:"branchID"`
 	IsMarker        bool     `json:"isMarker"`
 	IsTx            bool     `json:"isTx"`
+	IsConfirmed     bool     `json:"isConfirmed"`
 	ConfirmedTime   int64    `json:"confirmedTime"`
 	GoF             string   `json:"gof",omitempty`
 }
@@ -62,6 +63,7 @@ type utxoVertex struct {
 	ID            string              `json:"ID"`
 	Inputs        []*jsonmodels.Input `json:"inputs"`
 	Outputs       []string            `json:"outputs"`
+	IsConfirmed   bool                `json:"isConfirmed"`
 	GoF           string              `json:"gof"`
 	ConfirmedTime int64               `json:"confirmedTime"`
 }
@@ -73,11 +75,11 @@ type utxoConfirmed struct {
 }
 
 type branchVertex struct {
-	ID        string                                 `json:"ID"`
-	Type      string                                 `json:"type"`
-	Parents   []string                               `json:"parents"`
-	Confirmed bool                                   `json:"confirmed"`
-	Conflicts *jsonmodels.GetBranchConflictsResponse `json:"conflicts"`
+	ID          string                                 `json:"ID"`
+	Type        string                                 `json:"type"`
+	Parents     []string                               `json:"parents"`
+	IsConfirmed bool                                   `json:"isConfirmed"`
+	Conflicts   *jsonmodels.GetBranchConflictsResponse `json:"conflicts"`
 }
 
 type branchParentUpdate struct {
