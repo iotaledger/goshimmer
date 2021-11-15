@@ -1,6 +1,8 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
 import {inject, observer} from "mobx-react";
+import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
+import { Collapse } from 'react-bootstrap';
 import GlobalStore from "stores/GlobalStore";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -18,7 +20,7 @@ interface Props {
 export class GlobalSettings extends React.Component<Props, any> {
     constructor(props) {
         super(props);
-        this.state = {isIdle: true};  
+        this.state = {isIdle: true, open: true};  
     }
 
     updateFrom = (date) => {
@@ -46,24 +48,33 @@ export class GlobalSettings extends React.Component<Props, any> {
     render () {
         return (
             <Container>
-                <h2> Global Functions </h2>
-                <h5>Search Vertex Within Time Intervals</h5>
-                <Row xs={5}>
-                    <Col>
-                        From: <Datetime onChange={this.updateFrom} />
-                    </Col>
-                    <Col>
-                        To: <Datetime onChange={this.updateTo} />
-                    </Col>
-                    <Col className="align-self-end" style={{display: "flex", justifyContent: "space-evenly"}}>
-                        <Button onClick={this.searchVerticesInLedger} variant="outline-secondary">
-                            Search
-                        </Button>
-                        <Button disabled={this.state.isIdle} onClick={this.clearSearch} variant="outline-secondary">
-                            Clear and Resume
-                        </Button>
-                    </Col>        
-                </Row>
+                <div onClick={() => this.setState(prevState => ({open: !prevState.open}))}>
+                        <h2 >
+                            Global Functions 
+                            { this.state.open ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown /> }
+                        </h2>
+                </div>
+                <Collapse in={this.state.open}>
+                    <div>
+                        <h5>Search Vertex Within Time Intervals</h5>
+                        <Row xs={5}>
+                            <Col>
+                                From: <Datetime onChange={this.updateFrom} />
+                            </Col>
+                            <Col>
+                                To: <Datetime onChange={this.updateTo} />
+                            </Col>
+                            <Col className="align-self-end" style={{display: "flex", justifyContent: "space-evenly"}}>
+                                <Button onClick={this.searchVerticesInLedger} variant="outline-secondary">
+                                    Search
+                                </Button>
+                                <Button disabled={this.state.isIdle} onClick={this.clearSearch} variant="outline-secondary">
+                                    Clear and Resume
+                                </Button>
+                            </Col>        
+                        </Row>
+                    </div>
+                </Collapse>
                 <br></br>
             </Container>
         );
