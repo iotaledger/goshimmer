@@ -2,12 +2,10 @@ package dagsvisualizer
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -48,132 +46,11 @@ func runVisualizer() {
 	}
 }
 
-type searchResult struct {
-	Messages []*tangleVertex `json:"messages"`
-	Txs      []*utxoVertex   `json:"txs"`
-	Branches []*branchVertex `json:"branches"`
-}
-
-func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
-	fmt.Println("set up visualizer route")
-	routeGroup.GET("/dagsvisualizer/search/:start/:end", func(c echo.Context) (err error) {
-		start, err := strconv.ParseInt(c.Param("start"), 10, 64)
-		if err != nil {
-			return
-		}
-		startTimestamp := time.Unix(start, 0)
-
-		end, err := strconv.ParseInt(c.Param("end"), 10, 64)
-		if err != nil {
-			return
-		}
-		endTimestamp := time.Unix(end, 0)
-		fmt.Println(startTimestamp.UnixNano(), endTimestamp.UnixNano())
-
-		messages := []*tangleVertex{}
-		txs := []*utxoVertex{}
-		branches := []*branchVertex{}
-		branchMap := make(map[ledgerstate.BranchID]struct{})
-
-		// TODO: clean up below
-		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
-			deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-				// check the issuance time of a message is in the given time interval
-				if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
-					deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-						messages = append(messages, &tangleVertex{
-							ID:              messageID.Base58(),
-							StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-							WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
-							LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
-							BranchID:        ledgerstate.UndefinedBranchID.Base58(),
-							IsMarker:        msgMetadata.StructureDetails().IsPastMarker,
-							IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
-							ConfirmedTime:   msgMetadata.GradeOfFinalityTime().UnixNano(),
-							GoF:             msgMetadata.GradeOfFinality().String(),
-						})
-					})
-
-					// add tx
-					if msg.Payload().Type() == ledgerstate.TransactionType {
-						tx := msg.Payload().(*ledgerstate.Transaction)
-						// handle inputs (retrieve outputID)
-						inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
-						for i, input := range tx.Essence().Inputs() {
-							inputs[i] = jsonmodels.NewInput(input)
-						}
-
-						outputs := make([]string, len(tx.Essence().Outputs()))
-						for i, output := range tx.Essence().Outputs() {
-							outputs[i] = output.ID().Base58()
-						}
-
-						txs = append(txs, &utxoVertex{
-							MsgID:   messageID.Base58(),
-							ID:      tx.ID().Base58(),
-							Inputs:  inputs,
-							Outputs: outputs,
-							GoF:     gof.GradeOfFinality(0).String(),
-						})
-					}
-
-					// add branch
-					branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
-					if err != nil {
-						branchID = ledgerstate.BranchID{}
-					}
-					if _, ok := branchMap[branchID]; !ok {
-						branchMap[branchID] = struct{}{}
-
-						deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-							conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
-							// get conflicts for Conflict branch
-							if branch.Type() == ledgerstate.ConflictBranchType {
-								for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
-									conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
-									deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-										conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
-									})
-								}
-							}
-
-							branches = append(branches, &branchVertex{
-								ID:        branch.ID().Base58(),
-								Type:      branch.Type().String(),
-								Parents:   branch.Parents().Strings(),
-								Conflicts: jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
-								Confirmed: false,
-							})
-						})
-					}
-				}
-			})
-
-			deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
-				walker.Push(approver.ApproverMessageID())
-			})
-		}, tangle.MessageIDs{tangle.EmptyMessageID})
-
-		return c.JSON(http.StatusOK, searchResult{Messages: messages, Txs: txs, Branches: branches})
-	})
-}
-
 func registerTangleEvents() {
 	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-			visualizerWorkerPool.TrySubmit(&wsMessage{
-				Type: MsgTypeTangleVertex,
-				Data: &tangleVertex{
-					ID:              messageID.Base58(),
-					StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-					WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
-					LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
-					BranchID:        ledgerstate.UndefinedBranchID.Base58(),
-					IsMarker:        false,
-					IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
-					ConfirmedTime:   0,
-				},
-			})
+		visualizerWorkerPool.TrySubmit(&wsMessage{
+			Type: MsgTypeTangleVertex,
+			Data: newTangleVertex(messageID),
 		})
 	})
 
@@ -224,26 +101,10 @@ func registerUTXOEvents() {
 		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() == ledgerstate.TransactionType {
 				tx := msg.Payload().(*ledgerstate.Transaction)
-				// handle inputs (retrieve outputID)
-				inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
-				for i, input := range tx.Essence().Inputs() {
-					inputs[i] = jsonmodels.NewInput(input)
-				}
-
-				outputs := make([]string, len(tx.Essence().Outputs()))
-				for i, output := range tx.Essence().Outputs() {
-					outputs[i] = output.ID().Base58()
-				}
 
 				visualizerWorkerPool.TrySubmit(&wsMessage{
 					Type: MsgTypeUTXOVertex,
-					Data: &utxoVertex{
-						MsgID:   messageID.Base58(),
-						ID:      tx.ID().Base58(),
-						Inputs:  inputs,
-						Outputs: outputs,
-						GoF:     gof.GradeOfFinality(0).String(),
-					},
+					Data: newUTXOVertex(messageID, tx),
 				})
 			}
 		})
@@ -268,31 +129,12 @@ func registerUTXOEvents() {
 
 func registerBranchEvents() {
 	createdClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
-		deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-			conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
-			// get conflicts for Conflict branch
-			if branch.Type() == ledgerstate.ConflictBranchType {
-				for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
-					conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
-					deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-						conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
-					})
-				}
-			}
-
-			visualizerWorkerPool.TrySubmit(&wsMessage{
-				Type: MsgTypeBranchVertex,
-				Data: &branchVertex{
-					ID:        branch.ID().Base58(),
-					Type:      branch.Type().String(),
-					Parents:   branch.Parents().Strings(),
-					Conflicts: jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
-					Confirmed: false,
-				},
-			})
+		visualizerWorkerPool.TrySubmit(&wsMessage{
+			Type: MsgTypeBranchVertex,
+			Data: newBranchVertex(branchID),
 		})
 	})
-	// BranchParentUpdate
+
 	parentUpdateClosure := events.NewClosure(func(parentUpdate *ledgerstate.BranchParentUpdate) {
 		visualizerWorkerPool.TrySubmit(&wsMessage{
 			Type: MsgTypeBranchParentsUpdate,
@@ -315,4 +157,147 @@ func registerBranchEvents() {
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
 	deps.FinalityGadget.Events().BranchConfirmed.Attach(branchConfirmedClosure)
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
+}
+
+func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
+	routeGroup.GET("/dagsvisualizer/search/:start/:end", func(c echo.Context) (err error) {
+		startTimestamp := parseStringToTimestamp(c.Param("start"))
+		endTimestamp := parseStringToTimestamp(c.Param("end"))
+
+		reqValid := isTimeIntervalValid(startTimestamp, endTimestamp)
+		if !reqValid {
+			return
+		}
+
+		messages := []*tangleVertex{}
+		txs := []*utxoVertex{}
+		branches := []*branchVertex{}
+		branchMap := make(map[ledgerstate.BranchID]struct{})
+
+		deps.Tangle.Utils.WalkMessage(func(msg *tangle.Message, walker *walker.Walker) {
+			// only keep messages that is issued in the given time interval
+			if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
+				// add message
+				tangleNode := newTangleVertex(msg.ID())
+				messages = append(messages, tangleNode)
+
+				// add tx
+				if tangleNode.IsTx {
+					utxoNode := newUTXOVertex(msg.ID(), msg.Payload().(*ledgerstate.Transaction))
+					txs = append(txs, utxoNode)
+				}
+
+				// add branch
+				branchID, err := deps.Tangle.Booker.MessageBranchID(msg.ID())
+				if err != nil {
+					branchID = ledgerstate.BranchID{}
+				}
+				if _, ok := branchMap[branchID]; !ok {
+					branchMap[branchID] = struct{}{}
+
+					branchNode := newBranchVertex(branchID)
+					branches = append(branches, branchNode)
+				}
+			}
+
+			deps.Tangle.Storage.Approvers(msg.ID()).Consume(func(approver *tangle.Approver) {
+				walker.Push(approver.ApproverMessageID())
+			})
+		}, tangle.MessageIDs{tangle.EmptyMessageID})
+
+		return c.JSON(http.StatusOK, searchResult{Messages: messages, Txs: txs, Branches: branches})
+	})
+}
+
+func parseStringToTimestamp(str string) (t time.Time) {
+	ts, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return time.Time{}
+	}
+	return time.Unix(ts, 0)
+}
+
+func isTimeIntervalValid(start, end time.Time) (valid bool) {
+	if start.IsZero() || end.IsZero() {
+		return false
+	}
+
+	if start.After(end) {
+		return false
+	}
+
+	return true
+}
+
+func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
+	deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+			ret = &tangleVertex{
+				ID:              messageID.Base58(),
+				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
+				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
+				LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
+				BranchID:        ledgerstate.UndefinedBranchID.Base58(),
+				IsMarker:        msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
+				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
+				ConfirmedTime:   msgMetadata.GradeOfFinalityTime().UnixNano(),
+				GoF:             msgMetadata.GradeOfFinality().String(),
+			}
+		})
+	})
+	return
+}
+
+func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *utxoVertex) {
+	inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
+	for i, input := range tx.Essence().Inputs() {
+		inputs[i] = jsonmodels.NewInput(input)
+	}
+
+	outputs := make([]string, len(tx.Essence().Outputs()))
+	for i, output := range tx.Essence().Outputs() {
+		outputs[i] = output.ID().Base58()
+	}
+
+	var gof string
+	var confirmedTime int64
+	deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+		gof = txMetadata.GradeOfFinality().String()
+		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
+	})
+
+	ret = &utxoVertex{
+		MsgID:         msgID.Base58(),
+		ID:            tx.ID().Base58(),
+		Inputs:        inputs,
+		Outputs:       outputs,
+		GoF:           gof,
+		ConfirmedTime: confirmedTime,
+	}
+
+	return
+}
+
+func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
+	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
+		// get conflicts of a Conflict branch
+		if branch.Type() == ledgerstate.ConflictBranchType {
+			for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+				conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
+				deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+					conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
+				})
+			}
+		}
+
+		ret = &branchVertex{
+			ID:        branchID.Base58(),
+			Type:      branch.Type().String(),
+			Parents:   branch.Parents().Strings(),
+			Conflicts: jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
+			Confirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
+		}
+	})
+	return
 }

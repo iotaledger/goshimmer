@@ -88,3 +88,9 @@ type branchParentUpdate struct {
 type branchConfirmed struct {
 	ID string `json:"ID"`
 }
+
+type searchResult struct {
+	Messages []*tangleVertex `json:"messages"`
+	Txs      []*utxoVertex   `json:"txs"`
+	Branches []*branchVertex `json:"branches"`
+}
