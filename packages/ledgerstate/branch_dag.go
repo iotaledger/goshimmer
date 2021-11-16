@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/stack"
@@ -121,13 +122,11 @@ func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBran
 		return
 	}
 
-	cachedAggregatedBranch, newBranchCreated, err = b.aggregateNormalizedBranches(normalizedBranchIDs)
-	return
+	return b.aggregateNormalizedBranches(normalizedBranchIDs)
 }
 
 // MergeToMaster merges a confirmed Branch with the MasterBranch to clean up the BranchDAG. It reorganizes existing
 // ChildBranches by adjusting their parents accordingly.
-/*
 func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID]BranchID, err error) {
 	movedBranches = make(map[BranchID]BranchID)
 
@@ -142,12 +141,6 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 		return
 	} else if conflictBranch == nil {
 		err = errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
-		return
-	}
-
-	// abort if the Branch is not High GoF
-	if b.tangle.ConfirmationOracle.IsBranchConfirmed(conflictBranch) {
-		err = errors.Errorf("tried to merge non-high-gof Branch with %s to Master: %w", branchID, cerrors.ErrFatal)
 		return
 	}
 
@@ -245,7 +238,6 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 
 	return
 }
-*/
 
 // Branch retrieves the Branch with the given BranchID from the object storage.
 func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
