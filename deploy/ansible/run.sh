@@ -1,4 +1,5 @@
 eval "$GOSHIMMER_SEEDS"
+
 ARGS=("$@")
 ansible-playbook -u root -i deploy/ansible/hosts/"${1}" --extra-vars \
   "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED

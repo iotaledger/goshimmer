@@ -36,6 +36,7 @@ goshimmers:
   vars:
     analysisServerHost: "analysisentry-01.feature.shimmer.iota.cafe"
     entryNodeHost: "analysisentry-01.feature.shimmer.iota.cafe"
+    entryNodePubKey: "e3m6WPQXLyuUqEfSHmGVEs6qpyhWNJqtbquX65kFoJQ"
     remoteLoggerHost: "metrics-01.feature.shimmer.iota.cafe"
     xteamDRNG: true
     logLevel: "debug"
