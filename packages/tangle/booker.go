@@ -541,7 +541,7 @@ func (b *Booker) PropagateMergedBranch(transactionID ledgerstate.TransactionID, 
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.propagateMergedBranchToMarkerFutureCone(structureDetails.PastMarkers.Marker(), branchDAGUpdates, walker); err != nil {
+			if err = b.propagateMergedBranchToMarkerFutureCone(structureDetails.PastMarkers.Marker(), mergedBranch, branchDAGUpdates, walker); err != nil {
 				err = errors.Errorf("failed to propagate merged Branch with %s to future cone of Transaction with %s using the %s: %w", mergedBranch, transactionID, structureDetails.PastMarkers.Marker(), err)
 				walker.StopWalk()
 			}
@@ -558,7 +558,7 @@ func (b *Booker) PropagateMergedBranch(transactionID ledgerstate.TransactionID, 
 	return
 }
 
-func (b *Booker) propagateMergedBranchToMarkerFutureCone(marker *markers.Marker, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
+func (b *Booker) propagateMergedBranchToMarkerFutureCone(marker *markers.Marker, mergedBranch ledgerstate.BranchID, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
 	markerWalker := walker.New(false)
 	markerWalker.Push(marker)
 
@@ -566,7 +566,7 @@ func (b *Booker) propagateMergedBranchToMarkerFutureCone(marker *markers.Marker,
 		currentMarker := markerWalker.Next().(*markers.Marker)
 
 		if err = b.mergeSingleMarker(currentMarker, branchDAGUpdates, messageWalker, markerWalker); err != nil {
-			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", branchID, currentMarker, err)
+			err = errors.Errorf("failed to propagate merged Branch with %s to %s: %w", mergedBranch, currentMarker, err)
 			return
 		}
 	}
@@ -726,6 +726,61 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 	})
 
 	return true
+}
+
+// UpdateBranchIDAfterMerge updates the given Marker to the new BranchID after a merge.
+func (m *MarkersManager) UpdateBranchIDAfterMerge(marker *markers.Marker, branchID ledgerstate.BranchID) (updated bool) {
+	// the Marker addresses a non-existing part of the tangle
+	floorMarkerIndex, floorBranchID, floorMarkerExists := m.Floor(marker)
+	if !floorMarkerExists {
+		panic(fmt.Sprintf("tried to update unmapped tangle section with %s to %s after merge", marker, branchID))
+	}
+
+	// the BranchID is already correct and doesn't need to be updated
+	if floorBranchID == branchID {
+		return false
+	}
+
+	defer m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
+
+	// the Marker was not mapped to a specific branch before and just needs to be set
+	if floorMarkerIndex != marker.Index() {
+		m.setBranchIDMapping(marker, branchID)
+
+		return true
+	}
+
+	m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
+	m.deleteBranchIDMapping(marker)
+
+	if _, previousFloorBranchID, previousFloorMarkerExists := m.Floor(marker); previousFloorMarkerExists && previousFloorBranchID == branchID {
+		m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
+
+		return true
+	}
+
+	m.setBranchIDMapping(marker, branchID)
+	m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
+
+	return true
+}
+
+func (m *MarkersManager) deleteBranchIDMapping(marker *markers.Marker) bool {
+	return m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		markerIndexBranchIDMapping.DeleteBranchID(marker.Index())
+	})
+}
+
+func (m *MarkersManager) registerSequenceAliasMappingIfLastMappedMarker(marker *markers.Marker, branchID ledgerstate.BranchID) {
+	if _, _, exists := m.Ceiling(markers.NewMarker(marker.SequenceID(), marker.Index()+1)); !exists {
+		m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
+	}
+}
+
+func (m *MarkersManager) setBranchIDMapping(marker *markers.Marker, branchID ledgerstate.BranchID) bool {
+	return m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
+	})
 }
 
 // BranchMappedByPastMarkers returns true if the given BranchID is associated to at least one of the given past Markers.
