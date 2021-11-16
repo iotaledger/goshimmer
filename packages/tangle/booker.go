@@ -744,25 +744,24 @@ func (m *MarkersManager) UpdateBranchIDAfterMerge(marker *markers.Marker, branch
 	defer m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
 
 	// the Marker was not mapped to a specific branch before and just needs to be set
-	if floorMarkerIndex != marker.Index() {
-		m.setBranchIDMapping(marker, branchID)
+	if floorMarkerIndex == marker.Index() {
+		m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
+		m.deleteBranchIDMapping(marker)
 
-		return true
-	}
-
-	m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
-	m.deleteBranchIDMapping(marker)
-
-	if _, previousFloorBranchID, previousFloorMarkerExists := m.Floor(marker); previousFloorMarkerExists && previousFloorBranchID == branchID {
-		m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
-
-		return true
+		if _, previousFloorBranchID, previousFloorMarkerExists := m.Floor(marker); previousFloorMarkerExists && previousFloorBranchID == branchID {
+			return true
+		}
 	}
 
 	m.setBranchIDMapping(marker, branchID)
-	m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
 
 	return true
+}
+
+func (m *MarkersManager) setBranchIDMapping(marker *markers.Marker, branchID ledgerstate.BranchID) bool {
+	return m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
+	})
 }
 
 func (m *MarkersManager) deleteBranchIDMapping(marker *markers.Marker) bool {
@@ -775,12 +774,6 @@ func (m *MarkersManager) registerSequenceAliasMappingIfLastMappedMarker(marker *
 	if _, _, exists := m.Ceiling(markers.NewMarker(marker.SequenceID(), marker.Index()+1)); !exists {
 		m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
 	}
-}
-
-func (m *MarkersManager) setBranchIDMapping(marker *markers.Marker, branchID ledgerstate.BranchID) bool {
-	return m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
-		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
-	})
 }
 
 // BranchMappedByPastMarkers returns true if the given BranchID is associated to at least one of the given past Markers.

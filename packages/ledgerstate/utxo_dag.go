@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -73,32 +72,33 @@ type IUTXODAG interface {
 type UTXODAG struct {
 	events *UTXODAGEvents
 
+	ledgerstate *Ledgerstate
+
 	transactionStorage          *objectstorage.ObjectStorage
 	transactionMetadataStorage  *objectstorage.ObjectStorage
 	outputStorage               *objectstorage.ObjectStorage
 	outputMetadataStorage       *objectstorage.ObjectStorage
 	consumerStorage             *objectstorage.ObjectStorage
 	addressOutputMappingStorage *objectstorage.ObjectStorage
-	branchDAG                   *BranchDAG
 	shutdownOnce                sync.Once
 }
 
 // NewUTXODAG create a new UTXODAG from the given details.
-func NewUTXODAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider, branchDAG *BranchDAG) (utxoDAG *UTXODAG) {
-	options := buildObjectStorageOptions(cacheProvider)
-	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
+func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
+	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
+	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
 			TransactionBranchIDUpdatedByFork:  events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
 			TransactionBranchIDUpdatedByMerge: events.NewEvent(TransactionBranchIDUpdatedByMergeEventHandler),
 		},
+		ledgerstate:                 ledgerstate,
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, options.transactionMetadataStorageOptions...),
 		outputStorage:               osFactory.New(PrefixOutputStorage, OutputFromObjectStorage, options.outputStorageOptions...),
 		outputMetadataStorage:       osFactory.New(PrefixOutputMetadataStorage, OutputMetadataFromObjectStorage, options.outputMetadataStorageOptions...),
 		consumerStorage:             osFactory.New(PrefixConsumerStorage, ConsumerFromObjectStorage, options.consumerStorageOptions...),
 		addressOutputMappingStorage: osFactory.New(PrefixAddressOutputMappingStorage, AddressOutputMappingFromObjectStorage, options.addressOutputMappingStorageOptions...),
-		branchDAG:                   branchDAG,
 	}
 	return
 }
@@ -250,7 +250,7 @@ func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.
 		return gof.High, nil
 	}
 
-	normalizedBranches, err := u.branchDAG.normalizeBranches(NewBranchIDs(branchID))
+	normalizedBranches, err := u.ledgerstate.normalizeBranches(NewBranchIDs(branchID))
 	if err != nil {
 		return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
 	}
@@ -394,7 +394,7 @@ func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMe
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
 // determined by aggregating the Branches of the consumed Inputs.
 func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs) (targetBranch BranchID) {
-	cachedAggregatedBranch, _, err := u.branchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
+	cachedAggregatedBranch, _, err := u.ledgerstate.aggregateNormalizedBranches(normalizedBranchIDs)
 	if err != nil {
 		panic(fmt.Errorf("failed to aggregate Branches when booking Transaction with %s: %w", transaction.ID(), err))
 	}
@@ -426,7 +426,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 
 	// create new ConflictBranch
 	targetBranch = NewBranchID(transaction.ID())
-	cachedConflictBranch, _, err := u.branchDAG.CreateConflictBranch(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
+	cachedConflictBranch, _, err := u.ledgerstate.CreateConflictBranch(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
 		panic(fmt.Errorf("failed to create ConflictBranch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
@@ -452,7 +452,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
-		cachedConsumingConflictBranch, _, err := u.branchDAG.CreateConflictBranch(conflictBranchID, conflictBranchParents, conflictIDs)
+		cachedConsumingConflictBranch, _, err := u.ledgerstate.CreateConflictBranch(conflictBranchID, conflictBranchParents, conflictIDs)
 		if err != nil {
 			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
 		}
@@ -494,13 +494,13 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, conflictBr
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		// if the BranchID is the TransactionID we have a ConflictBranch
 		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
-			if err := u.branchDAG.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
+			if err := u.ledgerstate.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
 				panic(fmt.Errorf("failed to update ConflictBranch with %s: %w", transactionMetadata.BranchID(), err))
 			}
 			return
 		}
 
-		cachedAggregatedBranch, _, err := u.branchDAG.AggregateBranches(u.consumedBranchIDs(transactionID))
+		cachedAggregatedBranch, _, err := u.ledgerstate.AggregateBranches(u.consumedBranchIDs(transactionID))
 		if err != nil {
 			panic(err)
 		}
@@ -593,7 +593,7 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (branc
 		}
 	}
 
-	normalizedBranchIDs, err = u.branchDAG.normalizeBranches(NewBranchIDs(consumedBranches...))
+	normalizedBranchIDs, err = u.ledgerstate.normalizeBranches(NewBranchIDs(consumedBranches...))
 	if err != nil {
 		if errors.Is(err, ErrInvalidStateTransition) {
 			branchesOfInputsConflicting = true
