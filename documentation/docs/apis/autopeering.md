@@ -74,10 +74,6 @@ fmt.Println(string(neighbors))
         {
           "id": "gossip",
           "address": "178.254.42.235:14666"
-        },
-        {
-          "id": "FPC",
-          "address": "178.254.42.235:10895"
         }
       ]
     }
@@ -94,10 +90,6 @@ fmt.Println(string(neighbors))
         {
           "id": "gossip",
           "address": "35.214.101.88:14666"
-        },
-        {
-          "id": "FPC",
-          "address": "35.214.101.88:10895"
         }
       ]
     }

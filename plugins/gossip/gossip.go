@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/libp2p/go-libp2p"
+	"github.com/iotaledger/hive.go/crypto"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/libp2putil"
@@ -41,6 +42,10 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		cachedMessage := t.Storage.Message(msgID)
 		defer cachedMessage.Release()
 		if !cachedMessage.Exists() {
+			if crypto.Randomness.Float64() < Parameters.MissingMessageRequestRelayProbability {
+				t.Solidifier.RetrieveMissingMessage(msgID)
+			}
+
 			return nil, ErrMessageNotFound
 		}
 		msg := cachedMessage.Unwrap()

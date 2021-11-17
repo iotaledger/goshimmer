@@ -1,3 +1,49 @@
+# v0.8.1 - 2021-11-11
+
+> This release introduces some minor changes to the message solidification and requesting mechanisms.
+
+The snapshot has been taken at 2021-11-05 12:18pm CET.
+
+Changelog:
+- There is now a 1% chance that an inbound request for a missing message gets relayed to neighbors to get resolved.
+- Messages requests are enqueued for retry with a random jitter.
+- Use of TimedExecutor for the message requester.
+- Better logging for message requester and filters.
+- Messages that could not be retrieved and get removed from the requester can be requested another time later.
+- Fixed analysis dashboard.
+
+# v0.8.0 - 2021-11-05
+
+> This release introduces changes to the consensus mechanism. Specifically, a first implementation of pure On Tangle Voting (OTV), like switch, and the Grades of Finality (GoF) is included. This release does not entail algorithmic optimizations of these components. Therefore, it is to be expected, that performance degrades over time.
+
+This is a **breaking** feature release. You must delete your current database and upgrade your node to further participate in the network. Applications that rely on confirmation need to adjust to be compatible with the newly introduced Grades of Finality.
+
+The snapshot has been taken at 2021-11-05 12:18pm CET.
+
+Changelog:
+- Add caching to CI operations
+- Upgrade hive.go and adjust codebase to use context for cancellation instead of channels
+- Add LRU cache to BranchDAG
+- Add new consensus mechanism
+  - Implement pure On Tangle Voting (OTV)
+  - Remove FCOB, FPC and timestamp voting with FPC from the dataflow
+  - Implement like switch
+    - Make message layout more flexible and add parent blocks to accommodate like switch
+    - Message syntactical validation
+    - Adjust tip selection and message creation for like switch
+    - Adjust booking of messages to execute like switch logic when inheriting branches
+  - Grades of Finality (GoF)
+    - Marker confirmation with like switch
+    - Remove Liked / Finalized / InclusionState references
+    - Remove deprecated consensus manager and events
+    - Inherit markers from strong and like parents
+  - Add conflicts page for node dashboard
+  - Adjust all unit and integration tests to use GoF
+  - Add new consensus integration tests
+  - Fix cMana weight provider with activity log for each node
+  - Add OTV metrics collection
+  - Optimize tracking of AW for branches and markers
+
 # v0.7.7 - 2021-10-09
 
 > This release does **not** include changes to the consensus mechanism and still uses FPC+FCoB.

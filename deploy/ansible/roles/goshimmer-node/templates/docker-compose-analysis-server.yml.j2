@@ -17,11 +17,12 @@ services:
     command: >
       --skip-config=true
       --node.overwriteStoredSeed=true
+      --messageLayer.snapshot.genesisNode=7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k
       --autoPeering.entryNodes=
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
-      --analysis.dashboard.manaDashboardAddress="http://{{ manaDashboardHost }}:9001"
+      --analysis.dashboard.manaDashboardAddress="http://{{ manaDashboardHost }}:8081"
       --prometheus.bindAddress=0.0.0.0:9312
       --metrics.local=false
       --metrics.global=true
