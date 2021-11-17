@@ -234,6 +234,10 @@ services:
 
 If performance is a concern, you can also run your containers with `network_mode: "host"`, however, you must then adjust the hostnames in the configs for the corresponding containers and perhaps also create some iptable rules to block traffic from outside accessing your services directly.
 
+:::warning INFO
+
+If your home network is IPv6-only (as is common for some ISPs in a few countries like Germany), make sure your docker installation is configured to support IPv6 as this is not always the default setting. If your ports and firewalls are configured correctly and your GoShimmer node does start but does not seem to find any neighbors even after a little while, this might be the solution to your problem. Find the very short guide to enable IPv6 support for docker in the [Docker documentation](https://docs.docker.com/config/daemon/ipv6/).
+
 :::
 
 Note how we are setting up NATs for different ports:

@@ -22,7 +22,7 @@ The IOTA Protocol allows for a host of applications to run on the message tangle
 Applications that are necessary for the protocol to operate. These include for example:
 * The value transfer application
 * The distributed random number generator (DRNG for short)
-* The Fast Probabilistic Consensus (FPC) protocol
+* The consensus mechanism, more specifically the Approval Weight manager
 
 ### Faucet
 A test application issuing funds on request.
@@ -52,7 +52,6 @@ A message approved by another message is called a parent to the latter. A parent
 ### Payload
 A field in a message which determines the type. Examples are:
 * Value payload (type TransactionType)
-* FPC Opinion payload (type StatementType)
 * dRNG payload
 * Salt declaration payload
 * Generic data payload
