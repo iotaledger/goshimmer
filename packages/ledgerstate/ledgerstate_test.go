@@ -28,27 +28,13 @@ func TestLedgerstate_MergeToMaster(t *testing.T) {
 		err := ledgerstate.MergeToMaster(branches["A"])
 		require.NoError(t, err)
 
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["C"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["E"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["C"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["F"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["F"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["G"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["G"], transactionMetadata.BranchID())
-		}))
+		assertBranchID(t, ledgerstate, transactions["A"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchID(t, ledgerstate, transactions["C"], branches["C"])
+		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchID(t, ledgerstate, transactions["E"], branches["C"])
+		assertBranchID(t, ledgerstate, transactions["F"], branches["F"])
+		assertBranchID(t, ledgerstate, transactions["G"], branches["G"])
 	}
 
 	// merge C to Master
@@ -56,27 +42,13 @@ func TestLedgerstate_MergeToMaster(t *testing.T) {
 		err := ledgerstate.MergeToMaster(branches["C"])
 		require.NoError(t, err)
 
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["E"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["F"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["F"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["G"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["G"], transactionMetadata.BranchID())
-		}))
+		assertBranchID(t, ledgerstate, transactions["A"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchID(t, ledgerstate, transactions["C"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchID(t, ledgerstate, transactions["E"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["F"], branches["F"])
+		assertBranchID(t, ledgerstate, transactions["G"], branches["G"])
 	}
 }
 
@@ -93,31 +65,29 @@ func TestLedgerstate_MergeToMasterLeaf(t *testing.T) {
 
 	setupScenario(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
-	// merge C to Master
+	// merge F to Master
 	{
 		err := ledgerstate.MergeToMaster(branches["F"])
 		require.NoError(t, err)
 
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["E"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["F"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
-		}))
-		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["G"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["G"], transactionMetadata.BranchID())
+		assertBranchID(t, ledgerstate, transactions["A"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchID(t, ledgerstate, transactions["C"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchID(t, ledgerstate, transactions["E"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["F"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["G"], branches["G"])
+	}
+}
+
+func assertBranchID(t *testing.T, ledgerstate *Ledgerstate, transaction *Transaction, branchID BranchID) {
+	assert.True(t, ledgerstate.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+		assert.Equal(t, branchID, transactionMetadata.BranchID())
+	}))
+
+	for _, output := range transaction.Essence().Outputs() {
+		assert.True(t, ledgerstate.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
+			assert.Equal(t, branchID, outputMetadata.BranchID())
 		}))
 	}
 }
