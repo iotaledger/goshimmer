@@ -329,13 +329,13 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := NewTestTangle()
+	messageTangle := NewTestTangle(Identity(selfLocalIdentity))
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
-	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
-	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
+	messageA := newTestParentsDataMessageIssuer("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil, selfLocalIdentity.PublicKey())
+	messageB := newTestParentsDataMessageIssuer("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil, selfLocalIdentity.PublicKey())
+	messageC := newTestParentsDataMessageIssuer("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil, selfLocalIdentity.PublicKey())
 
 	var wg sync.WaitGroup
 
