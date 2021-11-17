@@ -5,9 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/database"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -391,6 +389,39 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
+func TestBranchDAG_MergeToMaster(t *testing.T) {
+	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
+	defer ledgerstate.Shutdown()
+
+	err := ledgerstate.Prune()
+	require.NoError(t, err)
+
+	testBranchDAG, err := newTestBranchDAG(ledgerstate)
+	require.NoError(t, err)
+	defer testBranchDAG.Release()
+
+	movedBranches, err := ledgerstate.BranchDAG.MergeToMaster(testBranchDAG.branch2.ID())
+	require.NoError(t, err)
+
+	assert.Equal(t, map[BranchID]BranchID{
+		testBranchDAG.branch2.ID():  MasterBranchID,
+		testBranchDAG.branch15.ID(): NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(),
+	}, movedBranches)
+
+	movedBranches, err = ledgerstate.BranchDAG.MergeToMaster(testBranchDAG.branch12.ID())
+	require.NoError(t, err)
+
+	assert.Equal(t, map[BranchID]BranchID{
+		testBranchDAG.branch12.ID(): MasterBranchID,
+		NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(): testBranchDAG.branch7.ID(),
+		testBranchDAG.branch16.ID(): testBranchDAG.branch9.ID(),
+	}, movedBranches)
+
+	cachedAggregatedBranch, _, err := ledgerstate.BranchDAG.AggregateBranches(NewBranchIDs(testBranchDAG.branch11.ID(), MasterBranchID))
+	require.NoError(t, err)
+	cachedAggregatedBranch.Release()
+}
+
 type testBranchDAG struct {
 	branch2        *ConflictBranch
 	cachedBranch2  *CachedBranch
@@ -424,7 +455,7 @@ type testBranchDAG struct {
 	cachedBranch16 *CachedBranch
 }
 
-func newTestBranchDAG(ledgerstate *BranchDAG) (result *testBranchDAG, err error) {
+func newTestBranchDAG(ledgerstate *Ledgerstate) (result *testBranchDAG, err error) {
 	result = &testBranchDAG{}
 
 	if result.cachedBranch2, _, err = ledgerstate.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})); err != nil {
@@ -566,17 +597,4 @@ func (t *testBranchDAG) Release(force ...bool) {
 	t.cachedBranch14.Release(force...)
 	t.cachedBranch15.Release(force...)
 	t.cachedBranch16.Release(force...)
-}
-
-type eventMock struct {
-	mock.Mock
-	expectedEvents int
-	calledEvents   int
-	debugAlias     map[BranchID]string
-	test           *testing.T
-
-	attached []struct {
-		*events.Event
-		*events.Closure
-	}
 }
