@@ -189,7 +189,7 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, pee
 func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address, numOfExpectedOuts int) []jsonmodels.WalletOutput {
 	resp, err := node.PostAddressUnspentOutputs([]string{address.Base58()})
 	require.NoErrorf(t, err, "node=%s, address=%s, PostAddressUnspentOutputs failed", node, address.Base58())
-	require.Lenf(t, resp.UnspentOutputs[0].Outputs, numOfExpectedOuts, "invalid response")
+	require.Lenf(t, resp.UnspentOutputs, numOfExpectedOuts, "invalid response")
 	require.Equalf(t, address.Base58(), resp.UnspentOutputs[0].Address.Base58, "invalid response")
 
 	return resp.UnspentOutputs[0].Outputs
