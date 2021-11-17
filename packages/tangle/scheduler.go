@@ -110,7 +110,7 @@ func (s *Scheduler) Shutdown() {
 func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
 	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
-		// avoid scheduling old messages
+		// TO BE REMMOVED: avoid scheduling old messages
 		skipScheduler := false
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			skipScheduler = clock.Since(message.IssuingTime()) > oldMessageThreshold
@@ -122,11 +122,17 @@ func (s *Scheduler) Setup() {
 			return
 		}
 
-		if err := s.SubmitAndReady(messageID); err != nil {
+		if err := s.Submit(messageID); err != nil {
 			if !errors.Is(err, schedulerutils.ErrBufferFull) &&
 				!errors.Is(err, schedulerutils.ErrInboxExceeded) &&
 				!errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+			}
+		}
+
+		if s.isReady(messageID) {
+			if err := s.Ready(messageID); err != nil {
+				s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", messageID, err))
 			}
 		}
 	}))
@@ -245,6 +251,42 @@ func (s *Scheduler) Clear() {
 	}
 }
 
+// isEligible returns true if the given messageID has either been scheduled or confirmed.
+func (s *Scheduler) isEligible(messageID MessageID) (eligible bool) {
+	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		eligible = messageMetadata.Scheduled() ||
+			s.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) ||
+			messageMetadata.ScheduledBypass() // TO BE REMOVED
+	})
+	return
+}
+
+// isReady returns true if both the given messageID's issuance timestamp is in the past
+// and all of its parents are eligible.
+func (s *Scheduler) isReady(messageID MessageID) (ready bool) {
+	timestampValid, parentsEligible := true, true
+	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		if clock.SyncedTime().Before(message.IssuingTime()) { // timestamp in the future
+			timestampValid = false
+		}
+	})
+	if !timestampValid {
+		return false
+	}
+
+	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		message.ForEachParent(func(parent Parent) {
+			if !s.isEligible(parent.ID) { // parents are not eligible
+				parentsEligible = false
+				return
+			}
+		})
+	})
+
+	ready = timestampValid && parentsEligible
+	return
+}
+
 func (s *Scheduler) submit(message *Message) error {
 	if s.stopped.IsSet() {
 		return ErrNotRunning
@@ -298,18 +340,28 @@ func (s *Scheduler) schedule() *Message {
 
 	var schedulingNode *schedulerutils.NodeQueue
 	rounds := math.MaxInt32
-	now := clock.SyncedTime()
 	for q := start; ; {
 		msg := q.Front()
-		// a message can be scheduled, if it is ready and its issuing time is not in the future
-		if msg != nil && !now.Before(msg.IssuingTime()) {
-			// compute how often the deficit needs to be incremented until the message can be scheduled
-			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-			r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
-			// find the first node that will be allowed to schedule a message
-			if r < rounds {
-				rounds = r
-				schedulingNode = q
+		// a message can be scheduled, if it is ready
+		// (its issuing time is not in the future and all of its parents are eligible).
+		if msg != nil {
+			messageID, _, err := MessageIDFromBytes(msg.IDBytes())
+			if err == nil {
+				if s.isReady(messageID) {
+					if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+						s.ready(message)
+					}) {
+						err = errors.Errorf("failed to get message '%x' from storage", messageID)
+					}
+					// compute how often the deficit needs to be incremented until the message can be scheduled
+					remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
+					r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
+					// find the first node that will be allowed to schedule a message
+					if r < rounds {
+						rounds = r
+						schedulingNode = q
+					}
+				}
 			}
 		}
 
