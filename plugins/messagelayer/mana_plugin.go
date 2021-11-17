@@ -341,7 +341,12 @@ func GetAccessMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64
 	if !QueryAllowed() {
 		return 0, time.Now(), ErrQueryNotAllowed
 	}
-	return baseManaVectors[mana.AccessMana].GetMana(nodeID, optionalUpdateTime...)
+	manaValue, manaTime, err := baseManaVectors[mana.AccessMana].GetMana(nodeID, optionalUpdateTime...)
+
+	if manaValue < tangle.MinMana && err == nil {
+		manaValue = tangle.MinMana
+	}
+	return manaValue, manaTime, nil
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.

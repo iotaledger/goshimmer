@@ -230,9 +230,6 @@ func accessManaRetriever(nodeID identity.ID) float64 {
 	if err != nil {
 		return 0
 	}
-	if nodeMana < tangle.MinMana {
-		return tangle.MinMana
-	}
 	return nodeMana
 }
 
