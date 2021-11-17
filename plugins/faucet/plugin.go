@@ -133,12 +133,13 @@ func run(plugin *node.Plugin) {
 		}
 		plugin.LogInfo("Waiting for node to become synced... done")
 
-		plugin.LogInfo("Waiting for node to have sufficient access mana")
-		if err := waitForMana(ctx); err != nil {
-			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
-			return
-		}
-		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
+		// no need to wait for mana to become available as scheduler sees all nodes as having at least MinMana
+		//plugin.LogInfo("Waiting for node to have sufficient access mana")
+		//if err := waitForMana(ctx); err != nil {
+		//	plugin.LogErrorf("failed to get sufficient access mana: %s", err)
+		//	return
+		//}
+		//plugin.LogInfo("Waiting for node to have sufficient access mana... done")
 
 		plugin.LogInfof("Deriving faucet state from the ledger...")
 
