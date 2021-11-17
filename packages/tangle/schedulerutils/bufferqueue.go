@@ -4,6 +4,7 @@ import (
 	"container/ring"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -58,11 +59,9 @@ func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
 }
 
 // Submit submits a message.
-func (b *BufferQueue) Submit(msg Element, rep float64) error {
+func (b *BufferQueue) Submit(msg Element, accessManaCache tangle.AccessManaCache) error {
 	size := msg.Size()
-	if b.size+size > b.maxBuffer {
-		return ErrBufferFull
-	}
+	b.dropHead(msg, accessManaCache)
 
 	nodeID := identity.NewID(msg.IssuerPublicKey())
 	element, nodeActive := b.activeNode[nodeID]
@@ -73,7 +72,7 @@ func (b *BufferQueue) Submit(msg Element, rep float64) error {
 		nodeQueue = NewNodeQueue(nodeID)
 	}
 
-	if float64(nodeQueue.Size()+size)/rep > b.maxQueue {
+	if float64(nodeQueue.Size()+size)/accessManaCache.GetCachedMana(nodeID) > b.maxQueue {
 		return ErrInboxExceeded
 	}
 	if !nodeQueue.Submit(msg) {
@@ -86,6 +85,41 @@ func (b *BufferQueue) Submit(msg Element, rep float64) error {
 	}
 	b.size += size
 	return nil
+}
+
+func (b *BufferQueue) dropHead(msg Element, accessManaCache tangle.AccessManaCache) {
+	start := b.Current()
+
+	for b.Size()+msg.Size() > b.maxBuffer {
+		maxScale := 0.0
+		var maxNodeId identity.ID
+		for q := start; ; {
+			if scale := float64(q.Size()+msg.Size()) / accessManaCache.GetCachedMana(q.NodeID()); scale > maxScale {
+				maxScale = scale
+				maxNodeId = q.NodeID()
+			}
+			q = b.Next()
+			if q == start {
+				break
+			}
+		}
+		longestQueue := b.activeNode[maxNodeId].Value.(*NodeQueue)
+		var oldestMessage Element
+		var oldestElementID ElementID
+		for k, v := range longestQueue.submitted {
+			if oldestMessage.IssuingTime().After((*v).IssuingTime()) {
+				oldestMessage = *v
+				oldestElementID = k
+			}
+		}
+		if oldestMessage.IssuingTime().Before(longestQueue.Front().IssuingTime()) {
+			delete(longestQueue.submitted, oldestElementID)
+			// TODO: trigger events to notify about dropped message
+			return
+		}
+		longestQueue.PopFront()
+		// TODO: trigger events to notify about dropped message
+	}
 }
 
 // Unsubmit removes a message from the submitted messages.
