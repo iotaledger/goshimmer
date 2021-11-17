@@ -8,8 +8,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/libp2p/go-libp2p"
 	"github.com/iotaledger/hive.go/crypto"
+	"github.com/libp2p/go-libp2p"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/libp2putil"
@@ -19,9 +19,7 @@ import (
 // ErrMessageNotFound is returned when a message could not be found in the Tangle.
 var ErrMessageNotFound = errors.New("message not found")
 
-var (
-	localAddr *net.TCPAddr
-)
+var localAddr *net.TCPAddr
 
 func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 	var err error
