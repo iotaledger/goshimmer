@@ -253,11 +253,11 @@ func (s *Scheduler) submit(message *Message) error {
 
 	nodeID := identity.NewID(message.IssuerPublicKey())
 	nodeMana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
-	// the following part is commented out to allow zero-mana nodes issue messages
-	//if nodeMana < MinMana {
-	//	s.Events.MessageDiscarded.Trigger(message.ID())
-	//	return schedulerutils.ErrInsufficientMana
-	//}
+
+	if nodeMana < MinMana {
+		s.Events.MessageDiscarded.Trigger(message.ID())
+		return schedulerutils.ErrInsufficientMana
+	}
 
 	err := s.buffer.Submit(message, nodeMana)
 	if err != nil {
@@ -309,6 +309,7 @@ func (s *Scheduler) schedule() *Message {
 		nodeMana := getCachedMana(q.NodeID())
 		// clear the node from the queue, if its mana dropped below MinMana
 		if nodeMana < MinMana {
+			delete(s.deficits, q.NodeID())
 			s.buffer.RemoveNode(q.NodeID())
 			q = s.buffer.Current()
 			if q == start {
