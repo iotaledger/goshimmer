@@ -563,12 +563,7 @@ func (b *Booker) propagateMergedBranchToMarkerFutureCone(marker *markers.Marker,
 	markerWalker.Push(marker)
 
 	for markerWalker.HasNext() {
-		currentMarker := markerWalker.Next().(*markers.Marker)
-
-		if err = b.mergeSingleMarker(currentMarker, branchDAGUpdates, messageWalker, markerWalker); err != nil {
-			err = errors.Errorf("failed to propagate merged Branch with %s to %s: %w", mergedBranch, currentMarker, err)
-			return
-		}
+		b.mergeSingleMarker(markerWalker.Next().(*markers.Marker), branchDAGUpdates, messageWalker, markerWalker)
 	}
 
 	return
@@ -580,12 +575,12 @@ func (b *Booker) propagateMergedBranchToMetadataFutureCone(messageMetadata *Mess
 
 // mergeSingleMarker propagates a merged BranchID to a single marker and queues the next elements that need to be
 // visited.
-func (b *Booker) mergeSingleMarker(currentMarker *markers.Marker, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker, markerWalker *walker.Walker) (err error) {
+func (b *Booker) mergeSingleMarker(currentMarker *markers.Marker, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker, markerWalker *walker.Walker) {
 	// update BranchID mapping
 	oldBranchID := b.MarkersManager.BranchID(currentMarker)
 	newBranchID, branchIDUpdated := branchDAGUpdates[oldBranchID]
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
-		return nil
+		return
 	}
 	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
 
@@ -609,8 +604,6 @@ func (b *Booker) mergeSingleMarker(currentMarker *markers.Marker, branchDAGUpdat
 		// ... and update individually mapped messages that are next to the referencing marker.
 		b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(referencingMarker), currentMarker, newBranchID)
 	})
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
