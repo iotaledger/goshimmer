@@ -9,7 +9,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
 
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1026,11 +1025,11 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
-			defer branchDAG.Shutdown()
+			ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
+			defer ledgerstate.Shutdown()
 
-			tt.test.Scenario.CreateBranches(t, branchDAG)
-			o := NewOnTangleVoting(branchDAG, tt.test.WeightFunc)
+			tt.test.Scenario.CreateBranches(t, ledgerstate.BranchDAG)
+			o := NewOnTangleVoting(ledgerstate.BranchDAG, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
 				liked, err := o.LikedInstead(tt.test.Scenario.BranchID(e.branchAlias))
@@ -1381,11 +1380,11 @@ func TestOnTangleVoting_Opinion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
-			defer branchDAG.Shutdown()
+			ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
+			defer ledgerstate.Shutdown()
 
-			tt.test.Scenario.CreateBranches(t, branchDAG)
-			o := NewOnTangleVoting(branchDAG, tt.test.WeightFunc)
+			tt.test.Scenario.CreateBranches(t, ledgerstate.BranchDAG)
+			o := NewOnTangleVoting(ledgerstate.BranchDAG, tt.test.WeightFunc)
 
 			gotLiked, gotDisliked, err := o.Opinion(tt.test.args())
 			if tt.wantErr {
