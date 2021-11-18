@@ -163,8 +163,8 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	// TODO: possible logical race condition if a child message gets added before its parents.
-	//  To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
-	//  before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
+	// To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
+	// before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
 
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(&TipEvent{
