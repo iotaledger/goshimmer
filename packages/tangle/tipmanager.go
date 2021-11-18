@@ -162,11 +162,6 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	// Make sure that a candidate tip does not have any approver either scheduled or confirmed.
-	if !t.eligibleTip(messageID) {
-		return
-	}
-
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(&TipEvent{
 			MessageID: messageID,
@@ -190,26 +185,6 @@ func (t *TipManager) AddTip(message *Message) {
 			})
 		}
 	})
-}
-
-// eligibleTip returns true if the given messageID is an eligible tip, false if the messageID has any approver
-// that has been already scheduled or the message itself has been confirmed.
-func (t *TipManager) eligibleTip(messageID MessageID) (eligibleTip bool) {
-	eligibleTip = true
-	cachedApprovers := t.tangle.Storage.Approvers(messageID)
-	defer cachedApprovers.Release()
-	for _, cachedApprover := range cachedApprovers {
-		approverMessageID := cachedApprover.Unwrap().ApproverMessageID()
-		t.tangle.Storage.MessageMetadata(approverMessageID).Consume(func(approverMetadata *MessageMetadata) {
-			if approverMetadata.Scheduled() || t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
-				eligibleTip = false
-			}
-		})
-		if !eligibleTip {
-			break
-		}
-	}
-	return eligibleTip
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
@@ -307,10 +282,8 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 		messageID := tip.(MessageID)
 
 		if _, ok := parentsMap[messageID]; !ok {
-			if t.eligibleTip(messageID) {
-				parentsMap[messageID] = types.Void
-				parents = append(parents, messageID)
-			}
+			parentsMap[messageID] = types.Void
+			parents = append(parents, messageID)
 		}
 	}
 
