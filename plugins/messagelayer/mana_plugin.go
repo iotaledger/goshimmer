@@ -341,12 +341,7 @@ func GetAccessMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64
 	if !QueryAllowed() {
 		return 0, time.Now(), ErrQueryNotAllowed
 	}
-	manaValue, manaTime, err := baseManaVectors[mana.AccessMana].GetMana(nodeID, optionalUpdateTime...)
-
-	if manaValue < tangle.MinMana && err == nil {
-		manaValue = tangle.MinMana
-	}
-	return manaValue, manaTime, nil
+	return baseManaVectors[mana.AccessMana].GetMana(nodeID, optionalUpdateTime...)
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.
@@ -409,19 +404,15 @@ func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Tim
 	knownPeers = append(knownPeers, deps.Local.Peer)
 	onlineNodesMana = make([]mana.Node, 0)
 	for _, peer := range knownPeers {
-		if !baseManaVectors[manaType].Has(peer.ID()) {
-			continue
-		}
-		var peerMana float64
-		peerMana, t, err = baseManaVectors[manaType].GetMana(peer.ID())
-		if manaType == mana.AccessMana && peerMana < tangle.MinMana && err == nil {
-			peerMana = tangle.MinMana
-		}
-		if err != nil {
-			return nil, t, err
-		}
-		if peerMana > 0 {
-			onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: peerMana})
+		if baseManaVectors[manaType].Has(peer.ID()) {
+			var peerMana float64
+			peerMana, t, err = baseManaVectors[manaType].GetMana(peer.ID())
+			if err != nil {
+				return nil, t, err
+			}
+			if peerMana > 0 {
+				onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: peerMana})
+			}
 		}
 	}
 	sort.Slice(onlineNodesMana, func(i, j int) bool {

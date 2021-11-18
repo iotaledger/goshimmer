@@ -227,8 +227,9 @@ func accessManaMapRetriever() map[identity.ID]float64 {
 
 func accessManaRetriever(nodeID identity.ID) float64 {
 	nodeMana, _, err := GetAccessMana(nodeID)
-	if err != nil {
-		return 0
+	// return at least MinMana so that zero mana nodes can access the network
+	if err != nil && nodeMana < tangle.MinMana {
+		return tangle.MinMana
 	}
 	return nodeMana
 }
