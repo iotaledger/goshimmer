@@ -3,6 +3,7 @@ package dagsvisualizer
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -31,16 +32,11 @@ const (
 
 func indexRoute(e echo.Context) error {
 	if Parameters.Dev {
-		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://127.0.0.1:9060/", nil /* body */)
+		res, err := http.Get("http://" + Parameters.DevBindAddress)
 		if err != nil {
 			return err
 		}
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return err
-		}
-		defer res.Body.Close()
-		devIndexHTML, err := io.ReadAll(res.Body)
+		devIndexHTML, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
@@ -61,29 +57,44 @@ func indexRoute(e echo.Context) error {
 }
 
 func setupRoutes(e *echo.Echo) {
-	// load assets from pkger: either from within the binary or actual disk
-	pkger.Walk(app, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		fmt.Println(info.Name())
-		e.GET("/app/"+info.Name(), echo.WrapHandler(http.StripPrefix("/app", http.FileServer(pkger.Dir(app)))))
-		return nil
-	})
-	pkger.Walk(staticJS, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		e.GET("/static/js/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/js/", http.FileServer(pkger.Dir(staticJS)))))
-		return nil
-	})
-	pkger.Walk(staticCSS, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		e.GET("/static/css/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/css/", http.FileServer(pkger.Dir(staticCSS)))))
-		return nil
-	})
+	if Parameters.Dev {
+		e.GET("/static/*", func(e echo.Context) error {
+			res, err := http.Get("http://" + Parameters.DevBindAddress + e.Request().URL.Path)
+			if err != nil {
+				return err
+			}
+			devIndexHTML, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				return err
+			}
+			return e.HTMLBlob(http.StatusOK, devIndexHTML)
+		})
+	} else {
+		// load assets from pkger: either from within the binary or actual disk
+		pkger.Walk(app, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			fmt.Println(info.Name())
+			e.GET("/app/"+info.Name(), echo.WrapHandler(http.StripPrefix("/app", http.FileServer(pkger.Dir(app)))))
+			return nil
+		})
+		pkger.Walk(staticJS, func(path string, info os.FileInfo, err error) error {
+			fmt.Println(info.Name())
+			if err != nil {
+				return err
+			}
+			e.GET("/static/js/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/js/", http.FileServer(pkger.Dir(staticJS)))))
+			return nil
+		})
+		pkger.Walk(staticCSS, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			e.GET("/static/css/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/css/", http.FileServer(pkger.Dir(staticCSS)))))
+			return nil
+		})
+	}
 
 	e.GET("/ws", websocketRoute)
 	e.GET("/", indexRoute)

@@ -26,6 +26,9 @@
       "password": "goshimmer"
     }
   },
+  "dagsvisualizer": {
+    "dev": false
+  },
   "database": {
     "directory": "mainnetdb"
   },
