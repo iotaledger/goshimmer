@@ -383,7 +383,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb))
+	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	// create local peer
