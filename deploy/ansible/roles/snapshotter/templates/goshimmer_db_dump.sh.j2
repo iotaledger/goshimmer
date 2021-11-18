@@ -2,7 +2,7 @@
 
 GOSHIMMER_BASE=/opt/goshimmer
 GOSHIMMER_DB=/opt/goshimmer/db
-HTTP_STS_CODE="$(/usr/bin/curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9101/healthz)"
+HTTP_STS_CODE="$(/usr/bin/curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/healthz)"
 DRIVE=/opt/BACKUPS
 
 if [[ $HTTP_STS_CODE -eq 200 ]]; then
