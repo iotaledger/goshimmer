@@ -255,8 +255,8 @@ func (s *Scheduler) submit(message *Message) error {
 	nodeMana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 
 	if nodeMana < MinMana {
-		s.Events.MessageDiscarded.Trigger(message.ID())
-		return schedulerutils.ErrInsufficientMana
+		// allow zero mana nodes access submit messages
+		nodeMana = MinMana
 	}
 
 	err := s.buffer.Submit(message, nodeMana)
