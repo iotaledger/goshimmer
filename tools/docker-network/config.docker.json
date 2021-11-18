@@ -27,7 +27,8 @@
     }
   },
   "dagsvisualizer": {
-    "dev": false
+    "dev": false,
+    "devBindAddress": "0.0.0.0:3000"
   },
   "database": {
     "directory": "mainnetdb"
