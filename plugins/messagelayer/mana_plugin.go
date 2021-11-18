@@ -412,7 +412,6 @@ func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Tim
 		if !baseManaVectors[manaType].Has(peer.ID()) {
 			continue
 		}
-		fmt.Println("Has mana", manaType.String(), peer.ID().String())
 		var peerMana float64
 		peerMana, t, err = baseManaVectors[manaType].GetMana(peer.ID())
 		if manaType == mana.AccessMana && peerMana < tangle.MinMana && err == nil {
