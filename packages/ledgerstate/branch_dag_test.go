@@ -3,6 +3,8 @@ package ledgerstate
 import (
 	"testing"
 
+	"github.com/iotaledger/hive.go/types"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 
 	"github.com/stretchr/testify/assert"
@@ -396,205 +398,60 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	err := ledgerstate.Prune()
 	require.NoError(t, err)
 
-	testBranchDAG, err := newTestBranchDAG(ledgerstate)
-	require.NoError(t, err)
-	defer testBranchDAG.Release()
+	branchIDs := make(map[string]BranchID)
+	branchIDs["Branch2"] = createConflictBranch(t, ledgerstate, "Branch2", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	branchIDs["Branch3"] = createConflictBranch(t, ledgerstate, "Branch3", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	branchIDs["Branch4"] = createConflictBranch(t, ledgerstate, "Branch4", NewBranchIDs(branchIDs["Branch2"]), NewConflictIDs(ConflictID{1}))
+	branchIDs["Branch5"] = createConflictBranch(t, ledgerstate, "Branch5", NewBranchIDs(branchIDs["Branch2"]), NewConflictIDs(ConflictID{1}))
+	branchIDs["Branch6"] = createConflictBranch(t, ledgerstate, "Branch6", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	branchIDs["Branch7"] = createConflictBranch(t, ledgerstate, "Branch7", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	branchIDs["Branch8"] = createConflictBranch(t, ledgerstate, "Branch8", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	branchIDs["Branch5+Branch7"] = createAggregatedBranch(t, ledgerstate, "Branch5+Branch7", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch7"]))
+	branchIDs["Branch2+Branch7"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch7", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"]))
+	branchIDs["Branch5+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch5+Branch8", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch8"]))
 
-	movedBranches, err := ledgerstate.BranchDAG.MergeToMaster(testBranchDAG.branch2.ID())
+	movedBranches, err := ledgerstate.BranchDAG.MergeToMaster(branchIDs["Branch2"])
 	require.NoError(t, err)
 
 	assert.Equal(t, map[BranchID]BranchID{
-		testBranchDAG.branch2.ID():  MasterBranchID,
-		testBranchDAG.branch15.ID(): NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(),
+		branchIDs["Branch2"]:         MasterBranchID,
+		branchIDs["Branch2+Branch7"]: branchIDs["Branch7"],
 	}, movedBranches)
 
-	movedBranches, err = ledgerstate.BranchDAG.MergeToMaster(testBranchDAG.branch12.ID())
+	assertConflictMembers(t, ledgerstate, ConflictID{0}, map[BranchID]types.Empty{
+		branchIDs["Branch3"]: types.Void,
+	})
+}
+
+func assertConflictMembers(t *testing.T, ledgerstate *Ledgerstate, conflictID ConflictID, expectedMembers map[BranchID]types.Empty) {
+	assert.True(t, ledgerstate.Conflict(conflictID).Consume(func(conflict *Conflict) {
+		assert.Equal(t, len(expectedMembers), conflict.MemberCount())
+
+		conflictMembers := make(map[BranchID]types.Empty)
+		ledgerstate.ConflictMembers(conflict.ID()).Consume(func(conflictMember *ConflictMember) {
+			conflictMembers[conflictMember.BranchID()] = types.Void
+		})
+
+		assert.Equal(t, expectedMembers, conflictMembers)
+	}))
+}
+
+func createConflictBranch(t *testing.T, ledgerstate *Ledgerstate, branchAlias string, parents BranchIDs, conflictIDs ConflictIDs) BranchID {
+	cachedBranch, _, err := ledgerstate.CreateConflictBranch(BranchIDFromRandomness(), parents, conflictIDs)
 	require.NoError(t, err)
+	cachedBranch.Release()
 
-	assert.Equal(t, map[BranchID]BranchID{
-		testBranchDAG.branch12.ID(): MasterBranchID,
-		NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(): testBranchDAG.branch7.ID(),
-		testBranchDAG.branch16.ID(): testBranchDAG.branch9.ID(),
-	}, movedBranches)
+	RegisterBranchIDAlias(cachedBranch.ID(), branchAlias)
 
-	cachedAggregatedBranch, _, err := ledgerstate.BranchDAG.AggregateBranches(NewBranchIDs(testBranchDAG.branch11.ID(), MasterBranchID))
+	return cachedBranch.ID()
+}
+
+func createAggregatedBranch(t *testing.T, ledgerstate *Ledgerstate, branchAlias string, parents BranchIDs) BranchID {
+	cachedBranch, _, err := ledgerstate.AggregateBranches(parents)
 	require.NoError(t, err)
-	cachedAggregatedBranch.Release()
-}
+	cachedBranch.Release()
 
-type testBranchDAG struct {
-	branch2        *ConflictBranch
-	cachedBranch2  *CachedBranch
-	branch3        *ConflictBranch
-	cachedBranch3  *CachedBranch
-	branch4        *ConflictBranch
-	cachedBranch4  *CachedBranch
-	branch5        *ConflictBranch
-	cachedBranch5  *CachedBranch
-	branch6        *ConflictBranch
-	cachedBranch6  *CachedBranch
-	branch7        *ConflictBranch
-	cachedBranch7  *CachedBranch
-	branch8        *AggregatedBranch
-	cachedBranch8  *CachedBranch
-	branch9        *AggregatedBranch
-	cachedBranch9  *CachedBranch
-	branch10       *AggregatedBranch
-	cachedBranch10 *CachedBranch
-	branch11       *ConflictBranch
-	cachedBranch11 *CachedBranch
-	branch12       *ConflictBranch
-	cachedBranch12 *CachedBranch
-	branch13       *AggregatedBranch
-	cachedBranch13 *CachedBranch
-	branch14       *AggregatedBranch
-	cachedBranch14 *CachedBranch
-	branch15       *AggregatedBranch
-	cachedBranch15 *CachedBranch
-	branch16       *AggregatedBranch
-	cachedBranch16 *CachedBranch
-}
+	RegisterBranchIDAlias(cachedBranch.ID(), branchAlias)
 
-func newTestBranchDAG(ledgerstate *Ledgerstate) (result *testBranchDAG, err error) {
-	result = &testBranchDAG{}
-
-	if result.cachedBranch2, _, err = ledgerstate.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})); err != nil {
-		return
-	}
-	if result.branch2, err = result.cachedBranch2.UnwrapConflictBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch2.ID(), "Branch2")
-
-	if result.cachedBranch3, _, err = ledgerstate.CreateConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})); err != nil {
-		return
-	}
-	if result.branch3, err = result.cachedBranch3.UnwrapConflictBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch3.ID(), "Branch3")
-
-	if result.cachedBranch4, _, err = ledgerstate.CreateConflictBranch(BranchID{4}, NewBranchIDs(result.branch2.ID()), NewConflictIDs(ConflictID{1})); err != nil {
-		return
-	}
-	if result.branch4, err = result.cachedBranch4.UnwrapConflictBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch4.ID(), "Branch4")
-
-	if result.cachedBranch5, _, err = ledgerstate.CreateConflictBranch(BranchID{5}, NewBranchIDs(result.branch2.ID()), NewConflictIDs(ConflictID{1})); err != nil {
-		return
-	}
-	if result.branch5, err = result.cachedBranch5.UnwrapConflictBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch5.ID(), "Branch5")
-
-	if result.cachedBranch6, _, err = ledgerstate.CreateConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2})); err != nil {
-		return
-	}
-	if result.branch6, err = result.cachedBranch6.UnwrapConflictBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch6.ID(), "Branch6")
-
-	if result.cachedBranch7, _, err = ledgerstate.CreateConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2})); err != nil {
-		return
-	}
-	if result.branch7, err = result.cachedBranch7.UnwrapConflictBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch7.ID(), "Branch7")
-
-	if result.cachedBranch8, _, err = ledgerstate.AggregateBranches(NewBranchIDs(result.branch4.ID(), result.branch6.ID())); err != nil {
-		return
-	}
-	if result.branch8, err = result.cachedBranch8.UnwrapAggregatedBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch8.ID(), "Branch8 = Branch4 + Branch6")
-
-	if result.cachedBranch9, _, err = ledgerstate.AggregateBranches(NewBranchIDs(result.branch5.ID(), result.branch7.ID())); err != nil {
-		return
-	}
-	if result.branch9, err = result.cachedBranch9.UnwrapAggregatedBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch8.ID(), "Branch9 = Branch5 + Branch7")
-
-	if result.cachedBranch10, _, err = ledgerstate.AggregateBranches(NewBranchIDs(result.branch3.ID(), result.branch6.ID())); err != nil {
-		return
-	}
-	if result.branch10, err = result.cachedBranch10.UnwrapAggregatedBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch10.ID(), "Branch10 = Branch3 + Branch6")
-
-	if result.cachedBranch11, _, err = ledgerstate.CreateConflictBranch(BranchID{11}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3})); err != nil {
-		return
-	}
-	if result.branch11, err = result.cachedBranch11.UnwrapConflictBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch11.ID(), "Branch11")
-
-	if result.cachedBranch12, _, err = ledgerstate.CreateConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3})); err != nil {
-		return
-	}
-	if result.branch12, err = result.cachedBranch12.UnwrapConflictBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch12.ID(), "Branch12")
-
-	if result.cachedBranch13, _, err = ledgerstate.AggregateBranches(NewBranchIDs(result.branch6.ID(), result.branch11.ID())); err != nil {
-		return
-	}
-	if result.branch13, err = result.cachedBranch13.UnwrapAggregatedBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch13.ID(), "Branch13 = Branch6 + Branch11")
-
-	if result.cachedBranch14, _, err = ledgerstate.AggregateBranches(NewBranchIDs(result.branch10.ID(), result.branch13.ID())); err != nil {
-		return
-	}
-	if result.branch14, err = result.cachedBranch14.UnwrapAggregatedBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch14.ID(), "Branch14 = Branch3 + Branch6 + Branch11")
-
-	if result.cachedBranch15, _, err = ledgerstate.AggregateBranches(NewBranchIDs(result.branch2.ID(), result.branch7.ID(), result.branch12.ID())); err != nil {
-		return
-	}
-	if result.branch15, err = result.cachedBranch15.UnwrapAggregatedBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch15.ID(), "Branch15 = Branch2 + Branch7 + Branch12")
-
-	if result.cachedBranch16, _, err = ledgerstate.AggregateBranches(NewBranchIDs(result.branch9.ID(), result.branch15.ID())); err != nil {
-		return
-	}
-	if result.branch16, err = result.cachedBranch16.UnwrapAggregatedBranch(); err != nil {
-		return
-	}
-	RegisterBranchIDAlias(result.branch16.ID(), "Branch16 = Branch5 + Branch7 + Branch12")
-
-	return
-}
-
-func (t *testBranchDAG) Release(force ...bool) {
-	t.cachedBranch2.Release(force...)
-	t.cachedBranch3.Release(force...)
-	t.cachedBranch4.Release(force...)
-	t.cachedBranch5.Release(force...)
-	t.cachedBranch6.Release(force...)
-	t.cachedBranch7.Release(force...)
-	t.cachedBranch8.Release(force...)
-	t.cachedBranch9.Release(force...)
-	t.cachedBranch10.Release(force...)
-	t.cachedBranch11.Release(force...)
-	t.cachedBranch12.Release(force...)
-	t.cachedBranch13.Release(force...)
-	t.cachedBranch14.Release(force...)
-	t.cachedBranch15.Release(force...)
-	t.cachedBranch16.Release(force...)
+	return cachedBranch.ID()
 }

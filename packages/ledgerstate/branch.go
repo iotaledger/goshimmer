@@ -29,10 +29,17 @@ var (
 	MasterBranchID = BranchID{1}
 
 	// LazyBookedConflictsBranchID is the identifier of the Branch that is the root of all lazy booked ConflictBranches.
-	LazyBookedConflictsBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254}
+	LazyBookedConflictsBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 253}
+
+	// RejectedBranchID is the identifier of the root of the BranchDAG that acts as a parent for all rejected Branches.
+	RejectedBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254}
 
 	// InvalidBranchID is the identifier of the Branch that contains the invalid Transactions.
 	InvalidBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+
+	// RootConflictID is the identifier of the conflict that models the conflict relationship between the branches that
+	// are currently being voted on and the ones that have already been rejected.
+	RootConflictID = ConflictID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
@@ -122,6 +129,8 @@ func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
 		return "BranchID(UndefinedBranchID)"
+	case RejectedBranchID:
+		return "BranchID(RejectedBranchID)"
 	case LazyBookedConflictsBranchID:
 		return "BranchID(LazyBookedConflictsBranchID)"
 	case InvalidBranchID:
@@ -200,6 +209,15 @@ func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs B
 	}
 
 	return
+}
+
+// First returns the first element in the map (order is not guaranteed).
+func (b BranchIDs) First() BranchID {
+	for k := range b {
+		return k
+	}
+
+	return UndefinedBranchID
 }
 
 // Add adds a BranchID to the collection and returns the collection to enable chaining.
@@ -374,6 +392,9 @@ type Branch interface {
 
 	// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
 	Parents() BranchIDs
+
+	// SetParents updates the parents of the Branch.
+	SetParents(parents BranchIDs) (modified bool)
 
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
@@ -770,6 +791,11 @@ func (a *AggregatedBranch) Parents() BranchIDs {
 	defer a.parentsMutex.RUnlock()
 
 	return a.parents
+}
+
+// SetParents updates the parents of the Branch (its only here to fulfill the interface).
+func (a *AggregatedBranch) SetParents(_ BranchIDs) (modified bool) {
+	panic("forbidden to update the parents of an AggregatedBranch")
 }
 
 // Bytes returns a marshaled version of the Branch.

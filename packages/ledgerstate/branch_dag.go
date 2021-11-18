@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/stack"
@@ -131,66 +130,54 @@ func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBran
 func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID]BranchID, err error) {
 	movedBranches = make(map[BranchID]BranchID)
 
-	// load Branch
-	cachedBranch := b.Branch(branchID)
-	defer cachedBranch.Release()
-
-	// unwrap ConflictBranch
-	conflictBranch, err := cachedBranch.UnwrapConflictBranch()
-	if err != nil {
-		err = errors.Errorf("tried to merge non-ConflictBranch with %s to Master: %w", branchID, err)
-		return
-	} else if conflictBranch == nil {
-		err = errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
-		return
-	}
-
-	// abort if the Branch is not at the bottom of the BranchDAG
-	parentBranches := conflictBranch.Parents()
-	if _, masterBranchIsParent := parentBranches[MasterBranchID]; len(parentBranches) != 1 || !masterBranchIsParent {
-		err = errors.Errorf("tried to merge Branch with %s to Master that is not at the bottom of the BranchDAG: %w", branchID, err)
-		return
-	}
-
-	// remove merged Branch
-	conflictBranch.Delete()
-	movedBranches[conflictBranch.ID()] = MasterBranchID
-
-	// load ChildBranch references
-	cachedChildBranchReferences := b.ChildBranches(branchID)
-	defer cachedChildBranchReferences.Release()
-
-	// reorganize ChildBranches
-	for _, cachedChildBranchReference := range cachedChildBranchReferences {
-		childBranchReference := cachedChildBranchReference.Unwrap()
-		if childBranchReference == nil {
-			err = errors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
+	if !b.Branch(branchID).Consume(func(branch Branch) {
+		conflictBranch, typeCastOK := branch.(*ConflictBranch)
+		if !typeCastOK {
+			err = errors.Errorf("tried to merge non-ConflictBranch with %s to Master: %w", branchID, err)
 			return
 		}
 
-		switch childBranchReference.ChildBranchType() {
-		case AggregatedBranchType:
-			// load referenced ChildBranch
-			cachedChildBranch := b.Branch(childBranchReference.ChildBranchID())
-			childBranch, unwrapErr := cachedChildBranch.UnwrapAggregatedBranch()
-			if unwrapErr != nil {
-				cachedChildBranch.Release()
-				err = errors.Errorf("failed to load AggregatedBranch with %s: %w", cachedChildBranch.ID(), unwrapErr)
-				return
-			}
+		// abort if the Branch is not at the bottom of the BranchDAG
+		parentBranches := conflictBranch.Parents()
+		if _, masterBranchIsParent := parentBranches[MasterBranchID]; len(parentBranches) != 1 || !masterBranchIsParent {
+			err = errors.Errorf("tried to merge Branch with %s to Master that is not at the bottom of the BranchDAG: %w", branchID, err)
+			return
+		}
 
-			// remove merged Branch from parents
-			parentBranches = childBranch.Parents()
-			delete(parentBranches, branchID)
+		// remove merged Branch
+		conflictBranch.Delete()
+		movedBranches[conflictBranch.ID()] = MasterBranchID
 
-			if len(parentBranches) == 1 {
-				for parentBranchID := range parentBranches {
-					movedBranches[childBranch.ID()] = parentBranchID
+		if !b.ChildBranches(branchID).Consume(func(childBranchReference *ChildBranch) {
+			if !b.Branch(childBranchReference.ChildBranchID()).Consume(func(childBranch Branch) {
+				// remove merged Branch from parents
+				childBranchParents := childBranch.Parents()
+				delete(childBranchParents, branchID)
 
-					b.childBranchStorage.Delete(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranch.ID().Bytes()))
+				if childBranch.Type() == ConflictBranchType {
+					// map parents of child to now point to MasterBranch
+					childBranchParents[MasterBranchID] = types.Void
+					childBranch.SetParents(childBranchParents)
+					return
 				}
-			} else {
-				cachedNewAggregatedBranch, _, newAggregatedBranchErr := b.AggregateBranches(parentBranches)
+
+				// remove AggregatedBranch when we are done
+				defer childBranch.Delete()
+
+				// AggregatedBranch disappears as it is no longer "aggregated" (we just map to the last parent
+				// ConflictBranch)
+				if len(childBranchParents) == 1 {
+					movedBranches[childBranch.ID()] = childBranchParents.First()
+					return
+				}
+
+				// remove references to the deleted AggregatedBranch
+				for parentBranchID := range childBranchParents {
+					b.childBranchStorage.Delete(NewChildBranch(parentBranchID, childBranch.ID(), AggregatedBranchType).ObjectStorageKey())
+				}
+
+				// create new AggregatedBranch with updated parents
+				cachedNewAggregatedBranch, _, newAggregatedBranchErr := b.AggregateBranches(childBranchParents)
 				if newAggregatedBranchErr != nil {
 					err = errors.Errorf("failed to retrieve AggregatedBranch: %w", newAggregatedBranchErr)
 					return
@@ -198,43 +185,38 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 				cachedNewAggregatedBranch.Release()
 
 				movedBranches[childBranch.ID()] = cachedNewAggregatedBranch.ID()
-
-				for parentBranchID := range parentBranches {
-					b.childBranchStorage.Delete(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranch.ID().Bytes()))
-				}
-			}
-
-			childBranch.Delete()
-
-			// release referenced ChildBranch
-			cachedChildBranch.Release()
-		case ConflictBranchType:
-			// load referenced ChildBranch
-			cachedChildBranch := b.Branch(childBranchReference.ChildBranchID())
-			childBranch, unwrapErr := cachedChildBranch.UnwrapConflictBranch()
-			if unwrapErr != nil {
-				cachedChildBranch.Release()
-				err = errors.Errorf("failed to load ConflictBranch with %s: %w", cachedChildBranch.ID(), unwrapErr)
+			}) {
+				err = errors.Errorf("failed to load Branch with %s: %w", childBranchReference.ChildBranchID(), cerrors.ErrFatal)
 				return
 			}
 
-			// replace pointer to current branch with pointer to master
-			parents := childBranch.Parents()
-			delete(parents, branchID)
-			parents[MasterBranchID] = types.Void
-			childBranch.SetParents(parents)
+			if err != nil {
+				return
+			}
 
-			// release referenced ChildBranch
-			cachedChildBranch.Release()
+			// remove ChildBranch reference
+			childBranchReference.Delete()
+		}) {
+			err = errors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
+			return
 		}
 
-		// remove ChildBranch reference
-		childBranchReference.Delete()
-	}
+		if err != nil {
+			return
+		}
 
-	// update ConflictMembers to not contain the merged Branch
-	for conflictID := range conflictBranch.Conflicts() {
-		b.unregisterConflictMember(conflictID, branchID)
+		// update ConflictMembers to not contain the merged Branch
+		for conflictID := range conflictBranch.Conflicts() {
+			b.Conflict(conflictID).Consume(func(conflict *Conflict) {
+				conflict.Delete()
+			})
+
+			b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+				b.unregisterConflictMember(conflictID, conflictMember.BranchID())
+			})
+		}
+	}) {
+		return nil, errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
 	}
 
 	return
@@ -382,19 +364,24 @@ func (b *BranchDAG) Shutdown() {
 
 // init is an internal utility function that initializes the BranchDAG by creating the root of the DAG (MasterBranch).
 func (b *BranchDAG) init() {
-	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
+	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, NewConflictIDs(RootConflictID)))
 	if stored {
 		cachedMasterBranch.Release()
 	}
 
-	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
+	cachedInvalidBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
 	if stored {
-		cachedRejectedBranch.Release()
+		cachedInvalidBranch.Release()
 	}
 
 	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
 	if stored {
 		cachedLazyBookedConflictsBranch.Release()
+	}
+
+	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(RejectedBranchID, nil, NewConflictIDs(RootConflictID)))
+	if stored {
+		cachedRejectedBranch.Release()
 	}
 }
 
