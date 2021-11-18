@@ -137,6 +137,19 @@ func (s *Scheduler) Setup() {
 		}
 	}))
 
+	onMessageScheduledOrConfirmed := func(messageID MessageID) {
+		s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
+			if s.isReady(approver.approverMessageID) {
+				if err := s.Ready(approver.approverMessageID); err != nil {
+					s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", approver.approverMessageID, err))
+				}
+			}
+		})
+	}
+
+	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduledOrConfirmed))
+	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageScheduledOrConfirmed))
+
 	s.Start()
 }
 
@@ -261,29 +274,18 @@ func (s *Scheduler) isEligible(messageID MessageID) (eligible bool) {
 	return
 }
 
-// isReady returns true if both the given messageID's issuance timestamp is in the past
-// and all of its parents are eligible.
+// isReady returns true if the given messageID's parents are eligible.
 func (s *Scheduler) isReady(messageID MessageID) (ready bool) {
-	timestampValid, parentsEligible := true, true
-	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		if clock.SyncedTime().Before(message.IssuingTime()) { // timestamp in the future
-			timestampValid = false
-		}
-	})
-	if !timestampValid {
-		return false
-	}
-
+	ready = true
 	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		message.ForEachParent(func(parent Parent) {
 			if !s.isEligible(parent.ID) { // parents are not eligible
-				parentsEligible = false
+				ready = false
 				return
 			}
 		})
 	})
 
-	ready = timestampValid && parentsEligible
 	return
 }
 
@@ -344,24 +346,14 @@ func (s *Scheduler) schedule() *Message {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready
 		// (its issuing time is not in the future and all of its parents are eligible).
-		if msg != nil {
-			messageID, _, err := MessageIDFromBytes(msg.IDBytes())
-			if err == nil {
-				if s.isReady(messageID) {
-					if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-						s.ready(message)
-					}) {
-						err = errors.Errorf("failed to get message '%x' from storage", messageID)
-					}
-					// compute how often the deficit needs to be incremented until the message can be scheduled
-					remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-					r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
-					// find the first node that will be allowed to schedule a message
-					if r < rounds {
-						rounds = r
-						schedulingNode = q
-					}
-				}
+		if msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) {
+			// compute how often the deficit needs to be incremented until the message can be scheduled
+			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
+			r := int(math.Ceil(remainingDeficit / getCachedMana(q.NodeID())))
+			// find the first node that will be allowed to schedule a message
+			if r < rounds {
+				rounds = r
+				schedulingNode = q
 			}
 		}
 
