@@ -361,7 +361,7 @@ func TestTangle_Flow(t *testing.T) {
 		testPort    = 8000
 		targetPOW   = 2
 
-		solidMsgCount   = 0
+		solidMsgCount   = 2000
 		invalidMsgCount = 10
 		tangleWidth     = 250
 		networkDelay    = 5 * time.Millisecond
@@ -571,15 +571,15 @@ func TestTangle_Flow(t *testing.T) {
 	// wait for all messages to be scheduled
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
-	assert.EqualValuesf(t, solidMsgCount, atomic.LoadInt32(&parsedMessages), "parsed messages does not match")
-	assert.EqualValuesf(t, solidMsgCount, atomic.LoadInt32(&storedMessages), "stored messages does not match")
+	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&parsedMessages), "parsed messages does not match")
+	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&storedMessages), "stored messages does not match")
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&bookedMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&orderedMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&awMessages))
 	// messages with invalid timestamp are not forwarded from the timestamp filter, thus there are 0.
-	assert.EqualValues(t, 0, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&rejectedMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
