@@ -137,7 +137,7 @@ func (s *Scheduler) Setup() {
 		}
 	}))
 
-	onMessageScheduledOrConfirmed := func(messageID MessageID) {
+	onMessageScheduled := func(messageID MessageID) {
 		s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
 			if s.isReady(approver.approverMessageID) {
 				if err := s.Ready(approver.approverMessageID); err != nil {
@@ -146,9 +146,19 @@ func (s *Scheduler) Setup() {
 			}
 		})
 	}
+	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
 
-	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduledOrConfirmed))
-	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageScheduledOrConfirmed))
+	onMessageConfirmed := func(messageID MessageID) {
+		var scheduled bool
+		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			scheduled = messageMetadata.Scheduled() || messageMetadata.ScheduledBypass() // TODO: remove bypass check
+		})
+		if scheduled {
+			return
+		}
+		onMessageScheduled(messageID)
+	}
+	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageConfirmed))
 
 	s.Start()
 }
