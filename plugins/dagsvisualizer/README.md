@@ -19,13 +19,14 @@ The `.go` files forms a plugin that register several events to collect data from
 Dev mode has only been tested on Linux.
 
 ### Docker
-In docker dev mode, the master node query the yarn development server for webpage resources.
+Run the yarn development server in a container and add it to the docker-network.
 
 1. Make sure to set `dagsvisualizer.dev` to true, to enable GoShimmer to serve assets.
-2. Make sure to set `dagsvisualizer.devBindAddress` to your host machine IP address with port `3000`, for example: `36.237.190.25:3000`. You can get you host machine IP with `ifconfig`.
-3. Install all needed npm modules via `yarn install` within the `frontend` directory.
-4. Run development server with `yarn start`
-3. Run Goshimmer docker-network. Using default port config, you should now be able to access the DAGs visualizer under http://127.0.0.1:8061
+2. Make sure to set `dagsvisualizer.devBindAddress` to `dagsvisualizer-dev-docker:3000`.
+3. Run Goshimmer docker-network. 
+4. Go to goshimmer root directory and run script `scripts/dags_visualizer_dev_docker.sh`. It will
+   install all needed npm modules and create a container with a running development server instance.
+5. Using default port config, you should now be able to access the DAGs visualizer under http://127.0.0.1:8061
 
 To see the changes, you need to manually reload the page.
 
