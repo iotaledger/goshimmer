@@ -33,7 +33,10 @@ func NewDispatcher(tangle *Tangle) (dispatcher *Dispatcher) {
 	}
 
 	dispatcher.messageWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		dispatcher.Events.MessageDispatched.Trigger(task.Param(0).(MessageID))
+		messageID := task.Param(0).(MessageID)
+		if !dispatcher.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
+			dispatcher.Events.MessageDispatched.Trigger(messageID)
+		}
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
