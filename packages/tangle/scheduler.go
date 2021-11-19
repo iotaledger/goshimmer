@@ -51,6 +51,9 @@ type Scheduler struct {
 	deficits map[identity.ID]float64
 	rate     *atomic.Duration
 
+	parentsMap      map[MessageID][]MessageID
+	parentsMapMutex sync.RWMutex
+
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
 }
@@ -78,6 +81,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		ticker:         time.NewTicker(tangle.Options.SchedulerParams.Rate),
 		buffer:         schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
 		deficits:       make(map[identity.ID]float64),
+		parentsMap:     make(map[MessageID][]MessageID),
 		shutdownSignal: make(chan struct{}),
 	}
 }
@@ -130,22 +134,10 @@ func (s *Scheduler) Setup() {
 			}
 		}
 
-		if s.isReady(messageID) {
-			if err := s.Ready(messageID); err != nil {
-				s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", messageID, err))
-			}
-		}
+		s.updateDependencies(messageID, s.tryReady(messageID))
 	}))
 
-	onMessageScheduled := func(messageID MessageID) {
-		s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
-			if s.isReady(approver.approverMessageID) {
-				if err := s.Ready(approver.approverMessageID); err != nil {
-					s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", approver.approverMessageID, err))
-				}
-			}
-		})
-	}
+	onMessageScheduled := func(messageID MessageID) { s.updateDependencies(messageID, nil) }
 	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
 
 	onMessageConfirmed := func(messageID MessageID) {
@@ -284,13 +276,55 @@ func (s *Scheduler) isEligible(messageID MessageID) (eligible bool) {
 	return
 }
 
-// isReady returns true if the given messageID's parents are eligible.
-func (s *Scheduler) isReady(messageID MessageID) (ready bool) {
-	ready = true
+// tryReady marks the given messageID if all of its parents are eligible and
+// otherwise, returns the list of parents not ready.
+func (s *Scheduler) tryReady(messageID MessageID) (unreadyParents []MessageID) {
+	unreadyParents = s.unreadyParents(messageID)
+	if len(unreadyParents) > 0 {
+		return
+	}
+
+	// all parents are ready
+	if err := s.Ready(messageID); err != nil {
+		s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", messageID, err))
+	}
+
+	return
+}
+
+// updateDependencies updates the parentMap with the missing dependencies of the given MessageID
+// and try to set as ready the potential children of the given messageID if no dependencies are given.
+func (s *Scheduler) updateDependencies(messageID MessageID, dependencies []MessageID) {
+	s.parentsMapMutex.Lock()
+	defer s.parentsMapMutex.Unlock()
+
+	if len(dependencies) == 0 {
+		if _, exists := s.parentsMap[messageID]; !exists {
+			return
+		}
+
+		for _, childID := range s.parentsMap[messageID] {
+			s.tryReady(childID)
+		}
+		delete(s.parentsMap, messageID)
+		return
+	}
+
+	// update parent list if its parent(s) are not yet ready
+	for _, parent := range dependencies {
+		if _, exists := s.parentsMap[parent]; !exists {
+			s.parentsMap[parent] = make([]MessageID, 0)
+		}
+		s.parentsMap[parent] = append(s.parentsMap[parent], messageID)
+	}
+}
+
+// unreadyParents returns the list of the given messageID's parents that are not ready.
+func (s *Scheduler) unreadyParents(messageID MessageID) (parents []MessageID) {
 	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		message.ForEachParent(func(parent Parent) {
 			if !s.isEligible(parent.ID) { // parents are not eligible
-				ready = false
+				parents = append(parents, parent.ID)
 				return
 			}
 		})
