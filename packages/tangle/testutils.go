@@ -745,34 +745,36 @@ var (
 	totalAMana          = 1000.0
 	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000
-	noAManaNode         = identity.GenerateIdentity()
 	selfLocalIdentity   = identity.GenerateLocalIdentity()
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
 	testSchedulerParams = SchedulerParams{
 		MaxBufferSize:               testMaxBuffer,
 		Rate:                        testRate,
-		AccessManaMapRetrieverFunc:  accessManaMapRetriever,
-		AccessManaRetrieveFunc:      accessManaRetriever,
-		TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
+		AccessManaMapRetrieverFunc:  MockAccessManaMapRetriever,
+		AccessManaRetrieveFunc:      MockAccessManaRetriever,
+		TotalAccessManaRetrieveFunc: MockTotalAccessManaRetriever,
 	}
 )
 
-func accessManaMapRetriever() map[identity.ID]float64 {
+// MockAccessManaMapRetriever returns mocked access mana map
+func MockAccessManaMapRetriever() map[identity.ID]float64 {
 	return map[identity.ID]float64{
 		peerNode.ID(): aMana,
 		selfNode.ID(): aMana,
 	}
 }
 
-func accessManaRetriever(id identity.ID) float64 {
+// MockAccessManaRetriever returns mocked access mana value for a node
+func MockAccessManaRetriever(id identity.ID) float64 {
 	if id == peerNode.ID() || id == selfNode.ID() {
 		return aMana
 	}
 	return 0
 }
 
-func totalAccessManaRetriever() float64 {
+// MockTotalAccessManaRetriever returns mocked total access mana value
+func MockTotalAccessManaRetriever() float64 {
 	return totalAMana
 }
 

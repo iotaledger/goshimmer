@@ -4,18 +4,11 @@ import (
 	"container/ring"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/identity"
 )
 
-var (
-	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
-	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
-	// ErrInsufficientMana is returned when the mana is insufficient.
-	ErrInsufficientMana = errors.New("insufficient node's mana to schedule the message")
-	// ErrBufferFull is returned when the maximum buffer size is exceeded.
-	ErrBufferFull = errors.New("maximum buffer size exceeded")
-)
+// ErrInsufficientMana is returned when the mana is insufficient.
+var ErrInsufficientMana = errors.New("insufficient node's mana to schedule the message")
 
 // region BufferQueue /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -58,11 +51,9 @@ func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
 	return element.Value.(*NodeQueue)
 }
 
-// Submit submits a message.
-func (b *BufferQueue) Submit(msg Element, accessManaCache tangle.AccessManaCache) error {
-	size := msg.Size()
-	b.dropHead(msg, accessManaCache)
-
+// Submit submits a message. Return messages dropped from the scheduler to make room for the submitted message.
+// The submitted message can also be returned as dropped if the issuing node does not have enough access mana
+func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) float64) []ElementID {
 	nodeID := identity.NewID(msg.IssuerPublicKey())
 	element, nodeActive := b.activeNode[nodeID]
 	var nodeQueue *NodeQueue
@@ -72,54 +63,64 @@ func (b *BufferQueue) Submit(msg Element, accessManaCache tangle.AccessManaCache
 		nodeQueue = NewNodeQueue(nodeID)
 	}
 
-	if float64(nodeQueue.Size()+size)/accessManaCache.GetCachedMana(nodeID) > b.maxQueue {
-		return ErrInboxExceeded
-	}
+	// first we submit the message, and if it turns out that the node doesn't have enough bandwidth to submit, it will be removed by dropHead
 	if !nodeQueue.Submit(msg) {
 		panic("message already submitted")
 	}
-
 	// if the node was not active before, add it now
 	if !nodeActive {
 		b.activeNode[nodeID] = b.ringInsert(nodeQueue)
 	}
-	b.size += size
+	b.size += msg.Size()
+
+	// if max buffer size exceeded, drop from head of the longest mana-scaled queue
+	if b.size > b.maxBuffer {
+		return b.dropHead(accessManaRetriever)
+	}
+
 	return nil
 }
 
-func (b *BufferQueue) dropHead(msg Element, accessManaCache tangle.AccessManaCache) {
+func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (messagesDropped []ElementID) {
 	start := b.Current()
 
-	for b.Size()+msg.Size() > b.maxBuffer {
+	// remove as many messages as necessary to stay within max buffer size
+	for b.Size() > b.maxBuffer {
+		// find longest mana-scaled queue
 		maxScale := 0.0
-		var maxNodeId identity.ID
+		var maxNodeID identity.ID
 		for q := start; ; {
-			if scale := float64(q.Size()+msg.Size()) / accessManaCache.GetCachedMana(q.NodeID()); scale > maxScale {
+			if scale := float64(q.Size()) / accessManaRetriever(q.NodeID()); scale > maxScale {
 				maxScale = scale
-				maxNodeId = q.NodeID()
+				maxNodeID = q.NodeID()
 			}
 			q = b.Next()
 			if q == start {
 				break
 			}
 		}
-		longestQueue := b.activeNode[maxNodeId].Value.(*NodeQueue)
+
+		// find oldest submitted and not-ready message in the longest queue
+		longestQueue := b.activeNode[maxNodeID].Value.(*NodeQueue)
 		var oldestMessage Element
-		var oldestElementID ElementID
-		for k, v := range longestQueue.submitted {
+		// TODO: change submitted map (hashmap) to tree map
+		for _, v := range longestQueue.submitted {
 			if oldestMessage.IssuingTime().After((*v).IssuingTime()) {
 				oldestMessage = *v
-				oldestElementID = k
 			}
 		}
-		if oldestMessage.IssuingTime().Before(longestQueue.Front().IssuingTime()) {
-			delete(longestQueue.submitted, oldestElementID)
-			// TODO: trigger events to notify about dropped message
-			return
+
+		// if the submitted message is older than the oldest ready message, then drop the submitted message
+		// otherwise drop the oldest ready message
+		if oldestMessage != nil && oldestMessage.IssuingTime().Before(longestQueue.Front().IssuingTime()) {
+			messagesDropped = append(messagesDropped, ElementIDFromBytes(oldestMessage.IDBytes()))
+			// no need to check if Unsubmit call succeeded, as the mutex of the scheduler is locked to current context
+			b.Unsubmit(oldestMessage)
+		} else {
+			messagesDropped = append(messagesDropped, ElementIDFromBytes(longestQueue.PopFront().IDBytes()))
 		}
-		longestQueue.PopFront()
-		// TODO: trigger events to notify about dropped message
 	}
+	return messagesDropped
 }
 
 // Unsubmit removes a message from the submitted messages.

@@ -24,8 +24,6 @@ const (
 	MinMana float64 = 1.0
 	// oldMessageThreshold defines the threshold at which consider the message too old to be scheduled.
 	oldMessageThreshold = 5 * time.Minute
-	// manaCacheLifeTime time after which the mana vector should be refreshed
-	manaCacheLifeTime = 5 * time.Second
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
@@ -39,12 +37,6 @@ type SchedulerParams struct {
 	TotalAccessManaRetrieveFunc func() float64
 	AccessManaMapRetrieverFunc  func() map[identity.ID]float64
 }
-type AccessManaCache struct {
-	rawAccessManaVector     map[identity.ID]float64
-	updatedAccessManaVector map[identity.ID]float64
-	cacheRefreshTime        time.Time
-	tangle                  *Tangle
-}
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type Scheduler struct {
@@ -54,7 +46,7 @@ type Scheduler struct {
 	ticker          *time.Ticker
 	started         typeutils.AtomicBool
 	stopped         typeutils.AtomicBool
-	accessManaCache AccessManaCache
+	accessManaCache *schedulerutils.AccessManaCache
 	mu              sync.Mutex
 	buffer          *schedulerutils.BufferQueue
 	deficits        map[identity.ID]float64
@@ -75,10 +67,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	// maximum access mana-scaled inbox length
 	maxQueue := float64(maxBuffer) / float64(tangle.LedgerState.TotalSupply())
 
-	accessManaCache := AccessManaCache{
-		tangle: tangle,
-	}
-	accessManaCache.refreshCacheIfNecessary()
+	accessManaCache := schedulerutils.NewAccessManaCache(tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc, MinMana)
 
 	return &Scheduler{
 		Events: &SchedulerEvents{
@@ -138,9 +127,7 @@ func (s *Scheduler) Setup() {
 		}
 
 		if err := s.SubmitAndReady(messageID); err != nil {
-			if !errors.Is(err, schedulerutils.ErrBufferFull) &&
-				!errors.Is(err, schedulerutils.ErrInboxExceeded) &&
-				!errors.Is(err, schedulerutils.ErrInsufficientMana) {
+			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 			}
 		}
@@ -265,22 +252,13 @@ func (s *Scheduler) submit(message *Message) error {
 		return ErrNotRunning
 	}
 
-	nodeID := identity.NewID(message.IssuerPublicKey())
-	nodeMana := s.accessManaCache.GetCachedMana(nodeID)
+	// TODO: check if nodes have MinMana here
 
-	if nodeMana < MinMana {
-		// allow zero mana nodes access submit messages
-		nodeMana = MinMana
+	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
+	for _, droppedMsgID := range droppedMessageIDs {
+		s.Events.MessageDiscarded.Trigger(MessageID(droppedMsgID))
 	}
-
-	err := s.buffer.Submit(message, s.accessManaCache)
-	if err != nil {
-		s.Events.MessageDiscarded.Trigger(message.ID())
-	}
-	if errors.Is(err, schedulerutils.ErrInboxExceeded) {
-		s.Events.NodeBlacklisted.Trigger(nodeID)
-	}
-	return err
+	return nil
 }
 
 func (s *Scheduler) unsubmit(message *Message) {
@@ -295,7 +273,7 @@ func (s *Scheduler) schedule() *Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.updateActiveNodesList(s.accessManaCache.rawAccessManaVector)
+	s.updateActiveNodesList(s.accessManaCache.RawAccessManaVector())
 
 	start := s.buffer.Current()
 	// no messages submitted
@@ -424,27 +402,6 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 		panic("scheduler: deficit is less than 0")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
-}
-
-// GetCachedMana returns cached access mana value for a given node and refreshes mana vectors if they exired
-// currently returns at least MinMana
-func (a *AccessManaCache) GetCachedMana(id identity.ID) float64 {
-	a.refreshCacheIfNecessary()
-
-	if mana, ok := a.updatedAccessManaVector[id]; ok && mana >= MinMana {
-		return mana
-	}
-	// always return at least MinMana
-	a.updatedAccessManaVector[id] = MinMana
-	return a.updatedAccessManaVector[id]
-}
-
-func (a *AccessManaCache) refreshCacheIfNecessary() {
-	if time.Since(a.cacheRefreshTime) > manaCacheLifeTime {
-		a.rawAccessManaVector = a.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()
-		a.updatedAccessManaVector = a.rawAccessManaVector
-		a.cacheRefreshTime = time.Now()
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -33,7 +34,7 @@ func TestBufferQueue_Submit(t *testing.T) {
 	for i := 0; i < numMessages; i++ {
 		msg := newTestMessage(identity.GenerateIdentity().PublicKey())
 		size += len(msg.Bytes())
-		assert.NoError(t, b.Submit(msg, 1))
+		assert.Empty(t, b.Submit(msg, tangle.MockAccessManaRetriever))
 		assert.EqualValues(t, i+1, b.NumActiveNodes())
 		assert.EqualValues(t, i+1, ringLen(b))
 	}
@@ -46,7 +47,7 @@ func TestBufferQueue_Unsubmit(t *testing.T) {
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
 		messages[i] = newTestMessage(identity.GenerateIdentity().PublicKey())
-		assert.NoError(t, b.Submit(messages[i], 1))
+		assert.Empty(t, b.Submit(messages[i], tangle.MockAccessManaRetriever))
 	}
 	assert.EqualValues(t, numMessages, b.NumActiveNodes())
 	assert.EqualValues(t, numMessages, ringLen(b))
@@ -64,7 +65,7 @@ func TestBufferQueue_Ready(t *testing.T) {
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
 		messages[i] = newTestMessage(identity.GenerateIdentity().PublicKey())
-		assert.NoError(t, b.Submit(messages[i], 1))
+		assert.Empty(t, b.Submit(messages[i], tangle.MockAccessManaRetriever))
 	}
 	for i := range messages {
 		assert.True(t, b.Ready(messages[i]))
@@ -82,11 +83,11 @@ func TestBufferQueue_Time(t *testing.T) {
 
 	future := newTestMessage(selfNode.PublicKey())
 	future.issuingTime = time.Now().Add(time.Second)
-	assert.NoError(t, b.Submit(future, 1))
+	assert.Empty(t, b.Submit(future, tangle.MockAccessManaRetriever))
 	assert.True(t, b.Ready(future))
 
 	now := newTestMessage(selfNode.PublicKey())
-	assert.NoError(t, b.Submit(now, 1))
+	assert.Empty(t, b.Submit(now, tangle.MockAccessManaRetriever))
 	assert.True(t, b.Ready(now))
 
 	assert.Equal(t, now, b.PopFront())
@@ -101,7 +102,7 @@ func TestBufferQueue_Ring(t *testing.T) {
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
 		messages[i] = newTestMessage(identity.GenerateIdentity().PublicKey())
-		assert.NoError(t, b.Submit(messages[i], 1))
+		assert.Empty(t, b.Submit(messages[i], tangle.MockAccessManaRetriever))
 		assert.True(t, b.Ready(messages[i]))
 	}
 	for i := range messages {
@@ -119,7 +120,7 @@ func TestBufferQueue_IDs(t *testing.T) {
 	ids := make([]schedulerutils.ElementID, numMessages)
 	for i := range ids {
 		msg := newTestMessage(identity.GenerateIdentity().PublicKey())
-		assert.NoError(t, b.Submit(msg, 1))
+		assert.Empty(t, b.Submit(msg, tangle.MockAccessManaRetriever))
 		if i%2 == 0 {
 			assert.True(t, b.Ready(msg))
 		}
@@ -145,10 +146,10 @@ func TestBufferQueue_InsertNode(t *testing.T) {
 func TestBufferQueue_RemoveNode(t *testing.T) {
 	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 
-	assert.NoError(t, b.Submit(newTestMessage(selfNode.PublicKey()), 1))
+	assert.Empty(t, b.Submit(newTestMessage(selfNode.PublicKey()), tangle.MockAccessManaRetriever))
 
 	otherNode := identity.GenerateIdentity()
-	assert.NoError(t, b.Submit(newTestMessage(otherNode.PublicKey()), 1))
+	assert.Empty(t, b.Submit(newTestMessage(otherNode.PublicKey()), tangle.MockAccessManaRetriever))
 
 	assert.Equal(t, selfNode.ID(), b.Current().NodeID())
 	b.RemoveNode(selfNode.ID())
