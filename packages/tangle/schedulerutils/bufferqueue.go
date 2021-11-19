@@ -52,7 +52,7 @@ func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
 }
 
 // Submit submits a message. Return messages dropped from the scheduler to make room for the submitted message.
-// The submitted message can also be returned as dropped if the issuing node does not have enough access mana
+// The submitted message can also be returned as dropped if the issuing node does not have enough access mana.
 func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) float64) []ElementID {
 	nodeID := identity.NewID(msg.IssuerPublicKey())
 	element, nodeActive := b.activeNode[nodeID]

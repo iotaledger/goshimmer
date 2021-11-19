@@ -758,7 +758,7 @@ var (
 	}
 )
 
-// MockAccessManaMapRetriever returns mocked access mana map
+// MockAccessManaMapRetriever returns mocked access mana map.
 func MockAccessManaMapRetriever() map[identity.ID]float64 {
 	return map[identity.ID]float64{
 		peerNode.ID(): aMana,
@@ -766,7 +766,7 @@ func MockAccessManaMapRetriever() map[identity.ID]float64 {
 	}
 }
 
-// MockAccessManaRetriever returns mocked access mana value for a node
+// MockAccessManaRetriever returns mocked access mana value for a node.
 func MockAccessManaRetriever(id identity.ID) float64 {
 	if id == peerNode.ID() || id == selfNode.ID() {
 		return aMana
@@ -774,7 +774,7 @@ func MockAccessManaRetriever(id identity.ID) float64 {
 	return 0
 }
 
-// MockTotalAccessManaRetriever returns mocked total access mana value
+// MockTotalAccessManaRetriever returns mocked total access mana value.
 func MockTotalAccessManaRetriever() float64 {
 	return totalAMana
 }
