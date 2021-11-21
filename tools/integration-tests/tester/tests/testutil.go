@@ -259,7 +259,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 			// divide by number of outputs to spread funds evenly
 			outBalances[color] = balance / uint64(numberOfOutputs)
 			if i == numberOfOutputs-1 {
-				// on the last iteration add the remainder so all gunds are consumed
+				// on the last iteration add the remainder so all funds are consumed
 				outBalances[color] += balance % uint64(numberOfOutputs)
 			}
 		}

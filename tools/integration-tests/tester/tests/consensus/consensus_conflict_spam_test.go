@@ -17,7 +17,12 @@ import (
 // constant var, shouldn't be changed
 var tokensPerRequest int
 
-const conflictRepetitions = 4
+const (
+	// conflictRepetitions specify how many time we spam conflicts of each type
+	conflictRepetitions = 4
+	// splits - how many addresses we split the
+	splits = 100
+)
 
 // TestConflictSpam spams a node with conflicts and makes sure the GoFs are the same across the network
 func TestConflictSpam(t *testing.T) {
@@ -42,9 +47,9 @@ func TestConflictSpam(t *testing.T) {
 		return tests.Balance(t, peer1, fundingAddress, ledgerstate.ColorIOTA) >= uint64(tokensPerRequest)
 	}, tests.Timeout, tests.Tick)
 
-	addresses := make([]*ledgerstate.Address, 100)
-	keyPairs := map[string]*ed25519.KeyPair{}
-	for i := 0; i < 100; i++ {
+	addresses := make([]*ledgerstate.Address, splits)
+	keyPairs := make(map[string]*ed25519.KeyPair, splits)
+	for i := 0; i < splits; i++ {
 		address := peer1.Address(i)
 		addresses[i] = &address
 		keyPairs[address.String()] = peer1.KeyPair(uint64(i))
@@ -59,7 +64,6 @@ func TestConflictSpam(t *testing.T) {
 	// slice should have enough conflicting outputs for the number of loop repetition
 	pairwiseOutputs := outputs[:conflictRepetitions*numberOfConflictingOutputs]
 	tripletOutputs := outputs[len(pairwiseOutputs):]
-
 	txs := []*ledgerstate.Transaction{}
 	for i := 0; i < conflictRepetitions; i++ {
 		sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, &txs, i)
