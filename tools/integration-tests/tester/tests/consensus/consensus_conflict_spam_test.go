@@ -20,8 +20,11 @@ var tokensPerRequest int
 const (
 	// conflictRepetitions specify how many time we spam conflicts of each type
 	conflictRepetitions = 4
-	// splits - how many addresses we split the
+	// splits - how many addresses we split the intitial funds to
 	splits = 100
+	// numberOfConflictingOutputs is the number of outputs that will conflict for each tx we send.
+	// Currently changing this value will require to change some implementation details
+	numberOfConflictingOutputs = 3
 )
 
 // TestConflictSpam spams a node with conflicts and makes sure the GoFs are the same across the network
@@ -58,9 +61,7 @@ func TestConflictSpam(t *testing.T) {
 	outputs := getOutputsControlledBy(t, peer1, fundingAddress)
 	fundingKeyPair := map[string]*ed25519.KeyPair{fundingAddress.String(): peer1.KeyPair(0)}
 	outputs = splitToAddresses(t, peer1, outputs[0], fundingKeyPair, addresses...)
-	// We will have 3 conflicting outputs for each conflict spam
-	// This shouldn't be top level const since it is an implementation detail of the test
-	const numberOfConflictingOutputs = 3
+
 	// slice should have enough conflicting outputs for the number of loop repetition
 	pairwiseOutputs := outputs[:conflictRepetitions*numberOfConflictingOutputs]
 	tripletOutputs := outputs[len(pairwiseOutputs):]
@@ -168,7 +169,7 @@ func determineTargets(peers []*framework.Node, iteration int) []*ledgerstate.Add
 	targetPeer := peers[targetIndex]
 	targetAddresses := []*ledgerstate.Address{}
 
-	for i := iteration * 3; i < iteration*3+3; i++ {
+	for i := iteration * numberOfConflictingOutputs; i < iteration*numberOfConflictingOutputs+numberOfConflictingOutputs; i++ {
 		targetAddress := targetPeer.Address(i)
 		targetAddresses = append(targetAddresses, &targetAddress)
 	}
