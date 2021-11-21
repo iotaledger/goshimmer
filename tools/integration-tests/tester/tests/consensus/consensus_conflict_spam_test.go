@@ -17,9 +17,7 @@ import (
 // constant var, shouldn't be changed
 var tokensPerRequest int
 
-/**
-TestConflictSpam spams a node with conflicts and makes sure the GoFs are the same across the network
-*/
+// TestConflictSpam spams a node with conflicts and makes sure the GoFs are the same across the network
 func TestConflictSpam(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
