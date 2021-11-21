@@ -235,11 +235,9 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 
 // region CreateTransaction from outputs //////////////////////////////
 
-/**
-CreateTransactionFromOutputs takes the given utxos inputs and create a transaction tnat spread the total input balance
-across the targetAddresses. In order to correctly sign we have akeyPair map that maps a given address to its public key.
-Access and Consensus Mana is pledged to the node we specify.
-*/
+// CreateTransactionFromOutputs takes the given utxos inputs and create a transaction that spreads the total input balance
+// across the targetAddresses. In order to correctly sign we have a keyPair map that maps a given address to its public key.
+// Access and Consensus Mana is pledged to the node we specify.
 func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []*ledgerstate.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...ledgerstate.Output) *ledgerstate.Transaction {
 	// Create Inputs from utxos
 	inputs := ledgerstate.Inputs{}
@@ -254,7 +252,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 
 	// create outputs for each target address
 	numberOfOutputs := len(targetAddresses)
-	outputs := ledgerstate.Outputs{}
+	outputs := make(ledgerstate.Outputs, numberOfOutputs)
 	for i := 0; i < numberOfOutputs; i++ {
 		outBalances := map[ledgerstate.Color]uint64{}
 		for color, balance := range balances {
@@ -263,8 +261,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 				outBalances[color] += balance % uint64(numberOfOutputs)
 			}
 		}
-		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(outBalances), *targetAddresses[i])
-		outputs = append(outputs, output)
+		outputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(outBalances), *targetAddresses[i])
 	}
 
 	// create tx essence
@@ -272,13 +269,14 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 		manaPledgeID, inputs, ledgerstate.NewOutputs(outputs...))
 
 	// create signatures
-	unlockBlocks := []ledgerstate.UnlockBlock{}
+	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))
+
 	for i := 0; i < len(inputs); i++ {
 		addressKey := utxos[i].Address().String()
 		keyPair := keyPairs[addressKey]
 		require.NotNilf(t, keyPair, "missing key pair for address %s", addressKey)
 		sig := ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes()))
-		unlockBlocks = append(unlockBlocks, ledgerstate.NewSignatureUnlockBlock(sig))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sig)
 	}
 
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks)
