@@ -17,6 +17,8 @@ import (
 // constant var, shouldn't be changed
 var tokensPerRequest int
 
+const conflictRepetitions = 4
+
 // TestConflictSpam spams a node with conflicts and makes sure the GoFs are the same across the network
 func TestConflictSpam(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -51,17 +53,26 @@ func TestConflictSpam(t *testing.T) {
 	outputs := getOutputsControlledBy(t, peer1, fundingAddress)
 	fundingKeyPair := map[string]*ed25519.KeyPair{fundingAddress.String(): peer1.KeyPair(0)}
 	outputs = splitToAddresses(t, peer1, outputs[0], fundingKeyPair, addresses...)
-	const conflictRepetitions = 4
-	pairwiseOutputs := outputs[:(conflictRepetitions-1)*3+3]
+	// We will have 3 conflicting outputs for each conflict spam
+	// This shouldn't be top level const since it is an implementation detail of the test
+	const numberOfConflictingOutputs = 3
+	// slice should have enough conflicting outputs for the number of loop repetition
+	pairwiseOutputs := outputs[:conflictRepetitions*numberOfConflictingOutputs]
 	tripletOutputs := outputs[len(pairwiseOutputs):]
 
 	txs := []*ledgerstate.Transaction{}
 	for i := 0; i < conflictRepetitions; i++ {
-		sendPairWiseConflicts(t, n.Peers(), pairwiseOutputs[i*3:i*3+3], keyPairs, &txs, i)
-		sendTripleConflicts(t, n.Peers(), tripletOutputs[i*3:i*3+3], keyPairs, &txs, i)
+		sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, &txs, i)
+		sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, &txs, i)
 	}
 	t.Logf("number of txs to verify is %d", len(txs))
 	verifyConfirmationsOnPeers(t, n.Peers(), txs)
+}
+
+// determineOutputSlice will extract sub-slices from outputs of a certain size.
+// For each increment of i it will take the next sub-slice so there would be no overlaps with previous sub-slices.
+func determineOutputSlice(outputs ledgerstate.Outputs, i int, size int) ledgerstate.Outputs {
+	return outputs[i*size : i*size+size]
 }
 
 func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*ledgerstate.Transaction) {
