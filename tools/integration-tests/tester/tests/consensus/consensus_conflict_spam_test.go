@@ -20,11 +20,12 @@ var tokensPerRequest int
 const (
 	// conflictRepetitions specify how many time we spam conflicts of each type
 	conflictRepetitions = 4
-	// splits - how many addresses we split the intitial funds to
-	splits = 100
 	// numberOfConflictingOutputs is the number of outputs that will conflict for each tx we send.
 	// Currently changing this value will require to change some implementation details
 	numberOfConflictingOutputs = 3
+	// splits - how many addresses we split the initial funds to.
+	// For each conflict repetition we need to have numberOfConflictingOutputs addresses times number of conflict spam types (pairwise, triplets, and etc.)
+	splits = conflictRepetitions * numberOfConflictingOutputs * 2
 )
 
 // TestConflictSpam spams a node with conflicts and makes sure the GoFs are the same across the network
