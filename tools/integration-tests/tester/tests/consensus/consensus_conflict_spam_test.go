@@ -68,8 +68,8 @@ func TestConflictSpam(t *testing.T) {
 	tripletOutputs := outputs[len(pairwiseOutputs):]
 	txs := []*ledgerstate.Transaction{}
 	for i := 0; i < conflictRepetitions; i++ {
-		sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, &txs, i)
-		sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, &txs, i)
+		txs = append(txs, sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
+		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 	}
 	t.Logf("number of txs to verify is %d", len(txs))
 	verifyConfirmationsOnPeers(t, n.Peers(), txs)
@@ -109,8 +109,7 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*le
 // It send them all to addresses controlled by the next peer, but it does so several time to create pairwise conflicts.
 // The conflicts are TX_B<->TX_A<->TX_C
 func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs ledgerstate.Outputs,
-	keyPairs map[string]*ed25519.KeyPair,
-	txs *[]*ledgerstate.Transaction, iteration int) {
+	keyPairs map[string]*ed25519.KeyPair, iteration int) []*ledgerstate.Transaction {
 
 	t.Logf("send pairwise conflicts on iteration %d", iteration)
 	peerIndex := (iteration + 1) % len(peers)
@@ -121,17 +120,15 @@ func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs ledger
 	tx1 := tests.CreateTransactionFromOutputs(t, peers[0].ID(), targetAddresses, keyPairs, outputs...)
 	tx2 := tests.CreateTransactionFromOutputs(t, peers[1].ID(), targetAddresses, keyPairs, outputs[0])
 	tx3 := tests.CreateTransactionFromOutputs(t, peers[2].ID(), targetAddresses, keyPairs, outputs[2])
-
-	*txs = append(*txs, tx1, tx2, tx3)
-
 	postTransactions(t, peers, peerIndex, "pairwise conflicts", tx1, tx2, tx3)
+
+	return []*ledgerstate.Transaction{tx1, tx2, tx3}
 }
 
 // Creates conflicts as so
 // TX_A<->TX_B TX_B<->TX_C TX_C<->TX_A
 func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs ledgerstate.Outputs,
-	keyPairs map[string]*ed25519.KeyPair,
-	txs *[]*ledgerstate.Transaction, iteration int) {
+	keyPairs map[string]*ed25519.KeyPair, iteration int) []*ledgerstate.Transaction {
 	t.Logf("send triple conflicts on iteration %d", iteration)
 
 	peerIndex := (iteration + 1) % len(peers)
@@ -142,10 +139,9 @@ func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs ledgerst
 	tx1 := tests.CreateTransactionFromOutputs(t, peers[0].ID(), targetAddresses, keyPairs, outputs...)
 	tx2 := tests.CreateTransactionFromOutputs(t, peers[1].ID(), targetAddresses, keyPairs, outputs[0], outputs[1])
 	tx3 := tests.CreateTransactionFromOutputs(t, peers[2].ID(), targetAddresses, keyPairs, outputs[1], outputs[2])
-
-	*txs = append(*txs, tx1, tx2, tx3)
-
 	postTransactions(t, peers, peerIndex, "triplet conflicts", tx1, tx2, tx3)
+
+	return []*ledgerstate.Transaction{tx1, tx2, tx3}
 }
 
 func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, attackName string, txs ...*ledgerstate.Transaction) {
