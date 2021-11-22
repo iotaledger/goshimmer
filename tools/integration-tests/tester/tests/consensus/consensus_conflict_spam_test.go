@@ -104,11 +104,9 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*le
 	}
 }
 
-/**
-sendPairWiseConflicts receives a list of outputs controlled by a peer with certain peer index.
-It send them all to addresses controlled by the next peer, but it does so several time to create pairwise conflicts.
-The conflicts are TX_B<->TX_A<->TX_C
-*/
+// sendPairWiseConflicts receives a list of outputs controlled by a peer with certain peer index.
+// It send them all to addresses controlled by the next peer, but it does so several time to create pairwise conflicts.
+// The conflicts are TX_B<->TX_A<->TX_C
 func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs ledgerstate.Outputs,
 	keyPairs map[string]*ed25519.KeyPair,
 	txs *[]*ledgerstate.Transaction, iteration int) {
@@ -125,13 +123,11 @@ func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs ledger
 
 	*txs = append(*txs, tx1, tx2, tx3)
 
-	PostTransactions(t, peers, peerIndex, "pairwise conflicts", tx1, tx2, tx3)
+	postTransactions(t, peers, peerIndex, "pairwise conflicts", tx1, tx2, tx3)
 }
 
-/**
-Creates conflicts as so
-TX_A<->TX_B TX_B<->TX_C TX_C<->TX_A
-*/
+// Creates conflicts as so
+// TX_A<->TX_B TX_B<->TX_C TX_C<->TX_A
 func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs ledgerstate.Outputs,
 	keyPairs map[string]*ed25519.KeyPair,
 	txs *[]*ledgerstate.Transaction, iteration int) {
@@ -148,10 +144,10 @@ func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs ledgerst
 
 	*txs = append(*txs, tx1, tx2, tx3)
 
-	PostTransactions(t, peers, peerIndex, "triplet conflicts", tx1, tx2, tx3)
+	postTransactions(t, peers, peerIndex, "triplet conflicts", tx1, tx2, tx3)
 }
 
-func PostTransactions(t *testing.T, peers []*framework.Node, peerIndex int, attackName string, txs ...*ledgerstate.Transaction) {
+func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, attackName string, txs ...*ledgerstate.Transaction) {
 	for i, tx := range txs {
 		newPeerIndex := (peerIndex + i) % len(peers)
 		resp, err := peers[newPeerIndex].PostTransaction(tx.Bytes())
