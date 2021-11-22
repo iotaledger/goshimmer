@@ -51,11 +51,11 @@ func TestConflictSpam(t *testing.T) {
 		return tests.Balance(t, peer1, fundingAddress, ledgerstate.ColorIOTA) >= uint64(tokensPerRequest)
 	}, tests.Timeout, tests.Tick)
 
-	addresses := make([]*ledgerstate.Address, splits)
+	addresses := make([]ledgerstate.Address, splits)
 	keyPairs := make(map[string]*ed25519.KeyPair, splits)
 	for i := 0; i < splits; i++ {
 		address := peer1.Address(i)
-		addresses[i] = &address
+		addresses[i] = address
 		keyPairs[address.String()] = peer1.KeyPair(uint64(i))
 	}
 
@@ -66,7 +66,7 @@ func TestConflictSpam(t *testing.T) {
 	// slice should have enough conflicting outputs for the number of loop repetition
 	pairwiseOutputs := outputs[:conflictRepetitions*numberOfConflictingOutputs]
 	tripletOutputs := outputs[len(pairwiseOutputs):]
-	txs := []*ledgerstate.Transaction{}
+	txs := make([]*ledgerstate.Transaction, 0)
 	for i := 0; i < conflictRepetitions; i++ {
 		txs = append(txs, sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
@@ -157,14 +157,14 @@ func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, atta
 	}
 }
 
-func determineTargets(peers []*framework.Node, index int) []*ledgerstate.Address {
+func determineTargets(peers []*framework.Node, index int) []ledgerstate.Address {
 	targetIndex := (index + 1) % len(peers)
 	targetPeer := peers[targetIndex]
-	targetAddresses := []*ledgerstate.Address{}
+	targetAddresses := make([]ledgerstate.Address, 0)
 
 	for i := index * numberOfConflictingOutputs; i < index*numberOfConflictingOutputs+numberOfConflictingOutputs; i++ {
 		targetAddress := targetPeer.Address(i)
-		targetAddresses = append(targetAddresses, &targetAddress)
+		targetAddresses = append(targetAddresses, targetAddress)
 	}
 	return targetAddresses
 }
@@ -183,7 +183,7 @@ func getOutputsControlledBy(t *testing.T, node *framework.Node, addresses ...led
 	return outputs
 }
 
-func splitToAddresses(t *testing.T, node *framework.Node, output ledgerstate.Output, keyPairs map[string]*ed25519.KeyPair, addresses ...*ledgerstate.Address) ledgerstate.Outputs {
+func splitToAddresses(t *testing.T, node *framework.Node, output ledgerstate.Output, keyPairs map[string]*ed25519.KeyPair, addresses ...ledgerstate.Address) ledgerstate.Outputs {
 	transaction := tests.CreateTransactionFromOutputs(t, node.ID(), addresses, keyPairs, output)
 	_, err := node.PostTransaction(transaction.Bytes())
 	require.NoError(t, err, "Error occured while trying to split addresses")

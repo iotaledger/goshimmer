@@ -238,7 +238,7 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 // CreateTransactionFromOutputs takes the given utxos inputs and create a transaction that spreads the total input balance
 // across the targetAddresses. In order to correctly sign we have a keyPair map that maps a given address to its public key.
 // Access and Consensus Mana is pledged to the node we specify.
-func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []*ledgerstate.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...ledgerstate.Output) *ledgerstate.Transaction {
+func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []ledgerstate.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...ledgerstate.Output) *ledgerstate.Transaction {
 	// Create Inputs from utxos
 	inputs := ledgerstate.Inputs{}
 	balances := map[ledgerstate.Color]uint64{}
@@ -263,7 +263,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 				outBalances[color] += balance % uint64(numberOfOutputs)
 			}
 		}
-		outputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(outBalances), *targetAddresses[i])
+		outputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(outBalances), targetAddresses[i])
 	}
 
 	// create tx essence
