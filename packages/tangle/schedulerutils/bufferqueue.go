@@ -2,6 +2,7 @@ package schedulerutils
 
 import (
 	"container/ring"
+	"math"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
@@ -87,11 +88,17 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 	// remove as many messages as necessary to stay within max buffer size
 	for b.Size() > b.maxBuffer {
 		// find longest mana-scaled queue
-		maxScale := 0.0
+		maxScale := math.Inf(-1)
 		var maxNodeID identity.ID
-		for q := start; ; {
-			if scale := float64(q.Size()) / accessManaRetriever(q.NodeID()); scale > maxScale {
-				maxScale = scale
+		for q := start; maxScale != math.Inf(1); {
+			nodeMana := accessManaRetriever(q.NodeID())
+			if nodeMana > 0.0 {
+				if scale := float64(q.Size()) / nodeMana; scale > maxScale {
+					maxScale = scale
+					maxNodeID = q.NodeID()
+				}
+			} else if q.Size() > 0 {
+				maxScale = math.Inf(1)
 				maxNodeID = q.NodeID()
 			}
 			q = b.Next()
@@ -99,25 +106,30 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 				break
 			}
 		}
+		// set scheduler pointer to longest mana-scaled queue
+		for ; b.Current().NodeID() != maxNodeID; b.Next() {
+		}
 
 		// find oldest submitted and not-ready message in the longest queue
-		longestQueue := b.activeNode[maxNodeID].Value.(*NodeQueue)
 		var oldestMessage Element
 		// TODO: change submitted map (hashmap) to tree map
-		for _, v := range longestQueue.submitted {
-			if oldestMessage.IssuingTime().After((*v).IssuingTime()) {
+		for _, v := range b.Current().submitted {
+			if oldestMessage == nil || oldestMessage.IssuingTime().After((*v).IssuingTime()) {
 				oldestMessage = *v
 			}
 		}
 
 		// if the submitted message is older than the oldest ready message, then drop the submitted message
 		// otherwise drop the oldest ready message
-		if oldestMessage != nil && oldestMessage.IssuingTime().Before(longestQueue.Front().IssuingTime()) {
+		readyQueueFront := b.Current().Front()
+		if oldestMessage != nil && (readyQueueFront == nil || readyQueueFront != nil && oldestMessage.IssuingTime().Before(readyQueueFront.IssuingTime())) {
 			messagesDropped = append(messagesDropped, ElementIDFromBytes(oldestMessage.IDBytes()))
 			// no need to check if Unsubmit call succeeded, as the mutex of the scheduler is locked to current context
 			b.Unsubmit(oldestMessage)
+		} else if readyQueueFront != nil {
+			messagesDropped = append(messagesDropped, ElementIDFromBytes(b.PopFront().IDBytes()))
 		} else {
-			messagesDropped = append(messagesDropped, ElementIDFromBytes(longestQueue.PopFront().IDBytes()))
+			panic("scheduler buffer size exceeded and the longest scheduler queue is empty.")
 		}
 	}
 	return messagesDropped

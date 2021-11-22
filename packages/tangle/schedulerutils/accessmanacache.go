@@ -1,7 +1,6 @@
 package schedulerutils
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
@@ -58,7 +57,6 @@ func (a *AccessManaCache) UpdatedAccessManaVector() map[identity.ID]float64 {
 
 func (a *AccessManaCache) refreshCacheIfNecessary() {
 	if time.Since(a.cacheRefreshTime) > manaCacheLifeTime {
-		fmt.Println("Refresh access mana")
 		a.rawAccessManaVector = a.accessManaMapRetrieverFunc()
 		a.updatedAccessManaVector = a.rawAccessManaVector
 		a.cacheRefreshTime = time.Now()
