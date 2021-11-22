@@ -17,12 +17,6 @@ import (
 
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
 
-var (
-	selfLocalIdentity = identity.GenerateLocalIdentity()
-	selfNode          = identity.New(selfLocalIdentity.PublicKey())
-	peerNode          = identity.GenerateIdentity()
-)
-
 func TestScheduler_StartStop(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
@@ -45,7 +39,50 @@ func TestScheduler_Submit(t *testing.T) {
 	assert.NoError(t, tangle.Scheduler.Unsubmit(msg.ID()))
 }
 
+func TestScheduler_updateActiveNodeList(t *testing.T) {
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
+	defer tangle.Shutdown()
+	nodes := make(map[string]*identity.Identity)
+
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{})
+	assert.Equal(t, 0, tangle.Scheduler.buffer.NumActiveNodes())
+
+	for _, node := range []string{"A", "B", "C", "D", "E", "F", "G"} {
+		nodes[node] = identity.GenerateIdentity()
+	}
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{
+		nodes["A"].ID(): 30,
+		nodes["B"].ID(): 15,
+		nodes["C"].ID(): 25,
+		nodes["D"].ID(): 20,
+		nodes["E"].ID(): 10,
+		nodes["G"].ID(): 0,
+	})
+
+	assert.Equal(t, 5, tangle.Scheduler.buffer.NumActiveNodes())
+	assert.NotContains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["G"].ID())
+
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{
+		nodes["A"].ID(): 30,
+		nodes["B"].ID(): 15,
+		nodes["C"].ID(): 25,
+		nodes["E"].ID(): 0,
+		nodes["F"].ID(): 1,
+		nodes["G"].ID(): 5,
+	})
+	assert.Equal(t, 5, tangle.Scheduler.buffer.NumActiveNodes())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["A"].ID())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["B"].ID())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["C"].ID())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["F"].ID())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["G"].ID())
+
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{})
+	assert.Equal(t, 0, tangle.Scheduler.buffer.NumActiveNodes())
+}
+
 func TestScheduler_Discarded(t *testing.T) {
+	t.Skip("Skip test. Zero mana nodes are allowed to issue messages.")
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 

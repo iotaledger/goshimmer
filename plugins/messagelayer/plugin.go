@@ -16,8 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -25,6 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 var (
@@ -182,6 +181,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.SchedulerConfig(tangle.SchedulerParams{
 			MaxBufferSize:               SchedulerParameters.MaxBufferSize,
 			Rate:                        schedulerRate(SchedulerParameters.Rate),
+			AccessManaMapRetrieverFunc:  accessManaMapRetriever,
 			AccessManaRetrieveFunc:      accessManaRetriever,
 			TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 		}),
@@ -217,10 +217,19 @@ func schedulerRate(durationString string) time.Duration {
 	return duration
 }
 
+func accessManaMapRetriever() map[identity.ID]float64 {
+	nodeMap, _, err := GetManaMap(mana.AccessMana)
+	if err != nil {
+		return mana.NodeMap{}
+	}
+	return nodeMap
+}
+
 func accessManaRetriever(nodeID identity.ID) float64 {
 	nodeMana, _, err := GetAccessMana(nodeID)
-	if err != nil {
-		return 0
+	// return at least MinMana so that zero mana nodes can access the network
+	if err != nil && nodeMana < tangle.MinMana {
+		return tangle.MinMana
 	}
 	return nodeMana
 }

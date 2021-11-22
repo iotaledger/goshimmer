@@ -52,8 +52,8 @@ func TestBufferQueue_Unsubmit(t *testing.T) {
 	assert.EqualValues(t, numMessages, ringLen(b))
 	for i := range messages {
 		b.Unsubmit(messages[i])
-		assert.EqualValues(t, numMessages-1-i, b.NumActiveNodes())
-		assert.EqualValues(t, numMessages-1-i, ringLen(b))
+		assert.EqualValues(t, numMessages, b.NumActiveNodes())
+		assert.EqualValues(t, numMessages, ringLen(b))
 	}
 	assert.EqualValues(t, 0, b.Size())
 }
@@ -69,6 +69,9 @@ func TestBufferQueue_Ready(t *testing.T) {
 	for i := range messages {
 		assert.True(t, b.Ready(messages[i]))
 		assert.False(t, b.Ready(messages[i]))
+		for ; b.Current().Size() == 0; b.Next() {
+		}
+
 		assert.Equal(t, messages[i], b.PopFront())
 	}
 	assert.EqualValues(t, 0, b.Size())
@@ -123,6 +126,20 @@ func TestBufferQueue_IDs(t *testing.T) {
 		ids[i] = schedulerutils.ElementIDFromBytes(msg.IDBytes())
 	}
 	assert.ElementsMatch(t, ids, b.IDs())
+}
+
+func TestBufferQueue_InsertNode(t *testing.T) {
+	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
+
+	otherNode := identity.GenerateIdentity()
+	b.InsertNode(selfNode.ID())
+	assert.Equal(t, selfNode.ID(), b.Current().NodeID())
+	assert.Equal(t, 0, b.Current().Size())
+
+	b.InsertNode(otherNode.ID())
+	b.Next()
+	assert.Equal(t, otherNode.ID(), b.Current().NodeID())
+	assert.Equal(t, 0, b.Current().Size())
 }
 
 func TestBufferQueue_RemoveNode(t *testing.T) {

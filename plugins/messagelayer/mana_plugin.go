@@ -789,8 +789,10 @@ type AllowedPledge struct {
 func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
-	// return deps.Tangle.Synced() || debuggingEnabled
-	return true
+	// return deps.Tangle.Synced() || debuggingEnabled\
+
+	// query allowed only when base mana vectors have been initialized
+	return len(baseManaVectors) > 0
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.

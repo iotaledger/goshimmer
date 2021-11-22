@@ -411,21 +411,20 @@ func TestAccessBaseManaVector_GetMana(t *testing.T) {
 	assert.NoError(t, err)
 	randID := randNodeID()
 	mana, _, err := bmv.GetMana(randID)
-	assert.Equal(t, 1.0, mana)
+	assert.Equal(t, 0.0, mana)
 	assert.NoError(t, err)
-
 	bmv.SetMana(randID, &AccessBaseMana{})
 	mana, _, err = bmv.GetMana(randID)
-	assert.Equal(t, 1.0, mana)
+	assert.Equal(t, 0.0, mana)
 	assert.NoError(t, err)
-
+	now := time.Now()
 	bmv.SetMana(randID, &AccessBaseMana{
 		BaseMana2:          1.0,
 		EffectiveBaseMana2: 1.0,
-		LastUpdated:        time.Now(),
+		LastUpdated:        now,
 	})
 
-	mana, _, err = bmv.GetMana(randID)
+	mana, _, err = bmv.GetMana(randID, now)
 	assert.NoError(t, err)
 	assert.InDelta(t, 1.0, mana, delta)
 }
@@ -481,7 +480,7 @@ func TestAccessBaseManaVector_GetManaMap(t *testing.T) {
 		nodeIDs[id] = 0
 	}
 
-	manaMap, _, err = bmv.GetManaMap()
+	manaMap, _, err = bmv.GetManaMap(now)
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(manaMap))
 	for nodeID, mana := range manaMap {

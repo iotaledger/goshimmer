@@ -228,7 +228,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb))
+	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
 	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.LedgerState.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
 
 	defer tangle.Shutdown()
@@ -329,13 +329,13 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := NewTestTangle()
+	messageTangle := NewTestTangle(Identity(selfLocalIdentity))
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
-	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
-	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
+	messageA := newTestParentsDataMessageIssuer("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil, selfLocalIdentity.PublicKey())
+	messageB := newTestParentsDataMessageIssuer("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil, selfLocalIdentity.PublicKey())
+	messageC := newTestParentsDataMessageIssuer("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil, selfLocalIdentity.PublicKey())
 
 	var wg sync.WaitGroup
 
@@ -383,7 +383,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb))
+	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	// create local peer
@@ -392,7 +392,7 @@ func TestTangle_Flow(t *testing.T) {
 	localIdentity := tangle.Options.Identity
 	localPeer := peer.NewPeer(localIdentity.Identity, net.IPv4zero, services)
 
-	// setup the message factory
+	// set up the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
 		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
