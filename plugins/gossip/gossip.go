@@ -51,7 +51,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 	}
 	libp2pIdentity, err := libp2putil.GetLibp2pIdentity(lPeer)
 	if err != nil {
-		Plugin.LogFatalf("Could build libp2p identity from local peer: %s", err)
+		Plugin.LogFatalf("Could not build libp2p identity from local peer: %s", err)
 	}
 	libp2pHost, err := libp2p.New(
 		context.Background(),
