@@ -100,12 +100,17 @@ func (n *Neighbor) ConnectionEstablished() time.Time {
 
 func (n *Neighbor) readLoop() {
 	n.wg.Add(1)
-	defer n.wg.Done()
 	go func() {
+		defer n.wg.Done()
 		for {
+			// This loop gets terminated when we encounter an error on .read() function call.
+			// The error might be caused by another goroutine closing the connection by calling .disconnect() function.
+			// Or by a problem with the connection itself.
+			// In any case we call .disconnect() after encountering the error,
+			// the disconnect call is protected with sync.Once, so in case another goroutine called it before us,
+			// we won't execute it twice.
 			packet := &pb.Packet{}
 			err := n.read(packet)
-			// the problem is here
 			if err != nil {
 				if !isAlreadyClosedError(err) && !errors.Is(err, io.EOF) {
 					n.log.Warnw("Permanent error", "err", err)

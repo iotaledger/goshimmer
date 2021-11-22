@@ -249,8 +249,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if m.isStopped {
 		return ErrNotRunning
 	}
-	exists := m.neighborExists(p)
-	if exists {
+	if m.neighborExists(p.ID()) {
 		return errors.WithStack(ErrDuplicateNeighbor)
 	}
 
@@ -268,8 +267,8 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		return errors.WithStack(err)
 	}
 	nbr.disconnected.Attach(events.NewClosure(func() {
-		m.deleteNeighbor(nbr.ID())
-		go m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(nbr)
+		m.deleteNeighbor(nbr)
+		m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(nbr)
 	}))
 	nbr.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
 		if err := m.handlePacket(packet, nbr); err != nil {
@@ -283,17 +282,17 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	return nil
 }
 
-func (m *Manager) neighborExists(p *peer.Peer) bool {
+func (m *Manager) neighborExists(id identity.ID) bool {
 	m.neighborsMutex.RLock()
 	defer m.neighborsMutex.RUnlock()
-	_, exists := m.neighbors[p.ID()]
+	_, exists := m.neighbors[id]
 	return exists
 }
 
-func (m *Manager) deleteNeighbor(id identity.ID) {
+func (m *Manager) deleteNeighbor(nbr *Neighbor) {
 	m.neighborsMutex.Lock()
 	defer m.neighborsMutex.Unlock()
-	delete(m.neighbors, id)
+	delete(m.neighbors, nbr.ID())
 }
 
 func (m *Manager) setNeighbor(nbr *Neighbor) error {
