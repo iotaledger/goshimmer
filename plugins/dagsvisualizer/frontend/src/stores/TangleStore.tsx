@@ -45,6 +45,7 @@ export class TangleStore {
     @observable selected_approvees_count = 0;
     @observable paused: boolean = false;
     @observable search: string = "";
+    @observable explorerAddress = "localhost:8081";
     msgOrder: Array<any> = [];
     selected_via_click: boolean = false;
     selected_origin_color: number = 0;
@@ -213,6 +214,10 @@ export class TangleStore {
         this.updateSelected(msgNode.data, false);
     }
     
+    updateExplorerAddress = (addr: string) => {
+        this.explorerAddress = addr;
+    }
+
     drawExistedMsgs = () => {
         this.messages.forEach((msg) => {
             this.drawVertex(msg);

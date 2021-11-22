@@ -33,6 +33,7 @@ export class UTXOStore {
     @observable selectedTx: utxoVertex = null;
     @observable paused: boolean = false;
     @observable search: string = "";
+    @observable explorerAddress = "localhost:8081";
     outputMap = new Map();
     txOrder: Array<any> = [];
     draw: boolean = true;
@@ -155,6 +156,10 @@ export class UTXOStore {
         txNode.select();
         
         this.updateSelected(this.search);
+    }
+
+    updateExplorerAddress = (addr: string) => {
+      this.explorerAddress = addr;
     }
 
     resumeAndSyncGraph = () => {

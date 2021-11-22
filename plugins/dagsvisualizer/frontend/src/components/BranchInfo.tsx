@@ -12,7 +12,7 @@ interface Props {
 @observer
 export class BranchInfo extends React.Component<Props, any> {
     render () {
-        let { selectedBranch } = this.props.branchStore;
+        let { selectedBranch, explorerAddress } = this.props.branchStore;
 
         return (
             selectedBranch  &&
@@ -25,7 +25,7 @@ export class BranchInfo extends React.Component<Props, any> {
                                 <ListGroup.Item>
                                     Parent:
                                     <ListGroup>
-                                        {selectedBranch.parents.map((p,i) => <ListGroup.Item key={i}>{p}</ListGroup.Item>)}
+                                        {selectedBranch.parents.map((p,i) => <ListGroup.Item key={i}><a href={`${explorerAddress}/explorer/branch/${p}`} target="_blank" rel="noopener noreferrer">{p}</a></ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>Confirmed: {selectedBranch.confirmed.toString()}</ListGroup.Item>
@@ -35,10 +35,10 @@ export class BranchInfo extends React.Component<Props, any> {
                                             { selectedBranch.conflicts.conflicts.map((p,i) => {
                                                     return (
                                                         <ListGroup>
-                                                            <ListGroup.Item>OutputID: {p.outputID.base58}</ListGroup.Item>
+                                                            <ListGroup.Item>OutputID: <a href={`${explorerAddress}/explorer/output/${p}`} target="_blank" rel="noopener noreferrer">{p.outputID.base58}</a></ListGroup.Item>
                                                             <ListGroup.Item>Branches:
                                                                 <ListGroup>
-                                                                    {p.branchIDs.map((p,i) => <ListGroup.Item key={i}>{p}</ListGroup.Item>)}
+                                                                    {p.branchIDs.map((p,i) => <ListGroup.Item key={i}><a href={`${explorerAddress}/explorer/branch/${p}`} target="_blank" rel="noopener noreferrer">{p}</a></ListGroup.Item>)}
                                                                 </ListGroup>
                                                             </ListGroup.Item>
                                                         </ListGroup>

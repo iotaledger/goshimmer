@@ -27,6 +27,13 @@ export class GlobalStore {
     }
 
     @action
+    updateExplorerAddress = (addr: string) => {
+        this.tangleStore.updateExplorerAddress(addr);
+        this.branchStore.updateExplorerAddress(addr);
+        this.utxoStore.updateExplorerAddress(addr);
+    }
+
+    @action
     updateSearchStartingTime = (dateTime: Moment) => {
         this.searchStartingTime = dateTime.unix();
     }

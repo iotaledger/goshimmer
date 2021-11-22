@@ -37,6 +37,7 @@ export class BranchStore {
     @observable selectedBranch: branchVertex = null;
     @observable paused: boolean = false;
     @observable search: string = "";
+    @observable explorerAddress = "localhost:8081";
     branchOrder: Array<any> = [];
     draw: boolean = true;
 
@@ -163,6 +164,10 @@ export class BranchStore {
         this.updateSelected(this.search);
     }
 
+    updateExplorerAddress = (addr: string) => {
+        this.explorerAddress = addr;
+    }
+    
     drawExistedBranches = () => {
         this.branches.forEach((branch) => {
             this.drawVertex(branch);
