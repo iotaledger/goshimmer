@@ -33,7 +33,6 @@ services:
     command: >
       --skip-config=true
       --node.overwriteStoredSeed=true
-      --messageLayer.snapshot.genesisNode=7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k
       --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
       {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
