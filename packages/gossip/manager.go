@@ -268,7 +268,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	}
 	nbr.disconnected.Attach(events.NewClosure(func() {
 		m.deleteNeighbor(nbr)
-		m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(nbr)
+		go m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(nbr)
 	}))
 	nbr.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
 		if err := m.handlePacket(packet, nbr); err != nil {
