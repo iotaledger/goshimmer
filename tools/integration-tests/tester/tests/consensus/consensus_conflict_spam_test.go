@@ -157,12 +157,12 @@ func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, atta
 	}
 }
 
-func determineTargets(peers []*framework.Node, iteration int) []*ledgerstate.Address {
-	targetIndex := (iteration + 1) % len(peers)
+func determineTargets(peers []*framework.Node, index int) []*ledgerstate.Address {
+	targetIndex := (index + 1) % len(peers)
 	targetPeer := peers[targetIndex]
 	targetAddresses := []*ledgerstate.Address{}
 
-	for i := iteration * numberOfConflictingOutputs; i < iteration*numberOfConflictingOutputs+numberOfConflictingOutputs; i++ {
+	for i := index * numberOfConflictingOutputs; i < index*numberOfConflictingOutputs+numberOfConflictingOutputs; i++ {
 		targetAddress := targetPeer.Address(i)
 		targetAddresses = append(targetAddresses, &targetAddress)
 	}
