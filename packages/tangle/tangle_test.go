@@ -485,8 +485,8 @@ func TestTangle_Flow(t *testing.T) {
 		rejectedMessages   int32
 	)
 
-	tangle.Parser.Events.BytesRejected.AttachAfter(events.NewClosure(func(e *BytesRejectedEvent) {
-		t.Logf("rejected bytes %v", e.Bytes)
+	tangle.Parser.Events.BytesRejected.AttachAfter(events.NewClosure(func(e *BytesRejectedEvent, err error) {
+		t.Logf("rejected bytes %v - %s", e.Bytes, err)
 	}))
 
 	// filter rejected events
