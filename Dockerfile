@@ -7,6 +7,7 @@ FROM golang@sha256:5b036db95aaf91b8c75be815e2ba0ca0eecbfc3f57952c24c5d8c125970e2
 ARG BUILD_TAGS=rocksdb,builtin_static
 # Download and include snapshot into resulting image by default.
 ARG DOWNLOAD_SNAPSHOT=1
+ARG CUSTOM_SNAPSHOT=false
 
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates
@@ -35,9 +36,17 @@ RUN --mount=target=. \
     -o /go/bin/goshimmer
 
 # Enable building the image without downloading the snapshot.
+# It's possible to download custom snapshot from external storage service - necessary for feature network deployment.
 # If built with dummy snapshot then a snapshot needs to be mounted into the resulting image.
-RUN if [ $DOWNLOAD_SNAPSHOT -gt 0 ]; then \
+RUN if [ $DOWNLOAD_SNAPSHOT -gt 0 ] && [ "$CUSTOM_SNAPSHOT" == "false" ]; then \
     wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin ;  \
+    elif [ $DOWNLOAD_SNAPSHOT -gt 0 ] && [ "$CUSTOM_SNAPSHOT" != "false" ]; then \
+    apt update; apt install -y gawk; \
+    git clone https://github.com/stck-lzm/badown.git; \
+    cd badown; \
+    ./badown "$CUSTOM_SNAPSHOT"; \
+    SNAPSHOT_FILE=$(ls -t *.bin | head -1); \
+    mv $SNAPSHOT_FILE /tmp/snapshot.bin; \
     else  \
     touch /tmp/snapshot.bin ; \
     fi
