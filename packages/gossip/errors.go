@@ -11,8 +11,6 @@ var (
 	ErrLoopbackNeighbor = errors.New("loopback connection not allowed")
 	// ErrDuplicateNeighbor is returned when the same peer is added more than once as a neighbor.
 	ErrDuplicateNeighbor = errors.New("already connected")
-	// ErrInvalidPacket is returned when the gossip manager receives an invalid packet.
-	ErrInvalidPacket = errors.New("invalid packet")
 	// ErrNeighborQueueFull is returned when the send queue is already full.
 	ErrNeighborQueueFull = errors.New("send queue is full")
 )
