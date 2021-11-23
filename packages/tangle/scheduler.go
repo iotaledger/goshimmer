@@ -115,7 +115,7 @@ func (s *Scheduler) Shutdown() {
 func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
 	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
-		// TO BE REMMOVED: avoid scheduling old messages
+		// Issue #1855: TO BE REMOVED: avoid scheduling old messages
 		skipScheduler := false
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			skipScheduler = clock.Since(message.IssuingTime()) > oldMessageThreshold
@@ -144,7 +144,7 @@ func (s *Scheduler) Setup() {
 	onMessageConfirmed := func(messageID MessageID) {
 		var scheduled bool
 		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			scheduled = messageMetadata.Scheduled() || messageMetadata.ScheduledBypass() // TODO: remove bypass check
+			scheduled = messageMetadata.Scheduled() || messageMetadata.ScheduledBypass() // Issue #1855 TODO: remove bypass check
 		})
 		if scheduled {
 			return
@@ -272,7 +272,7 @@ func (s *Scheduler) isEligible(messageID MessageID) (eligible bool) {
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		eligible = messageMetadata.Scheduled() ||
 			s.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) ||
-			messageMetadata.ScheduledBypass() // TO BE REMOVED
+			messageMetadata.ScheduledBypass() // Issue #1855: TO BE REMOVED
 	})
 	return
 }
