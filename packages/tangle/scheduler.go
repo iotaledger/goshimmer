@@ -131,23 +131,10 @@ func (s *Scheduler) Setup() {
 			}
 		}
 
-		if s.isReady(messageID) {
-			if err := s.Ready(messageID); err != nil {
-				s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", messageID, err))
-			}
-		}
+		s.tryReady(messageID)
 	}))
 
-	onMessageScheduled := func(messageID MessageID) {
-		s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
-			if s.isReady(approver.approverMessageID) {
-				if err := s.Ready(approver.approverMessageID); err != nil {
-					s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", approver.approverMessageID, err))
-				}
-			}
-		})
-	}
-	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
+	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(s.updateApprovers))
 
 	onMessageConfirmed := func(messageID MessageID) {
 		var scheduled bool
@@ -160,7 +147,7 @@ func (s *Scheduler) Setup() {
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			s.unsubmit(message)
 		})
-		onMessageScheduled(messageID)
+		s.updateApprovers(messageID)
 	}
 	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageConfirmed))
 
@@ -301,6 +288,23 @@ func (s *Scheduler) isReady(messageID MessageID) (ready bool) {
 	})
 
 	return
+}
+
+// tryReady tries to set the given message as ready.
+func (s *Scheduler) tryReady(messageID MessageID) {
+	if s.isReady(messageID) {
+		if err := s.Ready(messageID); err != nil {
+			s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", messageID, err))
+		}
+	}
+}
+
+// updateApprovers iterates over the direct approvers of the given messageID and
+// tries to mark them as ready.
+func (s *Scheduler) updateApprovers(messageID MessageID) {
+	s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
+		s.tryReady(approver.approverMessageID)
+	})
 }
 
 func (s *Scheduler) submit(message *Message) error {
