@@ -137,6 +137,10 @@ func (t *TipManager) Setup() {
 	t.Events.TipRemoved.Attach(events.NewClosure(func(tipEvent *TipEvent) {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
+
+	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
+		t.tangle.Storage.Message(messageID).Consume(t.removeStrongParents)
+	}))
 }
 
 // Set adds the given messageIDs as tips.
@@ -182,6 +186,10 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	// a tip loses its tip status if it is referenced by another message
+	t.removeStrongParents(message)
+}
+
+func (t *TipManager) removeStrongParents(message *Message) {
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		if _, deleted := t.tips.Delete(parentMessageID); deleted {
 			t.Events.TipRemoved.Trigger(&TipEvent{

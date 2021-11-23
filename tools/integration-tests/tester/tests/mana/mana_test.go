@@ -19,6 +19,7 @@ import (
 )
 
 var (
+	// minAccessMana is minimal amout of mana required to access the network
 	minAccessMana    = tangle.MinMana
 	minConsensusMana = 0.0
 
@@ -184,7 +185,7 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana %+v", resp)
 		require.Equal(t, fullID(emptyNodeID), resp.NodeID)
-		require.Equal(t, minAccessMana, resp.Access)
+		require.Equal(t, 0.0, resp.Access)
 		require.Greater(t, resp.Consensus, minConsensusMana)
 	})
 
@@ -243,9 +244,17 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/access/online %+v", aResp)
 		require.Len(t, aResp.Online, len(expectedOnlineAccessOrder))
-		for i := range expectedOnlineAccessOrder {
-			require.Equal(t, expectedOnlineAccessOrder[i].String(), aResp.Online[i].ShortID)
+		require.Equal(t, expectedOnlineAccessOrder[0].String(), aResp.Online[0].ShortID)
+
+		// cannot guarantee order of the other nodes as they have roughly the same amount of access mana
+		shortIDs := make([]string, 3)
+
+		for _, onlineNode := range aResp.Online[1:] {
+			shortIDs = append(shortIDs, onlineNode.ShortID)
 		}
+		require.Contains(t, shortIDs, expectedOnlineAccessOrder[1].String())
+		require.Contains(t, shortIDs, expectedOnlineAccessOrder[2].String())
+		require.Contains(t, shortIDs, expectedOnlineAccessOrder[3].String())
 		// empty node is not online
 		expectedOnlineConsensusOrder := []identity.ID{peers[1].ID(), peers[2].ID(), peers[3].ID()}
 		cResp, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
