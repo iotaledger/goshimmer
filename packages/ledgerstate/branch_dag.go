@@ -155,6 +155,9 @@ func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
 
 // ChildBranches loads the references to the ChildBranches of the given Branch from the object storage.
 func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches CachedChildBranches) {
+	b.Lock(branchID)
+	defer b.Unlock(branchID)
+
 	cachedChildBranches = make(CachedChildBranches, 0)
 	b.childBranchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedChildBranches = append(cachedChildBranches, &CachedChildBranch{CachedObject: cachedObject})
