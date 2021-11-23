@@ -396,10 +396,13 @@ type Branch interface {
 	// SetParents updates the parents of the Branch.
 	SetParents(parents BranchIDs) (modified bool)
 
+	// Locks returns the locks that the entity needs to lock.
+	Locks() (locks []interface{})
+
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
 
-	// String returns a human readable version of the Branch.
+	// String returns a human-readable version of the Branch.
 	String() string
 
 	// StorableObject enables the Branch to be stored in the object storage.
@@ -549,11 +552,13 @@ func (c *CachedBranch) String() string {
 // ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type ConflictBranch struct {
-	id             BranchID
-	parents        BranchIDs
-	parentsMutex   sync.RWMutex
-	conflicts      ConflictIDs
-	conflictsMutex sync.RWMutex
+	id                  BranchID
+	inclusionState      InclusionState
+	inclusionStateMutex sync.RWMutex
+	parents             BranchIDs
+	parentsMutex        sync.RWMutex
+	conflicts           ConflictIDs
+	conflictsMutex      sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -662,6 +667,11 @@ func (c *ConflictBranch) AddConflict(conflictID ConflictID) (added bool) {
 	added = true
 
 	return
+}
+
+func (c *ConflictBranch) Locks() (locks []interface{}) {
+	// TODO implement me
+	panic("implement me")
 }
 
 // Bytes returns a marshaled version of the Branch.
@@ -796,6 +806,11 @@ func (a *AggregatedBranch) Parents() BranchIDs {
 // SetParents updates the parents of the Branch (its only here to fulfill the interface).
 func (a *AggregatedBranch) SetParents(_ BranchIDs) (modified bool) {
 	panic("forbidden to update the parents of an AggregatedBranch")
+}
+
+func (a *AggregatedBranch) Locks() (locks []interface{}) {
+	// TODO implement me
+	panic("implement me")
 }
 
 // Bytes returns a marshaled version of the Branch.

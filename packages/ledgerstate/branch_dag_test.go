@@ -369,7 +369,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 		branch2.ID(): {}, branch3.ID(): {},
 	}
 	actualConflictMembers := map[BranchID]struct{}{}
-	ledgerstate.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
+	ledgerstate.conflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
 		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
@@ -385,7 +385,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 		branch2.ID(): {}, branch3.ID(): {}, branch4.ID(): {},
 	}
 	actualConflictMembers = map[BranchID]struct{}{}
-	ledgerstate.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
+	ledgerstate.conflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
 		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
@@ -428,7 +428,7 @@ func assertConflictMembers(t *testing.T, ledgerstate *Ledgerstate, conflictID Co
 		assert.Equal(t, len(expectedMembers), conflict.MemberCount())
 
 		conflictMembers := make(map[BranchID]types.Empty)
-		ledgerstate.ConflictMembers(conflict.ID()).Consume(func(conflictMember *ConflictMember) {
+		ledgerstate.conflictMembers(conflict.ID()).Consume(func(conflictMember *ConflictMember) {
 			conflictMembers[conflictMember.BranchID()] = types.Void
 		})
 

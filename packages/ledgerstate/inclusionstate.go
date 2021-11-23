@@ -2,6 +2,8 @@ package ledgerstate
 
 import (
 	"fmt"
+
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 // region InclusionState ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,8 +32,13 @@ func (i InclusionState) String() string {
 	case Rejected:
 		return "InclusionState(Rejected)"
 	default:
-		return fmt.Sprintf("InclusionState()")
+		return fmt.Sprintf("InclusionState(%X)", uint8(i))
 	}
+}
+
+// Bytes returns a marshaled representation of the InclusionState.
+func (i InclusionState) Bytes() []byte {
+	return marshalutil.New(marshalutil.Uint8Size).WriteUint8(uint8(i)).Bytes()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
