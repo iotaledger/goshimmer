@@ -1,5 +1,4 @@
 name: Feature network deploy
-
 on:
   workflow_dispatch:
     inputs:
@@ -7,9 +6,7 @@ on:
         description: 'Custom snapshot URL:'
         required: false
         default: ""
-  push:
-    branches:
-      - feat/feature-network-github-action
+
 jobs:
   deploy:
     environment: feature
