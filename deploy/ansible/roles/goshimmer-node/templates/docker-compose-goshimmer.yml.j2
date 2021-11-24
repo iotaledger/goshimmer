@@ -49,13 +49,12 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --node.overwriteStoredSeed=true
-      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
+      --autoPeering.entryNodes={{ entryNodePubKey }}@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
       {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=portcheck
-      --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint
+      --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,"WebAPI tools Endpoint"
       --prometheus.bindAddress=0.0.0.0:9312
       --messageLayer.snapshot.file=/snapshot.bin
      {% if faucet|default(false) %}
@@ -81,3 +80,4 @@ services:
       --drng.xTeam.threshold=4
       --drng.xTeam.committeeMembers=GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo,68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt,Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1,75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs,CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf,7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16,CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx
       {% endif %}
+      --messageLayer.tangleTimeWindow=10m
