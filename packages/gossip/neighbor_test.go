@@ -66,9 +66,9 @@ func TestNeighborWrite(t *testing.T) {
 	}))
 	neighborB.readLoop()
 
-	err := neighborA.write(testPacket1)
+	err := neighborA.ps.writePacket(testPacket1)
 	require.NoError(t, err)
-	err = neighborB.write(testPacket2)
+	err = neighborB.ps.writePacket(testPacket2)
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countA) == 1 }, time.Second, 10*time.Millisecond)
@@ -76,7 +76,7 @@ func TestNeighborWrite(t *testing.T) {
 }
 
 func newTestNeighbor(name string, stream network.Stream) *Neighbor {
-	return NewNeighbor(newTestPeer(name), NeighborsGroupAuto, stream, log.Named(name))
+	return NewNeighbor(newTestPeer(name), NeighborsGroupAuto, newPacketsStream(stream), log.Named(name))
 }
 
 func newTestPeer(name string) *peer.Peer {

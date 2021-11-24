@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
@@ -231,16 +230,17 @@ func (m *Manager) send(packet *pb.Packet, to ...identity.ID) {
 	}
 
 	for _, nbr := range neighbors {
-		if err := nbr.write(packet); err != nil {
+		if err := nbr.ps.writePacket(packet); err != nil {
 			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
+			nbr.close()
 		}
 	}
 }
 
 func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group NeighborsGroup,
-	connectorFunc func(context.Context, *peer.Peer, []ConnectPeerOption) (network.Stream, error),
+	connectorFunc func(context.Context, *peer.Peer, []ConnectPeerOption) (*packetsStream, error),
 	connectOpts []ConnectPeerOption,
-) error {
+)  error {
 	if p.ID() == m.local.ID() {
 		return errors.WithStack(ErrLoopbackNeighbor)
 	}
@@ -253,15 +253,15 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		return errors.WithStack(ErrDuplicateNeighbor)
 	}
 
-	stream, err := connectorFunc(ctx, p, connectOpts)
+	ps, err := connectorFunc(ctx, p, connectOpts)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
 	// create and add the neighbor
-	nbr := NewNeighbor(p, group, stream, m.log)
+	nbr := NewNeighbor(p, group, ps, m.log)
 	if err := m.setNeighbor(nbr); err != nil {
-		if resetErr := stream.Close(); resetErr != nil {
+		if resetErr := ps.Close(); resetErr != nil {
 			err = errors.CombineErrors(err, resetErr)
 		}
 		return errors.WithStack(err)
@@ -352,7 +352,7 @@ func (m *Manager) processMessageRequest(packetMsgReq *pb.Packet_MessageRequest, 
 
 	// send the loaded message directly to the neighbor
 	packet := &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: msgBytes}}}
-	if err := nbr.write(packet); err != nil {
+	if err := nbr.ps.writePacket(packet); err != nil {
 		nbr.log.Warnw("Failed to send requested message back to the neighbor", "err", err)
 		nbr.close()
 	}

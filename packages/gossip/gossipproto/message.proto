@@ -8,6 +8,7 @@ message Packet {
   oneof body {
     Message message = 1;
     MessageRequest messageRequest = 2;
+    Negotiation negotiation = 3;
   }
 }
 
@@ -18,3 +19,5 @@ message Message {
 message MessageRequest {
   bytes id = 1;
 }
+
+message Negotiation {}
