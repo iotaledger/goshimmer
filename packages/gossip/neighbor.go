@@ -113,21 +113,22 @@ func (n *Neighbor) readLoop() {
 			// we won't execute it twice.
 			packet := &pb.Packet{}
 			err := n.read(packet)
-			if isProtoError(err) {
-				// ignore proto errors.
-				n.log.Debugw("proto error", "err", err)
-				consecutiveProtoErrors++
-				if consecutiveProtoErrors > maxConsecutiveProtoErrors {
-					n.log.Warnw("Too many proto errors", "err", errors.CombineErrors(err, n.disconnect()))
+			if err != nil {
+				if isAlreadyClosedError(err) || errors.Is(err, io.EOF) {
+					n.log.Warnw("Permanent error", "err", errors.CombineErrors(err, n.disconnect()))
 					return
 				}
-				continue
-			}
-			if err != nil {
-				if !isAlreadyClosedError(err) && !errors.Is(err, io.EOF) {
-					n.log.Warnw("Permanent error", "err", errors.CombineErrors(err, n.disconnect()))
+				if isProtoError(err) {
+					// ignore proto errors.
+					n.log.Debugw("proto error", "err", err)
+					consecutiveProtoErrors++
+					if consecutiveProtoErrors > maxConsecutiveProtoErrors {
+						n.log.Warnw("Too many proto errors", "err", errors.CombineErrors(err, n.disconnect()))
+						return
+					}
 				}
-				return
+				// ignore other errors
+				continue
 			}
 			// reset consecutiveProtoErrors.
 			consecutiveProtoErrors = 0
