@@ -112,10 +112,14 @@ func (n *Neighbor) readLoop() {
 			packet := &pb.Packet{}
 			err := n.read(packet)
 			if err != nil {
-				if isAlreadyClosedError(err) || errors.Is(err, io.EOF) {
+				if !isAlreadyClosedError(err) && !errors.Is(err, io.EOF) {
 					n.log.Warnw("Permanent error", "err", errors.CombineErrors(err, n.disconnect()))
 				}
 				return
+			}
+			// ignore other errors.
+			if err != nil {
+				continue
 			}
 			n.packetReceived.Trigger(packet)
 		}
