@@ -67,8 +67,6 @@ jobs:
       - name: Ansible deploy
         env:
           GOSHIMMER_SEEDS: '${{ secrets.GOSHIMMER_SEEDS }}'
-          MONGODB_USER: '${{ secrets.MONGODB_USER }}'
-          MONGODB_PASSWORD: '${{ secrets.MONGODB_PASSWORD }}'
           GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
           ELK_ELASTIC_PASSWORD: '${{ secrets.ELK_ELASTIC_PASSWORD }}'
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'

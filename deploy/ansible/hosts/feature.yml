@@ -6,7 +6,6 @@ supports:
   hosts:
     analysisentry-01.feature.shimmer.iota.cafe:
       entryNodeSeed: "{{ ANALYSISSENTRY_01_ENTRYNODE_SEED }}"
-      mongoDBHost: "metrics-01.feature.shimmer.iota.cafe"
       manaDashboardHost: "bootstrap-01.feature.shimmer.iota.cafe"
 
 goshimmers:
@@ -36,10 +35,10 @@ goshimmers:
   vars:
     analysisServerHost: "analysisentry-01.feature.shimmer.iota.cafe"
     entryNodeHost: "analysisentry-01.feature.shimmer.iota.cafe"
-    entryNodePubKey: "e3m6WPQXLyuUqEfSHmGVEs6qpyhWNJqtbquX65kFoJQ"
+    entryNodePubKey: "BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4"
     remoteLoggerHost: "metrics-01.feature.shimmer.iota.cafe"
-    xteamDRNG: true
     logLevel: "debug"
+    debugPorts: true
 
 drands:
   hosts:
