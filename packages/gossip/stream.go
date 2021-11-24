@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -21,7 +22,10 @@ import (
 const (
 	defaultConnectionTimeout = 5 * time.Second // timeout after which the connection must be established.
 	protocolID               = "gossip/0.0.1"
+	ioTimeout                = 4 * time.Second
 )
+
+var negotiationMsg = []byte(protocolID)
 
 var (
 	// ErrTimeout is returned when an expected incoming connection was not received in time.
@@ -59,6 +63,11 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	stream, err := m.Libp2pHost.NewStream(ctx, libp2pID, protocolID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
+	}
+	if err := sendNegotiationMessage(stream); err != nil {
+		err = errors.Wrap(err, "failed to send negotiation message")
+		err = errors.CombineErrors(err, stream.Close())
+		return nil, err
 	}
 	m.log.Debugw("outgoing connection established",
 		"id", p.ID(),
@@ -154,6 +163,11 @@ func (m *Manager) removeAcceptMatcher(am *acceptMatcher) {
 }
 
 func (m *Manager) streamHandler(stream network.Stream) {
+	if err := receiveNegotiationMessage(stream); err != nil {
+		m.log.Warnw("Failed to receive negotiation message", "err", err)
+		m.closeStream(stream)
+		return
+	}
 	am := m.matchNewStream(stream)
 	if am != nil {
 		am.streamCh <- stream
@@ -163,6 +177,30 @@ func (m *Manager) streamHandler(stream network.Stream) {
 			"id", stream.Conn().RemotePeer())
 		m.closeStream(stream)
 	}
+}
+
+func sendNegotiationMessage(stream network.Stream) error {
+	if err := stream.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {
+		return errors.WithStack(err)
+	}
+	if _, err := stream.Write(negotiationMsg); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func receiveNegotiationMessage(stream network.Stream) error {
+	if err := stream.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
+		return errors.WithStack(err)
+	}
+	msg := make([]byte, len(negotiationMsg))
+	if _, err := stream.Read(msg); err != nil {
+		return errors.WithStack(err)
+	}
+	if !bytes.Equal(msg, negotiationMsg) {
+		return errors.Newf("negotiation message doesn't match %v('%s')", msg, msg)
+	}
+	return nil
 }
 
 func (m *Manager) matchNewStream(stream network.Stream) *acceptMatcher {

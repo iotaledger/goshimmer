@@ -18,10 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/libp2putil"
 )
 
-const (
-	ioTimeout = 4 * time.Second
-)
-
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
 type NeighborsGroup int8
 
