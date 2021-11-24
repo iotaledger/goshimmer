@@ -113,8 +113,7 @@ func (n *Neighbor) readLoop() {
 			err := n.read(packet)
 			if err != nil {
 				if isAlreadyClosedError(err) || errors.Is(err, io.EOF) {
-					errors.CombineErrors(err, n.disconnect())
-					n.log.Warnw("Permanent error", "err", err)
+					n.log.Warnw("Permanent error", "err", errors.CombineErrors(err, n.disconnect()))
 				}
 				return
 			}
