@@ -112,7 +112,8 @@ func (n *Neighbor) readLoop() {
 			packet := &pb.Packet{}
 			err := n.read(packet)
 			if err != nil {
-				if !isAlreadyClosedError(err) && !errors.Is(err, io.EOF) {
+				if isAlreadyClosedError(err) || errors.Is(err, io.EOF) {
+					errors.CombineErrors(err, n.disconnect())
 					n.log.Warnw("Permanent error", "err", err)
 				}
 				return
@@ -136,10 +137,9 @@ func (n *Neighbor) write(packet *pb.Packet) error {
 }
 
 func (n *Neighbor) read(packet *pb.Packet) error {
-	err := n.reader.ReadMsg(packet)
-	if err != nil {
-		disconnectErr := n.disconnect()
-		return errors.CombineErrors(err, disconnectErr)
+	if err := n.reader.ReadMsg(packet); err != nil {
+		// errors are handled by the caller
+		return err
 	}
 	n.packetsRead.Inc()
 	return nil
