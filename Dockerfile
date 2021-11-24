@@ -36,22 +36,26 @@ RUN --mount=target=. \
 
 # Docker cache will be invalidated for RUNs after ARG definition (https://docs.docker.com/engine/reference/builder/#impact-on-build-caching)
 ARG CUSTOM_SNAPSHOT
+
 # Enable building the image without downloading the snapshot.
 # It's possible to download custom snapshot from external storage service - necessary for feature network deployment.
 # If built with dummy snapshot then a snapshot needs to be mounted into the resulting image.
-RUN if [ $DOWNLOAD_SNAPSHOT -gt 0 ] && [ "$CUSTOM_SNAPSHOT" == "" ]; then \
+RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT" = "" ]; then \
     wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin ;  \
-    elif [ $DOWNLOAD_SNAPSHOT -gt 0 ] && [ "$CUSTOM_SNAPSHOT" != "" ]; then \
+    echo "default" > /tmp/test.txt;\
+    elif [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT" != "" ]; then \
     apt update; apt install -y gawk; \
     git clone https://github.com/stck-lzm/badown.git; \
     cd badown; \
     ./badown "$CUSTOM_SNAPSHOT"; \
     SNAPSHOT_FILE=$(ls -t *.bin | head -1); \
-    mv $SNAPSHOT_FILE /tmp/snapshot.bin; \
+    mv "$SNAPSHOT_FILE" /tmp/snapshot.bin; \
+    echo "custom" > /tmp/test.txt;\
     else  \
+    echo "dumb" > /tmp/test.txt;\
     touch /tmp/snapshot.bin ; \
     fi
-
+RUN cat /tmp/test.txt
 ############################
 # Image
 ############################
