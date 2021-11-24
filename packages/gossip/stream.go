@@ -60,10 +60,6 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if err != nil {
 		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
 	}
-	// Disable libp2p lazy negotiation.
-	if _, err := stream.Write(nil); err != nil {
-		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
-	}
 	m.log.Debugw("outgoing connection established",
 		"id", p.ID(),
 		"addr", stream.Conn().RemoteMultiaddr(),
