@@ -90,7 +90,7 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 		// find longest mana-scaled queue
 		maxScale := math.Inf(-1)
 		var maxNodeID identity.ID
-		for q := start; maxScale != math.Inf(1); {
+		for q := start; ; {
 			nodeMana := accessManaRetriever(q.NodeID())
 			if nodeMana > 0.0 {
 				if scale := float64(q.Size()) / nodeMana; scale > maxScale {
@@ -106,14 +106,11 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 				break
 			}
 		}
-		// set scheduler pointer to longest mana-scaled queue
-		for ; b.Current().NodeID() != maxNodeID; b.Next() {
-		}
-
+		longestQueue := b.activeNode[maxNodeID].Value.(*NodeQueue)
 		// find oldest submitted and not-ready message in the longest queue
 		var oldestMessage Element
 		// TODO: change submitted map (hashmap) to tree map
-		for _, v := range b.Current().submitted {
+		for _, v := range longestQueue.submitted {
 			if oldestMessage == nil || oldestMessage.IssuingTime().After((*v).IssuingTime()) {
 				oldestMessage = *v
 			}
@@ -121,13 +118,15 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 
 		// if the submitted message is older than the oldest ready message, then drop the submitted message
 		// otherwise drop the oldest ready message
-		readyQueueFront := b.Current().Front()
+		readyQueueFront := longestQueue.Front()
 		if oldestMessage != nil && (readyQueueFront == nil || readyQueueFront != nil && oldestMessage.IssuingTime().Before(readyQueueFront.IssuingTime())) {
 			messagesDropped = append(messagesDropped, ElementIDFromBytes(oldestMessage.IDBytes()))
 			// no need to check if Unsubmit call succeeded, as the mutex of the scheduler is locked to current context
 			b.Unsubmit(oldestMessage)
 		} else if readyQueueFront != nil {
-			messagesDropped = append(messagesDropped, ElementIDFromBytes(b.PopFront().IDBytes()))
+			msg := longestQueue.PopFront()
+			b.size -= msg.Size()
+			messagesDropped = append(messagesDropped, ElementIDFromBytes(msg.IDBytes()))
 		} else {
 			panic("scheduler buffer size exceeded and the longest scheduler queue is empty.")
 		}

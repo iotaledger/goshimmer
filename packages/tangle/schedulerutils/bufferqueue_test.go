@@ -61,7 +61,8 @@ func TestBufferQueue_Unsubmit(t *testing.T) {
 	assert.EqualValues(t, 0, b.Size())
 }
 
-func TestBufferQueue_SubmitWithDrop_1(t *testing.T) {
+// Drop unready messages from the longest queue. Drop one message to fit new message. Drop two messages to fit one new larger message.
+func TestBufferQueue_SubmitWithDrop_Unready(t *testing.T) {
 	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 	preparedMessages := make([]*testMessage, 0, 2*numMessages)
 	for i := 0; i < numMessages/2; i++ {
@@ -92,7 +93,8 @@ func TestBufferQueue_SubmitWithDrop_1(t *testing.T) {
 	assert.EqualValues(t, maxBuffer, b.Size())
 }
 
-func TestBufferQueue_SubmitWithDrop_2(t *testing.T) {
+// Drop newly submitted message because the node doesn't have enough access mana to send such a big message when the buffer is full.
+func TestBufferQueue_SubmitWithDrop_DropNewMessage(t *testing.T) {
 	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 	preparedMessages := make([]*testMessage, 0, 2*numMessages)
 	for i := 0; i < numMessages; i++ {
@@ -112,10 +114,11 @@ func TestBufferQueue_SubmitWithDrop_2(t *testing.T) {
 
 	assert.Len(t, droppedMessages, 1)
 	assert.Equal(t, newMessage.IDBytes(), droppedMessages[0][:])
-	assert.LessOrEqual(t, maxBuffer, b.Size())
+	assert.Equal(t, maxBuffer, b.Size())
 }
 
-func TestBufferQueue_SubmitWithDrop_3(t *testing.T) {
+// Drop ready messages from the longest queue. Drop one ready message to fit new message. Drop two ready messages to fit one new larger message.
+func TestBufferQueue_SubmitWithDrop_Ready(t *testing.T) {
 	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 	preparedMessages := make([]*testMessage, 0, 2*numMessages)
 	for i := 0; i < numMessages/2; i++ {
@@ -145,29 +148,6 @@ func TestBufferQueue_SubmitWithDrop_3(t *testing.T) {
 	assert.Equal(t, preparedMessages[1].IDBytes(), droppedMessages[0][:])
 	assert.Equal(t, preparedMessages[2].IDBytes(), droppedMessages[1][:])
 	assert.EqualValues(t, maxBuffer, b.Size())
-}
-
-func TestBufferQueue_SubmitWithDrop_4(t *testing.T) {
-	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
-	preparedMessages := make([]*testMessage, 0, 2*numMessages)
-	for i := 0; i < numMessages; i++ {
-		preparedMessages = append(preparedMessages, newTestMessage(selfNode.PublicKey()))
-	}
-	for _, msg := range preparedMessages {
-		droppedMessages := b.Submit(msg, mockAccessManaRetriever)
-		assert.Empty(t, droppedMessages)
-		b.Ready(msg)
-	}
-	assert.EqualValues(t, 1, b.NumActiveNodes())
-	assert.EqualValues(t, 1, ringLen(b))
-	assert.EqualValues(t, maxBuffer, b.Size())
-	// drop newly submitted message when all messages in the buffer are ready
-	newMessage := newTestMessage(noManaNode.PublicKey())
-	droppedMessages := b.Submit(newMessage, mockAccessManaRetriever)
-
-	assert.Len(t, droppedMessages, 1)
-	assert.Equal(t, newMessage.IDBytes(), droppedMessages[0][:])
-	assert.LessOrEqual(t, maxBuffer, b.Size())
 }
 
 func TestBufferQueue_Ready(t *testing.T) {
