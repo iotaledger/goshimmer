@@ -122,7 +122,6 @@ func (n *Neighbor) readLoop() {
 					return
 				}
 				continue
-
 			}
 			if err != nil {
 				if !isAlreadyClosedError(err) && !errors.Is(err, io.EOF) {
