@@ -48,7 +48,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if err != nil {
 		return nil, err
 	}
-	m.libp2pHost.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
+	m.Libp2pHost.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
 
 	if conf.useDefaultTimeout {
 		var cancel context.CancelFunc
@@ -56,7 +56,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		defer cancel()
 	}
 
-	stream, err := m.libp2pHost.NewStream(ctx, libp2pID, protocolID)
+	stream, err := m.Libp2pHost.NewStream(ctx, libp2pID, protocolID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
 	}

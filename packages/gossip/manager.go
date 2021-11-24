@@ -58,7 +58,7 @@ func WithNoDefaultTimeout() ConnectPeerOption {
 // The Manager handles the connected neighbors.
 type Manager struct {
 	local      *peer.Local
-	libp2pHost host.Host
+	Libp2pHost host.Host
 
 	acceptWG    sync.WaitGroup
 	acceptMutex sync.RWMutex
@@ -84,7 +84,7 @@ type Manager struct {
 // NewManager creates a new Manager.
 func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manager {
 	m := &Manager{
-		libp2pHost:      libp2pHost,
+		Libp2pHost:      libp2pHost,
 		acceptMap:       map[libp2ppeer.ID]*acceptMatcher{},
 		local:           local,
 		loadMessageFunc: f,
@@ -110,7 +110,7 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageRequestWorkerCount), workerpool.QueueSize(messageRequestWorkerQueueSize))
 
-	m.libp2pHost.SetStreamHandler(protocolID, m.streamHandler)
+	m.Libp2pHost.SetStreamHandler(protocolID, m.streamHandler)
 
 	return m
 }
@@ -124,7 +124,7 @@ func (m *Manager) Stop() {
 		return
 	}
 	m.isStopped = true
-
+	m.Libp2pHost.RemoveStreamHandler(protocolID)
 	m.dropAllNeighbors()
 
 	m.messageWorkerPool.Stop()

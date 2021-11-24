@@ -70,6 +70,11 @@ func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 
 	defer deps.GossipMgr.Stop()
+	defer func() {
+		if err := deps.GossipMgr.Libp2pHost.Close(); err != nil {
+			Plugin.LogWarn("Failed to close libp2p host: %+v", err)
+		}
+	}()
 
 	Plugin.LogInfof("%s started: bind-address=%s", PluginName, localAddr.String())
 
