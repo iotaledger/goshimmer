@@ -113,9 +113,13 @@ func (n *Neighbor) readLoop() {
 			err := n.read(packet)
 			if err != nil {
 				if isAlreadyClosedError(err) || errors.Is(err, io.EOF) {
-					n.log.Warnw("Permanent error", "err", errors.CombineErrors(err, n.disconnect()))
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
+					return
 				}
-				return
+				n.log.Debugw("Read error", "err", err)
+				continue
 			}
 			n.packetReceived.Trigger(packet)
 		}
