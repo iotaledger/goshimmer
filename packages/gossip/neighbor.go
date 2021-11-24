@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	ioTimeout = 4 * time.Second
+	ioTimeout                 = 4 * time.Second
+	maxConsecutiveProtoErrors = 10
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
@@ -102,6 +103,7 @@ func (n *Neighbor) readLoop() {
 	n.wg.Add(1)
 	go func() {
 		defer n.wg.Done()
+		var consecutiveProtoErrors uint
 		for {
 			// This loop gets terminated when we encounter an error on .read() function call.
 			// The error might be caused by another goroutine closing the connection by calling .disconnect() function.
@@ -111,16 +113,25 @@ func (n *Neighbor) readLoop() {
 			// we won't execute it twice.
 			packet := &pb.Packet{}
 			err := n.read(packet)
+			if isProtoError(err) {
+				// ignore proto errors.
+				n.log.Debugw("proto error", "err", err)
+				consecutiveProtoErrors++
+				if consecutiveProtoErrors > maxConsecutiveProtoErrors {
+					n.log.Warnw("Too many proto errors", "err", errors.CombineErrors(err, n.disconnect()))
+					return
+				}
+				continue
+
+			}
 			if err != nil {
 				if !isAlreadyClosedError(err) && !errors.Is(err, io.EOF) {
 					n.log.Warnw("Permanent error", "err", errors.CombineErrors(err, n.disconnect()))
 				}
 				return
 			}
-			// ignore other errors.
-			if err != nil {
-				continue
-			}
+			// reset consecutiveProtoErrors.
+			consecutiveProtoErrors = 0
 			n.packetReceived.Trigger(packet)
 		}
 	}()
@@ -169,4 +180,8 @@ func (n *Neighbor) disconnect() (err error) {
 func isAlreadyClosedError(err error) bool {
 	return strings.Contains(err.Error(), "use of closed network connection") ||
 		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset)
+}
+
+func isProtoError(err error) bool {
+	return strings.Contains(err.Error(), "proto: cannot parse invalid wire-format data")
 }
