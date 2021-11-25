@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/stack"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -204,22 +205,65 @@ func (b *BranchDAG) conflictMembers(conflictID ConflictID) (cachedConflictMember
 	return
 }
 
-// SetInclusionState sets the InclusionState of a Branch.
-func (b *BranchDAG) SetInclusionState(branchID BranchID, inclusionState InclusionState) (modified bool) {
-	b.Branch(branchID).Consume(func(branch Branch) {
-		b.LockEntity(branch)
-		defer b.UnlockEntity(branch)
+func (b *BranchDAG) setConflictBranchInclusionStateLocked(conflictBranch *ConflictBranch, inclusionState InclusionState) (modified bool) {
+	UnlockFunc := b.LockBranch(conflictBranch.ID(), conflictBranch.Parents(), conflictBranch.Conflicts())
+	defer UnlockFunc()
 
-		if conflictBranch, ok := branch.(*ConflictBranch); ok {
-			modified = b.setConflictBranchInclusionState(conflictBranch, inclusionState)
+	return b.setConflictBranchInclusionState(conflictBranch, Confirmed)
+}
+
+// SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed.
+func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
+	confirmationWalker := walker.New()
+	b.Branch(branchID).Consume(func(branch Branch) {
+		if conflictBranch, isConflictBranch := branch.(*ConflictBranch); isConflictBranch {
+			confirmationWalker.Push(conflictBranch.ID())
+			return
 		}
 
 		for parentBranchID := range branch.Parents() {
-			b.Branch(parentBranchID).Consume(func(branch Branch) {
-				modified = modified || b.setConflictBranchInclusionState(branch.(*ConflictBranch), inclusionState)
-			})
+			confirmationWalker.Push(parentBranchID)
 		}
 	})
+
+	rejectedWalker := walker.New()
+
+	for confirmationWalker.HasNext() {
+		currentBranchID := confirmationWalker.Next().(BranchID)
+
+		b.Branch(currentBranchID).Consume(func(branch Branch) {
+			conflictBranch := branch.(*ConflictBranch)
+			if modified = b.setConflictBranchInclusionStateLocked(conflictBranch, Confirmed); !modified {
+				return
+			}
+
+			for parentBranchID := range branch.Parents() {
+				confirmationWalker.Push(parentBranchID)
+			}
+
+			for conflictID := range conflictBranch.Conflicts() {
+				b.conflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+					if conflictMember.BranchID() != currentBranchID {
+						rejectedWalker.Push(conflictMember.BranchID())
+					}
+				})
+			}
+		})
+	}
+
+	for rejectedWalker.HasNext() {
+		b.Branch(confirmationWalker.Next().(BranchID)).Consume(func(branch Branch) {
+			if modified = b.setConflictBranchInclusionStateLocked(branch.(*ConflictBranch), Rejected); !modified {
+				return
+			}
+
+			b.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
+				if childBranch.ChildBranchType() == ConflictBranchType {
+					rejectedWalker.Push(childBranch.ChildBranchID())
+				}
+			})
+		})
+	}
 
 	return
 }
