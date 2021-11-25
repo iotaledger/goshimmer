@@ -1,0 +1,58 @@
+---
+## This playbook sets up the whole environment stack from scratch.
+
+- hosts: metrics
+  vars:
+    removeData: yes
+  roles:
+    - metrics
+
+- hosts: supports
+  roles:
+    - role: goshimmer-node
+      nodeType: entrynode
+    - role: goshimmer-node
+      nodeType: analysis-server
+
+- hosts: goshimmers:&internal_nodes
+  vars:
+    nodeType: goshimmer
+  roles:
+    - goshimmer-node
+
+- hosts: goshimmers:&public_nodes
+  vars:
+    nodeType: public-node
+  roles:
+    - goshimmer-node
+
+
+- hosts: drands
+  vars:
+    numberOfDrands: 5
+    drandsThreshold: 3
+  roles:
+    - role: drand
+      drandNumber: 1
+    - role: drand
+      drandNumber: 2
+    - role: drand
+      drandNumber: 3
+    - role: drand
+      drandNumber: 4
+    - role: drand
+      drandNumber: 5
+  tasks:
+    - name: Generate key materials in leader Drand
+      command: docker exec -d drand1 drand share --leader --nodes {{ numberOfDrands }} --threshold {{ drandsThreshold }} --secret "{{ drandsSecret }}" --period 10s --catchup-period 0
+    - name: Generate key materials in follower Drands
+      command: docker exec -d drand{{ item.drandNumber }} drand share --connect "{{ inventory_hostname }}:1234" --tls-disable --nodes {{ numberOfDrands }} --threshold {{ drandsThreshold }} --secret "{{ drandsSecret }}" --catchup-period 0
+      with_items:
+        - { drandNumber: 2 }
+        - { drandNumber: 3 }
+        - { drandNumber: 4 }
+        - { drandNumber: 5 }
+
+- hosts: asset_registries
+  roles:
+    - asset-registry

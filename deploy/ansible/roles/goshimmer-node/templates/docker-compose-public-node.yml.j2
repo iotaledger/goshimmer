@@ -32,13 +32,12 @@ services:
     entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --node.overwriteStoredSeed=true
-      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
+      --autoPeering.entryNodes={{ entryNodePubKey }}@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
       {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=portcheck
-      --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
+      --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
       --prometheus.bindAddress=0.0.0.0:9312
       {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}

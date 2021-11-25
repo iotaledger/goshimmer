@@ -4,12 +4,19 @@
 # golang 1.17.2-buster multi-arch
 FROM golang@sha256:5b036db95aaf91b8c75be815e2ba0ca0eecbfc3f57952c24c5d8c125970e2634 AS build
 
+ARG RUN_TEST=0
 ARG BUILD_TAGS=rocksdb,builtin_static
 # Download and include snapshot into resulting image by default.
 ARG DOWNLOAD_SNAPSHOT=1
 
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates
+
+RUN if [ $RUN_TEST -gt 0 ]; then \
+    set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev ; \
+    fi
 
 # Set the current Working Directory inside the container
 RUN mkdir /goshimmer
@@ -22,6 +29,15 @@ COPY go.sum .
 ENV GO111MODULE=on
 RUN go mod download
 RUN go mod verify
+
+# 1. Mount everything from the current directory to the PWD(Present Working Directory) inside the container
+# 2. Mount the testing cache volume
+# 3. Run unittests
+RUN --mount=target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    if [ $RUN_TEST -gt 0 ]; then \
+    go test ./... -tags rocksdb -count=1; \
+    fi
 
 # 1. Mount everything from the current directory to the PWD(Present Working Directory) inside the container
 # 2. Mount the build cache volume
