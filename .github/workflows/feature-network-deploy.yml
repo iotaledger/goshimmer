@@ -6,7 +6,10 @@ on:
         description: 'Custom snapshot URL:'
         required: false
         default: ""
-
+      useDefaultSnapshot:
+        description: 'Use default snapshot (0/1):'
+        required: true
+        default: "1"
 jobs:
   deploy:
     environment: feature
@@ -39,7 +42,9 @@ jobs:
         with:
           tags: iotaledgertesting/goshimmer:feature
           push: true
-          build-args: CUSTOM_SNAPSHOT_URL=${{github.event.inputs.snapshotUrl}}
+          build-args: |
+            CUSTOM_SNAPSHOT_URL=${{github.event.inputs.snapshotUrl}}
+            FEATURE_DEFAULT_SNAPSHOT=${{github.event.inputs.useDefaultSnapshot}}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,mode=max,dest=/tmp/.buildx-cache-new
 
