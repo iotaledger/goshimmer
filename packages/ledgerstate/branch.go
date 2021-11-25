@@ -675,7 +675,7 @@ func (c *ConflictBranch) Bytes() []byte {
 	return c.ObjectStorageValue()
 }
 
-// String returns a human readable version of the Branch.
+// String returns a human-readable version of the Branch.
 func (c *ConflictBranch) String() string {
 	return stringify.Struct("ConflictBranch",
 		stringify.StructField("id", c.ID()),
@@ -698,6 +698,9 @@ func (c *ConflictBranch) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (c *ConflictBranch) ObjectStorageValue() []byte {
+	c.inclusionStateMutex.RLock()
+	defer c.inclusionStateMutex.RUnlock()
+
 	return marshalutil.New().
 		WriteByte(byte(c.Type())).
 		Write(c.ID()).
