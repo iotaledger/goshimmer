@@ -103,7 +103,9 @@ func (n *Neighbor) readLoop() {
 					}
 					return
 				}
-				n.log.Debugw("Read error", "err", err)
+				if !isTimeoutError(err) {
+					n.log.Debugw("Read error", "err", err)
+				}
 				continue
 			}
 			n.packetReceived.Trigger(packet)

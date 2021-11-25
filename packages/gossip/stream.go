@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -213,6 +214,9 @@ func (ps *packetsStream) writePacket(packet *pb.Packet) error {
 }
 
 func (ps *packetsStream) readPacket(packet *pb.Packet) error {
+	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
+		return errors.WithStack(err)
+	}
 	if err := ps.reader.ReadMsg(packet); err != nil {
 		return errors.WithStack(err)
 	}
@@ -225,10 +229,12 @@ func sendNegotiationMessage(ps *packetsStream) error {
 	return errors.WithStack(ps.writePacket(packet))
 }
 
-func receiveNegotiationMessage(ps *packetsStream) error {
-	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
-		return errors.WithStack(err)
-	}
+func receiveNegotiationMessage(ps *packetsStream) (err error) {
+	//defer func() {
+	//	if unsetErr := ps.SetReadDeadline(time.Time{}); unsetErr != nil && !isDeadlineUnsupportedError(unsetErr) {
+	//		err = errors.CombineErrors(err, unsetErr)
+	//	}
+	//}()
 	packet := &pb.Packet{}
 	if err := ps.readPacket(packet); err != nil {
 		return errors.WithStack(err)
@@ -258,4 +264,8 @@ func (m *Manager) closeStream(s network.Stream) {
 
 func isDeadlineUnsupportedError(err error) bool {
 	return strings.Contains(err.Error(), "deadline not supported")
+}
+
+func isTimeoutError(err error) bool {
+	return os.IsTimeout(errors.Unwrap(err))
 }
