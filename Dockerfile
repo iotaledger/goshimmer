@@ -52,21 +52,24 @@ RUN --mount=target=. \
 
 # Docker cache will be invalidated for RUNs after ARG definition (https://docs.docker.com/engine/reference/builder/#impact-on-build-caching)
 ARG CUSTOM_SNAPSHOT_URL
+ARG FEATURE_DEFAULT_SNAPSHOT=0
 
 # Enable building the image without downloading the snapshot.
 # It's possible to download custom snapshot from external storage service - necessary for feature network deployment.
 # If built with dummy snapshot then a snapshot needs to be mounted into the resulting image.
-RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ]; then \
-    wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin ;  \
+RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] && [ "$FEATURE_DEFAULT_SNAPSHOT" -eq 0 ]; then \
+      wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin ;  \
+    elif [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] && [ "$FEATURE_DEFAULT_SNAPSHOT" -gt 0 ]; then \
+      wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-feature-default.bin ;  \
     elif [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" != "" ]; then \
-    apt update; apt install -y gawk; \
-    git clone https://github.com/ffluegel/zippyshare.git; \
-    cd zippyshare; \
-    ./zippyshare.sh "$CUSTOM_SNAPSHOT_URL"; \
-    SNAPSHOT_FILE=$(ls -t *.bin | head -1); \
-    mv "$SNAPSHOT_FILE" /tmp/snapshot.bin; \
+        apt update; apt install -y gawk; \
+        git clone https://github.com/ffluegel/zippyshare.git; \
+        cd zippyshare; \
+        ./zippyshare.sh "$CUSTOM_SNAPSHOT_URL"; \
+        SNAPSHOT_FILE=$(ls -t *.bin | head -1); \
+        mv "$SNAPSHOT_FILE" /tmp/snapshot.bin; \
     else  \
-    touch /tmp/snapshot.bin ; \
+      touch /tmp/snapshot.bin ; \
     fi
 
 ############################
