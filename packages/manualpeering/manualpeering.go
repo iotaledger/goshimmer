@@ -11,15 +11,14 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/typeutils"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
+
+	"github.com/iotaledger/goshimmer/packages/gossip"
 )
 
 const defaultReconnectInterval = 5 * time.Second
@@ -326,7 +325,7 @@ func (m *Manager) keepPeerConnected(kp *knownPeer) {
 			if kp.connDirection == ConnDirectionOutbound {
 				err = m.gm.AddOutbound(ctx, kp.peer, gossip.NeighborsGroupManual)
 			} else if kp.connDirection == ConnDirectionInbound {
-				err = m.gm.AddInbound(ctx, kp.peer, gossip.NeighborsGroupManual, server.WithNoDefaultTimeout())
+				err = m.gm.AddInbound(ctx, kp.peer, gossip.NeighborsGroupManual, gossip.WithNoDefaultTimeout())
 			}
 			if err != nil && !errors.Is(err, gossip.ErrDuplicateNeighbor) && !errors.Is(err, context.Canceled) {
 				m.log.Errorw(
