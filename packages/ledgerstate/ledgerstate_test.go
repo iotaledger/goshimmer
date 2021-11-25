@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+/*
 func TestLedgerstate_MergeToMaster(t *testing.T) {
 	ledgerstate := setupDependencies(t)
 	defer ledgerstate.Shutdown()
@@ -79,6 +80,7 @@ func TestLedgerstate_MergeToMasterLeaf(t *testing.T) {
 		assertBranchID(t, ledgerstate, transactions["G"], branches["G"])
 	}
 }
+*/
 
 func assertBranchID(t *testing.T, ledgerstate *Ledgerstate, transaction *Transaction, branchID BranchID) {
 	assert.True(t, ledgerstate.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
