@@ -868,7 +868,7 @@ func multipleInputsTransaction(ledgerstate *Ledgerstate, a, b wallet, outputsToS
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
 	// store aggreagated branch
-	normalizedBranchIDs, _ := ledgerstate.normalizeBranches(branchIDs)
+	normalizedBranchIDs, _, _ := ledgerstate.normalizeBranches(branchIDs)
 	cachedAggregatedBranch, _, _ := ledgerstate.aggregateNormalizedBranches(normalizedBranchIDs)
 	branchID := BranchID{}
 	cachedAggregatedBranch.Consume(func(branch Branch) {
