@@ -598,6 +598,10 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = errors.Errorf("failed to parse id: %w", err)
 		return
 	}
+	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse inclusionState: %w", err)
+		return
+	}
 	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse parents: %w", err)
 		return
@@ -696,9 +700,10 @@ func (c *ConflictBranch) ObjectStorageKey() []byte {
 func (c *ConflictBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(c.Type())).
-		WriteBytes(c.ID().Bytes()).
-		WriteBytes(c.Parents().Bytes()).
-		WriteBytes(c.Conflicts().Bytes()).
+		Write(c.ID()).
+		Write(c.inclusionState).
+		Write(c.Parents()).
+		Write(c.Conflicts()).
 		Bytes()
 }
 

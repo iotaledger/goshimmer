@@ -58,9 +58,14 @@ func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 	return
 }
 
+// region CORE API /////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // CreateConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
 // updates the ConflictBranch according to the new details if necessary.
 func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
+	b.inclusionStateMutex.RLock()
+	defer b.inclusionStateMutex.RUnlock()
+
 	normalizedParentBranchIDs, _, err := b.normalizeBranches(parentBranchIDs)
 	if err != nil {
 		return nil, false, errors.Errorf("failed to normalize parent Branches: %w", err)
@@ -76,6 +81,9 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 // UpdateConflictBranchParents changes the parents of a ConflictBranch (also updating the references of the
 // ChildBranches).
 func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newParentBranchIDs BranchIDs) (err error) {
+	b.inclusionStateMutex.RLock()
+	defer b.inclusionStateMutex.RUnlock()
+
 	cachedConflictBranch := b.Branch(conflictBranchID)
 	defer cachedConflictBranch.Release()
 
@@ -94,9 +102,6 @@ func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newPa
 		err = errors.Errorf("failed to normalize new parent BranchIDs: %w", err)
 		return
 	}
-
-	b.inclusionStateMutex.RLock()
-	defer b.inclusionStateMutex.RUnlock()
 
 	oldParentBranchIDs := conflictBranch.Parents()
 	for oldParentBranchID := range oldParentBranchIDs {
@@ -118,9 +123,53 @@ func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newPa
 	return
 }
 
+// ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
+// AggregatedBranches to their corresponding ConflictBranches.
+func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
+	switch typeCastedResult := b.conflictBranchIDsCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
+		// initialize return variable
+		result := make(BranchIDs)
+
+		// iterate through parameters and collect the conflict branches
+		seenBranches := set.New()
+		for branchID := range branchIDs {
+			// abort if branch was processed already
+			if !seenBranches.Add(branchID) {
+				continue
+			}
+
+			// process branch or abort if it can not be found
+			if !b.Branch(branchID).Consume(func(branch Branch) {
+				switch branch.Type() {
+				case ConflictBranchType:
+					result[branch.ID()] = types.Void
+				case AggregatedBranchType:
+					for parentBranchID := range branch.Parents() {
+						result[parentBranchID] = types.Void
+					}
+				}
+			}) {
+				return errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+			}
+		}
+
+		return result
+	}).(type) {
+	case error:
+		err = typeCastedResult
+	case BranchIDs:
+		conflictBranchIDs = typeCastedResult
+	}
+
+	return
+}
+
 // AggregateBranches retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically creates
 // the AggregatedBranch if it didn't exist, yet.
 func (b *BranchDAG) AggregateBranches(branchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
+	b.inclusionStateMutex.RLock()
+	defer b.inclusionStateMutex.RUnlock()
+
 	normalizedBranchIDs, _, err := b.normalizeBranches(branchIDs)
 	if err != nil {
 		err = errors.Errorf("failed to normalize Branches: %w", err)
@@ -128,51 +177,6 @@ func (b *BranchDAG) AggregateBranches(branchIDs BranchIDs) (cachedAggregatedBran
 	}
 
 	return b.aggregateNormalizedBranches(normalizedBranchIDs)
-}
-
-// Branch retrieves the Branch with the given BranchID from the object storage.
-func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
-	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
-}
-
-// ChildBranches loads the references to the ChildBranches of the given Branch from the object storage.
-func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches CachedChildBranches) {
-	cachedChildBranches = make(CachedChildBranches, 0)
-	b.childBranchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedChildBranches = append(cachedChildBranches, &CachedChildBranch{CachedObject: cachedObject})
-
-		return true
-	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
-
-	return
-}
-
-// ForEachBranch iterates over all the branches and executes consumer.
-func (b *BranchDAG) ForEachBranch(consumer func(branch Branch)) {
-	b.branchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		(&CachedBranch{CachedObject: cachedObject}).Consume(func(branch Branch) {
-			consumer(branch)
-		})
-
-		return true
-	})
-}
-
-// Conflict loads a Conflict from the object storage.
-func (b *BranchDAG) Conflict(conflictID ConflictID) *CachedConflict {
-	return &CachedConflict{CachedObject: b.conflictStorage.Load(conflictID.Bytes())}
-}
-
-// ConflictMembers loads the referenced ConflictMembers of a Conflict from the object storage.
-func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMembers CachedConflictMembers) {
-	cachedConflictMembers = make(CachedConflictMembers, 0)
-	b.conflictMemberStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedConflictMembers = append(cachedConflictMembers, &CachedConflictMember{CachedObject: cachedObject})
-
-		return true
-	}, objectstorage.WithIteratorPrefix(conflictID.Bytes()))
-
-	return
 }
 
 // SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed.
@@ -236,6 +240,9 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 
 // InclusionState returns the InclusionState of the given Branch.
 func (b *BranchDAG) InclusionState(branchID BranchID) (inclusionState InclusionState) {
+	b.inclusionStateMutex.RLock()
+	defer b.inclusionStateMutex.RUnlock()
+
 	b.Branch(branchID).Consume(func(branch Branch) {
 		if conflictBranch, isConflictBranch := branch.(*ConflictBranch); isConflictBranch {
 			inclusionState = b.getConflictBranchInclusionState(conflictBranch)
@@ -269,93 +276,6 @@ func (b *BranchDAG) InclusionState(branchID BranchID) (inclusionState InclusionS
 	return inclusionState
 }
 
-func (b *BranchDAG) getConflictBranchInclusionState(conflictBranch *ConflictBranch) InclusionState {
-	conflictBranch.inclusionStateMutex.RLock()
-	defer conflictBranch.inclusionStateMutex.RUnlock()
-
-	return conflictBranch.inclusionState
-}
-
-// setConflictBranchInclusionState sets the inclusion state of a ConflictBranch.
-func (b *BranchDAG) setConflictBranchInclusionState(conflictBranch *ConflictBranch, inclusionState InclusionState) (modified bool) {
-	conflictBranch.inclusionStateMutex.Lock()
-	defer conflictBranch.inclusionStateMutex.Unlock()
-
-	if modified = conflictBranch.inclusionState != inclusionState; !modified {
-		return
-	}
-
-	conflictBranch.inclusionState = inclusionState
-	conflictBranch.SetModified()
-	conflictBranch.Persist()
-
-	return
-}
-
-// ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
-// AggregatedBranches to their corresponding ConflictBranches.
-func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
-	switch typeCastedResult := b.conflictBranchIDsCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
-		// initialize return variable
-		result := make(BranchIDs)
-
-		// iterate through parameters and collect the conflict branches
-		seenBranches := set.New()
-		for branchID := range branchIDs {
-			// abort if branch was processed already
-			if !seenBranches.Add(branchID) {
-				continue
-			}
-
-			// process branch or abort if it can not be found
-			if !b.Branch(branchID).Consume(func(branch Branch) {
-				switch branch.Type() {
-				case ConflictBranchType:
-					result[branch.ID()] = types.Void
-				case AggregatedBranchType:
-					for parentBranchID := range branch.Parents() {
-						result[parentBranchID] = types.Void
-					}
-				}
-			}) {
-				return errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
-			}
-		}
-
-		return result
-	}).(type) {
-	case error:
-		err = typeCastedResult
-	case BranchIDs:
-		conflictBranchIDs = typeCastedResult
-	}
-
-	return
-}
-
-// ForEachConflictingBranchID executes the callback for each ConflictBranch that is conflicting with the Branch
-// identified by the given BranchID.
-func (b *BranchDAG) ForEachConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID)) {
-	resolvedConflictBranchIDs, err := b.ResolveConflictBranchIDs(NewBranchIDs(branchID))
-	if err != nil {
-		panic(err)
-	}
-
-	for conflictBranchID := range resolvedConflictBranchIDs {
-		b.Branch(conflictBranchID).Consume(func(branch Branch) {
-			for conflictID := range branch.(*ConflictBranch).Conflicts() {
-				b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
-					if conflictMember.BranchID() == conflictBranchID {
-						return
-					}
-
-					callback(conflictMember.BranchID())
-				})
-			}
-		})
-	}
-}
-
 // Prune resets the database and deletes all objects (for testing or "node resets").
 func (b *BranchDAG) Prune() (err error) {
 	for _, storage := range []*objectstorage.ObjectStorage{
@@ -385,6 +305,105 @@ func (b *BranchDAG) Shutdown() {
 		b.normalizedBranchCache = nil
 		b.conflictBranchIDsCache = nil
 	})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region STORAGE API //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Branch retrieves the Branch with the given BranchID from the object storage.
+func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
+	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
+}
+
+// ChildBranches loads the references to the ChildBranches of the given Branch from the object storage.
+func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches CachedChildBranches) {
+	cachedChildBranches = make(CachedChildBranches, 0)
+	b.childBranchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedChildBranches = append(cachedChildBranches, &CachedChildBranch{CachedObject: cachedObject})
+
+		return true
+	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
+
+	return
+}
+
+// ForEachBranch iterates over all the branches and executes consumer.
+func (b *BranchDAG) ForEachBranch(consumer func(branch Branch)) {
+	b.branchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		(&CachedBranch{CachedObject: cachedObject}).Consume(func(branch Branch) {
+			consumer(branch)
+		})
+
+		return true
+	})
+}
+
+// Conflict loads a Conflict from the object storage.
+func (b *BranchDAG) Conflict(conflictID ConflictID) *CachedConflict {
+	return &CachedConflict{CachedObject: b.conflictStorage.Load(conflictID.Bytes())}
+}
+
+// ConflictMembers loads the referenced ConflictMembers of a Conflict from the object storage.
+func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMembers CachedConflictMembers) {
+	cachedConflictMembers = make(CachedConflictMembers, 0)
+	b.conflictMemberStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedConflictMembers = append(cachedConflictMembers, &CachedConflictMember{CachedObject: cachedObject})
+
+		return true
+	}, objectstorage.WithIteratorPrefix(conflictID.Bytes()))
+
+	return
+}
+
+// ForEachConflictingBranchID executes the callback for each ConflictBranch that is conflicting with the Branch
+// identified by the given BranchID.
+func (b *BranchDAG) ForEachConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID)) {
+	resolvedConflictBranchIDs, err := b.ResolveConflictBranchIDs(NewBranchIDs(branchID))
+	if err != nil {
+		panic(err)
+	}
+
+	for conflictBranchID := range resolvedConflictBranchIDs {
+		b.Branch(conflictBranchID).Consume(func(branch Branch) {
+			for conflictID := range branch.(*ConflictBranch).Conflicts() {
+				b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+					if conflictMember.BranchID() == conflictBranchID {
+						return
+					}
+
+					callback(conflictMember.BranchID())
+				})
+			}
+		})
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region PRIVATE UTILITY FUNCTIONS ////////////////////////////////////////////////////////////////////////////////////
+
+func (b *BranchDAG) getConflictBranchInclusionState(conflictBranch *ConflictBranch) InclusionState {
+	conflictBranch.inclusionStateMutex.RLock()
+	defer conflictBranch.inclusionStateMutex.RUnlock()
+
+	return conflictBranch.inclusionState
+}
+
+// setConflictBranchInclusionState sets the inclusion state of a ConflictBranch.
+func (b *BranchDAG) setConflictBranchInclusionState(conflictBranch *ConflictBranch, inclusionState InclusionState) (modified bool) {
+	conflictBranch.inclusionStateMutex.Lock()
+	defer conflictBranch.inclusionStateMutex.Unlock()
+
+	if modified = conflictBranch.inclusionState != inclusionState; !modified {
+		return
+	}
+
+	conflictBranch.inclusionState = inclusionState
+	conflictBranch.SetModified()
+	conflictBranch.Persist()
+
+	return
 }
 
 // init is an internal utility function that initializes the BranchDAG by creating the root of the DAG (MasterBranch).
@@ -577,9 +596,6 @@ func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID B
 			b.registerConflictMember(conflictID, branchID)
 		}
 
-		b.inclusionStateMutex.RLock()
-		defer b.inclusionStateMutex.RUnlock()
-
 		if b.anyParentRejected(conflictBranch) || b.anyConflictMemberConfirmed(conflictBranch) {
 			b.setConflictBranchInclusionState(conflictBranch, Rejected)
 		}
@@ -696,8 +712,16 @@ func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID Branc
 	})
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchDAGEvents //////////////////////////////////////////////////////////////////////////////////////////////
+
 // BranchDAGEvents is a container for all BranchDAG related events.
 type BranchDAGEvents struct {
 	// BranchCreated gets triggered when a new Branch is created.
 	BranchCreated *events.Event
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

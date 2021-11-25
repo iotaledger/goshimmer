@@ -3,6 +3,8 @@ package ledgerstate
 import (
 	"fmt"
 
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
@@ -21,6 +23,33 @@ const (
 	// Rejected represents elements that have been rejected and will not be included in the ledger state.
 	Rejected
 )
+
+// InclusionStateFromBytes unmarshals an InclusionState from a sequence of bytes.
+func InclusionStateFromBytes(bytes []byte) (inclusionState InclusionState, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// InclusionStateFromMarshalUtil unmarshals an InclusionState from using a MarshalUtil (for easier unmarshalling).
+func InclusionStateFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inclusionState InclusionState, err error) {
+	untypedInclusionState, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse InclusionState (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	if inclusionState = InclusionState(untypedInclusionState); inclusionState > Rejected {
+		err = errors.Errorf("invalid %s: %w", inclusionState, cerrors.ErrParseBytesFailed)
+	}
+
+	return
+}
 
 // String returns a human-readable representation of the InclusionState.
 func (i InclusionState) String() string {
