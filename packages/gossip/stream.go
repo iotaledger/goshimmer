@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -200,7 +201,7 @@ func newPacketsStream(stream network.Stream) *packetsStream {
 }
 
 func (ps *packetsStream) writePacket(packet *pb.Packet) error {
-	if err := ps.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {
+	if err := ps.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
 		return errors.WithStack(err)
 	}
 	err := ps.writer.WriteMsg(packet)
@@ -225,7 +226,7 @@ func sendNegotiationMessage(ps *packetsStream) error {
 }
 
 func receiveNegotiationMessage(ps *packetsStream) error {
-	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil {
+	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
 		return errors.WithStack(err)
 	}
 	packet := &pb.Packet{}
@@ -253,4 +254,8 @@ func (m *Manager) closeStream(s network.Stream) {
 	if err := s.Close(); err != nil {
 		m.log.Warnw("close error", "err", err)
 	}
+}
+
+func isDeadlineUnsupportedError(err error) bool {
+	return strings.Contains(err.Error(), "deadline not supported")
 }
