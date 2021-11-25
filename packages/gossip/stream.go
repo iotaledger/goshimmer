@@ -230,11 +230,6 @@ func sendNegotiationMessage(ps *packetsStream) error {
 }
 
 func receiveNegotiationMessage(ps *packetsStream) (err error) {
-	//defer func() {
-	//	if unsetErr := ps.SetReadDeadline(time.Time{}); unsetErr != nil && !isDeadlineUnsupportedError(unsetErr) {
-	//		err = errors.CombineErrors(err, unsetErr)
-	//	}
-	//}()
 	packet := &pb.Packet{}
 	if err := ps.readPacket(packet); err != nil {
 		return errors.WithStack(err)

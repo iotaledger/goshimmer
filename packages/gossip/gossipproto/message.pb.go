@@ -7,10 +7,11 @@
 package gossipproto
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -287,13 +288,16 @@ func file_message_proto_rawDescGZIP() []byte {
 	return file_message_proto_rawDescData
 }
 
-var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_message_proto_goTypes = []interface{}{
-	(*Packet)(nil),         // 0: gossipproto.Packet
-	(*Message)(nil),        // 1: gossipproto.Message
-	(*MessageRequest)(nil), // 2: gossipproto.MessageRequest
-	(*Negotiation)(nil),    // 3: gossipproto.Negotiation
-}
+var (
+	file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+	file_message_proto_goTypes  = []interface{}{
+		(*Packet)(nil),         // 0: gossipproto.Packet
+		(*Message)(nil),        // 1: gossipproto.Message
+		(*MessageRequest)(nil), // 2: gossipproto.MessageRequest
+		(*Negotiation)(nil),    // 3: gossipproto.Negotiation
+	}
+)
+
 var file_message_proto_depIdxs = []int32{
 	1, // 0: gossipproto.Packet.message:type_name -> gossipproto.Message
 	2, // 1: gossipproto.Packet.messageRequest:type_name -> gossipproto.MessageRequest

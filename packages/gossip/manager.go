@@ -240,7 +240,7 @@ func (m *Manager) send(packet *pb.Packet, to ...identity.ID) {
 func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group NeighborsGroup,
 	connectorFunc func(context.Context, *peer.Peer, []ConnectPeerOption) (*packetsStream, error),
 	connectOpts []ConnectPeerOption,
-)  error {
+) error {
 	if p.ID() == m.local.ID() {
 		return errors.WithStack(ErrLoopbackNeighbor)
 	}

@@ -37,7 +37,7 @@ type Neighbor struct {
 	disconnected   *events.Event
 	packetReceived *events.Event
 
-	ps     *packetsStream
+	ps *packetsStream
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
@@ -56,7 +56,7 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, ps *packetsStream, log *log
 		disconnected:   events.NewEvent(disconnected),
 		packetReceived: events.NewEvent(packetReceived),
 
-		ps:             ps,
+		ps: ps,
 	}
 }
 
