@@ -11,24 +11,24 @@ import (
 // UvarintWriter writes protobuf messages.
 type UvarintWriter struct {
 	w      io.Writer
-	lenBuf []byte
 }
 
 // NewDelimitedWriter returns a new UvarintWriter.
 func NewDelimitedWriter(w io.Writer) *UvarintWriter {
-	return &UvarintWriter{w, make([]byte, varint.MaxLenUvarint63)}
+	return &UvarintWriter{w}
 }
 
 // WriteMsg writes protobuf message.
 func (uw *UvarintWriter) WriteMsg(msg proto.Message) (err error) {
 	var data []byte
+	lenBuf := make([]byte, varint.MaxLenUvarint63)
 	data, err = proto.Marshal(msg)
 	if err != nil {
 		return err
 	}
 	length := uint64(len(data))
-	n := varint.PutUvarint(uw.lenBuf, length)
-	_, err = uw.w.Write(uw.lenBuf[:n])
+	n := varint.PutUvarint(lenBuf, length)
+	_, err = uw.w.Write(lenBuf[:n])
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,6 @@ func (uw *UvarintWriter) WriteMsg(msg proto.Message) (err error) {
 // UvarintReader read protobuf messages.
 type UvarintReader struct {
 	r   *bufio.Reader
-	buf []byte
 }
 
 // NewDelimitedReader returns a new UvarintReader.
@@ -54,10 +53,7 @@ func (ur *UvarintReader) ReadMsg(msg proto.Message) error {
 		return err
 	}
 	length := int(length64)
-	if len(ur.buf) < length {
-		ur.buf = make([]byte, length)
-	}
-	buf := ur.buf[:length]
+	buf := make([]byte, length)
 	if _, err := io.ReadFull(ur.r, buf); err != nil {
 		return err
 	}
