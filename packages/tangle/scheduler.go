@@ -42,15 +42,15 @@ type SchedulerParams struct {
 type Scheduler struct {
 	Events *SchedulerEvents
 
-	tangle  *Tangle
-	ticker  *time.Ticker
-	started typeutils.AtomicBool
-	stopped typeutils.AtomicBool
-
-	mu       sync.Mutex
-	buffer   *schedulerutils.BufferQueue
-	deficits map[identity.ID]float64
-	rate     *atomic.Duration
+	tangle          *Tangle
+	ticker          *time.Ticker
+	started         typeutils.AtomicBool
+	stopped         typeutils.AtomicBool
+	accessManaCache *schedulerutils.AccessManaCache
+	mu              sync.Mutex
+	buffer          *schedulerutils.BufferQueue
+	deficits        map[identity.ID]float64
+	rate            *atomic.Duration
 
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
@@ -67,6 +67,8 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	// maximum access mana-scaled inbox length
 	maxQueue := float64(maxBuffer) / float64(tangle.LedgerState.TotalSupply())
 
+	accessManaCache := schedulerutils.NewAccessManaCache(tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc, MinMana)
+
 	return &Scheduler{
 		Events: &SchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),
@@ -74,12 +76,13 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 			Error:            events.NewEvent(events.ErrorCaller),
 		},
-		tangle:         tangle,
-		rate:           atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
-		ticker:         time.NewTicker(tangle.Options.SchedulerParams.Rate),
-		buffer:         schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
-		deficits:       make(map[identity.ID]float64),
-		shutdownSignal: make(chan struct{}),
+		tangle:          tangle,
+		accessManaCache: accessManaCache,
+		rate:            atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
+		ticker:          time.NewTicker(tangle.Options.SchedulerParams.Rate),
+		buffer:          schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
+		deficits:        make(map[identity.ID]float64),
+		shutdownSignal:  make(chan struct{}),
 	}
 }
 
@@ -124,9 +127,7 @@ func (s *Scheduler) Setup() {
 		}
 
 		if err := s.SubmitAndReady(messageID); err != nil {
-			if !errors.Is(err, schedulerutils.ErrBufferFull) &&
-				!errors.Is(err, schedulerutils.ErrInboxExceeded) &&
-				!errors.Is(err, schedulerutils.ErrInsufficientMana) {
+			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 			}
 		}
@@ -251,22 +252,13 @@ func (s *Scheduler) submit(message *Message) error {
 		return ErrNotRunning
 	}
 
-	nodeID := identity.NewID(message.IssuerPublicKey())
-	nodeMana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
+	// TODO: check if nodes have MinMana here
 
-	if nodeMana < MinMana {
-		// allow zero mana nodes access submit messages
-		nodeMana = MinMana
+	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
+	for _, droppedMsgID := range droppedMessageIDs {
+		s.Events.MessageDiscarded.Trigger(MessageID(droppedMsgID))
 	}
-
-	err := s.buffer.Submit(message, nodeMana)
-	if err != nil {
-		s.Events.MessageDiscarded.Trigger(message.ID())
-	}
-	if errors.Is(err, schedulerutils.ErrInboxExceeded) {
-		s.Events.NodeBlacklisted.Trigger(nodeID)
-	}
-	return err
+	return nil
 }
 
 func (s *Scheduler) unsubmit(message *Message) {
@@ -281,25 +273,12 @@ func (s *Scheduler) schedule() *Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// cache the access mana
-	manaCache := s.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()
-
-	s.updateActiveNodesList(manaCache)
+	s.updateActiveNodesList(s.accessManaCache.RawAccessManaVector())
 
 	start := s.buffer.Current()
 	// no messages submitted
 	if start == nil {
 		return nil
-	}
-
-	// wrap the AccessManaMap to always return at least MinMana for now
-	getCachedMana := func(id identity.ID) float64 {
-		if mana, ok := manaCache[id]; ok && mana >= MinMana {
-			return mana
-		}
-		// always return at least MinMana
-		manaCache[id] = MinMana
-		return manaCache[id]
 	}
 
 	var schedulingNode *schedulerutils.NodeQueue
@@ -311,7 +290,7 @@ func (s *Scheduler) schedule() *Message {
 		if msg != nil && !now.Before(msg.IssuingTime()) {
 			// compute how often the deficit needs to be incremented until the message can be scheduled
 			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-			nodeMana := getCachedMana(q.NodeID())
+			nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
 			// find the first node that will be allowed to schedule a message
 			if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
 				rounds = r
@@ -333,7 +312,7 @@ func (s *Scheduler) schedule() *Message {
 	if rounds > 0 {
 		// increment every node's deficit for the required number of rounds
 		for q := start; ; {
-			s.updateDeficit(q.NodeID(), float64(rounds)*getCachedMana(q.NodeID()))
+			s.updateDeficit(q.NodeID(), float64(rounds)*s.accessManaCache.GetCachedMana(q.NodeID()))
 
 			q = s.buffer.Next()
 			if q == start {
@@ -344,7 +323,7 @@ func (s *Scheduler) schedule() *Message {
 
 	// increment the deficit for all nodes before schedulingNode one more time
 	for q := start; q != schedulingNode; q = s.buffer.Next() {
-		s.updateDeficit(q.NodeID(), getCachedMana(q.NodeID()))
+		s.updateDeficit(q.NodeID(), s.accessManaCache.GetCachedMana(q.NodeID()))
 	}
 
 	// remove the message from the buffer and adjust node's deficit

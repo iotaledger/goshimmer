@@ -752,27 +752,30 @@ var (
 	testSchedulerParams = SchedulerParams{
 		MaxBufferSize:               testMaxBuffer,
 		Rate:                        testRate,
-		AccessManaMapRetrieverFunc:  accessManaMapRetriever,
-		AccessManaRetrieveFunc:      accessManaRetriever,
-		TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
+		AccessManaMapRetrieverFunc:  mockAccessManaMapRetriever,
+		AccessManaRetrieveFunc:      mockAccessManaRetriever,
+		TotalAccessManaRetrieveFunc: mockTotalAccessManaRetriever,
 	}
 )
 
-func accessManaMapRetriever() map[identity.ID]float64 {
+// mockAccessManaMapRetriever returns mocked access mana map.
+func mockAccessManaMapRetriever() map[identity.ID]float64 {
 	return map[identity.ID]float64{
 		peerNode.ID(): aMana,
 		selfNode.ID(): aMana,
 	}
 }
 
-func accessManaRetriever(id identity.ID) float64 {
+// mockAccessManaRetriever returns mocked access mana value for a node.
+func mockAccessManaRetriever(id identity.ID) float64 {
 	if id == peerNode.ID() || id == selfNode.ID() {
 		return aMana
 	}
 	return 0
 }
 
-func totalAccessManaRetriever() float64 {
+// mockTotalAccessManaRetriever returns mocked total access mana value.
+func mockTotalAccessManaRetriever() float64 {
 	return totalAMana
 }
 
