@@ -85,17 +85,21 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 
 		// here any direct conflicting branch is also disliked
 		// which means that instead the liked branches have to be derived from branch's parents
-		cachedBranch := o.branchDAG.Branch(resolvedConflictBranchID)
-		for parent := range cachedBranch.Unwrap().Parents() {
-			parentsOpinionTuple, err := o.LikedInstead(parent)
-			if err != nil {
-				cachedBranch.Release()
-				return nil, errors.Wrapf(err, "unable to determine liked instead of parent %s of %s", parent, branchID)
+		o.branchDAG.Branch(resolvedConflictBranchID).Consume(func(branch ledgerstate.Branch) {
+			for parent := range branch.Parents() {
+				parentsOpinionTuple, likedErr := o.LikedInstead(parent)
+				if likedErr != nil {
+					err = errors.Wrapf(likedErr, "unable to determine liked instead of parent %s of %s", parent, branchID)
+					return
+				}
+				// If I have multiple parents I have to add all of them to my tuple
+				opinionTuple = append(opinionTuple, parentsOpinionTuple...)
 			}
-			// If I have multiple parents I have to add all of them to my tuple
-			opinionTuple = append(opinionTuple, parentsOpinionTuple...)
+		})
+		if err != nil {
+			return nil, err
 		}
-		cachedBranch.Release()
+
 	}
 
 	return opinionTuple, nil
