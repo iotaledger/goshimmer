@@ -44,9 +44,9 @@ RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ]; then \
     wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin ;  \
     elif [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" != "" ]; then \
     apt update; apt install -y gawk; \
-    git clone https://github.com/stck-lzm/badown.git; \
-    cd badown; \
-    ./badown "$CUSTOM_SNAPSHOT_URL"; \
+    git clone https://github.com/ffluegel/zippyshare.git; \
+    cd zippyshare; \
+    ./zippyshare.sh "$CUSTOM_SNAPSHOT_URL"; \
     SNAPSHOT_FILE=$(ls -t *.bin | head -1); \
     mv "$SNAPSHOT_FILE" /tmp/snapshot.bin; \
     else  \
