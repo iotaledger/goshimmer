@@ -3,7 +3,7 @@ version: "3"
 
 services:
   entrynode:
-    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
+    image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: entrynode
     restart: unless-stopped
     network_mode: "host"

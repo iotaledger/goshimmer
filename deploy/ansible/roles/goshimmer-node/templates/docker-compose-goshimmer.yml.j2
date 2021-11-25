@@ -3,7 +3,7 @@ version: '3.3'
 
 services:
   goshimmer:
-    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
+    image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: goshimmer
     volumes:
       - "./db:/db"

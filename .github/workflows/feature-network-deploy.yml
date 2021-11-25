@@ -31,13 +31,13 @@ jobs:
       - name: Login to DockerHub
         uses: docker/login-action@v1.9.0
         with:
-          username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
-          password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
+          username: '${{ secrets.IOTALEDGERTESTING_HUB_DOCKER_LOGIN }}'
+          password: '${{ secrets.IOTALEDGERTESTING_HUB_DOCKER_PASSWORD }}'
 
       - name: Publish to Docker Hub
         uses: docker/build-push-action@v2.5.0
         with:
-          tags: iotaledger/goshimmer:feature
+          tags: iotaledgertesting/goshimmer:feature
           push: true
           build-args: CUSTOM_SNAPSHOT=${{github.event.inputs.tagName}}
           cache-from: type=local,src=/tmp/.buildx-cache
@@ -72,6 +72,7 @@ jobs:
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
           DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
           COMMIT_SHA: '${{ github.sha }}'
+          GOSHIMMER_DOCKER_IMAGE: 'iotaledgertesting/goshimmer'
           GOSHIMMER_DOCKER_TAG: 'feature'
         run: |
           export NETWORK_VERSION=$((16#$(git rev-parse --short "$COMMIT_SHA")%1000000000+1000))
