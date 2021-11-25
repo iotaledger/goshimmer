@@ -7,6 +7,7 @@ supports:
     analysisentry-01.feature.shimmer.iota.cafe:
       entryNodeSeed: "{{ ANALYSISSENTRY_01_ENTRYNODE_SEED }}"
       manaDashboardHost: "bootstrap-01.feature.shimmer.iota.cafe"
+      logLevel: "debug"
 
 goshimmers:
   children:

@@ -20,13 +20,6 @@
   roles:
     - goshimmer-node
 
-- hosts: goshimmers:&public_nodes
-  vars:
-    nodeType: public-node
-  roles:
-    - goshimmer-node
-
-
 - hosts: drands
   vars:
     numberOfDrands: 5
