@@ -39,4 +39,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Run Tests
-        run: go test ./... -tags rocksdb -count=1
+        run: go test -race ./... -tags rocksdb -count=1
