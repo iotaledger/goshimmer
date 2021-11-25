@@ -130,7 +130,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID MessageID) {
+	t.tangle.Dispatcher.Events.MessageDispatched.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
 	}))
 
@@ -167,8 +167,8 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	// TODO: possible logical race condition if a child message gets added before its parents.
-	//  To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
-	//  before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
+	// To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
+	// before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
 
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(&TipEvent{

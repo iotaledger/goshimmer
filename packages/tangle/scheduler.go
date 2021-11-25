@@ -114,7 +114,7 @@ func (s *Scheduler) Shutdown() {
 func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
 	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
-		// avoid scheduling old messages
+		// Issue #1855: TO BE REMOVED: avoid scheduling old messages
 		skipScheduler := false
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			skipScheduler = clock.Since(message.IssuingTime()) > oldMessageThreshold
@@ -126,12 +126,31 @@ func (s *Scheduler) Setup() {
 			return
 		}
 
-		if err := s.SubmitAndReady(messageID); err != nil {
+		if err := s.Submit(messageID); err != nil {
 			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 			}
 		}
+
+		s.tryReady(messageID)
 	}))
+
+	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(s.updateApprovers))
+
+	onMessageConfirmed := func(messageID MessageID) {
+		var scheduled bool
+		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			scheduled = messageMetadata.Scheduled() || messageMetadata.ScheduledBypass() // Issue #1855 TODO: remove bypass check
+		})
+		if scheduled {
+			return
+		}
+		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			s.unsubmit(message)
+		})
+		s.updateApprovers(messageID)
+	}
+	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageConfirmed))
 
 	s.Start()
 }
@@ -247,6 +266,48 @@ func (s *Scheduler) Clear() {
 	}
 }
 
+// isEligible returns true if the given messageID has either been scheduled or confirmed.
+func (s *Scheduler) isEligible(messageID MessageID) (eligible bool) {
+	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		eligible = messageMetadata.Scheduled() ||
+			s.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) ||
+			messageMetadata.ScheduledBypass() // Issue #1855: TO BE REMOVED
+	})
+	return
+}
+
+// isReady returns true if the given messageID's parents are eligible.
+func (s *Scheduler) isReady(messageID MessageID) (ready bool) {
+	ready = true
+	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		message.ForEachParent(func(parent Parent) {
+			if !s.isEligible(parent.ID) { // parents are not eligible
+				ready = false
+				return
+			}
+		})
+	})
+
+	return
+}
+
+// tryReady tries to set the given message as ready.
+func (s *Scheduler) tryReady(messageID MessageID) {
+	if s.isReady(messageID) {
+		if err := s.Ready(messageID); err != nil {
+			s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", messageID, err))
+		}
+	}
+}
+
+// updateApprovers iterates over the direct approvers of the given messageID and
+// tries to mark them as ready.
+func (s *Scheduler) updateApprovers(messageID MessageID) {
+	s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
+		s.tryReady(approver.approverMessageID)
+	})
+}
+
 func (s *Scheduler) submit(message *Message) error {
 	if s.stopped.IsSet() {
 		return ErrNotRunning
@@ -283,11 +344,11 @@ func (s *Scheduler) schedule() *Message {
 
 	var schedulingNode *schedulerutils.NodeQueue
 	rounds := math.MaxInt32
-	now := clock.SyncedTime()
 	for q := start; ; {
 		msg := q.Front()
-		// a message can be scheduled, if it is ready, and its issuing time is not in the future
-		if msg != nil && !now.Before(msg.IssuingTime()) {
+		// a message can be scheduled, if it is ready
+		// (its issuing time is not in the future and all of its parents are eligible).
+		if msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) {
 			// compute how often the deficit needs to be incremented until the message can be scheduled
 			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
 			nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
