@@ -32,7 +32,7 @@ const (
 // Returns CSV with the following fields:
 //
 //	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
-//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled ScheduledBypass Booked
+//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
 //	Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsMessages() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticMessages)
@@ -95,7 +95,7 @@ func (api *GoShimmerAPI) GetDiagnosticsInvalidBranches() (*csv.Reader, error) {
 // Returns csv with the following fields:
 //
 //	tipType ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
-//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled ScheduledBypass Booked
+//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
 //	Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsTips() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsTips)
