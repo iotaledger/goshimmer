@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -185,7 +186,9 @@ func (m *Manager) streamHandler(stream network.Stream) {
 type packetsStream struct {
 	network.Stream
 
+	readerLock     sync.Mutex
 	reader         *libp2putil.UvarintReader
+	writerLock     sync.Mutex
 	writer         *libp2putil.UvarintWriter
 	packetsRead    *atomic.Uint64
 	packetsWritten *atomic.Uint64
@@ -202,6 +205,8 @@ func newPacketsStream(stream network.Stream) *packetsStream {
 }
 
 func (ps *packetsStream) writePacket(packet *pb.Packet) error {
+	ps.writerLock.Lock()
+	defer ps.writerLock.Unlock()
 	if err := ps.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
 		return errors.WithStack(err)
 	}
@@ -214,6 +219,8 @@ func (ps *packetsStream) writePacket(packet *pb.Packet) error {
 }
 
 func (ps *packetsStream) readPacket(packet *pb.Packet) error {
+	ps.readerLock.Lock()
+	defer ps.readerLock.Unlock()
 	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
 		return errors.WithStack(err)
 	}
