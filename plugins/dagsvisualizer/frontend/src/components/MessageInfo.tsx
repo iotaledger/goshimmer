@@ -14,34 +14,38 @@ interface Props {
 @observer
 export class MessageInfo extends React.Component<Props, any> {
     render () {
-        let { selectedMsg, selected_via_click } = this.props.tangleStore;
+        let { selectedMsg, selected_via_click,explorerAddress } = this.props.tangleStore;
 
         return (
             selectedMsg && selected_via_click &&
                 <div className="selectedInfo">
                     <Card style={{ width: '100%' }}>
                         <Card.Body>
-                            <Card.Title>{selectedMsg.ID}</Card.Title>
+                            <Card.Title>
+                                <a href={`${explorerAddress}/explorer/message/${selectedMsg.ID}`} target="_blank" rel="noopener noreferrer">
+                                    {selectedMsg.ID}
+                                </a>
+                            </Card.Title>
                             <ListGroup variant="flush">
                                 <ListGroup.Item>
                                     Strong Parents:
                                     <ListGroup>
-                                        {selectedMsg.strongParentIDs.map((p,i) => <ListGroup.Item key={i}>{p}</ListGroup.Item>)}
+                                        {selectedMsg.strongParentIDs.map((p,i) => <ListGroup.Item key={i}><a href={`${explorerAddress}/explorer/message/${p}`} target="_blank" rel="noopener noreferrer">{p}</a></ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     Weak Parents:
                                     <ListGroup>
-                                        {selectedMsg.weakParentIDs.map((p,i) => <ListGroup.Item key={i}>{p}</ListGroup.Item>)}
+                                        {selectedMsg.weakParentIDs.map((p,i) => <ListGroup.Item key={i}><a href={`${explorerAddress}/explorer/message/${p}`} target="_blank" rel="noopener noreferrer">{p}</a></ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     Liked Parents:
                                     <ListGroup>
-                                        {selectedMsg.likedParentIDs.map((p,i) => <ListGroup.Item key={i}>{p}</ListGroup.Item>)}
+                                        {selectedMsg.likedParentIDs.map((p,i) => <ListGroup.Item key={i}><a href={`${explorerAddress}/explorer/message/${p}`} target="_blank" rel="noopener noreferrer">{p}</a></ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
-                                <ListGroup.Item>Branch: {resolveBase58BranchID(selectedMsg.branchID)}</ListGroup.Item>
+                                <ListGroup.Item>Branch: <a href={`${explorerAddress}/explorer/branch/${selectedMsg.branchID}`} target="_blank" rel="noopener noreferrer">{resolveBase58BranchID(selectedMsg.branchID)}</a></ListGroup.Item>
                                 <ListGroup.Item>isMarker: {selectedMsg.isMarker.toString()}</ListGroup.Item>
                                 <ListGroup.Item>GoF: {selectedMsg.gof}</ListGroup.Item>
                                 <ListGroup.Item>Confrimed: {selectedMsg.isConfirmed.toString()}</ListGroup.Item>                                
