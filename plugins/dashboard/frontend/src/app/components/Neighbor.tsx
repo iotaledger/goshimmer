@@ -92,9 +92,9 @@ export class Neighbor extends React.Component<Props, any> {
                                     <h6>Network (Tx/Rx)</h6>
                                     <Badge pill variant="light">
                                         {'Total: '}
-                                        {prettysize(last.packets_written)}
+                                        {last.packets_written}
                                         {' / '}
-                                        {prettysize(last.packets_read)}
+                                        {last.packets_read}
                                     </Badge>
                                     {' '}
                                     <Badge pill variant="light">
