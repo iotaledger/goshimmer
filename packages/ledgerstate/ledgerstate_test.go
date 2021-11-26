@@ -114,42 +114,42 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["F"]))
 		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G"]))
 		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G+H"]))
+		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["H"]))
+		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["I"]))
 
 		ledgerstate.BranchDAG.Branch(branches["G+H"]).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(branches["G"], branches["H"]), branch.Parents())
 		})
 	}
-}
 
-/*
-func TestLedgerstate_MergeToMasterLeaf(t *testing.T) {
-	ledgerstate := setupDependencies(t)
-	defer ledgerstate.Shutdown()
+	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branches["H"]))
 
-	manaPledgeID := identity.GenerateIdentity().ID()
-	wallets := make(map[string]wallet)
-	outputs := make(map[string]Output)
-	inputs := make(map[string]Input)
-	transactions := make(map[string]*Transaction)
-	branches := make(map[string]BranchID)
+	setupScenario_TopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
-	setupScenario(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
-
-	// merge F to Master
+	// The new TX M should be now booked under G, as the aggregated branch G+H got H confirmed, transforming it into
+	// a ConflictBranch again: just G.
 	{
-		err := ledgerstate.MergeToMaster(branches["F"])
-		require.NoError(t, err)
-
-		assertBranchID(t, ledgerstate, transactions["A"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
 		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
-		assertBranchID(t, ledgerstate, transactions["C"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["C"], branches["C"])
 		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
-		assertBranchID(t, ledgerstate, transactions["E"], MasterBranchID)
-		assertBranchID(t, ledgerstate, transactions["F"], MasterBranchID)
+		assertBranchID(t, ledgerstate, transactions["H"], branches["H"])
+		assertBranchID(t, ledgerstate, transactions["I"], branches["I"])
+		assertBranchID(t, ledgerstate, transactions["E"], branches["C"])
+		assertBranchID(t, ledgerstate, transactions["F"], branches["F"])
 		assertBranchID(t, ledgerstate, transactions["G"], branches["G"])
+		assertBranchID(t, ledgerstate, transactions["L"], branches["G+H"])
+		assertBranchID(t, ledgerstate, transactions["M"], branches["G"])
+
+		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["D"]))
+		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["C"]))
+		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["F"]))
+		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G"]))
+		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G+H"]))
+		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["H"]))
+		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["I"]))
 	}
 }
-*/
 
 func assertBranchID(t *testing.T, ledgerstate *Ledgerstate, transaction *Transaction, branchID BranchID) {
 	assert.True(t, ledgerstate.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
@@ -572,6 +572,35 @@ func setupScenario_TopTopLayer(t *testing.T, wallets map[string]wallet, outputs 
 		inputs["L"] = NewUTXOInput(outputs["L"].ID())
 
 		_, err := ledgerstate.BookTransaction(transactions["L"])
+		require.NoError(t, err)
+	}
+}
+
+func setupScenario_TopTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+
+	// issue Transaction L
+	{
+		wallets["M"] = createWallets(1)[0]
+		outputs["M"] = NewSigLockedSingleOutput(200, wallets["M"].address)
+
+		transactionEssence := NewTransactionEssence(0, time.Now(), manaPledgeID, manaPledgeID,
+			NewInputs(inputs["L"]),
+			NewOutputs(outputs["M"]),
+		)
+
+		transactions["M"] = NewTransaction(transactionEssence, []UnlockBlock{
+			NewSignatureUnlockBlock(
+				NewED25519Signature(
+					wallets["L"].keyPair.PublicKey,
+					wallets["L"].keyPair.PrivateKey.Sign(transactionEssence.Bytes()),
+				),
+			),
+		})
+
+		outputs["M"].SetID(NewOutputID(transactions["M"].ID(), 0))
+		inputs["M"] = NewUTXOInput(outputs["M"].ID())
+
+		_, err := ledgerstate.BookTransaction(transactions["M"])
 		require.NoError(t, err)
 	}
 }
