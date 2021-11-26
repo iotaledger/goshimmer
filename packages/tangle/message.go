@@ -792,7 +792,6 @@ type MessageMetadata struct {
 	branchID            ledgerstate.BranchID
 	scheduled           bool
 	scheduledTime       time.Time
-	scheduledBypass     bool
 	booked              bool
 	bookedTime          time.Time
 	invalid             bool
@@ -805,7 +804,6 @@ type MessageMetadata struct {
 	branchIDMutex           sync.RWMutex
 	scheduledMutex          sync.RWMutex
 	scheduledTimeMutex      sync.RWMutex
-	scheduledBypassMutex    sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
 	invalidMutex            sync.RWMutex
@@ -863,10 +861,6 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
-		return
-	}
-	if result.scheduledBypass, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse scheduledBypass flag of message metadata: %w", err)
 		return
 	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
@@ -1039,31 +1033,6 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 	return m.scheduledTime
 }
 
-// SetScheduledBypass sets the message associated with this metadata as scheduledBypass.
-// It returns true if the scheduledBypass status is modified. False otherwise.
-func (m *MessageMetadata) SetScheduledBypass(scheduledBypass bool) (modified bool) {
-	m.scheduledBypassMutex.Lock()
-	defer m.scheduledBypassMutex.Unlock()
-
-	if m.scheduledBypass == scheduledBypass {
-		return false
-	}
-
-	m.scheduledBypass = scheduledBypass
-	m.SetModified()
-	modified = true
-
-	return
-}
-
-// ScheduledBypass returns true if the message represented by this metadata was scheduledBypassed. False otherwise.
-func (m *MessageMetadata) ScheduledBypass() (result bool) {
-	m.scheduledBypassMutex.RLock()
-	defer m.scheduledBypassMutex.RUnlock()
-
-	return m.scheduledBypass
-}
-
 // SetBooked sets the message associated with this metadata as booked.
 // It returns true if the booked status is modified. False otherwise.
 func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
@@ -1183,7 +1152,6 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Write(m.BranchID()).
 		WriteBool(m.Scheduled()).
 		WriteTime(m.ScheduledTime()).
-		WriteBool(m.ScheduledBypass()).
 		WriteBool(m.IsBooked()).
 		WriteTime(m.BookedTime()).
 		WriteBool(m.IsInvalid()).
@@ -1209,7 +1177,6 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("branchID", m.BranchID()),
 		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("scheduledTime", m.ScheduledTime()),
-		stringify.StructField("scheduledBypass", m.ScheduledBypass()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("invalid", m.IsInvalid()),

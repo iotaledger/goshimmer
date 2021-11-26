@@ -114,24 +114,11 @@ func (s *Scheduler) Shutdown() {
 func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
 	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
-		// Issue #1855: TO BE REMOVED: avoid scheduling old messages
-		skipScheduler := false
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			skipScheduler = clock.Since(message.IssuingTime()) > oldMessageThreshold
-		})
-		if skipScheduler {
-			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				messageMetadata.SetScheduledBypass(true)
-			})
-			return
-		}
-
 		if err := s.Submit(messageID); err != nil {
 			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 			}
 		}
-
 		s.tryReady(messageID)
 	}))
 
@@ -140,7 +127,7 @@ func (s *Scheduler) Setup() {
 	onMessageConfirmed := func(messageID MessageID) {
 		var scheduled bool
 		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			scheduled = messageMetadata.Scheduled() || messageMetadata.ScheduledBypass() // Issue #1855 TODO: remove bypass check
+			scheduled = messageMetadata.Scheduled()
 		})
 		if scheduled {
 			return
@@ -267,8 +254,7 @@ func (s *Scheduler) Clear() {
 func (s *Scheduler) isEligible(messageID MessageID) (eligible bool) {
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		eligible = messageMetadata.Scheduled() ||
-			s.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) ||
-			messageMetadata.ScheduledBypass() // Issue #1855: TO BE REMOVED
+			s.tangle.ConfirmationOracle.IsMessageConfirmed(messageID)
 	})
 	return
 }
@@ -310,7 +296,7 @@ func (s *Scheduler) submit(message *Message) error {
 		return ErrNotRunning
 	}
 
-	// TODO: check if nodes have MinMana here
+	// when removing the zero mana node solution, check if nodes have MinMana here
 
 	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
 	for _, droppedMsgID := range droppedMessageIDs {

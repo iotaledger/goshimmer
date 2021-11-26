@@ -109,7 +109,7 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 		longestQueue := b.activeNode[maxNodeID].Value.(*NodeQueue)
 		// find oldest submitted and not-ready message in the longest queue
 		var oldestMessage Element
-		// TODO: change submitted map (hashmap) to tree map
+
 		for _, v := range longestQueue.submitted {
 			if oldestMessage == nil || oldestMessage.IssuingTime().After((*v).IssuingTime()) {
 				oldestMessage = *v
