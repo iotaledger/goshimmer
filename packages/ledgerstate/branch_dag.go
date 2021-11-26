@@ -222,7 +222,7 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	}
 
 	for rejectedWalker.HasNext() {
-		b.Branch(confirmationWalker.Next().(BranchID)).Consume(func(branch Branch) {
+		b.Branch(rejectedWalker.Next().(BranchID)).Consume(func(branch Branch) {
 			if modified = b.setConflictBranchInclusionState(branch.(*ConflictBranch), Rejected); !modified {
 				return
 			}
@@ -252,11 +252,11 @@ func (b *BranchDAG) InclusionState(branchID BranchID) (inclusionState InclusionS
 		isParentRejected := false
 		isParentPending := false
 		for parentBranchID := range branch.Parents() {
-			b.Branch(parentBranchID).Consume(func(branch Branch) {
-				parentInclusionState := b.getConflictBranchInclusionState(branch.(*ConflictBranch))
+			b.Branch(parentBranchID).Consume(func(parentBranch Branch) {
+				parentInclusionState := b.getConflictBranchInclusionState(parentBranch.(*ConflictBranch))
 
 				isParentRejected = parentInclusionState == Rejected
-				isParentPending = parentInclusionState == Pending
+				isParentPending = isParentPending || parentInclusionState == Pending
 			})
 
 			if isParentRejected {
@@ -488,7 +488,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 		}
 
 		// create normalized branch candidates (check their conflicts and queue parent checks)
-		normalizedBranches = make(BranchIDs)
+		normalizedBranches = NewBranchIDs()
 		for conflictBranchID := range conflictBranches {
 			// check branch and queue parents
 			if !b.Branch(conflictBranchID).Consume(func(branch Branch) {
@@ -539,7 +539,11 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 		normalizedBranches = typeCastedResult
 	}
 
-	return
+	if len(normalizedBranches) == 0 {
+		normalizedBranches = NewBranchIDs(MasterBranchID)
+	}
+
+	return normalizedBranches, lazyBooked, err
 }
 
 // createConflictBranchFromNormalizedParentBranchIDs is an internal utility function that retrieves the ConflictBranch
