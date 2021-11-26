@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -14,13 +17,16 @@ import (
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/multiformats/go-multiaddr"
+	"go.uber.org/atomic"
 
+	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/libp2putil"
 )
 
 const (
 	defaultConnectionTimeout = 5 * time.Second // timeout after which the connection must be established.
 	protocolID               = "gossip/0.0.1"
+	ioTimeout                = 4 * time.Second
 )
 
 var (
@@ -32,7 +38,7 @@ var (
 	ErrNoGossip = errors.New("peer does not have a gossip service")
 )
 
-func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (network.Stream, error) {
+func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (*packetsStream, error) {
 	conf := buildConnectPeerConfig(opts)
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
@@ -48,7 +54,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if err != nil {
 		return nil, err
 	}
-	m.libp2pHost.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
+	m.Libp2pHost.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
 
 	if conf.useDefaultTimeout {
 		var cancel context.CancelFunc
@@ -56,28 +62,30 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		defer cancel()
 	}
 
-	stream, err := m.libp2pHost.NewStream(ctx, libp2pID, protocolID)
+	stream, err := m.Libp2pHost.NewStream(ctx, libp2pID, protocolID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
 	}
-	// Disable libp2p lazy negotiation.
-	if _, err := stream.Write(nil); err != nil {
-		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
+	ps := newPacketsStream(stream)
+	if err := sendNegotiationMessage(ps); err != nil {
+		err = errors.Wrap(err, "failed to send negotiation message")
+		err = errors.CombineErrors(err, stream.Close())
+		return nil, err
 	}
 	m.log.Debugw("outgoing connection established",
 		"id", p.ID(),
 		"addr", stream.Conn().RemoteMultiaddr(),
 	)
-	return stream, nil
+	return ps, nil
 }
 
-func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (network.Stream, error) {
+func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (*packetsStream, error) {
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
-	stream, err := func() (network.Stream, error) {
+	ps, err := func() (*packetsStream, error) {
 		// wait for the connection
 		m.acceptWG.Add(1)
 		defer m.acceptWG.Done()
@@ -96,8 +104,8 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		}
 		defer m.removeAcceptMatcher(am)
 		select {
-		case stream := <-am.streamCh:
-			return stream, nil
+		case ps := <-am.streamCh:
+			return ps, nil
 		case <-ctx.Done():
 			err := ctx.Err()
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -117,15 +125,15 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	}
 	m.log.Debugw("incoming connection established",
 		"id", p.ID(),
-		"addr", stream.Conn().RemoteMultiaddr(),
+		"addr", ps.Conn().RemoteMultiaddr(),
 	)
-	return stream, nil
+	return ps, nil
 }
 
 type acceptMatcher struct {
 	peer     *peer.Peer // connecting peer
 	libp2pID libp2ppeer.ID
-	streamCh chan network.Stream
+	streamCh chan *packetsStream
 }
 
 func newAcceptMatcher(p *peer.Peer) (*acceptMatcher, error) {
@@ -136,7 +144,7 @@ func newAcceptMatcher(p *peer.Peer) (*acceptMatcher, error) {
 	return &acceptMatcher{
 		peer:     p,
 		libp2pID: libp2pID,
-		streamCh: make(chan network.Stream, 1),
+		streamCh: make(chan *packetsStream, 1),
 	}, nil
 }
 
@@ -158,15 +166,89 @@ func (m *Manager) removeAcceptMatcher(am *acceptMatcher) {
 }
 
 func (m *Manager) streamHandler(stream network.Stream) {
+	ps := newPacketsStream(stream)
+	if err := receiveNegotiationMessage(ps); err != nil {
+		m.log.Warnw("Failed to receive negotiation message", "err", err)
+		m.closeStream(stream)
+		return
+	}
 	am := m.matchNewStream(stream)
 	if am != nil {
-		am.streamCh <- stream
+		am.streamCh <- ps
 	} else {
 		// close the connection if not matched
 		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
 			"id", stream.Conn().RemotePeer())
 		m.closeStream(stream)
 	}
+}
+
+type packetsStream struct {
+	network.Stream
+
+	readerLock     sync.Mutex
+	reader         *libp2putil.UvarintReader
+	writerLock     sync.Mutex
+	writer         *libp2putil.UvarintWriter
+	packetsRead    *atomic.Uint64
+	packetsWritten *atomic.Uint64
+}
+
+func newPacketsStream(stream network.Stream) *packetsStream {
+	return &packetsStream{
+		Stream:         stream,
+		reader:         libp2putil.NewDelimitedReader(stream),
+		writer:         libp2putil.NewDelimitedWriter(stream),
+		packetsRead:    atomic.NewUint64(0),
+		packetsWritten: atomic.NewUint64(0),
+	}
+}
+
+func (ps *packetsStream) writePacket(packet *pb.Packet) error {
+	ps.writerLock.Lock()
+	defer ps.writerLock.Unlock()
+	if err := ps.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
+		return errors.WithStack(err)
+	}
+	err := ps.writer.WriteMsg(packet)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	ps.packetsWritten.Inc()
+	return nil
+}
+
+func (ps *packetsStream) readPacket(packet *pb.Packet) error {
+	ps.readerLock.Lock()
+	defer ps.readerLock.Unlock()
+	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
+		return errors.WithStack(err)
+	}
+	if err := ps.reader.ReadMsg(packet); err != nil {
+		return errors.WithStack(err)
+	}
+	ps.packetsRead.Inc()
+	return nil
+}
+
+func sendNegotiationMessage(ps *packetsStream) error {
+	packet := &pb.Packet{Body: &pb.Packet_Negotiation{Negotiation: &pb.Negotiation{}}}
+	return errors.WithStack(ps.writePacket(packet))
+}
+
+func receiveNegotiationMessage(ps *packetsStream) (err error) {
+	packet := &pb.Packet{}
+	if err := ps.readPacket(packet); err != nil {
+		return errors.WithStack(err)
+	}
+	packetBody := packet.GetBody()
+	if _, ok := packetBody.(*pb.Packet_Negotiation); !ok {
+		return errors.Newf(
+			"received packet isn't the negotiation packet; packet=%+v, packetBody=%T-%+v",
+			packet, packetBody, packetBody,
+		)
+	}
+	return nil
 }
 
 func (m *Manager) matchNewStream(stream network.Stream) *acceptMatcher {
@@ -180,4 +262,12 @@ func (m *Manager) closeStream(s network.Stream) {
 	if err := s.Close(); err != nil {
 		m.log.Warnw("close error", "err", err)
 	}
+}
+
+func isDeadlineUnsupportedError(err error) bool {
+	return strings.Contains(err.Error(), "deadline not supported")
+}
+
+func isTimeoutError(err error) bool {
+	return os.IsTimeout(errors.Unwrap(err))
 }
