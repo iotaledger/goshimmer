@@ -410,21 +410,6 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	branchIDs["Branch2+Branch7"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch7", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"]))
 	branchIDs["Branch5+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch5+Branch8", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch8"]))
 
-	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch2"]))
-
-	assertInclusionStates(t, ledgerstate, map[BranchID]InclusionState{
-		branchIDs["Branch2"]:         Confirmed,
-		branchIDs["Branch3"]:         Rejected,
-		branchIDs["Branch4"]:         Pending,
-		branchIDs["Branch5"]:         Pending,
-		branchIDs["Branch6"]:         Pending,
-		branchIDs["Branch7"]:         Pending,
-		branchIDs["Branch8"]:         Pending,
-		branchIDs["Branch5+Branch7"]: Pending,
-		branchIDs["Branch2+Branch7"]: Pending,
-		branchIDs["Branch5+Branch8"]: Pending,
-	})
-
 	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch4"]))
 
 	assertInclusionStates(t, ledgerstate, map[BranchID]InclusionState{
