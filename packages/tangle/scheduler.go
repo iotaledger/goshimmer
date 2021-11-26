@@ -145,9 +145,6 @@ func (s *Scheduler) Setup() {
 		if scheduled {
 			return
 		}
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			s.unsubmit(message)
-		})
 		s.updateApprovers(messageID)
 	}
 	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageConfirmed))
