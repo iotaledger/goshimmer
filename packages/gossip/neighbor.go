@@ -11,15 +11,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/mux"
-	"github.com/libp2p/go-libp2p-core/network"
-	"go.uber.org/atomic"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
-	"github.com/iotaledger/goshimmer/packages/libp2putil"
-)
-
-const (
-	ioTimeout = 4 * time.Second
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
@@ -44,19 +37,15 @@ type Neighbor struct {
 	disconnected   *events.Event
 	packetReceived *events.Event
 
-	stream         network.Stream
-	reader         *libp2putil.UvarintReader
-	writer         *libp2putil.UvarintWriter
-	packetsRead    *atomic.Uint64
-	packetsWritten *atomic.Uint64
+	ps *packetsStream
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log *logger.Logger) *Neighbor {
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, ps *packetsStream, log *logger.Logger) *Neighbor {
 	log = log.With(
 		"id", p.ID(),
-		"localAddr", stream.Conn().LocalMultiaddr(),
-		"remoteAddr", stream.Conn().RemoteMultiaddr(),
+		"localAddr", ps.Conn().LocalMultiaddr(),
+		"remoteAddr", ps.Conn().RemoteMultiaddr(),
 	)
 	return &Neighbor{
 		Peer:  p,
@@ -64,25 +53,21 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, stream network.Stream, log 
 
 		log: log,
 
-		stream: stream,
-		reader: libp2putil.NewDelimitedReader(stream),
-		writer: libp2putil.NewDelimitedWriter(stream),
-
 		disconnected:   events.NewEvent(disconnected),
 		packetReceived: events.NewEvent(packetReceived),
-		packetsRead:    atomic.NewUint64(0),
-		packetsWritten: atomic.NewUint64(0),
+
+		ps: ps,
 	}
 }
 
 // PacketsRead returns number of packets this neighbor has received.
 func (n *Neighbor) PacketsRead() uint64 {
-	return n.packetsRead.Load()
+	return n.ps.packetsRead.Load()
 }
 
 // PacketsWritten returns number of packets this neighbor has sent.
 func (n *Neighbor) PacketsWritten() uint64 {
-	return n.packetsWritten.Load()
+	return n.ps.packetsWritten.Load()
 }
 
 func disconnected(handler interface{}, _ ...interface{}) {
@@ -95,7 +80,7 @@ func packetReceived(handler interface{}, params ...interface{}) {
 
 // ConnectionEstablished returns the connection established.
 func (n *Neighbor) ConnectionEstablished() time.Time {
-	return n.stream.Stat().Opened
+	return n.ps.Stat().Opened
 }
 
 func (n *Neighbor) readLoop() {
@@ -110,39 +95,22 @@ func (n *Neighbor) readLoop() {
 			// the disconnect call is protected with sync.Once, so in case another goroutine called it before us,
 			// we won't execute it twice.
 			packet := &pb.Packet{}
-			err := n.read(packet)
+			err := n.ps.readPacket(packet)
 			if err != nil {
-				if !isAlreadyClosedError(err) && !errors.Is(err, io.EOF) {
-					n.log.Warnw("Permanent error", "err", err)
+				if isAlreadyClosedError(err) {
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
+					return
 				}
-				return
+				if !isTimeoutError(err) {
+					n.log.Debugw("Read error", "err", err)
+				}
+				continue
 			}
 			n.packetReceived.Trigger(packet)
 		}
 	}()
-}
-
-func (n *Neighbor) write(packet *pb.Packet) error {
-	if err := n.stream.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil {
-		n.log.Warnw("Can't set write deadline on stream", "err", err)
-	}
-	err := n.writer.WriteMsg(packet)
-	if err != nil {
-		disconnectErr := n.disconnect()
-		return errors.CombineErrors(err, disconnectErr)
-	}
-	n.packetsWritten.Inc()
-	return nil
-}
-
-func (n *Neighbor) read(packet *pb.Packet) error {
-	err := n.reader.ReadMsg(packet)
-	if err != nil {
-		disconnectErr := n.disconnect()
-		return errors.CombineErrors(err, disconnectErr)
-	}
-	n.packetsRead.Inc()
-	return nil
 }
 
 func (n *Neighbor) close() {
@@ -154,7 +122,7 @@ func (n *Neighbor) close() {
 
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
-		if streamErr := n.stream.Close(); streamErr != nil {
+		if streamErr := n.ps.Close(); streamErr != nil {
 			err = errors.WithStack(streamErr)
 		}
 		n.log.Info("Connection closed")
@@ -165,5 +133,6 @@ func (n *Neighbor) disconnect() (err error) {
 
 func isAlreadyClosedError(err error) bool {
 	return strings.Contains(err.Error(), "use of closed network connection") ||
-		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset)
+		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }

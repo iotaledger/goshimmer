@@ -16,7 +16,7 @@ require (
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20211029111324-6d3d2fca5b4d
+	github.com/iotaledger/hive.go v0.0.0-20211124122420-c2f1493d35a5
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
