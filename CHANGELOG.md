@@ -1,3 +1,14 @@
+# v0.8.2 - 2021-11-26
+
+> This release introduces a revamp of the network stack using libp2p, and some minor changes to the deployment logic
+
+The snapshot has been taken at 2021-11-19 11:37pm CET.
+
+Changelog:
+- Use libp2p as network stack.
+- Fix deployment logic to expose DRNGs' API ports.
+- Add community entry nodes.
+
 # v0.8.1 - 2021-11-11
 
 > This release introduces some minor changes to the message solidification and requesting mechanisms.
