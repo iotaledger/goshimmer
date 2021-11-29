@@ -239,9 +239,8 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	for confirmationWalker.HasNext() {
 		currentBranchID := confirmationWalker.Next().(BranchID)
 
-		b.Branch(currentBranchID).Consume(func(branch Branch) {
-			conflictBranch := branch.(*ConflictBranch)
-			if modified = conflictBranch.setInclusionState(Confirmed); !modified {
+		b.Branch(currentBranchID).ConsumeConflictBranch(func(branch *ConflictBranch) {
+			if modified = branch.setInclusionState(Confirmed); !modified {
 				return
 			}
 
@@ -249,7 +248,7 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 				confirmationWalker.Push(parentBranchID)
 			}
 
-			for conflictID := range conflictBranch.Conflicts() {
+			for conflictID := range branch.Conflicts() {
 				b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
 					if conflictMember.BranchID() != currentBranchID {
 						rejectedWalker.Push(conflictMember.BranchID())
@@ -260,8 +259,8 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	}
 
 	for rejectedWalker.HasNext() {
-		b.Branch(rejectedWalker.Next().(BranchID)).Consume(func(branch Branch) {
-			if modified = branch.(*ConflictBranch).setInclusionState(Rejected); !modified {
+		b.Branch(rejectedWalker.Next().(BranchID)).ConsumeConflictBranch(func(branch *ConflictBranch) {
+			if modified = branch.setInclusionState(Rejected); !modified {
 				return
 			}
 
@@ -613,14 +612,6 @@ func (b *BranchDAG) aggregateNormalizedBranches(parentBranchIDs BranchIDs) (cach
 
 		return aggregatedBranch
 	})}
-
-	if newBranchCreated {
-		for parentBranchID := range parentBranchIDs {
-			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, cachedAggregatedBranch.ID(), AggregatedBranchType)); stored {
-				cachedChildBranch.Release()
-			}
-		}
-	}
 
 	return
 }
