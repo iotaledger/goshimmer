@@ -269,7 +269,7 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 		})
 	}
 
-	return
+	return modified
 }
 
 // InclusionState returns the InclusionState of the given Branch.
@@ -439,7 +439,7 @@ func (b *BranchDAG) init() {
 // normalizeBranches is an internal utility function that takes a list of BranchIDs and returns the BranchIDS of the
 // most special ConflictBranches that the given BranchIDs represent. It returns an error if the Branches are conflicting
 // or any other unforeseen error occurred.
-func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches BranchIDs, lazyBooked bool, err error) {
+func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, lazyBooked bool, err error) {
 	switch typeCastedResult := b.normalizedBranchCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
 		// retrieve conflict branches and abort if we faced an error
 		conflictBranches, conflictBranchesErr := b.ResolveConflictBranchIDs(branchIDs)
@@ -495,7 +495,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 		}
 
 		// create normalized branch candidates (check their conflicts and queue parent checks)
-		normalizedBranches = NewBranchIDs()
+		branches = NewBranchIDs()
 		for conflictBranchID := range conflictBranches {
 			// check branch and queue parents
 			if !b.Branch(conflictBranchID).Consume(func(branch Branch) {
@@ -505,7 +505,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 					fallthrough
 				case Pending:
 					// add branch to the candidates of normalized branches
-					normalizedBranches[conflictBranchID] = types.Void
+					branches[conflictBranchID] = types.Void
 				}
 
 				checkConflictsAndQueueParents(branch)
@@ -525,7 +525,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 			parentBranchID := parentsToCheck.Pop().(BranchID)
 
 			// remove ancestor from normalized candidates
-			delete(normalizedBranches, parentBranchID)
+			delete(branches, parentBranchID)
 
 			// check branch, queue parents and abort if we faced an error
 			if !b.Branch(parentBranchID).Consume(checkConflictsAndQueueParents) {
@@ -538,19 +538,19 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 			}
 		}
 
-		return normalizedBranches
+		return branches
 	}).(type) {
 	case error:
 		err = typeCastedResult
 	case BranchIDs:
-		normalizedBranches = typeCastedResult
+		branches = typeCastedResult
 	}
 
-	if len(normalizedBranches) == 0 {
-		normalizedBranches = NewBranchIDs(MasterBranchID)
+	if len(branches) == 0 {
+		branches = NewBranchIDs(MasterBranchID)
 	}
 
-	return normalizedBranches, lazyBooked, err
+	return branches, lazyBooked, err
 }
 
 func (b *BranchDAG) anyParentRejected(conflictBranch *ConflictBranch) (parentRejected bool) {
