@@ -894,7 +894,7 @@ func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
 	return t.gradeOfFinalityTime
 }
 
-// IsConflicting returns true if the Transaction is conflicting with another Transaction.
+// IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
 func (t *TransactionMetadata) IsConflicting() bool {
 	return t.BranchID() == NewBranchID(t.ID())
 }
