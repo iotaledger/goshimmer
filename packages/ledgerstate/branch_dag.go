@@ -198,7 +198,7 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 		conflictBranchIDs = typeCastedResult
 	}
 
-	return
+	return conflictBranchIDs, err
 }
 
 // AggregateBranches retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically creates
@@ -221,18 +221,15 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	b.inclusionStateMutex.Lock()
 	defer b.inclusionStateMutex.Unlock()
 
+	conflictBranchIDs, err := b.ResolveConflictBranchIDs(NewBranchIDs(branchID))
+	if err != nil {
+		panic(err)
+	}
+
 	confirmationWalker := walker.New()
-	b.Branch(branchID).Consume(func(branch Branch) {
-		if branch.Type() == ConflictBranchType {
-			confirmationWalker.Push(branch.ID())
-			return
-		}
-
-		for parentBranchID := range branch.Parents() {
-			confirmationWalker.Push(parentBranchID)
-		}
-	})
-
+	for conflictBranchID := range conflictBranchIDs {
+		confirmationWalker.Push(conflictBranchID)
+	}
 	rejectedWalker := walker.New()
 
 	for confirmationWalker.HasNext() {
