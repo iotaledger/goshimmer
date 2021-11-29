@@ -619,47 +619,11 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 
 		if floorMarker == marker.Index() {
 			m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
-			m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
-				markerIndexBranchIDMapping.DeleteBranchID(floorMarker)
-			})
+
+			m.deleteBranchIDMapping(markers.NewMarker(marker.SequenceID(), floorMarker))
 		}
 
-		// only register RegisterSequenceAliasMapping if there is no higher mapping existing
-		if _, _, exists := m.Ceiling(marker); !exists {
-			m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
-		}
-	}
-
-	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
-		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
-	})
-
-	return true
-}
-
-// UpdateBranchIDAfterMerge updates the given Marker to the new BranchID after a merge.
-func (m *MarkersManager) UpdateBranchIDAfterMerge(marker *markers.Marker, branchID ledgerstate.BranchID) (updated bool) {
-	// the Marker addresses a non-existing part of the tangle
-	floorMarkerIndex, floorBranchID, floorMarkerExists := m.Floor(marker)
-	if !floorMarkerExists {
-		panic(fmt.Sprintf("tried to update unmapped tangle section with %s to %s after merge", marker, branchID))
-	}
-
-	// the BranchID is already correct and doesn't need to be updated
-	if floorBranchID == branchID {
-		return false
-	}
-
-	defer m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
-
-	// the Marker was not mapped to a specific branch before and just needs to be set
-	if floorMarkerIndex == marker.Index() {
-		m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
-		m.deleteBranchIDMapping(marker)
-
-		if _, previousFloorBranchID, previousFloorMarkerExists := m.Floor(marker); previousFloorMarkerExists && previousFloorBranchID == branchID {
-			return true
-		}
+		m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
 	}
 
 	m.setBranchIDMapping(marker, branchID)
