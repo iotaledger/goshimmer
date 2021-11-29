@@ -51,16 +51,14 @@ RUN --mount=target=. \
     -o /go/bin/goshimmer
 
 # Docker cache will be invalidated for RUNs after ARG definition (https://docs.docker.com/engine/reference/builder/#impact-on-build-caching)
+ARG DEFAULT_SNAPSHOT_URL="https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin"
 ARG CUSTOM_SNAPSHOT_URL
-ARG FEATURE_DEFAULT_SNAPSHOT=0
 
 # Enable building the image without downloading the snapshot.
 # It's possible to download custom snapshot from external storage service - necessary for feature network deployment.
 # If built with dummy snapshot then a snapshot needs to be mounted into the resulting image.
-RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] && [ "$FEATURE_DEFAULT_SNAPSHOT" -eq 0 ]; then \
-      wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin ;  \
-    elif [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] && [ "$FEATURE_DEFAULT_SNAPSHOT" -gt 0 ]; then \
-      wget -O /tmp/snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/feature/snapshot.bin;  \
+RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] ; then \
+      wget -O /tmp/snapshot.bin $DEFAULT_SNAPSHOT_URL;  \
     elif [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" != "" ]; then \
       apt update; apt install -y gawk; \
       git clone https://github.com/ffluegel/zippyshare.git; \
