@@ -471,7 +471,6 @@ func setupScenarioMiddleLayer(t *testing.T, wallets map[string]wallet, outputs m
 }
 
 func setupScenarioTopLayer1(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
-
 	// issue Transaction F
 	{
 		wallets["F"] = createWallets(1)[0]
