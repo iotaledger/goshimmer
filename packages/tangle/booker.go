@@ -69,12 +69,6 @@ func (b *Booker) Setup() {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
-
-	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByMerge.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByMergeEvent) {
-		if err := b.PropagateMergedBranch(event.TransactionID, event.MergedBranchID, event.BranchDAGUpdates); err != nil {
-			b.Events.Error.Trigger(errors.Errorf("failed to propagate merged Branch with %s to future cone of Transaction with %s: %w", event.MergedBranchID, event.TransactionID, err))
-		}
-	}))
 }
 
 func (b *Booker) run() {
@@ -526,84 +520,6 @@ func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata 
 	}
 
 	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MERGE LOGIC //////////////////////////////////////////////////////////////////////////////////////////////////
-
-// PropagateMergedBranch propagates the updates of the BranchDAG after a merge to the future cone of the attachments of
-// the given transaction.
-func (b *Booker) PropagateMergedBranch(transactionID ledgerstate.TransactionID, mergedBranch ledgerstate.BranchID, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID) (err error) {
-	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
-		if !messageMetadata.IsBooked() {
-			return
-		}
-
-		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.propagateMergedBranchToMarkerFutureCone(structureDetails.PastMarkers.Marker(), mergedBranch, branchDAGUpdates, walker); err != nil {
-				err = errors.Errorf("failed to propagate merged Branch with %s to future cone of Transaction with %s using the %s: %w", mergedBranch, transactionID, structureDetails.PastMarkers.Marker(), err)
-				walker.StopWalk()
-			}
-			return
-		}
-
-		if err = b.propagateMergedBranchToMetadataFutureCone(messageMetadata, branchDAGUpdates, walker); err != nil {
-			err = errors.Errorf("failed to propagate merged Branch with %s to metadata future cone of %s containing Transaction with %s: %w", mergedBranch, messageMetadata.ID(), transactionID, err)
-			walker.StopWalk()
-			return
-		}
-	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), false)
-
-	return
-}
-
-func (b *Booker) propagateMergedBranchToMarkerFutureCone(marker *markers.Marker, mergedBranch ledgerstate.BranchID, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
-	markerWalker := walker.New(false)
-	markerWalker.Push(marker)
-
-	for markerWalker.HasNext() {
-		b.mergeSingleMarker(markerWalker.Next().(*markers.Marker), branchDAGUpdates, messageWalker, markerWalker)
-	}
-
-	return
-}
-
-func (b *Booker) propagateMergedBranchToMetadataFutureCone(messageMetadata *MessageMetadata, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
-	return
-}
-
-// mergeSingleMarker propagates a merged BranchID to a single marker and queues the next elements that need to be
-// visited.
-func (b *Booker) mergeSingleMarker(currentMarker *markers.Marker, branchDAGUpdates map[ledgerstate.BranchID]ledgerstate.BranchID, messageWalker, markerWalker *walker.Walker) {
-	// update BranchID mapping
-	oldBranchID := b.MarkersManager.BranchID(currentMarker)
-	newBranchID, branchIDUpdated := branchDAGUpdates[oldBranchID]
-	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
-		return
-	}
-	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
-
-	// trigger event
-	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
-
-	// propagate updates to the direct approvers of the marker
-	b.MarkersManager.ForEachMessageApprovingMarker(currentMarker, func(approvingMessageID MessageID) {
-		messageWalker.Push(approvingMessageID)
-	})
-
-	// propagate updates to later BranchID mappings of the same sequence.
-	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ ledgerstate.BranchID) {
-		markerWalker.Push(mappedMarker)
-	})
-
-	// propagate updates to referencing markers of later sequences ...
-	b.MarkersManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker *markers.Marker) {
-		markerWalker.Push(referencingMarker)
-
-		// ... and update individually mapped messages that are next to the referencing marker.
-		b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(referencingMarker), currentMarker, newBranchID)
-	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
