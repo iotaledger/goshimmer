@@ -99,7 +99,6 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 		if err != nil {
 			return nil, err
 		}
-
 	}
 
 	return opinionTuple, nil

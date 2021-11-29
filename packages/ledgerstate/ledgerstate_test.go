@@ -499,7 +499,6 @@ func setupScenario_TopLayer1(t *testing.T, wallets map[string]wallet, outputs ma
 
 		_, err := ledgerstate.BookTransaction(transactions["F"])
 		require.NoError(t, err)
-
 	}
 }
 
