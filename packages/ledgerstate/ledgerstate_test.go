@@ -124,7 +124,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 
 	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branches["H"]))
 
-	setupScenarioTopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
+	setupScenarioTopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions)
 
 	// The new TX M should be now booked under G, as the aggregated branch G+H got H confirmed, transforming it into
 	// a ConflictBranch again: just G.
@@ -572,7 +572,7 @@ func setupScenarioTopTopLayer(t *testing.T, wallets map[string]wallet, outputs m
 	}
 }
 
-func setupScenarioTopTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioTopTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction) {
 	// issue Transaction L
 	{
 		wallets["M"] = createWallets(1)[0]
