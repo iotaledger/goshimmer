@@ -21,7 +21,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 	transactions := make(map[string]*Transaction)
 	branches := make(map[string]BranchID)
 
-	setupScenario_BottomLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
+	setupScenarioBottomLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// Mark A as Confirmed
 	{
@@ -38,7 +38,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["C"]))
 	}
 
-	setupScenario_MiddleLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
+	setupScenarioMiddleLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// When creating the middle layer the new transaction E should be booked only under its Pending parent C
 	{
@@ -51,7 +51,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assertBranchID(t, ledgerstate, transactions["E"], branches["C"])
 	}
 
-	setupScenario_TopLayer1(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
+	setupScenarioTopLayer1(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// When creating the first transaction of top layer it should be booked under the Pending parent C
 	{
@@ -67,7 +67,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assertBranchID(t, ledgerstate, transactions["F"], branches["C"])
 	}
 
-	setupScenario_TopLayer2(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
+	setupScenarioTopLayer2(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// When creating the conflicting TX of the top layer branches F & G are spawned by the fork of G
 	{
@@ -94,7 +94,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 
 	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branches["D"]))
 
-	setupScenario_TopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
+	setupScenarioTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// TX L aggregates a child (G) of a Rejected branch (C) and a pending branch H, resulting in C+H
 	{
@@ -124,7 +124,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 
 	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branches["H"]))
 
-	setupScenario_TopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
+	setupScenarioTopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// The new TX M should be now booked under G, as the aggregated branch G+H got H confirmed, transforming it into
 	// a ConflictBranch again: just G.
@@ -163,7 +163,7 @@ func assertBranchID(t *testing.T, ledgerstate *Ledgerstate, transaction *Transac
 	}
 }
 
-func setupScenario_BottomLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
 	// create genesis outputs
 	{
 		wallets["GENESIS_1"] = createWallets(1)[0]
@@ -424,7 +424,7 @@ func setupScenario_BottomLayer(t *testing.T, wallets map[string]wallet, outputs 
 
 }
 
-func setupScenario_MiddleLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioMiddleLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
 	// issue Transaction E (combining Branch A and C)
 	{
 		wallets["E"] = createWallets(1)[0]
@@ -470,7 +470,7 @@ func setupScenario_MiddleLayer(t *testing.T, wallets map[string]wallet, outputs 
 	}
 }
 
-func setupScenario_TopLayer1(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioTopLayer1(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
 
 	// issue Transaction F
 	{
@@ -502,7 +502,7 @@ func setupScenario_TopLayer1(t *testing.T, wallets map[string]wallet, outputs ma
 	}
 }
 
-func setupScenario_TopLayer2(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioTopLayer2(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
 
 	// issue Transaction G
 	{
@@ -534,7 +534,7 @@ func setupScenario_TopLayer2(t *testing.T, wallets map[string]wallet, outputs ma
 	}
 }
 
-func setupScenario_TopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
 
 	// issue Transaction L
 	{
@@ -575,7 +575,7 @@ func setupScenario_TopTopLayer(t *testing.T, wallets map[string]wallet, outputs 
 	}
 }
 
-func setupScenario_TopTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioTopTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
 
 	// issue Transaction L
 	{
