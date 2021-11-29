@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
-
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // UvarintWriter writes protobuf messages.
