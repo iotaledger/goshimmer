@@ -588,16 +588,16 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = errors.Errorf("failed to parse id: %w", err)
 		return
 	}
-	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse inclusionState: %w", err)
-		return
-	}
 	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse parents: %w", err)
 		return
 	}
 	if conflictBranch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse conflicts: %w", err)
+		return
+	}
+	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse inclusionState: %w", err)
 		return
 	}
 
@@ -713,15 +713,12 @@ func (c *ConflictBranch) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (c *ConflictBranch) ObjectStorageValue() []byte {
-	c.inclusionStateMutex.RLock()
-	defer c.inclusionStateMutex.RUnlock()
-
 	return marshalutil.New().
 		WriteByte(byte(c.Type())).
 		Write(c.ID()).
-		Write(c.inclusionState).
 		Write(c.Parents()).
 		Write(c.Conflicts()).
+		Write(c.InclusionState()).
 		Bytes()
 }
 
@@ -816,11 +813,6 @@ func (a *AggregatedBranch) Parents() BranchIDs {
 	defer a.parentsMutex.RUnlock()
 
 	return a.parents
-}
-
-// SetParents updates the parents of the Branch (its only here to fulfill the interface).
-func (a *AggregatedBranch) SetParents(_ BranchIDs) (modified bool) {
-	panic("forbidden to update the parents of an AggregatedBranch")
 }
 
 // Bytes returns a marshaled version of the Branch.
