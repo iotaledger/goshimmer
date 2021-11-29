@@ -55,7 +55,7 @@ func (ur *UvarintReader) ReadMsg(msg proto.Message) error {
 		return err
 	}
 	if length64 > tangle.MaxMessageSize {
-		return fmt.Errorf("Max message size exceeded: %d", length64)
+		return fmt.Errorf("max message size exceeded: %d", length64)
 	}
 	buf := make([]byte, length64)
 	if _, err := io.ReadFull(ur.r, buf); err != nil {
