@@ -6,7 +6,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/datastructure/stack"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/lru_cache"
@@ -458,41 +457,9 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 		}
 
 		// introduce iteration variables
-		traversedBranches := set.New()
+		seenBranches := set.New()
 		seenConflictSets := make(map[ConflictID]BranchID)
-		parentsToCheck := stack.New()
-
-		// checks if branches are conflicting and queues parents to be checked
-		checkConflictsAndQueueParents := func(currentBranch Branch) {
-			currentConflictBranch, typeCastOK := currentBranch.(*ConflictBranch)
-			if !typeCastOK {
-				err = errors.Errorf("failed to type cast Branch with %s to ConflictBranch: %w", currentBranch.ID(), cerrors.ErrFatal)
-				return
-			}
-
-			// abort if branch was traversed already
-			if !traversedBranches.Add(currentConflictBranch.ID()) {
-				return
-			}
-
-			// return error if conflict set was seen twice
-			for conflictSetID := range currentConflictBranch.Conflicts() {
-				if conflictingBranch, exists := seenConflictSets[conflictSetID]; exists {
-					err = errors.Errorf("%s conflicts with %s in %s: %w", conflictingBranch, currentConflictBranch.ID(), conflictSetID, ErrInvalidStateTransition)
-					return
-				}
-				seenConflictSets[conflictSetID] = currentConflictBranch.ID()
-			}
-
-			if currentConflictBranch.InclusionState() == Confirmed {
-				return
-			}
-
-			// queue parents to be checked when traversing ancestors
-			for parentBranchID := range currentConflictBranch.Parents() {
-				parentsToCheck.Push(parentBranchID)
-			}
-		}
+		parentsWalker := walker.New()
 
 		// create normalized branch candidates (check their conflicts and queue parent checks)
 		branches = NewBranchIDs()
@@ -508,7 +475,10 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 					branches[conflictBranchID] = types.Void
 				}
 
-				checkConflictsAndQueueParents(branch)
+				if err = b.queueParentsIfConflictSetUnseen(branch.(*ConflictBranch), seenBranches, seenConflictSets, parentsWalker); err != nil {
+					err = errors.Errorf("failed to check conflicts and queue parents: %w", err)
+					return
+				}
 			}) {
 				return errors.Errorf("failed to load Branch with %s: %w", conflictBranchID, cerrors.ErrFatal)
 			}
@@ -520,15 +490,17 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 		}
 
 		// remove ancestors from the candidates
-		for !parentsToCheck.IsEmpty() {
+		for parentsWalker.HasNext() {
 			// retrieve parent branch ID from stack
-			parentBranchID := parentsToCheck.Pop().(BranchID)
+			parentBranchID := parentsWalker.Next().(BranchID)
 
 			// remove ancestor from normalized candidates
 			delete(branches, parentBranchID)
 
 			// check branch, queue parents and abort if we faced an error
-			if !b.Branch(parentBranchID).Consume(checkConflictsAndQueueParents) {
+			if !b.Branch(parentBranchID).ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
+				err = b.queueParentsIfConflictSetUnseen(conflictBranch, seenBranches, seenConflictSets, parentsWalker)
+			}) {
 				return errors.Errorf("failed to load Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
 			}
 
@@ -551,6 +523,32 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 	}
 
 	return branches, lazyBooked, err
+}
+
+func (b *BranchDAG) queueParentsIfConflictSetUnseen(branch *ConflictBranch, traversedBranches set.Set, seenConflictSets map[ConflictID]BranchID, parentWalker *walker.Walker) (err error) {
+	// abort if branch was traversed already
+	if !traversedBranches.Add(branch.ID()) {
+		return
+	}
+
+	// return error if conflict set was seen twice
+	for conflictSetID := range branch.Conflicts() {
+		if conflictingBranch, exists := seenConflictSets[conflictSetID]; exists {
+			return errors.Errorf("%s conflicts with %s in %s: %w", conflictingBranch, branch.ID(), conflictSetID, ErrInvalidStateTransition)
+		}
+		seenConflictSets[conflictSetID] = branch.ID()
+	}
+
+	if branch.InclusionState() == Confirmed {
+		return
+	}
+
+	// queue parents to be checked when traversing ancestors
+	for parentBranchID := range branch.Parents() {
+		parentWalker.Push(parentBranchID)
+	}
+
+	return nil
 }
 
 func (b *BranchDAG) anyParentRejected(conflictBranch *ConflictBranch) (parentRejected bool) {
