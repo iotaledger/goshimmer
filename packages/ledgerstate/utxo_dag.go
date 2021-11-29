@@ -89,8 +89,7 @@ func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
 	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
-			TransactionBranchIDUpdatedByFork:  events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
-			TransactionBranchIDUpdatedByMerge: events.NewEvent(TransactionBranchIDUpdatedByMergeEventHandler),
+			TransactionBranchIDUpdatedByFork: events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
 		},
 		ledgerstate:                 ledgerstate,
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
@@ -835,10 +834,6 @@ func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) 
 type UTXODAGEvents struct {
 	// TransactionBranchIDUpdatedByFork gets triggered when the BranchID of a Transaction is changed after the initial booking.
 	TransactionBranchIDUpdatedByFork *events.Event
-
-	// TransactionBranchIDUpdatedByMerge gets triggered when the BranchID of a Transaction is changed after merging a
-	// branch to the MasterBranch.
-	TransactionBranchIDUpdatedByMerge *events.Event
 }
 
 // TransactionIDEventHandler is an event handler for an event with a TransactionID.
@@ -862,24 +857,6 @@ type TransactionBranchIDUpdatedByForkEvent struct {
 // TransactionBranchIDUpdatedByForkEvent.
 func TransactionBranchIDUpdatedByForkEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(*TransactionBranchIDUpdatedByForkEvent))(params[0].(*TransactionBranchIDUpdatedByForkEvent))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionBranchIDUpdatedByMergeEvent ///////////////////////////////////////////////////////////////////////
-
-// TransactionBranchIDUpdatedByMergeEvent is an event that gets triggered, whenever the BranchID of a Transaction is
-// changed after merging a Branch to back to the MasterBranch.
-type TransactionBranchIDUpdatedByMergeEvent struct {
-	TransactionID    TransactionID
-	MergedBranchID   BranchID
-	BranchDAGUpdates map[BranchID]BranchID
-}
-
-// TransactionBranchIDUpdatedByMergeEventHandler is an event handler for an event with a
-// TransactionBranchIDUpdatedByMergeEvent.
-func TransactionBranchIDUpdatedByMergeEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*TransactionBranchIDUpdatedByMergeEvent))(params[0].(*TransactionBranchIDUpdatedByMergeEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
