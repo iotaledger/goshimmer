@@ -70,7 +70,7 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	}
 
 	// create or load the branch
-	if cachedConflictBranch = b.Branch(MasterBranchID, func() Branch {
+	if cachedConflictBranch = b.Branch(branchID, func() Branch {
 		conflictBranch := NewConflictBranch(branchID, normalizedParentBranchIDs, conflictIDs)
 		conflictBranch.Persist()
 		conflictBranch.SetModified()
