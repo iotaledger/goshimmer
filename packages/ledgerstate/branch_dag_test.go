@@ -3,8 +3,6 @@ package ledgerstate
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/types"
-
 	"github.com/iotaledger/goshimmer/packages/database"
 
 	"github.com/stretchr/testify/assert"
@@ -514,19 +512,6 @@ func assertInclusionStates(t *testing.T, ledgerstate *Ledgerstate, expectedInclu
 	for branchID, expectedInclusionState := range expectedInclusionStates {
 		assert.Equal(t, expectedInclusionState, ledgerstate.BranchDAG.InclusionState(branchID), "%s inclustionState is not %s", branchID, expectedInclusionState)
 	}
-}
-
-func assertConflictMembers(t *testing.T, ledgerstate *Ledgerstate, conflictID ConflictID, expectedMembers map[BranchID]types.Empty) {
-	assert.True(t, ledgerstate.Conflict(conflictID).Consume(func(conflict *Conflict) {
-		assert.Equal(t, len(expectedMembers), conflict.MemberCount())
-
-		conflictMembers := make(map[BranchID]types.Empty)
-		ledgerstate.ConflictMembers(conflict.ID()).Consume(func(conflictMember *ConflictMember) {
-			conflictMembers[conflictMember.BranchID()] = types.Void
-		})
-
-		assert.Equal(t, expectedMembers, conflictMembers)
-	}))
 }
 
 func createConflictBranch(t *testing.T, ledgerstate *Ledgerstate, branchAlias string, parents BranchIDs, conflictIDs ConflictIDs) BranchID {
