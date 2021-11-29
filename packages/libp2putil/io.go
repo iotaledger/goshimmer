@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
+
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
 )
