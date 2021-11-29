@@ -69,12 +69,30 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	}
 
 	// create or load the branch
-	if cachedConflictBranch = b.Branch(branchID, func() Branch {
+	cachedConflictBranch = b.Branch(branchID, func() Branch {
 		conflictBranch := NewConflictBranch(branchID, normalizedParentBranchIDs, conflictIDs)
 		conflictBranch.Persist()
 		conflictBranch.SetModified()
 
 		newBranchCreated = true
+
+		return conflictBranch
+	}).Retain()
+
+	cachedConflictBranch.ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
+		// If the branch existed already we simply update its conflict members.
+		//
+		// An existing Branch can only become a new member of a conflict set if that conflict set was newly created in which
+		// case none of the members of that set can either be Confirmed or Rejected. This means that our InclusionState does
+		// not change, and we don't need to update and propagate it.
+		if !newBranchCreated {
+			for conflictID := range conflictIDs {
+				if conflictBranch.AddConflict(conflictID) {
+					b.registerConflictMember(conflictID, branchID)
+				}
+			}
+			return
+		}
 
 		// store child references
 		for parentBranchID := range normalizedParentBranchIDs {
@@ -91,25 +109,12 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 		if b.anyParentRejected(conflictBranch) || b.anyConflictMemberConfirmed(conflictBranch) {
 			conflictBranch.setInclusionState(Rejected)
 		}
+	})
 
-		return conflictBranch
-	}); newBranchCreated {
+	if newBranchCreated {
 		b.Events.BranchCreated.Trigger(branchID)
 		return
 	}
-
-	// If the branch existed already we simply update its conflict members.
-	//
-	// An existing Branch can only become a new member of a conflict set if that conflict set was newly created in which
-	// case none of the members of that set can either be Confirmed or Rejected. This means that our InclusionState does
-	// not change, and we don't need to update and propagate it.
-	cachedConflictBranch.Retain().ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
-		for conflictID := range conflictIDs {
-			if conflictBranch.AddConflict(conflictID) {
-				b.registerConflictMember(conflictID, branchID)
-			}
-		}
-	})
 
 	return
 }
