@@ -24,7 +24,6 @@ const BranchDAGCacheSize = 1024
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
 // the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
 type BranchDAG struct {
-	ledgerstate            *Ledgerstate
 	branchStorage          *objectstorage.ObjectStorage
 	childBranchStorage     *objectstorage.ObjectStorage
 	conflictStorage        *objectstorage.ObjectStorage
@@ -42,7 +41,6 @@ func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
 	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
-		ledgerstate:            ledgerstate,
 		branchStorage:          osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, options.branchStorageOptions...),
 		childBranchStorage:     osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
 		conflictStorage:        osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, options.conflictStorageOptions...),
@@ -71,9 +69,48 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 		return nil, false, errors.Errorf("failed to normalize parent Branches: %w", err)
 	}
 
-	if cachedConflictBranch, newBranchCreated, err = b.createConflictBranchFromNormalizedParentBranchIDs(branchID, normalizedParentBranchIDs, conflictIDs); newBranchCreated {
+	// create or load the branch
+	if cachedConflictBranch = b.Branch(MasterBranchID, func() Branch {
+		conflictBranch := NewConflictBranch(branchID, normalizedParentBranchIDs, conflictIDs)
+		conflictBranch.Persist()
+		conflictBranch.SetModified()
+
+		newBranchCreated = true
+
+		// store child references
+		for parentBranchID := range normalizedParentBranchIDs {
+			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID, ConflictBranchType)); stored {
+				cachedChildBranch.Release()
+			}
+		}
+
+		// store ConflictMember references
+		for conflictID := range conflictIDs {
+			b.registerConflictMember(conflictID, branchID)
+		}
+
+		if b.anyParentRejected(conflictBranch) || b.anyConflictMemberConfirmed(conflictBranch) {
+			conflictBranch.setInclusionState(Rejected)
+		}
+
+		return conflictBranch
+	}); newBranchCreated {
 		b.Events.BranchCreated.Trigger(branchID)
+		return
 	}
+
+	// If the branch existed already we simply update its conflict members.
+	//
+	// An existing Branch can only become a new member of a conflict set if that conflict set was newly created in which
+	// case none of the members of that set can either be Confirmed or Rejected. This means that our InclusionState does
+	// not change, and we don't need to update and propagate it.
+	cachedConflictBranch.Retain().ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
+		for conflictID := range conflictIDs {
+			if conflictBranch.AddConflict(conflictID) {
+				b.registerConflictMember(conflictID, branchID)
+			}
+		}
+	})
 
 	return
 }
@@ -312,7 +349,13 @@ func (b *BranchDAG) Shutdown() {
 // region STORAGE API //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Branch retrieves the Branch with the given BranchID from the object storage.
-func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
+func (b *BranchDAG) Branch(branchID BranchID, computeIfAbsentCallback ...func() Branch) (cachedBranch *CachedBranch) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedBranch{b.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
 	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
 }
 
@@ -511,73 +554,6 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 	}
 
 	return normalizedBranches, lazyBooked, err
-}
-
-// createConflictBranchFromNormalizedParentBranchIDs is an internal utility function that retrieves the ConflictBranch
-// that corresponds to the given details. It automatically creates and updates the ConflictBranch according to the new
-// details if necessary.
-func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID BranchID, normalizedParentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
-	// create or load the branch
-	cachedConflictBranch = (&CachedBranch{
-		CachedObject: b.branchStorage.ComputeIfAbsent(branchID.Bytes(),
-			func(key []byte) objectstorage.StorableObject {
-				newBranch := NewConflictBranch(branchID, normalizedParentBranchIDs, conflictIDs)
-				newBranch.Persist()
-				newBranch.SetModified()
-
-				newBranchCreated = true
-
-				return newBranch
-			},
-		),
-	}).Retain()
-
-	if !cachedConflictBranch.Consume(func(branch Branch) {
-		// type cast to ConflictBranch
-		conflictBranch, typeCastOK := branch.(*ConflictBranch)
-		if !typeCastOK {
-			err = errors.Errorf("failed to type cast Branch with %s to ConflictBranch: %w", branchID, cerrors.ErrFatal)
-			return
-		}
-
-		// If the branch existed already we simply update its conflict members.
-		//
-		// An existing Branch can only become a new member of a conflict set if that conflict set was newly created in which
-		// case none of the members of that set can either be Confirmed or Rejected. This means that our InclusionState does
-		// not change, and we don't need to update and propagate it.
-		if !newBranchCreated {
-			for conflictID := range conflictIDs {
-				if conflictBranch.AddConflict(conflictID) {
-					b.registerConflictMember(conflictID, branchID)
-				}
-			}
-
-			return
-		}
-
-		// store child references
-		for parentBranchID := range normalizedParentBranchIDs {
-			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID, ConflictBranchType)); stored {
-				cachedChildBranch.Release()
-			}
-		}
-
-		// store ConflictMember references
-		for conflictID := range conflictIDs {
-			b.registerConflictMember(conflictID, branchID)
-		}
-
-		if b.anyParentRejected(conflictBranch) || b.anyConflictMemberConfirmed(conflictBranch) {
-			conflictBranch.setInclusionState(Rejected)
-		}
-
-		return
-	}) {
-		err = errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
-		return
-	}
-
-	return
 }
 
 func (b *BranchDAG) anyParentRejected(conflictBranch *ConflictBranch) (parentRejected bool) {
