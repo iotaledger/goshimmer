@@ -203,7 +203,7 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 
 		b.Branch(currentBranchID).Consume(func(branch Branch) {
 			conflictBranch := branch.(*ConflictBranch)
-			if modified = b.setConflictBranchInclusionState(conflictBranch, Confirmed); !modified {
+			if modified = conflictBranch.setInclusionState(Confirmed); !modified {
 				return
 			}
 
@@ -223,7 +223,7 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 
 	for rejectedWalker.HasNext() {
 		b.Branch(rejectedWalker.Next().(BranchID)).Consume(func(branch Branch) {
-			if modified = b.setConflictBranchInclusionState(branch.(*ConflictBranch), Rejected); !modified {
+			if modified = branch.(*ConflictBranch).setInclusionState(Rejected); !modified {
 				return
 			}
 
@@ -245,15 +245,15 @@ func (b *BranchDAG) InclusionState(branchID BranchID) (inclusionState InclusionS
 
 	b.Branch(branchID).Consume(func(branch Branch) {
 		if conflictBranch, isConflictBranch := branch.(*ConflictBranch); isConflictBranch {
-			inclusionState = b.getConflictBranchInclusionState(conflictBranch)
+			inclusionState = conflictBranch.InclusionState()
 			return
 		}
 
 		isParentRejected := false
 		isParentPending := false
 		for parentBranchID := range branch.Parents() {
-			b.Branch(parentBranchID).Consume(func(parentBranch Branch) {
-				parentInclusionState := b.getConflictBranchInclusionState(parentBranch.(*ConflictBranch))
+			b.Branch(parentBranchID).ConsumeConflictBranch(func(parentBranch *ConflictBranch) {
+				parentInclusionState := parentBranch.InclusionState()
 
 				isParentRejected = parentInclusionState == Rejected
 				isParentPending = isParentPending || parentInclusionState == Pending
@@ -383,29 +383,6 @@ func (b *BranchDAG) ForEachConflictingBranchID(branchID BranchID, callback func(
 
 // region PRIVATE UTILITY FUNCTIONS ////////////////////////////////////////////////////////////////////////////////////
 
-func (b *BranchDAG) getConflictBranchInclusionState(conflictBranch *ConflictBranch) InclusionState {
-	conflictBranch.inclusionStateMutex.RLock()
-	defer conflictBranch.inclusionStateMutex.RUnlock()
-
-	return conflictBranch.inclusionState
-}
-
-// setConflictBranchInclusionState sets the inclusion state of a ConflictBranch.
-func (b *BranchDAG) setConflictBranchInclusionState(conflictBranch *ConflictBranch, inclusionState InclusionState) (modified bool) {
-	conflictBranch.inclusionStateMutex.Lock()
-	defer conflictBranch.inclusionStateMutex.Unlock()
-
-	if modified = conflictBranch.inclusionState != inclusionState; !modified {
-		return
-	}
-
-	conflictBranch.inclusionState = inclusionState
-	conflictBranch.SetModified()
-	conflictBranch.Persist()
-
-	return
-}
-
 // init is an internal utility function that initializes the BranchDAG by creating the root of the DAG (MasterBranch).
 func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
@@ -467,7 +444,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 				seenConflictSets[conflictSetID] = currentConflictBranch.ID()
 			}
 
-			if b.getConflictBranchInclusionState(currentConflictBranch) == Confirmed {
+			if currentConflictBranch.InclusionState() == Confirmed {
 				return
 			}
 
@@ -482,7 +459,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 		for conflictBranchID := range conflictBranches {
 			// check branch and queue parents
 			if !b.Branch(conflictBranchID).Consume(func(branch Branch) {
-				switch b.getConflictBranchInclusionState(branch.(*ConflictBranch)) {
+				switch branch.(*ConflictBranch).InclusionState() {
 				case Rejected:
 					lazyBooked = true
 					fallthrough
@@ -591,7 +568,7 @@ func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID B
 		}
 
 		if b.anyParentRejected(conflictBranch) || b.anyConflictMemberConfirmed(conflictBranch) {
-			b.setConflictBranchInclusionState(conflictBranch, Rejected)
+			conflictBranch.setInclusionState(Rejected)
 		}
 
 		return
@@ -605,8 +582,8 @@ func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID B
 
 func (b *BranchDAG) anyParentRejected(conflictBranch *ConflictBranch) (parentRejected bool) {
 	for parentBranchID := range conflictBranch.Parents() {
-		b.Branch(parentBranchID).Consume(func(branch Branch) {
-			if parentRejected = b.getConflictBranchInclusionState(branch.(*ConflictBranch)) == Rejected; parentRejected {
+		b.Branch(parentBranchID).ConsumeConflictBranch(func(parentBranch *ConflictBranch) {
+			if parentRejected = parentBranch.InclusionState() == Rejected; parentRejected {
 				return
 			}
 		})
@@ -621,15 +598,15 @@ func (b *BranchDAG) anyParentRejected(conflictBranch *ConflictBranch) (parentRej
 
 // anyConflictMemberConfirmed makes a ConflictBranch rejected if any of its conflicting Branches is
 // Confirmed.
-func (b *BranchDAG) anyConflictMemberConfirmed(conflictBranch *ConflictBranch) (conflictMemberConfirmed bool) {
-	for conflictID := range conflictBranch.Conflicts() {
+func (b *BranchDAG) anyConflictMemberConfirmed(branch *ConflictBranch) (conflictMemberConfirmed bool) {
+	for conflictID := range branch.Conflicts() {
 		b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
-			if conflictMemberConfirmed || conflictMember.BranchID() == conflictBranch.ID() {
+			if conflictMemberConfirmed || conflictMember.BranchID() == branch.ID() {
 				return
 			}
 
-			b.Branch(conflictMember.BranchID()).Consume(func(branch Branch) {
-				conflictMemberConfirmed = b.getConflictBranchInclusionState(branch.(*ConflictBranch)) == Confirmed
+			b.Branch(conflictMember.BranchID()).ConsumeConflictBranch(func(conflictingBranch *ConflictBranch) {
+				conflictMemberConfirmed = conflictingBranch.InclusionState() == Confirmed
 			})
 		})
 

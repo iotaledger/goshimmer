@@ -197,15 +197,6 @@ func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs B
 	return
 }
 
-// First returns the first element in the map (order is not guaranteed).
-func (b BranchIDs) First() BranchID {
-	for k := range b {
-		return k
-	}
-
-	return UndefinedBranchID
-}
-
 // Add adds a BranchID to the collection and returns the collection to enable chaining.
 func (b BranchIDs) Add(branchID BranchID) BranchIDs {
 	b[branchID] = types.Void
@@ -379,9 +370,6 @@ type Branch interface {
 	// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
 	Parents() BranchIDs
 
-	// SetParents updates the parents of the Branch.
-	SetParents(parents BranchIDs) (modified bool)
-
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
 
@@ -521,6 +509,22 @@ func (c *CachedBranch) Consume(consumer func(branch Branch), forceRelease ...boo
 	}, forceRelease...)
 }
 
+// ConsumeConflictBranch unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not
+// empty - it exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranch) ConsumeConflictBranch(consumer func(conflictBranch *ConflictBranch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*ConflictBranch))
+	}, forceRelease...)
+}
+
+// ConsumeAggregatedBranch unwraps the CachedObject and passes a type-casted version to the consumer (if the object is
+// not empty - it exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranch) ConsumeAggregatedBranch(consumer func(aggregatedBranch *AggregatedBranch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*AggregatedBranch))
+	}, forceRelease...)
+}
+
 // String returns a human readable version of the CachedBranch.
 func (c *CachedBranch) String() string {
 	return stringify.Struct("CachedBranch",
@@ -536,12 +540,12 @@ func (c *CachedBranch) String() string {
 // state.
 type ConflictBranch struct {
 	id                  BranchID
-	inclusionState      InclusionState
-	inclusionStateMutex sync.RWMutex
 	parents             BranchIDs
 	parentsMutex        sync.RWMutex
 	conflicts           ConflictIDs
 	conflictsMutex      sync.RWMutex
+	inclusionState      InclusionState
+	inclusionStateMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -608,6 +612,31 @@ func (c *ConflictBranch) ID() BranchID {
 // Type returns the type of the Branch.
 func (c *ConflictBranch) Type() BranchType {
 	return ConflictBranchType
+}
+
+// InclusionState returns the InclusionState of the ConflictBranch.
+func (c *ConflictBranch) InclusionState() (inclusionState InclusionState) {
+	c.inclusionStateMutex.RLock()
+	defer c.inclusionStateMutex.RUnlock()
+
+	return c.inclusionState
+}
+
+// setInclusionState sets the InclusionState of the ConflictBranch (it is private because the InclusionState should be
+// set through the corresponding method in the BranchDAG).
+func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modified bool) {
+	c.inclusionStateMutex.Lock()
+	defer c.inclusionStateMutex.Unlock()
+
+	if modified = c.inclusionState != inclusionState; !modified {
+		return
+	}
+
+	c.inclusionState = inclusionState
+	c.SetModified()
+	c.Persist()
+
+	return
 }
 
 // Parents returns the BranchIDs of the Branches parents in the BranchDAG.
