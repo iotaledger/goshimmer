@@ -502,7 +502,6 @@ func setupScenarioTopLayer1(t *testing.T, wallets map[string]wallet, outputs map
 }
 
 func setupScenarioTopLayer2(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
-
 	// issue Transaction G
 	{
 		wallets["G"] = createWallets(1)[0]
@@ -534,7 +533,6 @@ func setupScenarioTopLayer2(t *testing.T, wallets map[string]wallet, outputs map
 }
 
 func setupScenarioTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
-
 	// issue Transaction L
 	{
 		wallets["L"] = createWallets(1)[0]
@@ -575,7 +573,6 @@ func setupScenarioTopTopLayer(t *testing.T, wallets map[string]wallet, outputs m
 }
 
 func setupScenarioTopTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
-
 	// issue Transaction L
 	{
 		wallets["M"] = createWallets(1)[0]
