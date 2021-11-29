@@ -18,12 +18,6 @@ func DiagnosticBranchesHandler(c echo.Context) (err error) {
 	return
 }
 
-// DiagnosticLazyBookedBranchesHandler runs the diagnostic over the Tangle.
-func DiagnosticLazyBookedBranchesHandler(c echo.Context) (err error) {
-	runDiagnosticChildBranches(c, ledgerstate.LazyBookedConflictsBranchID)
-	return
-}
-
 // DiagnosticInvalidBranchesHandler runs the diagnostic over the Tangle.
 func DiagnosticInvalidBranchesHandler(c echo.Context) (err error) {
 	runDiagnosticChildBranches(c, ledgerstate.InvalidBranchID)
@@ -47,8 +41,6 @@ func runDiagnosticBranches(c echo.Context) {
 		case ledgerstate.MasterBranchID:
 			return
 		case ledgerstate.InvalidBranchID:
-			return
-		case ledgerstate.LazyBookedConflictsBranchID:
 			return
 		default:
 			conflictInfo := getDiagnosticConflictsInfo(branch.ID())

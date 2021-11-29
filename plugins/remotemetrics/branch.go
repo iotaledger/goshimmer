@@ -130,8 +130,6 @@ func measureInitialBranchCounts() {
 			return
 		case ledgerstate.InvalidBranchID:
 			return
-		case ledgerstate.LazyBookedConflictsBranchID:
-			return
 		default:
 			initialBranchTotalCountDB++
 			activeBranches[branch.ID()] = types.Void

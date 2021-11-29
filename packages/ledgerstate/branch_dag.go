@@ -408,7 +408,7 @@ func (b *BranchDAG) setConflictBranchInclusionState(conflictBranch *ConflictBran
 
 // init is an internal utility function that initializes the BranchDAG by creating the root of the DAG (MasterBranch).
 func (b *BranchDAG) init() {
-	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, NewConflictIDs(RootConflictID)))
+	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
 	if stored {
 		cachedMasterBranch.Release()
 	}
@@ -416,16 +416,6 @@ func (b *BranchDAG) init() {
 	cachedInvalidBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
 	if stored {
 		cachedInvalidBranch.Release()
-	}
-
-	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
-	if stored {
-		cachedLazyBookedConflictsBranch.Release()
-	}
-
-	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(RejectedBranchID, nil, NewConflictIDs(RootConflictID)))
-	if stored {
-		cachedRejectedBranch.Release()
 	}
 }
 

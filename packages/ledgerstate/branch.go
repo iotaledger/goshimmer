@@ -28,18 +28,8 @@ var (
 	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
 	MasterBranchID = BranchID{1}
 
-	// LazyBookedConflictsBranchID is the identifier of the Branch that is the root of all lazy booked ConflictBranches.
-	LazyBookedConflictsBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 253}
-
-	// RejectedBranchID is the identifier of the root of the BranchDAG that acts as a parent for all rejected Branches.
-	RejectedBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254}
-
-	// InvalidBranchID is the identifier of the Branch that contains the invalid Transactions.
+	// InvalidBranchID is the identifier of the Branch that contains subjectively invalid Transactions.
 	InvalidBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
-
-	// RootConflictID is the identifier of the conflict that models the conflict relationship between the branches that
-	// are currently being voted on and the ones that have already been rejected.
-	RootConflictID = ConflictID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
@@ -129,10 +119,6 @@ func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
 		return "BranchID(UndefinedBranchID)"
-	case RejectedBranchID:
-		return "BranchID(RejectedBranchID)"
-	case LazyBookedConflictsBranchID:
-		return "BranchID(LazyBookedConflictsBranchID)"
 	case InvalidBranchID:
 		return "BranchID(InvalidBranchID)"
 	case MasterBranchID:
