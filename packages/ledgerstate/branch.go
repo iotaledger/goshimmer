@@ -399,7 +399,7 @@ type Branch interface {
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
 
-	// String returns a human readable version of the Branch.
+	// String returns a human-readable version of the Branch.
 	String() string
 
 	// StorableObject enables the Branch to be stored in the object storage.
@@ -549,11 +549,13 @@ func (c *CachedBranch) String() string {
 // ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type ConflictBranch struct {
-	id             BranchID
-	parents        BranchIDs
-	parentsMutex   sync.RWMutex
-	conflicts      ConflictIDs
-	conflictsMutex sync.RWMutex
+	id                  BranchID
+	inclusionState      InclusionState
+	inclusionStateMutex sync.RWMutex
+	parents             BranchIDs
+	parentsMutex        sync.RWMutex
+	conflicts           ConflictIDs
+	conflictsMutex      sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -594,6 +596,10 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 	conflictBranch = &ConflictBranch{}
 	if conflictBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse id: %w", err)
+		return
+	}
+	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse inclusionState: %w", err)
 		return
 	}
 	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
@@ -669,7 +675,7 @@ func (c *ConflictBranch) Bytes() []byte {
 	return c.ObjectStorageValue()
 }
 
-// String returns a human readable version of the Branch.
+// String returns a human-readable version of the Branch.
 func (c *ConflictBranch) String() string {
 	return stringify.Struct("ConflictBranch",
 		stringify.StructField("id", c.ID()),
@@ -692,11 +698,15 @@ func (c *ConflictBranch) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (c *ConflictBranch) ObjectStorageValue() []byte {
+	c.inclusionStateMutex.RLock()
+	defer c.inclusionStateMutex.RUnlock()
+
 	return marshalutil.New().
 		WriteByte(byte(c.Type())).
-		WriteBytes(c.ID().Bytes()).
-		WriteBytes(c.Parents().Bytes()).
-		WriteBytes(c.Conflicts().Bytes()).
+		Write(c.ID()).
+		Write(c.inclusionState).
+		Write(c.Parents()).
+		Write(c.Conflicts()).
 		Bytes()
 }
 

@@ -68,15 +68,15 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch2.ID()))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch2.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, normalizedBranches, NewBranchIDs(branch2.ID()))
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch3.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch3.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, normalizedBranches, NewBranchIDs(branch3.ID()))
 
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(branch2.ID(), branch3.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch2.ID(), branch3.ID()))
 		require.Error(t, err)
 	}
 
@@ -92,22 +92,22 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch4.ID()))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch4.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch4.ID()), normalizedBranches)
 
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), branch4.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), branch4.ID()))
 		require.Error(t, err)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch5.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch5.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch5.ID()), normalizedBranches)
 
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), branch5.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), branch5.ID()))
 		require.Error(t, err)
 
 		// since both consume the same output
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(branch4.ID(), branch5.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch4.ID(), branch5.ID()))
 		require.Error(t, err)
 	}
 
@@ -123,38 +123,38 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(branch2.ID(), branch6.ID()))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(branch2.ID(), branch6.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch2.ID(), branch6.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), branch6.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), branch6.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(branch2.ID(), branch7.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch2.ID(), branch7.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch2.ID(), branch7.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), branch7.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), branch7.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch3.ID(), branch7.ID()), normalizedBranches)
 
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(branch6.ID(), branch7.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch6.ID(), branch7.ID()))
 		require.Error(t, err)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(branch4.ID(), branch6.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch4.ID(), branch6.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(branch5.ID(), branch6.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch5.ID(), branch6.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch5.ID(), branch6.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(branch4.ID(), branch7.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch4.ID(), branch7.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch4.ID(), branch7.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(branch5.ID(), branch7.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch5.ID(), branch7.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID()), normalizedBranches)
 	}
@@ -167,24 +167,24 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), MasterBranchID))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), MasterBranchID))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch2.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch2.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizedBranches)
 
 		// conflicting since branch 2 and branch 3 are
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch3.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch3.ID()))
 		require.Error(t, err)
 
 		// conflicting since branch 4 and branch 5 are
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch5.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch5.ID()))
 		require.Error(t, err)
 
 		// conflicting since branch 6 and branch 7 are
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch7.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch7.ID()))
 		require.Error(t, err)
 	}
 
@@ -202,16 +202,16 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), MasterBranchID))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), MasterBranchID))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID()), normalizedBranches)
 
 		// aggr. branch 8 and 9 should be conflicting, since 4 & 5 and 6 & 7 are
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), aggrBranch9.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), aggrBranch9.ID()))
 		require.Error(t, err)
 
 		// conflicting since branch 3 & 2 are
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), aggrBranch9.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch3.ID(), aggrBranch9.ID()))
 		require.Error(t, err)
 	}
 
@@ -223,16 +223,16 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch10.ID(), MasterBranchID))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch10.ID(), MasterBranchID))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID()), normalizedBranches)
 
 		// aggr. branch 8 and 10 should be conflicting, since 2 & 3 are
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), aggrBranch10.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), aggrBranch10.ID()))
 		require.Error(t, err)
 
 		// aggr. branch 9 and 10 should be conflicting, since 2 & 3 and 6 & 7 are
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), aggrBranch10.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), aggrBranch10.ID()))
 		require.Error(t, err)
 	}
 
@@ -248,15 +248,15 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch11.ID()))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch11.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch11.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch12.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(MasterBranchID, branch12.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch12.ID()), normalizedBranches)
 
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(branch11.ID(), branch12.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(branch11.ID(), branch12.ID()))
 		require.Error(t, err)
 	}
 
@@ -268,14 +268,14 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		_, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch9.ID()))
+		_, _, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch9.ID()))
 		require.Error(t, err)
 
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch8.ID()))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch8.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID(), branch11.ID()), normalizedBranches)
 
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch10.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch10.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID(), branch11.ID()), normalizedBranches)
 	}
@@ -289,11 +289,11 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 
 	{
 		// aggr. branch 9 has parent branch 7 which conflicts with ancestor branch 6 of aggr. branch 14
-		_, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch14.ID(), aggrBranch9.ID()))
+		_, _, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch14.ID(), aggrBranch9.ID()))
 		require.Error(t, err)
 
 		// aggr. branch has ancestor branch 2 which conflicts with ancestor branch 3 of aggr. branch 14
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch14.ID(), aggrBranch8.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch14.ID(), aggrBranch8.ID()))
 		require.Error(t, err)
 	}
 
@@ -306,15 +306,15 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 
 	{
 		// aggr. branch 13 has parent branches 11 & 6 which conflicts which conflicts with ancestor branches 12 & 7 of aggr. branch 15
-		_, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch13.ID()))
+		_, _, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch13.ID()))
 		require.Error(t, err)
 
 		// aggr. branch 10 has parent branches 3 & 6 which conflicts with ancestor branches 2 & 7 of aggr. branch 15
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch10.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch10.ID()))
 		require.Error(t, err)
 
 		// aggr. branch 8 has parent branch 6 which conflicts with ancestor branch 7 of aggr. branch 15
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch8.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch8.ID()))
 		require.Error(t, err)
 	}
 
@@ -327,22 +327,22 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 
 	{
 		// sanity check
-		normalizedBranches, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch9.ID()))
+		normalizedBranches, _, err := ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch9.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID(), branch12.ID()), normalizedBranches)
 
 		// sanity check
-		normalizedBranches, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), branch7.ID()))
+		normalizedBranches, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), branch7.ID()))
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID(), branch12.ID()), normalizedBranches)
 
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch13.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch13.ID()))
 		require.Error(t, err)
 
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch14.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch14.ID()))
 		require.Error(t, err)
 
-		_, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch8.ID()))
+		_, _, err = ledgerstate.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch8.ID()))
 		require.Error(t, err)
 	}
 }
@@ -391,7 +391,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
-func TestBranchDAG_MergeToMaster(t *testing.T) {
+func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
 	defer ledgerstate.Shutdown()
 
@@ -410,17 +410,110 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	branchIDs["Branch2+Branch7"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch7", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"]))
 	branchIDs["Branch5+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch5+Branch8", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch8"]))
 
-	movedBranches, err := ledgerstate.BranchDAG.MergeToMaster(branchIDs["Branch2"])
-	require.NoError(t, err)
+	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch4"]))
 
-	assert.Equal(t, map[BranchID]BranchID{
-		branchIDs["Branch2"]:         MasterBranchID,
-		branchIDs["Branch2+Branch7"]: branchIDs["Branch7"],
-	}, movedBranches)
-
-	assertConflictMembers(t, ledgerstate, ConflictID{0}, map[BranchID]types.Empty{
-		branchIDs["Branch3"]: types.Void,
+	assertInclusionStates(t, ledgerstate, map[BranchID]InclusionState{
+		branchIDs["Branch2"]:         Confirmed,
+		branchIDs["Branch3"]:         Rejected,
+		branchIDs["Branch4"]:         Confirmed,
+		branchIDs["Branch5"]:         Rejected,
+		branchIDs["Branch6"]:         Pending,
+		branchIDs["Branch7"]:         Pending,
+		branchIDs["Branch8"]:         Pending,
+		branchIDs["Branch5+Branch7"]: Rejected,
+		branchIDs["Branch2+Branch7"]: Pending,
+		branchIDs["Branch5+Branch8"]: Rejected,
 	})
+
+	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch8"]))
+
+	// Spawning a new aggregated branch with Confirmed parents results in Confirmed
+	branchIDs["Branch4+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch4+Branch8", NewBranchIDs(branchIDs["Branch4"], branchIDs["Branch8"]))
+
+	// Spawning a new aggregated branch with any Rejected parent results in Rejected
+	branchIDs["Branch3+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch3+Branch8", NewBranchIDs(branchIDs["Branch3"], branchIDs["Branch8"]))
+
+	// Create a new ConflictBranch in an already-decided Conflict Set results in straight Reject
+	branchIDs["Branch9"] = createConflictBranch(t, ledgerstate, "Branch9", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+
+	assertInclusionStates(t, ledgerstate, map[BranchID]InclusionState{
+		branchIDs["Branch2"]:         Confirmed,
+		branchIDs["Branch3"]:         Rejected,
+		branchIDs["Branch4"]:         Confirmed,
+		branchIDs["Branch5"]:         Rejected,
+		branchIDs["Branch6"]:         Rejected,
+		branchIDs["Branch7"]:         Rejected,
+		branchIDs["Branch8"]:         Confirmed,
+		branchIDs["Branch5+Branch7"]: Rejected,
+		branchIDs["Branch2+Branch7"]: Rejected,
+		branchIDs["Branch5+Branch8"]: Rejected,
+		branchIDs["Branch4+Branch8"]: Confirmed,
+		branchIDs["Branch3+Branch8"]: Rejected,
+		branchIDs["Branch9"]:         Rejected,
+	})
+
+	// Combining resolved conflicting Branches still works
+	_, _, err = ledgerstate.AggregateBranches(NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch3"]))
+	assert.Error(t, err)
+
+	// Combining resolved conflicting Branches still works
+	_, _, err = ledgerstate.AggregateBranches(NewBranchIDs(branchIDs["Branch2+Branch7"], branchIDs["Branch3"]))
+	assert.Error(t, err)
+
+	// Pruning confirmed branches from aggregation
+	branchIDs["Branch2+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch8", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch8"]))
+
+	ledgerstate.BranchDAG.Branch(branchIDs["Branch2+Branch8"]).Consume(func(branch Branch) {
+		assert.Equal(t, NewBranchIDs(), branch.Parents())
+		assert.Equal(t, MasterBranchID, branch.ID())
+
+	})
+
+	// Pruning confirmed branches from aggregation
+	branchIDs["Branch2+Branch6"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch6", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch6"]))
+
+	ledgerstate.BranchDAG.Branch(branchIDs["Branch2+Branch6"]).Consume(func(branch Branch) {
+		assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
+		assert.Equal(t, branchIDs["Branch6"], branch.ID())
+	})
+
+	branchIDs["Branch10"] = createConflictBranch(t, ledgerstate, "Branch10", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	branchIDs["Branch11"] = createConflictBranch(t, ledgerstate, "Branch11", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+
+	branchIDs["Branch2+Branch7+Branch11"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch7+Branch11", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"], branchIDs["Branch11"]))
+
+	ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch10"])
+
+	ledgerstate.BranchDAG.Branch(branchIDs["Branch2+Branch7+Branch11"]).Consume(func(branch Branch) {
+		assert.Equal(t, NewBranchIDs(branchIDs["Branch7"], branchIDs["Branch11"]), branch.Parents())
+		assert.Equal(t, branch.Type(), AggregatedBranchType)
+	})
+
+	assertInclusionStates(t, ledgerstate, map[BranchID]InclusionState{
+		branchIDs["Branch2"]:                  Confirmed,
+		branchIDs["Branch3"]:                  Rejected,
+		branchIDs["Branch4"]:                  Confirmed,
+		branchIDs["Branch5"]:                  Rejected,
+		branchIDs["Branch6"]:                  Rejected,
+		branchIDs["Branch7"]:                  Rejected,
+		branchIDs["Branch8"]:                  Confirmed,
+		branchIDs["Branch5+Branch7"]:          Rejected,
+		branchIDs["Branch2+Branch7"]:          Rejected,
+		branchIDs["Branch5+Branch8"]:          Rejected,
+		branchIDs["Branch4+Branch8"]:          Confirmed,
+		branchIDs["Branch3+Branch8"]:          Rejected,
+		branchIDs["Branch9"]:                  Rejected,
+		branchIDs["Branch10"]:                 Confirmed,
+		branchIDs["Branch11"]:                 Rejected,
+		branchIDs["Branch2+Branch7+Branch11"]: Rejected,
+	})
+
+}
+
+func assertInclusionStates(t *testing.T, ledgerstate *Ledgerstate, expectedInclusionStates map[BranchID]InclusionState) {
+	for branchID, expectedInclusionState := range expectedInclusionStates {
+		assert.Equal(t, expectedInclusionState, ledgerstate.BranchDAG.InclusionState(branchID), "%s inclustionState is not %s", branchID, expectedInclusionState)
+	}
 }
 
 func assertConflictMembers(t *testing.T, ledgerstate *Ledgerstate, conflictID ConflictID, expectedMembers map[BranchID]types.Empty) {

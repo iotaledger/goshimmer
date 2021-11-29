@@ -141,6 +141,7 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
 		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.GradeOfFinality),
 	}
 
 	result = strings.Join(row, ",")

@@ -266,6 +266,7 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw fl
 	}
 
 	if newGradeOfFinality >= s.opts.BranchGoFReachedLevel {
+		s.tangle.LedgerState.BranchDAG.SetBranchConfirmed(branchID)
 		s.events.BranchConfirmed.Trigger(branchID)
 	}
 
