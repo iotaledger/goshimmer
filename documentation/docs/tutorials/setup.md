@@ -212,7 +212,7 @@ services:
       - PROMETHEUS_BINDADDRESS=0.0.0.0:9311
     command: >
       --skip-config=true
-      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
+      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-0.devnet.tanglebay.com:14646,CAB87iQZR6BjBrCgEBupQJ4gpEBgvGKKv3uuGVRBKb4n@entry-1.devnet.tanglebay.com:14646
       --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
       --database.directory=/tmp/mainnetdb
@@ -233,6 +233,10 @@ services:
 :::info
 
 If performance is a concern, you can also run your containers with `network_mode: "host"`, however, you must then adjust the hostnames in the configs for the corresponding containers and perhaps also create some iptable rules to block traffic from outside accessing your services directly.
+
+:::warning INFO
+
+If your home network is IPv6-only (as is common for some ISPs in a few countries like Germany), make sure your docker installation is configured to support IPv6 as this is not always the default setting. If your ports and firewalls are configured correctly and your GoShimmer node does start but does not seem to find any neighbors even after a little while, this might be the solution to your problem. Find the very short guide to enable IPv6 support for docker in the [Docker documentation](https://docs.docker.com/config/daemon/ipv6/).
 
 :::
 

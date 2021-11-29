@@ -9,30 +9,20 @@ services:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
-    {% if debugPorts|default(false) %}
       # Autopeering
       - "0.0.0.0:14626:14626/udp"
       # Gossip
       - "0.0.0.0:14666:14666/tcp"
       # HTTP API
       - "0.0.0.0:8080:8080/tcp"
+    {% if debugPorts|default(false) %}
       # Dashboard
       - "0.0.0.0:8081:8081/tcp"
       # pprof profiling
       - "0.0.0.0:6061:6061/tcp"
     {% else %}
-      # Autopeering
-      - "0.0.0.0:14626:14626/udp"
-      # Gossip
-      - "0.0.0.0:14666:14666/tcp"
-      # HTTP API
-      - "127.0.0.1:8080:8080/tcp"
       # Dashboard
-      {% if bootstrap|default(false) %}
-      - "0.0.0.0:8081:8081/tcp"
-      {% else %}
       - "127.0.0.1:8081:8081/tcp"
-      {% endif %}
       # pprof profiling
       - "127.0.0.1:6061:6061/tcp"
     {% endif %}

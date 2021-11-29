@@ -13,8 +13,6 @@ type Events struct {
 
 // NeighborsEvents is a collection of events specific for a particular neighbors group, e.g "manual" or "auto".
 type NeighborsEvents struct {
-	// Fired when an attempt to build a connection to a neighbor has failed.
-	ConnectionFailed *events.Event
 	// Fired when a neighbor connection has been established.
 	NeighborAdded *events.Event
 	// Fired when a neighbor has been removed.
@@ -24,9 +22,8 @@ type NeighborsEvents struct {
 // NewNeighborsEvents returns a new instance of NeighborsEvents.
 func NewNeighborsEvents() NeighborsEvents {
 	return NeighborsEvents{
-		ConnectionFailed: events.NewEvent(peerAndErrorCaller),
-		NeighborAdded:    events.NewEvent(neighborCaller),
-		NeighborRemoved:  events.NewEvent(neighborCaller),
+		NeighborAdded:   events.NewEvent(neighborCaller),
+		NeighborRemoved: events.NewEvent(neighborCaller),
 	}
 }
 
@@ -36,10 +33,6 @@ type MessageReceivedEvent struct {
 	Data []byte
 	// The sender of the message.
 	Peer *peer.Peer
-}
-
-func peerAndErrorCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*peer.Peer, error))(params[0].(*peer.Peer), params[1].(error))
 }
 
 func neighborCaller(handler interface{}, params ...interface{}) {
