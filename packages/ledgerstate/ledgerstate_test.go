@@ -470,18 +470,18 @@ func setupScenarioMiddleLayer(t *testing.T, wallets map[string]wallet, outputs m
 	}
 }
 
-func setupScenarioTopLayer1(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
-	// issue Transaction F
+func setupScenarioTopLayerGeneric(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID, alias string) {
+	// issue Transaction alias
 	{
-		wallets["F"] = createWallets(1)[0]
-		outputs["F"] = NewSigLockedSingleOutput(200, wallets["F"].address)
+		wallets[alias] = createWallets(1)[0]
+		outputs[alias] = NewSigLockedSingleOutput(200, wallets[alias].address)
 
 		transactionEssence := NewTransactionEssence(0, time.Now(), manaPledgeID, manaPledgeID,
 			NewInputs(inputs["E"]),
-			NewOutputs(outputs["F"]),
+			NewOutputs(outputs[alias]),
 		)
 
-		transactions["F"] = NewTransaction(transactionEssence, []UnlockBlock{
+		transactions[alias] = NewTransaction(transactionEssence, []UnlockBlock{
 			NewSignatureUnlockBlock(
 				NewED25519Signature(
 					wallets["E"].keyPair.PublicKey,
@@ -490,46 +490,23 @@ func setupScenarioTopLayer1(t *testing.T, wallets map[string]wallet, outputs map
 			),
 		})
 
-		branches["F"] = NewBranchID(transactions["F"].ID())
-		RegisterBranchIDAlias(branches["F"], "BranchF")
+		branches[alias] = NewBranchID(transactions[alias].ID())
+		RegisterBranchIDAlias(branches[alias], "Branch"+alias)
 
-		outputs["F"].SetID(NewOutputID(transactions["F"].ID(), 0))
-		inputs["F"] = NewUTXOInput(outputs["F"].ID())
+		outputs[alias].SetID(NewOutputID(transactions[alias].ID(), 0))
+		inputs[alias] = NewUTXOInput(outputs[alias].ID())
 
-		_, err := ledgerstate.BookTransaction(transactions["F"])
+		_, err := ledgerstate.BookTransaction(transactions[alias])
 		require.NoError(t, err)
 	}
 }
 
+func setupScenarioTopLayer1(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+	setupScenarioTopLayerGeneric(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches, "F")
+}
+
 func setupScenarioTopLayer2(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
-	// issue Transaction G
-	{
-		wallets["G"] = createWallets(1)[0]
-		outputs["G"] = NewSigLockedSingleOutput(200, wallets["G"].address)
-
-		transactionEssence := NewTransactionEssence(0, time.Now(), manaPledgeID, manaPledgeID,
-			NewInputs(inputs["E"]),
-			NewOutputs(outputs["G"]),
-		)
-
-		transactions["G"] = NewTransaction(transactionEssence, []UnlockBlock{
-			NewSignatureUnlockBlock(
-				NewED25519Signature(
-					wallets["E"].keyPair.PublicKey,
-					wallets["E"].keyPair.PrivateKey.Sign(transactionEssence.Bytes()),
-				),
-			),
-		})
-
-		branches["G"] = NewBranchID(transactions["G"].ID())
-		RegisterBranchIDAlias(branches["G"], "BranchG")
-
-		outputs["G"].SetID(NewOutputID(transactions["G"].ID(), 0))
-		inputs["G"] = NewUTXOInput(outputs["G"].ID())
-
-		_, err := ledgerstate.BookTransaction(transactions["G"])
-		require.NoError(t, err)
-	}
+	setupScenarioTopLayerGeneric(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches, "G")
 }
 
 func setupScenarioTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
