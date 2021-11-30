@@ -39,7 +39,7 @@ declare module "vivagraphjs" {
         function graph(): IGraph;
         function webgl(context: WebGLRenderingContextBase): IWebGL;
         function webglInputEvents(graphics: View.IWebGLGraphics, graph: IGraph): IEvents;
-
+        // TODO change events from webgl to svg
         export namespace View {
             export interface IItem {
 
@@ -57,13 +57,24 @@ declare module "vivagraphjs" {
                 setNodeProgram: (program: WebGLProgram) => void;
             }
 
+            export interface ISvgGraphics {
+                node: (callback: () => IItem) => void;
+                link: (callback: () => IItem) => void;
+                getNodeUI: (nodeId: string) => any | undefined;
+                getLinkUI: (linkId: string) => any | undefined;
+            }
+
             export interface IRenderer {
                 run: () => void;
                 dispose: () => void;
                 getLayout: () => Layout.ILayout;
                 rerender: () => void;
             }
+
             function webglGraphics(): IWebGLGraphics;
+
+            function svgGraphics(): ISvgGraphics;
+
             function webglLine(color: string): IItem;
 
             function renderer(graph: IGraph, options: {

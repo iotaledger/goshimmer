@@ -1,4 +1,4 @@
-import { action, makeObservable, observable, ObservableMap } from 'mobx';
+import {action, makeObservable, observable, ObservableMap} from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
 import {default as Viva} from 'vivagraphjs';
 
@@ -399,7 +399,7 @@ export class TangleStore {
     start = () => {
         this.graph = Viva.Graph.graph();
 
-        let graphics: any = Viva.Graph.View.webglGraphics();
+        let graphics: any = Viva.Graph.View.svgGraphics();
 
         const layout = Viva.Graph.Layout.forceDirected(this.graph, {
             springLength: 10,
@@ -412,9 +412,9 @@ export class TangleStore {
         });
 
         graphics.node((node) => {
-            return Viva.Graph.View.webglSquare(vertexSize, "#b9b7bd");
+            return svgNodeBuilder("#b9b7bd", 10, 10);
         })
-        graphics.link(() => Viva.Graph.View.webglLine("#586e75"));
+        graphics.link(() => svgLinkBuilder("#586e75", 5, ":"));
         let ele = document.getElementById('tangleVisualizer');
         this.renderer = Viva.Graph.View.renderer(this.graph, {
             container: ele, graphics, layout,
@@ -437,6 +437,19 @@ export class TangleStore {
         this.graph = null;
         this.selectedMsg = null;
     }
+}
+
+let svgNodeBuilder = function (color: string, width: number, height: number) {
+    return Viva.Graph.svg("rect")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("fill", color);
+}
+
+let svgLinkBuilder = function (color: string, width: number, type: string) {
+    return Viva.Graph.svg("line")
+        .attr("stroke", color)
+        .attr("width", width)
 }
 
 export default TangleStore;
