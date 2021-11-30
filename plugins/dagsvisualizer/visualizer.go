@@ -237,7 +237,7 @@ func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
 				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
 				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
 				LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
-				BranchID:        ledgerstate.UndefinedBranchID.Base58(),
+				BranchID:        msgMetadata.BranchID().Base58(),
 				IsMarker:        msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 				IsConfirmed:     deps.FinalityGadget.IsMessageConfirmed(messageID),
