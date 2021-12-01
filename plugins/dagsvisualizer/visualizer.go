@@ -56,12 +56,17 @@ func registerTangleEvents() {
 
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+			branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
+			if err != nil {
+				branchID = ledgerstate.BranchID{}
+			}
+
 			visualizerWorkerPool.TrySubmit((&wsMessage{
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
 					ID:       messageID.Base58(),
 					IsMarker: msgMetadata.StructureDetails().IsPastMarker,
-					BranchID: msgMetadata.BranchID().Base58(),
+					BranchID: branchID.Base58(),
 				},
 			}))
 		})
