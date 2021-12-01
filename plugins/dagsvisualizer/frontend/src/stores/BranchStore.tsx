@@ -165,6 +165,7 @@ export class BranchStore {
         if (!branchNode) return;
         // select the node manually
         branchNode.select();
+        this.cy.center(branchNode);
 
         this.updateSelected(branchID);
     }

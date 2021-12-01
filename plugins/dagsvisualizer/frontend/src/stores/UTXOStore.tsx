@@ -159,6 +159,7 @@ export class UTXOStore {
       if (!txNode) return;
       // select the node manually
       txNode.select();
+      this.cy.center(txNode);
       
       this.updateSelected(this.search);
     }
@@ -188,7 +189,7 @@ export class UTXOStore {
       this.transactions.forEach((tx) => {
           this.drawVertex(tx);
       })
-  }
+    }
 
     updateDrawStatus = (draw: boolean) => {
       this.draw = draw;
