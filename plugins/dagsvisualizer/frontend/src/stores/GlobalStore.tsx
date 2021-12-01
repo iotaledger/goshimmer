@@ -40,9 +40,10 @@ export class GlobalStore {
         let tx = this.utxoStore.selectedTx;
         if (!tx) return;
 
-        this.tangleStore.selectMsg(tx.msgID);
-        
         let msg = this.tangleStore.getMsg(tx.msgID);
+        if (!msg) return;
+
+        this.tangleStore.selectMsg(tx.msgID);        
         this.branchStore.selectBranch(msg.branchID);
     }
 
