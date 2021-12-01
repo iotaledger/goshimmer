@@ -6,6 +6,9 @@ on:
         description: 'Custom snapshot URL:'
         required: false
         default: ""
+  push:
+    branches:
+      - 'feat/remote-debugging'
 
 jobs:
   deploy:
