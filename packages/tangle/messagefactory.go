@@ -338,37 +338,32 @@ func PrepareLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Ta
 		}
 		branchIDs.Add(branchID)
 	}
-	_, dislikedBranches, err := tangle.OTVConsensusManager.Opinion(branchIDs)
+
+	likedInstead, err := tangle.OTVConsensusManager.LikedInstead(branchIDs)
 	if err != nil {
-		err = errors.Errorf("opinions could not be retrieved: %w", err)
-		return nil, err
+		return nil, errors.Errorf("cannot determine liked branches: %w", err)
 	}
+
 	likeReferencesMap := make(map[MessageID]types.Empty)
 	likeReferences := MessageIDs{}
-
-	for dislikedBranch := range dislikedBranches {
-		likedInstead, err := tangle.OTVConsensusManager.LikedInstead(dislikedBranch)
+	for likeRef := range likedInstead {
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likeRef.TransactionID())
 		if err != nil {
-			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
 			return nil, err
 		}
-
-		for _, likeRef := range likedInstead {
-			oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likeRef.Liked.TransactionID())
-			if err != nil {
-				return nil, err
-			}
-			// add like reference to a message only once if it appears in multiple conflict sets
-			if _, ok := likeReferencesMap[oldestAttachmentMessageID]; !ok {
-				likeReferencesMap[oldestAttachmentMessageID] = types.Void
-				// check difference between issuing time and message that would be set as like reference, to avoid setting too old message.
-				// what if original message is older than maxParentsTimeDifference even though the branch still exists?
-				if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
-					likeReferences = append(likeReferences, oldestAttachmentMessageID)
-				}
+		// add like reference to a message only once if it appears in multiple conflict sets
+		if _, ok := likeReferencesMap[oldestAttachmentMessageID]; !ok {
+			likeReferencesMap[oldestAttachmentMessageID] = types.Void
+			// check difference between issuing time and message that would be set as like reference, to avoid setting too old message.
+			// what if original message is older than maxParentsTimeDifference even though the branch still exists?
+			if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
+				likeReferences = append(likeReferences, oldestAttachmentMessageID)
+			} else {
+				return nil, fmt.Errorf("like references needed are too far in the past")
 			}
 		}
 	}
+
 	return likeReferences, nil
 }
 
