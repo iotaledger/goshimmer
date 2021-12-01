@@ -53,6 +53,7 @@ export class TangleStore {
     vertexChanges = 0;
     graph;
     graphics;
+    layout;
     renderer;
 
     constructor() {        
@@ -337,7 +338,7 @@ export class TangleStore {
                 linkUI.color = parseColor("#b58900");
             },
             seenBackwards
-        );
+        );        
     }
 
     selectMsg = (msgID: string) => {
@@ -348,6 +349,10 @@ export class TangleStore {
         if (!msg)  return;
 
         this.updateSelected(msg);
+
+        // center the selected node.
+        var pos = this.layout.getNodePosition(msgID);
+        this.renderer.moveTo(pos.x, pos.y);
     }
 
     getMsg = (msgID: string) => {
@@ -436,6 +441,7 @@ export class TangleStore {
         });
 
         this.graphics = graphics;
+        this.layout = layout;
         this.renderer.run();
     }
 
