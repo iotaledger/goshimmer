@@ -26,6 +26,26 @@ export class GlobalStore {
         this.branchStore = branchStore;
     }
 
+    syncWithMsg = () => {
+        let msg = this.tangleStore.selectedMsg;
+        if (!msg) return;
+
+        if (msg.isTx) {
+            this.utxoStore.selectTx(msg.txID);
+        }
+        this.branchStore.selectBranch(msg.branchID);
+    }
+
+    syncWithTx = () => {
+        let tx = this.utxoStore.selectedTx;
+        if (!tx) return;
+
+        this.tangleStore.selectMsg(tx.msgID);
+        
+        let msg = this.tangleStore.getMsg(tx.msgID);
+        this.branchStore.selectBranch(msg.branchID);
+    }
+
     @action
     updateExplorerAddress = (addr: string) => {
         this.tangleStore.updateExplorerAddress(addr);

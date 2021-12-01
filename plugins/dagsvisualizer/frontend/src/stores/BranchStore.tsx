@@ -153,15 +153,20 @@ export class BranchStore {
     @action
     searchAndHighlight = () => {
         if (!this.search) return;
+        
+        this.selectBranch(this.search);
+    }
 
+    selectBranch = (branchID: string) => {
+        // clear pre-selected branch.
         this.clearSelected(true);
         
-        let branchNode = this.cy.getElementById(this.search);
+        let branchNode = this.cy.getElementById(branchID);
         if (!branchNode) return;
         // select the node manually
         branchNode.select();
-        
-        this.updateSelected(this.search);
+
+        this.updateSelected(branchID);
     }
 
     updateExplorerAddress = (addr: string) => {

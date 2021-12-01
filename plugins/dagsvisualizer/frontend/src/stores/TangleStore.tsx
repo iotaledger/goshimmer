@@ -48,7 +48,6 @@ export class TangleStore {
     @observable search: string = "";
     @observable explorerAddress = "localhost:8081";
     msgOrder: Array<any> = [];
-    selected_via_click: boolean = false;
     selected_origin_color: number = 0;
     draw: boolean = true;
     vertexChanges = 0;
@@ -206,13 +205,9 @@ export class TangleStore {
 
     @action
     searchAndHighlight = () => {
-        this.clearSelected(true);
         if (!this.search) return;
         
-        let msgNode = this.graph.getNode(this.search);
-        if (!msgNode) return;
-        
-        this.updateSelected(msgNode.data, false);
+        this.selectMsg(this.search);
     }
     
     updateExplorerAddress = (addr: string) => {
@@ -309,11 +304,10 @@ export class TangleStore {
     }
 
     @action
-    updateSelected = (vert: tangleVertex, viaClick?: boolean) => {
+    updateSelected = (vert: tangleVertex) => {
         if (!vert) return;
 
         this.selectedMsg = vert;
-        this.selected_via_click = !!viaClick;
 
         // mutate links
         let node = this.graph.getNode(vert.ID);
@@ -346,6 +340,20 @@ export class TangleStore {
         );
     }
 
+    selectMsg = (msgID: string) => {
+        // clear pre-selected node first
+        this.clearSelected();
+
+        let msg = this.messages.get(msgID);
+        if (!msg)  return;
+
+        this.updateSelected(msg);
+    }
+
+    getMsg = (msgID: string) => {
+        return this.messages.get(msgID);
+    }
+
     resetLinks = () => {
         this.graph.forEachLink((link) => {
             const linkUI = this.graphics.getLinkUI(link.id);
@@ -354,8 +362,8 @@ export class TangleStore {
     }
 
     @action
-    clearSelected = (force_clear?: boolean) => {
-        if (!this.selectedMsg || (this.selected_via_click && !force_clear)) {
+    clearSelected = () => {
+        if (!this.selectedMsg) {
             return;
         }
 
@@ -394,7 +402,6 @@ export class TangleStore {
         );
 
         this.selectedMsg = null;
-        this.selected_via_click = false;
     }
 
     start = () => {
@@ -424,8 +431,8 @@ export class TangleStore {
         let events = Viva.Graph.webglInputEvents(graphics, this.graph);
 
         events.click((node) => {
-            this.clearSelected(true);
-            this.updateSelected(node.data, true);
+            this.clearSelected();
+            this.updateSelected(node.data);
         });
 
         this.graphics = graphics;

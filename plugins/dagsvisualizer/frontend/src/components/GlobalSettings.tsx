@@ -22,7 +22,11 @@ interface Props {
 export class GlobalSettings extends React.Component<Props, any> {
     constructor(props) {
         super(props);
-        this.state = {isIdle: true, open: true, explorerAddress:""};  
+        this.state = {
+            isIdle: true,
+            open: true,
+            explorerAddress:""
+        };  
     }
 
     updateFrom = (date) => {
@@ -57,6 +61,14 @@ export class GlobalSettings extends React.Component<Props, any> {
             this.setState({explorerAddress: ""})
         }
     };
+
+    syncWithMsg = () => {
+        this.props.globalStore.syncWithMsg();
+    }
+
+    syncWithTx = () => {
+        this.props.globalStore.syncWithTx();
+    }
 
     render () {
         return (
@@ -104,6 +116,21 @@ export class GlobalSettings extends React.Component<Props, any> {
                                         />
                                     </InputGroup>
                                 </Col>
+                            </Row>
+                        </div>
+                        <div>
+                            <h5>Select and center vertex across DAGs</h5>
+                            <Row>
+                                <Col xs="auto">
+                                    <Button onClick={this.syncWithMsg} variant="outline-secondary">
+                                        Sync with message
+                                    </Button>
+                                </Col>
+                                <Col xs="auto">
+                                    <Button onClick={this.syncWithTx} variant="outline-secondary">
+                                        Sync with transaction
+                                    </Button>
+                                </Col>        
                             </Row>
                         </div>
                     </div>

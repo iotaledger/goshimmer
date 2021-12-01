@@ -14,10 +14,10 @@ interface Props {
 @observer
 export class MessageInfo extends React.Component<Props, any> {
     render () {
-        let { selectedMsg, selected_via_click,explorerAddress } = this.props.tangleStore;
+        let { selectedMsg, explorerAddress } = this.props.tangleStore;
 
         return (
-            selectedMsg && selected_via_click &&
+            selectedMsg &&
                 <div className="selectedInfo">
                     <Card style={{ width: '100%' }}>
                         <Card.Body>

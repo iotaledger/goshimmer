@@ -146,16 +146,21 @@ export class UTXOStore {
 
     @action
     searchAndHighlight = () => {
-        if (!this.search) return;
+      if (!this.search) return;
+        
+      this.selectTx(this.search);
+    }
 
-        this.clearSelected(true);
-        
-        let txNode = this.cy.getElementById(this.search);
-        if (!txNode) return;
-        // select the node manually
-        txNode.select();
-        
-        this.updateSelected(this.search);
+    selectTx = (txID: string) => {
+      // clear pre-selected node first.
+      this.clearSelected(true);
+       
+      let txNode = this.cy.getElementById(txID);
+      if (!txNode) return;
+      // select the node manually
+      txNode.select();
+      
+      this.updateSelected(this.search);
     }
 
     updateExplorerAddress = (addr: string) => {
