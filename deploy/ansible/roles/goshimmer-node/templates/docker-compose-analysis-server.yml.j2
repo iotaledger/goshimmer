@@ -13,7 +13,6 @@ services:
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - PROFILING_BINDADDRESS=0.0.0.0:6063
-    entrypoint: /run/goshimmer
     command: >
       --skip-config=true
       --node.overwriteStoredSeed=true
