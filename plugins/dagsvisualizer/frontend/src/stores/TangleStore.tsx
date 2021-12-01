@@ -435,8 +435,14 @@ export class TangleStore {
             container: ele, graphics, layout,
         });
 
+
         this.graphics = graphics;
         this.renderer.run();
+
+        // maximize the svg window
+        let svgEl = document.querySelector("#tangleVisualizer>svg")
+        svgEl.setAttribute("width", "100%")
+        svgEl.setAttribute("height", "100%")
     }
 
     stop = () => {
