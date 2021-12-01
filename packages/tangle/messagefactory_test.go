@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/hive.go/events"
@@ -191,11 +190,9 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 	testFramework.RegisterBranchID("3", "3")
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3")),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{testFramework.BranchID("3"): {
-			consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")},
-			consensus.OpinionTuple{Liked: testFramework.BranchID("1"), Disliked: testFramework.BranchID("3")},
-		}},
+		likedInstead: map[ledgerstate.BranchID]ledgerstate.BranchIDs{
+			testFramework.BranchID("3"): ledgerstate.NewBranchIDs(testFramework.BranchID("2"), testFramework.BranchID("1")),
+		},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
@@ -243,10 +240,9 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	testFramework.RegisterBranchID("4", "4")
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3"), testFramework.BranchID("4")),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{
-			testFramework.BranchID("3"): {consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")}},
-			testFramework.BranchID("4"): {consensus.OpinionTuple{Liked: testFramework.BranchID("1"), Disliked: testFramework.BranchID("4")}},
+		likedInstead: map[ledgerstate.BranchID]ledgerstate.BranchIDs{
+			testFramework.BranchID("3"): ledgerstate.NewBranchIDs(testFramework.BranchID("2")),
+			testFramework.BranchID("4"): ledgerstate.NewBranchIDs(testFramework.BranchID("1")),
 		},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
@@ -275,7 +271,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("2").ID(), testFramework.Message("5").ID()}, time.Now())
 
 	// Do not return too old like reference
-	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("2").ID()}, time.Now().Add(maxParentsTimeDifference))
+	checkReferences(t, tangle, MessageIDs{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, MessageIDs{testFramework.Message("2").ID()}, time.Now().Add(maxParentsTimeDifference), true)
 }
 
 // Tests if error is returned when non-existing transaction is tried to be liked.
@@ -312,11 +308,9 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	nonExistingBranchID := ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2"))).ID()
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		disliked: ledgerstate.NewBranchIDs(testFramework.BranchID("3")),
-		likedInstead: map[ledgerstate.BranchID][]consensus.OpinionTuple{testFramework.BranchID("3"): {
-			consensus.OpinionTuple{Liked: testFramework.BranchID("2"), Disliked: testFramework.BranchID("3")},
-			consensus.OpinionTuple{Liked: nonExistingBranchID, Disliked: testFramework.BranchID("3")},
-		}},
+		likedInstead: map[ledgerstate.BranchID]ledgerstate.BranchIDs{
+			testFramework.BranchID("3"): ledgerstate.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
+		},
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
@@ -324,9 +318,14 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	require.Error(t, err)
 }
 
-func checkReferences(t *testing.T, tangle *Tangle, parents, expected MessageIDs, issuingTime time.Time) {
+func checkReferences(t *testing.T, tangle *Tangle, parents, expected MessageIDs, issuingTime time.Time, errorExpected ...bool) {
 	ref, err := PrepareLikeReferences(parents, issuingTime, tangle)
-	require.NoError(t, err)
+	if len(errorExpected) > 0 && errorExpected[0] {
+		require.Error(t, err)
+		return
+	} else {
+		require.NoError(t, err)
+	}
 	for _, e := range expected {
 		assert.Contains(t, ref, e)
 	}

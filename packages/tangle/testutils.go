@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -842,27 +841,15 @@ func (m *MockWeightProvider) Shutdown() {
 
 // SimpleMockOnTangleVoting is mock of OTV mechanism.
 type SimpleMockOnTangleVoting struct {
-	disliked     ledgerstate.BranchIDs
-	likedInstead map[ledgerstate.BranchID][]consensus.OpinionTuple
-}
-
-// Opinion returns liked and disliked branches as predefined.
-func (o *SimpleMockOnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
-	liked = ledgerstate.NewBranchIDs()
-	disliked = ledgerstate.NewBranchIDs()
-	for branchID := range branchIDs {
-		if o.disliked.Contains(branchID) {
-			disliked.Add(branchID)
-		} else {
-			liked.Add(branchID)
-		}
-	}
-	return
+	likedInstead map[ledgerstate.BranchID]ledgerstate.BranchIDs
 }
 
 // LikedInstead returns branches that are liked instead of a disliked branch as predefined.
-func (o *SimpleMockOnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
-	opinionTuple = o.likedInstead[branchID]
+func (o *SimpleMockOnTangleVoting) LikedInstead(branchIDs ledgerstate.BranchIDs) (likedBranchIDs ledgerstate.BranchIDs, err error) {
+	likedBranchIDs = ledgerstate.NewBranchIDs()
+	for branchID := range branchIDs {
+		likedBranchIDs.AddAll(o.likedInstead[branchID])
+	}
 	return
 }
 

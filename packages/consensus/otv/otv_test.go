@@ -2,13 +2,11 @@
 package otv
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -20,17 +18,14 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 	mustMatch := func(s *Scenario, aliasLikedBranches ...string) ExpectedOpinionTuple {
 		return func(executionBranchAlias string, actualBranchIDs BranchIDs) {
-			branchAlias["A"]
-			expected := NewBranchIDs(aliasLikedBranches...)
-			sortOpinionTuple(expected)
-			sortOpinionTuple(actual)
-			if assert.EqualValues(t, expected, actual) {
-				return
+			expected := NewBranchIDs()
+			for _, aliasLikedBranch := range aliasLikedBranches {
+				expected.Add(s.BranchID(aliasLikedBranch))
 			}
-			fmt.Printf("failed execution with Branch '%s'\n", executionBranchAlias)
-			fmt.Println("expected", expected)
-			fmt.Println("actual", actual)
-			t.FailNow()
+
+			for actualBranchID := range actualBranchIDs {
+				require.True(t, expected.Contains(actualBranchID), "expected: %s, actual: %s", aliasLikedBranches, actualBranchIDs)
+			}
 		}
 	}
 
@@ -62,7 +57,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
+							"A",
 						),
 					},
 				}
@@ -83,8 +78,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"C", "A"},
+							"B", "C",
 						),
 					},
 					{
@@ -117,13 +111,13 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
+							"A",
 						),
 					},
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "C"},
+							"A",
 						),
 					},
 				}
@@ -148,13 +142,13 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
+							"A",
 						),
 					},
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "C"},
+							"A",
 						),
 					},
 				}
@@ -175,8 +169,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"C", "A"},
+							"B", "C",
 						),
 					},
 					{
@@ -205,8 +198,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"C", "A"},
+							"B", "C",
 						),
 					},
 					{
@@ -235,8 +227,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"C", "A"},
+							"B", "C",
 						),
 					},
 					{
@@ -250,7 +241,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "D",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "D"},
+							"B",
 						),
 					},
 				}
@@ -271,8 +262,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"D", "A"},
+							"B", "D",
 						),
 					},
 					{
@@ -282,7 +272,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"D", "C"},
+							"D",
 						),
 					},
 					{
@@ -311,20 +301,19 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"E", "B"},
+							"A", "E",
 						),
 					},
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "C"},
+							"A",
 						),
 					},
 					{
 						branchAlias: "D",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "D"},
+							"A",
 						),
 					},
 					{
@@ -349,8 +338,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"D", "A"},
+							"B", "D",
 						),
 					},
 					{
@@ -360,7 +348,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"D", "C"},
+							"D",
 						),
 					},
 					{
@@ -370,7 +358,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "E",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "E"},
+							"B",
 						),
 					},
 				}
@@ -391,13 +379,13 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"C", "A"},
+							"C",
 						),
 					},
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"C", "B"},
+							"C",
 						),
 					},
 					{
@@ -422,7 +410,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
@@ -432,13 +420,13 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "D",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"E", "D"},
+							"E",
 						),
 					},
 					{
@@ -448,7 +436,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "C+E",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
+							"B",
 						),
 					},
 				}
@@ -473,8 +461,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"C", "B"},
+							"A", "C",
 						),
 					},
 					{
@@ -484,7 +471,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "D",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"E", "D"},
+							"E",
 						),
 					},
 					{
@@ -517,8 +504,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"C", "B"},
+							"A", "C",
 						),
 					},
 					{
@@ -528,7 +514,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "D",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"E", "D"},
+							"E",
 						),
 					},
 					{
@@ -538,7 +524,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "F",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"G", "F"},
+							"G",
 						),
 					},
 					{
@@ -556,7 +542,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "I",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "I"},
+							"H",
 						),
 					},
 					{
@@ -566,7 +552,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "J",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"K", "J"},
+							"K",
 						),
 					},
 					{
@@ -591,7 +577,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
@@ -601,13 +587,13 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "D",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"E", "D"},
+							"E",
 						),
 					},
 					{
@@ -617,19 +603,19 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "F",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "G",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "C+E",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
+							"B",
 						),
 					},
 					{
@@ -639,20 +625,19 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "I",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "I"},
+							"H",
 						),
 					},
 					{
 						branchAlias: "C+E+G",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"B", "C"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "J",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"K", "J"},
+							"K",
 						),
 					},
 					{
@@ -677,7 +662,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
@@ -687,26 +672,25 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "F",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "G",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "H",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"B", "H"},
+							"B",
 						),
 					},
 				}
@@ -731,8 +715,8 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"C", "B"},
+							"A",
+							"C",
 						),
 					},
 					{
@@ -742,7 +726,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "F",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"G", "F"},
+							"G",
 						),
 					},
 					{
@@ -752,8 +736,8 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "H",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"G", "H"},
-							aliasOpinionTuple{"C", "H"},
+							"G",
+							"C",
 						),
 					},
 				}
@@ -778,26 +762,26 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"H", "B"},
+							"A",
+							"H",
 						),
 					},
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "C"},
+							"H",
 						),
 					},
 					{
 						branchAlias: "F",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "F"},
+							"H",
 						),
 					},
 					{
 						branchAlias: "G",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "G"},
+							"H",
 						),
 					},
 					{
@@ -807,7 +791,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "I",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"J", "I"},
+							"J",
 						),
 					},
 					{
@@ -817,7 +801,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "K",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"L", "K"},
+							"L",
 						),
 					},
 					{
@@ -827,7 +811,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "M",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"N", "M"},
+							"N",
 						),
 					},
 					{
@@ -837,8 +821,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "O",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"J", "O"},
-							aliasOpinionTuple{"N", "O"},
+							"J", "N",
 						),
 					},
 					{
@@ -867,26 +850,26 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "B",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"H", "B"},
+							"A",
+							"H",
 						),
 					},
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "C"},
+							"H",
 						),
 					},
 					{
 						branchAlias: "F",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "F"},
+							"H",
 						),
 					},
 					{
 						branchAlias: "G",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "G"},
+							"H",
 						),
 					},
 					{
@@ -896,19 +879,19 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "I",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "I"},
+							"O",
 						),
 					},
 					{
 						branchAlias: "J",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "J"},
+							"O",
 						),
 					},
 					{
 						branchAlias: "K",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"L", "K"},
+							"L",
 						),
 					},
 					{
@@ -918,13 +901,13 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "M",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "M"},
+							"O",
 						),
 					},
 					{
 						branchAlias: "N",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "N"},
+							"O",
 						),
 					},
 					{
@@ -934,8 +917,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "J+N",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "J"},
-							aliasOpinionTuple{"O", "N"},
+							"O",
 						),
 					},
 				}
@@ -956,7 +938,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "A",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
@@ -966,38 +948,37 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					{
 						branchAlias: "C",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "F",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "G",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "H",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"B", "H"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "I",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 					{
 						branchAlias: "J",
 						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
+							"B",
 						),
 					},
 				}
@@ -1033,12 +1014,6 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 }
 
 // region test helpers /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// aliasOpinionTuple allows to specify consensus.OpinionTuple with branch aliases.
-type aliasOpinionTuple struct {
-	Liked    string
-	Disliked string
-}
 
 // BranchMeta describes a branch in a branchDAG with its conflicts and approval weight.
 type BranchMeta struct {
