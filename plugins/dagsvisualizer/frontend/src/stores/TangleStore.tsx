@@ -287,9 +287,8 @@ export class TangleStore {
         if (msg.isTx) {
             color = "#fad02c";
         }
-        color = "#6c71c4";
 
-        nodeUI.color = parseColor(color);
+        setUIColor(nodeUI, color);
     }
 
     removeVertex = (msgID: string) => {
@@ -317,9 +316,9 @@ export class TangleStore {
         // mutate links
         let node = this.graph.getNode(vert.ID);
         let nodeUI = this.graphics.getNodeUI(vert.ID);
-        this.selected_origin_color = nodeUI.color
-        nodeUI.color = parseColor("#859900");
-        nodeUI.size = vertexSize * 1.5;
+        this.selected_origin_color = getUIColor(nodeUI)
+        setUIColor(nodeUI, "#859900");
+        setUINodeSize(nodeUI, vertexSize * 1.5);
 
         const seenForward = [];
         const seenBackwards = [];
@@ -331,7 +330,7 @@ export class TangleStore {
             true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = parseColor("#d33682");
+                setUIColor(linkUI, "#d33682")
             },
             seenForward
         );
@@ -339,7 +338,7 @@ export class TangleStore {
                 this.selected_approvees_count++;
             }, false, link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = parseColor("#b58900");
+                setUIColor(linkUI, "#b58900")
             },
             seenBackwards
         );
@@ -348,7 +347,7 @@ export class TangleStore {
     resetLinks = () => {
         this.graph.forEachLink((link) => {
             const linkUI = this.graphics.getLinkUI(link.id);
-            linkUI.color = parseColor("#586e75");
+            setUIColor(linkUI, "#586e75")
         });
     }
 
@@ -370,8 +369,8 @@ export class TangleStore {
         }
 
         let nodeUI = this.graphics.getNodeUI(this.selectedMsg.ID);
-        nodeUI.color = this.selected_origin_color;
-        nodeUI.size = vertexSize;
+        setUIColor(nodeUI, this.selected_origin_color)
+        setUINodeSize(nodeUI, vertexSize);
 
         const seenForward = [];
         const seenBackwards = [];
@@ -379,7 +378,8 @@ export class TangleStore {
             }, true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = parseColor("#586e75");
+                setUIColor(linkUI, "#586e75")
+
             },
             seenBackwards
         );
@@ -387,7 +387,7 @@ export class TangleStore {
             }, false,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = parseColor("#586e75");
+                setUIColor(linkUI, "#586e75")
             },
             seenForward
         );
@@ -412,7 +412,20 @@ export class TangleStore {
         });
 
         graphics.node((node) => {
-            return svgNodeBuilder("#b9b7bd", 10, 10);
+            let ui = svgNodeBuilder("#b9b7bd", 10, 10);
+            // $(ui).click(function () {
+            //
+            // }, function () {
+            //
+            // })
+            ui.on("click", (node) => {
+                this.clearSelected(true)
+            });
+            ui.on("click", (node) => {
+                this.updateSelected(node.data, true)
+            });
+
+            return
         })
         graphics.link(() => svgLinkBuilder("#586e75", 5, ":"));
         let ele = document.getElementById('tangleVisualizer');
@@ -420,12 +433,12 @@ export class TangleStore {
             container: ele, graphics, layout,
         });
 
-        let events = Viva.Graph.webglInputEvents(graphics, this.graph);
-
-        events.click((node) => {
-            this.clearSelected(true);
-            this.updateSelected(node.data, true);
-        });
+        // let events = Viva.Graph.webglInputEvents(graphics, this.graph);
+        //
+        // events.click((node) => {
+        //     this.clearSelected(true);
+        //     this.updateSelected(node.data, true);
+        // });
 
         this.graphics = graphics;
         this.renderer.run();
@@ -437,6 +450,7 @@ export class TangleStore {
         this.graph = null;
         this.selectedMsg = null;
     }
+
 }
 
 let svgNodeBuilder = function (color: string, width: number, height: number) {
@@ -503,4 +517,26 @@ function parseColor(color): any {
     }
 
     return parsedColor;
+}
+
+function setUIColor(ui: any, color: any) {
+    switch (typeof color) {
+        case "string":
+            ui.attr("color", parseColor(color));
+            break;
+        case "number":
+            ui.attr("color", color);
+            break;
+        default:
+            return Error("unknown typeof color")
+    }
+}
+
+function getUIColor(ui: any): number {
+    return ui.attr("color")
+}
+
+function setUINodeSize(ui: any, size: number) {
+    ui.attr('width', size)
+    ui.attr('height', size)
 }
