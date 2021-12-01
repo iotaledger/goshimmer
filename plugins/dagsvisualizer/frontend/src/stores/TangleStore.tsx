@@ -413,32 +413,27 @@ export class TangleStore {
 
         graphics.node((node) => {
             let ui = svgNodeBuilder("#b9b7bd", 10, 10);
-            // $(ui).click(function () {
-            //
-            // }, function () {
-            //
-            // })
-            ui.on("click", (node) => {
+            ui.on("click", () => {
+                this.updateSelected(node.data, true)
                 this.clearSelected(true)
             });
-            ui.on("click", (node) => {
-                this.updateSelected(node.data, true)
-            });
-
-            return
+            return ui
         })
-        graphics.link(() => svgLinkBuilder("#586e75", 5, ":"));
+        graphics.link(() => {
+            return svgLinkBuilder("#586e75", 5, ":");
+        }).placeLink(function (linkUI, fromPos, toPos) {
+            // linkUI - is the object returned from link() callback above.
+            let data = 'M' + fromPos.x + ',' + fromPos.y +
+                'L' + toPos.x + ',' + toPos.y;
+
+            // 'Path data' (http://www.w3.org/TR/SVG/paths.html#DAttribute )
+            // is a common way of rendering paths in SVG:
+            linkUI.attr("d", data);
+        })
         let ele = document.getElementById('tangleVisualizer');
         this.renderer = Viva.Graph.View.renderer(this.graph, {
             container: ele, graphics, layout,
         });
-
-        // let events = Viva.Graph.webglInputEvents(graphics, this.graph);
-        //
-        // events.click((node) => {
-        //     this.clearSelected(true);
-        //     this.updateSelected(node.data, true);
-        // });
 
         this.graphics = graphics;
         this.renderer.run();
@@ -457,13 +452,14 @@ let svgNodeBuilder = function (color: string, width: number, height: number) {
     return Viva.Graph.svg("rect")
         .attr("width", width)
         .attr("height", height)
-        .attr("fill", color);
+        .attr("fill", color)
 }
 
 let svgLinkBuilder = function (color: string, width: number, type: string) {
-    return Viva.Graph.svg("line")
+    return Viva.Graph.svg("path")
         .attr("stroke", color)
         .attr("width", width)
+        .attr('stroke-dasharray', '5, 5');
 }
 
 export default TangleStore;
@@ -493,47 +489,13 @@ function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) 
     }
 }
 
-function parseColor(color): any {
-    let parsedColor = 0x009ee8ff;
-
-    if (typeof color === 'number') {
-        return color;
-    }
-
-    if (typeof color === 'string' && color) {
-        if (color.length === 4) {
-            // #rgb, duplicate each letter except first #.
-            color = color.replace(/([^#])/g, '$1$1');
-        }
-        if (color.length === 9) {
-            // #rrggbbaa
-            parsedColor = parseInt(color.substr(1), 16);
-        } else if (color.length === 7) {
-            // or #rrggbb.
-            parsedColor = (parseInt(color.substr(1), 16) << 8) | 0xff;
-        } else {
-            throw 'Color expected in hex format with preceding "#". E.g. #00ff00. Got value: ' + color;
-        }
-    }
-
-    return parsedColor;
-}
 
 function setUIColor(ui: any, color: any) {
-    switch (typeof color) {
-        case "string":
-            ui.attr("color", parseColor(color));
-            break;
-        case "number":
-            ui.attr("color", color);
-            break;
-        default:
-            return Error("unknown typeof color")
-    }
+    ui.attr("fill", color);
 }
 
 function getUIColor(ui: any): number {
-    return ui.attr("color")
+    return ui.attr("fill")
 }
 
 function setUINodeSize(ui: any, size: number) {
