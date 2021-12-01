@@ -10,6 +10,7 @@ export class tangleVertex {
     branchID:        string;
 	isMarker:        boolean;
     isTx:            boolean;
+    txID:            string;
     isConfirmed:     boolean;
     gof:             string;
 	confirmedTime:   number;

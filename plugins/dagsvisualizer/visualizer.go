@@ -245,6 +245,10 @@ func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
 				GoF:             msgMetadata.GradeOfFinality().String(),
 			}
 		})
+
+		if ret.IsTx {
+			ret.TxID = msg.Payload().(*ledgerstate.Transaction).ID().Base58()
+		}
 	})
 	return
 }

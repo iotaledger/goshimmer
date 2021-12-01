@@ -36,6 +36,7 @@ type tangleVertex struct {
 	BranchID        string   `json:"branchID"`
 	IsMarker        bool     `json:"isMarker"`
 	IsTx            bool     `json:"isTx"`
+	TxID            string   `json:"txID", omitempty`
 	IsConfirmed     bool     `json:"isConfirmed"`
 	ConfirmedTime   int64    `json:"confirmedTime"`
 	GoF             string   `json:"gof",omitempty`
