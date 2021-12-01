@@ -28,91 +28,55 @@ func NewOnTangleVoting(branchDAG *ledgerstate.BranchDAG, weightFunc consensus.We
 	}
 }
 
-// Opinion splits the given branch IDs by examining all the conflict sets for each branch and checking whether
-// it is the branch with the highest approval weight across all its conflict sets of which it is a member.
-func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
-	liked, disliked = ledgerstate.NewBranchIDs(), ledgerstate.NewBranchIDs()
-	for branchID := range branchIDs {
-		resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
-		}
-
-		allParentsLiked := true
-		for resolvedBranch := range resolvedConflictBranchIDs {
-			if !o.doILike(resolvedBranch) {
-				allParentsLiked = false
-				break
-			}
-		}
-
-		if allParentsLiked {
-			liked.Add(branchID)
-			continue
-		}
-
-		parentsOpinionTuple, err := o.LikedInstead(branchID)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, k := range parentsOpinionTuple {
-			liked.Add(k.Liked)
-			disliked.Add(k.Disliked)
-		}
-	}
-	return liked, disliked, nil
-}
-
 // LikedInstead determines what vote should be cast given the provided branchID.
-func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
-	opinionTuple = make([]consensus.OpinionTuple, 0)
-	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+func (o *OnTangleVoting) LikedInstead(branchIDs ledgerstate.BranchIDs) (likedBranchIDs ledgerstate.BranchIDs, err error) {
+	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(branchIDs)
 	if err != nil {
-		return opinionTuple, errors.Wrapf(err, "unable to resolve conflict branch IDs of %s", branchID)
+		return nil, errors.Errorf("unable to resolve conflict branch IDs of %s: %w", err)
 	}
 
+	likedBranchIDs = ledgerstate.NewBranchIDs()
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
-		// I like myself
-		if o.doILike(resolvedConflictBranchID) {
+		if o.branchLiked(resolvedConflictBranchID) {
 			continue
 		}
 
-		alternativeFound := false
-		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-			if !alternativeFound && o.doILike(conflictingBranchID) {
-				opinionTuple = append(opinionTuple, consensus.OpinionTuple{
-					Liked:    conflictingBranchID,
-					Disliked: resolvedConflictBranchID,
-				})
-			}
-		})
-
-		// here any direct conflicting branch is also disliked
-		// which means that instead the liked branches have to be derived from branch's parents
-		o.branchDAG.Branch(resolvedConflictBranchID).Consume(func(branch ledgerstate.Branch) {
-			for parent := range branch.Parents() {
-				parentsOpinionTuple, likedErr := o.LikedInstead(parent)
-				if likedErr != nil {
-					err = errors.Wrapf(likedErr, "unable to determine liked instead of parent %s of %s", parent, branchID)
-					return
-				}
-				// If I have multiple parents I have to add all of them to my tuple
-				opinionTuple = append(opinionTuple, parentsOpinionTuple...)
-			}
-		})
-		if err != nil {
-			return nil, err
-		}
+		likedBranchIDs.Add(o.conflictBranchLikedInstead(resolvedConflictBranchID))
 	}
 
-	return opinionTuple, nil
+	return
 }
 
-func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID) (branchLiked bool) {
-	branchLiked = true
+func (o *OnTangleVoting) conflictBranchLikedInstead(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID) {
+	for parentWalker := walker.New().Push(branchID); parentWalker.HasNext(); {
+		currentBranchID := parentWalker.Next().(ledgerstate.BranchID)
 
-	likeWalker := walker.New()
-	for likeWalker.Push(branchID); likeWalker.HasNext(); {
+		o.branchDAG.ForEachConflictingBranchID(currentBranchID, func(conflictingBranchID ledgerstate.BranchID) {
+			if likedBranchID != ledgerstate.UndefinedBranchID {
+				return
+			}
+
+			if o.branchLiked(conflictingBranchID) {
+				likedBranchID = conflictingBranchID
+			}
+		})
+		if likedBranchID != ledgerstate.UndefinedBranchID {
+			return
+		}
+
+		o.branchDAG.Branch(currentBranchID).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
+			for parentBranchID := range conflictBranch.Parents() {
+				parentWalker.Push(parentBranchID)
+			}
+		})
+	}
+
+	return
+}
+
+func (o *OnTangleVoting) branchLiked(branchID ledgerstate.BranchID) (branchLiked bool) {
+	branchLiked = true
+	for likeWalker := walker.New().Push(branchID); likeWalker.HasNext(); {
 		if branchLiked = branchLiked && o.branchPreferred(likeWalker.Next().(ledgerstate.BranchID), likeWalker); !branchLiked {
 			return
 		}

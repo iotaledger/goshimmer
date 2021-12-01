@@ -2,7 +2,6 @@
 package otv
 
 import (
-	"bytes"
 	"fmt"
 	"sort"
 	"testing"
@@ -17,24 +16,12 @@ import (
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
-	type ExpectedOpinionTuple func(executionBranchAlias string, branchIDs []consensus.OpinionTuple)
+	type ExpectedOpinionTuple func(executionBranchAlias string, branchIDs BranchIDs)
 
-	sortOpinionTuple := func(ot []consensus.OpinionTuple) {
-		sort.Slice(ot, func(x, y int) bool {
-			switch bytes.Compare(ot[x].Liked.Bytes(), ot[y].Liked.Bytes()) {
-			case -1:
-				return true
-			case 1:
-				return false
-			default:
-				return bytes.Compare(ot[x].Disliked.Bytes(), ot[y].Disliked.Bytes()) <= 0
-			}
-		})
-	}
-
-	mustMatch := func(s *Scenario, aliasTuples ...aliasOpinionTuple) ExpectedOpinionTuple {
-		return func(executionBranchAlias string, actual []consensus.OpinionTuple) {
-			expected := createOpinionTuples(s, aliasTuples...)
+	mustMatch := func(s *Scenario, aliasLikedBranches ...string) ExpectedOpinionTuple {
+		return func(executionBranchAlias string, actualBranchIDs BranchIDs) {
+			branchAlias["A"]
+			expected := NewBranchIDs(aliasLikedBranches...)
 			sortOpinionTuple(expected)
 			sortOpinionTuple(actual)
 			if assert.EqualValues(t, expected, actual) {
@@ -1025,14 +1012,14 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
-			defer ledgerstate.Shutdown()
+			ls := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
+			defer ls.Shutdown()
 
-			tt.test.Scenario.CreateBranches(t, ledgerstate.BranchDAG)
-			o := NewOnTangleVoting(ledgerstate.BranchDAG, tt.test.WeightFunc)
+			tt.test.Scenario.CreateBranches(t, ls.BranchDAG)
+			o := NewOnTangleVoting(ls.BranchDAG, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
-				liked, err := o.LikedInstead(tt.test.Scenario.BranchID(e.branchAlias))
+				liked, err := o.LikedInstead(NewBranchIDs(tt.test.Scenario.BranchID(e.branchAlias)))
 				if e.wantErr {
 					require.Error(t, err)
 					return
@@ -1045,379 +1032,12 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 }
 
-func TestOnTangleVoting_Opinion(t *testing.T) {
-	type ExpectedBranchesFunc func(branchIDs BranchIDs)
-	type ArgsFunc func() (branchIDs BranchIDs)
-
-	mustMatch := func(s *Scenario, aliases ...string) ExpectedBranchesFunc {
-		return func(actual BranchIDs) {
-			if !assert.EqualValues(t, s.BranchIDs(aliases...), actual) {
-				fmt.Println("expected", s.BranchIDs(aliases...))
-				fmt.Println("actual", actual)
-			}
-		}
-	}
-
-	argsFunc := func(s *Scenario, aliases ...string) ArgsFunc {
-		return func() (branchIDs BranchIDs) {
-			return s.BranchIDs(aliases...)
-		}
-	}
-
-	type test struct {
-		Scenario     Scenario
-		WeightFunc   consensus.WeightFunc
-		args         ArgsFunc
-		wantLiked    ExpectedBranchesFunc
-		wantDisliked ExpectedBranchesFunc
-	}
-
-	tests := []struct {
-		name    string
-		test    test
-		wantErr bool
-	}{
-		{
-			name: "1",
-			test: func() test {
-				scenario := s1
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A"),
-					wantDisliked: mustMatch(&scenario, "B"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "2",
-			test: func() test {
-				scenario := s2
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "C"),
-					wantDisliked: mustMatch(&scenario, "A"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "3",
-			test: func() test {
-				scenario := s3
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A"),
-					wantDisliked: mustMatch(&scenario, "B", "C"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "4",
-			test: func() test {
-				scenario := s4
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A"),
-					wantDisliked: mustMatch(&scenario, "B", "C"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "4.5",
-			test: func() test {
-				scenario := s45
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "C"),
-					wantDisliked: mustMatch(&scenario, "A"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "5",
-			test: func() test {
-				scenario := s5
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "C"),
-					wantDisliked: mustMatch(&scenario, "A"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "6",
-			test: func() test {
-				scenario := s6
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "C"),
-					wantDisliked: mustMatch(&scenario, "A", "D"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "7",
-			test: func() test {
-				scenario := s7
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "D"),
-					wantDisliked: mustMatch(&scenario, "A", "C"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "8",
-			test: func() test {
-				scenario := s8
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "E"),
-					wantDisliked: mustMatch(&scenario, "B", "C", "D"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "9",
-			test: func() test {
-				scenario := s9
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "D"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "E"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "10",
-			test: func() test {
-				scenario := s10
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "C"),
-					wantDisliked: mustMatch(&scenario, "A", "B"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "12",
-			test: func() test {
-				scenario := s12
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "E"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "D"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "13",
-			test: func() test {
-				scenario := s13
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "C", "E", "C+E"),
-					wantDisliked: mustMatch(&scenario, "B", "D"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "14",
-			test: func() test {
-				scenario := s14
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "C", "E", "G", "H", "K", "C+E", "C+E+G"),
-					wantDisliked: mustMatch(&scenario, "B", "D", "F", "J", "I"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "15",
-			test: func() test {
-				scenario := s15
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "E", "H", "K"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "D", "I", "J"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "16",
-			test: func() test {
-				scenario := s16
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "H"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "17",
-			test: func() test {
-				scenario := s17
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "C", "G"),
-					wantDisliked: mustMatch(&scenario, "B", "F", "H"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "18",
-			test: func() test {
-				scenario := s18
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "H", "L", "N", "J", "J+N"),
-					wantDisliked: mustMatch(&scenario, "B", "C", "F", "G", "I", "K", "M", "O"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "19",
-			test: func() test {
-				scenario := s19
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "H", "L", "O"),
-					wantDisliked: mustMatch(&scenario, "B", "C", "F", "G", "I", "N", "K", "M", "J"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "20",
-			test: func() test {
-				scenario := s20
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "H"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
-			defer ledgerstate.Shutdown()
-
-			tt.test.Scenario.CreateBranches(t, ledgerstate.BranchDAG)
-			o := NewOnTangleVoting(ledgerstate.BranchDAG, tt.test.WeightFunc)
-
-			gotLiked, gotDisliked, err := o.Opinion(tt.test.args())
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-			tt.test.wantLiked(gotLiked)
-			tt.test.wantDisliked(gotDisliked)
-		})
-	}
-}
-
 // region test helpers /////////////////////////////////////////////////////////////////////////////////////////////////
 
 // aliasOpinionTuple allows to specify consensus.OpinionTuple with branch aliases.
 type aliasOpinionTuple struct {
 	Liked    string
 	Disliked string
-}
-
-// createOpinionTuples creates a slice of consensus.OpinionTuple from aliasOpinionTuple.
-func createOpinionTuples(scenario *Scenario, aliasTuples ...aliasOpinionTuple) []consensus.OpinionTuple {
-	ots := make([]consensus.OpinionTuple, 0)
-	for _, a := range aliasTuples {
-		ots = append(ots, consensus.OpinionTuple{
-			Liked:    scenario.BranchID(a.Liked),
-			Disliked: scenario.BranchID(a.Disliked),
-		})
-	}
-
-	return ots
 }
 
 // BranchMeta describes a branch in a branchDAG with its conflicts and approval weight.
