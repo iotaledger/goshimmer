@@ -9,7 +9,7 @@ export class branchVertex {
 	ID:        string;
     type:      string;
 	parents:   Array<string>;
-	confirmed: boolean;
+	isConfirmed: boolean;
     conflicts: conflictBranches;
 }
 
@@ -109,7 +109,7 @@ export class BranchStore {
             return;
         }
         
-        b.confirmed = true;
+        b.isConfirmed = true;
         this.branches.set(confirmedBranch.ID, b);
     }
 
@@ -294,7 +294,7 @@ export class BranchStore {
             ID:             '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
             type:           'ConflictBranchType',
 	        parents:        [],
-	        confirmed:      true,
+	        isConfirmed:    true,
             conflicts:      null
         }
         this.branches.set("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", master);

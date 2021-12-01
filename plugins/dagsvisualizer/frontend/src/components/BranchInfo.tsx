@@ -28,7 +28,7 @@ export class BranchInfo extends React.Component<Props, any> {
                                         {selectedBranch.parents.map((p,i) => <ListGroup.Item key={i}><a href={`${explorerAddress}/explorer/branch/${p}`} target="_blank" rel="noopener noreferrer">{p}</a></ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
-                                <ListGroup.Item>Confirmed: {selectedBranch.confirmed.toString()}</ListGroup.Item>
+                                <ListGroup.Item>Confirmed: {selectedBranch.isConfirmed.toString()}</ListGroup.Item>
                                 { selectedBranch.type === "ConflictBranchType" && selectedBranch.conflicts &&
                                     <ListGroup.Item>
                                         Conflicts:
