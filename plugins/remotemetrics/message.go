@@ -6,6 +6,38 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
+func onMessageScheduled(messageID tangle.MessageID) {
+	if !deps.Tangle.Synced() {
+		return
+	}
+
+	var nodeID string
+	if deps.Local != nil {
+		nodeID = deps.Local.Identity.ID().String()
+	}
+
+	record := &remotemetrics.MessageScheduledMetrics{
+		Type:         "messageScheduled",
+		NodeID:       nodeID,
+		MetricsLevel: Parameters.MetricsLevel,
+		MessageID:    messageID.Base58(),
+	}
+
+	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		record.IssuedTimestamp = message.IssuingTime()
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			record.ScheduledTimestamp = messageMetadata.ScheduledTime()
+			record.BookedTimestamp = messageMetadata.BookedTime()
+		})
+
+		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+			deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+				record.SolidTimestamp = transactionMetadata.SolidificationTime()
+			})
+		})
+	})
+}
+
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 	if !deps.Tangle.Synced() {
 		return

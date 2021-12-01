@@ -67,6 +67,7 @@ func configure(_ *node.Plugin) {
 		configureDRNGMetrics()
 	}
 	configureMessageFinalizedMetrics()
+	configureMessageScheduledMetrics()
 }
 
 func run(plugin *node.Plugin) {
@@ -125,4 +126,11 @@ func configureMessageFinalizedMetrics() {
 	} else {
 		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
 	}
+}
+
+func configureMessageScheduledMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
+	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
 }
