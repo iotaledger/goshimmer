@@ -56,12 +56,17 @@ func registerTangleEvents() {
 
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+			branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
+			if err != nil {
+				branchID = ledgerstate.BranchID{}
+			}
+
 			visualizerWorkerPool.TrySubmit((&wsMessage{
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
 					ID:       messageID.Base58(),
 					IsMarker: msgMetadata.StructureDetails().IsPastMarker,
-					BranchID: msgMetadata.BranchID().Base58(),
+					BranchID: branchID.Base58(),
 				},
 			}))
 		})
@@ -237,7 +242,7 @@ func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
 				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
 				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
 				LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
-				BranchID:        ledgerstate.UndefinedBranchID.Base58(),
+				BranchID:        msgMetadata.BranchID().Base58(),
 				IsMarker:        msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 				IsConfirmed:     deps.FinalityGadget.IsMessageConfirmed(messageID),
