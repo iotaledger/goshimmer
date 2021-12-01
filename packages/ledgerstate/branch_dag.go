@@ -422,6 +422,44 @@ func (b *BranchDAG) ForEachConflictingBranchID(branchID BranchID, callback func(
 	}
 }
 
+// ForEachConnectedConflictingBranchID executes the callback for each ConflictBranch that is connected through a chain
+// of intersecting ConflictSets.
+func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID)) {
+	resolvedConflictBranchIDs, err := b.ResolveConflictBranchIDs(NewBranchIDs(branchID))
+	if err != nil {
+		panic(err)
+	}
+
+	traversedBranches := set.New()
+	conflictSetsWalker := walker.New()
+
+	processBranchAndQueueConflictSets := func(conflictBranchID BranchID) {
+		if !traversedBranches.Add(conflictBranchID) {
+			return
+		}
+
+		b.Branch(conflictBranchID).ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
+			for conflictID := range conflictBranch.Conflicts() {
+				conflictSetsWalker.Push(conflictID)
+			}
+		})
+	}
+
+	for conflictBranchID := range resolvedConflictBranchIDs {
+		processBranchAndQueueConflictSets(conflictBranchID)
+	}
+
+	for conflictSetsWalker.HasNext() {
+		b.ConflictMembers(conflictSetsWalker.Next().(ConflictID)).Consume(func(conflictMember *ConflictMember) {
+			processBranchAndQueueConflictSets(conflictMember.BranchID())
+		})
+	}
+
+	traversedBranches.ForEach(func(element interface{}) {
+		callback(element.(BranchID))
+	})
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region PRIVATE UTILITY FUNCTIONS ////////////////////////////////////////////////////////////////////////////////////

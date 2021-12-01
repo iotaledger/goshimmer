@@ -2,8 +2,11 @@ package otv
 
 import (
 	"bytes"
+	"sort"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -37,7 +40,7 @@ func (o *OnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, dislik
 
 		allParentsLiked := true
 		for resolvedBranch := range resolvedConflictBranchIDs {
-			if !o.doILike(resolvedBranch, ledgerstate.NewConflictIDs()) {
+			if !o.doILike(resolvedBranch) {
 				allParentsLiked = false
 				break
 			}
@@ -70,12 +73,13 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 
 	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
 		// I like myself
-		if o.doILike(resolvedConflictBranchID, ledgerstate.NewConflictIDs()) {
+		if o.doILike(resolvedConflictBranchID) {
 			continue
 		}
 
+		alternativeFound := false
 		o.branchDAG.ForEachConflictingBranchID(resolvedConflictBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-			if o.doILike(conflictingBranchID, ledgerstate.NewConflictIDs()) {
+			if !alternativeFound && o.doILike(conflictingBranchID) {
 				opinionTuple = append(opinionTuple, consensus.OpinionTuple{
 					Liked:    conflictingBranchID,
 					Disliked: resolvedConflictBranchID,
@@ -104,76 +108,88 @@ func (o *OnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTup
 	return opinionTuple, nil
 }
 
-func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) bool {
-	// if any parent in the branch DAG is not liked, the current branch can't be liked either
-	if parentsLiked := o.areParentsLiked(branchID, visitedConflicts); !parentsLiked {
-		return false
+func (o *OnTangleVoting) doILike(branchID ledgerstate.BranchID) (branchLiked bool) {
+	branchLiked = true
+
+	likeWalker := walker.New()
+	for likeWalker.Push(branchID); likeWalker.HasNext(); {
+		if branchLiked = branchLiked && o.branchPreferred(likeWalker.Next().(ledgerstate.BranchID), likeWalker); !branchLiked {
+			return
+		}
 	}
 
-	for conflictSet := range o.conflictsSets(branchID) {
-		// don't visit same conflict sets again
-		if _, ok := visitedConflicts[conflictSet]; ok {
-			continue
-		}
-
-		innerVisitedConflicts := visitedConflicts.Clone()
-		innerVisitedConflicts.Add(conflictSet)
-
-		cachedConflictMembers := o.branchDAG.ConflictMembers(conflictSet)
-		for _, conflictMember := range cachedConflictMembers.Unwrap() {
-			conflictBranchID := conflictMember.BranchID()
-			// skip myself from the conflict set
-			if conflictBranchID == branchID {
-				continue
-			}
-
-			if o.doILike(conflictBranchID, innerVisitedConflicts) {
-				if !o.weighsMore(branchID, conflictBranchID) {
-					cachedConflictMembers.Release()
-					return false
-				}
-			}
-		}
-		cachedConflictMembers.Release()
-	}
-	return true
-}
-
-// checks whether all parents of the given branchID are liked.
-func (o *OnTangleVoting) areParentsLiked(branchID ledgerstate.BranchID, visitedConflicts ledgerstate.ConflictIDs) bool {
-	parentsLiked := true
-	o.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		for parent := range branch.Parents() {
-			if parent == ledgerstate.MasterBranchID {
-				continue
-			}
-			if !o.doILike(parent, visitedConflicts) {
-				parentsLiked = false
-				break
-			}
-		}
-	})
-
-	return parentsLiked
-}
-
-// checks whether branchA is heavier than branchB. If they have equal weight, the branch with lower lexical bytes is returned.
-func (o *OnTangleVoting) weighsMore(branchA, branchB ledgerstate.BranchID) bool {
-	weight := o.weightFunc(branchA)
-	weightConflict := o.weightFunc(branchB)
-	// if the current highest weighted branch and the candidate branch share the same weight
-	// we pick the branch with the lower lexical byte slice value to gain determinism
-	if weight < weightConflict ||
-		(weight == weightConflict && (bytes.Compare(branchA.Bytes(), branchB.Bytes()) > 0)) {
-		return false
-	}
-	return true
-}
-
-// conflictsSets is a convenience wrapper to retrieve a copy of the conflictBranch's conflict sets.
-func (o *OnTangleVoting) conflictsSets(conflictBranchID ledgerstate.BranchID) (conflicts ledgerstate.ConflictIDs) {
-	o.branchDAG.Branch(conflictBranchID).Consume(func(branch ledgerstate.Branch) {
-		conflicts = branch.(*ledgerstate.ConflictBranch).Conflicts()
-	})
 	return
+}
+
+func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalker *walker.Walker) (preferred bool) {
+	preferred = true
+	if branchID == ledgerstate.MasterBranchID {
+		return
+	}
+
+	o.branchDAG.Branch(branchID).ConsumeConflictBranch(func(currentBranch *ledgerstate.ConflictBranch) {
+		switch currentBranch.InclusionState() {
+		case ledgerstate.Rejected:
+			preferred = false
+			return
+		case ledgerstate.Confirmed:
+			return
+		}
+
+		if preferred = !o.dislikedConnectedConflictingBranches(branchID).Has(branchID); preferred {
+			for parentBranchID := range currentBranch.Parents() {
+				likeWalker.Push(parentBranchID)
+			}
+		}
+	})
+
+	return
+}
+
+func (o *OnTangleVoting) dislikedConnectedConflictingBranches(currentBranchID ledgerstate.BranchID) (dislikedBranches set.Set) {
+	dislikedBranches = set.New()
+	o.forEachConnectedConflictingBranchInDescendingOrder(currentBranchID, func(branchID ledgerstate.BranchID, weight float64) {
+		if dislikedBranches.Has(branchID) {
+			return
+		}
+
+		rejectionWalker := walker.New()
+		o.branchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+			rejectionWalker.Push(conflictingBranchID)
+		})
+
+		for rejectionWalker.HasNext() {
+			rejectedBranchID := rejectionWalker.Next().(ledgerstate.BranchID)
+
+			dislikedBranches.Add(rejectedBranchID)
+
+			o.branchDAG.ChildBranches(rejectedBranchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
+				if childBranch.ChildBranchType() == ledgerstate.ConflictBranchType {
+					rejectionWalker.Push(childBranch.ChildBranchID())
+				}
+			})
+		}
+	})
+
+	return dislikedBranches
+}
+
+func (o *OnTangleVoting) forEachConnectedConflictingBranchInDescendingOrder(branchID ledgerstate.BranchID, callback func(branchID ledgerstate.BranchID, weight float64)) {
+	branchWeights := make(map[ledgerstate.BranchID]float64)
+	branchesOrderedByWeight := make([]ledgerstate.BranchID, 0)
+	o.branchDAG.ForEachConnectedConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		branchWeights[conflictingBranchID] = o.weightFunc(conflictingBranchID)
+		branchesOrderedByWeight = append(branchesOrderedByWeight, conflictingBranchID)
+	})
+
+	sort.Slice(branchesOrderedByWeight, func(i, j int) bool {
+		branchI := branchesOrderedByWeight[i]
+		branchJ := branchesOrderedByWeight[j]
+
+		return !(branchWeights[branchI] < branchWeights[branchJ] || (branchWeights[branchI] == branchWeights[branchJ] && bytes.Compare(branchI.Bytes(), branchJ.Bytes()) > 0))
+	})
+
+	for _, orderedBranchID := range branchesOrderedByWeight {
+		callback(orderedBranchID, branchWeights[orderedBranchID])
+	}
 }
