@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/gossip/gossipproto";
+
+package gossipproto;
+
+message Packet {
+  oneof body {
+    Message message = 1;
+    MessageRequest messageRequest = 2;
+    Negotiation negotiation = 3;
+  }
+}
+
+message Message {
+  bytes data = 1;
+}
+
+message MessageRequest {
+  bytes id = 1;
+}
+
+message Negotiation {}
