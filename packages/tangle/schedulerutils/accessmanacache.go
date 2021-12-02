@@ -1,6 +1,7 @@
 package schedulerutils
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
@@ -18,6 +19,7 @@ type AccessManaCache struct {
 	cacheRefreshTime           time.Time
 	minMana                    float64
 	accessManaMapRetrieverFunc func() map[identity.ID]float64
+	mutex                      sync.RWMutex
 }
 
 // NewAccessManaCache returns a new AccessManaCache.
@@ -34,7 +36,8 @@ func NewAccessManaCache(accessManaMapRetrieverFunc func() map[identity.ID]float6
 // currently returns at least MinMana.
 func (a *AccessManaCache) GetCachedMana(id identity.ID) float64 {
 	a.refreshCacheIfNecessary()
-
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	if mana, ok := a.rawAccessManaVector[id]; ok && mana >= a.minMana {
 		return mana
 	}
@@ -44,10 +47,14 @@ func (a *AccessManaCache) GetCachedMana(id identity.ID) float64 {
 
 // RawAccessManaVector returns raw access mana vector retrieved from mana plugin.
 func (a *AccessManaCache) RawAccessManaVector() map[identity.ID]float64 {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.rawAccessManaVector
 }
 
 func (a *AccessManaCache) refreshCacheIfNecessary() {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if time.Since(a.cacheRefreshTime) > manaCacheLifeTime {
 		a.rawAccessManaVector = a.accessManaMapRetrieverFunc()
 		a.cacheRefreshTime = time.Now()

@@ -136,13 +136,15 @@ func getInfo(c echo.Context) error {
 		IdentityIDShort:         deps.Local.Identity.ID().String(),
 		PublicKey:               deps.Local.PublicKey().String(),
 		MessageRequestQueueSize: int(metrics.MessageRequestQueueSize()),
-		SolidMessageCount:       int(metrics.MessageSolidCountDB()),
-		TotalMessageCount:       int(metrics.MessageTotalCountDB()),
-		EnabledPlugins:          enabledPlugins,
-		DisabledPlugins:         disabledPlugins,
-		Mana:                    nodeMana,
-		ManaDelegationAddress:   delegationAddressString,
-		ManaDecay:               mana.Decay,
+		SolidMessageCount: int(metrics.InitialMessageCountPerComponentGrafana()[metrics.Solidifier] +
+			metrics.MessageCountSinceStartPerComponentGrafana()[metrics.Solidifier]),
+		TotalMessageCount: int(metrics.InitialMessageCountPerComponentGrafana()[metrics.Store] +
+			metrics.MessageCountSinceStartPerComponentGrafana()[metrics.Store]),
+		EnabledPlugins:        enabledPlugins,
+		DisabledPlugins:       disabledPlugins,
+		Mana:                  nodeMana,
+		ManaDelegationAddress: delegationAddressString,
+		ManaDecay:             mana.Decay,
 		Scheduler: jsonmodels.Scheduler{
 			Running:        deps.Tangle.Scheduler.Running(),
 			Rate:           deps.Tangle.Scheduler.Rate().String(),
