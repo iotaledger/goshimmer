@@ -15,6 +15,10 @@ services:
       - "0.0.0.0:14666:14666/tcp"
       # HTTP API
       - "0.0.0.0:8080:8080/tcp"
+    {% if remoteDebugging|default(false) %}
+      # Delve Debugger
+      - "127.0.0.1:40000:40000/tcp"
+    {% endif %}
     {% if debugPorts|default(false) %}
       # Dashboard
       - "0.0.0.0:8081:8081/tcp"
@@ -36,7 +40,6 @@ services:
       - GOSSIP_BINDADDRESS=0.0.0.0:14666
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
-    entrypoint: /run/goshimmer
     command: >
       --skip-config=true
       --autoPeering.entryNodes={{ entryNodePubKey }}@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}

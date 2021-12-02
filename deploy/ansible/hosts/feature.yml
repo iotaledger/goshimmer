@@ -41,6 +41,7 @@ goshimmers:
     remoteLoggerHost: "metrics-01.feature.shimmer.iota.cafe"
     logLevel: "debug"
     debugPorts: true
+    remoteDebugging: true
 
 drands:
   hosts:
