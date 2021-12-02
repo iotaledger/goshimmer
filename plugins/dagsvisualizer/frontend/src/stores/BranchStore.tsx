@@ -1,5 +1,5 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import { registerHandler, unregisterHandler, WSMsgType } from 'WS';
+import { registerHandler, unregisterHandler, WSMsgType } from '../WS';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { dagreOptions } from 'styles/graphStyle';

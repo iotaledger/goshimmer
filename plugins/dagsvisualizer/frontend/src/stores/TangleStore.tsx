@@ -1,5 +1,5 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
+import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from '../WS';
 import {default as Viva} from 'vivagraphjs';
 
 export class tangleVertex {

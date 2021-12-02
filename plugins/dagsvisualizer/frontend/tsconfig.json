@@ -24,7 +24,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "outDir": "build",
-    "jsx": "react-jsx"
+    "jsx": "react"
   },
   "exclude": [
     "build",
