@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1638459896511,
+  "iteration": 1638461160503,
   "links": [],
   "panels": [
     {
@@ -4433,10 +4433,10 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 12,
+            "h": 22,
             "w": 15,
             "x": 0,
-            "y": 7
+            "y": 57
           },
           "id": 146,
           "options": {
@@ -4450,9 +4450,7 @@
               "values": false
             },
             "showUnfilled": true,
-            "text": {
-              "titleSize": 1
-            }
+            "text": {}
           },
           "pluginVersion": "7.5.6",
           "targets": [
@@ -4484,10 +4482,6 @@
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               },
@@ -4499,7 +4493,7 @@
             "h": 4,
             "w": 3,
             "x": 15,
-            "y": 7
+            "y": 57
           },
           "id": 132,
           "options": {
@@ -4555,7 +4549,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 7
+            "y": 57
           },
           "id": 142,
           "options": {
@@ -4613,7 +4607,7 @@
             "h": 4,
             "w": 3,
             "x": 15,
-            "y": 11
+            "y": 61
           },
           "id": 143,
           "options": {
@@ -4660,10 +4654,6 @@
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               }
@@ -4674,7 +4664,7 @@
             "h": 4,
             "w": 3,
             "x": 18,
-            "y": 11
+            "y": 61
           },
           "id": 140,
           "options": {
@@ -4720,10 +4710,6 @@
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               }
@@ -4734,7 +4720,7 @@
             "h": 4,
             "w": 3,
             "x": 21,
-            "y": 11
+            "y": 61
           },
           "id": 134,
           "options": {
@@ -4793,7 +4779,7 @@
             "h": 4,
             "w": 3,
             "x": 15,
-            "y": 15
+            "y": 65
           },
           "id": 130,
           "options": {
@@ -4839,10 +4825,6 @@
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               }
@@ -4853,7 +4835,7 @@
             "h": 4,
             "w": 3,
             "x": 18,
-            "y": 15
+            "y": 65
           },
           "id": 138,
           "options": {
@@ -4899,10 +4881,6 @@
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               }
@@ -4913,7 +4891,7 @@
             "h": 4,
             "w": 3,
             "x": 21,
-            "y": 15
+            "y": 65
           },
           "id": 136,
           "options": {
@@ -4967,10 +4945,10 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 12,
+            "h": 23,
             "w": 15,
             "x": 0,
-            "y": 19
+            "y": 79
           },
           "id": 145,
           "options": {
@@ -4984,9 +4962,7 @@
               "values": false
             },
             "showUnfilled": true,
-            "text": {
-              "titleSize": 1
-            }
+            "text": {}
           },
           "pluginVersion": "7.5.6",
           "targets": [
@@ -5098,5 +5074,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 49
+  "version": 54
 }
