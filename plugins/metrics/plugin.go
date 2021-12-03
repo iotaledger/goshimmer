@@ -132,6 +132,8 @@ func registerLocalMetrics() {
 
 	// increase received MPS counter whenever we attached a message
 	deps.Tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			increaseReceivedMPSCounter()
 			increasePerPayloadCounter(message.Payload().Type())
