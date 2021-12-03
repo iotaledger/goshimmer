@@ -146,9 +146,11 @@ func getInfo(c echo.Context) error {
 		ManaDelegationAddress: delegationAddressString,
 		ManaDecay:             mana.Decay,
 		Scheduler: jsonmodels.Scheduler{
-			Running:        deps.Tangle.Scheduler.Running(),
-			Rate:           deps.Tangle.Scheduler.Rate().String(),
-			NodeQueueSizes: nodeQueueSizes,
+			Running:           deps.Tangle.Scheduler.Running(),
+			Rate:              deps.Tangle.Scheduler.Rate().String(),
+			MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
+			CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+			NodeQueueSizes:    nodeQueueSizes,
 		},
 	})
 }

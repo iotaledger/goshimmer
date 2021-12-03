@@ -176,7 +176,14 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 	return nodeQueueSizes
 }
 
-// BufferSize returns the size buffer.
+// MaxBufferSize returns the max size of the buffer.
+func (s *Scheduler) MaxBufferSize() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buffer.MaxSize()
+}
+
+// BufferSize returns the size of the buffer.
 func (s *Scheduler) BufferSize() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()

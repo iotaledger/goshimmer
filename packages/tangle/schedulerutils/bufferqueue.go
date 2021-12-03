@@ -38,6 +38,11 @@ func (b *BufferQueue) NumActiveNodes() int {
 	return len(b.activeNode)
 }
 
+// MaxSize returns the max size (in bytes) of all messages in b.
+func (b *BufferQueue) MaxSize() int {
+	return b.maxBuffer
+}
+
 // Size returns the total size (in bytes) of all messages in b.
 func (b *BufferQueue) Size() int {
 	return b.size
