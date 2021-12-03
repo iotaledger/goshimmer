@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -488,6 +489,8 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 			return errors.Errorf("failed to resolve ConflictBranchIDs: %w", conflictBranchesErr)
 		}
 
+		fmt.Println("normalizeBranches1", branchIDs, conflictBranches)
+
 		// return if we are done
 		if len(conflictBranches) == 1 {
 			return conflictBranches
@@ -531,6 +534,8 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 			}
 		}
 
+		fmt.Println("branches", branches)
+
 		// remove ancestors from the candidates
 		for parentsWalker.HasNext() {
 			// retrieve parent branch ID from stack
@@ -551,6 +556,8 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 				return err
 			}
 		}
+
+		fmt.Println("branches1", branches)
 
 		return branches
 	}).(type) {

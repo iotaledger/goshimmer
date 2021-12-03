@@ -42,7 +42,9 @@ then
   PROFILES+=("drng")
 fi
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
-docker-compose up
+docker-compose up -d
+
+sleep 6000
 
 echo "Clean up docker resources"
 docker-compose down -v
