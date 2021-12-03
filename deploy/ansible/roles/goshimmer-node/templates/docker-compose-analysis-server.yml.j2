@@ -3,7 +3,7 @@ version: "3"
 
 services:
   analysis_server:
-    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
+    image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: analysis-server
     restart: unless-stopped
     network_mode: "host"
@@ -13,7 +13,6 @@ services:
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - PROFILING_BINDADDRESS=0.0.0.0:6063
-    entrypoint: /run/goshimmer
     command: >
       --skip-config=true
       --node.overwriteStoredSeed=true
@@ -27,4 +26,4 @@ services:
       --metrics.global=true
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus
       --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint
-      --logger.level=debug
+      --logger.level={{ logLevel }}
