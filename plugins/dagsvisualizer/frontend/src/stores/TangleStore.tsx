@@ -125,7 +125,6 @@ export class TangleStore {
         msg.isMarker = branch.isMarker;
 
         this.messages.set(msg.ID, msg);
-        // TODO: improve the updated information
         if (this.draw) {
             this.graph.addNode(msg.ID, msg);
         }        
@@ -274,8 +273,6 @@ export class TangleStore {
         }
     }
 
-    // TODO: take tangleVertex instead
-    // only update color when finalized
     updateNodeColor = (msg: tangleVertex) => {
         let nodeUI = this.graphics.getNodeUI(msg.ID);
         let color = "";
