@@ -36,6 +36,7 @@ export class UTXOStore {
     @observable explorerAddress = "localhost:8081";
     outputMap = new Map();
     txOrder: Array<any> = [];
+    highligtedTxs = [];
     draw: boolean = true;
 
     vertexChanges = 0;
@@ -145,7 +146,7 @@ export class UTXOStore {
     }
 
     @action
-    searchAndHighlight = () => {
+    searchAndSelect = () => {
       if (!this.search) return;
         
       this.selectTx(this.search);
@@ -155,13 +156,46 @@ export class UTXOStore {
       // clear pre-selected node first.
       this.clearSelected(true);
        
-      let txNode = this.cy.getElementById(txID);
-      if (!txNode) return;
-      // select the node manually
-      txNode.select();
-      this.cy.center(txNode);
+      this.highlightTx(txID);
+      this.centerTx(txID);
       
       this.updateSelected(this.search);
+    }
+
+    highlightTxs = (txIDs: string[]) => {
+      this.highligtedTxs.forEach((id) => {
+          this.clearHighlightedTx(id);
+      })
+
+      // update highlighted msgs
+      this.highligtedTxs = txIDs;
+      txIDs.forEach((id) => {
+          this.highlightTx(id);
+      })
+    }
+
+    highlightTx = (txID: string) => {
+      let txNode = this.cy.getElementById(txID);
+      if (!txNode) return;
+      txNode.select();
+    }
+
+    centerTx = (txID: string) => {
+      let txNode = this.cy.getElementById(txID);
+      if (!txNode) return;
+      this.cy.center(txNode);
+    }
+
+    clearHighlightedTx = (txID: string) => {
+      let txNode = this.cy.getElementById(txID);
+      if (!txNode) return;
+      txNode.unselect();
+    }
+
+    clearHighlightedTxs = () => {
+      this.highligtedTxs.forEach((id) => {
+        this.clearHighlightedTx(id);
+      })
     }
 
     updateExplorerAddress = (addr: string) => {

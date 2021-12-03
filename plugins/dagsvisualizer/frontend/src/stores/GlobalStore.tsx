@@ -40,11 +40,27 @@ export class GlobalStore {
         let tx = this.utxoStore.selectedTx;
         if (!tx) return;
 
-        let msg = this.tangleStore.getMsg(tx.msgID);
+        let msg = this.tangleStore.getTangleVertex(tx.msgID);
         if (!msg) return;
 
         this.tangleStore.selectMsg(tx.msgID);        
         this.branchStore.selectBranch(msg.branchID);
+    }
+
+    syncWithBranch = () => {
+        let branch = this.branchStore.selectedBranch;
+        if (!branch) return;
+
+        // iterate messages to highlight all messages lies in that branch
+        let {msgs, txs} = this.tangleStore.getMsgTxsFromBranch(branch.ID);
+        this.tangleStore.highlightMsgs(msgs);
+        this.utxoStore.highlightTxs(txs);
+    }
+
+    clearAllHighlighted = () => {
+        this.tangleStore.clearHighlightedMsgs();
+        this.utxoStore.clearHighlightedTxs();
+        this.branchStore.clearSelected(true);
     }
 
     @action

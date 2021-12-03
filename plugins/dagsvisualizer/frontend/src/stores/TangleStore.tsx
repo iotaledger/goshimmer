@@ -49,6 +49,7 @@ export class TangleStore {
     @observable explorerAddress = "localhost:8081";
     msgOrder: Array<any> = [];
     selected_origin_color: number = 0;
+    highligtedMsgs = new Map<string, number>();
     draw: boolean = true;
     vertexChanges = 0;
     graph;
@@ -205,7 +206,7 @@ export class TangleStore {
     }
 
     @action
-    searchAndHighlight = () => {
+    searchAndSelect = () => {
         if (!this.search) return;
         
         this.selectMsg(this.search);
@@ -309,10 +310,56 @@ export class TangleStore {
         if (!vert) return;
 
         this.selectedMsg = vert;
+    }
 
+    selectMsg = (msgID: string) => {
+        // clear pre-selected node first
+        this.clearSelected();
+
+        let msg = this.messages.get(msgID);
+        if (!msg)  return;
+
+        this.updateSelected(msg);
+        this.highlightMsg(msg.ID);
+
+        // center the selected node.
+        var pos = this.layout.getNodePosition(msgID);
+        this.renderer.moveTo(pos.x, pos.y);
+    }
+
+    @action
+    clearSelected = () => {
+        if (!this.selectedMsg) {
+            return;
+        }
+
+        this.selected_approvers_count = 0;
+        this.selected_approvees_count = 0;
+
+        this.clearHighlightedMsg(this.selectedMsg.ID, this.selected_origin_color);
+        this.selectedMsg = null;
+    }
+
+    getTangleVertex = (msgID: string) => {
+        return this.messages.get(msgID);
+    }
+
+    highlightMsgs = (msgIDs: string[]) => {
+        this.highligtedMsgs.forEach((color, id) => {
+            this.clearHighlightedMsg(id, color);
+        })
+
+        // update highlighted msgs and its original color
+        msgIDs.forEach((id) => {
+            this.highlightMsg(id);
+            this.highligtedMsgs.set(id, this.selected_origin_color);
+        })
+    }
+
+    highlightMsg = (msgID: string) => {
         // mutate links
-        let node = this.graph.getNode(vert.ID);
-        let nodeUI = this.graphics.getNodeUI(vert.ID);
+        let node = this.graph.getNode(msgID);
+        let nodeUI = this.graphics.getNodeUI(msgID);
         this.selected_origin_color = nodeUI.color
         nodeUI.color = parseColor("#859900");
         nodeUI.size = vertexSize * 1.5;
@@ -341,50 +388,23 @@ export class TangleStore {
         );        
     }
 
-    selectMsg = (msgID: string) => {
-        // clear pre-selected node first
-        this.clearSelected();
-
-        let msg = this.messages.get(msgID);
-        if (!msg)  return;
-
-        this.updateSelected(msg);
-
-        // center the selected node.
-        var pos = this.layout.getNodePosition(msgID);
-        this.renderer.moveTo(pos.x, pos.y);
+    clearHighlightedMsgs = () => {
+        this.highligtedMsgs.forEach((color, id) => {
+          this.clearHighlightedMsg(id, color);
+        })
     }
 
-    getMsg = (msgID: string) => {
-        return this.messages.get(msgID);
-    }
-
-    resetLinks = () => {
-        this.graph.forEachLink((link) => {
-            const linkUI = this.graphics.getLinkUI(link.id);
-            linkUI.color = parseColor("#586e75");
-        });
-    }
-
-    @action
-    clearSelected = () => {
-        if (!this.selectedMsg) {
-            return;
-        }
-
-        this.selected_approvers_count = 0;
-        this.selected_approvees_count = 0;
-
+    clearHighlightedMsg = (msgID: string, originalColor: number) => {
         // clear link highlight
-        let node = this.graph.getNode(this.selectedMsg.ID);
+        let node = this.graph.getNode(msgID);
         if (!node) {
             // clear links
             this.resetLinks();
             return;
         }
 
-        let nodeUI = this.graphics.getNodeUI(this.selectedMsg.ID);
-        nodeUI.color = this.selected_origin_color;
+        let nodeUI = this.graphics.getNodeUI(msgID);
+        nodeUI.color = originalColor;
         nodeUI.size = vertexSize;
 
         const seenForward = [];
@@ -405,8 +425,30 @@ export class TangleStore {
             },
             seenForward
         );
+    }
 
-        this.selectedMsg = null;
+    getMsgTxsFromBranch = (branchID: string) => {
+        let msgs = [], txs = [];
+        this.messages.forEach((msg: tangleVertex) => {
+            if (msg.branchID === branchID) {
+                msgs.push(msg.ID);
+                if (msg.isTx) {
+                    txs.push(msg.txID);
+                }
+            }
+        })
+
+        return {
+            msgs,
+            txs
+        };
+    }
+
+    resetLinks = () => {
+        this.graph.forEachLink((link) => {
+            const linkUI = this.graphics.getLinkUI(link.id);
+            linkUI.color = parseColor("#586e75");
+        });
     }
 
     start = () => {

@@ -70,6 +70,14 @@ export class GlobalSettings extends React.Component<Props, any> {
         this.props.globalStore.syncWithTx();
     }
 
+    syncWithBranch = () => {
+        this.props.globalStore.syncWithBranch();
+    }
+
+    clearAllHighlighted = () => {
+        this.props.globalStore.clearAllHighlighted();
+    }
+
     render () {
         return (
             <Container>
@@ -130,7 +138,17 @@ export class GlobalSettings extends React.Component<Props, any> {
                                     <Button onClick={this.syncWithTx} variant="outline-secondary">
                                         Sync with transaction
                                     </Button>
-                                </Col>        
+                                </Col>
+                                <Col xs="auto">
+                                    <Button onClick={this.syncWithBranch} variant="outline-secondary">
+                                        Sync with branch
+                                    </Button>
+                                </Col>
+                                <Col xs="auto">
+                                    <Button onClick={this.clearAllHighlighted} variant="outline-secondary">
+                                        Clear
+                                    </Button>
+                                </Col>       
                             </Row>
                         </div>
                     </div>
