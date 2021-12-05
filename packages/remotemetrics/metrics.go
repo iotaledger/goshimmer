@@ -14,6 +14,7 @@ var (
 func newEvents() *CollectionLogEvents {
 	return &CollectionLogEvents{
 		TangleTimeSyncChanged: events.NewEvent(SyncStatusChangedEventCaller),
+		SchedulerQuery:        events.NewEvent(TimeEventCaller),
 	}
 }
 

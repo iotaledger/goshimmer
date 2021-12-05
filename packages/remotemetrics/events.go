@@ -10,11 +10,17 @@ import (
 type CollectionLogEvents struct {
 	// TangleTimeSyncChanged defines the local sync status change event based on tangle time.
 	TangleTimeSyncChanged *events.Event
+	SchedulerQuery        *events.Event
 }
 
 // SyncStatusChangedEventCaller is called when a node changes its sync status.
 func SyncStatusChangedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(SyncStatusChangedEvent))(params[0].(SyncStatusChangedEvent))
+}
+
+// TimeEventCaller is used everytime you want to send an event with a timestamp
+func TimeEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(time.Time))(params[0].(time.Time))
 }
 
 // SyncStatusChangedEvent is triggered by a node when its sync status changes. It is also structure that is sent to remote logger.
@@ -81,6 +87,16 @@ type BranchConfirmationMetrics struct {
 	CreatedTimestamp   time.Time `json:"createdTimestamp" bson:"createdTimestamp"`
 	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
 	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
+}
+
+type SchedulerMetrics struct {
+	Type                  string            `json:"type" bson:"type"`
+	MetricsLevel          uint8             `json:"metricsLevel" bson:"metricsLevel"`
+	QueueLengthPerNode    map[string]uint32 `json:"queueLengthPerNode" bson:"queueLengthPerNode"`
+	BufferSize            uint32            `json:"bufferSize" bson:"bufferSize"`
+	BufferLength          uint32            `json:"BufferLength" bson:"BufferLength"`
+	ReadyMessagesInBuffer uint32            `json:"ReadyMessagesInBuffer" bson:"ReadyMessagesInBuffer"`
+	Timestamp             time.Time         `json:"Timestamp" bson:"Timestamp"`
 }
 
 // BranchCountUpdate defines the branch confirmation metrics record that is sent to remote logger.

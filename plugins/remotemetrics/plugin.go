@@ -76,6 +76,7 @@ func run(plugin *node.Plugin) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 		// safely ignore the last execution when shutting down.
 		timeutil.NewTicker(func() { checkSynced() }, updateTime, ctx)
+		timeutil.NewTicker(func() { remotemetrics.Events().SchedulerQuery.Trigger(time.Now()) }, updateTime, ctx)
 
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-ctx.Done()
@@ -92,6 +93,13 @@ func configureSyncMetrics() {
 		isTangleTimeSynced.Store(syncUpdate.CurrentStatus)
 	}))
 	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
+}
+
+func configureSchedulerQueryMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
+	remotemetrics.Events().SchedulerQuery.Attach(events.NewClosure(obtainSchedulerStats))
 }
 
 func configureDRNGMetrics() {
