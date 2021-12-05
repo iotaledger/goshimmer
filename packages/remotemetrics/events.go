@@ -66,6 +66,7 @@ type MessageScheduledMetrics struct {
 	SolidTimestamp     time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
 	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
 	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	DroppedTimestamp   time.Time `json:"droppedTimestamp" bson:"DroppedTimestamp"`
 	AccessMana         uint8     `json:"accessMana" bson:"accessMana"`
 }
 

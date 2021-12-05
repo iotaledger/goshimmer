@@ -36,6 +36,8 @@ func onMessageScheduled(messageID tangle.MessageID) {
 			})
 		})
 	})
+
+	deps.Tangle.Scheduler.GetManaFromCache(nodeID)
 }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
