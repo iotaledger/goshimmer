@@ -793,6 +793,7 @@ type MessageMetadata struct {
 	scheduled           bool
 	scheduledTime       time.Time
 	discardedTime       time.Time
+	queuedTime          time.Time
 	booked              bool
 	bookedTime          time.Time
 	invalid             bool
@@ -806,6 +807,7 @@ type MessageMetadata struct {
 	scheduledMutex          sync.RWMutex
 	scheduledTimeMutex      sync.RWMutex
 	discardedTimeMutex      sync.RWMutex
+	queuedTimeMutex         sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
 	invalidMutex            sync.RWMutex
@@ -1049,6 +1051,22 @@ func (m *MessageMetadata) DiscardedTime() time.Time {
 	defer m.discardedTimeMutex.RUnlock()
 
 	return m.discardedTime
+}
+
+// QueuedTime returns the time a message entered the scheduling queue
+func (m *MessageMetadata) QueuedTime() time.Time {
+	m.queuedTimeMutex.RLock()
+	defer m.queuedTimeMutex.RUnlock()
+
+	return m.queuedTime
+}
+
+// SetQueuedTime records the time the message entered the scheduler queue
+func (m *MessageMetadata) SetQueuedTime(queuedTime time.Time) {
+	m.queuedTimeMutex.Lock()
+	defer m.queuedTimeMutex.Unlock()
+
+	m.queuedTime = queuedTime
 }
 
 // SetBooked sets the message associated with this metadata as booked.

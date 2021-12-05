@@ -308,8 +308,11 @@ func (s *Scheduler) submit(message *Message) error {
 		return ErrNotRunning
 	}
 
+	s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		// shortly before submitting we set the queued time
+		messageMetadata.SetQueuedTime(time.Now())
+	})
 	// when removing the zero mana node solution, check if nodes have MinMana here
-
 	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
 	for _, droppedMsgID := range droppedMessageIDs {
 		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {

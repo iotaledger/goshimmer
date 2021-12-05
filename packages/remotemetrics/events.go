@@ -64,9 +64,10 @@ type MessageScheduledMetrics struct {
 	MessageID          string    `json:"messageID" bson:"messageID"`
 	IssuedTimestamp    time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
 	SolidTimestamp     time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
-	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
+	ScheduledTimestamp time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
 	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
-	DroppedTimestamp   time.Time `json:"droppedTimestamp" bson:"DroppedTimestamp"`
+	QueuedTimestamp    time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
+	DroppedTimestamp   time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
 	AccessMana         float64   `json:"accessMana" bson:"accessMana"`
 }
 

@@ -41,6 +41,7 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 			record.DroppedTimestamp = messageMetadata.DiscardedTime()
 			record.BookedTimestamp = messageMetadata.BookedTime()
 			record.SolidTimestamp = messageMetadata.SolidificationTime()
+			record.QueuedTimestamp = messageMetadata.QueuedTime()
 		})
 	})
 
