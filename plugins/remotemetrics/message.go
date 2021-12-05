@@ -12,22 +12,23 @@ func onMessageScheduled(messageID tangle.MessageID) {
 		return
 	}
 
-	var nodeID identity.ID
-	var nodeIDString string
+	var nodeID string
 	if deps.Local != nil {
-		nodeID := deps.Local.Identity.ID()
-		nodeIDString = nodeID.String()
+		nodeID = deps.Local.Identity.ID().String()
 	}
 
 	record := &remotemetrics.MessageScheduledMetrics{
 		Type:         "messageScheduled",
-		NodeID:       nodeIDString,
+		NodeID:       nodeID,
 		MetricsLevel: Parameters.MetricsLevel,
 		MessageID:    messageID.Base58(),
 	}
 
 	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		issuerID := identity.NewID(message.IssuerPublicKey())
+
 		record.IssuedTimestamp = message.IssuingTime()
+		record.AccessMana = deps.Tangle.Scheduler.GetManaFromCache(issuerID)
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			record.ScheduledTimestamp = messageMetadata.ScheduledTime()
 			record.BookedTimestamp = messageMetadata.BookedTime()
@@ -39,8 +40,6 @@ func onMessageScheduled(messageID tangle.MessageID) {
 			})
 		})
 	})
-
-	record.AccessMana = deps.Tangle.Scheduler.GetManaFromCache(nodeID)
 }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
