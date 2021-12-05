@@ -178,6 +178,27 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 	return nodeQueueSizes
 }
 
+// BufferSize returns the size of the buffer.
+func (s *Scheduler) BufferSize() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buffer.Size()
+}
+
+// ReadyMessagesCount returns the size buffer.
+func (s *Scheduler) ReadyMessagesCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buffer.ReadyMessagesCount()
+}
+
+// TotalMessagesCount returns the size buffer.
+func (s *Scheduler) TotalMessagesCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buffer.TotalMessagesCount()
+}
+
 // Submit submits a message to be considered by the scheduler.
 // This transactions will be included in all the control metrics, but it will never be
 // scheduled until Ready(messageID) has been called.

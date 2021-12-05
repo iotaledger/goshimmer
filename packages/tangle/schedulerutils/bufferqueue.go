@@ -164,6 +164,39 @@ func (b *BufferQueue) Ready(msg Element) bool {
 	return nodeQueue.Ready(msg)
 }
 
+// ReadyMessagesCount returns the number of ready messages in the buffer.
+func (b *BufferQueue) ReadyMessagesCount() (readyMsgCount int) {
+	start := b.Current()
+	if start == nil {
+		return
+	}
+	for q := start; ; {
+		readyMsgCount += q.inbox.Len()
+		q = b.Next()
+		if q == start {
+			break
+		}
+	}
+	return
+}
+
+// TotalMessagesCount returns the number of messages in the buffer.
+func (b *BufferQueue) TotalMessagesCount() (msgCount int) {
+	start := b.Current()
+	if start == nil {
+		return
+	}
+	for q := start; ; {
+		msgCount += q.inbox.Len()
+		msgCount += len(q.submitted)
+		q = b.Next()
+		if q == start {
+			break
+		}
+	}
+	return
+}
+
 // InsertNode creates a queue for the given node and adds it to the list of active nodes.
 func (b *BufferQueue) InsertNode(nodeID identity.ID) {
 	_, nodeActive := b.activeNode[nodeID]
