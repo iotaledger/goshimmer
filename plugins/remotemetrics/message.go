@@ -8,6 +8,14 @@ import (
 )
 
 func onMessageScheduled(messageID tangle.MessageID) {
+	sendMessageSchedulerRecord(messageID, "MessageScheduled")
+}
+
+func onMessageDiscarded(messageID tangle.MessageID) {
+	sendMessageSchedulerRecord(messageID, "MessageDiscarded")
+}
+
+func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 	if !deps.Tangle.Synced() {
 		return
 	}
@@ -18,7 +26,7 @@ func onMessageScheduled(messageID tangle.MessageID) {
 	}
 
 	record := &remotemetrics.MessageScheduledMetrics{
-		Type:         "messageScheduled",
+		Type:         recordType,
 		NodeID:       nodeID,
 		MetricsLevel: Parameters.MetricsLevel,
 		MessageID:    messageID.Base58(),
@@ -26,20 +34,19 @@ func onMessageScheduled(messageID tangle.MessageID) {
 
 	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		issuerID := identity.NewID(message.IssuerPublicKey())
-
 		record.IssuedTimestamp = message.IssuingTime()
 		record.AccessMana = deps.Tangle.Scheduler.GetManaFromCache(issuerID)
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			record.ScheduledTimestamp = messageMetadata.ScheduledTime()
+			record.DroppedTimestamp = messageMetadata.DiscardedTime()
 			record.BookedTimestamp = messageMetadata.BookedTime()
-		})
-
-		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-			deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-				record.SolidTimestamp = transactionMetadata.SolidificationTime()
-			})
+			record.SolidTimestamp = messageMetadata.SolidificationTime()
 		})
 	})
+
+	if err := deps.RemoteLogger.Send(record); err != nil {
+		Plugin.Logger().Errorw("Failed to send "+recordType+" record", "err", err)
+	}
 }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {

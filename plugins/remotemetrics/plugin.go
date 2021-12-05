@@ -133,4 +133,5 @@ func configureMessageScheduledMetrics() {
 		return
 	}
 	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
+	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
 }

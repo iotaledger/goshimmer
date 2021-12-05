@@ -253,7 +253,11 @@ func (s *Scheduler) Clear() {
 	for q := s.buffer.Current(); q != nil; q = s.buffer.Next() {
 		s.buffer.RemoveNode(q.NodeID())
 		for _, id := range q.IDs() {
-			s.Events.MessageDiscarded.Trigger(MessageID(id))
+			messageID := MessageID(id)
+			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+				messageMetadata.SetDiscardedTime(time.Now())
+			})
+			s.Events.MessageDiscarded.Trigger(messageID)
 		}
 	}
 }
@@ -308,6 +312,9 @@ func (s *Scheduler) submit(message *Message) error {
 
 	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
 	for _, droppedMsgID := range droppedMessageIDs {
+		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetDiscardedTime(time.Now())
+		})
 		s.Events.MessageDiscarded.Trigger(MessageID(droppedMsgID))
 	}
 	return nil

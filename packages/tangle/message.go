@@ -792,6 +792,7 @@ type MessageMetadata struct {
 	branchID            ledgerstate.BranchID
 	scheduled           bool
 	scheduledTime       time.Time
+	discardedTime       time.Time
 	booked              bool
 	bookedTime          time.Time
 	invalid             bool
@@ -804,6 +805,7 @@ type MessageMetadata struct {
 	branchIDMutex           sync.RWMutex
 	scheduledMutex          sync.RWMutex
 	scheduledTimeMutex      sync.RWMutex
+	discardedTimeMutex      sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
 	invalidMutex            sync.RWMutex
@@ -1031,6 +1033,22 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 	defer m.scheduledTimeMutex.RUnlock()
 
 	return m.scheduledTime
+}
+
+// SetDiscardedTime add the discarded time of a message to the metadata
+func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
+	m.discardedTimeMutex.Lock()
+	defer m.discardedTimeMutex.Unlock()
+
+	m.discardedTime = discardedTime
+}
+
+// DiscardedTime returns when the message was discarded
+func (m *MessageMetadata) DiscardedTime() time.Time {
+	m.discardedTimeMutex.RLock()
+	defer m.discardedTimeMutex.RUnlock()
+
+	return m.discardedTime
 }
 
 // SetBooked sets the message associated with this metadata as booked.
