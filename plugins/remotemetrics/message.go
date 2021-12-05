@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 func onMessageScheduled(messageID tangle.MessageID) {
@@ -11,14 +12,16 @@ func onMessageScheduled(messageID tangle.MessageID) {
 		return
 	}
 
-	var nodeID string
+	var nodeID identity.ID
+	var nodeIDString string
 	if deps.Local != nil {
-		nodeID = deps.Local.Identity.ID().String()
+		nodeID := deps.Local.Identity.ID()
+		nodeIDString = nodeID.String()
 	}
 
 	record := &remotemetrics.MessageScheduledMetrics{
 		Type:         "messageScheduled",
-		NodeID:       nodeID,
+		NodeID:       nodeIDString,
 		MetricsLevel: Parameters.MetricsLevel,
 		MessageID:    messageID.Base58(),
 	}
@@ -37,7 +40,7 @@ func onMessageScheduled(messageID tangle.MessageID) {
 		})
 	})
 
-	deps.Tangle.Scheduler.GetManaFromCache(nodeID)
+	record.AccessMana = deps.Tangle.Scheduler.GetManaFromCache(nodeID)
 }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {

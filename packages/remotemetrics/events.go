@@ -67,7 +67,7 @@ type MessageScheduledMetrics struct {
 	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
 	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
 	DroppedTimestamp   time.Time `json:"droppedTimestamp" bson:"DroppedTimestamp"`
-	AccessMana         uint8     `json:"accessMana" bson:"accessMana"`
+	AccessMana         float64   `json:"accessMana" bson:"accessMana"`
 }
 
 // BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.
