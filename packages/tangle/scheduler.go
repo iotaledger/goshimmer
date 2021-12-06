@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -130,6 +131,12 @@ func (s *Scheduler) Setup() {
 		if scheduled {
 			return
 		}
+		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			if clock.Since(message.IssuingTime()) > time.Minute {
+				fmt.Println("Unsubmit old confirmed message ", message.ID().String())
+				s.unsubmit(message)
+			}
+		})
 		s.updateApprovers(messageID)
 	}
 	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageConfirmed))
@@ -362,14 +369,29 @@ func (s *Scheduler) schedule() *Message {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready
 		// (its issuing time is not in the future and all of its parents are eligible).
-		if msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) {
-			// compute how often the deficit needs to be incremented until the message can be scheduled
-			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-			nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
-			// find the first node that will be allowed to schedule a message
-			if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
-				rounds = r
-				schedulingNode = q
+		// while loop to skip all the confirmed messages
+		foundMsg := false
+		for msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) && !foundMsg {
+			msgID, _, err := MessageIDFromBytes(msg.IDBytes())
+			if err != nil {
+				panic("MessageID could not be parsed!")
+			}
+			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > time.Minute {
+				// if a message is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
+				// do we want to mark those messages somehow for debugging?
+				q.PopFront()
+				msg = q.Front()
+				fmt.Println("Select another message from the same queue", msgID.String())
+			} else {
+				foundMsg = true
+				// compute how often the deficit needs to be incremented until the message can be scheduled
+				remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
+				nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
+				// find the first node that will be allowed to schedule a message
+				if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
+					rounds = r
+					schedulingNode = q
+				}
 			}
 		}
 
