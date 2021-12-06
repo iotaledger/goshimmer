@@ -102,8 +102,9 @@ func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.Bran
 	}
 
 	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		if branchID = messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
-			return
+		branchIDs := ledgerstate.NewBranchIDs()
+		if metadataBranchID := messageMetadata.BranchID(); metadataBranchID != ledgerstate.UndefinedBranchID {
+			branchIDs.Add(metadataBranchID)
 		}
 
 		structureDetails := messageMetadata.StructureDetails()
@@ -111,12 +112,13 @@ func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.Bran
 			err = errors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
 			return
 		}
-		if structureDetails.PastMarkers.Size() != 1 {
-			err = errors.Errorf("BranchID of %s should have been mapped in the MessageMetadata (multiple PastMarkers): %w", messageID, cerrors.ErrFatal)
-			return
-		}
+		structureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			branchIDs.Add(b.MarkersManager.BranchID(markers.NewMarker(sequenceID, index)))
 
-		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.Marker())
+			return true
+		})
+
+		branchID, err = b.tangle.LedgerState.InheritBranch(branchIDs)
 	}) {
 		err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
 		return
