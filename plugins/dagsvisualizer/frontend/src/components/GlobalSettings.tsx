@@ -128,6 +128,7 @@ export class GlobalSettings extends React.Component<Props, any> {
                         </div>
                         <div>
                             <h5>Select and center vertex across DAGs</h5>
+                            <p> Select a message/transaction/branch and click the corresponding button to sync. </p>
                             <Row>
                                 <Col xs="auto">
                                     <Button onClick={this.syncWithMsg} variant="outline-secondary">
