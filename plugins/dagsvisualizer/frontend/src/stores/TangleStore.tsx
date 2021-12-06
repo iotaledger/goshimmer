@@ -317,7 +317,7 @@ export class TangleStore {
         if (!msg)  return;
 
         this.updateSelected(msg);
-        this.highlightMsg(msg.ID);
+        this.selected_origin_color = this.highlightMsg(msg.ID);
 
         // center the selected node.
         var pos = this.layout.getNodePosition(msgID);
@@ -348,8 +348,8 @@ export class TangleStore {
 
         // update highlighted msgs and its original color
         msgIDs.forEach((id) => {
-            this.highlightMsg(id);
-            this.highligtedMsgs.set(id, this.selected_origin_color);
+            let original_color = this.highlightMsg(id);
+            this.highligtedMsgs.set(id, original_color);
         })
     }
 
@@ -357,7 +357,7 @@ export class TangleStore {
         // mutate links
         let node = this.graph.getNode(msgID);
         let nodeUI = this.graphics.getNodeUI(msgID);
-        this.selected_origin_color = nodeUI.color
+        let original_color = nodeUI.color
         nodeUI.color = parseColor("#859900");
         nodeUI.size = vertexSize * 1.5;
 
@@ -382,7 +382,9 @@ export class TangleStore {
                 linkUI.color = parseColor("#b58900");
             },
             seenBackwards
-        );        
+        );
+        
+        return original_color
     }
 
     clearHighlightedMsgs = () => {
@@ -475,8 +477,7 @@ export class TangleStore {
         let events = Viva.Graph.webglInputEvents(graphics, this.graph);
 
         events.click((node) => {
-            this.clearSelected();
-            this.updateSelected(node.data);
+            this.selectMsg(node.data.ID);
         });
 
         this.graphics = graphics;
