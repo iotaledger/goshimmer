@@ -219,7 +219,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 
 			if inheritedStructureDetails.PastMarkers.Size() != 1 || !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
-					messageMetadata.SetBranchID(inheritedBranch)
+					// messageMetadata.SetBranchID(inheritedBranch)
 				} else {
 					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
 				}

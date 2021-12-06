@@ -934,7 +934,7 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A2":   ledgerstate.UndefinedBranchID,
 			"A3":   ledgerstate.UndefinedBranchID,
 			"A+C1": ledgerstate.UndefinedBranchID,
-			"A+C2": testFramework.BranchID("A+C"),
+			"A+C2": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"A1":   testFramework.BranchID("A"),
@@ -979,7 +979,7 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A2":   ledgerstate.UndefinedBranchID,
 			"A3":   ledgerstate.UndefinedBranchID,
 			"A+C1": ledgerstate.UndefinedBranchID,
-			"A+C2": testFramework.BranchID("A2+C"),
+			"A+C2": ledgerstate.UndefinedBranchID,
 			"A2*":  ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
