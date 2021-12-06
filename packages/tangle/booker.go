@@ -119,6 +119,9 @@ func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.Bran
 		})
 
 		branchID, err = b.tangle.LedgerState.InheritBranch(branchIDs)
+		if branchID == ledgerstate.InvalidBranchID {
+			branchID, err = b.tangle.LedgerState.InheritBranch(b.supportedBranches(branchIDs, ledgerstate.NewBranchIDs(messageMetadata.BranchID())))
+		}
 	}) {
 		err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
 		return
@@ -192,7 +195,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			supportedBranches := b.supportedBranches(message)
+			supportedBranches := b.supportedBranchesFromMessage(message)
 
 			// By adding the BranchID of the payload to the computed supported branches, InheritBranch will check if anything of what we
 			// finally support has overlapping conflict sets, in which case the Message is invalid
@@ -211,6 +214,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			}
 
 			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
+			fmt.Println("WH00T", inheritedStructureDetails, inheritedBranch)
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 			if inheritedStructureDetails.PastMarkers.Size() != 1 || !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
@@ -247,14 +251,7 @@ func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDs) (areAllTr
 	return
 }
 
-// supportedBranches returns the branches that the given message supports based on its strong and liked parents.
-// It determines the branches based on the like switch rules.
-func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
-	// We obtain strong parents branches using metadata and past markers
-	strongBranchIDs := b.strongParentsBranchIDs(message)
-	// We obtain liked payload branches
-	likedBranchIDs := b.likedParentsBranchIDs(message)
-
+func (b *Booker) supportedBranches(strongBranchIDs, likedBranchIDs ledgerstate.BranchIDs) (branchIDs ledgerstate.BranchIDs) {
 	if len(likedBranchIDs) == 0 {
 		return strongBranchIDs
 	}
@@ -276,8 +273,13 @@ func (b *Booker) supportedBranches(message *Message) ledgerstate.BranchIDs {
 	}
 
 	// We filter our strong parents and add the liked parents to the resulting set
-	supportedBranches := resolvedStrongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
-	return supportedBranches
+	return resolvedStrongBranchIDs.Intersect(prunedCollectedStrongParents).AddAll(likedBranchIDs)
+}
+
+// supportedBranchesFromMessage returns the branches that the given message supports based on its strong and liked parents.
+// It determines the branches based on the like switch rules.
+func (b *Booker) supportedBranchesFromMessage(message *Message) ledgerstate.BranchIDs {
+	return b.supportedBranches(b.strongParentsBranchIDs(message), b.likedParentsBranchIDs(message))
 }
 
 // strongParentsBranchIDs returns the branches of the Message's strong parents.

@@ -721,7 +721,7 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 	// ISSUE A1
 	{
-		testFramework.PreventNewMarkers(true).CreateMessage("A1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("A1", 500))
+		testFramework.CreateMessage("A1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("A1", 500))
 		testFramework.IssueMessages("A1").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
