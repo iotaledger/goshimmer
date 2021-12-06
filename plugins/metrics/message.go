@@ -406,19 +406,18 @@ func measureRequestQueueSize() {
 }
 
 func measureInitialDBStats() {
-	storedCount, solidCount, bookedCount, scheduledCount, solidificationReceivedTime,
-		bookedReceivedTime, schedulerReceivedTime, schedulerBookedTime, missingMessageCount := deps.Tangle.Storage.DBStats()
+	dbStatsResult := deps.Tangle.Storage.DBStats()
 
-	initialMessageCountPerComponentDB[Store] = uint64(storedCount)
-	initialMessageCountPerComponentDB[Solidifier] = uint64(solidCount)
-	initialMessageCountPerComponentDB[Booker] = uint64(bookedCount)
-	initialMessageCountPerComponentDB[Scheduler] = uint64(scheduledCount)
+	initialMessageCountPerComponentDB[Store] = uint64(dbStatsResult.StoredCount)
+	initialMessageCountPerComponentDB[Solidifier] = uint64(dbStatsResult.SolidCount)
+	initialMessageCountPerComponentDB[Booker] = uint64(dbStatsResult.BookedCount)
+	initialMessageCountPerComponentDB[Scheduler] = uint64(dbStatsResult.ScheduledCount)
 
-	initialSumTimeSinceReceived[Solidifier] = solidificationReceivedTime
-	initialSumTimeSinceReceived[Booker] = bookedReceivedTime
-	initialSumTimeSinceReceived[Scheduler] = schedulerReceivedTime
+	initialSumTimeSinceReceived[Solidifier] = dbStatsResult.SumSolidificationReceivedTime
+	initialSumTimeSinceReceived[Booker] = dbStatsResult.SumBookedReceivedTime
+	initialSumTimeSinceReceived[Scheduler] = dbStatsResult.SumSchedulerReceivedTime
 
-	initialSumSchedulerBookedTime = schedulerBookedTime
+	initialSumSchedulerBookedTime = dbStatsResult.SumSchedulerBookedTime
 
-	initialMissingMessageCountDB = uint64(missingMessageCount)
+	initialMissingMessageCountDB = uint64(dbStatsResult.MissingMessageCount)
 }
