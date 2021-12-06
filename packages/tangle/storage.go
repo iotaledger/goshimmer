@@ -467,15 +467,25 @@ func (s *Storage) Prune() error {
 // DBStats returns the number of solid messages and total number of messages in the database (messageMetadataStorage,
 // that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
 // the average time it takes to solidify messages.
-func (s *Storage) DBStats() (solidCount, messageCount int, sumSolidificationTime int64, missingMessageCount int) {
+// TODO: simplify
+func (s *Storage) DBStats() (storedCount, solidCount, bookedCount, scheduledCount int, sumSolidificationReceivedTime, sumBookedReceivedTime, sumSchedulerReceivedTime, sumSchedulerBookedTime time.Duration, missingMessageCount int) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			msgMetaData := object.(*MessageMetadata)
-			messageCount++
+			storedCount++
 			received := msgMetaData.ReceivedTime()
 			if msgMetaData.IsSolid() {
 				solidCount++
-				sumSolidificationTime += msgMetaData.solidificationTime.Sub(received).Milliseconds()
+				sumSolidificationReceivedTime += msgMetaData.solidificationTime.Sub(received)
+			}
+			if msgMetaData.IsBooked() {
+				bookedCount++
+				sumBookedReceivedTime += msgMetaData.bookedTime.Sub(received)
+			}
+			if msgMetaData.Scheduled() {
+				scheduledCount++
+				sumSchedulerReceivedTime += msgMetaData.scheduledTime.Sub(received)
+				sumSchedulerBookedTime += msgMetaData.scheduledTime.Sub(msgMetaData.bookedTime)
 			}
 		})
 		return true

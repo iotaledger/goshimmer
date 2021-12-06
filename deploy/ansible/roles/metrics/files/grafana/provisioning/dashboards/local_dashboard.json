@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1633935850165,
+  "iteration": 1638461160503,
   "links": [],
   "panels": [
     {
@@ -203,6 +203,7 @@
       "pluginVersion": "7.5.6",
       "targets": [
         {
+          "exemplar": true,
           "expr": "time() - process_start_time_seconds{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
@@ -330,7 +331,8 @@
       "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "irate(tangle_message_total_count{instance=\"$instance\"}[5m])",
+          "exemplar": true,
+          "expr": "irate(tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "Total MPS",
           "refId": "A"
@@ -440,6 +442,7 @@
       "pluginVersion": "7.5.6",
       "targets": [
         {
+          "exemplar": true,
           "expr": "mana_consensus{instance=\"$instance\",nodeID=\"$NodeID\"}",
           "interval": "",
           "legendFormat": "",
@@ -687,45 +690,10 @@
             {
               "exemplar": true,
               "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\"}[5m])",
+              "hide": false,
               "interval": "",
               "legendFormat": "Message Per Second {{message_type}}",
               "refId": "A"
-            },
-            {
-              "exemplar": true,
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"TransactionType(1337)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "Transaction Per Second",
-              "refId": "B"
-            },
-            {
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"dRNG(111)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "dRNG Messages Per Second",
-              "refId": "C"
-            },
-            {
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"faucet(2)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "Faucet Messages Per Second",
-              "refId": "D"
-            },
-            {
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"networkdelay(189)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "Network Delay Messages Per Second",
-              "refId": "E"
-            },
-            {
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"Statement(3)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "Statements Per Second",
-              "refId": "G"
             }
           ],
           "thresholds": [],
@@ -817,31 +785,11 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Store\"}[5m])",
+              "exemplar": true,
+              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\"}[5m])",
               "interval": "",
-              "legendFormat": "Store MPS",
+              "legendFormat": "{{component}} MPS",
               "refId": "A"
-            },
-            {
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Solidifier\"}[5m])",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Solidifier MPS",
-              "refId": "B"
-            },
-            {
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Scheduler\"}[5m])",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Scheduler MPS",
-              "refId": "C"
-            },
-            {
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Booker\"}[5m])",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Booker MPS",
-              "refId": "D"
             }
           ],
           "thresholds": [],
@@ -1653,6 +1601,7 @@
           "steppedLine": false,
           "targets": [
             {
+              "exemplar": true,
               "expr": "tangle_message_request_queue_size{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Message Request Queue Size",
@@ -1751,19 +1700,22 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_message_solid_count_db{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Solid Messages in DB",
               "refId": "A"
             },
             {
-              "expr": "tangle_message_total_count_db{instance=\"$instance\"} - tangle_message_solid_count_db{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"} - tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Not Solid Messages in DB",
               "refId": "B"
             },
             {
-              "expr": "tangle_message_total_count_db{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Total Messages in DB",
               "refId": "C"
@@ -1992,10 +1944,18 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_message_avg_solidification_time[5m]) ",
+              "expr": "rate(tangle_message_total_time_since_received{component=\"Solidifier\",instance=\"$instance\"}[5m])/rate(tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}[5m])",
               "interval": "",
               "legendFormat": "Avg Solidification Time",
               "refId": "A"
+            },
+            {
+              "exemplar": true,
+              "expr": "",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "",
+              "refId": "B"
             }
           ],
           "thresholds": [],
@@ -3950,7 +3910,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_message_finalization_time{instance=\"$instance\"}[1m]) / irate(tangle_message_finalized_count{instance=\"$instance\"}[1m])",
+              "expr": "irate(tangle_message_finalization_time_since_received{instance=\"$instance\"}[1m]) / irate(tangle_message_finalized_count{instance=\"$instance\"}[1m])",
               "interval": "",
               "legendFormat": "{{messageType}} avg. finalization time",
               "queryType": "randomWalk",
@@ -4438,6 +4398,590 @@
       ],
       "title": "OTV metrics",
       "type": "row"
+    },
+    {
+      "collapsed": true,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 128,
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 22,
+            "w": 15,
+            "x": 0,
+            "y": 57
+          },
+          "id": 146,
+          "options": {
+            "displayMode": "lcd",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "text": {}
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "topk(20, sum by (node_id) (scheduler_buffer_size_per_node{instance=\"$instance\"}/scheduler_amana_per_node{instance=\"$instance\"}))",
+              "instant": true,
+              "interval": "",
+              "legendFormat": "Node: {{node_id}}",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Mana-scaled queue size",
+          "type": "bargauge"
+        },
+        {
+          "datasource": "Prometheus",
+          "description": "Rate at which scheduler processes messages from the buffer",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 15,
+            "y": 57
+          },
+          "id": 132,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "scheduler_rate{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Scheduling rate",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 18,
+            "y": 57
+          },
+          "id": 142,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"Scheduler\",instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Scheduled messages",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "green",
+                "mode": "fixed"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 15,
+            "y": 61
+          },
+          "id": 143,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "value"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": false,
+              "expr": "scheduler_buffer_max_size{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Max buffer size",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 18,
+            "y": 61
+          },
+          "id": 140,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"SchedulerDropped\",instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Dropped messages",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 21,
+            "y": 61
+          },
+          "id": 134,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "scheduler_buffer_total_msg_count{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "All messages count",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "green",
+                "mode": "fixed"
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 15,
+            "y": 65
+          },
+          "id": 130,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "value"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": false,
+              "expr": "scheduler_buffer_total_size{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Current buffer size",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 18,
+            "y": 65
+          },
+          "id": 138,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "scheduler_buffer_total_msg_count{instance=\"$instance\"} - scheduler_buffer_ready_msg_count{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Unready messages count",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 21,
+            "y": 65
+          },
+          "id": 136,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "scheduler_buffer_ready_msg_count{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Ready messages count",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 23,
+            "w": 15,
+            "x": 0,
+            "y": 79
+          },
+          "id": 145,
+          "options": {
+            "displayMode": "lcd",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "text": {}
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "topk(20, sum by (node_id) (scheduler_buffer_size_per_node{instance=\"$instance\"}))",
+              "instant": true,
+              "interval": "",
+              "legendFormat": "Node: {{node_id}}",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Queue size",
+          "type": "bargauge"
+        }
+      ],
+      "title": "Scheduler metrics",
+      "type": "row"
     }
   ],
   "refresh": "10s",
@@ -4511,7 +5055,7 @@
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {
@@ -4530,5 +5074,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 35
+  "version": 54
 }
