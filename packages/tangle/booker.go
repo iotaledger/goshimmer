@@ -195,7 +195,9 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			supportedBranches := b.supportedBranchesFromMessage(message)
+			likedBranches := b.likedParentsBranchIDs(message).Add(branchIDOfPayload)
+			strongBranches := b.strongParentsBranchIDs(message)
+			supportedBranches := b.supportedBranches(strongBranches, likedBranches)
 
 			// By adding the BranchID of the payload to the computed supported branches, InheritBranch will check if anything of what we
 			// finally support has overlapping conflict sets, in which case the Message is invalid
@@ -214,8 +216,22 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			}
 
 			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
-			fmt.Println("WH00T", inheritedStructureDetails, inheritedBranch)
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
+
+			if inheritedStructureDetails.PastMarkers.Size() == 1 && inheritedStructureDetails.IsPastMarker {
+				b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
+			} else if len(likedBranches) != 0 {
+				normalizeLikedBranch, normalizeLikedBranchErr := b.tangle.LedgerState.InheritBranch(likedBranches)
+				if normalizeLikedBranchErr != nil {
+					panic(normalizeLikedBranchErr)
+				}
+				if normalizeLikedBranch == ledgerstate.InvalidBranchID {
+					panic("INVALID WHAT THE FÖCK")
+				}
+
+				if normalizeLikedBranch == ledgerstate.MasterBranchID {
+				}
+			}
 
 			if inheritedStructureDetails.PastMarkers.Size() != 1 || !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
@@ -248,6 +264,56 @@ func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDs) (areAllTr
 		}
 	}
 	return
+}
+
+func (b *Booker) normalizeExtended(strongBranchIDs, likedBranchIDs ledgerstate.BranchIDs) (resultingBranchID ledgerstate.BranchID, diff ledgerstate.BranchID) {
+	resolvedStrongBranchIDs, err := b.tangle.LedgerState.ResolveConflictBranchIDs(strongBranchIDs)
+	if err != nil {
+		panic(err)
+	}
+
+	resolvedLikedBranchIDs, err := b.tangle.LedgerState.ResolveConflictBranchIDs(likedBranchIDs)
+	if err != nil {
+		panic(err)
+	}
+
+	candidates := resolvedStrongBranchIDs.Clone()
+	candidates = b.subtractConflictingFutureCone(candidates, resolvedLikedBranchIDs)
+	candidates.AddAll(resolvedLikedBranchIDs)
+
+	rawDiff := candidates.Subtract(resolvedStrongBranchIDs)
+
+	inheritedAggregatedBranch, err := b.tangle.LedgerState.InheritBranch(candidates)
+	if err != nil {
+		panic(err)
+	}
+
+}
+
+func (b *Booker) subtractConflictingFutureCone(branchIDs ledgerstate.BranchIDs, futureCone ledgerstate.BranchIDs) (result ledgerstate.BranchIDs) {
+	result = branchIDs.Clone()
+
+	childWalker := walker.New()
+	for likedBranchID := range futureCone {
+		b.tangle.LedgerState.ForEachConflictingBranchID(likedBranchID, func(conflictingBranchID ledgerstate.BranchID) {
+			childWalker.Push(conflictingBranchID)
+		})
+	}
+
+	for childWalker.HasNext() {
+		currentChild := childWalker.Next().(ledgerstate.BranchID)
+
+		delete(result, currentChild)
+		b.tangle.LedgerState.ChildBranches(currentChild).Consume(func(childBranch *ledgerstate.ChildBranch) {
+			if childBranch.ChildBranchType() != ledgerstate.ConflictBranchType {
+				return
+			}
+
+			childWalker.Push(childBranch.ChildBranchID())
+		})
+	}
+
+	return result
 }
 
 func (b *Booker) supportedBranches(strongBranchIDs, likedBranchIDs ledgerstate.BranchIDs) (branchIDs ledgerstate.BranchIDs) {
