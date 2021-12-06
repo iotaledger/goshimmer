@@ -525,7 +525,7 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message4": ledgerstate.UndefinedBranchID,
 			"Message5": ledgerstate.UndefinedBranchID,
 			"Message6": ledgerstate.UndefinedBranchID,
-			"Message7": testFramework.BranchID("Message1+Message3+Message5"),
+			"Message7": testFramework.BranchID("Message1+Message3"),
 			"Message8": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{

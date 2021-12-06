@@ -191,6 +191,10 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		RegisterMessageIDAlias(message.ID(), "Statement2")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 4.1.2"])
+			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				PastMarkers:   markers.NewMarkers(),
+				FutureMarkers: markers.NewMarkers(),
+			})
 		})
 		approvalWeightManager.updateBranchSupporters(message)
 
@@ -217,6 +221,10 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		RegisterMessageIDAlias(message.ID(), "Statement1")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 1.1 + Branch 4.1.1"])
+			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				PastMarkers:   markers.NewMarkers(),
+				FutureMarkers: markers.NewMarkers(),
+			})
 		})
 		approvalWeightManager.updateBranchSupporters(message)
 
@@ -236,13 +244,17 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
-	//// statement 3: "Branch 2"
+	// // statement 3: "Branch 2"
 	{
 		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement3")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 2"])
+			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				PastMarkers:   markers.NewMarkers(),
+				FutureMarkers: markers.NewMarkers(),
+			})
 		})
 		approvalWeightManager.updateBranchSupporters(message)
 
