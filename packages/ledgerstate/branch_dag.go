@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -489,8 +488,6 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 			return errors.Errorf("failed to resolve ConflictBranchIDs: %w", conflictBranchesErr)
 		}
 
-		fmt.Println("normalizeBranches1", branchIDs, conflictBranches)
-
 		// return if we are done
 		if len(conflictBranches) == 1 {
 			return conflictBranches
@@ -510,17 +507,17 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 		branches = NewBranchIDs()
 		for conflictBranchID := range conflictBranches {
 			// check branch and queue parents
-			if !b.Branch(conflictBranchID).Consume(func(branch Branch) {
-				switch branch.(*ConflictBranch).InclusionState() {
+			if !b.Branch(conflictBranchID).ConsumeConflictBranch(func(branch *ConflictBranch) {
+				switch branch.InclusionState() {
 				case Rejected:
 					lazyBooked = true
 					fallthrough
 				case Pending:
 					// add branch to the candidates of normalized branches
-					branches[conflictBranchID] = types.Void
+					branches.Add(conflictBranchID)
 				}
 
-				if err = b.queueParentsIfConflictSetUnseen(branch.(*ConflictBranch), seenBranches, seenConflictSets, parentsWalker); err != nil {
+				if err = b.queueParentsIfConflictSetUnseen(branch, seenBranches, seenConflictSets, parentsWalker); err != nil {
 					err = errors.Errorf("failed to check conflicts and queue parents: %w", err)
 					return
 				}
@@ -533,8 +530,6 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 				return err
 			}
 		}
-
-		fmt.Println("branches", branches)
 
 		// remove ancestors from the candidates
 		for parentsWalker.HasNext() {
@@ -556,8 +551,6 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, 
 				return err
 			}
 		}
-
-		fmt.Println("branches1", branches)
 
 		return branches
 	}).(type) {

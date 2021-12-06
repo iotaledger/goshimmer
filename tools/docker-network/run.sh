@@ -44,7 +44,7 @@ fi
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
 docker-compose up -d
 
-sleep 6000
+sleep 600000
 
 echo "Clean up docker resources"
 docker-compose down -v
