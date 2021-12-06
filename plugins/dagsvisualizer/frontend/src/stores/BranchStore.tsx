@@ -34,8 +34,9 @@ export class branchConfirmed {
 }
 
 export class branchWeightChanged {
-    ID: string;
+    ID:     string;
     weight: number;
+    gof:    string;
 }
 
 export class BranchStore {
@@ -128,6 +129,7 @@ export class BranchStore {
             return;
         }
         b.aw = branch.weight;
+        b.gof = branch.gof;
         this.branches.set(branch.ID, b)
     }
 

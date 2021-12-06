@@ -161,11 +161,13 @@ func registerBranchEvents() {
 	})
 
 	branchWeightChangedClosure := events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
+		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(e.BranchID)
 		visualizerWorkerPool.TrySubmit(&wsMessage{
 			Type: MsgTypeBranchWeightChanged,
 			Data: &branchWeightChanged{
 				ID:     e.BranchID.Base58(),
 				Weight: e.Weight,
+				GoF:    branchGoF.String(),
 			},
 		})
 	})

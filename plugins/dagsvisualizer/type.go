@@ -98,6 +98,7 @@ type branchConfirmed struct {
 type branchWeightChanged struct {
 	ID     string  `json:"ID"`
 	Weight float64 `json:"weight"`
+	GoF    string  `json:"gof"`
 }
 
 type searchResult struct {
