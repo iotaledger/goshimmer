@@ -162,6 +162,7 @@ func registerLocalMetrics() {
 	// fired when a message gets added to missing message storage
 	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		missingMessageCountDB.Inc()
+		solidificationRequests.Inc()
 	}))
 
 	// fired when a missing message was received and removed from missing message storage

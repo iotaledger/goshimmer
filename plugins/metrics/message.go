@@ -133,6 +133,9 @@ var (
 	// number of messages being requested by the message layer.
 	requestQueueSize atomic.Int64
 
+	// number of messages being requested by the message layer.
+	solidificationRequests atomic.Uint64
+
 	// counter for the received MPS (for dashboard).
 	mpsReceivedSinceLastMeasurement atomic.Uint64
 )
@@ -198,6 +201,11 @@ func MessageCountSinceStartPerComponentDashboard() map[ComponentType]uint64 {
 // MessageTips returns the actual number of tips in the message tangle.
 func MessageTips() uint64 {
 	return messageTips.Load()
+}
+
+// SolidificationRequests returns the number of solidification requests since start of node.
+func SolidificationRequests() uint64 {
+	return solidificationRequests.Load()
 }
 
 // MessageRequestQueueSize returns the number of message requests the node currently has registered.
@@ -398,19 +406,18 @@ func measureRequestQueueSize() {
 }
 
 func measureInitialDBStats() {
-	storedCount, solidCount, bookedCount, scheduledCount, solidificationReceivedTime,
-		bookedReceivedTime, schedulerReceivedTime, schedulerBookedTime, missingMessageCount := deps.Tangle.Storage.DBStats()
+	dbStatsResult := deps.Tangle.Storage.DBStats()
 
-	initialMessageCountPerComponentDB[Store] = uint64(storedCount)
-	initialMessageCountPerComponentDB[Solidifier] = uint64(solidCount)
-	initialMessageCountPerComponentDB[Booker] = uint64(bookedCount)
-	initialMessageCountPerComponentDB[Scheduler] = uint64(scheduledCount)
+	initialMessageCountPerComponentDB[Store] = uint64(dbStatsResult.StoredCount)
+	initialMessageCountPerComponentDB[Solidifier] = uint64(dbStatsResult.SolidCount)
+	initialMessageCountPerComponentDB[Booker] = uint64(dbStatsResult.BookedCount)
+	initialMessageCountPerComponentDB[Scheduler] = uint64(dbStatsResult.ScheduledCount)
 
-	initialSumTimeSinceReceived[Solidifier] = solidificationReceivedTime
-	initialSumTimeSinceReceived[Booker] = bookedReceivedTime
-	initialSumTimeSinceReceived[Scheduler] = schedulerReceivedTime
+	initialSumTimeSinceReceived[Solidifier] = dbStatsResult.SumSolidificationReceivedTime
+	initialSumTimeSinceReceived[Booker] = dbStatsResult.SumBookedReceivedTime
+	initialSumTimeSinceReceived[Scheduler] = dbStatsResult.SumSchedulerReceivedTime
 
-	initialSumSchedulerBookedTime = schedulerBookedTime
+	initialSumSchedulerBookedTime = dbStatsResult.SumSchedulerBookedTime
 
-	initialMissingMessageCountDB = uint64(missingMessageCount)
+	initialMissingMessageCountDB = uint64(dbStatsResult.MissingMessageCount)
 }
