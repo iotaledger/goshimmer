@@ -34,7 +34,7 @@ export class BranchInfo extends React.Component<Props, any> {
                                         Conflicts:
                                             { selectedBranch.conflicts.conflicts.map((p,i) => {
                                                     return (
-                                                        <ListGroup>
+                                                        <ListGroup key={i}>
                                                             <ListGroup.Item>OutputID: <a href={`${explorerAddress}/explorer/output/${p}`} target="_blank" rel="noopener noreferrer">{p.outputID.base58}</a></ListGroup.Item>
                                                             <ListGroup.Item>Branches:
                                                                 <ListGroup>
