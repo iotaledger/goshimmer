@@ -8,11 +8,11 @@ import (
 )
 
 func onMessageScheduled(messageID tangle.MessageID) {
-	sendMessageSchedulerRecord(messageID, "MessageScheduled")
+	sendMessageSchedulerRecord(messageID, "messageScheduled")
 }
 
 func onMessageDiscarded(messageID tangle.MessageID) {
-	sendMessageSchedulerRecord(messageID, "MessageDiscarded")
+	sendMessageSchedulerRecord(messageID, "messageDiscarded")
 }
 
 func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
@@ -111,11 +111,11 @@ func onMessageFinalized(messageID tangle.MessageID) {
 }
 
 func onMissingMessageRequest(messageID tangle.MessageID) {
-	sendMissingMessageRecord(messageID, "MissingMessageMetrics")
+	sendMissingMessageRecord(messageID, "missingMessage")
 }
 
 func onMissingMessageStored(messageID tangle.MessageID) {
-	sendMissingMessageRecord(messageID, "MissingMessageStoredMetrics")
+	sendMissingMessageRecord(messageID, "missingMessageStored")
 }
 
 func sendMissingMessageRecord(messageID tangle.MessageID, recordType string) {

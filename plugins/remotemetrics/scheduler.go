@@ -3,14 +3,15 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 )
 
 func obtainSchedulerStats(timestamp time.Time) {
 	scheduler := deps.Tangle.Scheduler
 	record := remotemetrics.SchedulerMetrics{
-		Type:                  "SchedulerSampleMetrics",
+		Type:                  "schedulerSample",
 		MetricsLevel:          Parameters.MetricsLevel,
 		BufferSize:            uint32(scheduler.BufferSize()),
 		BufferLength:          uint32(scheduler.TotalMessagesCount()),
