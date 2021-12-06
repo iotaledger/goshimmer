@@ -77,6 +77,14 @@ type MessageScheduledMetrics struct {
 	AccessMana         float64   `json:"accessMana" bson:"accessMana"`
 }
 
+// MessageSolidificationMetrics defines message solidification record that is sent to the remote logger
+type MissingMessageMetrics struct {
+	Type         string `json:"type" bson:"type"`
+	NodeID       string `json:"nodeID" bson:"nodeID"`
+	MetricsLevel uint8  `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID    string `json:"messageID" bson:"messageID"`
+}
+
 // BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.
 type BranchConfirmationMetrics struct {
 	Type               string    `json:"type" bson:"type"`

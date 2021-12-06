@@ -68,6 +68,7 @@ func configure(_ *node.Plugin) {
 	}
 	configureMessageFinalizedMetrics()
 	configureMessageScheduledMetrics()
+	configureMissingMessageMetrics()
 }
 
 func run(plugin *node.Plugin) {
@@ -142,4 +143,13 @@ func configureMessageScheduledMetrics() {
 	}
 	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
 	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
+}
+
+func configureMissingMessageMetrics() {
+	if Parameters.MetricsLevel > Info {
+		return
+	}
+
+	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(events.NewClosure(onMissingMessageRequest)))
+	deps.Tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(events.NewClosure(onMissingMessageStored)))
 }

@@ -109,3 +109,33 @@ func onMessageFinalized(messageID tangle.MessageID) {
 		Plugin.Logger().Errorw("Failed to send MessageFinalizedMetrics record", "err", err)
 	}
 }
+
+func onMissingMessageRequest(messageID tangle.MessageID) {
+	sendMissingMessageRecord(messageID, "MissingMessageMetrics")
+}
+
+func onMissingMessageStored(messageID tangle.MessageID) {
+	sendMissingMessageRecord(messageID, "MissingMessageStoredMetrics")
+}
+
+func sendMissingMessageRecord(messageID tangle.MessageID, recordType string) {
+	if !deps.Tangle.Synced() {
+		return
+	}
+
+	var nodeID string
+	if deps.Local != nil {
+		nodeID = deps.Local.Identity.ID().String()
+	}
+
+	record := &remotemetrics.MissingMessageMetrics{
+		Type:         recordType,
+		NodeID:       nodeID,
+		MetricsLevel: Parameters.MetricsLevel,
+		MessageID:    messageID.Base58(),
+	}
+
+	if err := deps.RemoteLogger.Send(record); err != nil {
+		Plugin.Logger().Errorw("Failed to send "+recordType+" record", "err", err)
+	}
+}
