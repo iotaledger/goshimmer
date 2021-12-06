@@ -1,15 +1,15 @@
-name: Pre-devnet deploy
-
+name: Feature network deploy
 on:
-  push:
-    branches:
-      - develop
-    paths-ignore:
-      - 'docs/**'
-jobs:
+  workflow_dispatch:
+    inputs:
+      snapshotUrl:
+        description: 'Custom snapshot URL:'
+        required: false
+        default: ""
 
+jobs:
   deploy:
-    environment: pre-devnet
+    environment: feature
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: 1
@@ -31,14 +31,18 @@ jobs:
       - name: Login to DockerHub
         uses: docker/login-action@v1.9.0
         with:
-          username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
-          password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
+          username: '${{ secrets.IOTALEDGERTESTING_HUB_DOCKER_LOGIN }}'
+          password: '${{ secrets.IOTALEDGERTESTING_HUB_DOCKER_PASSWORD }}'
 
       - name: Publish to Docker Hub
         uses: docker/build-push-action@v2.5.0
         with:
-          tags: iotaledger/goshimmer:develop
+          tags: iotaledgertesting/goshimmer:feature
           push: true
+          build-args: |
+            CUSTOM_SNAPSHOT_URL=${{github.event.inputs.snapshotUrl}}
+            DEFAULT_SNAPSHOT_URL="https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/feature/snapshot.bin"
+            REMOTE_DEBUGGING=1
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,mode=max,dest=/tmp/.buildx-cache-new
 
@@ -66,15 +70,13 @@ jobs:
       - name: Ansible deploy
         env:
           GOSHIMMER_SEEDS: '${{ secrets.GOSHIMMER_SEEDS }}'
-          MONGODB_USER: '${{ secrets.MONGODB_USER }}'
-          MONGODB_PASSWORD: '${{ secrets.MONGODB_PASSWORD }}'
           GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
           ELK_ELASTIC_PASSWORD: '${{ secrets.ELK_ELASTIC_PASSWORD }}'
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
           DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
           COMMIT_SHA: '${{ github.sha }}'
-          GOSHIMMER_DOCKER_IMAGE: 'iotaledger/goshimmer'
-          GOSHIMMER_DOCKER_TAG: 'develop'
+          GOSHIMMER_DOCKER_IMAGE: 'iotaledgertesting/goshimmer'
+          GOSHIMMER_DOCKER_TAG: 'feature'
         run: |
           export NETWORK_VERSION=$((16#$(git rev-parse --short "$COMMIT_SHA")%1000000000+1000))
-          ./deploy/ansible/run.sh pre-devnet.yml
+          ./deploy/ansible/run.sh feature.yml

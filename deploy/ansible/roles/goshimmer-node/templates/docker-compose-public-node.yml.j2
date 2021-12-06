@@ -3,7 +3,7 @@ version: '3.3'
 
 services:
   goshimmer:
-    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
+    image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: goshimmer
     stop_grace_period: 2m
     volumes:
@@ -29,16 +29,14 @@ services:
       - GOSSIP_BINDADDRESS=0.0.0.0:14666
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
-    entrypoint: /run/goshimmer
     command: >
       --skip-config=true
-      --node.overwriteStoredSeed=true
-      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
+      --autoPeering.entryNodes={{ entryNodePubKey }}@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
       {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=portcheck
-      --node.enablePlugins=remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
+      --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
       --prometheus.bindAddress=0.0.0.0:9312
       {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}
@@ -55,6 +53,7 @@ services:
       --messageLayer.startSynced=true
       {% endif %}
       --messageLayer.tangleTimeWindow=10m
+      --messageLayer.snapshot.genesisNode={{ bootstrapNodePubKey }}
       --drng.pollen.instanceID=1
       --drng.pollen.threshold=3
       --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
