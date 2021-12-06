@@ -8,6 +8,7 @@ import (
 
 var (
 	messageTips                               prometheus.Gauge
+	solidificationRequests                    prometheus.Gauge
 	messagePerTypeCount                       *prometheus.GaugeVec
 	initialMessagePerComponentCount           *prometheus.GaugeVec
 	messagePerComponentCount                  *prometheus.GaugeVec
@@ -33,6 +34,11 @@ func registerTangleMetrics() {
 	messageTips = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_message_tips_count",
 		Help: "Current number of tips in message tangle",
+	})
+
+	solidificationRequests = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_solidification_missing_message_count",
+		Help: "Total number of messages requested by Solidifier.",
 	})
 
 	messagePerTypeCount = prometheus.NewGaugeVec(
@@ -158,6 +164,7 @@ func registerTangleMetrics() {
 	})
 
 	registry.MustRegister(messageTips)
+	registry.MustRegister(solidificationRequests)
 	registry.MustRegister(messagePerTypeCount)
 	registry.MustRegister(parentsCount)
 	registry.MustRegister(initialMessagePerComponentCount)
@@ -183,6 +190,7 @@ func registerTangleMetrics() {
 
 func collectTangleMetrics() {
 	messageTips.Set(float64(metrics.MessageTips()))
+	solidificationRequests.Set(float64(metrics.SolidificationRequests()))
 	msgCountPerPayload := metrics.MessageCountSinceStartPerPayload()
 	for payloadType, count := range msgCountPerPayload {
 		messagePerTypeCount.WithLabelValues(payloadType.String()).Set(float64(count))

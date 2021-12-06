@@ -16,8 +16,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 2,
-  "iteration": 1638461160503,
+  "id": 3,
+  "iteration": 1638801299971,
   "links": [],
   "panels": [
     {
@@ -1272,7 +1272,7 @@
           "dashLength": 10,
           "dashes": false,
           "datasource": "Prometheus",
-          "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
+          "description": "Number of messages requested through solidification. ",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1283,7 +1283,7 @@
           "fillGradient": 0,
           "gridPos": {
             "h": 8,
-            "w": 11,
+            "w": 5,
             "x": 0,
             "y": 25
           },
@@ -1315,9 +1315,10 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_message_missing_count_db{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "irate(tangle_message_solidification_missing_message_count{instance=\"$instance\"}[5m])",
               "interval": "",
-              "legendFormat": "Missing Messages",
+              "legendFormat": "Solidifier-requested messages",
               "refId": "A"
             }
           ],
@@ -1325,7 +1326,104 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Missing Messages",
+          "title": "Solidifier-requested messages per second",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "Prometheus",
+          "description": "Number of messages requested through solidification. ",
+          "fieldConfig": {
+            "defaults": {
+              "links": []
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 5,
+            "y": 25
+          },
+          "hiddenSeries": false,
+          "id": 148,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": {
+            "alertThreshold": true
+          },
+          "percentage": false,
+          "pluginVersion": "7.5.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "tangle_message_solidification_missing_message_count{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "Solidifier-requested messages",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Solidifier-requested messages total",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1558,7 +1656,7 @@
           "dashLength": 10,
           "dashes": false,
           "datasource": "Prometheus",
-          "description": "Number of messages currently requested by the message tangle.",
+          "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1574,7 +1672,7 @@
             "y": 33
           },
           "hiddenSeries": false,
-          "id": 69,
+          "id": 147,
           "legend": {
             "avg": false,
             "current": false,
@@ -1601,10 +1699,9 @@
           "steppedLine": false,
           "targets": [
             {
-              "exemplar": true,
-              "expr": "tangle_message_request_queue_size{instance=\"$instance\"}",
+              "expr": "tangle_message_missing_count_db{instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Message Request Queue Size",
+              "legendFormat": "Missing Messages",
               "refId": "A"
             }
           ],
@@ -1612,7 +1709,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Message Request Queue Size",
+          "title": "Missing Messages",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1632,7 +1729,7 @@
               "label": null,
               "logBase": 1,
               "max": null,
-              "min": "0",
+              "min": null,
               "show": true
             },
             {
@@ -1640,8 +1737,8 @@
               "label": null,
               "logBase": 1,
               "max": null,
-              "min": "0",
-              "show": false
+              "min": null,
+              "show": true
             }
           ],
           "yaxis": {
@@ -1768,6 +1865,7 @@
           "dashLength": 10,
           "dashes": false,
           "datasource": "Prometheus",
+          "description": "Number of messages currently requested by the message tangle.",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1777,13 +1875,13 @@
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
-            "h": 11,
+            "h": 8,
             "w": 11,
             "x": 0,
             "y": 41
           },
           "hiddenSeries": false,
-          "id": 26,
+          "id": 69,
           "legend": {
             "avg": false,
             "current": false,
@@ -1810,53 +1908,18 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "irate(traffic_analysis_outbound_bytes{instance=\"$instance\"}[1m])",
+              "exemplar": true,
+              "expr": "tangle_message_request_queue_size{instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Analysis TX",
+              "legendFormat": "Message Request Queue Size",
               "refId": "A"
-            },
-            {
-              "expr": "irate(traffic_autopeering_inbound_bytes{instance=\"$instance\"}[1m])",
-              "interval": "",
-              "legendFormat": "Autopeering RX",
-              "refId": "B"
-            },
-            {
-              "expr": "irate(traffic_autopeering_outbound_bytes{instance=\"$instance\"}[1m])",
-              "interval": "",
-              "legendFormat": "Autopeering TX",
-              "refId": "C"
-            },
-            {
-              "expr": "irate(traffic_fpc_inbound_bytes{instance=\"$instance\"}[1m])",
-              "interval": "",
-              "legendFormat": "FPC RX",
-              "refId": "D"
-            },
-            {
-              "expr": "irate(traffic_fpc_outbound_bytes{instance=\"$instance\"}[1m])",
-              "interval": "",
-              "legendFormat": "FPC TX",
-              "refId": "E"
-            },
-            {
-              "expr": "irate(traffic_gossip_inbound_packets{instance=\"$instance\"}[1m])",
-              "interval": "",
-              "legendFormat": "Gossip RX",
-              "refId": "F"
-            },
-            {
-              "expr": "irate(traffic_gossip_outbound_packets{instance=\"$instance\"}[1m])",
-              "interval": "",
-              "legendFormat": "Gossip Tx",
-              "refId": "G"
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Network Traffic",
+          "title": "Message Request Queue Size",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1872,11 +1935,11 @@
           },
           "yaxes": [
             {
-              "format": "Bps",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
-              "min": null,
+              "min": "0",
               "show": true
             },
             {
@@ -1884,8 +1947,8 @@
               "label": null,
               "logBase": 1,
               "max": null,
-              "min": null,
-              "show": true
+              "min": "0",
+              "show": false
             }
           ],
           "yaxis": {
@@ -2000,6 +2063,137 @@
           }
         },
         {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "links": []
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 7,
+            "w": 11,
+            "x": 0,
+            "y": 49
+          },
+          "hiddenSeries": false,
+          "id": 26,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": {
+            "alertThreshold": true
+          },
+          "percentage": false,
+          "pluginVersion": "7.5.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "irate(traffic_analysis_outbound_bytes{instance=\"$instance\"}[1m])",
+              "interval": "",
+              "legendFormat": "Analysis TX",
+              "refId": "A"
+            },
+            {
+              "expr": "irate(traffic_autopeering_inbound_bytes{instance=\"$instance\"}[1m])",
+              "interval": "",
+              "legendFormat": "Autopeering RX",
+              "refId": "B"
+            },
+            {
+              "expr": "irate(traffic_autopeering_outbound_bytes{instance=\"$instance\"}[1m])",
+              "interval": "",
+              "legendFormat": "Autopeering TX",
+              "refId": "C"
+            },
+            {
+              "expr": "irate(traffic_fpc_inbound_bytes{instance=\"$instance\"}[1m])",
+              "interval": "",
+              "legendFormat": "FPC RX",
+              "refId": "D"
+            },
+            {
+              "expr": "irate(traffic_fpc_outbound_bytes{instance=\"$instance\"}[1m])",
+              "interval": "",
+              "legendFormat": "FPC TX",
+              "refId": "E"
+            },
+            {
+              "expr": "irate(traffic_gossip_inbound_packets{instance=\"$instance\"}[1m])",
+              "interval": "",
+              "legendFormat": "Gossip RX",
+              "refId": "F"
+            },
+            {
+              "expr": "irate(traffic_gossip_outbound_packets{instance=\"$instance\"}[1m])",
+              "interval": "",
+              "legendFormat": "Gossip Tx",
+              "refId": "G"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Network Traffic",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "Bps",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
           "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
@@ -2020,8 +2214,8 @@
           "gridPos": {
             "h": 2,
             "w": 2,
-            "x": 1,
-            "y": 52
+            "x": 11,
+            "y": 54
           },
           "id": 59,
           "options": {
@@ -2074,8 +2268,8 @@
           "gridPos": {
             "h": 2,
             "w": 2,
-            "x": 3,
-            "y": 52
+            "x": 13,
+            "y": 54
           },
           "id": 67,
           "options": {
@@ -2127,9 +2321,9 @@
           },
           "gridPos": {
             "h": 2,
-            "w": 2,
-            "x": 5,
-            "y": 52
+            "w": 3,
+            "x": 15,
+            "y": 54
           },
           "id": 66,
           "options": {
@@ -2181,9 +2375,9 @@
           },
           "gridPos": {
             "h": 2,
-            "w": 2,
-            "x": 7,
-            "y": 52
+            "w": 3,
+            "x": 18,
+            "y": 54
           },
           "id": 63,
           "options": {
@@ -2235,9 +2429,9 @@
           },
           "gridPos": {
             "h": 2,
-            "w": 2,
-            "x": 9,
-            "y": 52
+            "w": 3,
+            "x": 21,
+            "y": 54
           },
           "id": 62,
           "options": {
@@ -5074,5 +5268,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 54
+  "version": 3
 }

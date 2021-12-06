@@ -133,6 +133,9 @@ var (
 	// number of messages being requested by the message layer.
 	requestQueueSize atomic.Int64
 
+	// number of messages being requested by the message layer.
+	solidificationRequests atomic.Uint64
+
 	// counter for the received MPS (for dashboard).
 	mpsReceivedSinceLastMeasurement atomic.Uint64
 )
@@ -198,6 +201,11 @@ func MessageCountSinceStartPerComponentDashboard() map[ComponentType]uint64 {
 // MessageTips returns the actual number of tips in the message tangle.
 func MessageTips() uint64 {
 	return messageTips.Load()
+}
+
+// SolidificationRequests returns the number of solidification requests since start of node.
+func SolidificationRequests() uint64 {
+	return solidificationRequests.Load()
 }
 
 // MessageRequestQueueSize returns the number of message requests the node currently has registered.
