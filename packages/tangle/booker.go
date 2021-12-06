@@ -220,7 +220,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			if inheritedStructureDetails.PastMarkers.Size() != 1 || !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
 					messageMetadata.SetBranchID(inheritedBranch)
-					b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(inheritedBranch, message.ID(), inheritedStructureDetails.PastMarkers))
 				} else {
 					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
 				}
@@ -428,7 +427,7 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Ma
 	for markerWalker.HasNext() {
 		currentMarker := markerWalker.Next().(*markers.Marker)
 
-		if err = b.forkSingleMarker(currentMarker, branchID, messageWalker, markerWalker, debugLogger); err != nil {
+		if err = b.forkSingleMarker(currentMarker, branchID, markerWalker, debugLogger); err != nil {
 			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", branchID, currentMarker, err)
 			return
 		}
@@ -439,7 +438,7 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Ma
 
 // forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
 // visited.
-func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID ledgerstate.BranchID, messageWalker, markerWalker *walker.Walker, debugLogger *debuglogger.DebugLogger) (err error) {
+func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID ledgerstate.BranchID, markerWalker *walker.Walker, debugLogger *debuglogger.DebugLogger) (err error) {
 	defer debugLogger.MethodStart("Booker", "forkSingleMarker", currentMarker, newBranchID).MethodEnd()
 
 	// update BranchID mapping
@@ -457,12 +456,6 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 	// trigger event
 	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, forkedBranchID)
 
-	// propagate updates to the direct approvers of the marker
-	b.MarkersManager.ForEachMessageApprovingMarker(currentMarker, func(approvingMessageID MessageID) {
-		debugLogger.Println("messageWalker.Push(", approvingMessageID, ") // message approves marker")
-		messageWalker.Push(approvingMessageID)
-	})
-
 	// propagate updates to later BranchID mappings of the same sequence.
 	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ ledgerstate.BranchID) {
 		debugLogger.Println("markerWalker.Push(", mappedMarker, ") // later mapping of same sequence")
@@ -473,9 +466,6 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 	b.MarkersManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker *markers.Marker) {
 		debugLogger.Println("markerWalker.Push(", referencingMarker, ") // referencing marker of later sequence")
 		markerWalker.Push(referencingMarker)
-
-		// ... and update individually mapped messages that are next to the referencing marker.
-		b.updateIndividuallyMappedMessages(b.MarkersManager.BranchID(referencingMarker), currentMarker, newBranchID, debugLogger)
 	})
 
 	return
@@ -502,33 +492,9 @@ func (b *Booker) forkedBranchID(oldBranchID, newBranchID ledgerstate.BranchID, d
 	return forkedBranchID, forkedBranchID != oldBranchID, nil
 }
 
-// updateIndividuallyMappedMessages updates the Messages that have their BranchID set in the MessageMetadata.
-func (b *Booker) updateIndividuallyMappedMessages(oldChildBranch ledgerstate.BranchID, currentMarker *markers.Marker, newConflictBranchID ledgerstate.BranchID, debugLogger *debuglogger.DebugLogger) {
-	defer debugLogger.MethodStart("Booker", "updateIndividuallyMappedMessages", oldChildBranch, currentMarker, newConflictBranchID).MethodEnd()
-
-	newBranchID, branchIDUpdated, err := b.forkedBranchID(oldChildBranch, newConflictBranchID, debugLogger)
-	if err != nil || !branchIDUpdated {
-		return
-	}
-
-	b.tangle.Storage.IndividuallyMappedMessages(oldChildBranch).Consume(func(individuallyMappedMessage *IndividuallyMappedMessage) {
-		if index, sequenceExists := individuallyMappedMessage.PastMarkers().Get(currentMarker.SequenceID()); !sequenceExists || index < currentMarker.Index() {
-			return
-		}
-
-		individuallyMappedMessage.Delete()
-
-		b.tangle.Storage.MessageMetadata(individuallyMappedMessage.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(newBranchID)
-			b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, individuallyMappedMessage.MessageID(), individuallyMappedMessage.PastMarkers()))
-		})
-	})
-}
-
 // propagateForkedTransactionToMetadataFutureCone updates the future cone of a Message to belong to the given conflict BranchID.
 func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker, debugLogger *debuglogger.DebugLogger) (err error) {
-	debugLogger.MethodStart("Booker", "propagateForkedTransactionToMetadataFutureCone", messageMetadata.ID(), newConflictBranchID)
-	defer debugLogger.MethodEnd()
+	defer debugLogger.MethodStart("Booker", "propagateForkedTransactionToMetadataFutureCone", messageMetadata.ID(), newConflictBranchID).MethodEnd()
 
 	oldBranchID, err := b.MessageBranchID(messageMetadata.ID())
 	if err != nil {
@@ -543,9 +509,6 @@ func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata 
 	} else if !branchIDUpdated || !messageMetadata.SetBranchID(newBranchID) {
 		return
 	}
-
-	b.tangle.Storage.DeleteIndividuallyMappedMessage(oldBranchID, messageMetadata.ID())
-	b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, messageMetadata.ID(), messageMetadata.StructureDetails().PastMarkers))
 
 	b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), oldBranchID, newBranchID)
 
@@ -1073,226 +1036,6 @@ func (c *CachedMarkerIndexBranchIDMapping) String() string {
 	return stringify.Struct("CachedMarkerIndexBranchIDMapping",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region IndividuallyMappedMessage ////////////////////////////////////////////////////////////////////////////////////
-
-// IndividuallyMappedMessagePartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
-// storage.
-var IndividuallyMappedMessagePartitionKeys = objectstorage.PartitionKey([]int{ledgerstate.BranchIDLength, MessageIDLength}...)
-
-// IndividuallyMappedMessage is a data structure that denotes if a Message has its BranchID set individually in its own
-// MessageMetadata.
-type IndividuallyMappedMessage struct {
-	branchID    ledgerstate.BranchID
-	messageID   MessageID
-	pastMarkers *markers.Markers
-
-	objectstorage.StorableObjectFlags
-}
-
-// NewIndividuallyMappedMessage is the constructor for the IndividuallyMappedMessage.
-func NewIndividuallyMappedMessage(branchID ledgerstate.BranchID, messageID MessageID, pastMarkers *markers.Markers) *IndividuallyMappedMessage {
-	return &IndividuallyMappedMessage{
-		branchID:    branchID,
-		messageID:   messageID,
-		pastMarkers: pastMarkers,
-	}
-}
-
-// IndividuallyMappedMessageFromBytes unmarshals an IndividuallyMappedMessage from a sequence of bytes.
-func IndividuallyMappedMessageFromBytes(bytes []byte) (individuallyMappedMessage *IndividuallyMappedMessage, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if individuallyMappedMessage, err = IndividuallyMappedMessageFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse IndividuallyMappedMessage from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// IndividuallyMappedMessageFromMarshalUtil unmarshals an IndividuallyMappedMessage using a MarshalUtil (for easier unmarshaling).
-func IndividuallyMappedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (individuallyMappedMessage *IndividuallyMappedMessage, err error) {
-	individuallyMappedMessage = &IndividuallyMappedMessage{}
-	if individuallyMappedMessage.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-		return
-	}
-	if individuallyMappedMessage.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
-		return
-	}
-	if individuallyMappedMessage.pastMarkers, err = markers.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// IndividuallyMappedMessageFromObjectStorage is a factory method that creates a new IndividuallyMappedMessage instance
-// from a storage key of the object storage. It is used by the object storage, to create new instances of this entity.
-func IndividuallyMappedMessageFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = IndividuallyMappedMessageFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
-		err = errors.Errorf("failed to parse IndividuallyMappedMessage from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// BranchID returns the BranchID that the Message that has its Branch mapped in its MessageMetadata is currently booked
-// into.
-func (i *IndividuallyMappedMessage) BranchID() ledgerstate.BranchID {
-	return i.branchID
-}
-
-// MessageID returns the MessageID of the Message that has its Branch mapped in its MessageMetadata.
-func (i *IndividuallyMappedMessage) MessageID() MessageID {
-	return i.messageID
-}
-
-// PastMarkers returns the PastMarkers of the Message that has its Branch mapped in its MessageMetadata.
-func (i *IndividuallyMappedMessage) PastMarkers() *markers.Markers {
-	return i.pastMarkers
-}
-
-// Bytes returns a marshaled version of the IndividuallyMappedMessage.
-func (i *IndividuallyMappedMessage) Bytes() []byte {
-	return byteutils.ConcatBytes(i.ObjectStorageKey(), i.ObjectStorageValue())
-}
-
-// String returns a human readable version of the IndividuallyMappedMessage.
-func (i *IndividuallyMappedMessage) String() string {
-	return stringify.Struct("IndividuallyMappedMessage",
-		stringify.StructField("branchID", i.branchID),
-		stringify.StructField("messageID", i.messageID),
-		stringify.StructField("pastMarkers", i.pastMarkers),
-	)
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (i *IndividuallyMappedMessage) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (i *IndividuallyMappedMessage) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(i.branchID.Bytes(), i.messageID.Bytes())
-}
-
-// ObjectStorageValue marshals the IndividuallyMappedMessage into a sequence of bytes that are used as the value part in
-// the object storage.
-func (i *IndividuallyMappedMessage) ObjectStorageValue() []byte {
-	return i.pastMarkers.Bytes()
-}
-
-// code contract (make sure the type implements all required methods).
-var _ objectstorage.StorableObject = &IndividuallyMappedMessage{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedIndividuallyMappedMessage //////////////////////////////////////////////////////////////////////////////
-
-// CachedIndividuallyMappedMessage is a wrapper for the generic CachedObject returned by the object storage that
-// overrides the accessor methods with a type-casted one.
-type CachedIndividuallyMappedMessage struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedIndividuallyMappedMessage) Retain() *CachedIndividuallyMappedMessage {
-	return &CachedIndividuallyMappedMessage{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedIndividuallyMappedMessage) Unwrap() *IndividuallyMappedMessage {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*IndividuallyMappedMessage)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedIndividuallyMappedMessage) Consume(consumer func(individuallyMappedMessage *IndividuallyMappedMessage), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*IndividuallyMappedMessage))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedIndividuallyMappedMessage.
-func (c *CachedIndividuallyMappedMessage) String() string {
-	return stringify.Struct("CachedIndividuallyMappedMessage",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedIndividuallyMappedMessages /////////////////////////////////////////////////////////////////////////////
-
-// CachedIndividuallyMappedMessages defines a slice of *CachedIndividuallyMappedMessage.
-type CachedIndividuallyMappedMessages []*CachedIndividuallyMappedMessage
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedIndividuallyMappedMessages) Unwrap() (unwrappedIndividuallyMappedMessages []*IndividuallyMappedMessage) {
-	unwrappedIndividuallyMappedMessages = make([]*IndividuallyMappedMessage, len(c))
-	for i, cachedIndividuallyMappedMessage := range c {
-		untypedObject := cachedIndividuallyMappedMessage.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*IndividuallyMappedMessage)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedIndividuallyMappedMessages[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedIndividuallyMappedMessages) Consume(consumer func(individuallyMappedMessage *IndividuallyMappedMessage), forceRelease ...bool) (consumed bool) {
-	for _, cachedIndividuallyMappedMessage := range c {
-		consumed = cachedIndividuallyMappedMessage.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedIndividuallyMappedMessages) Release(force ...bool) {
-	for _, cachedIndividuallyMappedMessage := range c {
-		cachedIndividuallyMappedMessage.Release(force...)
-	}
-}
-
-// String returns a human readable version of the CachedIndividuallyMappedMessages.
-func (c CachedIndividuallyMappedMessages) String() string {
-	structBuilder := stringify.StructBuilder("CachedIndividuallyMappedMessages")
-	for i, cachedIndividuallyMappedMessage := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedIndividuallyMappedMessage))
-	}
-
-	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

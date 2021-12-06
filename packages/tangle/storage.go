@@ -38,9 +38,6 @@ const (
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
 
-	// PrefixIndividuallyMappedMessage defines the storage prefix for the IndividuallyMappedMessage.
-	PrefixIndividuallyMappedMessage
-
 	// PrefixSequenceSupporters defines the storage prefix for the SequenceSupporters.
 	PrefixSequenceSupporters
 
@@ -77,7 +74,6 @@ type Storage struct {
 	missingMessageStorage             *objectstorage.ObjectStorage
 	attachmentStorage                 *objectstorage.ObjectStorage
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
-	individuallyMappedMessageStorage  *objectstorage.ObjectStorage
 	sequenceSupportersStorage         *objectstorage.ObjectStorage
 	branchSupportersStorage           *objectstorage.ObjectStorage
 	statementStorage                  *objectstorage.ObjectStorage
@@ -102,7 +98,6 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -293,30 +288,6 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())}
 }
 
-// StoreIndividuallyMappedMessage stores an IndividuallyMappedMessage in the underlying object storage.
-func (s *Storage) StoreIndividuallyMappedMessage(individuallyMappedMessage *IndividuallyMappedMessage) {
-	s.individuallyMappedMessageStorage.Store(individuallyMappedMessage).Release()
-}
-
-// DeleteIndividuallyMappedMessage deleted an IndividuallyMappedMessage in the underlying object storage.
-func (s *Storage) DeleteIndividuallyMappedMessage(branchID ledgerstate.BranchID, messageID MessageID) {
-	s.individuallyMappedMessageStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
-}
-
-// IndividuallyMappedMessage retrieves the IndividuallyMappedMessage associated with the given details.
-func (s *Storage) IndividuallyMappedMessage(branchID ledgerstate.BranchID, messageID MessageID) (cachedIndividuallyMappedMessages *CachedIndividuallyMappedMessage) {
-	return &CachedIndividuallyMappedMessage{CachedObject: s.individuallyMappedMessageStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))}
-}
-
-// IndividuallyMappedMessages retrieves the IndividuallyMappedMessages of a Branch in the object storage.
-func (s *Storage) IndividuallyMappedMessages(branchID ledgerstate.BranchID) (cachedIndividuallyMappedMessages CachedIndividuallyMappedMessages) {
-	s.individuallyMappedMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedIndividuallyMappedMessages = append(cachedIndividuallyMappedMessages, &CachedIndividuallyMappedMessage{CachedObject: cachedObject})
-		return true
-	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
-	return
-}
-
 // StoreMarkerMessageMapping stores a MarkerMessageMapping in the underlying object storage.
 func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageMapping) {
 	s.markerMessageMappingStorage.Store(markerMessageMapping).Release()
@@ -427,7 +398,6 @@ func (s *Storage) Shutdown() {
 	s.missingMessageStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
 	s.markerIndexBranchIDMappingStorage.Shutdown()
-	s.individuallyMappedMessageStorage.Shutdown()
 	s.sequenceSupportersStorage.Shutdown()
 	s.branchSupportersStorage.Shutdown()
 	s.statementStorage.Shutdown()
@@ -446,7 +416,6 @@ func (s *Storage) Prune() error {
 		s.missingMessageStorage,
 		s.attachmentStorage,
 		s.markerIndexBranchIDMappingStorage,
-		s.individuallyMappedMessageStorage,
 		s.sequenceSupportersStorage,
 		s.branchSupportersStorage,
 		s.statementStorage,
