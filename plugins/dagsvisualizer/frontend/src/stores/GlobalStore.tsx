@@ -41,10 +41,14 @@ export class GlobalStore {
         if (!tx) return;
 
         let msg = this.tangleStore.getTangleVertex(tx.msgID);
-        if (!msg) return;
+        if (msg) {
+            this.tangleStore.selectMsg(tx.msgID);        
+        }
 
-        this.tangleStore.selectMsg(tx.msgID);        
-        this.branchStore.selectBranch(msg.branchID);
+        let branch = this.branchStore.getBranchVertex(tx.branchID);
+        if (branch) {
+            this.branchStore.selectBranch(tx.branchID);
+        }
     }
 
     syncWithBranch = () => {
@@ -52,13 +56,19 @@ export class GlobalStore {
         if (!branch) return;
 
         // iterate messages to highlight all messages lies in that branch
-        let {msgs, txs} = this.tangleStore.getMsgTxsFromBranch(branch.ID);
+        let msgs = this.tangleStore.getMsgsFromBranch(branch.ID);
+        this.tangleStore.clearSelected();
         this.tangleStore.highlightMsgs(msgs);
+
+        let txs = this.utxoStore.getTxsFromBranch(branch.ID);
+        this.utxoStore.clearSelected(true);
         this.utxoStore.highlightTxs(txs);
     }
 
-    clearAllHighlighted = () => {
+    clearSync = () => {
+        this.tangleStore.clearSelected();
         this.tangleStore.clearHighlightedMsgs();
+        this.utxoStore.clearSelected(true);
         this.utxoStore.clearHighlightedTxs();
         this.branchStore.clearSelected(true);
     }

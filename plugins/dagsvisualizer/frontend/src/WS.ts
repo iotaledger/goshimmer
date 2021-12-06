@@ -4,6 +4,7 @@ export enum WSMsgType {
 	MessageConfirmed,
 	FutureMarkerUpdated,
 	Transaction,
+    TransactionBooked,
 	TransactionConfirmed,
 	Branch,
 	BranchParentsUpdate,

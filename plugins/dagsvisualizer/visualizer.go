@@ -115,6 +115,25 @@ func registerUTXOEvents() {
 		})
 	})
 
+	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			if message.Payload().Type() == ledgerstate.TransactionType {
+				branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
+				if err != nil {
+					branchID = ledgerstate.BranchID{}
+				}
+
+				visualizerWorkerPool.TrySubmit((&wsMessage{
+					Type: MsgTypeUTXOBooked,
+					Data: &tangleBooked{
+						ID:       message.Payload().(*ledgerstate.Transaction).ID().Base58(),
+						BranchID: branchID.Base58(),
+					},
+				}))
+			}
+		})
+	})
+
 	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
 		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 			visualizerWorkerPool.TrySubmit(&wsMessage{
@@ -129,6 +148,7 @@ func registerUTXOEvents() {
 	})
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
+	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
 	deps.FinalityGadget.Events().TransactionConfirmed.Attach(txConfirmedClosure)
 }
 

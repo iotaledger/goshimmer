@@ -11,6 +11,7 @@ export class utxoVertex {
 	ID:             string;
 	inputs:         Array<input>;
   outputs:        Array<string>;
+  branchID:       string;
   isConfirmed:    boolean;
 	gof:            string;
 	confirmedTime:  number;
@@ -20,6 +21,12 @@ export class input {
     type:               string;
     referencedOutputID: any;
 }
+
+export class utxoBooked {
+  ID:       string;
+  branchID: string;
+}
+
 export class utxoConfirmed {
     ID:            string;
     gof:           string;
@@ -51,6 +58,7 @@ export class UTXOStore {
     constructor() { 
         makeObservable(this);       
         registerHandler(WSMsgType.Transaction, this.addTransaction);
+        registerHandler(WSMsgType.TransactionBooked, this.setTxBranch);
         registerHandler(WSMsgType.TransactionConfirmed, this.setTXConfirmedTime);
 
         cytoscape.use(dagre);
@@ -81,6 +89,7 @@ export class UTXOStore {
         }
 
         this.txOrder.push(tx.ID);
+        tx.branchID = "";
         this.transactions.set(tx.ID, tx);
         tx.outputs.forEach((outputID) => {
           this.outputMap.set(outputID, {});
@@ -93,6 +102,17 @@ export class UTXOStore {
         if(this.draw) {
           this.drawVertex(tx);
         }
+    }
+
+    @action
+    setTxBranch = (bookedTx: utxoBooked) => {
+      let tx = this.transactions.get(bookedTx.ID);
+      if (!tx) {
+          return;
+      }
+
+      tx.branchID = bookedTx.branchID;
+      this.transactions.set(bookedTx.ID, tx);
     }
 
     @action
@@ -197,6 +217,17 @@ export class UTXOStore {
         this.clearHighlightedTx(id);
       })
     }
+
+    getTxsFromBranch = (branchID: string) => {
+      let txs = [];
+      this.transactions.forEach((tx: utxoVertex) => {
+          if (tx.branchID === branchID) {
+              txs.push(tx.ID);
+          }
+      })
+
+      return txs;
+  }
 
     updateExplorerAddress = (addr: string) => {
       this.explorerAddress = addr;

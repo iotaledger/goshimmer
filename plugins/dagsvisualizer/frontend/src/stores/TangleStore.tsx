@@ -426,21 +426,15 @@ export class TangleStore {
         );
     }
 
-    getMsgTxsFromBranch = (branchID: string) => {
-        let msgs = [], txs = [];
+    getMsgsFromBranch = (branchID: string) => {
+        let msgs = [];
         this.messages.forEach((msg: tangleVertex) => {
             if (msg.branchID === branchID) {
                 msgs.push(msg.ID);
-                if (msg.isTx) {
-                    txs.push(msg.txID);
-                }
             }
         })
 
-        return {
-            msgs,
-            txs
-        };
+        return msgs;
     }
 
     resetLinks = () => {

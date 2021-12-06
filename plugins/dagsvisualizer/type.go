@@ -13,6 +13,8 @@ const (
 	MsgTypeFutureMarkerUpdated
 	// MsgTypeUTXOVertex is the type of the UTXO DAG vertex.
 	MsgTypeUTXOVertex
+	// MsgTypeUTXOBooked is the type of the booked transaction.
+	MsgTypeUTXOBooked
 	// MsgTypeUTXOConfirmed is the type of the UTXO DAG vertex confirmed message.
 	MsgTypeUTXOConfirmed
 	// MsgTypeBranchVertex is the type of the branch DAG vertex.
@@ -67,6 +69,11 @@ type utxoVertex struct {
 	IsConfirmed   bool                `json:"isConfirmed"`
 	GoF           string              `json:"gof"`
 	ConfirmedTime int64               `json:"confirmedTime"`
+}
+
+type utxoBooked struct {
+	ID       string `json:"ID"`
+	BranchID string `json:"branchID"`
 }
 
 type utxoConfirmed struct {

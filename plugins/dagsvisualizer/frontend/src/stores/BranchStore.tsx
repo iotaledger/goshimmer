@@ -157,6 +157,10 @@ export class BranchStore {
         this.selectBranch(this.search);
     }
 
+    getBranchVertex = (branchID: string) => {
+        return this.branches.get(branchID);
+    }
+
     selectBranch = (branchID: string) => {
         // clear pre-selected branch.
         this.clearSelected(true);

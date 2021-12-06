@@ -74,8 +74,8 @@ export class GlobalSettings extends React.Component<Props, any> {
         this.props.globalStore.syncWithBranch();
     }
 
-    clearAllHighlighted = () => {
-        this.props.globalStore.clearAllHighlighted();
+    clearSync = () => {
+        this.props.globalStore.clearSync();
     }
 
     render () {
@@ -146,7 +146,7 @@ export class GlobalSettings extends React.Component<Props, any> {
                                     </Button>
                                 </Col>
                                 <Col xs="auto">
-                                    <Button onClick={this.clearAllHighlighted} variant="outline-secondary">
+                                    <Button onClick={this.clearSync} variant="outline-secondary">
                                         Clear
                                     </Button>
                                 </Col>       
