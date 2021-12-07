@@ -29,29 +29,30 @@ var ErrNotRunning = errors.New("scheduler stopped")
 
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
-	MaxBufferSize               int
-	Rate                        time.Duration
-	AccessManaRetrieveFunc      func(identity.ID) float64
-	TotalAccessManaRetrieveFunc func() float64
-	AccessManaMapRetrieverFunc  func() map[identity.ID]float64
+	MaxBufferSize                     int
+	Rate                              time.Duration
+	AccessManaRetrieveFunc            func(identity.ID) float64
+	TotalAccessManaRetrieveFunc       func() float64
+	AccessManaMapRetrieverFunc        func() map[identity.ID]float64
+	ConfirmedMessageScheduleThreshold time.Duration
 }
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type Scheduler struct {
 	Events *SchedulerEvents
 
-	tangle          *Tangle
-	ticker          *time.Ticker
-	started         typeutils.AtomicBool
-	stopped         typeutils.AtomicBool
-	accessManaCache *schedulerutils.AccessManaCache
-	mu              sync.RWMutex
-	buffer          *schedulerutils.BufferQueue
-	deficits        map[identity.ID]float64
-	rate            *atomic.Duration
-
-	shutdownSignal chan struct{}
-	shutdownOnce   sync.Once
+	tangle                *Tangle
+	ticker                *time.Ticker
+	started               typeutils.AtomicBool
+	stopped               typeutils.AtomicBool
+	accessManaCache       *schedulerutils.AccessManaCache
+	mu                    sync.RWMutex
+	buffer                *schedulerutils.BufferQueue
+	deficits              map[identity.ID]float64
+	rate                  *atomic.Duration
+	confirmedMsgThreshold time.Duration
+	shutdownSignal        chan struct{}
+	shutdownOnce          sync.Once
 }
 
 // NewScheduler returns a new Scheduler.
@@ -62,6 +63,10 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 
 	// maximum buffer size (in bytes)
 	maxBuffer := tangle.Options.SchedulerParams.MaxBufferSize
+
+	// threshold after which confirmed messages are not scheduled
+	confirmedMessageScheduleThreshold := tangle.Options.SchedulerParams.ConfirmedMessageScheduleThreshold
+
 	// maximum access mana-scaled inbox length
 	maxQueue := float64(maxBuffer) / float64(tangle.LedgerState.TotalSupply())
 
@@ -75,13 +80,14 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 			Error:            events.NewEvent(events.ErrorCaller),
 		},
-		tangle:          tangle,
-		accessManaCache: accessManaCache,
-		rate:            atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
-		ticker:          time.NewTicker(tangle.Options.SchedulerParams.Rate),
-		buffer:          schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
-		deficits:        make(map[identity.ID]float64),
-		shutdownSignal:  make(chan struct{}),
+		tangle:                tangle,
+		accessManaCache:       accessManaCache,
+		rate:                  atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
+		ticker:                time.NewTicker(tangle.Options.SchedulerParams.Rate),
+		buffer:                schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
+		confirmedMsgThreshold: confirmedMessageScheduleThreshold,
+		deficits:              make(map[identity.ID]float64),
+		shutdownSignal:        make(chan struct{}),
 	}
 }
 
@@ -132,7 +138,7 @@ func (s *Scheduler) Setup() {
 			return
 		}
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			if clock.Since(message.IssuingTime()) > time.Minute {
+			if clock.Since(message.IssuingTime()) > s.confirmedMsgThreshold {
 				err := s.Unsubmit(messageID)
 				if err != nil {
 					s.Events.Error.Trigger(errors.Errorf("failed to unsubmit confirmed message from scheduler: %w", err))
@@ -379,7 +385,7 @@ func (s *Scheduler) schedule() *Message {
 			if err != nil {
 				panic("MessageID could not be parsed!")
 			}
-			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > time.Minute {
+			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > s.confirmedMsgThreshold {
 				// if a message is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
 				// do we want to mark those messages somehow for debugging?
 				s.Events.MessageSkipped.Trigger(msgID)
