@@ -69,6 +69,8 @@ declare module "vivagraphjs" {
                 dispose: () => void;
                 getLayout: () => Layout.ILayout;
                 rerender: () => void;
+                pause: () => void;
+                resume: () => void;
             }
 
             function webglGraphics(): IWebGLGraphics;
@@ -79,7 +81,7 @@ declare module "vivagraphjs" {
 
             function renderer(graph: IGraph, options: {
                 container: HTMLElement | null;
-                graphics: IWebGLGraphics;
+                graphics: IWebGLGraphics | ISvgGraphics;
                 layout: Layout.ILayout;
                 renderLinks: boolean;
             }): IRenderer;

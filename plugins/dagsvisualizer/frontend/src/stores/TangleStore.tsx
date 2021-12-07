@@ -48,12 +48,13 @@ export class TangleStore {
     @observable explorerAddress = "localhost:8081";
     msgOrder: Array<any> = [];
     selected_via_click: boolean = false;
-    selected_origin_color: number = 0;
+    selected_origin_color: string = "";
     draw: boolean = true;
     vertexChanges = 0;
     graph;
     graphics;
     renderer;
+    layout;
 
     constructor() {        
         makeObservable(this);
@@ -320,6 +321,9 @@ export class TangleStore {
         setUIColor(nodeUI, "#859900");
         setUINodeSize(nodeUI, vertexSize * 1.5);
 
+        let pos = this.layout.getNodePosition(node.id);
+        this.updateNodePos(nodeUI, pos);
+
         const seenForward = [];
         const seenBackwards = [];
         dfsIterator(this.graph,
@@ -379,7 +383,6 @@ export class TangleStore {
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
                 setUIColor(linkUI, "#586e75")
-
             },
             seenBackwards
         );
@@ -394,6 +397,11 @@ export class TangleStore {
 
         this.selectedMsg = null;
         this.selected_via_click = false;
+    }
+
+    updateNodePos(nodeUI, pos) {
+        let size = nodeUI.getAttribute('width')
+        nodeUI.attr('x', pos.x - size / 2).attr('y', pos.y - size / 2);
     }
 
     start = () => {
@@ -412,30 +420,36 @@ export class TangleStore {
         });
 
         graphics.node((node) => {
-            let ui = svgNodeBuilder("#b9b7bd", 10, 10);
+            let ui = svgNodeBuilder("#b9b7bd", vertexSize, vertexSize);
             ui.on("click", () => {
-                this.updateSelected(node.data, true)
                 this.clearSelected(true)
+                this.updateSelected(node.data, true)
             });
+            ui.data = node.data;
+
             return ui
-        })
+        }).placeNode(this.updateNodePos)
+
         graphics.link(() => {
             return svgLinkBuilder("#586e75", 5, ":");
         }).placeLink(function (linkUI, fromPos, toPos) {
             // linkUI - is the object returned from link() callback above.
-            let data = 'M' + fromPos.x + ',' + fromPos.y +
-                'L' + toPos.x + ',' + toPos.y;
+            let data = 'M' + fromPos.x.toFixed(2) + ',' + fromPos.y.toFixed(2) +
+                'L' + toPos.x.toFixed(2) + ',' + toPos.y.toFixed(2);
 
             // 'Path data' (http://www.w3.org/TR/SVG/paths.html#DAttribute )
             // is a common way of rendering paths in SVG:
             linkUI.attr("d", data);
         })
         let ele = document.getElementById('tangleVisualizer');
+
         this.renderer = Viva.Graph.View.renderer(this.graph, {
-            container: ele, graphics, layout,
+            container: ele,
+            graphics: graphics,
+            layout: layout,
         });
 
-
+        this.layout = layout;
         this.graphics = graphics;
         this.renderer.run();
 
@@ -500,8 +514,8 @@ function setUIColor(ui: any, color: any) {
     ui.attr("fill", color);
 }
 
-function getUIColor(ui: any): number {
-    return ui.attr("fill")
+function getUIColor(ui: any): string {
+    return ui.getAttribute("fill")
 }
 
 function setUINodeSize(ui: any, size: number) {
