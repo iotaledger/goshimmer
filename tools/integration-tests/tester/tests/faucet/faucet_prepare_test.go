@@ -36,6 +36,11 @@ func TestFaucetPrepare(t *testing.T) {
 
 	// check consensus mana
 	for i, p := range n.Peers() {
+		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+			require.Eventually(t, func() bool {
+				return tests.Mana(t, p).Consensus > 0
+			}, tests.Timeout, tests.Tick)
+		}
 		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, p).Consensus)
 	}
 

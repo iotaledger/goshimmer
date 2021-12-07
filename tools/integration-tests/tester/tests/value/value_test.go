@@ -43,6 +43,11 @@ func TestValueTransactionPersistence(t *testing.T) {
 	}
 	// check consensus mana
 	for i, peer := range n.Peers() {
+		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+			require.Eventually(t, func() bool {
+				return tests.Mana(t, peer).Consensus > 0
+			}, tests.Timeout, tests.Tick)
+		}
 		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
@@ -115,9 +120,11 @@ func TestValueAliasPersistence(t *testing.T) {
 
 	// check consensus mana
 	for i, peer := range n.Peers() {
-		require.Eventually(t, func() bool {
-			return tests.Mana(t, peer).Consensus > 0
-		}, tests.Timeout, tests.Tick)
+		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+			require.Eventually(t, func() bool {
+				return tests.Mana(t, peer).Consensus > 0
+			}, tests.Timeout, tests.Tick)
+		}
 		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
@@ -190,9 +197,11 @@ func TestValueAliasDelegation(t *testing.T) {
 
 	// check consensus mana
 	for i, peer := range n.Peers() {
-		require.Eventually(t, func() bool {
-			return tests.Mana(t, peer).Consensus > 0
-		}, tests.Timeout, tests.Tick)
+		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+			require.Eventually(t, func() bool {
+				return tests.Mana(t, peer).Consensus > 0
+			}, tests.Timeout, tests.Tick)
+		}
 		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
