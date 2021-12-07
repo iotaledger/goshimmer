@@ -5,6 +5,7 @@ import UTXOStore from 'stores/UTXOStore';
 import BranchStore from 'stores/BranchStore';
 import GlobalStore from 'stores/GlobalStore';
 import {Root} from 'components/Root';
+import React from 'react';
 
 const tangleStore = new TangleStore();
 const utxoStore = new UTXOStore();

@@ -23,6 +23,8 @@ const (
 	MsgTypeBranchParentsUpdate
 	// MsgTypeBranchConfirmed is the type of the branch DAG vertex confirmed message.
 	MsgTypeBranchConfirmed
+	// MsgTypeBranchWeightChanged is the type of the branch DAG vertex weight changed message.
+	MsgTypeBranchWeightChanged
 )
 
 type wsMessage struct {
@@ -88,6 +90,8 @@ type branchVertex struct {
 	Parents     []string                               `json:"parents"`
 	IsConfirmed bool                                   `json:"isConfirmed"`
 	Conflicts   *jsonmodels.GetBranchConflictsResponse `json:"conflicts"`
+	GoF         string                                 `json:"gof"`
+	AW          float64                                `json:"aw"`
 }
 
 type branchParentUpdate struct {
@@ -97,6 +101,12 @@ type branchParentUpdate struct {
 
 type branchConfirmed struct {
 	ID string `json:"ID"`
+}
+
+type branchWeightChanged struct {
+	ID     string  `json:"ID"`
+	Weight float64 `json:"weight"`
+	GoF    string  `json:"gof"`
 }
 
 type searchResult struct {

@@ -1,16 +1,18 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import { registerHandler, unregisterHandler, WSMsgType } from 'WS';
+import { registerHandler, unregisterHandler, WSMsgType } from '../WS';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { dagreOptions } from 'styles/graphStyle';
 import layoutUtilities from 'cytoscape-layout-utilities';
 
-export class branchVertex {  
+export class branchVertex {
 	ID:        string;
     type:      string;
 	parents:   Array<string>;
 	isConfirmed: boolean;
     conflicts: conflictBranches;
+    gof:       string;
+    aw:        number;
 }
 
 export class conflictBranches {
@@ -29,6 +31,12 @@ export class branchParentUpdate {
 
 export class branchConfirmed {
     ID:             string;
+}
+
+export class branchWeightChanged {
+    ID:     string;
+    weight: number;
+    gof:    string;
 }
 
 export class BranchStore {
@@ -51,11 +59,12 @@ export class BranchStore {
     layoutUpdateTimerID;
 
 
-    constructor() {      
-        makeObservable(this);  
+    constructor() {
+        makeObservable(this);
         registerHandler(WSMsgType.Branch, this.addBranch);
         registerHandler(WSMsgType.BranchParentsUpdate, this.updateParents);
         registerHandler(WSMsgType.BranchConfirmed, this.branchConfirmed);
+        registerHandler(WSMsgType.BranchWeightChanged, this.branchWeightChanged);
 
         cytoscape.use(dagre);
         cytoscape.use(layoutUtilities);
@@ -74,7 +83,7 @@ export class BranchStore {
 
             if (this.paused) {
                 // keep the removed tx that should be removed from the graph after resume.
-                this.branchToRemoveAfterResume.push(removed);              
+                this.branchToRemoveAfterResume.push(removed);
               } else {
                 this.removeVertex(removed);
             }
@@ -85,7 +94,7 @@ export class BranchStore {
 
         if (this.paused) {
             this.branchToAddAfterResume.push(branch.ID);
-        } 
+        }
         if (this.draw) {
             this.drawVertex(branch);
         }
@@ -111,6 +120,17 @@ export class BranchStore {
         
         b.isConfirmed = true;
         this.branches.set(confirmedBranch.ID, b);
+    }
+
+    @action
+    branchWeightChanged = (branch: branchWeightChanged) => {
+        let b = this.branches.get(branch.ID);
+        if (!b) {
+            return;
+        }
+        b.aw = branch.weight;
+        b.gof = branch.gof;
+        this.branches.set(branch.ID, b)
     }
 
     @action
@@ -177,7 +197,7 @@ export class BranchStore {
     updateExplorerAddress = (addr: string) => {
         this.explorerAddress = addr;
     }
-    
+
     drawExistedBranches = () => {
         this.branches.forEach((branch) => {
             this.drawVertex(branch);
@@ -202,7 +222,7 @@ export class BranchStore {
         let b = this.branches.get(branchID);
         if (b) {
           this.drawVertex(b);
-        }        
+        }
       })
       this.branchToAddAfterResume = [];
 
@@ -300,12 +320,14 @@ export class BranchStore {
             type:           'ConflictBranchType',
 	        parents:        [],
 	        isConfirmed:    true,
-            conflicts:      null
+            conflicts:      null,
+            gof:            "GoF(High)",
+            aw:             0,
         }
         this.branches.set("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", master);
         this.cy.add({
             data: { id: '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM', label: 'master' },
-            style: { 
+            style: {
                 'background-color': '#616161',
                 'label': 'master'
             },

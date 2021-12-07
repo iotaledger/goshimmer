@@ -29,6 +29,8 @@ export class BranchInfo extends React.Component<Props, any> {
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>Confirmed: {selectedBranch.isConfirmed.toString()}</ListGroup.Item>
+                                <ListGroup.Item>GoF: {selectedBranch.gof}</ListGroup.Item>
+                                <ListGroup.Item>AW: {selectedBranch.aw}</ListGroup.Item>
                                 { selectedBranch.type === "ConflictBranchType" && selectedBranch.conflicts &&
                                     <ListGroup.Item>
                                         Conflicts:
