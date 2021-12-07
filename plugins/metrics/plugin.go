@@ -209,9 +209,22 @@ func registerLocalMetrics() {
 		defer sumTimeMutex.Unlock()
 
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
-			sumTimesSinceReceived[SchedulerDropped] += msgMetaData.ScheduledTime().Sub(msgMetaData.ReceivedTime())
+			sumTimesSinceReceived[SchedulerDropped] += clock.Since(msgMetaData.ReceivedTime())
 			deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-				sumTimesSinceIssued[SchedulerDropped] += msgMetaData.ScheduledTime().Sub(message.IssuingTime())
+				sumTimesSinceIssued[SchedulerDropped] += clock.Since(message.IssuingTime())
+			})
+		})
+	}))
+
+	deps.Tangle.Scheduler.Events.MessageSkipped.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		increasePerComponentCounter(SchedulerSkipped)
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
+
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+			sumTimesSinceReceived[SchedulerSkipped] += clock.Since(msgMetaData.ReceivedTime())
+			deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+				sumTimesSinceIssued[SchedulerSkipped] += clock.Since(message.IssuingTime())
 			})
 		})
 	}))

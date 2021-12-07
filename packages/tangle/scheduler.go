@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -72,6 +71,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		Events: &SchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
+			MessageSkipped:   events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 			Error:            events.NewEvent(events.ErrorCaller),
 		},
@@ -133,8 +133,11 @@ func (s *Scheduler) Setup() {
 		}
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			if clock.Since(message.IssuingTime()) > time.Minute {
-				fmt.Println("Unsubmit old confirmed message ", message.ID().String())
-				s.unsubmit(message)
+				err := s.Unsubmit(messageID)
+				if err != nil {
+					s.Events.Error.Trigger(errors.Errorf("failed to unsubmit confirmed message from scheduler: %w", err))
+				}
+				s.Events.MessageSkipped.Trigger(messageID)
 			}
 		})
 		s.updateApprovers(messageID)
@@ -379,9 +382,9 @@ func (s *Scheduler) schedule() *Message {
 			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > time.Minute {
 				// if a message is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
 				// do we want to mark those messages somehow for debugging?
-				q.PopFront()
+				s.Events.MessageSkipped.Trigger(msgID)
+				s.buffer.PopFront()
 				msg = q.Front()
-				fmt.Println("Select another message from the same queue", msgID.String())
 			} else {
 				foundMsg = true
 				// compute how often the deficit needs to be incremented until the message can be scheduled
@@ -509,9 +512,12 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 type SchedulerEvents struct {
 	// MessageScheduled is triggered when a message is ready to be scheduled.
 	MessageScheduled *events.Event
+	// MessageDiscarded is triggered when a message is removed from the longest mana-scaled queue when the buffer is full.
 	MessageDiscarded *events.Event
-	NodeBlacklisted  *events.Event
-	Error            *events.Event
+	// MessageSkipped is triggered when a message is confirmed before it's scheduled, and is skipped by the scheduler.
+	MessageSkipped  *events.Event
+	NodeBlacklisted *events.Event
+	Error           *events.Event
 }
 
 // NodeIDCaller is the caller function for events that hand over a NodeID.
