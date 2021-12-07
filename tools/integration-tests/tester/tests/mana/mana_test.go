@@ -40,7 +40,7 @@ func TestManaPersistence(t *testing.T) {
 	faucet, peer := n.Peers()[0], n.Peers()[1]
 
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
-	tests.SendFaucetRequest(t, peer, peer.Address(0))
+	tests.SendFaucetRequest(t, peer, peer.Address(0), base58.Encode(peer.ID().Bytes()), base58.Encode(peer.ID().Bytes()))
 
 	log.Println("Waiting for peer to get access mana...")
 	require.Eventually(t, func() bool {
@@ -157,14 +157,16 @@ func TestManaApis(t *testing.T) {
 	}, tests.Timeout, tests.Tick)
 
 	// request mana for peer #1; do this twice to assure that peer #1 gets more mana than peer #2
-	tests.SendFaucetRequest(t, peers[1], peers[1].Address(0))
-	tests.SendFaucetRequest(t, peers[1], peers[1].Address(1))
+	tests.SendFaucetRequest(t, peers[1], peers[1].Address(0), base58.Encode(peers[1].ID().Bytes()), base58.Encode(peers[1].ID().Bytes()))
+	tests.SendFaucetRequest(t, peers[1], peers[1].Address(1), base58.Encode(peers[1].ID().Bytes()), base58.Encode(peers[1].ID().Bytes()))
+
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[1]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
 
 	// request mana for peer #2
-	tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
+	tests.SendFaucetRequest(t, peers[2], peers[2].Address(0), base58.Encode(peers[2].ID().Bytes()), base58.Encode(peers[2].ID().Bytes()))
+
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[2]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
