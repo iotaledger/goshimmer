@@ -45,7 +45,7 @@ type Scheduler struct {
 	started         typeutils.AtomicBool
 	stopped         typeutils.AtomicBool
 	accessManaCache *schedulerutils.AccessManaCache
-	mu              sync.Mutex
+	mu              sync.RWMutex
 	buffer          *schedulerutils.BufferQueue
 	deficits        map[identity.ID]float64
 	rate            *atomic.Duration
@@ -163,8 +163,8 @@ func (s *Scheduler) Rate() time.Duration {
 
 // NodeQueueSize returns the size of the nodeIDs queue.
 func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	nodeQueue := s.buffer.NodeQueue(nodeID)
 	if nodeQueue == nil {
@@ -175,8 +175,8 @@ func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
 
 // NodeQueueSizes returns the size for each node queue.
 func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	nodeQueueSizes := make(map[identity.ID]int)
 	for _, nodeID := range s.buffer.NodeIDs() {
@@ -188,29 +188,29 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 
 // MaxBufferSize returns the max size of the buffer.
 func (s *Scheduler) MaxBufferSize() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.buffer.MaxSize()
 }
 
 // BufferSize returns the size of the buffer.
 func (s *Scheduler) BufferSize() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.buffer.Size()
 }
 
 // ReadyMessagesCount returns the size buffer.
 func (s *Scheduler) ReadyMessagesCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.buffer.ReadyMessagesCount()
 }
 
 // TotalMessagesCount returns the size buffer.
 func (s *Scheduler) TotalMessagesCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.buffer.TotalMessagesCount()
 }
 
