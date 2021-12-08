@@ -210,7 +210,7 @@ func TestManaApis(t *testing.T) {
 		require.Len(t, aResp.Nodes, 3)
 		prevMana := math.Inf(1)
 		for i := range aResp.Nodes {
-			require.Less(t, aResp.Nodes[i].Mana, prevMana)
+			require.LessOrEqual(t, aResp.Nodes[i].Mana, prevMana)
 			prevMana = aResp.Nodes[i].Mana
 		}
 
