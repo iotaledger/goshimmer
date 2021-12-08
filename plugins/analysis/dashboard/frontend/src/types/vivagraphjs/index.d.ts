@@ -3,6 +3,11 @@ declare module "vivagraphjs" {
         export interface ILink {
             id: string;
         }
+
+        export interface INode {
+            id: string;
+        }
+
         export interface IGraph {
             getLink: (nodeA: string, nodeB: string) => ILink | undefined;
             addLink: (nodeA: string, nodeB: string) => void;
@@ -14,6 +19,7 @@ declare module "vivagraphjs" {
             beginUpdate: () => void;
             endUpdate: () => void;
             forEachLink: (callback: (link: ILink) => void) => void;
+            forEachNode: (callback: (node: INode) => void) => void;
         }
 
         export interface ILocation {

@@ -46,7 +46,8 @@ export class TangleStore {
     @observable paused: boolean = false;
     @observable search: string = "";
     @observable explorerAddress = "localhost:8081";
-    msgOrder: Array<any> = [];
+    msgOrder: Array<string> = [];
+    lastMsgAddedBeforePause: string = "";
     selected_via_click: boolean = false;
     selected_origin_color: string = "";
     draw: boolean = true;
@@ -109,7 +110,7 @@ export class TangleStore {
                 this.markerMap.delete(msgID);
             }
             this.removeVertex(msgID);
-            this.messages.delete(msgID);            
+            this.messages.delete(msgID);
         }
     }
 
@@ -119,15 +120,15 @@ export class TangleStore {
         if (!msg) {
             return;
         }
-        
+
         msg.branchID = branch.branchID;
         msg.isMarker = branch.isMarker;
 
         this.messages.set(msg.ID, msg);
         // TODO: improve the updated information
         if (this.draw) {
-            this.graph.addNode(msg.ID, msg);
-        }        
+            this.updateIfNotPaused(msg)
+        }
     }
 
     @action
@@ -142,8 +143,7 @@ export class TangleStore {
         msg.confirmedTime = info.confirmedTime;
         this.messages.set(msg.ID, msg);
         if (this.draw) {
-            this.graph.addNode(info.ID, msg);
-            this.updateNodeColor(msg);
+            this.updateIfNotPaused(msg)
         }
     }
 
@@ -166,30 +166,14 @@ export class TangleStore {
     }
 
     @action
-    deleteApproveeLink = (approveeId: string) => {
-        if (!approveeId) {
-            return;
-        }
-        let approvee = this.messages.get(approveeId);
-        if (approvee) {
-            if (this.selectedMsg && approveeId === this.selectedMsg.ID) {
-                this.clearSelected();
-            }
-            this.messages.delete(approveeId);
-            if (approvee.isMarker) {
-                this.markerMap.delete(approveeId);
-            }
-        }
-        this.graph.removeNode(approveeId);
-    }
-
-    @action
     pauseResume = () => {
         if (this.paused) {
             this.renderer.resume();
+            this.svgRendererOnResume()
             this.paused = false;
             return;
         }
+        this.lastMsgAddedBeforePause = this.msgOrder[this.msgOrder.length - 1]
         this.renderer.pause();
         this.paused = true;
     }
@@ -208,13 +192,13 @@ export class TangleStore {
     searchAndHighlight = () => {
         this.clearSelected(true);
         if (!this.search) return;
-        
+
         let msgNode = this.graph.getNode(this.search);
         if (!msgNode) return;
-        
+
         this.updateSelected(msgNode.data, false);
     }
-    
+
     updateExplorerAddress = (addr: string) => {
         this.explorerAddress = addr;
     }
@@ -243,6 +227,11 @@ export class TangleStore {
 
     drawVertex = (msg: tangleVertex) => {
         let node;
+        // For svg renderer, pausing is not gonna stop elements from being added or remover from svg frame
+        // when pause we are skipping this function, on resume we manually trigger reloading messages
+        if (this.paused) {
+            return
+        }
         let existing = this.graph.getNode(msg.ID);
         if (existing) {
             node = existing
@@ -293,17 +282,12 @@ export class TangleStore {
     }
 
     removeVertex = (msgID: string) => {
-        let vert = this.messages.get(msgID);
-        if (vert) {
-            this.messages.delete(msgID);
+        // svg renderer does not stop elements from being removed from the view while being paused
+        // after resume() we update graph state with svgRendererOnResume()
+        if (this.paused) {
+            return
+        } else {
             this.graph.removeNode(msgID);
-            
-            vert.strongParentIDs.forEach((value) => {
-                this.deleteApproveeLink(value)
-            })
-            vert.weakParentIDs.forEach((value) => {
-                this.deleteApproveeLink(value)
-            })
         }
     }
 
@@ -322,7 +306,7 @@ export class TangleStore {
         setUINodeSize(nodeUI, vertexSize * 1.5);
 
         let pos = this.layout.getNodePosition(node.id);
-        this.updateNodePos(nodeUI, pos);
+        this.svgUpdateNodePos(nodeUI, pos);
 
         const seenForward = [];
         const seenBackwards = [];
@@ -399,9 +383,18 @@ export class TangleStore {
         this.selected_via_click = false;
     }
 
-    updateNodePos(nodeUI, pos) {
+    svgUpdateNodePos(nodeUI, pos) {
         let size = nodeUI.getAttribute('width')
         nodeUI.attr('x', pos.x - size / 2).attr('y', pos.y - size / 2);
+    }
+
+    updateNodeDataAndColor(nodeID: string, msgData: tangleVertex) {
+        let node = this.graph.getNode(nodeID)
+        // replace existing node data
+        if (node && msgData) {
+            this.graph.addNode(nodeID, msgData)
+            this.updateNodeColor(msgData);
+        }
     }
 
     start = () => {
@@ -428,7 +421,7 @@ export class TangleStore {
             ui.data = node.data;
 
             return ui
-        }).placeNode(this.updateNodePos)
+        }).placeNode(this.svgUpdateNodePos)
 
         graphics.link(() => {
             return svgLinkBuilder("#586e75", 5, ":");
@@ -466,6 +459,38 @@ export class TangleStore {
         this.selectedMsg = null;
     }
 
+    // clear old elements and refresh renderer
+    svgRendererOnResume = () => {
+        // if pause was long enough for newest added message to be removed then clear all graph at once
+        if (!this.messages.get(this.lastMsgAddedBeforePause)) {
+            this.clearGraph()
+            this.drawExistedMsgs()
+
+            return
+        }
+        // pause was short - clear only the needed part
+        this.graph.forEachNode((node) => {
+            let msg = this.messages.get(node.id)
+            if (!msg) {
+                this.graph.removeNode(node.id)
+            } else {
+                this.updateNodeDataAndColor(msg.ID, msg)
+            }
+        })
+
+        for (let msgId in this.messages) {
+            let exist = this.graph.getNode(msgId)
+            if (!exist) {
+                this.drawVertex(this.messages.get(msgId))
+            }
+        }
+    }
+
+    updateIfNotPaused = (msg: tangleVertex) => {
+        if (!this.paused) {
+            this.updateNodeDataAndColor(msg.ID, msg)
+        }
+    }
 }
 
 let svgNodeBuilder = function (color: string, width: number, height: number) {
