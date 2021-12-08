@@ -2,15 +2,18 @@ package libp2putil
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 // UvarintWriter writes protobuf messages.
 type UvarintWriter struct {
-	w      io.Writer
+	w io.Writer
 }
 
 // NewDelimitedWriter returns a new UvarintWriter.
@@ -38,7 +41,7 @@ func (uw *UvarintWriter) WriteMsg(msg proto.Message) (err error) {
 
 // UvarintReader read protobuf messages.
 type UvarintReader struct {
-	r   *bufio.Reader
+	r *bufio.Reader
 }
 
 // NewDelimitedReader returns a new UvarintReader.
@@ -52,8 +55,10 @@ func (ur *UvarintReader) ReadMsg(msg proto.Message) error {
 	if err != nil {
 		return err
 	}
-	length := int(length64)
-	buf := make([]byte, length)
+	if length64 > tangle.MaxMessageSize {
+		return fmt.Errorf("max message size exceeded: %d", length64)
+	}
+	buf := make([]byte, length64)
 	if _, err := io.ReadFull(ur.r, buf); err != nil {
 		return err
 	}
