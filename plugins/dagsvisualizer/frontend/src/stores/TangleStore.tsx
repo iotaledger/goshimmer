@@ -1,7 +1,7 @@
 import {action, makeObservable, observable, ObservableMap} from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
 import {default as Viva} from 'vivagraphjs';
-import {COLOR} from "../styles/tangleStyles";
+import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from "../styles/tangleStyles";
 
 export class tangleVertex {
     ID:              string;   
@@ -34,7 +34,11 @@ export class tangleFutureMarkerUpdated {
     futureMarkerID: string;
 }
 
-const vertexSize = 20;
+export enum parentRefType {
+    StrongRef,
+    WeakRef,
+    LikedRef,
+}
 
 export class TangleStore {
     @observable maxTangleVertices: number = 100;
@@ -238,48 +242,73 @@ export class TangleStore {
             node = existing
         } else {
             node = this.graph.addNode(msg.ID, msg);
-            this.updateNodeColor(msg);
+            this.updateNodeColorOnConfirmation(msg);
         }
 
-        if (msg.strongParentIDs) {
-            msg.strongParentIDs.forEach((value) => {
-                // if value is valid AND (links is empty OR there is no between parent and children)
-                if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
-                    // draw the link only when the parent exists
-                    let existing = this.graph.getNode(value);
-                    if (existing) {
-                        this.graph.addLink(value, msg.ID);
+        let drawVertexParentReference = (parentType: parentRefType, parentIDs: Array<string>) => {
+            if (parentIDs) {
+                parentIDs.forEach((value) => {
+                    // if value is valid AND (links is empty OR there is no between parent and children)
+                    if (value && ((!node.links || !node.links.some(link => link.fromId === value)))) {
+                        // draw the link only when the parent exists
+                        let existing = this.graph.getNode(value);
+                        if (existing) {
+                            let link = this.graph.addLink(value, msg.ID);
+                            this.updateParentRefUI(link.id, parentType)
+                        }
                     }
-                }
-            })
+                })
+            }
+
         }
-        if (msg.weakParentIDs){
-            msg.weakParentIDs.forEach((value) => {
-                // if value is valid AND (links is empty OR there is no between parent and children)
-                if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
-                    // draw the link only when the parent exists
-                    let existing = this.graph.getNode(value);
-                    if (existing) {
-                        this.graph.addLink(value, msg.ID);
-                    }
-                }
-            })
-        }
+
+        drawVertexParentReference(parentRefType.StrongRef, msg.strongParentIDs)
+        drawVertexParentReference(parentRefType.WeakRef, msg.weakParentIDs)
+        drawVertexParentReference(parentRefType.LikedRef, msg.likedParentIDs)
     }
 
-    // TODO: take tangleVertex instead
     // only update color when finalized
-    updateNodeColor = (msg: tangleVertex) => {
+    updateNodeColorOnConfirmation = (msg: tangleVertex) => {
         let nodeUI = this.graphics.getNodeUI(msg.ID);
         let color = "";
+        if (!msg.isConfirmed) {
+            return
+        }
+
+        if (msg.isTx) {
+            color = COLOR.TRANSACTION_CONFIRMED;
+        } else {
+            color = COLOR.MESSAGE_CONFIRMED;
+        }
+
         if (!nodeUI || !msg || msg.gof === "GoF(None)") {
             color = COLOR.NODE_UNKNOWN;
         }
-        if (msg.isTx) {
-            color = COLOR.TRANSACTION_PENDING;
-        }
 
-        setUIColor(nodeUI, color);
+        setUIColor(nodeUI, color)
+    }
+
+    updateParentRefUI = (linkID: string, parentType: parentRefType) => {
+        // update link line type and color based on reference type
+        let linkUI = this.graphics.getLinkUI(linkID)
+        console.log(linkUI)
+        if (!linkUI) {
+            return
+        }
+        switch (parentType) {
+            case parentRefType.StrongRef: {
+                setUILink(linkUI, COLOR.LINK_STRONG, LINE_WIDTH.STRONG, LINE_TYPE.STRONG)
+                break;
+            }
+            case parentRefType.WeakRef: {
+                setUILink(linkUI, COLOR.LINK_WEAK, LINE_WIDTH.WEAK, LINE_TYPE.WEAK)
+                break;
+            }
+            case parentRefType.LikedRef: {
+                setUILink(linkUI, COLOR.LINK_LIKED, LINE_WIDTH.LIKED, LINE_TYPE.LIKED)
+                break;
+            }
+        }
     }
 
     removeVertex = (msgID: string) => {
@@ -304,7 +333,8 @@ export class TangleStore {
         let nodeUI = this.graphics.getNodeUI(vert.ID);
         this.selected_origin_color = getUIColor(nodeUI)
         setUIColor(nodeUI, COLOR.NODE_SELECTED)
-        setUINodeSize(nodeUI, vertexSize * 1.5);
+        setUINodeSize(nodeUI, VERTEX.SIZE_SELECTED);
+        setRectBorder(nodeUI, VERTEX.SELECTED_BORDER_WIDTH, COLOR.NODE_BORDER_SELECTED)
 
         let pos = this.layout.getNodePosition(node.id);
         this.svgUpdateNodePos(nodeUI, pos);
@@ -359,7 +389,8 @@ export class TangleStore {
 
         let nodeUI = this.graphics.getNodeUI(this.selectedMsg.ID);
         setUIColor(nodeUI, this.selected_origin_color)
-        setUINodeSize(nodeUI, vertexSize);
+        setUINodeSize(nodeUI, VERTEX.SIZE_DEFAULT);
+        resetRectBorder(nodeUI)
 
         const seenForward = [];
         const seenBackwards = [];
@@ -393,8 +424,9 @@ export class TangleStore {
         let node = this.graph.getNode(nodeID)
         // replace existing node data
         if (node && msgData) {
+            console.log("replacing")
             this.graph.addNode(nodeID, msgData)
-            this.updateNodeColor(msgData);
+            this.updateNodeColorOnConfirmation(msgData);
         }
     }
 
@@ -414,18 +446,17 @@ export class TangleStore {
         });
 
         graphics.node((node) => {
-            let ui = svgNodeBuilder(COLOR.NODE_UNKNOWN, vertexSize, vertexSize);
+            let ui = svgNodeBuilder(node.data);
             ui.on("click", () => {
                 this.clearSelected(true)
                 this.updateSelected(node.data, true)
             });
-            ui.data = node.data;
 
             return ui
         }).placeNode(this.svgUpdateNodePos)
 
         graphics.link(() => {
-            return svgLinkBuilder(COLOR.LINK_STRONG, 5, ":");
+            return svgLinkBuilder(COLOR.LINK_STRONG, LINE_WIDTH.STRONG, LINE_TYPE.STRONG);
         }).placeLink(function (linkUI, fromPos, toPos) {
             // linkUI - is the object returned from link() callback above.
             let data = 'M' + fromPos.x.toFixed(2) + ',' + fromPos.y.toFixed(2) +
@@ -494,18 +525,27 @@ export class TangleStore {
     }
 }
 
-let svgNodeBuilder = function (color: string, width: number, height: number) {
-    return Viva.Graph.svg("rect")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("fill", color)
+let svgNodeBuilder = function (node: tangleVertex): any {
+    let color = ""
+    if (node.isTx) {
+        color = COLOR.TRANSACTION_PENDING
+    } else {
+        color = COLOR.MESSAGE_PENDING
+    }
+
+    let ui = Viva.Graph.svg("rect")
+    setUIColor(ui, color)
+    setUINodeSize(ui, VERTEX.SIZE_DEFAULT)
+    setCorners(ui, VERTEX.ROUNDED_CORNER)
+
+    return ui
 }
 
 let svgLinkBuilder = function (color: string, width: number, type: string) {
     return Viva.Graph.svg("path")
         .attr("stroke", color)
-        .attr("width", width)
-        .attr('stroke-dasharray', '5, 5');
+        .attr("stroke-width", width)
+        .attr('stroke-dasharray', type);
 }
 
 export default TangleStore;
@@ -547,4 +587,24 @@ function getUIColor(ui: any): string {
 function setUINodeSize(ui: any, size: number) {
     ui.attr('width', size)
     ui.attr('height', size)
+}
+
+function setUILink(ui: any, color: string, width: number, type: string) {
+    ui.attr('stroke-width', width)
+    ui.attr('stroke-dasharray', type)
+    ui.attr('stroke', color)
+}
+
+function setCorners(ui: any, rx: number) {
+    ui.attr('rx', rx)
+}
+
+function setRectBorder(ui: any, borderWidth: number, borderColor) {
+    ui.attr('stroke-width', borderWidth)
+    ui.attr('stroke', borderColor)
+}
+
+function resetRectBorder(ui: any) {
+    ui.removeAttribute('stroke-width')
+    ui.removeAttribute('stroke')
 }
