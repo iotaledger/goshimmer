@@ -1,6 +1,7 @@
 import {action, makeObservable, observable, ObservableMap} from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
 import {default as Viva} from 'vivagraphjs';
+import {COLOR} from "../styles/tangleStyles";
 
 export class tangleVertex {
     ID:              string;   
@@ -272,10 +273,10 @@ export class TangleStore {
         let nodeUI = this.graphics.getNodeUI(msg.ID);
         let color = "";
         if (!nodeUI || !msg || msg.gof === "GoF(None)") {
-            color = "#b58900";
+            color = COLOR.NODE_UNKNOWN;
         }
         if (msg.isTx) {
-            color = "#fad02c";
+            color = COLOR.TRANSACTION_PENDING;
         }
 
         setUIColor(nodeUI, color);
@@ -302,7 +303,7 @@ export class TangleStore {
         let node = this.graph.getNode(vert.ID);
         let nodeUI = this.graphics.getNodeUI(vert.ID);
         this.selected_origin_color = getUIColor(nodeUI)
-        setUIColor(nodeUI, "#859900");
+        setUIColor(nodeUI, COLOR.NODE_SELECTED)
         setUINodeSize(nodeUI, vertexSize * 1.5);
 
         let pos = this.layout.getNodePosition(node.id);
@@ -318,7 +319,7 @@ export class TangleStore {
             true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, "#d33682")
+                setUIColor(linkUI, COLOR.LINK_FUTURE_CONE)
             },
             seenForward
         );
@@ -326,7 +327,7 @@ export class TangleStore {
                 this.selected_approvees_count++;
             }, false, link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, "#b58900")
+                setUIColor(linkUI, COLOR.LINK_PAST_CONE)
             },
             seenBackwards
         );
@@ -335,7 +336,7 @@ export class TangleStore {
     resetLinks = () => {
         this.graph.forEachLink((link) => {
             const linkUI = this.graphics.getLinkUI(link.id);
-            setUIColor(linkUI, "#586e75")
+            setUIColor(linkUI, COLOR.LINK_STRONG)
         });
     }
 
@@ -366,7 +367,7 @@ export class TangleStore {
             }, true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, "#586e75")
+                setUIColor(linkUI, COLOR.LINK_STRONG)
             },
             seenBackwards
         );
@@ -374,7 +375,7 @@ export class TangleStore {
             }, false,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, "#586e75")
+                setUIColor(linkUI, COLOR.LINK_STRONG)
             },
             seenForward
         );
@@ -413,7 +414,7 @@ export class TangleStore {
         });
 
         graphics.node((node) => {
-            let ui = svgNodeBuilder("#b9b7bd", vertexSize, vertexSize);
+            let ui = svgNodeBuilder(COLOR.NODE_UNKNOWN, vertexSize, vertexSize);
             ui.on("click", () => {
                 this.clearSelected(true)
                 this.updateSelected(node.data, true)
@@ -424,7 +425,7 @@ export class TangleStore {
         }).placeNode(this.svgUpdateNodePos)
 
         graphics.link(() => {
-            return svgLinkBuilder("#586e75", 5, ":");
+            return svgLinkBuilder(COLOR.LINK_STRONG, 5, ":");
         }).placeLink(function (linkUI, fromPos, toPos) {
             // linkUI - is the object returned from link() callback above.
             let data = 'M' + fromPos.x.toFixed(2) + ',' + fromPos.y.toFixed(2) +
