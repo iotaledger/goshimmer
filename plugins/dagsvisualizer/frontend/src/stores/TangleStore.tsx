@@ -1,6 +1,6 @@
-import {action, makeObservable, observable, ObservableMap} from 'mobx';
-import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from 'WS';
-import {default as Viva} from 'vivagraphjs';
+import { action, makeObservable, observable, ObservableMap } from 'mobx';
+import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from '../WS';
+import {default as Viva } from 'vivagraphjs';
 import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from "../styles/tangleStyles";
 
 export class tangleVertex {
@@ -574,7 +574,6 @@ function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) 
         }
     }
 }
-
 
 function setUIColor(ui: any, color: any) {
     ui.attr("fill", color);

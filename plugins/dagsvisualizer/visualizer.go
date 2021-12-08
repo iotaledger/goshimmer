@@ -6,15 +6,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 var (
@@ -56,12 +57,17 @@ func registerTangleEvents() {
 
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+			branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
+			if err != nil {
+				branchID = ledgerstate.BranchID{}
+			}
+
 			visualizerWorkerPool.TrySubmit((&wsMessage{
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
 					ID:       messageID.Base58(),
 					IsMarker: msgMetadata.StructureDetails().IsPastMarker,
-					BranchID: msgMetadata.BranchID().Base58(),
+					BranchID: branchID.Base58(),
 				},
 			}))
 		})
@@ -154,9 +160,22 @@ func registerBranchEvents() {
 		})
 	})
 
+	branchWeightChangedClosure := events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
+		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(e.BranchID)
+		visualizerWorkerPool.TrySubmit(&wsMessage{
+			Type: MsgTypeBranchWeightChanged,
+			Data: &branchWeightChanged{
+				ID:     e.BranchID.Base58(),
+				Weight: e.Weight,
+				GoF:    branchGoF.String(),
+			},
+		})
+	})
+
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
 	deps.FinalityGadget.Events().BranchConfirmed.Attach(branchConfirmedClosure)
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
+	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
@@ -237,7 +256,7 @@ func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
 				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
 				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
 				LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
-				BranchID:        ledgerstate.UndefinedBranchID.Base58(),
+				BranchID:        msgMetadata.BranchID().Base58(),
 				IsMarker:        msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 				IsConfirmed:     deps.FinalityGadget.IsMessageConfirmed(messageID),
@@ -293,12 +312,15 @@ func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
 			}
 		}
 
+		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
 		ret = &branchVertex{
 			ID:          branchID.Base58(),
 			Type:        branch.Type().String(),
 			Parents:     branch.Parents().Strings(),
 			Conflicts:   jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
 			IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
+			GoF:         branchGoF.String(),
+			AW:          deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID),
 		}
 	})
 	return
