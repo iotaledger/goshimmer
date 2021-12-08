@@ -39,7 +39,7 @@ func TestManaPersistence(t *testing.T) {
 	faucet, peer := n.Peers()[0], n.Peers()[1]
 
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
-	tests.SendFaucetRequest(t, peer, peer.Address(0), base58.Encode(peer.ID().Bytes()), base58.Encode(peer.ID().Bytes()))
+	tests.SendFaucetRequest(t, peer, peer.Address(0))
 
 	log.Println("Waiting for peer to get access mana...")
 	require.Eventually(t, func() bool {
