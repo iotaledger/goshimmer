@@ -126,7 +126,7 @@ func registerUTXOEvents() {
 
 				visualizerWorkerPool.TrySubmit((&wsMessage{
 					Type: MsgTypeUTXOBooked,
-					Data: &tangleBooked{
+					Data: &utxoBooked{
 						ID:       message.Payload().(*ledgerstate.Transaction).ID().Base58(),
 						BranchID: branchID.Base58(),
 					},
