@@ -74,7 +74,11 @@ type MessageScheduledMetrics struct {
 	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
 	QueuedTimestamp    time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
 	DroppedTimestamp   time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
-	AccessMana         float64   `json:"accessMana" bson:"accessMana"`
+	// scheduledTimestamp - ReceivedTimestamp in seconds
+	ProcessingTime int `json:"processingTime" bson:"processingTime"`
+	// scheduledTimestamp - QueuedTimestamp in seconds
+	SchedulingTime int     `json:"schedulingTime" bson:"schedulingTime"`
+	AccessMana     float64 `json:"accessMana" bson:"accessMana"`
 }
 
 // MissingMessageMetrics defines message solidification record that is sent to the remote logger.

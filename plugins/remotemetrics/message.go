@@ -1,6 +1,8 @@
 package remotemetrics
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -42,6 +44,16 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 			record.BookedTimestamp = messageMetadata.BookedTime()
 			record.SolidTimestamp = messageMetadata.SolidificationTime()
 			record.QueuedTimestamp = messageMetadata.QueuedTime()
+
+			var scheduleDoneTime time.Time
+			// one of those conditions must be true
+			if !record.ScheduledTimestamp.IsZero() {
+				scheduleDoneTime = record.ScheduledTimestamp
+			} else if !record.DroppedTimestamp.IsZero() {
+				scheduleDoneTime = record.DroppedTimestamp
+			}
+			record.ProcessingTime = int(scheduleDoneTime.Unix() - messageMetadata.ReceivedTime().Unix())
+			record.SchedulingTime = int(scheduleDoneTime.Unix() - messageMetadata.QueuedTime().Unix())
 		})
 	})
 
