@@ -38,6 +38,11 @@ func (b *BufferQueue) NumActiveNodes() int {
 	return len(b.activeNode)
 }
 
+// MaxSize returns the max size (in bytes) of all messages in b.
+func (b *BufferQueue) MaxSize() int {
+	return b.maxBuffer
+}
+
 // Size returns the total size (in bytes) of all messages in b.
 func (b *BufferQueue) Size() int {
 	return b.size
@@ -173,6 +178,39 @@ func (b *BufferQueue) InsertNode(nodeID identity.ID) {
 
 	nodeQueue := NewNodeQueue(nodeID)
 	b.activeNode[nodeID] = b.ringInsert(nodeQueue)
+}
+
+// ReadyMessagesCount returns the number of ready messages in the buffer.
+func (b *BufferQueue) ReadyMessagesCount() (readyMsgCount int) {
+	start := b.Current()
+	if start == nil {
+		return
+	}
+	for q := start; ; {
+		readyMsgCount += q.inbox.Len()
+		q = b.Next()
+		if q == start {
+			break
+		}
+	}
+	return
+}
+
+// TotalMessagesCount returns the number of messages in the buffer.
+func (b *BufferQueue) TotalMessagesCount() (msgCount int) {
+	start := b.Current()
+	if start == nil {
+		return
+	}
+	for q := start; ; {
+		msgCount += q.inbox.Len()
+		msgCount += len(q.submitted)
+		q = b.Next()
+		if q == start {
+			break
+		}
+	}
+	return
 }
 
 // RemoveNode removes all messages (submitted and ready) for the given node.
