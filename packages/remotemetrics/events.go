@@ -87,6 +87,7 @@ type MissingMessageMetrics struct {
 	NodeID       string `json:"nodeID" bson:"nodeID"`
 	MetricsLevel uint8  `json:"metricsLevel" bson:"metricsLevel"`
 	MessageID    string `json:"messageID" bson:"messageID"`
+	IssuerID     string `json:"issuerID"  bson:"issuerID"`
 }
 
 // BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.

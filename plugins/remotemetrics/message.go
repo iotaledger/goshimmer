@@ -147,6 +147,10 @@ func sendMissingMessageRecord(messageID tangle.MessageID, recordType string) {
 		MessageID:    messageID.Base58(),
 	}
 
+	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		record.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
+	})
+
 	if err := deps.RemoteLogger.Send(record); err != nil {
 		Plugin.Logger().Errorw("Failed to send "+recordType+" record", "err", err)
 	}
