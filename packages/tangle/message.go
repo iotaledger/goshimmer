@@ -1037,7 +1037,7 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 	return m.scheduledTime
 }
 
-// SetDiscardedTime add the discarded time of a message to the metadata
+// SetDiscardedTime add the discarded time of a message to the metadata.
 func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
 	m.discardedTimeMutex.Lock()
 	defer m.discardedTimeMutex.Unlock()
@@ -1045,7 +1045,7 @@ func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
 	m.discardedTime = discardedTime
 }
 
-// DiscardedTime returns when the message was discarded
+// DiscardedTime returns when the message was discarded.
 func (m *MessageMetadata) DiscardedTime() time.Time {
 	m.discardedTimeMutex.RLock()
 	defer m.discardedTimeMutex.RUnlock()
@@ -1053,7 +1053,7 @@ func (m *MessageMetadata) DiscardedTime() time.Time {
 	return m.discardedTime
 }
 
-// QueuedTime returns the time a message entered the scheduling queue
+// QueuedTime returns the time a message entered the scheduling queue.
 func (m *MessageMetadata) QueuedTime() time.Time {
 	m.queuedTimeMutex.RLock()
 	defer m.queuedTimeMutex.RUnlock()
@@ -1061,7 +1061,7 @@ func (m *MessageMetadata) QueuedTime() time.Time {
 	return m.queuedTime
 }
 
-// SetQueuedTime records the time the message entered the scheduler queue
+// SetQueuedTime records the time the message entered the scheduler queue.
 func (m *MessageMetadata) SetQueuedTime(queuedTime time.Time) {
 	m.queuedTimeMutex.Lock()
 	defer m.queuedTimeMutex.Unlock()

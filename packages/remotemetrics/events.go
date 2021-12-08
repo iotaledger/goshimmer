@@ -18,7 +18,7 @@ func SyncStatusChangedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(SyncStatusChangedEvent))(params[0].(SyncStatusChangedEvent))
 }
 
-// TimeEventCaller is used everytime you want to send an event with a timestamp
+// TimeEventCaller is used everytime you want to send an event with a timestamp.
 func TimeEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(time.Time))(params[0].(time.Time))
 }
@@ -62,7 +62,7 @@ type MessageFinalizedMetrics struct {
 	LikeEdgeCount      int       `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
-// MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger
+// MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger.
 type MessageScheduledMetrics struct {
 	Type               string    `json:"type" bson:"type"`
 	NodeID             string    `json:"nodeID" bson:"nodeID"`
@@ -77,7 +77,7 @@ type MessageScheduledMetrics struct {
 	AccessMana         float64   `json:"accessMana" bson:"accessMana"`
 }
 
-// MessageSolidificationMetrics defines message solidification record that is sent to the remote logger
+// MissingMessageMetrics defines message solidification record that is sent to the remote logger.
 type MissingMessageMetrics struct {
 	Type         string `json:"type" bson:"type"`
 	NodeID       string `json:"nodeID" bson:"nodeID"`
