@@ -128,7 +128,7 @@ services:
     profiles:
       - grafana
     ports:
-      - 9090:9090
+      - "9090:9090"
     command:
       - --config.file=/run/secrets/prometheus.yml
     secrets:
@@ -149,10 +149,12 @@ services:
     networks:
       - shimmer
     ports:
-      - 3000:3000
+      - "3000:3000"
     user: "104"
     volumes:
-      - ./grafana:/var/lib/grafana:rw
+      - grafana-data-volume:/var/lib/grafana
+      - ./grafana/provisioning:/var/lib/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
   drand-leader:
     image: angelocapossele/drand:v1.1.4
     entrypoint: /data/client-script.sh
@@ -196,6 +198,7 @@ networks:
 volumes:
   shimmerdb:
   peerdb:
+  grafana-data-volume:
 # read only files to load in the containers that may be shared across containers
 secrets:
   goshimmer.message.snapshot.bin:
