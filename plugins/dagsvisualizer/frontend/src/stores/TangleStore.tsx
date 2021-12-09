@@ -1,6 +1,6 @@
-import { action, makeObservable, observable, ObservableMap } from 'mobx';
+import {action, makeObservable, observable, ObservableMap} from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from '../WS';
-import {default as Viva } from 'vivagraphjs';
+import {default as Viva} from 'vivagraphjs';
 import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from "../styles/tangleStyles";
 
 export class tangleVertex {
@@ -41,7 +41,7 @@ export enum parentRefType {
 }
 
 export class TangleStore {
-    @observable maxTangleVertices: number = 100;
+    @observable maxTangleVertices: number = 500;
     @observable messages = new ObservableMap<string, tangleVertex>();
     // might still need markerMap for advanced features
     @observable markerMap = new ObservableMap<string, Array<string>>();
@@ -50,7 +50,7 @@ export class TangleStore {
     @observable selected_approvees_count = 0;
     @observable paused: boolean = false;
     @observable search: string = "";
-    @observable explorerAddress = "localhost:8081";
+    @observable explorerAddress = "http://localhost:8081";
     msgOrder: Array<string> = [];
     lastMsgAddedBeforePause: string = "";
     selected_via_click: boolean = false;
@@ -291,7 +291,6 @@ export class TangleStore {
     updateParentRefUI = (linkID: string, parentType: parentRefType) => {
         // update link line type and color based on reference type
         let linkUI = this.graphics.getLinkUI(linkID)
-        console.log(linkUI)
         if (!linkUI) {
             return
         }
@@ -318,6 +317,19 @@ export class TangleStore {
             return
         } else {
             this.graph.removeNode(msgID);
+        }
+    }
+
+    @action
+    tangleOnClick = (event: any) => {
+        // message is currently selected
+        if (event.target.tagName === "rect") {
+            this.clearSelected(true)
+            this.updateSelected(event.target.node.data, true)
+        } else {
+            if (this.selectedMsg !== null) {
+                this.clearSelected(true)
+            }
         }
     }
 
@@ -424,7 +436,6 @@ export class TangleStore {
         let node = this.graph.getNode(nodeID)
         // replace existing node data
         if (node && msgData) {
-            console.log("replacing")
             this.graph.addNode(nodeID, msgData)
             this.updateNodeColorOnConfirmation(msgData);
         }
@@ -433,9 +444,25 @@ export class TangleStore {
     start = () => {
         this.graph = Viva.Graph.graph();
 
-        let graphics: any = Viva.Graph.View.svgGraphics();
+        this.setupLayout()
+        this.setupSvgGraphics()
+        this.setupRenderer()
 
-        const layout = Viva.Graph.Layout.forceDirected(this.graph, {
+        this.renderer.run();
+
+        maximizeSvgWindow()
+        this.registerTangleEvents()
+    }
+
+    stop = () => {
+        this.unregisterHandlers();
+        this.renderer.dispose();
+        this.graph = null;
+        this.selectedMsg = null;
+    }
+
+    setupLayout = () => {
+        this.layout = Viva.Graph.Layout.forceDirected(this.graph, {
             springLength: 10,
             springCoeff: 0.0001,
             stableThreshold: 0.15,
@@ -444,15 +471,13 @@ export class TangleStore {
             timeStep: 20,
             theta: 0.8,
         });
+    }
+
+    setupSvgGraphics = () => {
+        let graphics: any = Viva.Graph.View.svgGraphics();
 
         graphics.node((node) => {
-            let ui = svgNodeBuilder(node.data);
-            ui.on("click", () => {
-                this.clearSelected(true)
-                this.updateSelected(node.data, true)
-            });
-
-            return ui
+            return svgNodeBuilder(node.data);
         }).placeNode(this.svgUpdateNodePos)
 
         graphics.link(() => {
@@ -466,29 +491,23 @@ export class TangleStore {
             // is a common way of rendering paths in SVG:
             linkUI.attr("d", data);
         })
+
+        this.graphics = graphics;
+    }
+
+    setupRenderer = () => {
         let ele = document.getElementById('tangleVisualizer');
 
         this.renderer = Viva.Graph.View.renderer(this.graph, {
             container: ele,
-            graphics: graphics,
-            layout: layout,
+            graphics: this.graphics,
+            layout: this.layout,
         });
-
-        this.layout = layout;
-        this.graphics = graphics;
-        this.renderer.run();
-
-        // maximize the svg window
-        let svgEl = document.querySelector("#tangleVisualizer>svg")
-        svgEl.setAttribute("width", "100%")
-        svgEl.setAttribute("height", "100%")
     }
 
-    stop = () => {
-        this.unregisterHandlers();
-        this.renderer.dispose();
-        this.graph = null;
-        this.selectedMsg = null;
+    registerTangleEvents = () => {
+        let tangleWindowEl = document.querySelector("#tangleVisualizer")
+        tangleWindowEl.addEventListener("click", this.tangleOnClick)
     }
 
     // clear old elements and refresh renderer
@@ -573,6 +592,12 @@ function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) 
             }
         }
     }
+}
+
+function maximizeSvgWindow() {
+    let svgEl = document.querySelector("#tangleVisualizer>svg")
+    svgEl.setAttribute("width", "100%")
+    svgEl.setAttribute("height", "100%")
 }
 
 function setUIColor(ui: any, color: any) {
