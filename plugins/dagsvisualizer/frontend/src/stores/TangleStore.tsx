@@ -326,8 +326,7 @@ export class TangleStore {
     tangleOnClick = (event: any) => {
         // message is currently selected
         if (event.target.tagName === "rect") {
-            this.clearSelected()
-            this.updateSelected(event.target.node.data)
+            this.selectMsg(event.target.node.id)
         } else {
             if (this.selectedMsg !== null) {
                 this.clearSelected()
@@ -345,6 +344,8 @@ export class TangleStore {
     selectMsg = (msgID: string) => {
         // clear pre-selected node first
         this.clearSelected();
+        this.clearHighlightedMsgs()
+
         let vertex = this.graph.getNode(msgID)
         if (!vertex) return;
 
@@ -361,10 +362,9 @@ export class TangleStore {
         if (!this.selectedMsg) {
             return;
         }
-
         this.selected_approvers_count = 0;
         this.selected_approvees_count = 0;
-        this.clearHighlightedMsg(this.selectedMsg.ID, this.selected_origin_color);
+        this.clearHighlightedMsg(this.selectedMsg.ID);
         this.selectedMsg = null;
     }
 
@@ -373,9 +373,7 @@ export class TangleStore {
     }
 
     highlightMsgs = (msgIDs: string[]) => {
-        this.highligtedMsgs.forEach((color, id) => {
-            this.clearHighlightedMsg(id, color);
-        })
+        this.clearHighlightedMsgs()
 
         // update highlighted msgs and its original color
         msgIDs.forEach((id) => {
@@ -427,12 +425,16 @@ export class TangleStore {
     }
 
     clearHighlightedMsgs = () => {
+        if (this.highligtedMsgs.size === 0) {
+            return;
+        }
         this.highligtedMsgs.forEach((color: string, id) => {
-          this.clearHighlightedMsg(id, color);
+            this.clearHighlightedMsg(id);
         })
+        this.highligtedMsgs.clear()
     }
 
-    clearHighlightedMsg = (msgID: string, originalColor: string) => {
+    clearHighlightedMsg = (msgID: string) => {
         // clear link highlight
         let node = this.graph.getNode(msgID);
         if (!node) {
@@ -441,8 +443,15 @@ export class TangleStore {
             return;
         }
 
+        let color = ""
+        if (this.selectedMsg && msgID === this.selectedMsg.ID) {
+            color = this.selected_origin_color
+        } else {
+            color = this.highligtedMsgs.get(msgID)
+        }
+
         let nodeUI = this.graphics.getNodeUI(msgID);
-        setUINodeColor(nodeUI, this.selected_origin_color)
+        setUINodeColor(nodeUI, color)
         setUINodeSize(nodeUI, VERTEX.SIZE_DEFAULT);
         resetRectBorder(nodeUI)
 
