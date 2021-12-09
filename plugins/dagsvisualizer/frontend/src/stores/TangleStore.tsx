@@ -1,4 +1,4 @@
-import { action, makeObservable, observable, ObservableMap } from 'mobx';
+import {action, makeObservable, observable, ObservableMap} from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from '../WS';
 import {default as Viva} from 'vivagraphjs';
 import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from "../styles/tangleStyles";
@@ -279,27 +279,34 @@ export class TangleStore {
             color = COLOR.NODE_UNKNOWN;
         }
 
-        setUIColor(nodeUI, color)
+        setUINodeColor(nodeUI, color)
     }
 
-    updateParentRefUI = (linkID: string, parentType: parentRefType) => {
+    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {
         // update link line type and color based on reference type
         let linkUI = this.graphics.getLinkUI(linkID)
-        console.log(linkUI)
         if (!linkUI) {
             return
         }
+        // if type not provided look for refType data if not found use strong ref style
+        if (parentType === null) {
+            parentType = linkUI.refType || parentRefType.StrongRef
+        }
+
         switch (parentType) {
             case parentRefType.StrongRef: {
                 setUILink(linkUI, COLOR.LINK_STRONG, LINE_WIDTH.STRONG, LINE_TYPE.STRONG)
+                linkUI.refType = parentRefType.StrongRef
                 break;
             }
             case parentRefType.WeakRef: {
                 setUILink(linkUI, COLOR.LINK_WEAK, LINE_WIDTH.WEAK, LINE_TYPE.WEAK)
+                linkUI.refType = parentRefType.WeakRef
                 break;
             }
             case parentRefType.LikedRef: {
                 setUILink(linkUI, COLOR.LINK_LIKED, LINE_WIDTH.LIKED, LINE_TYPE.LIKED)
+                linkUI.refType = parentRefType.LikedRef
                 break;
             }
         }
@@ -325,7 +332,6 @@ export class TangleStore {
     selectMsg = (msgID: string) => {
         // clear pre-selected node first
         this.clearSelected();
-
         let msg = this.messages.get(msgID);
         if (!msg)  return;
 
@@ -345,7 +351,6 @@ export class TangleStore {
 
         this.selected_approvers_count = 0;
         this.selected_approvees_count = 0;
-
         this.clearHighlightedMsg(this.selectedMsg.ID, this.selected_origin_color);
         this.selectedMsg = null;
     }
@@ -370,8 +375,9 @@ export class TangleStore {
         // mutate links
         let node = this.graph.getNode(msgID);
         let nodeUI = this.graphics.getNodeUI(msgID);
-        let original_color = getUIColor(nodeUI)
-        setUIColor(nodeUI, COLOR.NODE_SELECTED)
+        let original_color = getUINodeColor(nodeUI);
+
+        setUINodeColor(nodeUI, COLOR.NODE_SELECTED)
         setUINodeSize(nodeUI, VERTEX.SIZE_SELECTED);
         setRectBorder(nodeUI, VERTEX.SELECTED_BORDER_WIDTH, COLOR.NODE_BORDER_SELECTED)
 
@@ -388,7 +394,7 @@ export class TangleStore {
             true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, COLOR.LINK_FUTURE_CONE)
+                setUILinkColor(linkUI, COLOR.LINK_FUTURE_CONE)
             },
             seenForward
         );
@@ -396,11 +402,10 @@ export class TangleStore {
                 this.selected_approvees_count++;
             }, false, link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, COLOR.LINK_PAST_CONE)
+                setUILinkColor(linkUI, COLOR.LINK_PAST_CONE)
             },
             seenBackwards
         );
-
         return original_color
     }
 
@@ -420,7 +425,7 @@ export class TangleStore {
         }
 
         let nodeUI = this.graphics.getNodeUI(msgID);
-        setUIColor(nodeUI, this.selected_origin_color)
+        setUINodeColor(nodeUI, this.selected_origin_color)
         setUINodeSize(nodeUI, VERTEX.SIZE_DEFAULT);
         resetRectBorder(nodeUI)
 
@@ -430,7 +435,7 @@ export class TangleStore {
             }, true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, COLOR.LINK_STRONG)
+                this.updateParentRefUI(linkUI)
             },
             seenBackwards
         );
@@ -438,7 +443,7 @@ export class TangleStore {
             }, false,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, COLOR.LINK_STRONG)
+                this.updateParentRefUI(linkUI)
             },
             seenForward
         );
@@ -458,8 +463,7 @@ export class TangleStore {
     resetLinks = () => {
         this.graph.forEachLink((link) => {
             const linkUI = this.graphics.getLinkUI(link.id);
-            // TODO update colors
-            linkUI.color = COLOR.LINK_STRONG
+            this.updateParentRefUI(linkUI)
         });
     }
 
@@ -472,7 +476,6 @@ export class TangleStore {
         let node = this.graph.getNode(nodeID)
         // replace existing node data
         if (node && msgData) {
-            console.log("replacing")
             this.graph.addNode(nodeID, msgData)
             this.updateNodeColorOnConfirmation(msgData);
         }
@@ -496,8 +499,7 @@ export class TangleStore {
         graphics.node((node) => {
             let ui = svgNodeBuilder(node.data);
             ui.on("click", () => {
-                this.clearSelected()
-                this.updateSelected(node.data)
+                this.selectMsg(node.id)
             });
 
             return ui
@@ -582,7 +584,7 @@ let svgNodeBuilder = function (node: tangleVertex): any {
     }
 
     let ui = Viva.Graph.svg("rect")
-    setUIColor(ui, color)
+    setUINodeColor(ui, color)
     setUINodeSize(ui, VERTEX.SIZE_DEFAULT)
     setCorners(ui, VERTEX.ROUNDED_CORNER)
 
@@ -623,11 +625,15 @@ function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) 
     }
 }
 
-function setUIColor(ui: any, color: any) {
+function setUINodeColor(ui: any, color: any) {
     ui.attr("fill", color);
 }
 
-function getUIColor(ui: any): string {
+function setUILinkColor(ui: any, color: any) {
+    ui.attr("stroke", color);
+}
+
+function getUINodeColor(ui: any): string {
     return ui.getAttribute("fill")
 }
 
