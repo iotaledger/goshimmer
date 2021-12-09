@@ -230,9 +230,9 @@ export class TangleStore {
     }
 
     centerEntireGraph = () => {
-        let graph = document.getElementById('tangleVisualizer');
-        let centerY = graph.offsetHeight / 2;
-        let centerX = graph.offsetWidth / 2;
+        let rect = this.layout.getGraphRect();
+        let centerY = (rect.y1 + rect.y2) / 2;
+        let centerX = (rect.x1 + rect.x2) / 2;
 
         this.renderer.moveTo(centerX, centerY);
       }
