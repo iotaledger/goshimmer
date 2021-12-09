@@ -1,6 +1,6 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from '../WS';
-import {default as Viva } from 'vivagraphjs';
+import {default as Viva} from 'vivagraphjs';
 import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from "../styles/tangleStyles";
 
 export class tangleVertex {
@@ -11,6 +11,7 @@ export class tangleVertex {
     branchID:        string;
 	isMarker:        boolean;
     isTx:            boolean;
+    txID:            string;
     isConfirmed:     boolean;
     gof:             string;
 	confirmedTime:   number;
@@ -53,14 +54,14 @@ export class TangleStore {
     @observable explorerAddress = "localhost:8081";
     msgOrder: Array<string> = [];
     lastMsgAddedBeforePause: string = "";
-    selected_via_click: boolean = false;
     selected_origin_color: string = "";
+    highligtedMsgs = new Map<string, string>();
     draw: boolean = true;
     vertexChanges = 0;
     graph;
     graphics;
-    renderer;
     layout;
+    renderer;
 
     constructor() {        
         makeObservable(this);
@@ -130,7 +131,6 @@ export class TangleStore {
         msg.isMarker = branch.isMarker;
 
         this.messages.set(msg.ID, msg);
-        // TODO: improve the updated information
         if (this.draw) {
             this.updateIfNotPaused(msg)
         }
@@ -194,14 +194,10 @@ export class TangleStore {
     }
 
     @action
-    searchAndHighlight = () => {
-        this.clearSelected(true);
+    searchAndSelect = () => {
         if (!this.search) return;
-
-        let msgNode = this.graph.getNode(this.search);
-        if (!msgNode) return;
-
-        this.updateSelected(msgNode.data, false);
+        
+        this.selectMsg(this.search);
     }
 
     updateExplorerAddress = (addr: string) => {
@@ -223,9 +219,9 @@ export class TangleStore {
     }
 
     centerEntireGraph = () => {
-        let graph = document.getElementById('tangleVisualizer');
-        let centerY = graph.offsetHeight / 2;
-        let centerX = graph.offsetWidth / 2;
+        let rect = this.layout.getGraphRect();
+        let centerY = (rect.y1 + rect.y2) / 2;
+        let centerX = (rect.x1 + rect.x2) / 2;
 
         this.renderer.moveTo(centerX, centerY);
       }
@@ -259,9 +255,7 @@ export class TangleStore {
                     }
                 })
             }
-
         }
-
         drawVertexParentReference(parentRefType.StrongRef, msg.strongParentIDs)
         drawVertexParentReference(parentRefType.WeakRef, msg.weakParentIDs)
         drawVertexParentReference(parentRefType.LikedRef, msg.likedParentIDs)
@@ -322,16 +316,61 @@ export class TangleStore {
     }
 
     @action
-    updateSelected = (vert: tangleVertex, viaClick?: boolean) => {
+    updateSelected = (vert: tangleVertex) => {
         if (!vert) return;
 
         this.selectedMsg = vert;
-        this.selected_via_click = !!viaClick;
+    }
 
+    selectMsg = (msgID: string) => {
+        // clear pre-selected node first
+        this.clearSelected();
+
+        let msg = this.messages.get(msgID);
+        if (!msg)  return;
+
+        this.updateSelected(msg);
+        this.selected_origin_color = this.highlightMsg(msg.ID);
+
+        // center the selected node.
+        var pos = this.layout.getNodePosition(msgID);
+        this.renderer.moveTo(pos.x, pos.y);
+    }
+
+    @action
+    clearSelected = () => {
+        if (!this.selectedMsg) {
+            return;
+        }
+
+        this.selected_approvers_count = 0;
+        this.selected_approvees_count = 0;
+
+        this.clearHighlightedMsg(this.selectedMsg.ID, this.selected_origin_color);
+        this.selectedMsg = null;
+    }
+
+    getTangleVertex = (msgID: string) => {
+        return this.messages.get(msgID);
+    }
+
+    highlightMsgs = (msgIDs: string[]) => {
+        this.highligtedMsgs.forEach((color, id) => {
+            this.clearHighlightedMsg(id, color);
+        })
+
+        // update highlighted msgs and its original color
+        msgIDs.forEach((id) => {
+            let original_color = this.highlightMsg(id);
+            this.highligtedMsgs.set(id, original_color);
+        })
+    }
+
+    highlightMsg = (msgID: string) => {
         // mutate links
-        let node = this.graph.getNode(vert.ID);
-        let nodeUI = this.graphics.getNodeUI(vert.ID);
-        this.selected_origin_color = getUIColor(nodeUI)
+        let node = this.graph.getNode(msgID);
+        let nodeUI = this.graphics.getNodeUI(msgID);
+        let original_color = getUIColor(nodeUI)
         setUIColor(nodeUI, COLOR.NODE_SELECTED)
         setUINodeSize(nodeUI, VERTEX.SIZE_SELECTED);
         setRectBorder(nodeUI, VERTEX.SELECTED_BORDER_WIDTH, COLOR.NODE_BORDER_SELECTED)
@@ -361,33 +400,26 @@ export class TangleStore {
             },
             seenBackwards
         );
+
+        return original_color
     }
 
-    resetLinks = () => {
-        this.graph.forEachLink((link) => {
-            const linkUI = this.graphics.getLinkUI(link.id);
-            setUIColor(linkUI, COLOR.LINK_STRONG)
-        });
+    clearHighlightedMsgs = () => {
+        this.highligtedMsgs.forEach((color: string, id) => {
+          this.clearHighlightedMsg(id, color);
+        })
     }
 
-    @action
-    clearSelected = (force_clear?: boolean) => {
-        if (!this.selectedMsg || (this.selected_via_click && !force_clear)) {
-            return;
-        }
-
-        this.selected_approvers_count = 0;
-        this.selected_approvees_count = 0;
-
+    clearHighlightedMsg = (msgID: string, originalColor: string) => {
         // clear link highlight
-        let node = this.graph.getNode(this.selectedMsg.ID);
+        let node = this.graph.getNode(msgID);
         if (!node) {
             // clear links
             this.resetLinks();
             return;
         }
 
-        let nodeUI = this.graphics.getNodeUI(this.selectedMsg.ID);
+        let nodeUI = this.graphics.getNodeUI(msgID);
         setUIColor(nodeUI, this.selected_origin_color)
         setUINodeSize(nodeUI, VERTEX.SIZE_DEFAULT);
         resetRectBorder(nodeUI)
@@ -410,9 +442,25 @@ export class TangleStore {
             },
             seenForward
         );
+    }
 
-        this.selectedMsg = null;
-        this.selected_via_click = false;
+    getMsgsFromBranch = (branchID: string) => {
+        let msgs = [];
+        this.messages.forEach((msg: tangleVertex) => {
+            if (msg.branchID === branchID) {
+                msgs.push(msg.ID);
+            }
+        })
+
+        return msgs;
+    }
+
+    resetLinks = () => {
+        this.graph.forEachLink((link) => {
+            const linkUI = this.graphics.getLinkUI(link.id);
+            // TODO update colors
+            linkUI.color = COLOR.LINK_STRONG
+        });
     }
 
     svgUpdateNodePos(nodeUI, pos) {
@@ -448,8 +496,8 @@ export class TangleStore {
         graphics.node((node) => {
             let ui = svgNodeBuilder(node.data);
             ui.on("click", () => {
-                this.clearSelected(true)
-                this.updateSelected(node.data, true)
+                this.clearSelected()
+                this.updateSelected(node.data)
             });
 
             return ui

@@ -26,6 +26,53 @@ export class GlobalStore {
         this.branchStore = branchStore;
     }
 
+    syncWithMsg = () => {
+        let msg = this.tangleStore.selectedMsg;
+        if (!msg) return;
+
+        if (msg.isTx) {
+            this.utxoStore.selectTx(msg.txID);
+        }
+        this.branchStore.selectBranch(msg.branchID);
+    }
+
+    syncWithTx = () => {
+        let tx = this.utxoStore.selectedTx;
+        if (!tx) return;
+
+        let msg = this.tangleStore.getTangleVertex(tx.msgID);
+        if (msg) {
+            this.tangleStore.selectMsg(tx.msgID);        
+        }
+
+        let branch = this.branchStore.getBranchVertex(tx.branchID);
+        if (branch) {
+            this.branchStore.selectBranch(tx.branchID);
+        }
+    }
+
+    syncWithBranch = () => {
+        let branch = this.branchStore.selectedBranch;
+        if (!branch) return;
+
+        // iterate messages to highlight all messages lies in that branch
+        let msgs = this.tangleStore.getMsgsFromBranch(branch.ID);
+        this.tangleStore.clearSelected();
+        this.tangleStore.highlightMsgs(msgs);
+
+        let txs = this.utxoStore.getTxsFromBranch(branch.ID);
+        this.utxoStore.clearSelected(true);
+        this.utxoStore.highlightTxs(txs);
+    }
+
+    clearSync = () => {
+        this.tangleStore.clearSelected();
+        this.tangleStore.clearHighlightedMsgs();
+        this.utxoStore.clearSelected(true);
+        this.utxoStore.clearHighlightedTxs();
+        this.branchStore.clearSelected(true);
+    }
+
     @action
     updateExplorerAddress = (addr: string) => {
         this.tangleStore.updateExplorerAddress(addr);
