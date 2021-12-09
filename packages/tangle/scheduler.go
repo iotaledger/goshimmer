@@ -22,8 +22,6 @@ const (
 	// MinMana is the minimum amount of Mana needed to issue messages.
 	// MaxMessageSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
 	MinMana float64 = 1.0
-	// oldMessageThreshold defines the threshold at which consider the message too old to be scheduled.
-	oldMessageThreshold = 5 * time.Minute
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
@@ -178,6 +176,13 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 	return nodeQueueSizes
 }
 
+// MaxBufferSize returns the max size of the buffer.
+func (s *Scheduler) MaxBufferSize() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buffer.MaxSize()
+}
+
 // BufferSize returns the size of the buffer.
 func (s *Scheduler) BufferSize() int {
 	s.mu.Lock()
@@ -197,6 +202,11 @@ func (s *Scheduler) TotalMessagesCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.buffer.TotalMessagesCount()
+}
+
+// AccessManaCache returns the object which caches access mana values.
+func (s *Scheduler) AccessManaCache() *schedulerutils.AccessManaCache {
+	return s.accessManaCache
 }
 
 // Submit submits a message to be considered by the scheduler.
