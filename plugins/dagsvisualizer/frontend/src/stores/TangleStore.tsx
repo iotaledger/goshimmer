@@ -332,11 +332,11 @@ export class TangleStore {
     selectMsg = (msgID: string) => {
         // clear pre-selected node first
         this.clearSelected();
-        let msg = this.messages.get(msgID);
-        if (!msg)  return;
+        let vertex = this.graph.getNode(msgID)
+        if (!vertex) return;
 
-        this.updateSelected(msg);
-        this.selected_origin_color = this.highlightMsg(msg.ID);
+        this.updateSelected(vertex.data);
+        this.selected_origin_color = this.highlightMsg(vertex.data.ID);
 
         // center the selected node.
         var pos = this.layout.getNodePosition(msgID);
@@ -375,6 +375,10 @@ export class TangleStore {
         // mutate links
         let node = this.graph.getNode(msgID);
         let nodeUI = this.graphics.getNodeUI(msgID);
+        if (!nodeUI) {
+            // Message not rendered, so it will not be highlighted
+            return
+        }
         let original_color = getUINodeColor(nodeUI);
 
         setUINodeColor(nodeUI, COLOR.NODE_SELECTED)
