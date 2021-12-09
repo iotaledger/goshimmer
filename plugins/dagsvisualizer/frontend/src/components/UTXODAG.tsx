@@ -45,9 +45,9 @@ export class UTXODAG extends React.Component<Props, any> {
         this.props.utxoStore.updateSearch(e.target.value);
     }
 
-    searchAndHighlight = (e: any) => {
+    searchAndSelect = (e: any) => {
         if (e.key !== 'Enter') return;
-        this.props.utxoStore.searchAndHighlight();
+        this.props.utxoStore.searchAndSelect();
     }
 
     centerGraph = () => {
@@ -108,7 +108,7 @@ export class UTXODAG extends React.Component<Props, any> {
                                     <FormControl
                                         placeholder="search"
                                         type="text" value={search} onChange={this.updateSearch}
-                                        aria-label="vertices-search" onKeyUp={this.searchAndHighlight}
+                                        aria-label="vertices-search" onKeyUp={this.searchAndSelect}
                                         aria-describedby="vertices-search"
                                     />
                                 </InputGroup>

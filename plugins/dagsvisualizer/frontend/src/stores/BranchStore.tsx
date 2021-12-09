@@ -9,7 +9,7 @@ export class branchVertex {
 	ID:        string;
     type:      string;
 	parents:   Array<string>;
-	confirmed: boolean;
+	isConfirmed: boolean;
     conflicts: conflictBranches;
     gof:       string;
     aw:        number;
@@ -117,8 +117,8 @@ export class BranchStore {
         if (!b) {
             return;
         }
-
-        b.confirmed = true;
+        
+        b.isConfirmed = true;
         this.branches.set(confirmedBranch.ID, b);
     }
 
@@ -173,15 +173,25 @@ export class BranchStore {
     @action
     searchAndHighlight = () => {
         if (!this.search) return;
+        
+        this.selectBranch(this.search);
+    }
 
+    getBranchVertex = (branchID: string) => {
+        return this.branches.get(branchID);
+    }
+
+    selectBranch = (branchID: string) => {
+        // clear pre-selected branch.
         this.clearSelected(true);
-
-        let branchNode = this.cy.getElementById(this.search);
+        
+        let branchNode = this.cy.getElementById(branchID);
         if (!branchNode) return;
         // select the node manually
         branchNode.select();
+        this.cy.center(branchNode);
 
-        this.updateSelected(this.search);
+        this.updateSelected(branchID);
     }
 
     updateExplorerAddress = (addr: string) => {
@@ -309,7 +319,7 @@ export class BranchStore {
             ID:             '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
             type:           'ConflictBranchType',
 	        parents:        [],
-	        confirmed:      true,
+	        isConfirmed:    true,
             conflicts:      null,
             gof:            "GoF(High)",
             aw:             0,

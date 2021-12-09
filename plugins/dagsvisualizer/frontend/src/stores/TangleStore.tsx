@@ -11,6 +11,7 @@ export class tangleVertex {
     branchID:        string;
 	isMarker:        boolean;
     isTx:            boolean;
+    txID:            string;
     isConfirmed:     boolean;
     gof:             string;
 	confirmedTime:   number;
@@ -53,14 +54,14 @@ export class TangleStore {
     @observable explorerAddress = "http://localhost:8081";
     msgOrder: Array<string> = [];
     lastMsgAddedBeforePause: string = "";
-    selected_via_click: boolean = false;
     selected_origin_color: string = "";
+    highligtedMsgs = new Map<string, string>();
     draw: boolean = true;
     vertexChanges = 0;
     graph;
     graphics;
-    renderer;
     layout;
+    renderer;
 
     constructor() {        
         makeObservable(this);
@@ -130,7 +131,6 @@ export class TangleStore {
         msg.isMarker = branch.isMarker;
 
         this.messages.set(msg.ID, msg);
-        // TODO: improve the updated information
         if (this.draw) {
             this.updateIfNotPaused(msg)
         }
@@ -194,14 +194,10 @@ export class TangleStore {
     }
 
     @action
-    searchAndHighlight = () => {
-        this.clearSelected(true);
+    searchAndSelect = () => {
         if (!this.search) return;
 
-        let msgNode = this.graph.getNode(this.search);
-        if (!msgNode) return;
-
-        this.updateSelected(msgNode.data, false);
+        this.selectMsg(this.search);
     }
 
     updateExplorerAddress = (addr: string) => {
@@ -223,9 +219,9 @@ export class TangleStore {
     }
 
     centerEntireGraph = () => {
-        let graph = document.getElementById('tangleVisualizer');
-        let centerY = graph.offsetHeight / 2;
-        let centerX = graph.offsetWidth / 2;
+        let rect = this.layout.getGraphRect();
+        let centerY = (rect.y1 + rect.y2) / 2;
+        let centerX = (rect.x1 + rect.x2) / 2;
 
         this.renderer.moveTo(centerX, centerY);
       }
@@ -259,9 +255,7 @@ export class TangleStore {
                     }
                 })
             }
-
         }
-
         drawVertexParentReference(parentRefType.StrongRef, msg.strongParentIDs)
         drawVertexParentReference(parentRefType.WeakRef, msg.weakParentIDs)
         drawVertexParentReference(parentRefType.LikedRef, msg.likedParentIDs)
@@ -285,26 +279,34 @@ export class TangleStore {
             color = COLOR.NODE_UNKNOWN;
         }
 
-        setUIColor(nodeUI, color)
+        setUINodeColor(nodeUI, color)
     }
 
-    updateParentRefUI = (linkID: string, parentType: parentRefType) => {
+    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {
         // update link line type and color based on reference type
         let linkUI = this.graphics.getLinkUI(linkID)
         if (!linkUI) {
             return
         }
+        // if type not provided look for refType data if not found use strong ref style
+        if (parentType === null) {
+            parentType = linkUI.refType || parentRefType.StrongRef
+        }
+
         switch (parentType) {
             case parentRefType.StrongRef: {
                 setUILink(linkUI, COLOR.LINK_STRONG, LINE_WIDTH.STRONG, LINE_TYPE.STRONG)
+                linkUI.refType = parentRefType.StrongRef
                 break;
             }
             case parentRefType.WeakRef: {
                 setUILink(linkUI, COLOR.LINK_WEAK, LINE_WIDTH.WEAK, LINE_TYPE.WEAK)
+                linkUI.refType = parentRefType.WeakRef
                 break;
             }
             case parentRefType.LikedRef: {
                 setUILink(linkUI, COLOR.LINK_LIKED, LINE_WIDTH.LIKED, LINE_TYPE.LIKED)
+                linkUI.refType = parentRefType.LikedRef
                 break;
             }
         }
@@ -324,27 +326,75 @@ export class TangleStore {
     tangleOnClick = (event: any) => {
         // message is currently selected
         if (event.target.tagName === "rect") {
-            this.clearSelected(true)
-            this.updateSelected(event.target.node.data, true)
+            this.clearSelected()
+            this.updateSelected(event.target.node.data)
         } else {
             if (this.selectedMsg !== null) {
-                this.clearSelected(true)
+                this.clearSelected()
             }
         }
     }
 
     @action
-    updateSelected = (vert: tangleVertex, viaClick?: boolean) => {
+    updateSelected = (vert: tangleVertex) => {
         if (!vert) return;
 
         this.selectedMsg = vert;
-        this.selected_via_click = !!viaClick;
+    }
 
+    selectMsg = (msgID: string) => {
+        // clear pre-selected node first
+        this.clearSelected();
+        let vertex = this.graph.getNode(msgID)
+        if (!vertex) return;
+
+        this.updateSelected(vertex.data);
+        this.selected_origin_color = this.highlightMsg(vertex.data.ID);
+
+        // center the selected node.
+        var pos = this.layout.getNodePosition(msgID);
+        this.renderer.moveTo(pos.x, pos.y);
+    }
+
+    @action
+    clearSelected = () => {
+        if (!this.selectedMsg) {
+            return;
+        }
+
+        this.selected_approvers_count = 0;
+        this.selected_approvees_count = 0;
+        this.clearHighlightedMsg(this.selectedMsg.ID, this.selected_origin_color);
+        this.selectedMsg = null;
+    }
+
+    getTangleVertex = (msgID: string) => {
+        return this.messages.get(msgID);
+    }
+
+    highlightMsgs = (msgIDs: string[]) => {
+        this.highligtedMsgs.forEach((color, id) => {
+            this.clearHighlightedMsg(id, color);
+        })
+
+        // update highlighted msgs and its original color
+        msgIDs.forEach((id) => {
+            let original_color = this.highlightMsg(id);
+            this.highligtedMsgs.set(id, original_color);
+        })
+    }
+
+    highlightMsg = (msgID: string) => {
         // mutate links
-        let node = this.graph.getNode(vert.ID);
-        let nodeUI = this.graphics.getNodeUI(vert.ID);
-        this.selected_origin_color = getUIColor(nodeUI)
-        setUIColor(nodeUI, COLOR.NODE_SELECTED)
+        let node = this.graph.getNode(msgID);
+        let nodeUI = this.graphics.getNodeUI(msgID);
+        if (!nodeUI) {
+            // Message not rendered, so it will not be highlighted
+            return
+        }
+        let original_color = getUINodeColor(nodeUI);
+
+        setUINodeColor(nodeUI, COLOR.NODE_SELECTED)
         setUINodeSize(nodeUI, VERTEX.SIZE_SELECTED);
         setRectBorder(nodeUI, VERTEX.SELECTED_BORDER_WIDTH, COLOR.NODE_BORDER_SELECTED)
 
@@ -361,7 +411,7 @@ export class TangleStore {
             true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, COLOR.LINK_FUTURE_CONE)
+                setUILinkColor(linkUI, COLOR.LINK_FUTURE_CONE)
             },
             seenForward
         );
@@ -369,38 +419,30 @@ export class TangleStore {
                 this.selected_approvees_count++;
             }, false, link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, COLOR.LINK_PAST_CONE)
+                setUILinkColor(linkUI, COLOR.LINK_PAST_CONE)
             },
             seenBackwards
         );
+        return original_color
     }
 
-    resetLinks = () => {
-        this.graph.forEachLink((link) => {
-            const linkUI = this.graphics.getLinkUI(link.id);
-            setUIColor(linkUI, COLOR.LINK_STRONG)
-        });
+    clearHighlightedMsgs = () => {
+        this.highligtedMsgs.forEach((color: string, id) => {
+          this.clearHighlightedMsg(id, color);
+        })
     }
 
-    @action
-    clearSelected = (force_clear?: boolean) => {
-        if (!this.selectedMsg || (this.selected_via_click && !force_clear)) {
-            return;
-        }
-
-        this.selected_approvers_count = 0;
-        this.selected_approvees_count = 0;
-
+    clearHighlightedMsg = (msgID: string, originalColor: string) => {
         // clear link highlight
-        let node = this.graph.getNode(this.selectedMsg.ID);
+        let node = this.graph.getNode(msgID);
         if (!node) {
             // clear links
             this.resetLinks();
             return;
         }
 
-        let nodeUI = this.graphics.getNodeUI(this.selectedMsg.ID);
-        setUIColor(nodeUI, this.selected_origin_color)
+        let nodeUI = this.graphics.getNodeUI(msgID);
+        setUINodeColor(nodeUI, this.selected_origin_color)
         setUINodeSize(nodeUI, VERTEX.SIZE_DEFAULT);
         resetRectBorder(nodeUI)
 
@@ -410,7 +452,7 @@ export class TangleStore {
             }, true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, COLOR.LINK_STRONG)
+                this.updateParentRefUI(linkUI)
             },
             seenBackwards
         );
@@ -418,13 +460,28 @@ export class TangleStore {
             }, false,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                setUIColor(linkUI, COLOR.LINK_STRONG)
+                this.updateParentRefUI(linkUI)
             },
             seenForward
         );
+    }
 
-        this.selectedMsg = null;
-        this.selected_via_click = false;
+    getMsgsFromBranch = (branchID: string) => {
+        let msgs = [];
+        this.messages.forEach((msg: tangleVertex) => {
+            if (msg.branchID === branchID) {
+                msgs.push(msg.ID);
+            }
+        })
+
+        return msgs;
+    }
+
+    resetLinks = () => {
+        this.graph.forEachLink((link) => {
+            const linkUI = this.graphics.getLinkUI(link.id);
+            this.updateParentRefUI(linkUI)
+        });
     }
 
     svgUpdateNodePos(nodeUI, pos) {
@@ -553,7 +610,7 @@ let svgNodeBuilder = function (node: tangleVertex): any {
     }
 
     let ui = Viva.Graph.svg("rect")
-    setUIColor(ui, color)
+    setUINodeColor(ui, color)
     setUINodeSize(ui, VERTEX.SIZE_DEFAULT)
     setCorners(ui, VERTEX.ROUNDED_CORNER)
 
@@ -600,11 +657,15 @@ function maximizeSvgWindow() {
     svgEl.setAttribute("height", "100%")
 }
 
-function setUIColor(ui: any, color: any) {
+function setUINodeColor(ui: any, color: any) {
     ui.attr("fill", color);
 }
 
-function getUIColor(ui: any): string {
+function setUILinkColor(ui: any, color: any) {
+    ui.attr("stroke", color);
+}
+
+function getUINodeColor(ui: any): string {
     return ui.getAttribute("fill")
 }
 
