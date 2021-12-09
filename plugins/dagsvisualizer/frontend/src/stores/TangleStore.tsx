@@ -11,8 +11,9 @@ export class tangleVertex {
     branchID:        string;
 	isMarker:        boolean;
     isTx:            boolean;
-    txID:            string;
-    isConfirmed:     boolean;
+    txID: string;
+    isTip: boolean;
+    isConfirmed: boolean;
     gof:             string;
 	confirmedTime:   number;
     futureMarkers:   Array<string>;
@@ -98,6 +99,7 @@ export class TangleStore {
             let removed = this.msgOrder.shift();
             this.removeMessage(removed);
         }
+        msg.isTip = true
 
         this.msgOrder.push(msg.ID);
         msg.futureMarkers = [];
@@ -238,12 +240,19 @@ export class TangleStore {
             node = existing
         } else {
             node = this.graph.addNode(msg.ID, msg);
-            this.updateNodeColorOnConfirmation(msg);
+            this.updateNodeColor(msg);
         }
 
         let drawVertexParentReference = (parentType: parentRefType, parentIDs: Array<string>) => {
             if (parentIDs) {
                 parentIDs.forEach((value) => {
+                    // remove tip status
+                    let parent = this.messages.get(value)
+                    if (parent) {
+                        parent.isTip = false
+                        this.updateNodeColor(parent)
+                    }
+
                     // if value is valid AND (links is empty OR there is no between parent and children)
                     if (value && ((!node.links || !node.links.some(link => link.fromId === value)))) {
                         // draw the link only when the parent exists
@@ -262,21 +271,15 @@ export class TangleStore {
     }
 
     // only update color when finalized
-    updateNodeColorOnConfirmation = (msg: tangleVertex) => {
+    updateNodeColor = (msg: tangleVertex) => {
         let nodeUI = this.graphics.getNodeUI(msg.ID);
-        let color = "";
-        if (!msg.isConfirmed) {
-            return
-        }
+        if (!nodeUI) return;
+        if (msg.isTip) return;
 
-        if (msg.isTx) {
-            color = COLOR.TRANSACTION_CONFIRMED;
-        } else {
-            color = COLOR.MESSAGE_CONFIRMED;
-        }
-
-        if (!nodeUI || !msg || msg.gof === "GoF(None)") {
-            color = COLOR.NODE_UNKNOWN;
+        let color = ""
+        color = msg.isTx ? COLOR.TRANSACTION_PENDING : COLOR.MESSAGE_PENDING
+        if (msg.isConfirmed) {
+            color = msg.isTx ? COLOR.TRANSACTION_CONFIRMED : COLOR.MESSAGE_CONFIRMED
         }
 
         setUINodeColor(nodeUI, color)
@@ -503,7 +506,7 @@ export class TangleStore {
         // replace existing node data
         if (node && msgData) {
             this.graph.addNode(nodeID, msgData)
-            this.updateNodeColorOnConfirmation(msgData);
+            this.updateNodeColor(msgData);
         }
     }
 
@@ -596,7 +599,7 @@ export class TangleStore {
         })
 
         for (let msgId in this.messages) {
-            let exist = this.graph.getNode(msgId)
+            let exist = this.graphics.getNodeUI(msgId)
             if (!exist) {
                 this.drawVertex(this.messages.get(msgId))
             }
@@ -611,15 +614,8 @@ export class TangleStore {
 }
 
 let svgNodeBuilder = function (node: tangleVertex): any {
-    let color = ""
-    if (node.isTx) {
-        color = COLOR.TRANSACTION_PENDING
-    } else {
-        color = COLOR.MESSAGE_PENDING
-    }
-
     let ui = Viva.Graph.svg("rect")
-    setUINodeColor(ui, color)
+    setUINodeColor(ui, COLOR.TIP)
     setUINodeSize(ui, VERTEX.SIZE_DEFAULT)
     setCorners(ui, VERTEX.ROUNDED_CORNER)
 
