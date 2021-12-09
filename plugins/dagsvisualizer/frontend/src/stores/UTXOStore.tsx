@@ -11,6 +11,7 @@ export class utxoVertex {
 	ID:             string;
 	inputs:         Array<input>;
   outputs:        Array<string>;
+  branchID:       string;
   isConfirmed:    boolean;
 	gof:            string;
 	confirmedTime:  number;
@@ -20,6 +21,12 @@ export class input {
     type:               string;
     referencedOutputID: any;
 }
+
+export class utxoBooked {
+  ID:       string;
+  branchID: string;
+}
+
 export class utxoConfirmed {
     ID:            string;
     gof:           string;
@@ -36,6 +43,7 @@ export class UTXOStore {
     @observable explorerAddress = "localhost:8081";
     outputMap = new Map();
     txOrder: Array<any> = [];
+    highligtedTxs = [];
     draw: boolean = true;
 
     vertexChanges = 0;
@@ -50,6 +58,7 @@ export class UTXOStore {
     constructor() { 
         makeObservable(this);       
         registerHandler(WSMsgType.Transaction, this.addTransaction);
+        registerHandler(WSMsgType.TransactionBooked, this.setTxBranch);
         registerHandler(WSMsgType.TransactionConfirmed, this.setTXConfirmedTime);
 
         cytoscape.use(dagre);
@@ -80,6 +89,7 @@ export class UTXOStore {
         }
 
         this.txOrder.push(tx.ID);
+        tx.branchID = "";
         this.transactions.set(tx.ID, tx);
         tx.outputs.forEach((outputID) => {
           this.outputMap.set(outputID, {});
@@ -92,6 +102,17 @@ export class UTXOStore {
         if(this.draw) {
           this.drawVertex(tx);
         }
+    }
+
+    @action
+    setTxBranch = (bookedTx: utxoBooked) => {
+      let tx = this.transactions.get(bookedTx.ID);
+      if (!tx) {
+          return;
+      }
+
+      tx.branchID = bookedTx.branchID;
+      this.transactions.set(bookedTx.ID, tx);
     }
 
     @action
@@ -145,18 +166,68 @@ export class UTXOStore {
     }
 
     @action
-    searchAndHighlight = () => {
-        if (!this.search) return;
-
-        this.clearSelected(true);
+    searchAndSelect = () => {
+      if (!this.search) return;
         
-        let txNode = this.cy.getElementById(this.search);
-        if (!txNode) return;
-        // select the node manually
-        txNode.select();
-        
-        this.updateSelected(this.search);
+      this.selectTx(this.search);
     }
+
+    selectTx = (txID: string) => {
+      // clear pre-selected node first.
+      this.clearSelected(true);
+       
+      this.highlightTx(txID);
+      this.centerTx(txID);
+      
+      this.updateSelected(this.search);
+    }
+
+    highlightTxs = (txIDs: string[]) => {
+      this.highligtedTxs.forEach((id) => {
+          this.clearHighlightedTx(id);
+      })
+
+      // update highlighted msgs
+      this.highligtedTxs = txIDs;
+      txIDs.forEach((id) => {
+          this.highlightTx(id);
+      })
+    }
+
+    highlightTx = (txID: string) => {
+      let txNode = this.cy.getElementById(txID);
+      if (!txNode) return;
+      txNode.select();
+    }
+
+    centerTx = (txID: string) => {
+      let txNode = this.cy.getElementById(txID);
+      if (!txNode) return;
+      this.cy.center(txNode);
+    }
+
+    clearHighlightedTx = (txID: string) => {
+      let txNode = this.cy.getElementById(txID);
+      if (!txNode) return;
+      txNode.unselect();
+    }
+
+    clearHighlightedTxs = () => {
+      this.highligtedTxs.forEach((id) => {
+        this.clearHighlightedTx(id);
+      })
+    }
+
+    getTxsFromBranch = (branchID: string) => {
+      let txs = [];
+      this.transactions.forEach((tx: utxoVertex) => {
+          if (tx.branchID === branchID) {
+              txs.push(tx.ID);
+          }
+      })
+
+      return txs;
+  }
 
     updateExplorerAddress = (addr: string) => {
       this.explorerAddress = addr;
@@ -183,7 +254,7 @@ export class UTXOStore {
       this.transactions.forEach((tx) => {
           this.drawVertex(tx);
       })
-  }
+    }
 
     updateDrawStatus = (draw: boolean) => {
       this.draw = draw;
