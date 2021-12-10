@@ -35,3 +35,11 @@ html, body, #root {
     z-index: 1;
     overflow: scroll;
 }
+
+.link {
+    position: absolute;
+}
+
+.node {
+    position: absolute;
+}
