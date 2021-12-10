@@ -240,7 +240,7 @@ export class TangleStore {
             node = existing
         } else {
             node = this.graph.addNode(msg.ID, msg);
-            this.updateNodeColor(msg);
+            this.updateNodeColorOnConfirmation(msg);
         }
 
         let drawVertexParentReference = (parentType: parentRefType, parentIDs: Array<string>) => {
@@ -250,7 +250,7 @@ export class TangleStore {
                     let parent = this.messages.get(value)
                     if (parent) {
                         parent.isTip = false
-                        this.updateNodeColor(parent)
+                        this.updateNodeColorOnConfirmation(parent)
                     }
 
                     // if value is valid AND (links is empty OR there is no between parent and children)
@@ -271,7 +271,7 @@ export class TangleStore {
     }
 
     // only update color when finalized
-    updateNodeColor = (msg: tangleVertex) => {
+    updateNodeColorOnConfirmation = (msg: tangleVertex) => {
         let nodeUI = this.graphics.getNodeUI(msg.ID);
         if (!nodeUI) return;
         if (msg.isTip) return;
@@ -506,7 +506,7 @@ export class TangleStore {
         // replace existing node data
         if (node && msgData) {
             this.graph.addNode(nodeID, msgData)
-            this.updateNodeColor(msgData);
+            this.updateNodeColorOnConfirmation(msgData);
         }
     }
 
