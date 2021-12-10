@@ -14,10 +14,10 @@ interface Props {
 @observer
 export class MessageInfo extends React.Component<Props, any> {
     render () {
-        let { selectedMsg, selected_via_click,explorerAddress } = this.props.tangleStore;
+        let { selectedMsg, explorerAddress } = this.props.tangleStore;
 
         return (
-            selectedMsg && selected_via_click &&
+            selectedMsg &&
                 <div className="selectedInfo">
                     <Card style={{ width: '100%' }}>
                         <Card.Body>
@@ -45,6 +45,9 @@ export class MessageInfo extends React.Component<Props, any> {
                                         {selectedMsg.likedParentIDs.map((p,i) => <ListGroup.Item key={i}><a href={`${explorerAddress}/explorer/message/${p}`} target="_blank" rel="noopener noreferrer">{p}</a></ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
+                                { selectedMsg.isTx && 
+                                    <ListGroup.Item>Transaction: <a href={`${explorerAddress}/explorer/transaction/${selectedMsg.txID}`} target="_blank" rel="noopener noreferrer">{selectedMsg.txID}</a></ListGroup.Item>
+                                }
                                 <ListGroup.Item>Branch: <a href={`${explorerAddress}/explorer/branch/${selectedMsg.branchID}`} target="_blank" rel="noopener noreferrer">{resolveBase58BranchID(selectedMsg.branchID)}</a></ListGroup.Item>
                                 <ListGroup.Item>isMarker: {selectedMsg.isMarker.toString()}</ListGroup.Item>
                                 <ListGroup.Item>GoF: {selectedMsg.gof}</ListGroup.Item>

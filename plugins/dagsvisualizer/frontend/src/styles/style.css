@@ -40,3 +40,11 @@ html, body, #root {
 .form-control {
     max-width: 500px;
 }
+
+.link {
+    position: absolute;
+}
+
+.node {
+    position: absolute;
+}
