@@ -63,7 +63,7 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
-	normalizedParentBranchIDs, _, err := b.normalizeBranches(parentBranchIDs)
+	normalizedParentBranchIDs, _, err := b.NormalizeBranches(parentBranchIDs)
 	if err != nil {
 		return nil, false, errors.Errorf("failed to normalize parent Branches: %w", err)
 	}
@@ -138,7 +138,7 @@ func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newPa
 		return
 	}
 
-	newParentBranchIDs, _, err = b.normalizeBranches(newParentBranchIDs)
+	newParentBranchIDs, _, err = b.NormalizeBranches(newParentBranchIDs)
 	if err != nil {
 		err = errors.Errorf("failed to normalize new parent BranchIDs: %w", err)
 		return
@@ -205,13 +205,35 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 	return conflictBranchIDs, err
 }
 
+func (b *BranchDAG) ConflictingBranches(branchIDs BranchIDs) (err error) {
+	conflictBranchIDs, err := b.ResolveConflictBranchIDs(branchIDs)
+	if err != nil {
+		return errors.Errorf("failed to resolve ConflictBranchIDs belonging to %s: %w", branchIDs, err)
+	}
+
+	parentWalker := walker.New()
+	for conflictBranchID := range conflictBranchIDs {
+		parentWalker.Push(conflictBranchID)
+	}
+
+	for parentWalker.HasNext() {
+		b.Branch(parentWalker.Next().(BranchID)).ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
+			if conflictBranch.InclusionState() == Rejected {
+
+			}
+		})
+	}
+
+	return nil
+}
+
 // AggregateBranches retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically creates
 // the AggregatedBranch if it didn't exist, yet.
 func (b *BranchDAG) AggregateBranches(branchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
-	normalizedBranchIDs, _, err := b.normalizeBranches(branchIDs)
+	normalizedBranchIDs, _, err := b.NormalizeBranches(branchIDs)
 	if err != nil {
 		err = errors.Errorf("failed to normalize Branches: %w", err)
 		return
@@ -477,10 +499,10 @@ func (b *BranchDAG) init() {
 	}
 }
 
-// normalizeBranches is an internal utility function that takes a list of BranchIDs and returns the BranchIDS of the
+// NormalizeBranches is an internal utility function that takes a list of BranchIDs and returns the BranchIDS of the
 // most special ConflictBranches that the given BranchIDs represent. It returns an error if the Branches are conflicting
 // or any other unforeseen error occurred.
-func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (branches BranchIDs, lazyBooked bool, err error) {
+func (b *BranchDAG) NormalizeBranches(branchIDs BranchIDs) (branches BranchIDs, lazyBooked bool, err error) {
 	switch typeCastedResult := b.normalizedBranchCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
 		// retrieve conflict branches and abort if we faced an error
 		conflictBranches, conflictBranchesErr := b.ResolveConflictBranchIDs(branchIDs)

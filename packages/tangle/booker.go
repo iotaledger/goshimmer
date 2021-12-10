@@ -281,13 +281,24 @@ func (b *Booker) normalizeExtended(strongBranchIDs, likedBranchIDs ledgerstate.B
 	candidates = b.subtractConflictingFutureCone(candidates, resolvedLikedBranchIDs)
 	candidates.AddAll(resolvedLikedBranchIDs)
 
-	rawDiff := candidates.Subtract(resolvedStrongBranchIDs)
-
-	inheritedAggregatedBranch, err := b.tangle.LedgerState.InheritBranch(candidates)
+	normalizedCandidates, _, err := b.tangle.LedgerState.NormalizeBranches(candidates)
 	if err != nil {
 		panic(err)
 	}
 
+	rawDiff := normalizedCandidates.Subtract(resolvedStrongBranchIDs.AddAll(resolvedLikedBranchIDs))
+
+	resultingBranchID, err = b.tangle.LedgerState.InheritBranch(candidates)
+	if err != nil {
+		panic(err)
+	}
+
+	diff, err = b.tangle.LedgerState.InheritBranch(rawDiff)
+	if err != nil {
+		panic(err)
+	}
+
+	return
 }
 
 func (b *Booker) subtractConflictingFutureCone(branchIDs ledgerstate.BranchIDs, futureCone ledgerstate.BranchIDs) (result ledgerstate.BranchIDs) {

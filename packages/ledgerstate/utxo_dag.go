@@ -249,7 +249,7 @@ func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.
 		return gof.High, nil
 	}
 
-	normalizedBranches, _, err := u.ledgerstate.normalizeBranches(NewBranchIDs(branchID))
+	normalizedBranches, _, err := u.ledgerstate.NormalizeBranches(NewBranchIDs(branchID))
 	if err != nil {
 		return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
 	}
@@ -592,7 +592,7 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (branc
 		}
 	}
 
-	normalizedBranchIDs, _, err = u.ledgerstate.normalizeBranches(NewBranchIDs(consumedBranches...))
+	normalizedBranchIDs, _, err = u.ledgerstate.NormalizeBranches(NewBranchIDs(consumedBranches...))
 	if err != nil {
 		if errors.Is(err, ErrInvalidStateTransition) {
 			branchesOfInputsConflicting = true
