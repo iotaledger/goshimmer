@@ -11,9 +11,9 @@ export class tangleVertex {
     branchID:        string;
 	isMarker:        boolean;
     isTx:            boolean;
-    txID: string;
-    isTip: boolean;
-    isConfirmed: boolean;
+    txID:            string;
+    isTip:           boolean;
+    isConfirmed:     boolean;
     gof:             string;
 	confirmedTime:   number;
     futureMarkers:   Array<string>;
