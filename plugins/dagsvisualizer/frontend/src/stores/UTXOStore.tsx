@@ -337,7 +337,7 @@ export class UTXOStore {
             if (i > 0) {
               collection = collection.union(this.cy.add({
                   group: "edges",
-                  data: { source: outputIDs[i], target: outputID },
+                  data: { source: outputIDs[i-1], target: outputID },
                   classes: 'invisible'
                 }));
             }
