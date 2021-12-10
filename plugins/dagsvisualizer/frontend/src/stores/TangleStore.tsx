@@ -285,15 +285,15 @@ export class TangleStore {
         setUINodeColor(nodeUI, color)
     }
 
-    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {
+    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {        
         // update link line type and color based on reference type
         let linkUI = this.graphics.getLinkUI(linkID)
         if (!linkUI) {
             return
         }
         // if type not provided look for refType data if not found use strong ref style
-        if (parentType === null) {
-            parentType = linkUI.refType || parentRefType.StrongRef
+        if (parentType === undefined) {
+            parentType = linkUI.refType || parentRefType.StrongRef;
         }
 
         switch (parentType) {
@@ -463,16 +463,14 @@ export class TangleStore {
         dfsIterator(this.graph, node, node => {
             }, true,
             link => {
-                const linkUI = this.graphics.getLinkUI(link.id);
-                this.updateParentRefUI(linkUI)
+                this.updateParentRefUI(link.id);
             },
             seenBackwards
         );
         dfsIterator(this.graph, node, node => {
             }, false,
             link => {
-                const linkUI = this.graphics.getLinkUI(link.id);
-                this.updateParentRefUI(linkUI)
+                this.updateParentRefUI(link.id);
             },
             seenForward
         );
@@ -491,8 +489,7 @@ export class TangleStore {
 
     resetLinks = () => {
         this.graph.forEachLink((link) => {
-            const linkUI = this.graphics.getLinkUI(link.id);
-            this.updateParentRefUI(linkUI)
+            this.updateParentRefUI(link.id);
         });
     }
 
