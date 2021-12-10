@@ -289,28 +289,26 @@ export class UTXOStore {
 
         // draw inputs
         let inputIDs = [];
-        let i = 0;
-        tx.inputs.forEach((input) => {
+        tx.inputs.forEach((input, index) => {
             // input node
-            let ID = hashString(input.referencedOutputID.base58+tx.ID+'_input');
+            let inputNodeID = hashString(input.referencedOutputID.base58+tx.ID+'_input');
             collection = collection.union(this.cy.add(
                 {
                   group: 'nodes',
-                  data: { id: ID, parent: tx.ID, input: input.referencedOutputID.base58 },
+                  data: { id: inputNodeID, parent: tx.ID, input: input.referencedOutputID.base58 },
                   classes: 'input'
                 }
               ));
             
-            // input alignment edges
-            if (i > 0) {
+            // align every 5 inputs in the same level
+            if (index >= 5) {
               collection = collection.union(this.cy.add({
                   group: "edges",
-                  data: { source: inputIDs[i], target: ID },
+                  data: { source: inputIDs[index-5], target: inputNodeID },
                   classes: 'invisible'
                 }));
             }
-            inputIDs.push(ID);
-            i++;
+            inputIDs.push(inputNodeID);
 
             // link input to the unspent output
             let spentOutput = this.outputMap.get(input.referencedOutputID.base58);
@@ -318,36 +316,35 @@ export class UTXOStore {
                 collection = collection.union(this.cy.add(
                   {
                     group: 'edges',
-                    data: { source: input.referencedOutputID.base58, target: ID}
+                    data: { source: input.referencedOutputID.base58, target: inputNodeID}
                   }
                 ));
             }
         });
 
         // draw outputs
-        let outputIDs = []; i = 0;
-        tx.outputs.forEach((outputID) => {
+        let outputIDs = [];
+        tx.outputs.forEach((outputID, index) => {
             collection = collection.union(this.cy.add({
                 group: "nodes",
                 data: { id: outputID, parent: tx.ID },
                 classes: 'output'
             }));
 
-            // edges for alignment
-            if (i > 0) {
+            // align every 5 outputs in the same level
+            if (index >= 5) {
               collection = collection.union(this.cy.add({
                   group: "edges",
-                  data: { source: outputIDs[i], target: outputID },
+                  data: { source: outputIDs[index-5], target: outputID },
                   classes: 'invisible'
                 }));
             }
             outputIDs.push(outputID);
-            i++;
         })
         
         // alignment of inputs and outputs
-        let inIndex = Math.floor(inputIDs.length/2);
-        let outIndex = Math.floor(outputIDs.length/2);
+        let inIndex = Math.floor(inputIDs.length/5)*5 + inputIDs.length%5 - 1;
+        let outIndex = Math.min(outputIDs.length, 2);
         collection = collection.union(this.cy.add({
           group: "edges",
           data: { source: inputIDs[inIndex], target: outputIDs[outIndex] },
@@ -355,7 +352,6 @@ export class UTXOStore {
         }));
 
         this.layoutApi.placeNewNodes(collection);
-        this.cy.layout(this.layout).run();
     }
 
     updateLayoutTimer = () => {
@@ -363,6 +359,7 @@ export class UTXOStore {
           if (this.vertexChanges > 0 && !this.paused) {
               this.cy.layout(this.layout).run();
               this.vertexChanges = 0;
+              console.log("layout updated")
           }
       }, 10000);
     }
