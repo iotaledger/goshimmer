@@ -148,6 +148,9 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 	defer mu.Unlock()
 
 	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		if branch.Type() != ledgerstate.ConflictBranchType {
+			return
+		}
 		b.ConflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 
 		for conflictID := range b.ConflictIDs {
