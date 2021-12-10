@@ -12,6 +12,7 @@ export class tangleVertex {
 	isMarker:        boolean;
     isTx:            boolean;
     txID:            string;
+    isTip:           boolean;
     isConfirmed:     boolean;
     gof:             string;
 	confirmedTime:   number;
@@ -42,7 +43,7 @@ export enum parentRefType {
 }
 
 export class TangleStore {
-    @observable maxTangleVertices: number = 100;
+    @observable maxTangleVertices: number = 500;
     @observable messages = new ObservableMap<string, tangleVertex>();
     // might still need markerMap for advanced features
     @observable markerMap = new ObservableMap<string, Array<string>>();
@@ -51,7 +52,7 @@ export class TangleStore {
     @observable selected_approvees_count = 0;
     @observable paused: boolean = false;
     @observable search: string = "";
-    @observable explorerAddress = "localhost:8081";
+    @observable explorerAddress = "http://localhost:8081";
     msgOrder: Array<string> = [];
     lastMsgAddedBeforePause: string = "";
     selected_origin_color: string = "";
@@ -98,6 +99,7 @@ export class TangleStore {
             let removed = this.msgOrder.shift();
             this.removeMessage(removed);
         }
+        msg.isTip = true
 
         this.msgOrder.push(msg.ID);
         msg.futureMarkers = [];
@@ -196,7 +198,7 @@ export class TangleStore {
     @action
     searchAndSelect = () => {
         if (!this.search) return;
-        
+
         this.selectMsg(this.search);
     }
 
@@ -244,6 +246,13 @@ export class TangleStore {
         let drawVertexParentReference = (parentType: parentRefType, parentIDs: Array<string>) => {
             if (parentIDs) {
                 parentIDs.forEach((value) => {
+                    // remove tip status
+                    let parent = this.messages.get(value)
+                    if (parent) {
+                        parent.isTip = false
+                        this.updateNodeColorOnConfirmation(parent)
+                    }
+
                     // if value is valid AND (links is empty OR there is no between parent and children)
                     if (value && ((!node.links || !node.links.some(link => link.fromId === value)))) {
                         // draw the link only when the parent exists
@@ -264,33 +273,27 @@ export class TangleStore {
     // only update color when finalized
     updateNodeColorOnConfirmation = (msg: tangleVertex) => {
         let nodeUI = this.graphics.getNodeUI(msg.ID);
-        let color = "";
-        if (!msg.isConfirmed) {
-            return
-        }
+        if (!nodeUI) return;
+        if (msg.isTip) return;
 
-        if (msg.isTx) {
-            color = COLOR.TRANSACTION_CONFIRMED;
-        } else {
-            color = COLOR.MESSAGE_CONFIRMED;
-        }
-
-        if (!nodeUI || !msg || msg.gof === "GoF(None)") {
-            color = COLOR.NODE_UNKNOWN;
+        let color = ""
+        color = msg.isTx ? COLOR.TRANSACTION_PENDING : COLOR.MESSAGE_PENDING
+        if (msg.isConfirmed) {
+            color = msg.isTx ? COLOR.TRANSACTION_CONFIRMED : COLOR.MESSAGE_CONFIRMED
         }
 
         setUINodeColor(nodeUI, color)
     }
 
-    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {
+    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {        
         // update link line type and color based on reference type
         let linkUI = this.graphics.getLinkUI(linkID)
         if (!linkUI) {
             return
         }
         // if type not provided look for refType data if not found use strong ref style
-        if (parentType === null) {
-            parentType = linkUI.refType || parentRefType.StrongRef
+        if (parentType === undefined) {
+            parentType = linkUI.refType || parentRefType.StrongRef;
         }
 
         switch (parentType) {
@@ -323,6 +326,18 @@ export class TangleStore {
     }
 
     @action
+    tangleOnClick = (event: any) => {
+        // message is currently selected
+        if (event.target.tagName === "rect") {
+            this.selectMsg(event.target.node.id)
+        } else {
+            if (this.selectedMsg !== null) {
+                this.clearSelected()
+            }
+        }
+    }
+
+    @action
     updateSelected = (vert: tangleVertex) => {
         if (!vert) return;
 
@@ -332,6 +347,8 @@ export class TangleStore {
     selectMsg = (msgID: string) => {
         // clear pre-selected node first
         this.clearSelected();
+        this.clearHighlightedMsgs()
+
         let vertex = this.graph.getNode(msgID)
         if (!vertex) return;
 
@@ -348,10 +365,9 @@ export class TangleStore {
         if (!this.selectedMsg) {
             return;
         }
-
         this.selected_approvers_count = 0;
         this.selected_approvees_count = 0;
-        this.clearHighlightedMsg(this.selectedMsg.ID, this.selected_origin_color);
+        this.clearHighlightedMsg(this.selectedMsg.ID);
         this.selectedMsg = null;
     }
 
@@ -360,9 +376,7 @@ export class TangleStore {
     }
 
     highlightMsgs = (msgIDs: string[]) => {
-        this.highligtedMsgs.forEach((color, id) => {
-            this.clearHighlightedMsg(id, color);
-        })
+        this.clearHighlightedMsgs()
 
         // update highlighted msgs and its original color
         msgIDs.forEach((id) => {
@@ -414,12 +428,16 @@ export class TangleStore {
     }
 
     clearHighlightedMsgs = () => {
+        if (this.highligtedMsgs.size === 0) {
+            return;
+        }
         this.highligtedMsgs.forEach((color: string, id) => {
-          this.clearHighlightedMsg(id, color);
+            this.clearHighlightedMsg(id);
         })
+        this.highligtedMsgs.clear()
     }
 
-    clearHighlightedMsg = (msgID: string, originalColor: string) => {
+    clearHighlightedMsg = (msgID: string) => {
         // clear link highlight
         let node = this.graph.getNode(msgID);
         if (!node) {
@@ -428,8 +446,15 @@ export class TangleStore {
             return;
         }
 
+        let color = ""
+        if (this.selectedMsg && msgID === this.selectedMsg.ID) {
+            color = this.selected_origin_color
+        } else {
+            color = this.highligtedMsgs.get(msgID)
+        }
+
         let nodeUI = this.graphics.getNodeUI(msgID);
-        setUINodeColor(nodeUI, this.selected_origin_color)
+        setUINodeColor(nodeUI, color)
         setUINodeSize(nodeUI, VERTEX.SIZE_DEFAULT);
         resetRectBorder(nodeUI)
 
@@ -438,16 +463,14 @@ export class TangleStore {
         dfsIterator(this.graph, node, node => {
             }, true,
             link => {
-                const linkUI = this.graphics.getLinkUI(link.id);
-                this.updateParentRefUI(linkUI)
+                this.updateParentRefUI(link.id);
             },
             seenBackwards
         );
         dfsIterator(this.graph, node, node => {
             }, false,
             link => {
-                const linkUI = this.graphics.getLinkUI(link.id);
-                this.updateParentRefUI(linkUI)
+                this.updateParentRefUI(link.id);
             },
             seenForward
         );
@@ -466,8 +489,7 @@ export class TangleStore {
 
     resetLinks = () => {
         this.graph.forEachLink((link) => {
-            const linkUI = this.graphics.getLinkUI(link.id);
-            this.updateParentRefUI(linkUI)
+            this.updateParentRefUI(link.id);
         });
     }
 
@@ -488,9 +510,25 @@ export class TangleStore {
     start = () => {
         this.graph = Viva.Graph.graph();
 
-        let graphics: any = Viva.Graph.View.svgGraphics();
+        this.setupLayout()
+        this.setupSvgGraphics()
+        this.setupRenderer()
 
-        const layout = Viva.Graph.Layout.forceDirected(this.graph, {
+        this.renderer.run();
+
+        maximizeSvgWindow()
+        this.registerTangleEvents()
+    }
+
+    stop = () => {
+        this.unregisterHandlers();
+        this.renderer.dispose();
+        this.graph = null;
+        this.selectedMsg = null;
+    }
+
+    setupLayout = () => {
+        this.layout = Viva.Graph.Layout.forceDirected(this.graph, {
             springLength: 10,
             springCoeff: 0.0001,
             stableThreshold: 0.15,
@@ -499,14 +537,13 @@ export class TangleStore {
             timeStep: 20,
             theta: 0.8,
         });
+    }
+
+    setupSvgGraphics = () => {
+        let graphics: any = Viva.Graph.View.svgGraphics();
 
         graphics.node((node) => {
-            let ui = svgNodeBuilder(node.data);
-            ui.on("click", () => {
-                this.selectMsg(node.id)
-            });
-
-            return ui
+            return svgNodeBuilder(node.data);
         }).placeNode(this.svgUpdateNodePos)
 
         graphics.link(() => {
@@ -520,29 +557,23 @@ export class TangleStore {
             // is a common way of rendering paths in SVG:
             linkUI.attr("d", data);
         })
+
+        this.graphics = graphics;
+    }
+
+    setupRenderer = () => {
         let ele = document.getElementById('tangleVisualizer');
 
         this.renderer = Viva.Graph.View.renderer(this.graph, {
             container: ele,
-            graphics: graphics,
-            layout: layout,
+            graphics: this.graphics,
+            layout: this.layout,
         });
-
-        this.layout = layout;
-        this.graphics = graphics;
-        this.renderer.run();
-
-        // maximize the svg window
-        let svgEl = document.querySelector("#tangleVisualizer>svg")
-        svgEl.setAttribute("width", "100%")
-        svgEl.setAttribute("height", "100%")
     }
 
-    stop = () => {
-        this.unregisterHandlers();
-        this.renderer.dispose();
-        this.graph = null;
-        this.selectedMsg = null;
+    registerTangleEvents = () => {
+        let tangleWindowEl = document.querySelector("#tangleVisualizer")
+        tangleWindowEl.addEventListener("click", this.tangleOnClick)
     }
 
     // clear old elements and refresh renderer
@@ -565,7 +596,7 @@ export class TangleStore {
         })
 
         for (let msgId in this.messages) {
-            let exist = this.graph.getNode(msgId)
+            let exist = this.graphics.getNodeUI(msgId)
             if (!exist) {
                 this.drawVertex(this.messages.get(msgId))
             }
@@ -580,15 +611,8 @@ export class TangleStore {
 }
 
 let svgNodeBuilder = function (node: tangleVertex): any {
-    let color = ""
-    if (node.isTx) {
-        color = COLOR.TRANSACTION_PENDING
-    } else {
-        color = COLOR.MESSAGE_PENDING
-    }
-
     let ui = Viva.Graph.svg("rect")
-    setUINodeColor(ui, color)
+    setUINodeColor(ui, COLOR.TIP)
     setUINodeSize(ui, VERTEX.SIZE_DEFAULT)
     setCorners(ui, VERTEX.ROUNDED_CORNER)
 
@@ -627,6 +651,12 @@ function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) 
             }
         }
     }
+}
+
+function maximizeSvgWindow() {
+    let svgEl = document.querySelector("#tangleVisualizer>svg")
+    svgEl.setAttribute("width", "100%")
+    svgEl.setAttribute("height", "100%")
 }
 
 function setUINodeColor(ui: any, color: any) {
