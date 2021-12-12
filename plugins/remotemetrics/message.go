@@ -38,12 +38,28 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 		issuerID := identity.NewID(message.IssuerPublicKey())
 		record.IssuedTimestamp = message.IssuingTime()
 		record.AccessMana = deps.Tangle.Scheduler.GetManaFromCache(issuerID)
+		record.StrongEdgeCount = len(message.ParentsByType(tangle.StrongParentType))
+		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
+			record.StrongEdgeCount = weakParentsCount
+		}
+		if likeParentsCount := len(message.ParentsByType(tangle.LikeParentType)); likeParentsCount > 0 {
+			record.StrongEdgeCount = len(message.ParentsByType(tangle.LikeParentType))
+		}
+
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			record.ScheduledTimestamp = messageMetadata.ScheduledTime()
 			record.DroppedTimestamp = messageMetadata.DiscardedTime()
 			record.BookedTimestamp = messageMetadata.BookedTime()
+			// may be overriden by tx data
 			record.SolidTimestamp = messageMetadata.SolidificationTime()
+			record.DeltaSolid = messageMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
 			record.QueuedTimestamp = messageMetadata.QueuedTime()
+			record.DeltaBooked = messageMetadata.BookedTime().Sub(record.IssuedTimestamp).Nanoseconds()
+			record.GradeOfFinality = uint8(messageMetadata.GradeOfFinality())
+			record.GradeOfFinalityTimestamp = messageMetadata.GradeOfFinalityTime()
+			if !messageMetadata.GradeOfFinalityTime().IsZero() {
+				record.DeltaGradeOfFinalityTime = messageMetadata.GradeOfFinalityTime().Sub(record.IssuedTimestamp).Nanoseconds()
+			}
 
 			var scheduleDoneTime time.Time
 			// one of those conditions must be true
@@ -52,8 +68,18 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 			} else if !record.DroppedTimestamp.IsZero() {
 				scheduleDoneTime = record.DroppedTimestamp
 			}
-			record.ProcessingTime = int(scheduleDoneTime.Unix() - messageMetadata.ReceivedTime().Unix())
-			record.SchedulingTime = int(scheduleDoneTime.Unix() - messageMetadata.QueuedTime().Unix())
+			record.DeltaScheduled = scheduleDoneTime.Sub(record.IssuedTimestamp).Nanoseconds()
+			record.ProcessingTime = scheduleDoneTime.Sub(messageMetadata.ReceivedTime()).Nanoseconds()
+			record.SchedulingTime = scheduleDoneTime.Sub(messageMetadata.QueuedTime()).Nanoseconds()
+		})
+	})
+
+	// override message solidification data if message contains a transaction
+	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			record.SolidTimestamp = transactionMetadata.SolidificationTime()
+			record.TransactionID = transactionID.Base58()
+			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
 		})
 	})
 

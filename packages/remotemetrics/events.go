@@ -64,21 +64,31 @@ type MessageFinalizedMetrics struct {
 
 // MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger.
 type MessageScheduledMetrics struct {
-	Type               string    `json:"type" bson:"type"`
-	NodeID             string    `json:"nodeID" bson:"nodeID"`
-	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID          string    `json:"messageID" bson:"messageID"`
-	IssuedTimestamp    time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	SolidTimestamp     time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
-	ScheduledTimestamp time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
-	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
-	QueuedTimestamp    time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
-	DroppedTimestamp   time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
-	// scheduledTimestamp - ReceivedTimestamp in seconds
-	ProcessingTime int `json:"processingTime" bson:"processingTime"`
-	// scheduledTimestamp - QueuedTimestamp in seconds
-	SchedulingTime int     `json:"schedulingTime" bson:"schedulingTime"`
-	AccessMana     float64 `json:"accessMana" bson:"accessMana"`
+	Type                     string    `json:"type" bson:"type"`
+	NodeID                   string    `json:"nodeID" bson:"nodeID"`
+	MetricsLevel             uint8     `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID                string    `json:"messageID" bson:"messageID"`
+	TransactionID            string    `json:"transactionID,omitempty" bson:"transactionID"`
+	IssuedTimestamp          time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	SolidTimestamp           time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
+	ScheduledTimestamp       time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
+	BookedTimestamp          time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	QueuedTimestamp          time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
+	DroppedTimestamp         time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
+	GradeOfFinalityTimestamp time.Time `json:"gradeOfFinalityTimestamp,omitempty" bson:"GradeOfFinalityTimestamp"`
+	GradeOfFinality          uint8     `json:"gradeOfFinality" bson:"GradeOfFinality"`
+	DeltaGradeOfFinalityTime int64     `json:"deltaGradeOfFinalityTime" bson:"deltaGradeOfFinalityTime"`
+	DeltaSolid               int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
+	DeltaScheduled           int64     `json:"deltaScheduled" bson:"deltaScheduled"`
+	DeltaBooked              int64     `json:"deltaBooked" bson:"deltaBooked"`
+	// scheduledTimestamp - ReceivedTimestamp in nanoseconds
+	ProcessingTime int64 `json:"processingTime" bson:"processingTime"`
+	// scheduledTimestamp - QueuedTimestamp in nanoseconds
+	SchedulingTime  int64   `json:"schedulingTime" bson:"schedulingTime"`
+	AccessMana      float64 `json:"accessMana" bson:"accessMana"`
+	StrongEdgeCount int     `json:"strongEdgeCount" bson:"strongEdgeCount"`
+	WeakEdgeCount   int     `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
+	LikeEdgeCount   int     `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
 // MissingMessageMetrics defines message solidification record that is sent to the remote logger.
