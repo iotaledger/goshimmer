@@ -112,7 +112,7 @@ type BranchConfirmationMetrics struct {
 	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
 }
 
-// SchedulerMetrics defines the schedule metrics sent to the remote logger
+// SchedulerMetrics defines the schedule metrics sent to the remote logger.
 type SchedulerMetrics struct {
 	Type                         string             `json:"type" bson:"type"`
 	MetricsLevel                 uint8              `json:"metricsLevel" bson:"metricsLevel"`
