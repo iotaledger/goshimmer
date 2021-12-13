@@ -194,10 +194,10 @@ const (
 	StrongParentType ParentsType = iota
 	// WeakParentType is the ParentsType for a weak parent.
 	WeakParentType
-	// DislikeParentType is the ParentsType for a dislike parent.
-	DislikeParentType
-	// LikeParentType is thee ParentsType for the like parent.
-	LikeParentType
+	// ShallowLikeParentType is the ParentsType for the shallow like parent.
+	ShallowLikeParentType
+	// ShallowDislikeParentType is the ParentsType for a shallow dislike parent.
+	ShallowDislikeParentType
 
 	// NumberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents.
 	// it must be placed after the declaration of all block types.
@@ -708,16 +708,16 @@ func (m *Message) String() string {
 			builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 		}
 	}
-	parents = m.ParentsByType(DislikeParentType)
+	parents = m.ParentsByType(ShallowDislikeParentType)
 	if len(parents) > 0 {
 		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("dislikeParent%d", index), parent.String()))
+			builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
 		}
 	}
-	parents = m.ParentsByType(LikeParentType)
+	parents = m.ParentsByType(ShallowLikeParentType)
 	if len(parents) > 0 {
 		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("likeParent%d", index), parent.String()))
+			builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 		}
 	}
 	builder.AddField(stringify.StructField("issuer", m.IssuerPublicKey()))
@@ -795,7 +795,8 @@ type MessageMetadata struct {
 	scheduledBypass     bool
 	booked              bool
 	bookedTime          time.Time
-	invalid             bool
+	objectivelyInvalid  bool
+	subjectivelyInvalid bool
 	gradeOfFinality     gof.GradeOfFinality
 	gradeOfFinalityTime time.Time
 
@@ -1102,25 +1103,51 @@ func (m *MessageMetadata) BookedTime() time.Time {
 }
 
 // IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
-func (m *MessageMetadata) IsInvalid() (result bool) {
+func (m *MessageMetadata) IsObjectivelyInvalid() (result bool) {
 	m.invalidMutex.RLock()
 	defer m.invalidMutex.RUnlock()
-	result = m.invalid
+	result = m.objectivelyInvalid
 
 	return
 }
 
 // SetInvalid sets the message associated with this metadata as invalid.
 // It returns true if the invalid status is modified. False otherwise.
-func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
+func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
 	m.invalidMutex.Lock()
 	defer m.invalidMutex.Unlock()
 
-	if m.invalid == invalid {
+	if m.objectivelyInvalid == invalid {
 		return false
 	}
 
-	m.invalid = invalid
+	m.objectivelyInvalid = invalid
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
+func (m *MessageMetadata) IsSubjectivelyInvalid() (result bool) {
+	m.invalidMutex.RLock()
+	defer m.invalidMutex.RUnlock()
+	result = m.subjectivelyInvalid
+
+	return
+}
+
+// SetInvalid sets the message associated with this metadata as invalid.
+// It returns true if the invalid status is modified. False otherwise.
+func (m *MessageMetadata) SetSubjectivelyInvalid(invalid bool) (modified bool) {
+	m.invalidMutex.Lock()
+	defer m.invalidMutex.Unlock()
+
+	if m.subjectivelyInvalid == invalid {
+		return false
+	}
+
+	m.subjectivelyInvalid = invalid
 	m.SetModified()
 	modified = true
 

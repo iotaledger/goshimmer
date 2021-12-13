@@ -157,11 +157,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			// Don't book the same message more than once!
-			if messageMetadata.IsBooked() {
-				err = errors.Errorf("message already booked %s", messageID)
-				return
-			}
 
 			isAnyParentInvalid := false
 			message.ForEachParent(func(parent Parent) {
@@ -169,28 +164,31 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 					return
 				}
 				b.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-					isAnyParentInvalid = messageMetadata.IsInvalid()
+					isAnyParentInvalid = messageMetadata.IsObjectivelyInvalid()
 				})
 			})
+
 			if isAnyParentInvalid {
-				messageMetadata.SetInvalid(true)
+				messageMetadata.SetObjectivelyInvalid(true)
 				err = errors.Errorf("failed to book message %s: referencing invalid parent", messageID)
 				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 				return
 			}
 
-			// Like references need to point to messages containing transactions in order to be able to solidify these
-			// and, thus, knowing about the given conflict.
-			if !b.allMessagesContainTransactions(message.ParentsByType(LikeParentType)) {
-				messageMetadata.SetInvalid(true)
-				err = errors.Errorf("message like reference does not contain a transaction %s", messageID)
-				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-				return
+			// Like and dislike references need to point to messages containing transactions to evaluate opinion.
+			for _, parentType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType} {
+				if !b.allMessagesContainTransactions(message.ParentsByType(parentType)) {
+					messageMetadata.SetObjectivelyInvalid(true)
+					err = errors.Errorf("message like or dislike reference does not contain a transaction %s", messageID)
+					b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
+					return
+				}
 			}
 
 			// We try to book the payload
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
+				messageMetadata.SetObjectivelyInvalid(true)
 				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
 				return
 			}
@@ -371,6 +369,47 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 	})
 
 	return branchIDs
+}
+
+// shallowLikedParentsBranchIDs returns all the liked and corresponding disliked branches of Message's liked parents.
+func (b *Booker) shallowLikedParentsBranchIDs(message *Message) (likedBranchIDs, dislikedBranchIDs ledgerstate.BranchIDs) {
+	likedBranchIDs = ledgerstate.NewBranchIDs()
+	dislikedBranchIDs = ledgerstate.NewBranchIDs()
+
+	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) {
+		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
+			if transaction, ok := message.Payload().(*ledgerstate.Transaction); ok {
+				if transactionID := transaction.ID(); !b.tangle.LedgerState.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+					conflictBranchIDs, err := b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(transactionMetadata.BranchID()))
+					if err != nil {
+						panic(fmt.Errorf("cannot resolve conflict branches of %s", transactionID))
+					}
+					likedBranchIDs.AddAll(conflictBranchIDs)
+
+				}) {
+					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
+				}
+
+				for conflictingTransactionID := range b.tangle.LedgerState.ConflictingTransactions(transaction) {
+					if !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(conflictingTransactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+						conflictBranchIDs, err := b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(transactionMetadata.BranchID()))
+						if err != nil {
+							panic(fmt.Errorf("cannot resolve conflict branches of %s", conflictingTransactionID))
+						}
+						dislikedBranchIDs.AddAll(conflictBranchIDs)
+						return
+					}) {
+						panic(fmt.Errorf("cannot load conflicting transaction metadata %s", conflictingTransactionID))
+
+					}
+				}
+			}
+		}) {
+			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
+		}
+	})
+
+	return likedBranchIDs, dislikedBranchIDs
 }
 
 // likedParentsBranchIDs returns all the payload branches of the Message's liked parents.

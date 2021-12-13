@@ -229,20 +229,10 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 
 		s.setMessageGoF(messageMetadata, gradeOfFinality)
 
-		// TODO: revisit weak parents
-		// mark weak parents as finalized but not propagate finalized flag to its past cone
-		//message.ForEachParentByType(tangle.WeakParentType, func(parentID tangle.MessageID) {
-		//	Tangle().Storage.MessageMetadata(parentID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		//		setMessageGoF(messageMetadata)
-		//	})
-		//})
-
-		// propagate GoF to strong and like parents
-		message.ForEachParentByType(tangle.StrongParentType, func(parentID tangle.MessageID) {
-			w.Push(parentID)
-		})
-		message.ForEachParentByType(tangle.LikeParentType, func(parentID tangle.MessageID) {
-			w.Push(parentID)
+		// TODO: revisit what references we solidify past
+		// we should propagate weight only past references we solidify
+		message.ForEachParent(func(parent tangle.Parent) {
+			w.Push(parent.ID)
 		})
 	}
 
