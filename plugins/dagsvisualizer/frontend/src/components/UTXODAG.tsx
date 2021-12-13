@@ -22,7 +22,7 @@ interface Props {
 export class UTXODAG extends React.Component<Props, any> {
     constructor(props) {
         super(props);
-        this.state = {isIdle: true, open: true};  
+        this.state = {isIdle: true, open: true};
     }
 
     componentDidMount() {
@@ -61,7 +61,7 @@ export class UTXODAG extends React.Component<Props, any> {
             <Container>
                 <div onClick={() => this.setState(prevState => ({open: !prevState.open}))}>
                         <h2 >
-                            UTXO DAG 
+                            UTXO DAG
                             { this.state.open ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown /> }
                         </h2>
                 </div>
@@ -112,7 +112,7 @@ export class UTXODAG extends React.Component<Props, any> {
                                         aria-describedby="vertices-search"
                                     />
                                 </InputGroup>
-                            </Col>                  
+                            </Col>
                         </Row>
                         <div className="graphFrame">
                             <TransactionInfo />
@@ -120,7 +120,7 @@ export class UTXODAG extends React.Component<Props, any> {
                         </div>
                     </div>
                 </Collapse>
-                <br></br>                   
+                <br></br>
             </Container>
         );
     }

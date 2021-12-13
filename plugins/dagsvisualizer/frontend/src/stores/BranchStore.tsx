@@ -117,7 +117,7 @@ export class BranchStore {
         if (!b) {
             return;
         }
-        
+
         b.isConfirmed = true;
         this.branches.set(confirmedBranch.ID, b);
     }
@@ -173,7 +173,7 @@ export class BranchStore {
     @action
     searchAndHighlight = () => {
         if (!this.search) return;
-        
+
         this.selectBranch(this.search);
     }
 
@@ -184,7 +184,7 @@ export class BranchStore {
     selectBranch = (branchID: string) => {
         // clear pre-selected branch.
         this.clearSelected(true);
-        
+
         let branchNode = this.cy.getElementById(branchID);
         if (!branchNode) return;
         // select the node manually
@@ -254,7 +254,7 @@ export class BranchStore {
                     group: 'edges',
                     data: { source: pID, target: branch.ID}
                 });
-            }            
+            }
         });
 
         this.layoutApi.placeNewNodes(v);
@@ -281,7 +281,7 @@ export class BranchStore {
                     'width': 25,
                     'height': 15,
                   }
-                },            
+                },
                 {
                   selector: 'edge',
                   style: {
@@ -338,7 +338,7 @@ export class BranchStore {
         this.cy.on('select', 'node', (evt) => {
             var node = evt.target;
             const nodeData = node.json();
-            
+
             this.updateSelected(nodeData.data.id);
         });
 
@@ -353,7 +353,7 @@ export class BranchStore {
 
     stop = () => {
         this.unregisterHandlers()
-        
+
         // stop updating layout.
         clearInterval(this.layoutUpdateTimerID);
     }

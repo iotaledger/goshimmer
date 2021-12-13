@@ -26,19 +26,19 @@ export class GlobalSettings extends React.Component<Props, any> {
             isIdle: true,
             open: true,
             explorerAddress:""
-        };  
+        };
     }
 
     updateFrom = (date) => {
         if (isMoment(date)) {
             this.props.globalStore.updateSearchStartingTime(date);
-        }        
+        }
     }
 
     updateTo = (date) => {
         if (isMoment(date)) {
             this.props.globalStore.updateSearchEndingTime(date);
-        }   
+        }
     }
 
     searchVerticesInLedger = () => {
@@ -83,7 +83,7 @@ export class GlobalSettings extends React.Component<Props, any> {
             <Container>
                 <div onClick={() => this.setState(prevState => ({open: !prevState.open}))}>
                         <h2 >
-                            Global Functions 
+                            Global Functions
                             { this.state.open ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown /> }
                         </h2>
                 </div>
@@ -105,7 +105,7 @@ export class GlobalSettings extends React.Component<Props, any> {
                                     <Button disabled={this.state.isIdle} onClick={this.clearSearch} variant="outline-secondary">
                                         Clear and Resume
                                     </Button>
-                                </Col>        
+                                </Col>
                             </Row>
                         </div>
                         <div>
@@ -149,7 +149,7 @@ export class GlobalSettings extends React.Component<Props, any> {
                                     <Button onClick={this.clearSync} variant="outline-secondary">
                                         Clear
                                     </Button>
-                                </Col>       
+                                </Col>
                             </Row>
                         </div>
                     </div>

@@ -4,7 +4,7 @@ import {default as Viva} from 'vivagraphjs';
 import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from "../styles/tangleStyles";
 
 export class tangleVertex {
-    ID:              string;   
+    ID:              string;
 	strongParentIDs: Array<string>;
 	weakParentIDs:   Array<string>;
     likedParentIDs:  Array<string>;
@@ -64,9 +64,9 @@ export class TangleStore {
     layout;
     renderer;
 
-    constructor() {        
+    constructor() {
         makeObservable(this);
-        
+
         registerHandler(WSMsgType.Message, this.addMessage);
         registerHandler(WSMsgType.MessageBooked, this.setMessageBranch);
         registerHandler(WSMsgType.MessageConfirmed, this.setMessageConfirmedTime);
@@ -285,7 +285,7 @@ export class TangleStore {
         setUINodeColor(nodeUI, color)
     }
 
-    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {        
+    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {
         // update link line type and color based on reference type
         let linkUI = this.graphics.getLinkUI(linkID)
         if (!linkUI) {

@@ -23,7 +23,7 @@ interface Props {
 export class TangleDAG extends React.Component<Props, any> {
     constructor(props) {
         super(props);
-        this.state = {open: true};  
+        this.state = {open: true};
     }
 
     componentDidMount() {
@@ -62,7 +62,7 @@ export class TangleDAG extends React.Component<Props, any> {
             <Container>
                 <div onClick={() => this.setState(prevState => ({open: !prevState.open}))}>
                         <h2 >
-                            Tangle DAG 
+                            Tangle DAG
                             { this.state.open ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown /> }
                         </h2>
                 </div>
@@ -113,7 +113,7 @@ export class TangleDAG extends React.Component<Props, any> {
                                         aria-describedby="vertices-search"
                                     />
                                 </InputGroup>
-                            </Col>                  
+                            </Col>
                         </Row>
                         <div className="graphFrame">
                             <MessageInfo />
@@ -123,7 +123,7 @@ export class TangleDAG extends React.Component<Props, any> {
                 </Collapse>
                 <br></br>
             </Container>
-            
+
         );
     }
 }

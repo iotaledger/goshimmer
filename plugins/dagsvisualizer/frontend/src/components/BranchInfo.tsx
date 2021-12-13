@@ -51,7 +51,7 @@ export class BranchInfo extends React.Component<Props, any> {
                             </ListGroup>
                         </Card.Body>
                     </Card>
-                </div> 
+                </div>
         );
     }
 }

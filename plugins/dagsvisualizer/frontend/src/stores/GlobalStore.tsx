@@ -42,7 +42,7 @@ export class GlobalStore {
 
         let msg = this.tangleStore.getTangleVertex(tx.msgID);
         if (msg) {
-            this.tangleStore.selectMsg(tx.msgID);        
+            this.tangleStore.selectMsg(tx.msgID);
         }
 
         let branch = this.branchStore.getBranchVertex(tx.branchID);
@@ -91,7 +91,7 @@ export class GlobalStore {
     }
 
     @action
-    searchAndDrawResults = async () => {        
+    searchAndDrawResults = async () => {
         try {
             let res = await fetch(`/api/dagsvisualizer/search/${this.searchStartingTime}/${this.searchEndingTime}`);
             let result: searchResult = await res.json();
@@ -105,7 +105,7 @@ export class GlobalStore {
             result.txs.forEach((tx) => {
                 this.utxoStore.drawVertex(tx);
             })
-            
+
             result.branches.forEach((branch) => {
                 this.branchStore.drawVertex(branch);
             })

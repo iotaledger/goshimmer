@@ -45,18 +45,18 @@ export class MessageInfo extends React.Component<Props, any> {
                                         {selectedMsg.likedParentIDs.map((p,i) => <ListGroup.Item key={i}><a href={`${explorerAddress}/explorer/message/${p}`} target="_blank" rel="noopener noreferrer">{p}</a></ListGroup.Item>)}
                                     </ListGroup>
                                 </ListGroup.Item>
-                                { selectedMsg.isTx && 
+                                { selectedMsg.isTx &&
                                     <ListGroup.Item>Transaction: <a href={`${explorerAddress}/explorer/transaction/${selectedMsg.txID}`} target="_blank" rel="noopener noreferrer">{selectedMsg.txID}</a></ListGroup.Item>
                                 }
                                 <ListGroup.Item>Branch: <a href={`${explorerAddress}/explorer/branch/${selectedMsg.branchID}`} target="_blank" rel="noopener noreferrer">{resolveBase58BranchID(selectedMsg.branchID)}</a></ListGroup.Item>
                                 <ListGroup.Item>isMarker: {selectedMsg.isMarker.toString()}</ListGroup.Item>
                                 <ListGroup.Item>GoF: {selectedMsg.gof}</ListGroup.Item>
-                                <ListGroup.Item>Confrimed: {selectedMsg.isConfirmed.toString()}</ListGroup.Item>                                
+                                <ListGroup.Item>Confrimed: {selectedMsg.isConfirmed.toString()}</ListGroup.Item>
                                 <ListGroup.Item>Confirmed Time: {dateformat(new Date(selectedMsg.confirmedTime/1000000), "dd.mm.yyyy HH:MM:ss")}</ListGroup.Item>
                             </ListGroup>
                         </Card.Body>
                     </Card>
-                </div> 
+                </div>
         );
     }
 }

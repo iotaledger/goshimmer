@@ -26,7 +26,7 @@ export class TransactionInfo extends React.Component<Props, any> {
                                 </a>
                             </Card.Title>
                             <ListGroup variant="flush">
-                                <ListGroup.Item>Msg ID: 
+                                <ListGroup.Item>Msg ID:
                                     <a href={`${explorerAddress}/explorer/messasge/${selectedTx.msgID}`} target="_blank" rel="noopener noreferrer">
                                         {selectedTx.msgID}
                                     </a>
@@ -49,7 +49,7 @@ export class TransactionInfo extends React.Component<Props, any> {
                             </ListGroup>
                         </Card.Body>
                     </Card>
-                </div> 
+                </div>
         );
     }
 }
