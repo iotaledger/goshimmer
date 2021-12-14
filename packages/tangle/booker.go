@@ -576,7 +576,7 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 // strong and like parents.
 func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
 	// customize the function, so that markers are not assigned to nodes whose messages might be dropped
-	// this is a temporary solution, that's why the function signature is not change to additionaly accept messageID
+	// this is a temporary solution, that's why the function signature is not change to additionally accept messageID
 	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongAndLikeParents(message), func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
 		nodeID := identity.NewID(message.IssuerPublicKey())
 		bufferUsedRatio := float64(m.tangle.Scheduler.BufferSize()) / float64(m.tangle.Scheduler.MaxBufferSize())
