@@ -217,6 +217,18 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	return
 }
 
+func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs BranchIDs, err error) {
+	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		if branchIDs, err = u.ledgerstate.ResolveConflictBranchIDs(NewBranchIDs(transactionMetadata.BranchID())); err != nil {
+			err = errors.Errorf("failed to resolve ConflictBranchIDs of Transaction with %s: %w", transactionID, err)
+		}
+	}) {
+		err = errors.Errorf("failed to retrieve TransactionMetadata for Transaction with %s: %w", transactionID, err)
+	}
+
+	return
+}
+
 // ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
 func (u *UTXODAG) ConflictingTransactions(transaction *Transaction) (conflictingTransactions TransactionIDs) {
 	conflictingTransactions = make(TransactionIDs)

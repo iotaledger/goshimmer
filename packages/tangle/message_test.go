@@ -302,11 +302,11 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:  parents,
 		}
 		dislikeBlock := ParentsBlock{
-			ParentsType: DislikeParentType,
+			ParentsType: ShallowDislikeParentType,
 			References:  parents,
 		}
 		likeBlock := ParentsBlock{
-			ParentsType: LikeParentType,
+			ParentsType: ShallowLikeParentType,
 			References:  parents,
 		}
 
@@ -372,11 +372,11 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:  parents,
 		}
 		likeBlock := ParentsBlock{
-			ParentsType: LikeParentType,
+			ParentsType: ShallowLikeParentType,
 			References:  parents,
 		}
 		likeBlock2 := ParentsBlock{
-			ParentsType: LikeParentType,
+			ParentsType: ShallowLikeParentType,
 			References:  parents,
 		}
 
@@ -415,7 +415,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			References:  parents,
 		}
 		likeBlock := ParentsBlock{
-			ParentsType: LikeParentType,
+			ParentsType: ShallowLikeParentType,
 			References:  parents,
 		}
 		unknownBlock := ParentsBlock{
@@ -485,7 +485,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		}
 
 		likeBlock := ParentsBlock{
-			ParentsType: LikeParentType,
+			ParentsType: ShallowLikeParentType,
 			References:  parents,
 		}
 
@@ -533,7 +533,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		}
 
 		dislikeBlock := ParentsBlock{
-			ParentsType: LikeParentType,
+			ParentsType: ShallowLikeParentType,
 			References:  dislikeParents,
 		}
 

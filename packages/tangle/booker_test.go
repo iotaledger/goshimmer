@@ -2,6 +2,7 @@
 package tangle
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,7 +40,7 @@ func TestScenario_1(t *testing.T) {
 	testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
 	for _, messageAlias := range []string{"Message7", "Message8", "Message9"} {
-		assert.Truef(t, testFramework.MessageMetadata(messageAlias).invalid, "%s not invalid", messageAlias)
+		assert.Truef(t, testFramework.MessageMetadata(messageAlias).objectivelyInvalid, "%s not invalid", messageAlias)
 	}
 
 	checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
@@ -1989,7 +1990,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message30", WithStrongParents("Message1", "Message2"))
 		testFramework.IssueMessages("Message30").WaitMessagesBooked()
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
+			assert.True(t, messageMetadata.objectivelyInvalid)
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2065,7 +2066,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message31", WithStrongParents("Message1", "Message2"), WithLikeParents("Message2"), WithInputs("G"), WithOutput("O", 500))
 		testFramework.IssueMessages("Message31").WaitMessagesBooked()
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
+			assert.True(t, messageMetadata.objectivelyInvalid)
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2141,7 +2142,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message32", WithStrongParents("Message5"), WithLikeParents("Message6"))
 		testFramework.IssueMessages("Message32").WaitMessagesBooked()
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
+			assert.True(t, messageMetadata.objectivelyInvalid)
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2217,7 +2218,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message33", WithStrongParents("Message15", "Message11"))
 		testFramework.IssueMessages("Message33").WaitMessagesBooked()
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
+			assert.True(t, messageMetadata.objectivelyInvalid)
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2293,7 +2294,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message34", WithStrongParents("Message14", "Message9"))
 		testFramework.IssueMessages("Message34").WaitMessagesBooked()
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.invalid)
+			assert.True(t, messageMetadata.objectivelyInvalid)
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2436,6 +2437,25 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message19":   testFramework.BranchID("D+F+I"),
 		})
 	}
+}
+
+func TestArithmeticBranchIDs_Add(t *testing.T) {
+	branchID1 := ledgerstate.BranchIDFromRandomness()
+	branchID2 := ledgerstate.BranchIDFromRandomness()
+	branchID3 := ledgerstate.BranchIDFromRandomness()
+
+	ledgerstate.RegisterBranchIDAlias(branchID1, "branchID1")
+	ledgerstate.RegisterBranchIDAlias(branchID2, "branchID2")
+	ledgerstate.RegisterBranchIDAlias(branchID3, "branchID3")
+
+	arithmeticBranchIDs := NewArithmeticBranchIDs()
+	fmt.Println(arithmeticBranchIDs)
+
+	arithmeticBranchIDs.Add(ledgerstate.NewBranchIDs(branchID1, branchID2))
+	arithmeticBranchIDs.Add(ledgerstate.NewBranchIDs(branchID1, branchID3))
+	arithmeticBranchIDs.Subtract(ledgerstate.NewBranchIDs(branchID2, branchID2))
+
+	fmt.Println(arithmeticBranchIDs)
 }
 
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {

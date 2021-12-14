@@ -70,7 +70,7 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
 	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
+			messagemetadata.SetObjectivelyInvalid(true)
 		})
 		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 
@@ -103,7 +103,7 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 		err = errors.Errorf("failed to book Transaction: %w", err)
 
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
+			messagemetadata.SetObjectivelyInvalid(true)
 		})
 		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 

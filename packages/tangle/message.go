@@ -270,14 +270,14 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 
 	if dislikeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: DislikeParentType,
+			ParentsType: ShallowDislikeParentType,
 			References:  sortedDislikeParents,
 		})
 	}
 
 	if likeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: LikeParentType,
+			ParentsType: ShallowLikeParentType,
 			References:  sortedLikeParents,
 		})
 	}
@@ -357,7 +357,7 @@ func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
 	uniqueParents := make(MessageIDs, 0, MaxParentsCount*NumberOfUniqueBlocks)
 	for _, block := range parentsBlocks {
 		// combine strong parent and like parents
-		if block.ParentsType == StrongParentType || block.ParentsType == LikeParentType {
+		if block.ParentsType == StrongParentType || block.ParentsType == ShallowLikeParentType {
 			for _, parent := range block.References {
 				combinedParents[parent] = types.Void
 			}
@@ -878,7 +878,7 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
 		return
 	}
-	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
+	if result.objectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
 		return
 	}
@@ -1213,7 +1213,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBool(m.ScheduledBypass()).
 		WriteBool(m.IsBooked()).
 		WriteTime(m.BookedTime()).
-		WriteBool(m.IsInvalid()).
+		WriteBool(m.IsObjectivelyInvalid()).
 		WriteUint8(uint8(m.GradeOfFinality())).
 		WriteTime(m.GradeOfFinalityTime()).
 		Bytes()
@@ -1239,7 +1239,7 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("scheduledBypass", m.ScheduledBypass()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
-		stringify.StructField("invalid", m.IsInvalid()),
+		stringify.StructField("invalid", m.IsObjectivelyInvalid()),
 		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", m.GradeOfFinalityTime()),
 	)

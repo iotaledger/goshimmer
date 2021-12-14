@@ -206,7 +206,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				}
 				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 
-				messageMetadata.SetInvalid(true)
+				messageMetadata.SetObjectivelyInvalid(true)
 
 				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 
@@ -371,52 +371,51 @@ func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate
 	return branchIDs
 }
 
-// shallowLikedParentsBranchIDs returns all the liked and corresponding disliked branches of Message's liked parents.
-func (b *Booker) shallowLikedParentsBranchIDs(message *Message) (likedBranchIDs, dislikedBranchIDs ledgerstate.BranchIDs) {
-	likedBranchIDs = ledgerstate.NewBranchIDs()
-	dislikedBranchIDs = ledgerstate.NewBranchIDs()
-
+// shallowLikedParentsBranchIDs returns the liked and corresponding disliked ConflictBranches of a Message's shallow
+// liked parents.
+func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message, arithmeticBranchIDs ArithmeticBranchIDs) (err error) {
 	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) {
+		if err != nil {
+			return
+		}
+
 		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
-			if transaction, ok := message.Payload().(*ledgerstate.Transaction); ok {
-				if transactionID := transaction.ID(); !b.tangle.LedgerState.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-					conflictBranchIDs, err := b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(transactionMetadata.BranchID()))
-					if err != nil {
-						panic(fmt.Errorf("cannot resolve conflict branches of %s", transactionID))
-					}
-					likedBranchIDs.AddAll(conflictBranchIDs)
-
-				}) {
-					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
-				}
-
-				for conflictingTransactionID := range b.tangle.LedgerState.ConflictingTransactions(transaction) {
-					if !b.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(conflictingTransactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-						conflictBranchIDs, err := b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(transactionMetadata.BranchID()))
-						if err != nil {
-							panic(fmt.Errorf("cannot resolve conflict branches of %s", conflictingTransactionID))
-						}
-						dislikedBranchIDs.AddAll(conflictBranchIDs)
-						return
-					}) {
-						panic(fmt.Errorf("cannot load conflicting transaction metadata %s", conflictingTransactionID))
-
-					}
-				}
+			transaction, isTransaction := message.Payload().(*ledgerstate.Transaction)
+			if !isTransaction {
+				err = errors.Errorf("%s referenced by a shallow like of %s does not contain a Transaction: %w", parentMessageID, message.ID(), cerrors.ErrFatal)
+				return
 			}
+
+			likedConflictBranches, likedErr := b.tangle.LedgerState.TransactionBranchIDs(transaction.ID())
+			if likedErr != nil {
+				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), cerrors.ErrFatal)
+				return
+			}
+			arithmeticBranchIDs.Add(likedConflictBranches)
+
+			dislikedBranchIDs := ledgerstate.NewBranchIDs()
+			for conflictingTransactionID := range b.tangle.LedgerState.ConflictingTransactions(transaction) {
+				dislikedConflictBranches, dislikedErr := b.tangle.LedgerState.TransactionBranchIDs(conflictingTransactionID)
+				if dislikedErr != nil {
+					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), cerrors.ErrFatal)
+					return
+				}
+				dislikedBranchIDs.AddAll(dislikedConflictBranches)
+			}
+			arithmeticBranchIDs.Subtract(dislikedBranchIDs)
 		}) {
-			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
+			err = errors.Errorf("failed to load MessageMetadata of shallow like with %s: %w", parentMessageID, cerrors.ErrFatal)
 		}
 	})
 
-	return likedBranchIDs, dislikedBranchIDs
+	return likedBranchIDs, dislikedBranchIDs, err
 }
 
 // likedParentsBranchIDs returns all the payload branches of the Message's liked parents.
 func (b *Booker) likedParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = ledgerstate.NewBranchIDs()
 
-	message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
+	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) {
 		if parentMessageID == EmptyMessageID {
 			return
 		}
@@ -857,7 +856,7 @@ func (m *MarkersManager) structureDetailsOfStrongAndLikeParents(message *Message
 		}
 	})
 
-	message.ForEachParentByType(LikeParentType, func(parentMessageID MessageID) {
+	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) {
 		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
 		}) {
@@ -1358,6 +1357,98 @@ func (c CachedMarkerMessageMappings) String() string {
 	}
 
 	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ArithmeticBranchIDs //////////////////////////////////////////////////////////////////////////////////////////
+
+// ArithmeticBranchIDs represents an arithmetic collection of BranchIDs that allows us to add and subtract them from
+// each other.
+type ArithmeticBranchIDs map[ledgerstate.BranchID]int
+
+// NewArithmeticBranchIDs returns a new ArithmeticBranchIDs object.
+func NewArithmeticBranchIDs(optionalBranchIDs ...ledgerstate.BranchIDs) (newArithmeticBranchIDs ArithmeticBranchIDs) {
+	newArithmeticBranchIDs = make(ArithmeticBranchIDs)
+	if len(optionalBranchIDs) >= 1 {
+		newArithmeticBranchIDs.Add(optionalBranchIDs[0])
+	}
+
+	return newArithmeticBranchIDs
+}
+
+// Add adds all BranchIDs to the collection.
+func (a ArithmeticBranchIDs) Add(branchIDs ledgerstate.BranchIDs) {
+	for branchID := range branchIDs {
+		a[branchID]++
+	}
+}
+
+// Subtract subtracts all BranchIDs from the collection.
+func (a ArithmeticBranchIDs) Subtract(branchIDs ledgerstate.BranchIDs) {
+	for branchID := range branchIDs {
+		a[branchID]--
+	}
+}
+
+// BranchIDs returns the BranchIDs represented by this collection.
+func (a ArithmeticBranchIDs) BranchIDs() (branchIDs ledgerstate.BranchIDs) {
+	branchIDs = ledgerstate.NewBranchIDs()
+	for branchID, value := range a {
+		if value >= 1 {
+			branchIDs.Add(branchID)
+		}
+	}
+
+	return
+}
+
+// String returns a human-readable version of the ArithmeticBranchIDs.
+func (a ArithmeticBranchIDs) String() string {
+	if len(a) == 0 {
+		return "ArithmeticBranchIDs() = " + a.BranchIDs().String()
+	}
+
+	result := "ArithmeticBranchIDs("
+	i := 0
+	for branchID, value := range a {
+		switch true {
+		case value == 1:
+			if i != 0 {
+				result += " + "
+			}
+
+			result += branchID.String()
+			i++
+		case value > 1:
+			if i != 0 {
+				result += " + "
+			}
+
+			result += strconv.Itoa(value) + "*" + branchID.String()
+			i++
+		case value == 0:
+		case value == -1:
+			if i != 0 {
+				result += " - "
+			} else {
+				result += "-"
+			}
+
+			result += branchID.String()
+			i++
+		case value < -1:
+			if i != 0 {
+				result += " - "
+			}
+
+			result += strconv.Itoa(-value) + "*" + branchID.String()
+			i++
+		}
+	}
+	result += ") = " + a.BranchIDs().String()
+
+	return result
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
