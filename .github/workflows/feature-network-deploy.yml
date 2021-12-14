@@ -41,7 +41,7 @@ jobs:
           push: true
           build-args: |
             CUSTOM_SNAPSHOT_URL=${{github.event.inputs.snapshotUrl}}
-            DEFAULT_SNAPSHOT_URL="https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/feature/snapshot.bin"
+            DEFAULT_SNAPSHOT_URL=https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/feature/snapshot.bin
             REMOTE_DEBUGGING=1
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,mode=max,dest=/tmp/.buildx-cache-new
