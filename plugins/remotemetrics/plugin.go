@@ -150,6 +150,6 @@ func configureMissingMessageMetrics() {
 		return
 	}
 
-	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(events.NewClosure(onMissingMessageRequest)))
-	deps.Tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(events.NewClosure(onMissingMessageStored)))
+	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(onMissingMessageRequest))
+	deps.Tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(onMissingMessageStored))
 }
