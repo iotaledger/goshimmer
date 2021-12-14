@@ -1,29 +1,29 @@
 import * as React from 'react';
-import Container from 'react-bootstrap/Container'
-import {inject, observer} from "mobx-react";
+import Container from 'react-bootstrap/Container';
+import { inject, observer } from 'mobx-react';
 import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
 import { Collapse } from 'react-bootstrap';
-import TangleStore from "stores/TangleStore";
-import {MessageInfo} from "components/MessageInfo";
-import "styles/style.css";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Button from "react-bootstrap/Button";
-import Popover from "react-bootstrap/Popover";
-import OverlayTrigger from "react-bootstrap/OverlayTrigger";
-import InputGroup from "react-bootstrap/InputGroup";
-import FormControl from "react-bootstrap/FormControl";
+import TangleStore from 'stores/TangleStore';
+import { MessageInfo } from 'components/MessageInfo';
+import 'styles/style.css';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
+import Button from 'react-bootstrap/Button';
+import Popover from 'react-bootstrap/Popover';
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import InputGroup from 'react-bootstrap/InputGroup';
+import FormControl from 'react-bootstrap/FormControl';
 
 interface Props {
     tangleStore?: TangleStore;
 }
 
-@inject("tangleStore")
+@inject('tangleStore')
 @observer
-export class TangleDAG extends React.Component<Props, any> {
+export default class TangleDAG extends React.Component<Props, any> {
     constructor(props) {
         super(props);
-        this.state = {open: true};
+        this.state = { open: true };
     }
 
     componentDidMount() {
@@ -34,68 +34,97 @@ export class TangleDAG extends React.Component<Props, any> {
         this.props.tangleStore.stop();
     }
 
-    pauseResumeVisualizer = (e) => {
+    pauseResumeVisualizer = e => {
         this.props.tangleStore.pauseResume();
-    }
+    };
 
-    updateVerticesLimit = (e) => {
+    updateVerticesLimit = e => {
         this.props.tangleStore.updateVerticesLimit(e.target.value);
-    }
+    };
 
-    updateSearch = (e) => {
+    updateSearch = e => {
         this.props.tangleStore.updateSearch(e.target.value);
-    }
+    };
 
     searchAndSelect = (e: any) => {
         if (e.key !== 'Enter') return;
         this.props.tangleStore.searchAndSelect();
-    }
+    };
 
     centerGraph = () => {
         this.props.tangleStore.centerEntireGraph();
-    }
+    };
 
-    render () {
-        let { paused, maxTangleVertices, search } = this.props.tangleStore;
+    render() {
+        const { paused, maxTangleVertices, search } = this.props.tangleStore;
 
         return (
             <Container>
-                <div onClick={() => this.setState(prevState => ({open: !prevState.open}))}>
-                        <h2 >
-                            Tangle DAG
-                            { this.state.open ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown /> }
-                        </h2>
+                <div
+                    onClick={() =>
+                        this.setState(prevState => ({ open: !prevState.open }))
+                    }
+                >
+                    <h2>
+                        Tangle DAG
+                        {this.state.open ? (
+                            <MdKeyboardArrowUp />
+                        ) : (
+                            <MdKeyboardArrowDown />
+                        )}
+                    </h2>
                 </div>
                 <Collapse in={this.state.open}>
                     <div>
                         <Row xs={5}>
-                            <Col className="align-self-end" style={{display: "flex", justifyContent: "space-evenly"}}>
+                            <Col
+                                className="align-self-end"
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-evenly'
+                                }}
+                            >
                                 <InputGroup className="mb-1">
                                     <OverlayTrigger
-                                        trigger={['hover', 'focus']} placement="right" overlay={
-                                        <Popover id="popover-basic">
-                                            <Popover.Body>
-                                                Pauses/resumes rendering the graph.
-                                            </Popover.Body>
-                                        </Popover>}
+                                        trigger={['hover', 'focus']}
+                                        placement="right"
+                                        overlay={
+                                            <Popover id="popover-basic">
+                                                <Popover.Body>
+                                                    Pauses/resumes rendering the
+                                                    graph.
+                                                </Popover.Body>
+                                            </Popover>
+                                        }
                                     >
-                                        <Button onClick={this.pauseResumeVisualizer} variant="outline-secondary">
-                                            {paused ? "Resume Rendering" : "Pause Rendering"}
+                                        <Button
+                                            onClick={this.pauseResumeVisualizer}
+                                            variant="outline-secondary"
+                                        >
+                                            {paused
+                                                ? 'Resume Rendering'
+                                                : 'Pause Rendering'}
                                         </Button>
                                     </OverlayTrigger>
                                 </InputGroup>
                                 <InputGroup className="mb-1">
-                                    <Button onClick={this.centerGraph} variant="outline-secondary">
+                                    <Button
+                                        onClick={this.centerGraph}
+                                        variant="outline-secondary"
+                                    >
                                         Center Graph
                                     </Button>
                                 </InputGroup>
                             </Col>
                             <Col>
                                 <InputGroup className="mb-1">
-                                    <InputGroup.Text id="vertices-limit">Vertices Limit</InputGroup.Text>
+                                    <InputGroup.Text id="vertices-limit">
+                                        Vertices Limit
+                                    </InputGroup.Text>
                                     <FormControl
                                         placeholder="limit"
-                                        value={maxTangleVertices.toString()} onChange={this.updateVerticesLimit}
+                                        value={maxTangleVertices.toString()}
+                                        onChange={this.updateVerticesLimit}
                                         aria-label="vertices-limit"
                                         aria-describedby="vertices-limit"
                                     />
@@ -108,8 +137,11 @@ export class TangleDAG extends React.Component<Props, any> {
                                     </InputGroup.Text>
                                     <FormControl
                                         placeholder="search"
-                                        type="text" value={search} onChange={this.updateSearch}
-                                        aria-label="vertices-search" onKeyUp={this.searchAndSelect}
+                                        type="text"
+                                        value={search}
+                                        onChange={this.updateSearch}
+                                        aria-label="vertices-search"
+                                        onKeyUp={this.searchAndSelect}
                                         aria-describedby="vertices-search"
                                     />
                                 </InputGroup>
@@ -121,9 +153,8 @@ export class TangleDAG extends React.Component<Props, any> {
                         </div>
                     </div>
                 </Collapse>
-                <br></br>
+                <br />
             </Container>
-
         );
     }
 }
