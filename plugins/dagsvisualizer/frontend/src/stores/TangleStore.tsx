@@ -449,7 +449,7 @@ export class TangleStore {
         dfsIterator(
             this.graph,
             node,
-            node => {
+            () => {
                 this.selected_approvers_count++;
             },
             true,
@@ -462,7 +462,7 @@ export class TangleStore {
         dfsIterator(
             this.graph,
             node,
-            node => {
+            () => {
                 this.selected_approvees_count++;
             },
             false,
@@ -511,7 +511,7 @@ export class TangleStore {
         dfsIterator(
             this.graph,
             node,
-            node => {
+            () => {
                 return false;
             },
             true,
@@ -523,7 +523,7 @@ export class TangleStore {
         dfsIterator(
             this.graph,
             node,
-            node => {
+            () => {
                 return false;
             },
             false,
@@ -601,8 +601,8 @@ export class TangleStore {
         const graphics: any = Viva.Graph.View.svgGraphics();
 
         graphics
-            .node(node => {
-                return svgNodeBuilder(node.data);
+            .node(() => {
+                return svgNodeBuilder();
             })
             .placeNode(this.svgUpdateNodePos);
 
@@ -683,7 +683,7 @@ export class TangleStore {
     };
 }
 
-const svgNodeBuilder = function(node: tangleVertex): any {
+const svgNodeBuilder = function(): any {
     const ui = Viva.Graph.svg('rect');
     setUINodeColor(ui, COLOR.TIP);
     setUINodeSize(ui, VERTEX.SIZE_DEFAULT);

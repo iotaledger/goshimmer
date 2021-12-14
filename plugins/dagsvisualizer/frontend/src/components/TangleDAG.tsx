@@ -34,7 +34,7 @@ export default class TangleDAG extends React.Component<Props, any> {
         this.props.tangleStore.stop();
     }
 
-    pauseResumeVisualizer = e => {
+    pauseResumeVisualizer = () => {
         this.props.tangleStore.pauseResume();
     };
 

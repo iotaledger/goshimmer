@@ -13,4 +13,4 @@ docker run -it --rm \
     -v $(pwd):/tmp/mnt \
     -e YARN_CACHE_FOLDER=/tmp/ \
     -e HOME=/tmp/ \
-    -w /tmp/mnt/plugins/dagsvisualizer/frontend node:12.16 bash -c "yarn install && yarn start"
+    -w /tmp/mnt/plugins/dagsvisualizer/frontend node:17.2 bash -c "yarn install && yarn start"

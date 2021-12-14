@@ -479,7 +479,7 @@ export class UTXOStore {
         });
 
         // clear selected node
-        this.cy.on('unselect', 'node', evt => {
+        this.cy.on('unselect', 'node', () => {
             this.clearSelected();
         });
 

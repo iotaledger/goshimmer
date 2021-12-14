@@ -33,7 +33,7 @@ export default class UTXODAG extends React.Component<Props, any> {
         this.props.utxoStore.stop();
     }
 
-    pauseResumeVisualizer = e => {
+    pauseResumeVisualizer = () => {
         this.props.utxoStore.pauseResume();
     };
 

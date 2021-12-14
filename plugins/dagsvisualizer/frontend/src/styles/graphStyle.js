@@ -4,9 +4,6 @@ export var klayOptions = {
     fit: true, // Whether to fit
     padding: 20, // Padding on fit
     animate: true, // Whether to transition the node positions
-    animateFilter: function(node, i) {
-        return true;
-    }, // Whether to animate specific nodes when animation is on; non-animated nodes immediately go to their final positions
     animationDuration: 500, // Duration of animation in ms if enabled
     animationEasing: undefined, // Easing of animation if enabled
     transform: function(node, pos) {
@@ -57,10 +54,7 @@ export var klayOptions = {
         separateConnectedComponents: true, // Whether each connected component should be processed separately
         spacing: 20, // Overall setting for the minimal amount of space to be left between objects
         thoroughness: 7 // How much effort should be spent to produce a nice layout..
-    },
-    priority: function(edge) {
-        return null;
-    } // Edges with a non-nil value are skipped when greedy edge cycle breaking is enabled
+    }
 };
 
 export var dagreOptions = {
@@ -71,10 +65,10 @@ export var dagreOptions = {
     rankSep: undefined, // the separation between each rank in the layout
     rankDir: 'LR', // 'TB' for top to bottom flow, 'LR' for left to right,
     ranker: undefined, // Type of algorithm to assign a rank to each node in the input graph. Possible values: 'network-simplex', 'tight-tree' or 'longest-path'
-    minLen: function(edge) {
+    minLen: function() {
         return 1;
     }, // number of ranks to keep between the source and target of the edge
-    edgeWeight: function(edge) {
+    edgeWeight: function() {
         return 1;
     }, // higher weight edges are generally made shorter and straighter than lower weight edges
 
@@ -84,9 +78,6 @@ export var dagreOptions = {
     spacingFactor: undefined, // Applies a multiplicative factor (>0) to expand or compress the overall area that the nodes take up
     nodeDimensionsIncludeLabels: false, // whether labels should be included in determining the space used by a node
     animate: true, // whether to transition the node positions
-    animateFilter: function(node, i) {
-        return true;
-    }, // whether to animate specific nodes when animation is on; non-animated nodes immediately go to their final positions
     animationDuration: 500, // duration of animation in ms if enabled
     animationEasing: undefined, // easing of animation if enabled
     boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
@@ -144,11 +135,11 @@ export var fcoseOptions = {
     /* incremental layout options */
 
     // Node repulsion (non overlapping) multiplier
-    nodeRepulsion: node => 4500,
+    nodeRepulsion: () => 4500,
     // Ideal edge (non nested) length
-    idealEdgeLength: edge => 50,
+    idealEdgeLength: () => 50,
     // Divisor to compute edge forces
-    edgeElasticity: edge => 0.45,
+    edgeElasticity: () => 0.45,
     // Nesting factor (multiplier) to compute ideal edge length for nested edges
     nestingFactor: 0.1,
     // Maximum number of iterations to perform - this is a suggested value and might be adjusted by the algorithm as required

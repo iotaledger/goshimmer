@@ -34,7 +34,7 @@ export default class BranchDAG extends React.Component<Props, any> {
         this.props.branchStore.stop();
     }
 
-    pauseResumeVisualizer = e => {
+    pauseResumeVisualizer = () => {
         this.props.branchStore.pauseResume();
     };
 

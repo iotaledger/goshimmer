@@ -27,8 +27,8 @@
     }
   },
   "dagsvisualizer": {
-    "dev": true,
-    "devBindAddress": "36.237.125.139:3000"
+    "dev": false,
+    "devBindAddress": "dagsvisualizer-dev-docker:3000"
   },
   "database": {
     "directory": "mainnetdb"
