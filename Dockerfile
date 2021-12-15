@@ -127,8 +127,9 @@ FROM prepare-runtime as debugger-enabled-1
 EXPOSE 40000
 
 # Copy the Delve binary
+ENV DELVE_PORT=40000
 COPY --chown=nonroot:nonroot --from=build /go/bin/dlv /run/dlv
-ENTRYPOINT ["/run/dlv","--listen=:40000", "--headless=true" ,"--api-version=2", "--accept-multiclient", "exec", "--continue", "/run/goshimmer", "--", "--config=/config.json", "--messageLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]
+ENTRYPOINT ["/run/dlv","--listen=:$DELVE_PORT", "--headless=true" ,"--api-version=2", "--accept-multiclient", "exec", "--continue", "/run/goshimmer", "--", "--config=/config.json", "--messageLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]
 
 # Execute corresponding build stage depending on the REMOTE_DEBUGGING build arg.
 FROM debugger-enabled-${REMOTE_DEBUGGING} as runtime
