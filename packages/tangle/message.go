@@ -791,7 +791,8 @@ type MessageMetadata struct {
 	solid               bool
 	solidificationTime  time.Time
 	structureDetails    *markers.StructureDetails
-	branchID            ledgerstate.BranchID
+	addedBranchIDs      ledgerstate.BranchID
+	subtractedBranchIDs ledgerstate.BranchID
 	scheduled           bool
 	scheduledTime       time.Time
 	scheduledBypass     bool
@@ -802,17 +803,18 @@ type MessageMetadata struct {
 	gradeOfFinality     gof.GradeOfFinality
 	gradeOfFinalityTime time.Time
 
-	solidMutex              sync.RWMutex
-	solidificationTimeMutex sync.RWMutex
-	structureDetailsMutex   sync.RWMutex
-	branchIDMutex           sync.RWMutex
-	scheduledMutex          sync.RWMutex
-	scheduledTimeMutex      sync.RWMutex
-	scheduledBypassMutex    sync.RWMutex
-	bookedMutex             sync.RWMutex
-	bookedTimeMutex         sync.RWMutex
-	invalidMutex            sync.RWMutex
-	gradeOfFinalityMutex    sync.RWMutex
+	solidMutex               sync.RWMutex
+	solidificationTimeMutex  sync.RWMutex
+	structureDetailsMutex    sync.RWMutex
+	addedBranchIDsMutex      sync.RWMutex
+	subtractedBranchIDsMutex sync.RWMutex
+	scheduledMutex           sync.RWMutex
+	scheduledTimeMutex       sync.RWMutex
+	scheduledBypassMutex     sync.RWMutex
+	bookedMutex              sync.RWMutex
+	bookedTimeMutex          sync.RWMutex
+	invalidMutex             sync.RWMutex
+	gradeOfFinalityMutex     sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -856,8 +858,12 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
-	if result.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+	if result.addedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse added BranchID from MarshalUtil: %w", err)
+		return
+	}
+	if result.subtractedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse subtracted BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
@@ -986,24 +992,52 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 	return m.structureDetails
 }
 
-// SetBranchID sets the branch ID of the message.
-func (m *MessageMetadata) SetBranchID(bID ledgerstate.BranchID) (modified bool) {
-	m.branchIDMutex.Lock()
-	defer m.branchIDMutex.Unlock()
-	if m.branchID == bID {
+// SetAddedBranchIDs sets the aggregated BranchID of the added Branches.
+func (m *MessageMetadata) SetAddedBranchIDs(aggregatedAddedBranchIDs ledgerstate.BranchID) (modified bool) {
+	m.addedBranchIDsMutex.Lock()
+	defer m.addedBranchIDsMutex.Unlock()
+
+	if m.addedBranchIDs == aggregatedAddedBranchIDs {
 		return
 	}
-	m.branchID = bID
+
+	m.addedBranchIDs = aggregatedAddedBranchIDs
 	m.SetModified(true)
 	modified = true
+
 	return
 }
 
-// BranchID returns the branch ID of the message.
-func (m *MessageMetadata) BranchID() ledgerstate.BranchID {
-	m.branchIDMutex.RLock()
-	defer m.branchIDMutex.RUnlock()
-	return m.branchID
+// AddedBranchIDs returns the aggregated BranchID of the added Branches of the Message.
+func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchID {
+	m.addedBranchIDsMutex.RLock()
+	defer m.addedBranchIDsMutex.RUnlock()
+
+	return m.addedBranchIDs
+}
+
+// SetSubtractedBranchIDs sets the aggregated BranchID of the added Branches.
+func (m *MessageMetadata) SetSubtractedBranchIDs(aggregatedSubtractedBranchIDs ledgerstate.BranchID) (modified bool) {
+	m.subtractedBranchIDsMutex.Lock()
+	defer m.subtractedBranchIDsMutex.Unlock()
+
+	if m.subtractedBranchIDs == aggregatedSubtractedBranchIDs {
+		return
+	}
+
+	m.subtractedBranchIDs = aggregatedSubtractedBranchIDs
+	m.SetModified(true)
+	modified = true
+
+	return
+}
+
+// SubtractedBranchIDs returns the aggregated BranchID of the subtracted Branches of the Message.
+func (m *MessageMetadata) SubtractedBranchIDs() ledgerstate.BranchID {
+	m.subtractedBranchIDsMutex.RLock()
+	defer m.subtractedBranchIDsMutex.RUnlock()
+
+	return m.subtractedBranchIDs
 }
 
 // SetScheduled sets the message associated with this metadata as scheduled.
@@ -1209,7 +1243,8 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
 		Write(m.StructureDetails()).
-		Write(m.BranchID()).
+		Write(m.AddedBranchIDs()).
+		Write(m.SubtractedBranchIDs()).
 		WriteBool(m.Scheduled()).
 		WriteTime(m.ScheduledTime()).
 		WriteBool(m.ScheduledBypass()).
@@ -1235,13 +1270,14 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("solid", m.IsSolid()),
 		stringify.StructField("solidificationTime", m.SolidificationTime()),
 		stringify.StructField("structureDetails", m.StructureDetails()),
-		stringify.StructField("branchID", m.BranchID()),
+		stringify.StructField("addedBranchIDs", m.AddedBranchIDs()),
+		stringify.StructField("subtractedBranchIDs", m.SubtractedBranchIDs()),
 		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("scheduledTime", m.ScheduledTime()),
 		stringify.StructField("scheduledBypass", m.ScheduledBypass()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
-		stringify.StructField("invalid", m.IsObjectivelyInvalid()),
+		stringify.StructField("objectivelyInvalid", m.IsObjectivelyInvalid()),
 		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", m.GradeOfFinalityTime()),
 	)

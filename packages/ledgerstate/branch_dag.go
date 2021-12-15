@@ -640,25 +640,22 @@ func (b *BranchDAG) anyConflictMemberConfirmed(branch *ConflictBranch) (conflict
 
 // TODO: aggregateNormalizedBranches is an internal utility function that retrieves the AggregatedBranch that corresponds to
 // the given normalized BranchIDs. It automatically creates the AggregatedBranch if it didn't exist, yet.
-func (b *BranchDAG) AggregateConflictBranches(parentBranchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool) {
+func (b *BranchDAG) AggregateConflictBranchesID(parentBranchIDs BranchIDs) (branchID BranchID) {
 	if len(parentBranchIDs) == 1 {
 		for firstBranchID := range parentBranchIDs {
-			cachedAggregatedBranch = b.Branch(firstBranchID)
-			return
+			return firstBranchID
 		}
 	}
 
 	aggregatedBranch := NewAggregatedBranch(parentBranchIDs)
-	cachedAggregatedBranch = &CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
-		newBranchCreated = true
-
+	(&CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		aggregatedBranch.Persist()
 		aggregatedBranch.SetModified()
 
 		return aggregatedBranch
-	})}
+	})}).Release()
 
-	return
+	return aggregatedBranch.ID()
 }
 
 // registerConflictMember is an internal utility function that removes the ConflictMember references of a Branch

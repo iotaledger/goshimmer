@@ -95,41 +95,6 @@ func (b *Booker) run() {
 	}()
 }
 
-// MessageBranchID returns the BranchID of the given Message.
-func (b *Booker) structureDetailsOfStrongParents(messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	if messageID == EmptyMessageID {
-		return ledgerstate.MasterBranchID, nil
-	}
-
-	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		branchIDs := ledgerstate.NewBranchIDs()
-		if metadataBranchID := messageMetadata.BranchID(); metadataBranchID != ledgerstate.UndefinedBranchID {
-			branchIDs.Add(metadataBranchID)
-		}
-
-		structureDetails := messageMetadata.StructureDetails()
-		if structureDetails == nil {
-			err = errors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
-			return
-		}
-		structureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			branchIDs.Add(b.MarkersManager.BranchID(markers.NewMarker(sequenceID, index)))
-
-			return true
-		})
-
-		branchID, err = b.tangle.LedgerState.InheritBranch(branchIDs)
-		if branchID == ledgerstate.InvalidBranchID {
-			branchID, err = b.tangle.LedgerState.InheritBranch(b.supportedBranches(branchIDs, ledgerstate.NewBranchIDs(messageMetadata.BranchID())))
-		}
-	}) {
-		err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
-		return
-	}
-
-	return
-}
-
 // MessageBranchIDs returns the ConflictBranchIDs of the given Message.
 func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs ledgerstate.BranchIDs, err error) {
 	if messageID == EmptyMessageID {
@@ -191,38 +156,9 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				}
 			}
 
-			pastMarkers, pastMarkersBranchIDs, inheritedBranchIDs, bookingDetailsErr := b.determineBookingDetails(message)
-			if bookingDetailsErr != nil {
-				// set invalid objective
+			if err = b.inheritBranchIDs(message, messageMetadata); err != nil {
+				err = errors.Errorf("failed to inherit BranchIDs of Message with %s: %w", messageID, err)
 				return
-			}
-
-			aggregatedMessageLabelBranch, _ := b.tangle.LedgerState.AggregateConflictBranches(inheritedBranchIDs)
-
-			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(aggregatedMessageLabelBranch.ID().Bytes()))
-			messageMetadata.SetStructureDetails(inheritedStructureDetails)
-
-			if inheritedStructureDetails.PastMarkers.Size() == 1 && inheritedStructureDetails.IsPastMarker {
-				b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
-			} else if len(likedBranches) != 0 {
-				normalizeLikedBranch, normalizeLikedBranchErr := b.tangle.LedgerState.InheritBranch(likedBranches)
-				if normalizeLikedBranchErr != nil {
-					panic(normalizeLikedBranchErr)
-				}
-				if normalizeLikedBranch == ledgerstate.InvalidBranchID {
-					panic("INVALID WHAT THE FÖCK")
-				}
-
-				if normalizeLikedBranch == ledgerstate.MasterBranchID {
-				}
-			}
-
-			if inheritedStructureDetails.PastMarkers.Size() != 1 || !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
-				if !inheritedStructureDetails.IsPastMarker {
-					// messageMetadata.SetBranchID(inheritedBranch)
-				} else {
-					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
-				}
 			}
 
 			messageMetadata.SetBooked(true)
@@ -234,15 +170,59 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	return
 }
 
+func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMetadata) (err error) {
+	structureDetails, pastMarkersBranchIDs, inheritedBranchIDs, bookingDetailsErr := b.determineBookingDetails(message)
+	if bookingDetailsErr != nil {
+		return errors.Errorf("failed to determine booking details of Message with %s: %w", message.ID(), bookingDetailsErr)
+	}
+
+	aggregatedInheritedBranchID := b.tangle.LedgerState.AggregateConflictBranchesID(inheritedBranchIDs)
+	addedBranchIDs := inheritedBranchIDs.Clone().Subtract(pastMarkersBranchIDs)
+	subtractedBranchIDs := pastMarkersBranchIDs.Clone().Subtract(inheritedBranchIDs)
+
+	inheritedStructureDetails, newSequenceCreated := b.MarkersManager.InheritStructureDetails(message, structureDetails, markers.NewSequenceAlias(aggregatedInheritedBranchID.Bytes()))
+	messageMetadata.SetStructureDetails(inheritedStructureDetails)
+
+	switch b.branchMappingTarget(newSequenceCreated, len(addedBranchIDs)+len(subtractedBranchIDs) == 0, inheritedStructureDetails.IsPastMarker) {
+	case MarkerMappingTarget:
+		b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), aggregatedInheritedBranchID)
+	case MetadataMappingTarget:
+		if len(addedBranchIDs) != 0 {
+			messageMetadata.SetAddedBranchIDs(b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs))
+		}
+
+		if len(subtractedBranchIDs) != 0 {
+			messageMetadata.SetSubtractedBranchIDs(b.tangle.LedgerState.AggregateConflictBranchesID(subtractedBranchIDs))
+		}
+	}
+
+	return nil
+}
+
+func (b *Booker) branchMappingTarget(newSequenceCreated bool, diffsEmpty bool, isPastMarker bool) (mappingTarget MappingTarget) {
+	if newSequenceCreated {
+		return MarkerMappingTarget
+	}
+
+	if diffsEmpty {
+		return UndefinedMappingTarget
+	}
+
+	if isPastMarker {
+		return MarkerMappingTarget
+	}
+
+	return MetadataMappingTarget
+}
+
 // determineBookingDetails determines the booking details of an unbooked Message.
-func (b *Booker) determineBookingDetails(message *Message) (parentsPastMarkers *markers.Markers, parentsPastMarkersBranchIDs, inheritedBranchIDs ledgerstate.BranchIDs, err error) {
-	// We try to book the payload
+func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs ledgerstate.BranchIDs, err error) {
 	branchIDOfPayload, bookingErr := b.bookPayload(message)
 	if bookingErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to book payload of %s: %w", message.ID(), bookingErr)
 	}
 
-	parentsPastMarkers, parentsPastMarkersBranchIDs, parentsBranchIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(message)
+	parentsStructureDetails, parentsPastMarkersBranchIDs, parentsBranchIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(message)
 	if bookingDetailsErr != nil {
 		err = errors.Errorf("failed to retrieve booking details of parents of Message with %s: %w", message.ID(), bookingErr)
 		return
@@ -259,7 +239,7 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsPastMarkers *
 		return nil, nil, nil, errors.Errorf("failed to collect shallow dislikes of %s: %w", message.ID(), shallowDislikeErr)
 	}
 
-	return parentsPastMarkers, parentsPastMarkersBranchIDs, arithmeticBranchIDs.BranchIDs(), nil
+	return parentsStructureDetails, parentsPastMarkersBranchIDs, arithmeticBranchIDs.BranchIDs(), nil
 }
 
 func (b *Booker) isAnyParentObjectivelyInvalid(message *Message) (isAnyParentObjectivelyInvalid bool) {
@@ -292,13 +272,12 @@ func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDs) (areAllTr
 }
 
 // messageBookingDetails returns the Branch and Marker related details of the given Message.
-func (b *Booker) messageBookingDetails(messageID MessageID) (pastMarkers *markers.Markers, pastMarkersBranchIDs, messageBranchIDs ledgerstate.BranchIDs, err error) {
-	pastMarkers = markers.NewMarkers()
+func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *markers.StructureDetails, pastMarkersBranchIDs, messageBranchIDs ledgerstate.BranchIDs, err error) {
 	pastMarkersBranchIDs = ledgerstate.NewBranchIDs()
 	messageBranchIDs = ledgerstate.NewBranchIDs()
 
 	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		structureDetails := messageMetadata.StructureDetails()
+		structureDetails = messageMetadata.StructureDetails()
 		if structureDetails == nil {
 			err = errors.Errorf("failed to retrieve StructureDetails of Message with %s: %w", messageID, cerrors.ErrFatal)
 			return
@@ -312,15 +291,14 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (pastMarkers *marker
 				return false
 			}
 
-			pastMarkers.Set(sequenceID, index)
 			pastMarkersBranchIDs.AddAll(conflictBranchIDs)
 			messageBranchIDs.AddAll(conflictBranchIDs)
 
 			return true
 		})
 
-		if metadataDiffAdd := messageMetadata.DiffAdd(); metadataDiffAdd != ledgerstate.UndefinedBranchID {
-			conflictBranchIDs, conflictBranchIDsErr := b.tangle.LedgerState.ResolveConflictBranchIDs(metadataDiffAdd)
+		if metadataDiffAdd := messageMetadata.AddedBranchIDs(); metadataDiffAdd != ledgerstate.UndefinedBranchID {
+			conflictBranchIDs, conflictBranchIDsErr := b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(metadataDiffAdd))
 			if conflictBranchIDsErr != nil {
 				err = errors.Errorf("failed to resolve DiffAdd branches %s: %w", messageID, conflictBranchIDsErr)
 				return
@@ -329,8 +307,8 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (pastMarkers *marker
 			messageBranchIDs.AddAll(conflictBranchIDs)
 		}
 
-		if metadataDiffSubtract := messageMetadata.DiffSubtract(); metadataDiffSubtract != ledgerstate.UndefinedBranchID {
-			conflictBranchIDs, conflictBranchIDsErr := b.tangle.LedgerState.ResolveConflictBranchIDs(metadataDiffSubtract)
+		if metadataDiffSubtract := messageMetadata.SubtractedBranchIDs(); metadataDiffSubtract != ledgerstate.UndefinedBranchID {
+			conflictBranchIDs, conflictBranchIDsErr := b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(metadataDiffSubtract))
 			if conflictBranchIDsErr != nil {
 				err = errors.Errorf("failed to resolve DiffSubtract branches %s: %w", messageID, conflictBranchIDsErr)
 				return
@@ -342,23 +320,23 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (pastMarkers *marker
 		err = errors.Errorf("failed to retrieve MessageMetadata with %s: %w", messageID, cerrors.ErrFatal)
 	}
 
-	return pastMarkers, pastMarkersBranchIDs, pastMarkersBranchIDs, err
+	return structureDetails, pastMarkersBranchIDs, pastMarkersBranchIDs, err
 }
 
 // strongParentsBranchIDs returns the branches of the Message's strong parents.
-func (b *Booker) collectStrongParentsBookingDetails(message *Message) (parentsPastMarkers *markers.Markers, parentsPastMarkersBranchIDs, parentsBranchIDs ledgerstate.BranchIDs, err error) {
-	parentsPastMarkers = markers.NewMarkers()
+func (b *Booker) collectStrongParentsBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, parentsBranchIDs ledgerstate.BranchIDs, err error) {
+	parentsStructureDetails = make([]*markers.StructureDetails, 0)
 	parentsPastMarkersBranchIDs = ledgerstate.NewBranchIDs()
 	parentsBranchIDs = ledgerstate.NewBranchIDs()
 
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
-		parentPastMarkers, parentPastMarkersBranchIDs, parentBranchIDs, parentErr := b.messageBookingDetails(parentMessageID)
+		parentStructureDetails, parentPastMarkersBranchIDs, parentBranchIDs, parentErr := b.messageBookingDetails(parentMessageID)
 		if parentErr != nil {
 			err = errors.Errorf("failed to retrieve booking details of Message with %s: %w", parentMessageID, parentErr)
 			return false
 		}
 
-		parentsPastMarkers.SetAll(parentPastMarkers)
+		parentsStructureDetails = append(parentsStructureDetails, parentStructureDetails)
 		parentsPastMarkersBranchIDs.AddAll(parentPastMarkersBranchIDs)
 		parentsBranchIDs.AddAll(parentBranchIDs)
 
@@ -687,11 +665,11 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong and like parents.
-func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
-	if structureDetails.IsPastMarker {
-		m.SetMessageID(structureDetails.PastMarkers.Marker(), message.ID())
-		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
+func (m *MarkersManager) InheritStructureDetails(message *Message, structureDetails []*markers.StructureDetails, sequenceAlias markers.SequenceAlias) (newStructureDetails *markers.StructureDetails, newSequenceCreated bool) {
+	newStructureDetails, newSequenceCreated = m.Manager.InheritStructureDetails(structureDetails, m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
+	if newStructureDetails.IsPastMarker {
+		m.SetMessageID(newStructureDetails.PastMarkers.Marker(), message.ID())
+		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(newStructureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
 	}
 
 	return
@@ -852,20 +830,6 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 			})
 		}
 	}
-}
-
-// structureDetailsOfStrongParents is an internal utility function that returns a list of StructureDetails of all the strong parents.
-func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (structureDetails []*markers.StructureDetails) {
-	structureDetails = make([]*markers.StructureDetails, 0)
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
-		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
-		}) {
-			panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", parentMessageID))
-		}
-	})
-
-	return
 }
 
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
@@ -1451,5 +1415,24 @@ func (a ArithmeticBranchIDs) String() string {
 
 	return result
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MappingTarget ////////////////////////////////////////////////////////////////////////////////////////////////
+
+type MappingTarget uint8
+
+const (
+	// UndefinedMappingTarget is the zero-value of the MappingTarget type.
+	UndefinedMappingTarget MappingTarget = iota
+
+	// MarkerMappingTarget represents the MarkerMappingTarget that indicates that the Branch should be mapped through
+	// the Markers.
+	MarkerMappingTarget
+
+	// MetadataMappingTarget represents the MarkerMappingTarget that indicates that the Branch should be mapped through
+	// the MessageMetadata.
+	MetadataMappingTarget
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

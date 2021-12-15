@@ -226,19 +226,6 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) 
 	return true, true
 }
 
-// SetAll sets all the Markers in the given collection.
-func (m *Markers) SetAll(others *Markers) (updated, added bool) {
-	others.ForEach(func(sequenceID SequenceID, index Index) bool {
-		currentMarkerUpdated, currentMarkerAdded := m.Set(sequenceID, index)
-		updated = updated || currentMarkerUpdated
-		added = added || currentMarkerAdded
-
-		return true
-	})
-
-	return
-}
-
 // Delete removes the Marker with the given SequenceID from the collection and returns a boolean flag that indicates if
 // the element existed.
 func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
