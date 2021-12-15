@@ -227,21 +227,6 @@ func (b *BranchDAG) ConflictingBranches(branchIDs BranchIDs) (err error) {
 	return nil
 }
 
-// AggregateBranches retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically creates
-// the AggregatedBranch if it didn't exist, yet.
-func (b *BranchDAG) AggregateBranches(branchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
-	b.inclusionStateMutex.RLock()
-	defer b.inclusionStateMutex.RUnlock()
-
-	normalizedBranchIDs, _, err := b.NormalizeBranches(branchIDs)
-	if err != nil {
-		err = errors.Errorf("failed to normalize Branches: %w", err)
-		return
-	}
-
-	return b.aggregateNormalizedBranches(normalizedBranchIDs)
-}
-
 // SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed.
 func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	b.inclusionStateMutex.Lock()
@@ -653,9 +638,9 @@ func (b *BranchDAG) anyConflictMemberConfirmed(branch *ConflictBranch) (conflict
 	return
 }
 
-// aggregateNormalizedBranches is an internal utility function that retrieves the AggregatedBranch that corresponds to
+// TODO: aggregateNormalizedBranches is an internal utility function that retrieves the AggregatedBranch that corresponds to
 // the given normalized BranchIDs. It automatically creates the AggregatedBranch if it didn't exist, yet.
-func (b *BranchDAG) aggregateNormalizedBranches(parentBranchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
+func (b *BranchDAG) AggregateConflictBranches(parentBranchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool) {
 	if len(parentBranchIDs) == 1 {
 		for firstBranchID := range parentBranchIDs {
 			cachedAggregatedBranch = b.Branch(firstBranchID)

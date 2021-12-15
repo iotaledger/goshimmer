@@ -96,7 +96,7 @@ func (b *Booker) run() {
 }
 
 // MessageBranchID returns the BranchID of the given Message.
-func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.BranchID, err error) {
+func (b *Booker) structureDetailsOfStrongParents(messageID MessageID) (branchID ledgerstate.BranchID, err error) {
 	if messageID == EmptyMessageID {
 		return ledgerstate.MasterBranchID, nil
 	}
@@ -122,6 +122,60 @@ func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.Bran
 		if branchID == ledgerstate.InvalidBranchID {
 			branchID, err = b.tangle.LedgerState.InheritBranch(b.supportedBranches(branchIDs, ledgerstate.NewBranchIDs(messageMetadata.BranchID())))
 		}
+	}) {
+		err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
+		return
+	}
+
+	return
+}
+
+// MessageBranchID returns the BranchID of the given Message.
+func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs ledgerstate.BranchIDs, err error) {
+	if messageID == EmptyMessageID {
+		return ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), nil
+	}
+
+	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+
+		structureDetails := messageMetadata.StructureDetails()
+		if structureDetails == nil {
+			err = errors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
+			return
+		}
+
+		strongParentsBranchIDs := ledgerstate.NewBranchIDs()
+		structureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			conflictBranchIDs, err := b.MarkersManager.ConflictBranchIDs(markers.NewMarker(sequenceID, index))
+			if err != nil {
+				err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
+				return false
+			}
+
+			strongParentsBranchIDs.AddAll(conflictBranchIDs)
+			return true
+		})
+
+		arithmeticBranchIDs := NewArithmeticBranchIDs(strongParentsBranchIDs)
+
+		if metadataDiffAdd := messageMetadata.DiffAdd(); metadataDiffAdd != ledgerstate.UndefinedBranchID {
+			conflictBranchIDs, err := b.tangle.LedgerState.ResolveConflictBranchIDs(metadataDiffAdd)
+			if err != nil {
+				err = errors.Errorf("failed to resolve DiffAdd branches %s: %w", messageID, cerrors.ErrFatal)
+			}
+			arithmeticBranchIDs.Add(conflictBranchIDs)
+		}
+
+		if metadataDiffSubtract := messageMetadata.DiffSubtract(); metadataDiffSubtract != ledgerstate.UndefinedBranchID {
+			conflictBranchIDs, err := b.tangle.LedgerState.ResolveConflictBranchIDs(metadataDiffSubtract)
+			if err != nil {
+				err = errors.Errorf("failed to resolve DiffSubtract branches %s: %w", messageID, cerrors.ErrFatal)
+			}
+			arithmeticBranchIDs.Subtract(conflictBranchIDs)
+		}
+
+		branchIDs = arithmeticBranchIDs.BranchIDs()
+
 	}) {
 		err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
 		return
@@ -158,19 +212,13 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 
-			isAnyParentInvalid := false
-			message.ForEachParent(func(parent Parent) {
-				if isAnyParentInvalid {
-					return
-				}
-				b.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-					isAnyParentInvalid = messageMetadata.IsObjectivelyInvalid()
-				})
-			})
+			// TODO: we need to enforce that the dislike references contain "the other" branch with respect to the strong references
+			// it should be done as part of the solification refactor, as a payload can only be solid if all its inputs are solid,
+			// therefore we would know the payload branch from the solidifier and we could check for this
 
-			if isAnyParentInvalid {
+			if b.isAnyParentObjectivelyInvalid(message) {
 				messageMetadata.SetObjectivelyInvalid(true)
-				err = errors.Errorf("failed to book message %s: referencing invalid parent", messageID)
+				err = errors.Errorf("failed to book message %s: referencing objectively invalid parent", messageID)
 				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 				return
 			}
@@ -193,27 +241,20 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			likedBranches := b.likedParentsBranchIDs(message).Add(branchIDOfPayload)
-			strongBranches := b.strongParentsBranchIDs(message)
-			supportedBranches := b.supportedBranches(strongBranches, likedBranches)
+			strongAndPayloadBranches := b.collectStrongParentsBranchIDs(message).Add(branchIDOfPayload)
 
-			// By adding the BranchID of the payload to the computed supported branches, InheritBranch will check if anything of what we
-			// finally support has overlapping conflict sets, in which case the Message is invalid
-			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(supportedBranches.Add(branchIDOfPayload))
-			if inheritedBranch == ledgerstate.InvalidBranchID || inheritErr != nil {
-				if inheritErr == nil {
-					inheritErr = cerrors.ErrFatal
-				}
-				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
+			// add all strong branches and our own payload branch as the base opinion
+			messageBranchLabel := NewArithmeticBranchIDs(strongAndPayloadBranches)
+			// add weak references payloads' branches
+			b.collectWeakParentsBranchIDs(message, messageBranchLabel)
+			// add liked branches, while subtracting conflicting ones
+			b.collectShallowLikedParentsBranchIDs(message, messageBranchLabel)
+			// subtract disliked branches
+			b.collectShallowDislikedParentsBranchIDs(message, messageBranchLabel)
 
-				messageMetadata.SetObjectivelyInvalid(true)
+			aggregatedMessageLabelBranch, _ := b.tangle.LedgerState.AggregateConflictBranches(messageBranchLabel.BranchIDs())
 
-				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-
-				return
-			}
-
-			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
+			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(aggregatedMessageLabelBranch.ID().Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 			if inheritedStructureDetails.PastMarkers.Size() == 1 && inheritedStructureDetails.IsPastMarker {
@@ -245,6 +286,19 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 		})
 	})
 
+	return
+}
+
+func (b *Booker) isAnyParentObjectivelyInvalid(message *Message) (isAnyParentObjectivelyInvalid bool) {
+	isAnyParentObjectivelyInvalid = false
+	message.ForEachParent(func(parent Parent) {
+		if isAnyParentObjectivelyInvalid {
+			return
+		}
+		b.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+			isAnyParentObjectivelyInvalid = messageMetadata.IsObjectivelyInvalid()
+		})
+	})
 	return
 }
 
@@ -353,26 +407,47 @@ func (b *Booker) supportedBranches(strongBranchIDs, likedBranchIDs ledgerstate.B
 // supportedBranchesFromMessage returns the branches that the given message supports based on its strong and liked parents.
 // It determines the branches based on the like switch rules.
 func (b *Booker) supportedBranchesFromMessage(message *Message) ledgerstate.BranchIDs {
-	return b.supportedBranches(b.strongParentsBranchIDs(message), b.likedParentsBranchIDs(message))
+	return b.supportedBranches(b.collectStrongParentsBranchIDs(message), b.likedParentsBranchIDs(message))
 }
 
 // strongParentsBranchIDs returns the branches of the Message's strong parents.
-func (b *Booker) strongParentsBranchIDs(message *Message) (branchIDs ledgerstate.BranchIDs) {
-	branchIDs = ledgerstate.NewBranchIDs()
+func (b *Booker) collectStrongParentsInformation(message *Message) (parentMarkers markers.Markers, markerBranchIDs, resultBranchIDs ledgerstate.BranchIDs, err error) {
 
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
-		branchID, err := b.MessageBranchID(parentMessageID)
+	markerBranchIDs = ledgerstate.NewBranchIDs()
+	collectedDiffAdd = ledgerstate.NewBranchIDs()
+	collectedDiffSubtract = ledgerstate.NewBranchIDs()
+
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
+		b.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+
+			parentStructureDetails := messageMetadata.StructureDetails()
+			if parentStructureDetails == nil {
+				err = errors.Errorf("failed to retrieve StructureDetails of Message with %s: %w", parentMessageID, cerrors.ErrFatal)
+				return
+			}
+			// obtain all the Markers
+			parentStructureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+				//
+				parentMarkers.Set(sequenceID, index)
+				collectedDiffAdd.
+
+				return true
+			})
+
+		})
+
 		if err != nil {
-			panic(err)
+			return false
 		}
-		branchIDs.Add(branchID)
+
+		return true
 	})
 
 	return branchIDs
 }
 
-// shallowLikedParentsBranchIDs returns the liked and corresponding disliked ConflictBranches of a Message's shallow
-// liked parents.
+// collectShallowLikedParentsBranchIDs adds the BranchIDs of the shallow like reference and removes all its conflicts from
+// the supplied ArithmeticBranchIDs.
 func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message, arithmeticBranchIDs ArithmeticBranchIDs) (err error) {
 	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) {
 		if err != nil {
@@ -408,7 +483,76 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message, arithmeti
 		}
 	})
 
-	return likedBranchIDs, dislikedBranchIDs, err
+	return err
+}
+
+// collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from
+// the supplied ArithmeticBranchIDs.
+func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message, arithmeticBranchIDs ArithmeticBranchIDs) (err error) {
+	message.ForEachParentByType(ShallowDislikeParentType, func(parentMessageID MessageID) {
+		if err != nil {
+			return
+		}
+
+		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
+			transaction, isTransaction := message.Payload().(*ledgerstate.Transaction)
+			if !isTransaction {
+				err = errors.Errorf("%s referenced by a shallow like of %s does not contain a Transaction: %w", parentMessageID, message.ID(), cerrors.ErrFatal)
+				return
+			}
+
+			referenceDislikedBranchIDs, dislikedErr := b.tangle.LedgerState.TransactionBranchIDs(transaction.ID())
+			if dislikedErr != nil {
+				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), cerrors.ErrFatal)
+				return
+			}
+
+			dislikedBranchIDs := ledgerstate.NewBranchIDs(referenceDislikedBranchIDs.Slice()...)
+			for conflictingTransactionID := range b.tangle.LedgerState.ConflictingTransactions(transaction) {
+				dislikedConflictBranches, dislikedErr := b.tangle.LedgerState.TransactionBranchIDs(conflictingTransactionID)
+				if dislikedErr != nil {
+					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), cerrors.ErrFatal)
+					return
+				}
+				dislikedBranchIDs.AddAll(dislikedConflictBranches)
+			}
+			arithmeticBranchIDs.Subtract(dislikedBranchIDs)
+		}) {
+			err = errors.Errorf("failed to load MessageMetadata of shallow like with %s: %w", parentMessageID, cerrors.ErrFatal)
+		}
+	})
+
+	return err
+}
+
+// collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from
+// the supplied ArithmeticBranchIDs.
+func (b *Booker) collectWeakParentsBranchIDs(message *Message, arithmeticBranchIDs ArithmeticBranchIDs) (err error) {
+	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
+		if err != nil {
+			return
+		}
+
+		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
+			transaction, isTransaction := message.Payload().(*ledgerstate.Transaction)
+			// Payloads other than Transactions are MasterBranch
+			if !isTransaction {
+				return
+			}
+
+			weakReferencePayloadBranch, weakReferenceErr := b.tangle.LedgerState.TransactionBranchIDs(transaction.ID())
+			if weakReferenceErr != nil {
+				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), cerrors.ErrFatal)
+				return
+			}
+
+			arithmeticBranchIDs.Add(weakReferencePayloadBranch)
+		}) {
+			err = errors.Errorf("failed to load MessageMetadata of shallow like with %s: %w", parentMessageID, cerrors.ErrFatal)
+		}
+	})
+
+	return
 }
 
 // likedParentsBranchIDs returns all the payload branches of the Message's liked parents.
@@ -686,7 +830,7 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong and like parents.
 func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongAndLikeParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
 	if structureDetails.IsPastMarker {
 		m.SetMessageID(structureDetails.PastMarkers.Marker(), message.ID())
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
@@ -719,6 +863,14 @@ func (m *MarkersManager) BranchID(marker *markers.Marker) (branchID ledgerstate.
 		branchID = markerIndexBranchIDMapping.BranchID(marker.Index())
 	})
 
+	return
+}
+
+// BranchID returns the BranchID that is associated with the given Marker.
+func (m *MarkersManager) ConflictBranchIDs(marker *markers.Marker) (branchIDs ledgerstate.BranchIDs, err error) {
+	if branchIDs, err = m.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(m.BranchID(marker))); err != nil {
+		err = errors.Errorf("failed to resolve ConflictBranchIDs of marker %s: %w", marker, err)
+	}
 	return
 }
 
@@ -844,19 +996,10 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 	}
 }
 
-// structureDetailsOfStrongAndLikeParents is an internal utility function that returns a list of StructureDetails of all the
-// like and strong parents.
-func (m *MarkersManager) structureDetailsOfStrongAndLikeParents(message *Message) (structureDetails []*markers.StructureDetails) {
+// structureDetailsOfStrongParents is an internal utility function that returns a list of StructureDetails of all the strong parents.
+func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (structureDetails []*markers.StructureDetails) {
 	structureDetails = make([]*markers.StructureDetails, 0)
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
-		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
-		}) {
-			panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", parentMessageID))
-		}
-	})
-
-	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) {
 		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
 		}) {

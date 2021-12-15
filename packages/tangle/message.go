@@ -590,9 +590,11 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 }
 
 // ForEachParentByType executes a consumer func for each strong parent.
-func (m *Message) ForEachParentByType(parentType ParentsType, consumer func(parentMessageID MessageID)) {
+func (m *Message) ForEachParentByType(parentType ParentsType, consumer func(parentMessageID MessageID) bool) {
 	for _, parentID := range m.ParentsByType(parentType) {
-		consumer(parentID)
+		if !consumer(parentID) {
+			return
+		}
 	}
 }
 
