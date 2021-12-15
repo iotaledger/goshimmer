@@ -6,10 +6,12 @@ services:
     image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: entrynode
     restart: unless-stopped
-    network_mode: "host"
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - 6060:6060
+      - 15626:15626
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - NODE_PEERDBDIRECTORY=/db/peerdb
