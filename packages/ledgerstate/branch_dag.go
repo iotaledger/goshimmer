@@ -63,14 +63,9 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
-	normalizedParentBranchIDs, _, err := b.NormalizeBranches(parentBranchIDs)
-	if err != nil {
-		return nil, false, errors.Errorf("failed to normalize parent Branches: %w", err)
-	}
-
 	// create or load the branch
 	cachedConflictBranch = b.Branch(branchID, func() Branch {
-		conflictBranch := NewConflictBranch(branchID, normalizedParentBranchIDs, conflictIDs)
+		conflictBranch := NewConflictBranch(branchID, parentBranchIDs, conflictIDs)
 		conflictBranch.Persist()
 		conflictBranch.SetModified()
 
@@ -95,7 +90,7 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 		}
 
 		// store child references
-		for parentBranchID := range normalizedParentBranchIDs {
+		for parentBranchID := range parentBranchIDs {
 			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID, ConflictBranchType)); stored {
 				cachedChildBranch.Release()
 			}
@@ -135,12 +130,6 @@ func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newPa
 	}
 	if conflictBranch == nil {
 		err = errors.Errorf("failed to unwrap ConflictBranch: %w", cerrors.ErrFatal)
-		return
-	}
-
-	newParentBranchIDs, _, err = b.NormalizeBranches(newParentBranchIDs)
-	if err != nil {
-		err = errors.Errorf("failed to normalize new parent BranchIDs: %w", err)
 		return
 	}
 
@@ -477,127 +466,6 @@ func (b *BranchDAG) init() {
 	if stored {
 		cachedMasterBranch.Release()
 	}
-
-	cachedInvalidBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
-	if stored {
-		cachedInvalidBranch.Release()
-	}
-}
-
-// NormalizeBranches is an internal utility function that takes a list of BranchIDs and returns the BranchIDS of the
-// most special ConflictBranches that the given BranchIDs represent. It returns an error if the Branches are conflicting
-// or any other unforeseen error occurred.
-func (b *BranchDAG) NormalizeBranches(branchIDs BranchIDs) (branches BranchIDs, lazyBooked bool, err error) {
-	switch typeCastedResult := b.normalizedBranchCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
-		// retrieve conflict branches and abort if we faced an error
-		conflictBranches, conflictBranchesErr := b.ResolveConflictBranchIDs(branchIDs)
-		if conflictBranchesErr != nil {
-			return errors.Errorf("failed to resolve ConflictBranchIDs: %w", conflictBranchesErr)
-		}
-
-		// return if we are done
-		if len(conflictBranches) == 1 {
-			return conflictBranches
-		}
-
-		// return the master branch if the list of conflict branches is empty
-		if len(conflictBranches) == 0 {
-			return BranchIDs{MasterBranchID: types.Void}
-		}
-
-		// introduce iteration variables
-		seenBranches := set.New()
-		seenConflictSets := make(map[ConflictID]BranchID)
-		parentsWalker := walker.New()
-
-		// create normalized branch candidates (check their conflicts and queue parent checks)
-		branches = NewBranchIDs()
-		for conflictBranchID := range conflictBranches {
-			// check branch and queue parents
-			if !b.Branch(conflictBranchID).ConsumeConflictBranch(func(branch *ConflictBranch) {
-				switch branch.InclusionState() {
-				case Rejected:
-					lazyBooked = true
-					fallthrough
-				case Pending:
-					// add branch to the candidates of normalized branches
-					branches.Add(conflictBranchID)
-				}
-
-				if err = b.queueParentsIfConflictSetUnseen(branch, seenBranches, seenConflictSets, parentsWalker); err != nil {
-					err = errors.Errorf("failed to check conflicts and queue parents: %w", err)
-					return
-				}
-			}) {
-				return errors.Errorf("failed to load Branch with %s: %w", conflictBranchID, cerrors.ErrFatal)
-			}
-
-			// abort if we faced an error
-			if err != nil {
-				return err
-			}
-		}
-
-		// remove ancestors from the candidates
-		for parentsWalker.HasNext() {
-			// retrieve parent branch ID from stack
-			parentBranchID := parentsWalker.Next().(BranchID)
-
-			// remove ancestor from normalized candidates
-			delete(branches, parentBranchID)
-
-			// check branch, queue parents and abort if we faced an error
-			if !b.Branch(parentBranchID).ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
-				err = b.queueParentsIfConflictSetUnseen(conflictBranch, seenBranches, seenConflictSets, parentsWalker)
-			}) {
-				return errors.Errorf("failed to load Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
-			}
-
-			// abort if we faced an error
-			if err != nil {
-				return err
-			}
-		}
-
-		return branches
-	}).(type) {
-	case error:
-		err = typeCastedResult
-	case BranchIDs:
-		branches = typeCastedResult
-	}
-
-	if len(branches) == 0 {
-		branches = NewBranchIDs(MasterBranchID)
-	}
-
-	return branches, lazyBooked, err
-}
-
-func (b *BranchDAG) queueParentsIfConflictSetUnseen(branch *ConflictBranch, traversedBranches set.Set, seenConflictSets map[ConflictID]BranchID, parentWalker *walker.Walker) (err error) {
-	// abort if branch was traversed already
-	if !traversedBranches.Add(branch.ID()) {
-		return
-	}
-
-	// return error if conflict set was seen twice
-	for conflictSetID := range branch.Conflicts() {
-		if conflictingBranch, exists := seenConflictSets[conflictSetID]; exists {
-			return errors.Errorf("%s conflicts with %s in %s: %w", conflictingBranch, branch.ID(), conflictSetID, ErrInvalidStateTransition)
-		}
-		seenConflictSets[conflictSetID] = branch.ID()
-	}
-
-	if branch.InclusionState() == Confirmed {
-		return
-	}
-
-	// queue parents to be checked when traversing ancestors
-	for parentBranchID := range branch.Parents() {
-		parentWalker.Push(parentBranchID)
-	}
-
-	return nil
 }
 
 func (b *BranchDAG) anyParentRejected(conflictBranch *ConflictBranch) (parentRejected bool) {
@@ -638,8 +506,7 @@ func (b *BranchDAG) anyConflictMemberConfirmed(branch *ConflictBranch) (conflict
 	return
 }
 
-// TODO: aggregateNormalizedBranches is an internal utility function that retrieves the AggregatedBranch that corresponds to
-// the given normalized BranchIDs. It automatically creates the AggregatedBranch if it didn't exist, yet.
+// AggregateConflictBranchesID returns the aggregated BranchID that represents the given BranchIDs.
 func (b *BranchDAG) AggregateConflictBranchesID(parentBranchIDs BranchIDs) (branchID BranchID) {
 	if len(parentBranchIDs) == 1 {
 		for firstBranchID := range parentBranchIDs {

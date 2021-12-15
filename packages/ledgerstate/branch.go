@@ -28,9 +28,6 @@ var (
 
 	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
 	MasterBranchID = BranchID{1}
-
-	// InvalidBranchID is the identifier of the Branch that contains subjectively invalid Transactions.
-	InvalidBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
@@ -120,8 +117,6 @@ func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
 		return "BranchID(UndefinedBranchID)"
-	case InvalidBranchID:
-		return "BranchID(InvalidBranchID)"
 	case MasterBranchID:
 		return "BranchID(MasterBranchID)"
 	default:
