@@ -574,15 +574,7 @@ func (b *Booker) forkedBranchID(oldBranchID, newBranchID ledgerstate.BranchID, d
 		return oldBranchID, false, nil
 	}
 
-	if forkedBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, newBranchID)); err != nil {
-		return ledgerstate.UndefinedBranchID, false, errors.Errorf("failed to combine %s and %s into a new BranchID: %w", oldBranchID, newBranchID, cerrors.ErrFatal)
-	}
-
-	// If the combined branches are conflicting when propagating them, it means that there was a like switch set in the future cone.
-	// We can safely ignore the branch propagation in that part of the tangle.
-	if forkedBranchID == ledgerstate.InvalidBranchID {
-		return ledgerstate.UndefinedBranchID, false, nil
-	}
+	forkedBranchID = b.tangle.LedgerState.AggregateConflictBranchesID(ledgerstate.NewBranchIDs(oldBranchID, newBranchID))
 
 	return forkedBranchID, forkedBranchID != oldBranchID, nil
 }

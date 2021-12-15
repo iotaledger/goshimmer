@@ -139,15 +139,21 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 		return errors.Errorf("initial state of created alias output is invalid: %w", ErrTransactionInvalid)
 	}
 
+	// retrieve the metadata of the Inputs
+	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
+	defer cachedInputsMetadata.Release()
+	inputsMetadata := cachedInputsMetadata.Unwrap()
+
+	// mark transaction as "permanently rejected"
+	if !u.consumedOutputsPastConeValid(consumedOutputs, inputsMetadata) {
+		return errors.Errorf("consumed outputs reference each other: %w", ErrTransactionInvalid)
+	}
+
 	return nil
 }
 
 // BookTransaction books a Transaction into the ledger state.
 func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
-	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
-	defer cachedConsumedOutputs.Release()
-	consumedOutputs := cachedConsumedOutputs.Unwrap()
-
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(transaction.ID())
 	transactionMetadata.SetSolid(true)
@@ -177,12 +183,6 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
 	defer cachedInputsMetadata.Release()
 	inputsMetadata := cachedInputsMetadata.Unwrap()
-
-	// mark transaction as "permanently rejected"
-	if !u.consumedOutputsPastConeValid(consumedOutputs, inputsMetadata) {
-		// TODO: RETURN ERROR
-		return
-	}
 
 	// determine the booking details before we book
 	parentBranchIDs, conflictingInputs, err := u.determineBookingDetails(inputsMetadata)

@@ -437,8 +437,6 @@ func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err err
 	switch branchIDString := c.Param("branchID"); branchIDString {
 	case "MasterBranchID":
 		branchID = ledgerstate.MasterBranchID
-	case "InvalidBranchID":
-		branchID = ledgerstate.InvalidBranchID
 	default:
 		branchID, err = ledgerstate.BranchIDFromBase58(branchIDString)
 	}

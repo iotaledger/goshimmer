@@ -37,40 +37,12 @@ func (l *LedgerState) Shutdown() {
 	l.BranchDAG.Shutdown()
 }
 
-// InheritBranch implements the inheritance rules for Branches in the Tangle. It returns a single inherited Branch
-// and automatically creates an AggregatedBranch if necessary.
-func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (inheritedBranch ledgerstate.BranchID, err error) {
-	if referencedBranchIDs.Contains(ledgerstate.InvalidBranchID) {
-		inheritedBranch = ledgerstate.InvalidBranchID
-		return
-	}
-
-	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
-	if err != nil {
-		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
-			l.tangle.Events.Error.Trigger(err)
-
-			// We book under the InvalidBranch, no error.
-			inheritedBranch = ledgerstate.InvalidBranchID
-			err = nil
-			return
-		}
-
-		err = errors.Errorf("failed to aggregate BranchIDs: %w", err)
-		return
-	}
-	cachedAggregatedBranch.Release()
-
-	inheritedBranch = cachedAggregatedBranch.ID()
-	return
-}
-
 // TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
 // not pass.
 func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
 	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetObjectivelyInvalid(true)
+		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetObjectivelyInvalid(true)
 		})
 		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 
