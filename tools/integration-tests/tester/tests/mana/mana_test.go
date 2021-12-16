@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -243,22 +244,16 @@ func TestManaApis(t *testing.T) {
 	// Test /mana/access/online and /mana/consensus/online
 	t.Run("mana/*/online", func(t *testing.T) {
 		// genesis node is not online
-		expectedOnlineAccessOrder := []identity.ID{peers[0].ID(), peers[1].ID(), peers[2].ID(), peers[3].ID()}
+		expectedOnlineAccessOrder := []string{peers[0].ID().String(), peers[1].ID().String(), peers[2].ID().String(), peers[3].ID().String()}
 		aResp, err := faucet.GetOnlineAccessMana()
 		require.NoError(t, err)
 		t.Logf("/mana/access/online %+v", aResp)
 		require.Len(t, aResp.Online, len(expectedOnlineAccessOrder))
-		require.Equal(t, expectedOnlineAccessOrder[0].String(), aResp.Online[0].ShortID)
-
-		// cannot guarantee order of the other nodes as they have roughly the same amount of access mana
-		shortIDs := make([]string, 3)
-
-		for _, onlineNode := range aResp.Online[1:] {
-			shortIDs = append(shortIDs, onlineNode.ShortID)
+		require.Equal(t, expectedOnlineAccessOrder[0], aResp.Online[0].ShortID)
+		unorderedOnlineNodes := aResp.Online[1:]
+		for j := range unorderedOnlineNodes {
+			assert.Contains(t, expectedOnlineAccessOrder[1:], unorderedOnlineNodes[j].ShortID)
 		}
-		require.Contains(t, shortIDs, expectedOnlineAccessOrder[1].String())
-		require.Contains(t, shortIDs, expectedOnlineAccessOrder[2].String())
-		require.Contains(t, shortIDs, expectedOnlineAccessOrder[3].String())
 		// empty node is not online
 		expectedOnlineConsensusOrder := []identity.ID{peers[1].ID(), peers[2].ID(), peers[3].ID()}
 		cResp, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
