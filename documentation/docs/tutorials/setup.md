@@ -528,3 +528,167 @@ The Grafana dashboard should be accessible at `http://<your-ip>:3000`.
 Default login credentials are:
 * `username`: admin
 * `password`: admin
+
+
+
+## Installing GoShimmer by building from source
+
+Lets first upgrade the packages on our system:
+```
+apt update && apt dist-upgrade -y
+```  
+
+### Installing RocksDB compression libraries
+
+GoShimmer uses RocksDB as its underlying db engine. That requires a few dependencies before building the project. This can be done by installing the compression libraries:
+
+```bash
+sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
+```  
+
+
+### Install GCC and G++
+
+This is required in order for the compilation to work properly
+
+```bash
+sudo apt install gcc g++
+```
+
+### Cloning the repository
+
+Now we have to get the GoShimmer repository by cloning it into the `/opt` directory.
+
+```bash
+cd /opt
+```
+```bash
+git clone https://github.com/iotaledger/goshimmer.git
+```
+
+### Installing Golang-go 1.16
+
+In order for the build script to work later on, we have to install the programming language Go
+
+```bash
+apt install golang-go
+````
+
+Check the go version
+
+```bash
+go version
+```
+
+If apt did not install go version 1.16+, use the method below  
+
+
+```bash
+cd /home
+```
+```bash
+wget https://dl.google.com/go/go1.16.4.linux-amd64.tar.gz
+```
+```bash
+sudo tar -xvf go1.16.4.linux-amd64.tar.gz
+```
+```bash
+sudo mv go /usr/local
+```
+```bash
+export GOROOT=/usr/local/go
+```
+```bash
+cd /opt/goshimmer
+```
+```bash
+mkdir gopath
+```
+```bash
+export GOPATH=/opt/goshimmer/gopath
+```
+```bash
+export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+```
+
+Use `go version` to check if it successfully installed golang-go 1.16
+Note that it only installs for this session. If you enter a new session then you would have to enter these commands again:
+
+```bash
+export GOROOT=/usr/local/go
+```
+```bash
+export GOPATH=/opt/goshimmer/gopath
+```
+```bash
+export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+```
+
+
+### Downloading the snapshot
+We now have to get the latest snapshot (make sure to be in the goshimmer directory)
+
+
+```bash
+sudo wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
+```
+
+### Making the node dashboard accessible
+
+Access the `config.default.json` file
+
+```bash
+nano config.default.json
+```
+
+On line `23` of the file, change the **bindAddress** to `0.0.0.0:8081`.
+
+Then press `CTRL+X` to exit.
+Then save the modified buffer (press `Y`).
+Then change the file name to `config.json` (you remove “default”).
+And press the `Y` key to save the file (this will allow you to view the GoShimmer dashboard in your browser).
+
+### Running the GoShimmer node
+
+You can now run the build script for the goshimmer binary. Enter this command:
+
+```bash
+./scripts/build.sh
+```
+
+In order to keep the node running in the case you terminate the ssh session, you can enter the command: 
+
+```bash
+screen
+```
+
+Then click `enter` to get rid of the GNU screen information.
+
+Now run the goshimmer binary, this will start your node!
+
+
+```
+./goshimmer
+```
+
+You can then "detach" from the goshimmer screen by pressing your `CTRL+A+D` keys.
+
+GoShimmer is still running but its window is removed. You’re returned to the terminal window from which you launched the screen session. A message tells you that a screen window labeled `(some numbers).pts-0.goshimmer` has been detached.
+
+You need the number from the start of the window name to reattach it. If you forget it, you can always use the -ls (list) option, as shown below, to get a list of the detached windows:
+
+```bash
+screen -ls
+```
+
+When you’re ready, you can use the -r (reattach) option and the number of the session to reattach it, like so:
+
+
+```bash
+screen -r (your session id)
+```  
+
+
+### Stopping the node
+
+In order to stop a screen session and thus your GoShimmer node: inside the running window press `CTRL+A+K`. This will stop your screen session.
