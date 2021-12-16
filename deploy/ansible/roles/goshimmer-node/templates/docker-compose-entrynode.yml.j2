@@ -10,8 +10,8 @@ services:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
-      - 6060:6060
-      - 15626:15626
+      - "0.0.0.0:6060:6060/tcp"
+      - "0.0.0.0:15626:15626/udp"
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - NODE_PEERDBDIRECTORY=/db/peerdb
