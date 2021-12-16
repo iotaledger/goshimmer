@@ -528,7 +528,6 @@ The Grafana dashboard should be accessible at `http://<your-ip>:3000`.
 Default login credentials are:
 * `username`: admin
 * `password`: admin
-
 ## Installing Goshimmer by Building From Source
 ### Software Requirements
 Upgrade your systems' packages by running the following command:
