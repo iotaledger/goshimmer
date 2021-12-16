@@ -261,13 +261,15 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 		return
 	}
 
-	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 		revokeWalker := walker.New(false)
 		revokeWalker.Push(conflictingBranchID)
 
 		for revokeWalker.HasNext() {
 			a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), message, revokeWalker)
 		}
+
+		return true
 	})
 
 	a.updateBranchWeight(branchID, message)

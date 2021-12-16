@@ -63,9 +63,15 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
+	resolvedParentBranchIDs, err := b.ResolveConflictBranchIDs(parentBranchIDs)
+	if err != nil {
+		err = errors.Errorf("failed to resolve conflict BranchIDs: %w", err)
+		return
+	}
+
 	// create or load the branch
 	cachedConflictBranch = b.Branch(branchID, func() Branch {
-		conflictBranch := NewConflictBranch(branchID, parentBranchIDs, conflictIDs)
+		conflictBranch := NewConflictBranch(branchID, resolvedParentBranchIDs, conflictIDs)
 		conflictBranch.Persist()
 		conflictBranch.SetModified()
 
@@ -90,8 +96,8 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 		}
 
 		// store child references
-		for parentBranchID := range parentBranchIDs {
-			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID, ConflictBranchType)); stored {
+		for resolvedParentBranchID := range resolvedParentBranchIDs {
+			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(resolvedParentBranchID, branchID, ConflictBranchType)); stored {
 				cachedChildBranch.Release()
 			}
 		}

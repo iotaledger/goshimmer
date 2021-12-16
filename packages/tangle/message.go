@@ -244,17 +244,17 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageIDs, issuingTime time.Time,
+func NewMessage(references map[ParentsType]map[MessageID]types.Empty, issuingTime time.Time,
 	issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
 	// remove duplicates, sort in ASC
-	sortedStrongParents := sortParents(strongParents)
-	sortedWeakParents := sortParents(weakParents)
-	sortedDislikeParents := sortParents(dislikeParents)
-	sortedLikeParents := sortParents(likeParents)
+	sortedStrongParents := sortParents(references[StrongParentType])
+	sortedWeakParents := sortParents(references[WeakParentType])
+	sortedShallowDislikeParents := sortParents(references[shallowDislikeParentsCount])
+	sortedShallowLikeParents := sortParents(references[shallowLikeParents])
 
 	weakParentsCount := len(sortedWeakParents)
-	dislikeParentsCount := len(sortedDislikeParents)
-	likeParentsCount := len(sortedLikeParents)
+	shallowDislikeParentsCount := len(shallowDislikeParents)
+	shallowLikeParentsCount := len(shallowLikeParents)
 
 	var parentsBlocks []ParentsBlock
 
@@ -270,17 +270,17 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 		})
 	}
 
-	if dislikeParentsCount > 0 {
+	if shallowDislikeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
 			ParentsType: ShallowDislikeParentType,
-			References:  sortedDislikeParents,
+			References:  sortedShallowDislikeParents,
 		})
 	}
 
-	if likeParentsCount > 0 {
+	if shallowLikeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
 			ParentsType: ShallowLikeParentType,
-			References:  sortedLikeParents,
+			References:  sortedShallowLikeParents,
 		})
 	}
 

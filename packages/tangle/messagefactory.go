@@ -111,7 +111,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	var nonce uint64
 	var parents MessageIDs
 	var issuingTime time.Time
-	var likeReferences MessageIDs
+	var references map[ParentsType]map[MessageID]types.Empty
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
@@ -124,7 +124,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		}
 		issuingTime = f.getIssuingTime(parents)
 
-		likeReferences, err = f.likeReferencesFunc(parents, issuingTime, f.tangle)
+		references, err = f.likeReferencesFunc(parents, issuingTime, f.tangle)
 		if err != nil {
 			err = errors.Errorf("like references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
@@ -230,9 +230,9 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(strongParents, weakParents, shallowLikeParents, shallowDislikeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	message, err := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
+	message, err := NewMessage(strongParents, weakParents, nil, shallowLikeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
 	if err != nil {
 		return 0, err
 	}
