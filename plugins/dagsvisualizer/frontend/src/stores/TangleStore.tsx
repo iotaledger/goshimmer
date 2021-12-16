@@ -4,7 +4,7 @@ import {default as Viva} from 'vivagraphjs';
 import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from "../styles/tangleStyles";
 
 export class tangleVertex {
-    ID:              string;   
+    ID:              string;
 	strongParentIDs: Array<string>;
 	weakParentIDs:   Array<string>;
     likedParentIDs:  Array<string>;
@@ -64,9 +64,9 @@ export class TangleStore {
     layout;
     renderer;
 
-    constructor() {        
+    constructor() {
         makeObservable(this);
-        
+
         registerHandler(WSMsgType.Message, this.addMessage);
         registerHandler(WSMsgType.MessageBooked, this.setMessageBranch);
         registerHandler(WSMsgType.MessageConfirmed, this.setMessageConfirmedTime);
@@ -200,6 +200,7 @@ export class TangleStore {
         if (!this.search) return;
 
         this.selectMsg(this.search);
+        this.centerMsg(this.search);
     }
 
     updateExplorerAddress = (addr: string) => {
@@ -227,6 +228,11 @@ export class TangleStore {
 
         this.renderer.moveTo(centerX, centerY);
       }
+
+    centerMsg = (msgID: string) => {
+        var pos = this.layout.getNodePosition(msgID);
+        this.renderer.moveTo(pos.x, pos.y);
+    }
 
     drawVertex = (msg: tangleVertex) => {
         let node;
@@ -285,7 +291,7 @@ export class TangleStore {
         setUINodeColor(nodeUI, color)
     }
 
-    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {        
+    updateParentRefUI = (linkID: string, parentType?: parentRefType) => {
         // update link line type and color based on reference type
         let linkUI = this.graphics.getLinkUI(linkID)
         if (!linkUI) {
@@ -354,10 +360,6 @@ export class TangleStore {
 
         this.updateSelected(vertex.data);
         this.selected_origin_color = this.highlightMsg(vertex.data.ID);
-
-        // center the selected node.
-        var pos = this.layout.getNodePosition(msgID);
-        this.renderer.moveTo(pos.x, pos.y);
     }
 
     @action
