@@ -401,7 +401,7 @@ func (n *Network) waitForManualPeering(ctx context.Context, nodes []*Node) error
 
 	log.Printf("Waiting for %d nodes to connect to their manual peers...", len(nodes))
 	defer log.Println("Waiting for nodes to connect to their manual peers... done")
-	return eventually(ctx, condition, time.Second)
+	return eventually(ctx, condition, 10*time.Second)
 }
 
 // namePrefix returns the suffix prefixed with the name.
