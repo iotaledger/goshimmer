@@ -134,7 +134,6 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 		assert.Equal(t, 0.0, bmBatch.EffectiveBaseMana2)
 		// re-set the default values so that other tests pass
 		SetCoefficients(0.00003209, 0.00003209, 0.00003209)
-
 	})
 }
 
