@@ -573,41 +573,6 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 	return
 }
 
-// forkedBranchID returns the BranchID that is the result of combining the old BranchID with the new BranchID.
-func (b *Booker) forkedBranchID(oldBranchID, newBranchID ledgerstate.BranchID, debugLogger *debuglogger.DebugLogger) (forkedBranchID ledgerstate.BranchID, branchIDUpdated bool, err error) {
-	defer debugLogger.MethodStart("Booker", "forkedBranchID", oldBranchID, newBranchID).MethodEnd()
-
-	if oldBranchID == newBranchID {
-		return oldBranchID, false, nil
-	}
-
-	forkedBranchID = b.tangle.LedgerState.AggregateConflictBranchesID(ledgerstate.NewBranchIDs(oldBranchID, newBranchID))
-
-	return forkedBranchID, forkedBranchID != oldBranchID, nil
-}
-
-func (b *Booker) addedConflictBranchIDs(messageMetadata *MessageMetadata) (addedConflictBranchIDs ledgerstate.BranchIDs, err error) {
-	aggregatedAddedBranchID := messageMetadata.AddedBranchIDs()
-	if aggregatedAddedBranchID == ledgerstate.UndefinedBranchID {
-		return ledgerstate.NewBranchIDs(), nil
-	}
-
-	if addedConflictBranchIDs, err = b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(aggregatedAddedBranchID)); err != nil {
-		err = errors.Errorf("failed to resolve conflict BranchIDs of %s: %w", aggregatedAddedBranchID, cerrors.ErrFatal)
-	}
-
-	return addedConflictBranchIDs, err
-}
-
-func (b *Booker) addBranchIDToAddedBranchIDs(messageMetadata *MessageMetadata, newBranchID ledgerstate.BranchID) (added bool, err error) {
-	addedBranchIDs, err := b.addedConflictBranchIDs(messageMetadata)
-	if err != nil {
-		return false, errors.Errorf("failed to retrieve added ConflictBranchIDs from Message with %s: %w", messageMetadata.ID(), err)
-	}
-
-	return messageMetadata.SetAddedBranchIDs(b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs.Add(newBranchID))), nil
-}
-
 // propagateForkedTransactionToMetadataFutureCone updates the future cone of a Message to belong to the given conflict BranchID.
 func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker, debugLogger *debuglogger.DebugLogger) (err error) {
 	defer debugLogger.MethodStart("Booker", "propagateForkedTransactionToMetadataFutureCone", messageMetadata.ID(), newConflictBranchID).MethodEnd()
@@ -628,6 +593,28 @@ func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata 
 	}
 
 	return
+}
+
+func (b *Booker) addBranchIDToAddedBranchIDs(messageMetadata *MessageMetadata, newBranchID ledgerstate.BranchID) (added bool, err error) {
+	addedBranchIDs, err := b.addedConflictBranchIDs(messageMetadata)
+	if err != nil {
+		return false, errors.Errorf("failed to retrieve added ConflictBranchIDs from Message with %s: %w", messageMetadata.ID(), err)
+	}
+
+	return messageMetadata.SetAddedBranchIDs(b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs.Add(newBranchID))), nil
+}
+
+func (b *Booker) addedConflictBranchIDs(messageMetadata *MessageMetadata) (addedConflictBranchIDs ledgerstate.BranchIDs, err error) {
+	aggregatedAddedBranchID := messageMetadata.AddedBranchIDs()
+	if aggregatedAddedBranchID == ledgerstate.UndefinedBranchID {
+		return ledgerstate.NewBranchIDs(), nil
+	}
+
+	if addedConflictBranchIDs, err = b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(aggregatedAddedBranchID)); err != nil {
+		err = errors.Errorf("failed to resolve conflict BranchIDs of %s: %w", aggregatedAddedBranchID, cerrors.ErrFatal)
+	}
+
+	return addedConflictBranchIDs, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
