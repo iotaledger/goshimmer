@@ -262,7 +262,7 @@ If the UDP NAT mapping is not configured correctly, GoShimmer will terminate wit
 
 ## Installing GoShimmer From Source
 
-First, `update` and upgrade the packages on your system
+First, `update` and upgrade the packages on your system.
 
 ```bash
 apt update && apt dist-upgrade -y
