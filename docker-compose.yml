@@ -15,8 +15,8 @@ services:
     # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)
     # optionally, you can mount a config.json into the container
     volumes:
-      - "./db:/tmp/mainnetdb:rw"
-      - "./peerdb:/tmp/peerdb:rw"
+      - "goshimmer-db-volume:/tmp/mainnetdb:rw"
+      - "goshimmer-peerdb-volume:/tmp/peerdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       # AutoPeering
@@ -67,7 +67,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./tools/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/data:/prometheus:rw
+      - prometheus-data-volume:/prometheus:rw
     depends_on:
       - goshimmer
     networks:
@@ -85,6 +85,14 @@ services:
       - "3000:3000/tcp"
     user: "472"
     volumes:
-      - ./tools/monitoring/grafana:/var/lib/grafana:rw
+      - grafana-data-volume:/var/lib/grafana
+      - ./tools/docker-network/grafana/provisioning:/var/lib/grafana/provisioning:ro
+      - ./tools/docker-network/grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
       - outside
+
+volumes:
+  goshimmer-db-volume:
+  goshimmer-peerdb-volume:
+  grafana-data-volume:
+  prometheus-data-volume:
