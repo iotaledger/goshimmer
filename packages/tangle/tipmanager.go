@@ -182,12 +182,14 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	// a tip loses its tip status if it is referenced by another message
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
 		if _, deleted := t.tips.Delete(parentMessageID); deleted {
 			t.Events.TipRemoved.Trigger(&TipEvent{
 				MessageID: parentMessageID,
 			})
 		}
+
+		return true
 	})
 }
 

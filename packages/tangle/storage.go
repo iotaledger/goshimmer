@@ -143,17 +143,23 @@ func (s *Storage) StoreMessage(message *Message) {
 	defer cachedMessage.Release()
 
 	// store approvers
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
 		s.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
+
+		return true
 	})
 	// We treat like parents as strong approvers as they have the same meaning in terms of solidification.
-	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) {
+	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) bool {
 		if cachedObject, likeStored := s.approverStorage.StoreIfAbsent(NewApprover(StrongApprover, parentMessageID, messageID)); likeStored {
 			cachedObject.Release()
 		}
+
+		return true
 	})
-	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
+	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) bool {
 		s.approverStorage.Store(NewApprover(WeakApprover, parentMessageID, messageID)).Release()
+
+		return true
 	})
 
 	// trigger events
@@ -256,11 +262,15 @@ func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.Trans
 // message as an approver.
 func (s *Storage) DeleteMessage(messageID MessageID) {
 	s.Message(messageID).Consume(func(currentMsg *Message) {
-		currentMsg.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
+		currentMsg.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
 			s.deleteStrongApprover(parentMessageID, messageID)
+
+			return true
 		})
-		currentMsg.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) {
+		currentMsg.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) bool {
 			s.deleteWeakApprover(parentMessageID, messageID)
+
+			return true
 		})
 
 		s.messageMetadataStorage.Delete(messageID[:])
@@ -362,7 +372,6 @@ func (s *Storage) storeGenesis() {
 			solidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
 			messageID:          EmptyMessageID,
 			solid:              true,
-			branchID:           ledgerstate.MasterBranchID,
 			structureDetails: &markers.StructureDetails{
 				Rank:          0,
 				IsPastMarker:  false,
