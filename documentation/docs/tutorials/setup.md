@@ -530,112 +530,92 @@ Default login credentials are:
 * `password`: admin
 
 
-
-## Installing GoShimmer by building from source
-
-Lets first upgrade the packages on our system:
-```
+## Installing Goshimmer by Building From Source
+### Software Requirements
+Upgrade your systems' packages by running the following command:
+```bash
 apt update && apt dist-upgrade -y
 ```  
 
-### Installing RocksDB compression libraries
+#### Installing RocksDB Compression Libraries
 
-GoShimmer uses RocksDB as its underlying db engine. That requires a few dependencies before building the project. This can be done by installing the compression libraries:
+GoShimmer uses RocksDB as its underlying database engine. You can install the dependencies required by RocksDB by running the following command:
 
 ```bash
 sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
 ```  
 
 
-### Install GCC and G++
+####  GCC and G++
 
-This is required in order for the compilation to work properly
+GCC and G++ are required for the compilation to work properly.  You can install them by running the following command:
 
 ```bash
 sudo apt install gcc g++
 ```
 
-### Cloning the repository
+### Clone the Repository
 
-Now we have to get the GoShimmer repository by cloning it into the `/opt` directory.
+Once you have installed the [software requirements](#software-requirements), you should clone the [GoShimmer repository](https://github.com/iotaledger/goshimmer/) into the `/opt` directory. You can do so by running the following commands: 
 
 ```bash
 cd /opt
-```
-```bash
 git clone https://github.com/iotaledger/goshimmer.git
 ```
 
-### Installing Golang-go 1.16
+###  Golang-go 1.16
 
-In order for the build script to work later on, we have to install the programming language Go
+Your system will need to have [Go 1.16](https://go.dev/doc/go1.16) installed for the build script to work. You can install it by running the following command:
 
 ```bash
 apt install golang-go
 ````
 
-Check the go version
+You can make sure you are using the right go version by running the following command:
 
 ```bash
 go version
 ```
 
-If apt did not install go version 1.16+, use the method below  
+If apt did not install Go version 1.16+, you can use the following commands to download and install it from source:
 
 
 ```bash
 cd /home
-```
-```bash
 wget https://dl.google.com/go/go1.16.4.linux-amd64.tar.gz
-```
-```bash
 sudo tar -xvf go1.16.4.linux-amd64.tar.gz
-```
-```bash
 sudo mv go /usr/local
-```
-```bash
 export GOROOT=/usr/local/go
-```
-```bash
 cd /opt/goshimmer
-```
-```bash
 mkdir gopath
-```
-```bash
 export GOPATH=/opt/goshimmer/gopath
-```
-```bash
 export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 ```
 
-Use `go version` to check if it successfully installed golang-go 1.16
-Note that it only installs for this session. If you enter a new session then you would have to enter these commands again:
+You run `go version` again to check if you have successfully installed `golang-go 1.16`.
+This installation is only valid for this session. If you enter a new session, you will have to enter these commands again:
 
 ```bash
 export GOROOT=/usr/local/go
-```
-```bash
 export GOPATH=/opt/goshimmer/gopath
-```
-```bash
 export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 ```
 
 
-### Downloading the snapshot
-We now have to get the latest snapshot (make sure to be in the goshimmer directory)
+### Download the Snapshot
+You can download the latest snapshot by running the following command from the goshimmer directory you created when you [cloned the repository](#clone-the-repository):
 
 
 ```bash
 sudo wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
 ```
 
-### Making the node dashboard accessible
+### Making the Node Dashboard Accessible
 
-Access the `config.default.json` file
+You will need to modify your goshimmer configuration file to make the Node Dashboard accessible. 
+1. Make a copy of the [config.default.json](https://github.com/iotaledger/goshimmer/blob/develop/config.default.json) file and rename it config.json.
+2. Using your text editor of choice, edit line 23 to change the `bindAddress` to `0.0.0.0:8081`.
+3. Save your changes.
 
 ```bash
 nano config.default.json
@@ -648,32 +628,29 @@ Then save the modified buffer (press `Y`).
 Then change the file name to `config.json` (you remove “default”).
 And press the `Y` key to save the file (this will allow you to view the GoShimmer dashboard in your browser).
 
-### Running the GoShimmer node
+### Run the GoShimmer node
 
-You can now run the build script for the goshimmer binary. Enter this command:
+You can now run the build script for the goshimmer binary with the following command:
 
 ```bash
 ./scripts/build.sh
 ```
 
-In order to keep the node running in the case you terminate the ssh session, you can enter the command: 
+:::tip 
+You can use the `screen` command to keep the node running if you terminate your current ssh session.
+:::
+
+
+
+You can now run the GoShimmer binary to start your node: 
+
 
 ```bash
-screen
-```
-
-Then click `enter` to get rid of the GNU screen information.
-
-Now run the goshimmer binary, this will start your node!
-
-
-```
 ./goshimmer
 ```
 
-You can then "detach" from the goshimmer screen by pressing your `CTRL+A+D` keys.
 
-GoShimmer is still running but its window is removed. You’re returned to the terminal window from which you launched the screen session. A message tells you that a screen window labeled `(some numbers).pts-0.goshimmer` has been detached.
+You can then "detach" from the GoShimmer screen by pressing your `CTRL+A+D` keys.  This will remove the GoShimmer window,  but it will still be running. 
 
 You need the number from the start of the window name to reattach it. If you forget it, you can always use the -ls (list) option, as shown below, to get a list of the detached windows:
 
@@ -691,4 +668,4 @@ screen -r (your session id)
 
 ### Stopping the node
 
-In order to stop a screen session and thus your GoShimmer node: inside the running window press `CTRL+A+K`. This will stop your screen session.
+To stop a screen session and your GoShimmer node press `CTRL+A+K`  inside the running window. This will stop your screen session.
