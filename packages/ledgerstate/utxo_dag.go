@@ -436,13 +436,6 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 			return
 		}
 
-		txMetadata.SetBranchID(conflictBranchID)
-		u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
-			TransactionID:  transactionID,
-			NewBranchID:    conflictBranchID,
-			ForkedBranchID: conflictBranchID,
-		})
-
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
 			if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
@@ -451,6 +444,13 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 				panic("failed to load OutputMetadata")
 			}
 		}
+
+		txMetadata.SetBranchID(conflictBranchID)
+		u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
+			TransactionID:  transactionID,
+			NewBranchID:    conflictBranchID,
+			ForkedBranchID: conflictBranchID,
+		})
 
 		u.walkFutureCone(outputIds, func(transactionID TransactionID) (updatedOutputs []OutputID) {
 			return u.propagateBranchUpdates(transactionID, conflictBranchID)

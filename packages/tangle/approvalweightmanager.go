@@ -433,7 +433,7 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 	})
 }
 
-func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
+func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, newBranchID ledgerstate.BranchID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.propagateSupportToBranches(newBranchID, message)
 	})

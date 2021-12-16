@@ -136,7 +136,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			// TODO: we need to enforce that the dislike references contain "the other" branch with respect to the strong references
-			// it should be done as part of the solification refactor, as a payload can only be solid if all its inputs are solid,
+			// it should be done as part of the solidification refactor, as a payload can only be solid if all its inputs are solid,
 			// therefore we would know the payload branch from the solidifier and we could check for this
 
 			if b.isAnyParentObjectivelyInvalid(message) {
@@ -146,7 +146,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
-			// Like and dislike references need to point to messages containing transactions to evaluate opinion.
+			// Like and dislike references need to point to Messages containing transactions to evaluate opinion.
 			for _, parentType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType} {
 				if !b.allMessagesContainTransactions(message.ParentsByType(parentType)) {
 					messageMetadata.SetObjectivelyInvalid(true)
@@ -494,7 +494,7 @@ func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, 
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID, messageWalker, debugLogger); err != nil {
+			if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID, debugLogger); err != nil {
 				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
 				messageWalker.StopWalk()
 			}
@@ -512,7 +512,7 @@ func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, 
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
-func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID ledgerstate.BranchID, messageWalker *walker.Walker, debugLogger *debuglogger.DebugLogger) (err error) {
+func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID ledgerstate.BranchID, debugLogger *debuglogger.DebugLogger) (err error) {
 	debugLogger.MethodStart("Booker", "propagateForkedTransactionToMarkerFutureCone", marker, branchID)
 	defer debugLogger.MethodEnd()
 
@@ -537,19 +537,26 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 	defer debugLogger.MethodStart("Booker", "forkSingleMarker", currentMarker, newBranchID).MethodEnd()
 
 	// update BranchID mapping
-	oldBranchID := b.MarkersManager.BranchID(currentMarker)
-	forkedBranchID, branchIDUpdated, err := b.forkedBranchID(oldBranchID, newBranchID, debugLogger)
+	oldConflictBranchIDs, err := b.MarkersManager.ConflictBranchIDs(currentMarker)
 	if err != nil {
 		debugLogger.Println("return // error occurred")
-		return errors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), newBranchID, err)
+		return errors.Errorf("failed to retrieve ConflictBranchIDs of %s: %w", currentMarker, err)
 	}
-	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, forkedBranchID) {
+
+	_, newBranchIDExists := oldConflictBranchIDs[newBranchID]
+	if newBranchIDExists {
+		debugLogger.Println("return // BranchID not updated")
+		return nil
+	}
+
+	newAggregatedBranchID := b.tangle.LedgerState.AggregateConflictBranchesID(oldConflictBranchIDs.Add(newBranchID))
+	if !b.MarkersManager.SetBranchID(currentMarker, newAggregatedBranchID) {
 		debugLogger.Println("return // BranchID not updated")
 		return nil
 	}
 
 	// trigger event
-	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, forkedBranchID)
+	b.Events.MarkerBranchUpdated.Trigger(currentMarker, newAggregatedBranchID)
 
 	// propagate updates to later BranchID mappings of the same sequence.
 	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ ledgerstate.BranchID) {
@@ -579,25 +586,42 @@ func (b *Booker) forkedBranchID(oldBranchID, newBranchID ledgerstate.BranchID, d
 	return forkedBranchID, forkedBranchID != oldBranchID, nil
 }
 
+func (b *Booker) addedConflictBranchIDs(messageMetadata *MessageMetadata) (addedConflictBranchIDs ledgerstate.BranchIDs, err error) {
+	aggregatedAddedBranchID := messageMetadata.AddedBranchIDs()
+	if aggregatedAddedBranchID == ledgerstate.UndefinedBranchID {
+		return ledgerstate.NewBranchIDs(), nil
+	}
+
+	if addedConflictBranchIDs, err = b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(aggregatedAddedBranchID)); err != nil {
+		err = errors.Errorf("failed to resolve conflict BranchIDs of %s: %w", aggregatedAddedBranchID, cerrors.ErrFatal)
+	}
+
+	return addedConflictBranchIDs, err
+}
+
+func (b *Booker) addBranchIDToAddedBranchIDs(messageMetadata *MessageMetadata, newBranchID ledgerstate.BranchID) (added bool, err error) {
+	addedBranchIDs, err := b.addedConflictBranchIDs(messageMetadata)
+	if err != nil {
+		return false, errors.Errorf("failed to retrieve added ConflictBranchIDs from Message with %s: %w", messageMetadata.ID(), err)
+	}
+
+	return messageMetadata.SetAddedBranchIDs(b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs.Add(newBranchID))), nil
+}
+
 // propagateForkedTransactionToMetadataFutureCone updates the future cone of a Message to belong to the given conflict BranchID.
 func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker, debugLogger *debuglogger.DebugLogger) (err error) {
 	defer debugLogger.MethodStart("Booker", "propagateForkedTransactionToMetadataFutureCone", messageMetadata.ID(), newConflictBranchID).MethodEnd()
 
-	oldBranchID, err := b.MessageBranchID(messageMetadata.ID())
+	branchIDAdded, err := b.addBranchIDToAddedBranchIDs(messageMetadata, newConflictBranchID)
 	if err != nil {
-		err = errors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
-		return
+		return errors.Errorf("failed to add conflict %s to addedBranchIDs of Message with %s: %w", newConflictBranchID, messageMetadata.ID(), err)
 	}
 
-	newBranchID, branchIDUpdated, err := b.forkedBranchID(oldBranchID, newConflictBranchID, debugLogger)
-	if err != nil {
-		err = errors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
-		return
-	} else if !branchIDUpdated || !messageMetadata.SetBranchID(newBranchID) {
-		return
+	if !branchIDAdded {
+		return nil
 	}
 
-	b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), oldBranchID, newBranchID)
+	b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), newConflictBranchID)
 
 	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
 		messageWalker.Push(approvingMessageID)
@@ -614,7 +638,7 @@ func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata 
 
 // BookerEvents represents events happening in the Booker.
 type BookerEvents struct {
-	// MessageBooked is triggered when a Message was booked (it's Branch and it's Payload's Branch where determined).
+	// MessageBooked is triggered when a Message was booked (it's Branch, and it's Payload's Branch were determined).
 	MessageBooked *events.Event
 
 	// MessageBranchUpdated is triggered when the BranchID of a Message is changed in its MessageMetadata.
@@ -632,7 +656,7 @@ func markerBranchUpdatedCaller(handler interface{}, params ...interface{}) {
 }
 
 func messageBranchUpdatedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(messageID MessageID, oldBranchID, newBranchID ledgerstate.BranchID))(params[0].(MessageID), params[1].(ledgerstate.BranchID), params[2].(ledgerstate.BranchID))
+	handler.(func(messageID MessageID, newBranchID ledgerstate.BranchID))(params[0].(MessageID), params[2].(ledgerstate.BranchID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -694,7 +718,7 @@ func (m *MarkersManager) BranchID(marker *markers.Marker) (branchID ledgerstate.
 	return
 }
 
-// BranchID returns the BranchID that is associated with the given Marker.
+// ConflictBranchIDs returns the ConflictBranchIDs that are associated with the given Marker.
 func (m *MarkersManager) ConflictBranchIDs(marker *markers.Marker) (branchIDs ledgerstate.BranchIDs, err error) {
 	if branchIDs, err = m.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(m.BranchID(marker))); err != nil {
 		err = errors.Errorf("failed to resolve ConflictBranchIDs of marker %s: %w", marker, err)
@@ -868,7 +892,7 @@ func MarkerIndexBranchIDMappingFromBytes(bytes []byte) (markerIndexBranchIDMappi
 }
 
 // MarkerIndexBranchIDMappingFromMarshalUtil unmarshals a MarkerIndexBranchIDMapping using a MarshalUtil (for easier
-// unmarshaling).
+// unmarshalling).
 func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, err error) {
 	markerIndexBranchIDMapping = &MarkerIndexBranchIDMapping{}
 	if markerIndexBranchIDMapping.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
@@ -978,7 +1002,7 @@ func (m *MarkerIndexBranchIDMapping) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
-// String returns a human readable version of the MarkerIndexBranchIDMapping.
+// String returns a human-readable version of the MarkerIndexBranchIDMapping.
 func (m *MarkerIndexBranchIDMapping) String() string {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
@@ -1103,7 +1127,7 @@ func (c *CachedMarkerIndexBranchIDMapping) Consume(consumer func(markerIndexBran
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedMarkerIndexBranchIDMapping.
+// String returns a human-readable version of the CachedMarkerIndexBranchIDMapping.
 func (c *CachedMarkerIndexBranchIDMapping) String() string {
 	return stringify.Struct("CachedMarkerIndexBranchIDMapping",
 		stringify.StructField("CachedObject", c.Unwrap()),
@@ -1146,7 +1170,7 @@ func MarkerMessageMappingFromBytes(bytes []byte) (individuallyMappedMessage *Mar
 	return
 }
 
-// MarkerMessageMappingFromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshaling).
+// MarkerMessageMappingFromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshalling).
 func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
 	markerMessageMapping = &MarkerMessageMapping{}
 	if markerMessageMapping.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
@@ -1187,7 +1211,7 @@ func (m *MarkerMessageMapping) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
-// String returns a human readable version of the MarkerMessageMapping.
+// String returns a human-readable version of the MarkerMessageMapping.
 func (m *MarkerMessageMapping) String() string {
 	return stringify.Struct("MarkerMessageMapping",
 		stringify.StructField("marker", m.marker),
@@ -1253,7 +1277,7 @@ func (c *CachedMarkerMessageMapping) Consume(consumer func(markerMessageMapping 
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedMarkerMessageMapping.
+// String returns a human-readable version of the CachedMarkerMessageMapping.
 func (c *CachedMarkerMessageMapping) String() string {
 	return stringify.Struct("CachedMarkerMessageMapping",
 		stringify.StructField("CachedObject", c.Unwrap()),
@@ -1306,7 +1330,7 @@ func (c CachedMarkerMessageMappings) Release(force ...bool) {
 	}
 }
 
-// String returns a human readable version of the CachedMarkerMessageMappings.
+// String returns a human-readable version of the CachedMarkerMessageMappings.
 func (c CachedMarkerMessageMappings) String() string {
 	structBuilder := stringify.StructBuilder("CachedMarkerMessageMappings")
 	for i, cachedMarkerMessageMapping := range c {
