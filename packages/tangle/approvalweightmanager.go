@@ -118,12 +118,13 @@ func (a *ApprovalWeightManager) statementFromMessage(message *Message, optionalB
 	if len(optionalBranchID) > 0 {
 		branchID = optionalBranchID[0]
 	} else {
-		var err error
-		branchID, err = a.tangle.Booker.MessageBranchID(message.ID())
-		if err != nil {
+		messageBranchIDs, messageBranchIDsErr := a.tangle.Booker.MessageBranchIDs(message.ID())
+		if messageBranchIDsErr != nil {
 			// TODO: handle error properly
-			panic(err)
+			panic(messageBranchIDsErr)
 		}
+
+		branchID = ledgerstate.NewAggregatedBranch(messageBranchIDs).ID()
 	}
 
 	a.tangle.Storage.Statement(branchID, nodeID, func() *Statement {
