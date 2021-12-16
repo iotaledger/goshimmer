@@ -259,18 +259,149 @@ If the UDP NAT mapping is not configured correctly, GoShimmer will terminate wit
 
 :::
 
+
+## Installing GoShimmer From Source
+
+First, `update` and upgrade the packages on your system
+
+```bash
+apt update && apt dist-upgrade -y
+```
+
+GoShimmer uses RocksDB as its underlying db engine. That requires a few dependencies before building the project. This can be done by installing the compression libraries:
+
+sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
+
+### Install GCC and G++
+
+
+```bash
+sudo apt install gcc g++
+```
+
+Now we have to get the GoShimmer repository by cloning it into the `/opt` directory.
+
+```bash
+cd /opt
+
+Git clone https://github.com/iotaledger/goshimmer.git
+```
+
+In order for the build script to work later on, we have to install the programming language Go
+
+```bash
+apt install golang-go
+
+Check the go version
+
+go version
+```
+
+If apt did not install go version 1.16+, use the method below
+
+### Installing Golang-go 1.16
+
+```bash
+cd /home
+
+wget https://dl.google.com/go/go1.16.4.linux-amd64.tar.gz
+
+sudo tar -xvf go1.16.4.linux-amd64.tar.gz
+
+sudo mv go /usr/local
+
+export GOROOT=/usr/local/go
+
+cd /opt/goshimmer
+
+mkdir gopath
+
+export GOPATH=/opt/goshimmer/gopath
+
+export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+```
+
+Use go version to check if it successfully installed golang-go 1.16
+Note that it only installs for this session. If you enter a new session then you would have to enter these commands again:
+
+```bash
+export GOROOT=/usr/local/go
+export GOPATH=/opt/goshimmer/gopath
+export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+```
+
+Getting the latest snapshot (make sure to be in the goshimmer directory)
+
+
+```bash
+sudo wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
+```
+
+Access the config.default.json file
+
+```bash
+nano config.default.json
+```
+
+On line 23, change the bindAddress to `0.0.0.0:8081`.
+
+Then press `CTRL+X` to exit.
+Then save the modified buffer (press Y).
+Then change the file name to config.json (you remove “default”).
+And press the Y key to save the file(this will allow you to view the GoShimmer dashboard in your browser).
+
+You can now run the build script for the goshimmer binary. Enter this command:
+
+```bash
+./scripts/build.sh
+```
+
+In order to keep the node running in the case you terminate the ssh session, you can enter the command: `screen`.
+
+Then click enter to get rid of the GNU screen information.
+
+Now run the goshimmer binary, this will start your node!
+
+
+```
+./goshimmer
+```
+
+You can then "detach" from the goshimmer screen by pressing your `CTRL+A+D` keys.
+
+GoShimmer is still running but its window is removed. You’re returned to the terminal window from which you launched the screen session. A message tells you that a screen window labeled `&lt;some numbers>`.pts-0.goshimmer has been detached.
+
+You need the number from the start of the window name to reattach it. If you forget it, you can always use the -ls (list) option, as shown below, to get a list of the detached windows:
+
+```bash
+screen -ls
+```
+
+When you’re ready, you can use the -r (reattach) option and the number of the session to reattach it, like so:
+
+
+```bash
+screen -r &lt;session id>
+```
+
+In order to stop a screen session and thus your GoShimmer node: inside the running window press CTRL+A+K. This will stop your screen session.
+
+
 ## Running the GoShimmer Node
 
 Within the `/opt/goshimmer` folder where the `docker-compose.yml` resides, simply execute:
-```
+
+```bash
 docker-compose up -d
 Pulling goshimmer (iotaledger/goshimmer:0.2.0)...
 ...
 ```
+
 to start the GoShimmer node.
 
 You should see your container running now:
-```
+
+```bash
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                                                                                                                                    NAMES
 687f52b78cb5        iotaledger/goshimmer:0.2.0       "/run/goshimmer --sk…"   19 seconds ago      Up 17 seconds       0.0.0.0:6061->6061/tcp, 0.0.0.0:8080-8081->8080-8081/tcp, 0.0.0.0:10895->10895/tcp, 0.0.0.0:14666->14666/tcp, 0.0.0.0:14626->14626/udp   goshimmer
 ```
