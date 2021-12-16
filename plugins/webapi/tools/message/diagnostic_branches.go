@@ -18,12 +18,6 @@ func DiagnosticBranchesHandler(c echo.Context) (err error) {
 	return
 }
 
-// DiagnosticInvalidBranchesHandler runs the diagnostic over the Tangle.
-func DiagnosticInvalidBranchesHandler(c echo.Context) (err error) {
-	runDiagnosticChildBranches(c, ledgerstate.InvalidBranchID)
-	return
-}
-
 // region DiagnosticBranches code implementation /////////////////////////////////////////////////////////////////////////////////
 
 func runDiagnosticBranches(c echo.Context) {
@@ -39,8 +33,6 @@ func runDiagnosticBranches(c echo.Context) {
 	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
-			return
-		case ledgerstate.InvalidBranchID:
 			return
 		default:
 			conflictInfo := getDiagnosticConflictsInfo(branch.ID())

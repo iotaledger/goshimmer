@@ -109,9 +109,9 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	startTime := time.Now()
 	var errPoW error
 	var nonce uint64
-	var parents MessageIDs
+	var parents MessageIDsSlice
 	var issuingTime time.Time
-	var references map[ParentsType]map[MessageID]types.Empty
+	var references map[ParentsType]MessageIDs
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
@@ -131,7 +131,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			f.issuanceMutex.Unlock()
 			return nil, err
 		}
-		nonce, errPoW = f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
 	if errPoW != nil {
@@ -143,7 +143,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	f.issuanceMutex.Unlock()
 
 	// create the signature
-	signature, err := f.sign(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 	if err != nil {
 		err = errors.Errorf("signing failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -151,10 +151,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	}
 
 	msg, err := NewMessage(
-		parents,
-		nil,
-		nil,
-		likeReferences,
+		references,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -172,7 +169,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
+func (f *MessageFactory) getIssuingTime(parents MessageIDsSlice) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
@@ -188,7 +185,7 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	return issuingTime
 }
 
-func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
+func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDsSlice, err error) {
 	parents, err = f.selector.Tips(p, parentsCount)
 
 	if p.Type() == ledgerstate.TransactionType {
@@ -230,9 +227,9 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(strongParents, weakParents, shallowLikeParents, shallowDislikeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(references map[ParentsType]MessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	message, err := NewMessage(strongParents, weakParents, nil, shallowLikeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
+	message, err := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
 	if err != nil {
 		return 0, err
 	}
@@ -244,9 +241,9 @@ func (f *MessageFactory) doPOW(strongParents, weakParents, shallowLikeParents, s
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
+func (f *MessageFactory) sign(references map[ParentsType]MessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
-	dummy, err := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
+	dummy, err := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	if err != nil {
 		return ed25519.EmptySignature, err
 	}
@@ -279,7 +276,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countParents int) (parents MessageIDs, err error)
+	Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -287,10 +284,10 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDs, err error)
+type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
 	return f(p, countParents)
 }
 
@@ -327,11 +324,11 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]map[MessageID]types.Empty, err error)
+type ReferencesFunc func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error)
 
 // PrepareReferences is an implementation of LikeReferencesFunc.
-func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]map[MessageID]types.Empty, err error) {
-	references = make(map[ParentsType]map[MessageID]types.Empty)
+func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error) {
+	references = make(map[ParentsType]MessageIDs)
 
 	strongParentsBranchIDs := ledgerstate.NewBranchIDs()
 	for _, strongParent := range strongParents {
@@ -343,6 +340,7 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 		strongParentsBranchIDs.AddAll(strongParentBranchIDs)
 	}
 
+	references[StrongParentType] = strongParents.ToMessageIDs()
 	for strongParentBranchID := range strongParentsBranchIDs {
 		referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
 		if err != nil {

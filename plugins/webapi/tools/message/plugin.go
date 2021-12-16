@@ -64,6 +64,5 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET(RouteDiagnosticsMessageRank, DiagnosticMessagesRankHandler)
 	deps.Server.GET(RouteDiagnosticsUtxoDag, DiagnosticUTXODAGHandler)
 	deps.Server.GET(RouteDiagnosticsBranches, DiagnosticBranchesHandler)
-	deps.Server.GET(RouteDiagnosticsInvalidBranches, DiagnosticInvalidBranchesHandler)
 	deps.Server.GET(RouteDiagnosticsTips, TipsDiagnosticHandler)
 }

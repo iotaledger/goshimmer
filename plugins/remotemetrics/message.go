@@ -40,10 +40,13 @@ func onMessageFinalized(messageID tangle.MessageID) {
 		record.IssuedTimestamp = message.IssuingTime()
 		record.StrongEdgeCount = len(message.ParentsByType(tangle.StrongParentType))
 		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
-			record.StrongEdgeCount = weakParentsCount
+			record.WeakEdgeCount = weakParentsCount
 		}
-		if likeParentsCount := len(message.ParentsByType(tangle.LikeParentType)); likeParentsCount > 0 {
-			record.StrongEdgeCount = len(message.ParentsByType(tangle.LikeParentType))
+		if shallowLikeParentsCount := len(message.ParentsByType(tangle.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
+			record.ShallowLikeEdgeCount = shallowLikeParentsCount
+		}
+		if shallowDislikeParentsCount := len(message.ParentsByType(tangle.ShallowDislikeParentType)); shallowDislikeParentsCount > 0 {
+			record.ShallowDislikeEdgeCount = shallowDislikeParentsCount
 		}
 	})
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {

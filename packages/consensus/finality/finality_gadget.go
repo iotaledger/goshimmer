@@ -236,7 +236,7 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 		})
 	}
 
-	s.tangle.Utils.WalkMessageAndMetadata(propagateGoF, tangle.MessageIDs{messageID}, false)
+	s.tangle.Utils.WalkMessageAndMetadata(propagateGoF, tangle.MessageIDsSlice{messageID}, false)
 
 	return err
 }

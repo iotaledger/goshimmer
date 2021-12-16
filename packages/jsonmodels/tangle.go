@@ -39,7 +39,7 @@ type MessageMetadata struct {
 	ScheduledBypass     bool                `json:"scheduledBypass"`
 	Booked              bool                `json:"booked"`
 	BookedTime          int64               `json:"bookedTime"`
-	Invalid             bool                `json:"invalid"`
+	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }

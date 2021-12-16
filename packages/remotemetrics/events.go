@@ -37,23 +37,24 @@ type SyncStatusChangedEvent struct {
 
 // MessageFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
 type MessageFinalizedMetrics struct {
-	Type               string    `json:"type" bson:"type"`
-	NodeID             string    `json:"nodeID" bson:"nodeID"`
-	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID          string    `json:"messageID" bson:"messageID"`
-	TransactionID      string    `json:"transactionID,omitempty" bson:"transactionID"`
-	IssuedTimestamp    time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	SolidTimestamp     time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
-	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
-	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
-	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
-	DeltaSolid         int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
-	DeltaScheduled     int64     `json:"deltaArrival" bson:"deltaArrival"`
-	DeltaBooked        int64     `json:"deltaBooked" bson:"deltaBooked"`
-	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
-	StrongEdgeCount    int       `json:"strongEdgeCount" bson:"strongEdgeCount"`
-	WeakEdgeCount      int       `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
-	LikeEdgeCount      int       `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
+	Type                    string    `json:"type" bson:"type"`
+	NodeID                  string    `json:"nodeID" bson:"nodeID"`
+	MetricsLevel            uint8     `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID               string    `json:"messageID" bson:"messageID"`
+	TransactionID           string    `json:"transactionID,omitempty" bson:"transactionID"`
+	IssuedTimestamp         time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	SolidTimestamp          time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
+	ScheduledTimestamp      time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
+	BookedTimestamp         time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	ConfirmedTimestamp      time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
+	DeltaSolid              int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
+	DeltaScheduled          int64     `json:"deltaArrival" bson:"deltaArrival"`
+	DeltaBooked             int64     `json:"deltaBooked" bson:"deltaBooked"`
+	DeltaConfirmed          int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
+	StrongEdgeCount         int       `json:"strongEdgeCount" bson:"strongEdgeCount"`
+	WeakEdgeCount           int       `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
+	ShallowLikeEdgeCount    int       `json:"shallowLikeEdgeCount,omitempty" bson:"likeEdgeCount"`
+	ShallowDislikeEdgeCount int       `json:"shallowDislikeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
 // BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.

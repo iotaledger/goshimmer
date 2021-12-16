@@ -268,7 +268,7 @@ func TestSchedulerFlow(t *testing.T) {
 
 	msgC.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
+		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
 	}
 
 	msgC.issuingTime = time.Now().Add(5 * time.Second)
@@ -277,14 +277,14 @@ func TestSchedulerFlow(t *testing.T) {
 	msgD := newMessage(peerNode.PublicKey())
 	msgD.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
+		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
 	}
 	messages["D"] = msgD
 
 	msgE := newMessage(selfNode.PublicKey())
 	msgE.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
+		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
 	}
 	msgE.issuingTime = time.Now().Add(3 * time.Second)
 	messages["E"] = msgE

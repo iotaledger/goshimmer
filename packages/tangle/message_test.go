@@ -37,7 +37,7 @@ func randomMessageID() MessageID {
 	return result
 }
 
-func randomParents(count int) MessageIDs {
+func randomParents(count int) MessageIDsSlice {
 	parents := make([]MessageID, 0, count)
 	for i := 0; i < count; i++ {
 		parents = append(parents, randomMessageID())
@@ -181,13 +181,13 @@ func TestMessage_VerifySignature(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := payload.NewGenericDataPayload([]byte("test"))
 
-	unsigned, _ := NewMessage(MessageIDs{EmptyMessageID}, MessageIDs{}, MessageIDs{}, MessageIDs{}, time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	unsigned, _ := NewMessage(MessageIDsSlice{EmptyMessageID}, MessageIDsSlice{}, MessageIDsSlice{}, MessageIDsSlice{}, time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
 	assert.False(t, unsigned.VerifySignature())
 
 	unsignedBytes := unsigned.Bytes()
 	signature := keyPair.PrivateKey.Sign(unsignedBytes[:len(unsignedBytes)-ed25519.SignatureSize])
 
-	signed, _ := NewMessage(MessageIDs{EmptyMessageID}, MessageIDs{}, MessageIDs{}, MessageIDs{}, time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
+	signed, _ := NewMessage(MessageIDsSlice{EmptyMessageID}, MessageIDsSlice{}, MessageIDsSlice{}, MessageIDsSlice{}, time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
 	assert.True(t, signed.VerifySignature())
 }
 
@@ -197,8 +197,8 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 
 	testMessage, err := NewMessage(randomParents(1),
 		randomParents(1),
-		MessageIDs{},
-		MessageIDs{},
+		MessageIDsSlice{},
+		MessageIDsSlice{},
 		time.Now(),
 		ed25519.PublicKey{},
 		0,
@@ -915,7 +915,7 @@ func TestMessage_ForEachStrongParent(t *testing.T) {
 		assert.NoError(t, err)
 
 		sortedStrongParents := sortParents(strongParents)
-		resultParents := make(MessageIDs, 0)
+		resultParents := make(MessageIDsSlice, 0)
 		checker := func(parent MessageID) {
 			resultParents = append(resultParents, parent)
 		}
@@ -945,7 +945,7 @@ func TestMessage_ForEachWeakParent(t *testing.T) {
 		assert.NoError(t, err)
 
 		sortedWeakParents := sortParents(weakParents)
-		resultParents := make(MessageIDs, 0)
+		resultParents := make(MessageIDsSlice, 0)
 		checker := func(parent MessageID) {
 			resultParents = append(resultParents, parent)
 		}

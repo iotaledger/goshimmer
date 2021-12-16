@@ -43,11 +43,12 @@ type ExplorerMessage struct {
 	// Solid defines the solid status of the message.
 	Solid               bool                `json:"solid"`
 	BranchID            string              `json:"branchID"`
-	MetadataBranchID    string              `json:"metadataBranchID"`
+	AddedBranchIDs      string              `json:"addedBranchIDs"`
+	SubtractedBranchIDs string              `json:"subtractedBranchID"`
 	Scheduled           bool                `json:"scheduled"`
 	ScheduledBypass     bool                `json:"scheduledBypass"`
 	Booked              bool                `json:"booked"`
-	Invalid             bool                `json:"invalid"`
+	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 	// PayloadType defines the type of the payload.
@@ -70,7 +71,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
 
-	branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
+	branchID, err := deps.Tangle.Booker.AggregatedBranchID(messageID)
 	if err != nil {
 		branchID = ledgerstate.BranchID{}
 	}
@@ -88,11 +89,12 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
 		BranchID:                branchID.Base58(),
-		MetadataBranchID:        messageMetadata.BranchID().Base58(),
+		AddedBranchIDs:          messageMetadata.AddedBranchIDs().Base58(),
+		SubtractedBranchIDs:     messageMetadata.SubtractedBranchIDs().Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		ScheduledBypass:         messageMetadata.ScheduledBypass(),
 		Booked:                  messageMetadata.IsBooked(),
-		Invalid:                 messageMetadata.IsInvalid(),
+		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
 		GradeOfFinality:         messageMetadata.GradeOfFinality(),
 		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),

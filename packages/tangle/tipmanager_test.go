@@ -647,7 +647,7 @@ func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	})
 }
 
-func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
+func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDsSlice) (message *Message) {
 	message = newTestParentsDataMessage("testmessage", strongParents, weakParents, nil, nil)
 	tangle.Storage.StoreMessage(message)
 

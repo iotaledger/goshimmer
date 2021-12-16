@@ -194,7 +194,7 @@ func (t *TipManager) AddTip(message *Message) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
 	if countParents > MaxParentsCount {
 		countParents = MaxParentsCount
 	}
@@ -225,7 +225,7 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 
 // selectTips returns a list of parents. In case of a transaction, it references young enough attachments
 // of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
-func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDs) {
+func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDsSlice) {
 	parents = make([]MessageID, 0, MaxParentsCount)
 	parentsMap := make(map[MessageID]types.Empty)
 
@@ -297,13 +297,13 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() MessageIDs {
+func (t *TipManager) AllTips() MessageIDsSlice {
 	return retrieveAllTips(t.tips)
 }
 
-func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDs {
+func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDsSlice {
 	mapKeys := tipsMap.Keys()
-	tips := make(MessageIDs, len(mapKeys))
+	tips := make(MessageIDsSlice, len(mapKeys))
 	for i, key := range mapKeys {
 		tips[i] = key.(MessageID)
 	}

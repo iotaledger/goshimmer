@@ -168,18 +168,40 @@ func UnregisterMessageIDAliases() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region MessageIDsSlice //////////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageIDs is a slice of MessageID.
-type MessageIDs []MessageID
+// MessageIDsSlice is a slice of MessageID.
+// TODO: remove
+type MessageIDsSlice []MessageID
 
 // ToStrings converts a slice of MessageIDs to a slice of strings.
-func (ids MessageIDs) ToStrings() []string {
+func (ids MessageIDsSlice) ToStrings() []string {
 	result := make([]string, 0, len(ids))
 	for _, id := range ids {
 		result = append(result, id.Base58())
 	}
 	return result
+}
+
+func (ids MessageIDsSlice) ToMessageIDs() MessageIDs {
+	msgIDs := make(MessageIDs)
+	for _, id := range ids {
+		msgIDs[id] = types.Void
+	}
+	return msgIDs
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
+type MessageIDs map[MessageID]types.Empty
+
+func (m MessageIDs) Slice() MessageIDsSlice {
+	ids := make(MessageIDsSlice, 0)
+	for key := range m {
+		ids = append(ids, key)
+	}
+	return ids
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -218,7 +240,7 @@ func (bp ParentsType) String() string {
 // ParentsBlock is the container for parents in a Message.
 type ParentsBlock struct {
 	ParentsType
-	References MessageIDs
+	References MessageIDsSlice
 }
 
 // Message represents the core message for the base layer Tangle.
@@ -244,17 +266,17 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(references map[ParentsType]map[MessageID]types.Empty, issuingTime time.Time,
-	issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
+func NewMessage(references map[ParentsType]MessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
 	// remove duplicates, sort in ASC
-	sortedStrongParents := sortParents(references[StrongParentType])
-	sortedWeakParents := sortParents(references[WeakParentType])
-	sortedShallowDislikeParents := sortParents(references[shallowDislikeParentsCount])
-	sortedShallowLikeParents := sortParents(references[shallowLikeParents])
+	sortedStrongParents := sortParents(references[StrongParentType].Slice())
+	sortedWeakParents := sortParents(references[WeakParentType].Slice())
+	sortedShallowDislikeParents := sortParents(references[ShallowDislikeParentType].Slice())
+	sortedShallowLikeParents := sortParents(references[ShallowLikeParentType].Slice())
 
 	weakParentsCount := len(sortedWeakParents)
-	shallowDislikeParentsCount := len(shallowDislikeParents)
-	shallowLikeParentsCount := len(shallowLikeParents)
+	shallowDislikeParentsCount := len(sortedShallowDislikeParents)
+	shallowLikeParentsCount := len(sortedShallowLikeParents)
 
 	var parentsBlocks []ParentsBlock
 
@@ -356,7 +378,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 // there may be repetition across strong and like parents.
 func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
 	combinedParents := make(map[MessageID]types.Empty, NumberOfBlockTypes*MaxParentsCount)
-	uniqueParents := make(MessageIDs, 0, MaxParentsCount*NumberOfUniqueBlocks)
+	uniqueParents := make(MessageIDsSlice, 0, MaxParentsCount*NumberOfUniqueBlocks)
 	for _, block := range parentsBlocks {
 		// combine strong parent and like parents
 		if block.ParentsType == StrongParentType || block.ParentsType == ShallowLikeParentType {
@@ -376,9 +398,9 @@ func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
-func sortParents(parents MessageIDs) (sorted MessageIDs) {
+func sortParents(parents MessageIDsSlice) (sorted MessageIDsSlice) {
 	seen := make(map[MessageID]types.Empty)
-	sorted = make(MessageIDs, 0, len(parents))
+	sorted = make(MessageIDsSlice, 0, len(parents))
 
 	// filter duplicates
 	for _, parent := range parents {
@@ -443,7 +465,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
 			return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		}
-		references := make(MessageIDs, parentsCount)
+		references := make(MessageIDsSlice, parentsCount)
 		for j := 0; j < int(parentsCount); j++ {
 			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 				return nil, errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
@@ -570,13 +592,13 @@ func (m *Message) Version() uint8 {
 }
 
 // ParentsByType returns a slice of all parents of the desired type.
-func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
+func (m *Message) ParentsByType(parentType ParentsType) MessageIDsSlice {
 	for _, parentBlock := range m.parentsBlocks {
 		if parentBlock.ParentsType == parentType {
 			return parentBlock.References
 		}
 	}
-	return MessageIDs{}
+	return MessageIDsSlice{}
 }
 
 // ForEachParent executes a consumer func for each parent.

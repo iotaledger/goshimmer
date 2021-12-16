@@ -75,7 +75,7 @@ func (o *Orderer) run() {
 	}()
 }
 
-func (o *Orderer) parentsToGossip(messageID MessageID) (parents MessageIDs) {
+func (o *Orderer) parentsToGossip(messageID MessageID) (parents MessageIDsSlice) {
 	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		message.ForEachParent(func(parent Parent) {
 			o.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {

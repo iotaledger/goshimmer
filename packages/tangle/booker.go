@@ -108,6 +108,16 @@ func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs ledgerstate.Br
 	return
 }
 
+// AggregatedBranchID returns the AggregatedBranchID of the given Message.
+func (b *Booker) AggregatedBranchID(messageID MessageID) (branchID ledgerstate.BranchID, err error) {
+	branchIDs, err := b.MessageBranchIDs(messageID)
+	if err != nil {
+		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to retrieve AggregatedBranchID of Message with %s: %w", messageID, err)
+	}
+
+	return ledgerstate.NewAggregatedBranch(branchIDs).ID(), nil
+}
+
 // Shutdown shuts down the Booker and persists its state.
 func (b *Booker) Shutdown() {
 	close(b.shutdown)
@@ -256,7 +266,7 @@ func (b *Booker) isAnyParentObjectivelyInvalid(message *Message) (isAnyParentObj
 }
 
 // allMessagesContainTransactions checks whether all passed messages contain a transaction.
-func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDs) (areAllTransactions bool) {
+func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDsSlice) (areAllTransactions bool) {
 	areAllTransactions = true
 	for _, messageID := range messageIDs {
 		b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
