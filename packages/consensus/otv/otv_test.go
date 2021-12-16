@@ -1095,17 +1095,17 @@ func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMe
 		if len(branchMeta.ParentBranches) == 0 {
 			panic("an aggregated branch must have parents defined")
 		}
-		cachedBranch, newBranchCreated, err = branchDAG.AggregateBranches(branchMeta.ParentBranches)
+		branchMeta.BranchID = branchDAG.AggregateConflictBranchesID(branchMeta.ParentBranches)
 	} else {
 		if branchMeta.BranchID == UndefinedBranchID {
 			panic("a non aggr. branch must have its ID defined in its BranchMeta")
 		}
 		cachedBranch, newBranchCreated, err = branchDAG.CreateConflictBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
+		require.NoError(t, err)
+		require.True(t, newBranchCreated)
+		defer cachedBranch.Release()
+		branchMeta.BranchID = cachedBranch.ID()
 	}
-	require.NoError(t, err)
-	require.True(t, newBranchCreated)
-	defer cachedBranch.Release()
-	branchMeta.BranchID = cachedBranch.ID()
 	RegisterBranchIDAlias(branchMeta.BranchID, alias)
 	return newBranchCreated
 }
