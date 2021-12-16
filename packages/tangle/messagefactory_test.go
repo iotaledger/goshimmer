@@ -196,7 +196,7 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
-	references, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
+	references, err := PrepareReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
 
 	require.NoError(t, err)
 
@@ -314,12 +314,12 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	}
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
-	_, err := PrepareLikeReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
+	_, err := PrepareReferences(MessageIDs{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
 	require.Error(t, err)
 }
 
 func checkReferences(t *testing.T, tangle *Tangle, parents, expected MessageIDs, issuingTime time.Time, errorExpected ...bool) {
-	ref, err := PrepareLikeReferences(parents, issuingTime, tangle)
+	ref, err := PrepareReferences(parents, issuingTime, tangle)
 	if len(errorExpected) > 0 && errorExpected[0] {
 		require.Error(t, err)
 		return

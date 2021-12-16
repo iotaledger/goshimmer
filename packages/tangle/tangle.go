@@ -91,7 +91,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareReferences)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Orderer = NewOrderer(tangle)
 

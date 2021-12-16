@@ -1,29 +1,14 @@
 package consensus
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // WeightFunc returns the approval weight for the given branch.
 type WeightFunc func(branchID ledgerstate.BranchID) (weight float64)
 
-// OpinionTuple expresses the root of an opinion in the BranchDAG.
-type OpinionTuple struct {
-	// Liked is the liked branch out of a conflict set.
-	Liked ledgerstate.BranchID
-	// Disliked is the disliked branch out of a conflict set.
-	Disliked ledgerstate.BranchID
-}
-
-// String returns a human-readable version of the OpinionTuple.
-func (ot OpinionTuple) String() string {
-	return fmt.Sprintf("OpinionTuple(Liked:%s, Disliked:%s)", ot.Liked, ot.Disliked)
-}
-
 // Mechanism is a generic interface allowing to use different methods to reach consensus.
 type Mechanism interface {
-	// LikedInstead returns the liked branch out of the conflict set of the given branch.
-	LikedInstead(branchIDs ledgerstate.BranchIDs) (likedBranchIDs ledgerstate.BranchIDs, err error)
+	// LikedConflictMember returns the liked BranchID across the members of its conflict sets.
+	LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs)
 }

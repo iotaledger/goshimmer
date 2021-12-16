@@ -191,7 +191,9 @@ type ParentsType uint8
 
 const (
 	// StrongParentType is the ParentsType for a strong parent.
-	StrongParentType ParentsType = iota
+	UndefinedParentType ParentsType = iota
+	// StrongParentType is the ParentsType for a strong parent.
+	StrongParentType
 	// WeakParentType is the ParentsType for a weak parent.
 	WeakParentType
 	// ShallowLikeParentType is the ParentsType for the shallow like parent.

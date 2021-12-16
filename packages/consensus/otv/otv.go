@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 
@@ -28,48 +27,17 @@ func NewOnTangleVoting(branchDAG *ledgerstate.BranchDAG, weightFunc consensus.We
 	}
 }
 
-// LikedInstead determines what vote should be cast given the provided branchID.
-func (o *OnTangleVoting) LikedInstead(branchIDs ledgerstate.BranchIDs) (likedBranchIDs ledgerstate.BranchIDs, err error) {
-	resolvedConflictBranchIDs, err := o.branchDAG.ResolveConflictBranchIDs(branchIDs)
-	if err != nil {
-		return nil, errors.Errorf("unable to resolve conflict branch IDs of %s: %w", err)
-	}
-
-	likedBranchIDs = ledgerstate.NewBranchIDs()
-	for resolvedConflictBranchID := range resolvedConflictBranchIDs {
-		if o.branchLiked(resolvedConflictBranchID) {
-			continue
+// LikedConflictMember returns the liked BranchID across the members of its conflict sets.
+func (o *OnTangleVoting) LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
+	conflictMembers = ledgerstate.NewBranchIDs()
+	o.branchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+		if likedBranchID == ledgerstate.UndefinedBranchID && o.branchLiked(conflictingBranchID) {
+			likedBranchID = conflictingBranchID
 		}
+		conflictMembers.Add(conflictingBranchID)
 
-		likedBranchIDs.Add(o.conflictBranchLikedInstead(resolvedConflictBranchID))
-	}
-
-	return
-}
-
-func (o *OnTangleVoting) conflictBranchLikedInstead(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID) {
-	for parentWalker := walker.New().Push(branchID); parentWalker.HasNext(); {
-		currentBranchID := parentWalker.Next().(ledgerstate.BranchID)
-
-		o.branchDAG.ForEachConflictingBranchID(currentBranchID, func(conflictingBranchID ledgerstate.BranchID) {
-			if likedBranchID != ledgerstate.UndefinedBranchID {
-				return
-			}
-
-			if o.branchLiked(conflictingBranchID) {
-				likedBranchID = conflictingBranchID
-			}
-		})
-		if likedBranchID != ledgerstate.UndefinedBranchID {
-			return
-		}
-
-		o.branchDAG.Branch(currentBranchID).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
-			for parentBranchID := range conflictBranch.Parents() {
-				parentWalker.Push(parentBranchID)
-			}
-		})
-	}
+		return true
+	})
 
 	return
 }
@@ -118,8 +86,9 @@ func (o *OnTangleVoting) dislikedConnectedConflictingBranches(currentBranchID le
 		}
 
 		rejectionWalker := walker.New()
-		o.branchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		o.branchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 			rejectionWalker.Push(conflictingBranchID)
+			return true
 		})
 
 		for rejectionWalker.HasNext() {

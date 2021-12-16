@@ -30,7 +30,7 @@ type MessageFactory struct {
 	sequence           *kvstore.Sequence
 	localIdentity      *identity.LocalIdentity
 	selector           TipSelector
-	likeReferencesFunc LikeReferencesFunc
+	likeReferencesFunc ReferencesFunc
 
 	powTimeout time.Duration
 
@@ -40,7 +40,7 @@ type MessageFactory struct {
 }
 
 // NewMessageFactory creates a new message factory.
-func NewMessageFactory(tangle *Tangle, selector TipSelector, likeReferences LikeReferencesFunc) *MessageFactory {
+func NewMessageFactory(tangle *Tangle, selector TipSelector, likeReferences ReferencesFunc) *MessageFactory {
 	sequence, err := kvstore.NewSequence(tangle.Options.Store, []byte(DBSequenceNumber), storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
@@ -326,48 +326,78 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// LikeReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type LikeReferencesFunc func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error)
+// ReferencesFunc is a function type that returns like references a given set of parents of a Message.
+type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]map[MessageID]types.Empty, err error)
 
-// PrepareLikeReferences is an implementation of LikeReferencesFunc.
-func PrepareLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
-	branchIDs := ledgerstate.NewBranchIDs()
+// PrepareReferences is an implementation of LikeReferencesFunc.
+func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]map[MessageID]types.Empty, err error) {
+	references = make(map[ParentsType]map[MessageID]types.Empty)
 
-	for _, parent := range parents {
-		branchID, err := tangle.Booker.MessageBranchID(parent)
+	strongParentsBranchIDs := ledgerstate.NewBranchIDs()
+	for _, strongParent := range strongParents {
+		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
 		if err != nil {
-			err = errors.Errorf("branchID can't be retrieved: %w", err)
-			return nil, err
+			return nil, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
 		}
-		branchIDs.Add(branchID)
+
+		strongParentsBranchIDs.AddAll(strongParentBranchIDs)
 	}
 
-	likedInstead, err := tangle.OTVConsensusManager.LikedInstead(branchIDs)
-	if err != nil {
-		return nil, errors.Errorf("cannot determine liked branches: %w", err)
-	}
-
-	likeReferencesMap := make(map[MessageID]types.Empty)
-	likeReferences := MessageIDs{}
-	for likeRef := range likedInstead {
-		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likeRef.TransactionID())
+	for strongParentBranchID := range strongParentsBranchIDs {
+		referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
 		if err != nil {
-			return nil, err
+			return nil, errors.Errorf("failed to determine valid reference from Branch with %s: %w", strongParentBranchID, err)
 		}
-		// add like reference to a message only once if it appears in multiple conflict sets
-		if _, ok := likeReferencesMap[oldestAttachmentMessageID]; !ok {
-			likeReferencesMap[oldestAttachmentMessageID] = types.Void
-			// check difference between issuing time and message that would be set as like reference, to avoid setting too old message.
-			// what if original message is older than maxParentsTimeDifference even though the branch still exists?
-			if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
-				likeReferences = append(likeReferences, oldestAttachmentMessageID)
-			} else {
-				return nil, fmt.Errorf("like references needed are too far in the past")
-			}
+
+		if referenceParentType == UndefinedParentType {
+			continue
+		}
+
+		if _, exists := references[referenceParentType]; !exists {
+			references[referenceParentType] = make(map[MessageID]types.Empty)
+		}
+
+		references[referenceParentType][referenceMessageID] = types.Void
+	}
+
+	return
+}
+
+func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
+	likedBranchID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(strongParentBranchID)
+	if likedBranchID == strongParentBranchID {
+		return
+	}
+
+	if likedBranchID != ledgerstate.UndefinedBranchID {
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likedBranchID.TransactionID())
+		if err != nil {
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", likedBranchID.TransactionID(), err)
+		}
+		if issuingTime.Sub(oldestAttachmentTime) >= maxParentsTimeDifference {
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow like reference needed for Transaction with %s is too far in the past", likedBranchID.TransactionID())
+		}
+
+		return ShallowLikeParentType, oldestAttachmentMessageID, nil
+	}
+
+	for conflictMember := range conflictMembers {
+		// Always point to another branch, to make sure the receiver forks the branch.
+		if conflictMember == strongParentBranchID {
+			continue
+		}
+
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(conflictMember.TransactionID())
+		if err != nil {
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", conflictMember.TransactionID(), err)
+		}
+
+		if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
+			return ShallowDislikeParentType, oldestAttachmentMessageID, nil
 		}
 	}
 
-	return likeReferences, nil
+	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID.TransactionID())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

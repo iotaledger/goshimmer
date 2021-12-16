@@ -397,24 +397,31 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 
 // ForEachConflictingBranchID executes the callback for each ConflictBranch that is conflicting with the Branch
 // identified by the given BranchID.
-func (b *BranchDAG) ForEachConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID)) {
+func (b *BranchDAG) ForEachConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID) bool) {
 	resolvedConflictBranchIDs, err := b.ResolveConflictBranchIDs(NewBranchIDs(branchID))
 	if err != nil {
 		panic(err)
 	}
 
+	abort := false
 	for conflictBranchID := range resolvedConflictBranchIDs {
 		b.Branch(conflictBranchID).Consume(func(branch Branch) {
 			for conflictID := range branch.(*ConflictBranch).Conflicts() {
 				b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
-					if conflictMember.BranchID() == conflictBranchID {
+					if abort || conflictMember.BranchID() == conflictBranchID {
 						return
 					}
 
-					callback(conflictMember.BranchID())
+					abort = !callback(conflictMember.BranchID())
 				})
+				if abort {
+					return
+				}
 			}
 		})
+		if abort {
+			return
+		}
 	}
 }
 
