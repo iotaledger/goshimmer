@@ -684,7 +684,7 @@ When you’re ready, you can use the -r (reattach) option and the number of the 
 
 
 ```bash
-screen -r <session id>
+screen -r (your session id)
 ```  
 
 
