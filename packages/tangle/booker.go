@@ -108,16 +108,6 @@ func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs ledgerstate.Br
 	return
 }
 
-// AggregatedBranchID returns the AggregatedBranchID of the given Message.
-func (b *Booker) AggregatedBranchID(messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	branchIDs, err := b.MessageBranchIDs(messageID)
-	if err != nil {
-		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to retrieve AggregatedBranchID of Message with %s: %w", messageID, err)
-	}
-
-	return ledgerstate.NewAggregatedBranch(branchIDs).ID(), nil
-}
-
 // Shutdown shuts down the Booker and persists its state.
 func (b *Booker) Shutdown() {
 	close(b.shutdown)

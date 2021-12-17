@@ -222,10 +222,12 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		}
 	})
 
-	branchID, err := deps.Tangle.Booker.AggregatedBranchID(messageID)
-	if err != nil {
-		branchID = ledgerstate.BranchID{}
+	var branchID ledgerstate.BranchID
+	branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
+	if err == nil {
+		branchID = ledgerstate.NewAggregatedBranch(branchIDs).ID()
 	}
+
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()

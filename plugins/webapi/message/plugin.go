@@ -125,9 +125,10 @@ func GetMessageMetadata(c echo.Context) (err error) {
 
 // NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
 func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMetadata {
-	branchID, err := deps.Tangle.Booker.AggregatedBranchID(metadata.ID())
-	if err != nil {
-		branchID = ledgerstate.BranchID{}
+	var branchID ledgerstate.BranchID
+	branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(metadata.ID())
+	if err == nil {
+		branchID = ledgerstate.NewAggregatedBranch(branchIDs).ID()
 	}
 
 	return jsonmodels.MessageMetadata{

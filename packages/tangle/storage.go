@@ -345,14 +345,14 @@ func (s *Storage) BranchSupporters(branchID ledgerstate.BranchID, computeIfAbsen
 }
 
 // Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
-func (s *Storage) Statement(branchID ledgerstate.BranchID, supporter Supporter, computeIfAbsentCallback ...func() *Statement) *CachedStatement {
+func (s *Storage) Statement(branchIDs ledgerstate.BranchIDs, supporter Supporter, computeIfAbsentCallback ...func() *Statement) *CachedStatement {
 	if len(computeIfAbsentCallback) >= 1 {
-		return &CachedStatement{s.statementStorage.ComputeIfAbsent(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()), func(key []byte) objectstorage.StorableObject {
+		return &CachedStatement{s.statementStorage.ComputeIfAbsent(byteutils.ConcatBytes(branchIDs.Bytes(), supporter.Bytes()), func(key []byte) objectstorage.StorableObject {
 			return computeIfAbsentCallback[0]()
 		})}
 	}
 
-	return &CachedStatement{CachedObject: s.statementStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()))}
+	return &CachedStatement{CachedObject: s.statementStorage.Load(byteutils.ConcatBytes(branchIDs.Bytes(), supporter.Bytes()))}
 }
 
 // BranchWeight retrieves the BranchWeight with the given ledgerstate.BranchID.

@@ -114,20 +114,19 @@ func (a *ApprovalWeightManager) Shutdown() {}
 func (a *ApprovalWeightManager) statementFromMessage(message *Message, optionalBranchID ...ledgerstate.BranchID) (statement *Statement, isNewStatement bool) {
 	nodeID := identity.NewID(message.IssuerPublicKey())
 
-	var branchID ledgerstate.BranchID
+	branchIDs := ledgerstate.NewBranchIDs()
 	if len(optionalBranchID) > 0 {
-		branchID = optionalBranchID[0]
-	} else {
-		aggregatedBranchID, aggregatedBranchErr := a.tangle.Booker.AggregatedBranchID(message.ID())
-		if aggregatedBranchErr != nil {
-			// TODO: handle error properly
-			panic(aggregatedBranchErr)
-		}
-		branchID = aggregatedBranchID
+		branchIDs.Add(optionalBranchID[0])
 	}
+	conflictBranchIDs, messageBranchIDsErr := a.tangle.Booker.MessageBranchIDs(message.ID())
+	if messageBranchIDsErr != nil {
+		// TODO: handle error properly
+		panic(messageBranchIDsErr)
+	}
+	branchIDs.AddAll(conflictBranchIDs)
 
-	a.tangle.Storage.Statement(branchID, nodeID, func() *Statement {
-		return NewStatement(branchID, nodeID)
+	a.tangle.Storage.Statement(branchIDs, nodeID, func() *Statement {
+		return NewStatement(branchIDs, nodeID)
 	}).Consume(func(consumedStatement *Statement) {
 		statement = consumedStatement
 		// We already have a newer statement for this branchID of this supporter.
@@ -221,15 +220,10 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 		return
 	}
 
-	a.propagateSupportToBranches(statement.BranchID(), message)
+	a.propagateSupportToBranches(statement.BranchIDs(), message)
 }
 
-func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.BranchID, message *Message) {
-	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	if err != nil {
-		panic(err)
-	}
-
+func (a *ApprovalWeightManager) propagateSupportToBranches(conflictBranchIDs ledgerstate.BranchIDs, message *Message) {
 	supportWalker := walker.New(false)
 	for conflictBranchID := range conflictBranchIDs {
 		supportWalker.Push(conflictBranchID)
@@ -437,7 +431,7 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 
 func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, newBranchID ledgerstate.BranchID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		a.propagateSupportToBranches(newBranchID, message)
+		a.propagateSupportToBranches(ledgerstate.NewBranchIDs(newBranchID), message)
 	})
 }
 
@@ -711,7 +705,7 @@ func (c *CachedBranchWeight) String() string {
 
 // Statement is a data structure that tracks the latest statement by a Supporter per ledgerstate.BranchID.
 type Statement struct {
-	branchID       ledgerstate.BranchID
+	branchIDs      ledgerstate.BranchIDs
 	supporter      Supporter
 	sequenceNumber uint64
 
@@ -721,9 +715,9 @@ type Statement struct {
 }
 
 // NewStatement creates a new Statement.
-func NewStatement(branchID ledgerstate.BranchID, supporter Supporter) (statement *Statement) {
+func NewStatement(branchIDs ledgerstate.BranchIDs, supporter Supporter) (statement *Statement) {
 	statement = &Statement{
-		branchID:  branchID,
+		branchIDs: branchIDs,
 		supporter: supporter,
 	}
 
@@ -748,7 +742,7 @@ func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, 
 // StatementFromMarshalUtil unmarshals a Statement object using a MarshalUtil (for easier unmarshaling).
 func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err error) {
 	statement = &Statement{}
-	if statement.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if statement.branchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
@@ -777,8 +771,8 @@ func StatementFromObjectStorage(key, data []byte) (result objectstorage.Storable
 }
 
 // BranchID returns the ledgerstate.BranchID that is being tracked.
-func (s *Statement) BranchID() (branchID ledgerstate.BranchID) {
-	return s.branchID
+func (s *Statement) BranchIDs() (branchIDs ledgerstate.BranchIDs) {
+	return s.branchIDs
 }
 
 // Supporter returns the Supporter that is being tracked.
@@ -819,7 +813,7 @@ func (s *Statement) Bytes() (marshaledSequenceSupporters []byte) {
 // String returns a human readable version of the Statement.
 func (s *Statement) String() string {
 	return stringify.Struct("Statement",
-		stringify.StructField("branchID", s.BranchID()),
+		stringify.StructField("branchIDs", s.BranchIDs()),
 		stringify.StructField("supporter", s.Supporter()),
 		stringify.StructField("sequenceNumber", s.SequenceNumber()),
 	)
@@ -833,7 +827,7 @@ func (s *Statement) Update(objectstorage.StorableObject) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *Statement) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(s.BranchID().Bytes(), s.Supporter().Bytes())
+	return byteutils.ConcatBytes(s.BranchIDs().Bytes(), s.Supporter().Bytes())
 }
 
 // ObjectStorageValue marshals the Statement into a sequence of bytes that are used as the value part in the
