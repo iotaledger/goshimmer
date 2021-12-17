@@ -389,10 +389,7 @@ func BenchmarkScheduler(b *testing.B) {
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 	message, _ := NewMessage(
-		[]MessageID{EmptyMessageID},
-		[]MessageID{},
-		[]MessageID{},
-		[]MessageID{},
+		emptyLikeReferencesFromStrongParents(MessageIDsSlice{EmptyMessageID}),
 		time.Now(),
 		issuerPublicKey,
 		0,

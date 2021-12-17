@@ -39,8 +39,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
 			return []MessageID{EmptyMessageID}, nil
 		}),
-		func(parents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (MessageIDsSlice, error) {
-			return []MessageID{}, nil
+		func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error) {
+			return emptyLikeReferences(strongParents, issuingTime, tangle)
 		},
 	)
 	tangle.MessageFactory.SetTimeout(powTimeout)
@@ -135,8 +135,8 @@ func TestMessageFactory_POW(t *testing.T) {
 		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
 			return []MessageID{EmptyMessageID}, nil
 		}),
-		func(parents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (MessageIDsSlice, error) {
-			return []MessageID{}, nil
+		func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error) {
+			return emptyLikeReferences(strongParents, issuingTime, tangle)
 		},
 	)
 	defer msgFactory.Shutdown()
@@ -190,10 +190,14 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 	testFramework.RegisterBranchID("3", "3")
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		likedInstead: map[ledgerstate.BranchID]ledgerstate.BranchIDs{
-			testFramework.BranchID("3"): ledgerstate.NewBranchIDs(testFramework.BranchID("2"), testFramework.BranchID("1")),
+		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
+			testFramework.BranchID("3"): LikedConflictMembers{
+				likedBranch:     testFramework.BranchID("2"),
+				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2")),
+			},
 		},
 	}
+
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	references, err := PrepareReferences(MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
@@ -240,11 +244,18 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	testFramework.RegisterBranchID("4", "4")
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		likedInstead: map[ledgerstate.BranchID]ledgerstate.BranchIDs{
-			testFramework.BranchID("3"): ledgerstate.NewBranchIDs(testFramework.BranchID("2")),
-			testFramework.BranchID("4"): ledgerstate.NewBranchIDs(testFramework.BranchID("1")),
+		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
+			testFramework.BranchID("3"): LikedConflictMembers{
+				likedBranch:     testFramework.BranchID("2"),
+				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2")),
+			},
+			testFramework.BranchID("4"): LikedConflictMembers{
+				likedBranch:     testFramework.BranchID("1"),
+				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("1")),
+			},
 		},
 	}
+
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	// Test first set of parents
@@ -308,10 +319,14 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	nonExistingBranchID := ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2"))).ID()
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		likedInstead: map[ledgerstate.BranchID]ledgerstate.BranchIDs{
-			testFramework.BranchID("3"): ledgerstate.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
+		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
+			testFramework.BranchID("3"): LikedConflictMembers{
+				likedBranch:     testFramework.BranchID("2"),
+				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
+			},
 		},
 	}
+
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	_, err := PrepareReferences(MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)

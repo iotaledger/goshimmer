@@ -641,9 +641,9 @@ func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// make sure that everything was booked into master branch
 		require.True(t, messageMetadata.booked)
-		messageBranchID, err := tangle.Booker.AggregatedBranchID(message.ID())
+		messageBranchIDs, err := tangle.Booker.MessageBranchIDs(message.ID())
 		assert.NoError(t, err)
-		require.Equal(t, ledgerstate.MasterBranchID, messageBranchID)
+		require.Equal(t, ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), messageBranchIDs)
 	})
 }
 

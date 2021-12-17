@@ -888,16 +888,20 @@ func (m *MockWeightProvider) Shutdown() {
 
 // SimpleMockOnTangleVoting is mock of OTV mechanism.
 type SimpleMockOnTangleVoting struct {
-	likedInstead map[ledgerstate.BranchID]ledgerstate.BranchIDs
+	likedConflictMember map[ledgerstate.BranchID]LikedConflictMembers
+}
+
+type LikedConflictMembers struct {
+	likedBranch     ledgerstate.BranchID
+	conflictMembers ledgerstate.BranchIDs
 }
 
 // LikedInstead returns branches that are liked instead of a disliked branch as predefined.
-func (o *SimpleMockOnTangleVoting) LikedInstead(branchIDs ledgerstate.BranchIDs) (likedBranchIDs ledgerstate.BranchIDs, err error) {
-	likedBranchIDs = ledgerstate.NewBranchIDs()
-	for branchID := range branchIDs {
-		likedBranchIDs.AddAll(o.likedInstead[branchID])
-	}
-	return
+func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
+	likedConflictMembers := o.likedConflictMember[branchID]
+	innerConflictMembers := likedConflictMembers.conflictMembers.Clone().Subtract(ledgerstate.NewBranchIDs(branchID))
+
+	return likedConflictMembers.likedBranch, innerConflictMembers
 }
 
 func emptyLikeReferences(parents MessageIDsSlice, _ time.Time, _ *Tangle) (references map[ParentsType]MessageIDs, err error) {
