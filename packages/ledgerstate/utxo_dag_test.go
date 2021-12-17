@@ -279,33 +279,6 @@ func TestBookTransaction(t *testing.T) {
 	assert.Equal(t, MasterBranchID, targetBranch)
 }
 
-func TestBookInvalidTransaction(t *testing.T) {
-	ledgerstate := setupDependencies(t)
-	defer ledgerstate.Shutdown()
-
-	wallets := createWallets(1)
-	input := generateOutput(ledgerstate, wallets[0].address, 0)
-	tx, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[0], input)
-
-	cachedTxMetadata := ledgerstate.CachedTransactionMetadata(tx.ID())
-	defer cachedTxMetadata.Release()
-	txMetadata := cachedTxMetadata.Unwrap()
-
-	inputsMetadata := OutputsMetadata{}
-	ledgerstate.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
-		inputsMetadata = append(inputsMetadata, metadata)
-	})
-
-	ledgerstate.bookInvalidTransaction(tx, txMetadata, inputsMetadata)
-
-	assert.Equal(t, InvalidBranchID, txMetadata.branchID)
-	assert.True(t, txMetadata.Solid())
-	assert.Greater(t, txMetadata.GradeOfFinality(), gof.Medium)
-
-	// check that the inputs are still marked as unspent
-	assert.True(t, ledgerstate.outputsUnspent(inputsMetadata))
-}
-
 func TestBookNonConflictingTransaction(t *testing.T) {
 	ledgerstate := setupDependencies(t)
 	defer ledgerstate.Shutdown()
