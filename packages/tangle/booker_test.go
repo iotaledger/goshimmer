@@ -185,7 +185,7 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
 		})
 		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]ledgerstate.BranchID{
-			"Message1": []ledgerstate.BranchID{ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
+			"Message1": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1": ledgerstate.MasterBranchID,
@@ -202,8 +202,8 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message1.5": markers.NewMarkers(markers.NewMarker(1, 2)),
 		})
 		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]ledgerstate.BranchID{
-			"Message1":   []ledgerstate.BranchID{ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-			"Message1.5": []ledgerstate.BranchID{ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
+			"Message1":   {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
+			"Message1.5": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":   ledgerstate.MasterBranchID,

@@ -642,7 +642,7 @@ func markerBranchUpdatedCaller(handler interface{}, params ...interface{}) {
 }
 
 func messageBranchUpdatedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(messageID MessageID, newBranchID ledgerstate.BranchID))(params[0].(MessageID), params[2].(ledgerstate.BranchID))
+	handler.(func(messageID MessageID, newBranchID ledgerstate.BranchID))(params[0].(MessageID), params[1].(ledgerstate.BranchID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

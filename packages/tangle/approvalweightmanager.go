@@ -421,31 +421,24 @@ func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID
 }
 
 // take everything in future cone because it was not conflicting before and move to new branch.
-func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchID ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID) {
-	a.migrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
+func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID) {
+	a.migrateMarkerSupportersToNewBranch(marker, oldBranchIDs, newBranchID)
 
 	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 		branchWeight := float64(0)
-		a.SupportersOfAggregatedBranch(newBranchID).ForEach(func(supporter Supporter) {
+		a.SupportersOfConflictBranches(oldBranchIDs).ForEach(func(supporter Supporter) {
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
 		newWeight := branchWeight / totalWeight
 
-		conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(newBranchID))
-		if err != nil {
-			panic(err)
-		}
-
-		for conflictBranchID := range conflictBranchIDs {
-			a.tangle.Storage.BranchWeight(conflictBranchID, NewBranchWeight).Consume(func(b *BranchWeight) {
-				if newWeight > b.Weight() {
-					b.SetWeight(newWeight)
-				}
-			})
-		}
+		a.tangle.Storage.BranchWeight(newBranchID, NewBranchWeight).Consume(func(b *BranchWeight) {
+			if newWeight > b.Weight() {
+				b.SetWeight(newWeight)
+			}
+		})
 	})
 }
 

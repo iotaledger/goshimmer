@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
@@ -191,9 +192,13 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
-			testFramework.BranchID("3"): LikedConflictMembers{
+			testFramework.BranchID("3"): {
 				likedBranch:     testFramework.BranchID("2"),
 				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2")),
+			},
+			testFramework.BranchID("2"): {
+				likedBranch:     testFramework.BranchID("2"),
+				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("3")),
 			},
 		},
 	}
@@ -204,9 +209,7 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Contains(t, references, testFramework.Message("1").ID())
-	assert.Contains(t, references, testFramework.Message("2").ID())
-	assert.Len(t, references, 2)
+	assert.Equal(t, references[ShallowLikeParentType], MessageIDs{testFramework.Message("2").ID(): types.Void})
 }
 
 func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
@@ -245,11 +248,19 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
-			testFramework.BranchID("3"): LikedConflictMembers{
+			testFramework.BranchID("1"): {
 				likedBranch:     testFramework.BranchID("2"),
 				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2")),
 			},
-			testFramework.BranchID("4"): LikedConflictMembers{
+			testFramework.BranchID("2"): {
+				likedBranch:     testFramework.BranchID("2"),
+				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2")),
+			},
+			testFramework.BranchID("3"): {
+				likedBranch:     testFramework.BranchID("2"),
+				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2")),
+			},
+			testFramework.BranchID("4"): {
 				likedBranch:     testFramework.BranchID("1"),
 				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("1")),
 			},
@@ -259,7 +270,14 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	// Test first set of parents
-	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, MessageIDsSlice{testFramework.Message("2").ID()}, time.Now())
+	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("2").ID()},
+	map[ParentsType]MessageIDs{
+		ShallowDislikeParentType: {
+
+		}
+	},
+	MessageIDsSlice{testFramework.Message("2").ID()},
+	time.Now())
 
 	// Test second set of parents
 	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("2").ID(), testFramework.Message("1").ID()}, MessageIDsSlice{}, time.Now())
@@ -320,7 +338,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
-			testFramework.BranchID("3"): LikedConflictMembers{
+			testFramework.BranchID("3"): {
 				likedBranch:     testFramework.BranchID("2"),
 				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
 			},
@@ -333,16 +351,18 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	require.Error(t, err)
 }
 
-func checkReferences(t *testing.T, tangle *Tangle, parents, expected MessageIDsSlice, issuingTime time.Time, errorExpected ...bool) {
-	ref, err := PrepareReferences(parents, issuingTime, tangle)
+func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDsSlice, expectedReferences map[ParentsType]MessageIDs, issuingTime time.Time, errorExpected ...bool) {
+	actualReferences, err := PrepareReferences(parents, issuingTime, tangle)
 	if len(errorExpected) > 0 && errorExpected[0] {
 		require.Error(t, err)
 		return
 	} else {
 		require.NoError(t, err)
 	}
-	for _, e := range expected {
-		assert.Contains(t, ref, e)
+
+	assert.Equal(t, parents.ToMessageIDs(), actualReferences[StrongParentType])
+
+	for _, referenceType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType, WeakParentType} {
+		assert.Equal(t, expectedReferences[referenceType], actualReferences[referenceType])
 	}
-	assert.Len(t, ref, len(expected))
 }

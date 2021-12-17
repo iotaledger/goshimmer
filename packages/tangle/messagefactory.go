@@ -336,6 +336,7 @@ func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tan
 			continue
 		}
 		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
+
 		if err != nil {
 			return nil, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
 		}
