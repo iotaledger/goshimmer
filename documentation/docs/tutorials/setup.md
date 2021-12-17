@@ -590,7 +590,7 @@ export GOPATH=/opt/goshimmer/gopath
 export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 ```
 
-You run `go version` again to check if you have successfully installed `golang-go 1.16`.
+You can run `go version` again to check if you have successfully installed `golang-go 1.16`.
 This installation is only valid for this session. If you enter a new session, you will have to enter these commands again:
 
 ```bash
@@ -611,7 +611,7 @@ sudo wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.co
 ### Making the Node Dashboard Accessible
 
 You will need to modify your goshimmer configuration file to make the Node Dashboard accessible. 
-1. Make a copy of the [config.default.json](https://github.com/iotaledger/goshimmer/blob/develop/config.default.json) file and rename it config.json.
+1. Make a copy of the [config.default.json](https://github.com/iotaledger/goshimmer/blob/develop/config.default.json) file and rename it `config.json`.
 2. Using your text editor of choice, edit line 23 to change the `bindAddress` to `0.0.0.0:8081`.
 3. Save your changes.
 
@@ -626,7 +626,7 @@ Then save the modified buffer (press `Y`).
 Then change the file name to `config.json` (you remove “default”).
 And press the `Y` key to save the file (this will allow you to view the GoShimmer dashboard in your browser).
 
-### Run the GoShimmer node
+### Run the GoShimmer Node
 
 You can now run the build script for the goshimmer binary with the following command:
 
@@ -639,7 +639,6 @@ You can use the `screen` command to keep the node running if you terminate your 
 :::
 
 
-
 You can now run the GoShimmer binary to start your node: 
 
 
@@ -647,23 +646,21 @@ You can now run the GoShimmer binary to start your node:
 ./goshimmer
 ```
 
+You can "detach" from the GoShimmer screen by pressing your `CTRL+A+D` keys. This will remove the GoShimmer window,  but it will still be running. 
 
-You can then "detach" from the GoShimmer screen by pressing your `CTRL+A+D` keys.  This will remove the GoShimmer window,  but it will still be running. 
-
-You need the number from the start of the window name to reattach it. If you forget it, you can always use the -ls (list) option, as shown below, to get a list of the detached windows:
+You need the number from the start of the window name to reattach it. If you forget it, you can always use the `-ls` (list) option, as shown below, to get a list of the detached windows:
 
 ```bash
 screen -ls
 ```
 
-When you’re ready, you can use the -r (reattach) option and the number of the session to reattach it, like so:
+You can use the -r (reattach) option and the number of the session to reattach it, like so:
 
 
 ```bash
 screen -r (your session id)
 ```  
 
+### Stopping the Node
 
-### Stopping the node
-
-To stop a screen session and your GoShimmer node press `CTRL+A+K`  inside the running window. This will stop your screen session.
+To stop a screen session and your GoShimmer node press `CTRL+A+K` inside the running window. This will stop your screen session.
