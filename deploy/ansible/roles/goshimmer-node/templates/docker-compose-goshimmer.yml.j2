@@ -30,6 +30,8 @@ services:
       # pprof profiling
       - "127.0.0.1:6061:6061/tcp"
     {% endif %}
+      # prometheus
+      - "0.0.0.0:9311:9311/tcp"
     environment:
       - NODE_SEED={{ seed }}
       - DATABASE_DIRECTORY=/db/mainnetdb
@@ -51,7 +53,7 @@ services:
      {% endif %}
       --node.disablePlugins=portcheck
       --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}
-      --prometheus.bindAddress=0.0.0.0:9312
+      --prometheus.bindAddress=0.0.0.0:9311
       --messageLayer.snapshot.file=/snapshot.bin
      {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}
