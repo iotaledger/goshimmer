@@ -549,9 +549,9 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
 // book a newly arrived Transaction into the UTXODAG using the metadata of its referenced Inputs.
 func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (inheritedBranchIDs BranchIDs, conflictingInputs OutputsMetadata, err error) {
 	conflictingInputs = inputsMetadata.SpentOutputsMetadata()
-	inheritedBranchIDs, err = u.ledgerstate.ResolveConflictBranchIDs(inputsMetadata.BranchIDs())
+	inheritedBranchIDs, err = u.ledgerstate.ResolvePendingConflictBranchIDs(inputsMetadata.BranchIDs())
 	if err != nil {
-		err = errors.Errorf("failed to normalize branches: %w", cerrors.ErrFatal)
+		err = errors.Errorf("failed to resolve pending branches: %w", cerrors.ErrFatal)
 		return
 	}
 
@@ -728,6 +728,11 @@ func (u *UTXODAG) consumedBranchIDs(transactionID TransactionID) (branchIDs Bran
 		}
 	}) {
 		panic(fmt.Errorf("failed to load Transaction with %s", transactionID))
+	}
+
+	branchIDs, err := u.ledgerstate.ResolvePendingConflictBranchIDs(branchIDs)
+	if err != nil {
+		panic(err)
 	}
 
 	return

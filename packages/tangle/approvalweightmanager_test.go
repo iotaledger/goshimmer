@@ -89,13 +89,13 @@ func TestBranchWeightMarshalling(t *testing.T) {
 }
 
 func TestStatementMarshalling(t *testing.T) {
-	statement := NewStatement(ledgerstate.BranchIDFromRandomness(), identity.GenerateIdentity().ID())
+	statement := NewStatement(ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()), identity.GenerateIdentity().ID())
 	statement.UpdateSequenceNumber(10)
 	statementFromBytes, _, err := StatementFromBytes(statement.Bytes())
 	require.NoError(t, err)
 
 	assert.Equal(t, statement.Bytes(), statementFromBytes.Bytes())
-	assert.Equal(t, statement.BranchID(), statementFromBytes.BranchID())
+	assert.Equal(t, statement.BranchIDs(), statementFromBytes.BranchIDs())
 	assert.Equal(t, statement.Supporter(), statementFromBytes.Supporter())
 	assert.Equal(t, statement.SequenceNumber(), statementFromBytes.SequenceNumber())
 }
@@ -173,12 +173,9 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	createBranch(t, tangle, "Branch 4.1.1", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 	createBranch(t, tangle, "Branch 4.1.2", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 
-	cachedAggregatedBranch, _, err := tangle.LedgerState.BranchDAG.AggregateBranches(ledgerstate.NewBranchIDs(branchIDs["Branch 1.1"], branchIDs["Branch 4.1.1"]))
-	require.NoError(t, err)
-	cachedAggregatedBranch.Consume(func(branch ledgerstate.Branch) {
-		branchIDs["Branch 1.1 + Branch 4.1.1"] = branch.ID()
-		ledgerstate.RegisterBranchIDAlias(branch.ID(), "Branch 1.1 + Branch 4.1.1")
-	})
+	aggregatedBranchID := tangle.LedgerState.BranchDAG.AggregateConflictBranchesID(ledgerstate.NewBranchIDs(branchIDs["Branch 1.1"], branchIDs["Branch 4.1.1"]))
+	branchIDs["Branch 1.1 + Branch 4.1.1"] = aggregatedBranchID
+	ledgerstate.RegisterBranchIDAlias(aggregatedBranchID, "Branch 1.1 + Branch 4.1.1")
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 
@@ -190,7 +187,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement2")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(branchIDs["Branch 4.1.2"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 4.1.2"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
@@ -220,7 +217,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement1")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(branchIDs["Branch 1.1 + Branch 4.1.1"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 1.1 + Branch 4.1.1"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
@@ -250,7 +247,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement3")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(branchIDs["Branch 2"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 2"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
@@ -506,11 +503,8 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch6")
 
 		fmt.Println(testFramework.MessageMetadata("Message6"))
-		branchID, err := tangle.Booker.MessageBranchID(testFramework.Message("Message6").ID())
+		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message6").ID())
 		require.NoError(t, err)
-		tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-			fmt.Println(branch)
-		})
 	}
 
 	// ISSUE Message7
@@ -544,11 +538,8 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			"Branch4+5+8",
 		)
 		fmt.Println(testFramework.MessageMetadata("Message8"))
-		branchID, err := tangle.Booker.MessageBranchID(testFramework.Message("Message8").ID())
+		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message8").ID())
 		require.NoError(t, err)
-		tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-			fmt.Println(branch)
-		})
 	}
 }
 

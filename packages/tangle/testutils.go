@@ -900,8 +900,14 @@ func (o *SimpleMockOnTangleVoting) LikedInstead(branchIDs ledgerstate.BranchIDs)
 	return
 }
 
-func emptyLikeReferences(parents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (MessageIDsSlice, error) {
-	return []MessageID{}, nil
+func emptyLikeReferences(parents MessageIDsSlice, _ time.Time, _ *Tangle) (references map[ParentsType]MessageIDs, err error) {
+	return emptyLikeReferencesFromStrongParents(parents), nil
+}
+
+func emptyLikeReferencesFromStrongParents(parents MessageIDsSlice) (references map[ParentsType]MessageIDs) {
+	return map[ParentsType]MessageIDs{
+		StrongParentType: parents.ToMessageIDs(),
+	}
 }
 
 // EventMock acts as a container for event mocks.

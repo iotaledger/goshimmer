@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -181,13 +182,17 @@ func TestMessage_VerifySignature(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := payload.NewGenericDataPayload([]byte("test"))
 
-	unsigned, _ := NewMessage(MessageIDsSlice{EmptyMessageID}, MessageIDsSlice{}, MessageIDsSlice{}, MessageIDsSlice{}, time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	unsigned, _ := NewMessage(map[ParentsType]MessageIDs{
+		StrongParentType: {EmptyMessageID: types.Void},
+	}, time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
 	assert.False(t, unsigned.VerifySignature())
 
 	unsignedBytes := unsigned.Bytes()
 	signature := keyPair.PrivateKey.Sign(unsignedBytes[:len(unsignedBytes)-ed25519.SignatureSize])
 
-	signed, _ := NewMessage(MessageIDsSlice{EmptyMessageID}, MessageIDsSlice{}, MessageIDsSlice{}, MessageIDsSlice{}, time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
+	signed, _ := NewMessage(map[ParentsType]MessageIDs{
+		StrongParentType: {EmptyMessageID: types.Void},
+	}, time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
 	assert.True(t, signed.VerifySignature())
 }
 
@@ -195,10 +200,12 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
-	testMessage, err := NewMessage(randomParents(1),
-		randomParents(1),
-		MessageIDsSlice{},
-		MessageIDsSlice{},
+	references := map[ParentsType]MessageIDs{
+		StrongParentType: {randomParents(1)[0]: types.Void},
+		WeakParentType:   {randomParents(1)[0]: types.Void},
+	}
+
+	testMessage, err := NewMessage(references,
 		time.Now(),
 		ed25519.PublicKey{},
 		0,
@@ -554,10 +561,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 func TestMessage_NewMessage(t *testing.T) {
 	t.Run("CASE: No parents at all", func(t *testing.T) {
 		_, err := NewMessage(
-			nil,
-			nil,
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{},
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -570,10 +574,7 @@ func TestMessage_NewMessage(t *testing.T) {
 
 	t.Run("CASE: Minimum number of parents", func(t *testing.T) {
 		_, err := NewMessage(
-			[]MessageID{EmptyMessageID},
-			nil,
-			nil,
-			nil,
+			emptyLikeReferencesFromStrongParents(MessageIDsSlice{EmptyMessageID}),
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -589,10 +590,7 @@ func TestMessage_NewMessage(t *testing.T) {
 		// max number of parents supplied (only strong)
 		strongParents := randomParents(MaxParentsCount)
 		_, err := NewMessage(
-			strongParents,
-			nil,
-			nil,
-			nil,
+			emptyLikeReferencesFromStrongParents(strongParents),
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -607,10 +605,10 @@ func TestMessage_NewMessage(t *testing.T) {
 		// max number of weak parents plus one strong
 		weakParents := randomParents(MaxParentsCount)
 		_, err := NewMessage(
-			[]MessageID{EmptyMessageID},
-			weakParents,
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{
+				StrongParentType: {EmptyMessageID: types.Void},
+				WeakParentType:   weakParents.ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -626,10 +624,7 @@ func TestMessage_NewMessage(t *testing.T) {
 		// MaxParentsCount + 1 parents, but there is one duplicate
 		strongParents = append(strongParents, strongParents[MaxParentsCount-1])
 		_, err := NewMessage(
-			strongParents,
-			nil,
-			nil,
-			nil,
+			emptyLikeReferencesFromStrongParents(strongParents),
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -647,10 +642,7 @@ func TestMessage_NewMessage(t *testing.T) {
 		strongParents = append(strongParents, strongParents...)
 
 		msg, err := NewMessage(
-			strongParents,
-			nil,
-			nil,
-			nil,
+			emptyLikeReferencesFromStrongParents(strongParents),
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -669,10 +661,10 @@ func TestMessage_NewMessage(t *testing.T) {
 		weakParents := randomParents(3)
 		weakParents = append(weakParents, weakParents...)
 		msg, err := NewMessage(
-			[]MessageID{EmptyMessageID},
-			weakParents,
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{
+				StrongParentType: {EmptyMessageID: types.Void},
+				WeakParentType:   weakParents.ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -691,10 +683,10 @@ func TestMessage_NewMessage(t *testing.T) {
 func TestMessage_Bytes(t *testing.T) {
 	t.Run("CASE: Parents not sorted", func(t *testing.T) {
 		msg, err := NewMessage(
-			randomParents(4),
-			randomParents(4),
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{
+				StrongParentType: randomParents(4).ToMessageIDs(),
+				WeakParentType:   randomParents(4).ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -719,10 +711,12 @@ func TestMessage_Bytes(t *testing.T) {
 		// 4 bytes for payload size field
 		data := make([]byte, payload.MaxSize-4)
 		msg, err := NewMessage(
-			randomParents(MaxParentsCount),
-			randomParents(MaxParentsCount),
-			randomParents(MaxParentsCount),
-			randomParents(MaxParentsCount),
+			map[ParentsType]MessageIDs{
+				StrongParentType:         randomParents(MaxParentsCount).ToMessageIDs(),
+				WeakParentType:           randomParents(MaxParentsCount).ToMessageIDs(),
+				ShallowDislikeParentType: randomParents(MaxParentsCount).ToMessageIDs(),
+				ShallowLikeParentType:    randomParents(MaxParentsCount).ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -739,10 +733,9 @@ func TestMessage_Bytes(t *testing.T) {
 	t.Run("CASE: Min msg size", func(t *testing.T) {
 		// msg with minimum number of parents
 		msg, err := NewMessage(
-			randomParents(MinParentsCount),
-			nil,
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{
+				StrongParentType: randomParents(MinParentsCount).ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -762,10 +755,10 @@ func TestMessage_Bytes(t *testing.T) {
 func TestMessageFromBytes(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		msg, err := NewMessage(
-			randomParents(MaxParentsCount/2),
-			randomParents(MaxParentsCount/2),
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{
+				StrongParentType: randomParents(MaxParentsCount / 2).ToMessageIDs(),
+				WeakParentType:   randomParents(MaxParentsCount / 2).ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -796,10 +789,10 @@ func TestMessageFromBytes(t *testing.T) {
 
 	t.Run("CASE: Trailing bytes", func(t *testing.T) {
 		msg, err := NewMessage(
-			randomParents(MaxParentsCount/2),
-			randomParents(MaxParentsCount/2),
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{
+				StrongParentType: randomParents(MaxParentsCount / 2).ToMessageIDs(),
+				WeakParentType:   randomParents(MaxParentsCount / 2).ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			0,
@@ -819,10 +812,10 @@ func TestMessageFromBytes(t *testing.T) {
 
 func createTestMsgBytes(numStrongParents int, numWeakParents int) []byte {
 	msg, _ := NewMessage(
-		randomParents(numStrongParents),
-		randomParents(numWeakParents),
-		nil,
-		nil,
+		map[ParentsType]MessageIDs{
+			StrongParentType: randomParents(numStrongParents).ToMessageIDs(),
+			WeakParentType:   randomParents(numWeakParents).ToMessageIDs(),
+		},
 		time.Now(),
 		ed25519.PublicKey{},
 		0,
@@ -901,10 +894,10 @@ func TestMessage_ForEachStrongParent(t *testing.T) {
 		weakParents := randomParents(MaxParentsCount / 2)
 
 		msg, err := NewMessage(
-			strongParents,
-			weakParents,
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{
+				StrongParentType: strongParents.ToMessageIDs(),
+				WeakParentType:   weakParents.ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			666,
@@ -916,8 +909,9 @@ func TestMessage_ForEachStrongParent(t *testing.T) {
 
 		sortedStrongParents := sortParents(strongParents)
 		resultParents := make(MessageIDsSlice, 0)
-		checker := func(parent MessageID) {
+		checker := func(parent MessageID) bool {
 			resultParents = append(resultParents, parent)
+			return true
 		}
 		msg.ForEachParentByType(StrongParentType, checker)
 
@@ -931,10 +925,10 @@ func TestMessage_ForEachWeakParent(t *testing.T) {
 		weakParents := randomParents(MaxParentsCount / 2)
 
 		msg, err := NewMessage(
-			strongParents,
-			weakParents,
-			nil,
-			nil,
+			map[ParentsType]MessageIDs{
+				StrongParentType: strongParents.ToMessageIDs(),
+				WeakParentType:   weakParents.ToMessageIDs(),
+			},
 			time.Now(),
 			ed25519.PublicKey{},
 			666,
@@ -946,8 +940,9 @@ func TestMessage_ForEachWeakParent(t *testing.T) {
 
 		sortedWeakParents := sortParents(weakParents)
 		resultParents := make(MessageIDsSlice, 0)
-		checker := func(parent MessageID) {
+		checker := func(parent MessageID) bool {
 			resultParents = append(resultParents, parent)
+			return true
 		}
 		msg.ForEachParentByType(WeakParentType, checker)
 
