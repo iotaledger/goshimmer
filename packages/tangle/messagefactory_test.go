@@ -342,7 +342,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
 			testFramework.BranchID("3"): {
-				likedBranch:     testFramework.BranchID("2"),
+				likedBranch:     nonExistingBranchID,
 				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
 			},
 		},
