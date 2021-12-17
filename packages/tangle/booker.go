@@ -46,7 +46,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	messageBooker = &Booker{
 		Events: &BookerEvents{
 			MessageBooked:        events.NewEvent(MessageIDCaller),
-			MarkerBranchUpdated:  events.NewEvent(markerBranchUpdatedCaller),
+			MarkerBranchAdded:    events.NewEvent(markerBranchUpdatedCaller),
 			MessageBranchUpdated: events.NewEvent(messageBranchUpdatedCaller),
 			Error:                events.NewEvent(events.ErrorCaller),
 		},
@@ -549,14 +549,13 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 		return nil
 	}
 
-	newAggregatedBranchID := b.tangle.LedgerState.AggregateConflictBranchesID(oldConflictBranchIDs.Add(newBranchID))
-	if !b.MarkersManager.SetBranchID(currentMarker, newAggregatedBranchID) {
+	if !b.MarkersManager.SetBranchID(currentMarker, b.tangle.LedgerState.AggregateConflictBranchesID(oldConflictBranchIDs.Add(newBranchID))) {
 		debugLogger.Println("return // BranchID not updated")
 		return nil
 	}
 
 	// trigger event
-	b.Events.MarkerBranchUpdated.Trigger(currentMarker, newAggregatedBranchID)
+	b.Events.MarkerBranchAdded.Trigger(currentMarker, oldConflictBranchIDs, newBranchID)
 
 	// propagate updates to later BranchID mappings of the same sequence.
 	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ ledgerstate.BranchID) {
@@ -631,15 +630,15 @@ type BookerEvents struct {
 	// MessageBranchUpdated is triggered when the BranchID of a Message is changed in its MessageMetadata.
 	MessageBranchUpdated *events.Event
 
-	// MarkerBranchUpdated is triggered when a Marker is mapped to a new BranchID.
-	MarkerBranchUpdated *events.Event
+	// MarkerBranchAdded is triggered when a Marker is mapped to a new BranchID.
+	MarkerBranchAdded *events.Event
 
 	// Error gets triggered when the Booker faces an unexpected error.
 	Error *events.Event
 }
 
 func markerBranchUpdatedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID))(params[0].(*markers.Marker), params[1].(ledgerstate.BranchID), params[2].(ledgerstate.BranchID))
+	handler.(func(marker *markers.Marker, oldBranchID ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID))(params[0].(*markers.Marker), params[1].(ledgerstate.BranchIDs), params[2].(ledgerstate.BranchID))
 }
 
 func messageBranchUpdatedCaller(handler interface{}, params ...interface{}) {
@@ -707,7 +706,7 @@ func (m *MarkersManager) BranchID(marker *markers.Marker) (branchID ledgerstate.
 
 // ConflictBranchIDs returns the ConflictBranchIDs that are associated with the given Marker.
 func (m *MarkersManager) ConflictBranchIDs(marker *markers.Marker) (branchIDs ledgerstate.BranchIDs, err error) {
-	if branchIDs, err = m.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(m.BranchID(marker))); err != nil {
+	if branchIDs, err = m.tangle.LedgerState.ResolvePendingConflictBranchIDs(ledgerstate.NewBranchIDs(m.BranchID(marker))); err != nil {
 		err = errors.Errorf("failed to resolve ConflictBranchIDs of marker %s: %w", marker, err)
 	}
 	return

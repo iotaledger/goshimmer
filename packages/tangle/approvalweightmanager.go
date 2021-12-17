@@ -57,7 +57,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 func (a *ApprovalWeightManager) Setup() {
 	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.ProcessMessage))
 	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.moveMessageWeightToNewBranch))
-	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.moveMarkerWeightToNewBranch))
+	a.tangle.Booker.Events.MarkerBranchAdded.Attach(events.NewClosure(a.moveMarkerWeightToNewBranch))
 }
 
 // ProcessMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
@@ -166,12 +166,7 @@ func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
 }
 
 // SupportersOfAggregatedBranch returns the Supporters of the given aggregatedbranch ledgerstate.BranchID.
-func (a *ApprovalWeightManager) SupportersOfAggregatedBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
-	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	if err != nil {
-		panic(err)
-	}
-
+func (a *ApprovalWeightManager) SupportersOfConflictBranches(conflictBranchIDs ledgerstate.BranchIDs) (supporters *Supporters) {
 	for conflictBranchID := range conflictBranchIDs {
 		if !a.tangle.Storage.BranchSupporters(conflictBranchID).Consume(func(branchSupporters *BranchSupporters) {
 			if supporters == nil {
@@ -358,30 +353,20 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 	})
 }
 
-func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
-	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(newBranchID))
-	if err != nil {
-		panic(err)
-	}
-
-	supportersOfOldBranch := a.SupportersOfAggregatedBranch(oldBranchID)
+func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID) {
 	supportersOfMarker := a.supportersOfMarker(marker)
-	intersectionOfSupporters := supportersOfMarker.Intersect(supportersOfOldBranch)
-
-	for conflictBranchID := range conflictBranchIDs {
-		a.tangle.Storage.BranchSupporters(conflictBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-			if oldBranchID == ledgerstate.MasterBranchID {
-				branchSupporters.AddSupporters(supportersOfMarker)
-				return
-			}
-
-			branchSupporters.AddSupporters(intersectionOfSupporters)
-		})
-
-		a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
-			a.updateBranchWeight(conflictBranchID, message)
-		})
+	netSupporters := supportersOfMarker
+	if len(oldBranchIDs) != 0 {
+		netSupporters = netSupporters.Intersect(a.SupportersOfConflictBranches(oldBranchIDs))
 	}
+
+	a.tangle.Storage.BranchSupporters(newBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
+		branchSupporters.AddSupporters(netSupporters)
+	})
+
+	a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
+		a.updateBranchWeight(newBranchID, message)
+	})
 }
 
 func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Message) {
@@ -436,7 +421,7 @@ func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID
 }
 
 // take everything in future cone because it was not conflicting before and move to new branch.
-func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchID ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID) {
 	a.migrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
 
 	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
