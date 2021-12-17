@@ -71,7 +71,7 @@ RUN --mount=target=. \
     fi
 
 # Docker cache will be invalidated for RUNs after ARG definition (https://docs.docker.com/engine/reference/builder/#impact-on-build-caching)
-ARG DEFAULT_SNAPSHOT_URL="https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin"
+ARG DEFAULT_SNAPSHOT_URL=https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
 ARG CUSTOM_SNAPSHOT_URL
 
 # Enable building the image without downloading the snapshot.
@@ -100,7 +100,7 @@ FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5d
 # Gossip
 EXPOSE 14666/tcp
 # AutoPeering
-EXPOSE 14626/udp
+#EXPOSE 14626/udp
 # Pprof Profiling
 EXPOSE 6061/tcp
 # Prometheus exporter
