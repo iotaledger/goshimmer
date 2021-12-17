@@ -621,10 +621,6 @@ nano config.default.json
 
 On line `23` of the file, change the **bindAddress** to `0.0.0.0:8081`.
 
-Then press `CTRL+X` to exit.
-Then save the modified buffer (press `Y`).
-Then change the file name to `config.json` (you remove “default”).
-And press the `Y` key to save the file (this will allow you to view the GoShimmer dashboard in your browser).
 
 ### Run the GoShimmer Node
 
