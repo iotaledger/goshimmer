@@ -347,9 +347,9 @@ func TestBookConflictingTransaction(t *testing.T) {
 	})
 
 	// determine the booking details before we book
-	branchesOfInputsConflicting, normalizedBranchIDs, conflictingInputs, err := ledgerstate.determineBookingDetails(inputsMetadata2)
+	normalizedBranchIDs, conflictingInputs, err := ledgerstate.determineBookingDetails(inputsMetadata2)
 	require.NoError(t, err)
-	assert.False(t, branchesOfInputsConflicting)
+	assert.True(t, len(conflictingInputs) == 0)
 
 	targetBranch2 := ledgerstate.bookConflictingTransaction(tx2, txMetadata2, inputsMetadata2, normalizedBranchIDs, conflictingInputs.ByID())
 
