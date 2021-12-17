@@ -200,6 +200,50 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 	return conflictBranchIDs, err
 }
 
+// ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
+// AggregatedBranches to their corresponding ConflictBranches.
+func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
+	switch typeCastedResult := b.conflictBranchIDsCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
+		// initialize return variable
+		result := make(BranchIDs)
+
+		// iterate through parameters and collect the conflict branches
+		seenBranches := set.New()
+		for branchID := range branchIDs {
+			// abort if branch was processed already
+			if !seenBranches.Add(branchID) {
+				continue
+			}
+
+			// process branch or abort if it can not be found
+			if !b.Branch(branchID).Consume(func(branch Branch) {
+				switch typeCastedBranch := branch.(type) {
+				case *ConflictBranch:
+					if typeCastedBranch.InclusionState() == Confirmed {
+						return
+					}
+					result[branch.ID()] = types.Void
+				case *AggregatedBranch:
+					for parentBranchID := range branch.Parents() {
+						result[parentBranchID] = types.Void
+					}
+				}
+			}) {
+				return errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+			}
+		}
+
+		return result
+	}).(type) {
+	case error:
+		err = typeCastedResult
+	case BranchIDs:
+		conflictBranchIDs = typeCastedResult
+	}
+
+	return conflictBranchIDs, err
+}
+
 func (b *BranchDAG) ConflictingBranches(branchIDs BranchIDs) (err error) {
 	conflictBranchIDs, err := b.ResolveConflictBranchIDs(branchIDs)
 	if err != nil {
@@ -477,7 +521,9 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callb
 func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
 	if stored {
-		cachedMasterBranch.Release()
+		(&CachedBranch{CachedObject: cachedMasterBranch}).ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
+			conflictBranch.setInclusionState(Confirmed)
+		})
 	}
 }
 
@@ -521,13 +567,27 @@ func (b *BranchDAG) anyConflictMemberConfirmed(branch *ConflictBranch) (conflict
 
 // AggregateConflictBranchesID returns the aggregated BranchID that represents the given BranchIDs.
 func (b *BranchDAG) AggregateConflictBranchesID(parentBranchIDs BranchIDs) (branchID BranchID) {
-	if len(parentBranchIDs) == 1 {
-		for firstBranchID := range parentBranchIDs {
+	branchIDs := NewBranchIDs()
+	for branchID := range parentBranchIDs {
+		b.Branch(branchID).ConsumeConflictBranch(func(conflictBranch *ConflictBranch) {
+			if conflictBranch.InclusionState() == Confirmed {
+				return
+			}
+			branchIDs.Add(branchID)
+		})
+	}
+
+	if len(branchIDs) == 0 {
+		return MasterBranchID
+	}
+
+	if len(branchIDs) == 1 {
+		for firstBranchID := range branchIDs {
 			return firstBranchID
 		}
 	}
 
-	aggregatedBranch := NewAggregatedBranch(parentBranchIDs)
+	aggregatedBranch := NewAggregatedBranch(branchIDs)
 	(&CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		aggregatedBranch.Persist()
 		aggregatedBranch.SetModified()

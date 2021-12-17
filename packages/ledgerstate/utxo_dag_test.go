@@ -378,7 +378,7 @@ func TestConsumedBranchIDs(t *testing.T) {
 	defer ledgerstate.Shutdown()
 
 	wallets := createWallets(1)
-	branchIDs := BranchIDs{MasterBranchID: types.Void, InvalidBranchID: types.Void}
+	branchIDs := BranchIDs{MasterBranchID: types.Void}
 	inputs := generateOutputs(ledgerstate, wallets[0].address, branchIDs)
 	tx := multipleInputsTransaction(ledgerstate, wallets[0], wallets[0], inputs, gof.High)
 
@@ -422,23 +422,6 @@ func TestOutputsUnspent(t *testing.T) {
 
 	assert.False(t, ledgerstate.outputsUnspent(outputsMetadata))
 	assert.True(t, ledgerstate.outputsUnspent(outputsMetadata[:1]))
-}
-
-func TestInputsInInvalidBranch(t *testing.T) {
-	ledgerstate := setupDependencies(t)
-	defer ledgerstate.Shutdown()
-
-	outputsMetadata := []*OutputMetadata{
-		{
-			branchID: InvalidBranchID,
-		},
-		{
-			branchID: MasterBranchID,
-		},
-	}
-
-	assert.True(t, ledgerstate.inputsInInvalidBranch(outputsMetadata))
-	assert.False(t, ledgerstate.inputsInInvalidBranch(outputsMetadata[1:]))
 }
 
 func TestConsumedOutputs(t *testing.T) {
@@ -841,12 +824,8 @@ func multipleInputsTransaction(ledgerstate *Ledgerstate, a, b wallet, outputsToS
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
 	// store aggreagated branch
-	normalizedBranchIDs, _, _ := ledgerstate.NormalizeBranches(branchIDs)
-	cachedAggregatedBranch, _, _ := ledgerstate.aggregateNormalizedBranches(normalizedBranchIDs)
-	branchID := BranchID{}
-	cachedAggregatedBranch.Consume(func(branch Branch) {
-		branchID = branch.ID()
-	})
+	resolvedConflictBranchIDs, _ := ledgerstate.ResolveConflictBranchIDs(branchIDs)
+	branchID := ledgerstate.AggregateConflictBranchesID(resolvedConflictBranchIDs)
 
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(tx.ID())
