@@ -44,6 +44,9 @@ func (o *OnTangleVoting) LikedConflictMember(conflictBranchID ledgerstate.Branch
 
 func (o *OnTangleVoting) branchLiked(branchID ledgerstate.BranchID) (branchLiked bool) {
 	branchLiked = true
+	if branchID == ledgerstate.MasterBranchID {
+		return
+	}
 	for likeWalker := walker.New().Push(branchID); likeWalker.HasNext(); {
 		if branchLiked = branchLiked && o.branchPreferred(likeWalker.Next().(ledgerstate.BranchID), likeWalker); !branchLiked {
 			return

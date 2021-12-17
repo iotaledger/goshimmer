@@ -641,7 +641,7 @@ func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// make sure that everything was booked into master branch
 		require.True(t, messageMetadata.booked)
-		messageBranchID, err := tangle.Booker.MessageBranchID(message.ID())
+		messageBranchID, err := tangle.Booker.AggregatedBranchID(message.ID())
 		assert.NoError(t, err)
 		require.Equal(t, ledgerstate.MasterBranchID, messageBranchID)
 	})
@@ -650,10 +650,6 @@ func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDsSlice) (message *Message) {
 	message = newTestParentsDataMessage("testmessage", strongParents, weakParents, nil, nil)
 	tangle.Storage.StoreMessage(message)
-
-	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		messageMetadata.SetBranchID(ledgerstate.MasterBranchID)
-	})
 
 	return
 }

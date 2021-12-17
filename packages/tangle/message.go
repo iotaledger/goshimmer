@@ -322,7 +322,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
 	// Validate strong parent block
 	if len(parentsBlocks) == 0 || parentsBlocks[0].ParentsType != StrongParentType ||
-		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
+		len(parentsBlocks[0].References) < MinStrongParentsCount {
 		return nil, ErrNoStrongParents
 	}
 
