@@ -204,32 +204,30 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 // AggregatedBranches to their corresponding ConflictBranches.
 func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
 	switch typeCastedResult := b.conflictBranchIDsCache.ComputeIfAbsent(NewAggregatedBranch(branchIDs).ID(), func() interface{} {
-		// initialize return variable
-		result := make(BranchIDs)
-
-		// iterate through parameters and collect the conflict branches
-		seenBranches := set.New()
+		branchWalker := walker.New()
 		for branchID := range branchIDs {
-			// abort if branch was processed already
-			if !seenBranches.Add(branchID) {
-				continue
-			}
+			branchWalker.Push(branchID)
+		}
 
-			// process branch or abort if it can not be found
-			if !b.Branch(branchID).Consume(func(branch Branch) {
+		result := make(BranchIDs)
+		for branchWalker.HasNext() {
+			currentBranchID := branchWalker.Next().(BranchID)
+
+			if !b.Branch(currentBranchID).Consume(func(branch Branch) {
 				switch typeCastedBranch := branch.(type) {
 				case *ConflictBranch:
 					if typeCastedBranch.InclusionState() == Confirmed {
 						return
 					}
+
 					result[branch.ID()] = types.Void
 				case *AggregatedBranch:
 					for parentBranchID := range branch.Parents() {
-						result[parentBranchID] = types.Void
+						branchWalker.Push(parentBranchID)
 					}
 				}
 			}) {
-				return errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+				return errors.Errorf("failed to load Branch with %s: %w", currentBranchID, cerrors.ErrFatal)
 			}
 		}
 
