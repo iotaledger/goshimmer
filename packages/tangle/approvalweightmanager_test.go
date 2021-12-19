@@ -89,15 +89,16 @@ func TestBranchWeightMarshalling(t *testing.T) {
 }
 
 func TestStatementMarshalling(t *testing.T) {
-	statement := NewStatement(ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()), identity.GenerateIdentity().ID())
+	statement := NewStatement(identity.GenerateIdentity().ID(), ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()))
 	statement.UpdateSequenceNumber(10)
 	statementFromBytes, _, err := StatementFromBytes(statement.Bytes())
 	require.NoError(t, err)
 
 	assert.Equal(t, statement.Bytes(), statementFromBytes.Bytes())
-	assert.Equal(t, statement.BranchIDs(), statementFromBytes.BranchIDs())
 	assert.Equal(t, statement.Supporter(), statementFromBytes.Supporter())
 	assert.Equal(t, statement.SequenceNumber(), statementFromBytes.SequenceNumber())
+	assert.Equal(t, statement.BranchIDs(), statementFromBytes.BranchIDs())
+	assert.Equal(t, statement.AggregatedBranchID(), statementFromBytes.AggregatedBranchID())
 }
 
 func TestBranchSupportersMarshalling(t *testing.T) {

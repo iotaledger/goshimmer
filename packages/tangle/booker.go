@@ -320,7 +320,7 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 		err = errors.Errorf("failed to retrieve MessageMetadata with %s: %w", messageID, cerrors.ErrFatal)
 	}
 
-	return structureDetails, pastMarkersBranchIDs, pastMarkersBranchIDs, err
+	return structureDetails, pastMarkersBranchIDs, messageBranchIDs, err
 }
 
 // strongParentsBranchIDs returns the branches of the Message's strong parents.
