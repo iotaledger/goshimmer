@@ -115,13 +115,15 @@ type BranchConfirmationMetrics struct {
 // SchedulerMetrics defines the schedule metrics sent to the remote logger.
 type SchedulerMetrics struct {
 	Type                         string             `json:"type" bson:"type"`
+	NodeID                       string             `json:"nodeID" bson:"nodeID"`
+	Synced                       bool               `json:"synced" bson:"synced"`
 	MetricsLevel                 uint8              `json:"metricsLevel" bson:"metricsLevel"`
 	QueueLengthPerNode           map[string]uint32  `json:"queueLengthPerNode" bson:"queueLengthPerNode"`
 	AManaNormalizedLengthPerNode map[string]float64 `json:"aManaNormalizedQueueLengthPerNode" bson:"aManaNormalizedQueueLengthPerNode"`
 	BufferSize                   uint32             `json:"bufferSize" bson:"bufferSize"`
-	BufferLength                 uint32             `json:"BufferLength" bson:"BufferLength"`
-	ReadyMessagesInBuffer        uint32             `json:"ReadyMessagesInBuffer" bson:"ReadyMessagesInBuffer"`
-	Timestamp                    time.Time          `json:"Timestamp" bson:"Timestamp"`
+	BufferLength                 uint32             `json:"bufferLength" bson:"bufferLength"`
+	ReadyMessagesInBuffer        uint32             `json:"readyMessagesInBuffer" bson:"readyMessagesInBuffer"`
+	Timestamp                    time.Time          `json:"timestamp" bson:"timestamp"`
 }
 
 // BranchCountUpdate defines the branch confirmation metrics record that is sent to remote logger.

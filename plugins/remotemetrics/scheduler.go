@@ -11,8 +11,14 @@ func obtainSchedulerStats(timestamp time.Time) {
 	scheduler := deps.Tangle.Scheduler
 	queueMap, aManaNormalizedMap := prepQueueMaps(scheduler)
 
+	var myID string
+	if deps.Local != nil {
+		myID = deps.Local.Identity.ID().String()
+	}
 	record := remotemetrics.SchedulerMetrics{
 		Type:                         "schedulerSample",
+		NodeID:                       myID,
+		Synced:                       deps.Tangle.Synced(),
 		MetricsLevel:                 Parameters.MetricsLevel,
 		BufferSize:                   uint32(scheduler.BufferSize()),
 		BufferLength:                 uint32(scheduler.TotalMessagesCount()),

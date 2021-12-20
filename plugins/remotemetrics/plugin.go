@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	updateTime = 500 * time.Millisecond
+	syncUpdateTime           = 500 * time.Millisecond
+	schedulerQueryUpdateTime = 5 * time.Second
 )
 
 const (
@@ -57,7 +58,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin("RemoteLogMetrics", deps, node.Disabled, configure, run)
+	Plugin = node.NewPlugin("RemoteLogMetrics", deps, node.Enabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
@@ -66,13 +67,26 @@ func configure(_ *node.Plugin) {
 	if deps.DrngInstance != nil {
 		configureDRNGMetrics()
 	}
+	configureBranchConfirmationMetrics()
 	configureMessageFinalizedMetrics()
 	configureMessageScheduledMetrics()
 	configureMissingMessageMetrics()
-	configurePeriodicQueryMetrics()
+	configureSchedulerQueryMetrics()
 }
 
 func run(plugin *node.Plugin) {
+	// create a background worker that update the metrics every second
+	if err := daemon.BackgroundWorker("Node State Logger Updater", func(ctx context.Context) {
+		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
+		// safely ignore the last execution when shutting down.
+		timeutil.NewTicker(func() { checkSynced() }, syncUpdateTime, ctx)
+		timeutil.NewTicker(func() { remotemetrics.Events().SchedulerQuery.Trigger(time.Now()) }, schedulerQueryUpdateTime, ctx)
+
+		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		<-ctx.Done()
+	}, shutdown.PriorityRemoteLog); err != nil {
+		Plugin.Panicf("Failed to start as daemon: %s", err)
+	}
 }
 
 func configureSyncMetrics() {
@@ -85,21 +99,9 @@ func configureSyncMetrics() {
 	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
 }
 
-func configurePeriodicQueryMetrics() {
+func configureSchedulerQueryMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
-	}
-	// create a background worker that update the metrics every second
-	if err := daemon.BackgroundWorker("Node State Logger Updater", func(ctx context.Context) {
-		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
-		// safely ignore the last execution when shutting down.
-		timeutil.NewTicker(func() { checkSynced() }, updateTime, ctx)
-		timeutil.NewTicker(func() { remotemetrics.Events().SchedulerQuery.Trigger(time.Now()) }, updateTime, ctx)
-
-		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
-		<-ctx.Done()
-	}, shutdown.PriorityRemoteLog); err != nil {
-		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 	remotemetrics.Events().SchedulerQuery.Attach(events.NewClosure(obtainSchedulerStats))
 }
@@ -141,9 +143,13 @@ func configureMessageFinalizedMetrics() {
 func configureMessageScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
+	} else if Parameters.MetricsLevel == Info {
+		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
+	} else {
+		deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
+		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
 	}
-	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
-	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
+
 }
 
 func configureMissingMessageMetrics() {

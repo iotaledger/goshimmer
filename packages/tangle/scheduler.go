@@ -269,9 +269,6 @@ func (s *Scheduler) SubmitAndReady(messageID MessageID) (err error) {
 
 // GetManaFromCache allows you to get the cached mana for a node ID. This is exposed for analytics purposes.
 func (s *Scheduler) GetManaFromCache(nodeID identity.ID) float64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.accessManaCache.GetCachedMana(nodeID)
 }
 
