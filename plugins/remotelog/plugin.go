@@ -88,6 +88,10 @@ func configure(_ *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
+	if logger_plugin.Parameters.DisableEvents {
+		return
+	}
+
 	logEvent := events.NewClosure(func(level logger.Level, name string, msg string) {
 		workerPool.TrySubmit(level, name, msg)
 	})

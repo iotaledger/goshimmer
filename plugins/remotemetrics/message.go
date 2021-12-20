@@ -50,7 +50,7 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 			record.ScheduledTimestamp = messageMetadata.ScheduledTime()
 			record.DroppedTimestamp = messageMetadata.DiscardedTime()
 			record.BookedTimestamp = messageMetadata.BookedTime()
-			// may be overriden by tx data
+			// may be overridden by tx data
 			record.SolidTimestamp = messageMetadata.SolidificationTime()
 			record.DeltaSolid = messageMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
 			record.QueuedTimestamp = messageMetadata.QueuedTime()
