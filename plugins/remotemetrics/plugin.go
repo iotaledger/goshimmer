@@ -62,6 +62,11 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
+	// if remotelog plugin is disabled, then remotemetrics should not be started either
+	if node.IsSkipped(remotelog.Plugin) {
+		Plugin.LogInfof("%s is disabled; skipping %s\n", remotelog.Plugin.Name, Plugin.Name)
+		return
+	}
 	measureInitialBranchCounts()
 	configureSyncMetrics()
 	if deps.DrngInstance != nil {
@@ -74,7 +79,11 @@ func configure(_ *node.Plugin) {
 	configureSchedulerQueryMetrics()
 }
 
-func run(plugin *node.Plugin) {
+func run(_ *node.Plugin) {
+	// if remotelog plugin is disabled, then remotemetrics should not be started either
+	if node.IsSkipped(remotelog.Plugin) {
+		return
+	}
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Node State Logger Updater", func(ctx context.Context) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
