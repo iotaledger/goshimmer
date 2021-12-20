@@ -366,6 +366,10 @@ func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tan
 }
 
 func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
+	if strongParentBranchID == ledgerstate.MasterBranchID {
+		return
+	}
+
 	likedBranchID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(strongParentBranchID)
 	if likedBranchID == strongParentBranchID {
 		return
