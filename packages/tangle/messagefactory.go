@@ -26,11 +26,11 @@ const storeSequenceInterval = 100
 type MessageFactory struct {
 	Events *MessageFactoryEvents
 
-	tangle             *Tangle
-	sequence           *kvstore.Sequence
-	localIdentity      *identity.LocalIdentity
-	selector           TipSelector
-	likeReferencesFunc ReferencesFunc
+	tangle         *Tangle
+	sequence       *kvstore.Sequence
+	localIdentity  *identity.LocalIdentity
+	selector       TipSelector
+	referencesFunc ReferencesFunc
 
 	powTimeout time.Duration
 
@@ -40,7 +40,7 @@ type MessageFactory struct {
 }
 
 // NewMessageFactory creates a new message factory.
-func NewMessageFactory(tangle *Tangle, selector TipSelector, likeReferences ReferencesFunc) *MessageFactory {
+func NewMessageFactory(tangle *Tangle, selector TipSelector, referencesFunc ReferencesFunc) *MessageFactory {
 	sequence, err := kvstore.NewSequence(tangle.Options.Store, []byte(DBSequenceNumber), storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
@@ -52,13 +52,13 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector, likeReferences Refe
 			Error:              events.NewEvent(events.ErrorCaller),
 		},
 
-		tangle:             tangle,
-		sequence:           sequence,
-		localIdentity:      tangle.Options.Identity,
-		selector:           selector,
-		likeReferencesFunc: likeReferences,
-		worker:             ZeroWorker,
-		powTimeout:         0 * time.Second,
+		tangle:         tangle,
+		sequence:       sequence,
+		localIdentity:  tangle.Options.Identity,
+		selector:       selector,
+		referencesFunc: referencesFunc,
+		worker:         ZeroWorker,
+		powTimeout:     0 * time.Second,
 	}
 }
 
@@ -124,7 +124,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		}
 		issuingTime = f.getIssuingTime(parents)
 
-		references, err = f.likeReferencesFunc(parents, issuingTime, f.tangle)
+		references, err = f.referencesFunc(parents, issuingTime, f.tangle)
 		if err != nil {
 			err = errors.Errorf("like references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
@@ -328,38 +328,56 @@ type ReferencesFunc func(strongParents MessageIDsSlice, issuingTime time.Time, t
 
 // PrepareReferences is an implementation of LikeReferencesFunc.
 func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error) {
-	references = make(map[ParentsType]MessageIDs)
+	references = map[ParentsType]MessageIDs{StrongParentType: {}}
 
-	strongParentsBranchIDs := ledgerstate.NewBranchIDs()
 	for _, strongParent := range strongParents {
 		if strongParent == EmptyMessageID {
+			references[StrongParentType][strongParent] = types.Void
 			continue
 		}
-		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
 
+		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
 		if err != nil {
 			return nil, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
 		}
 
-		strongParentsBranchIDs.AddAll(strongParentBranchIDs)
-	}
-
-	references[StrongParentType] = strongParents.ToMessageIDs()
-	for strongParentBranchID := range strongParentsBranchIDs {
-		referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
-		if err != nil {
-			return nil, errors.Errorf("failed to determine valid reference from Branch with %s: %w", strongParentBranchID, err)
+		referencesCopy := make(map[ParentsType]MessageIDs)
+		for parentType, messageIDs := range references {
+			referencesCopy[parentType] = messageIDs.Clone()
 		}
 
-		if referenceParentType == UndefinedParentType {
+		opinionCanBeExpressed := true
+		for strongParentBranchID := range strongParentBranchIDs {
+			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
+			if err != nil {
+				return nil, errors.Errorf("failed to determine valid reference from Branch with %s: %w", strongParentBranchID, err)
+			}
+
+			if referenceParentType == UndefinedParentType {
+				continue
+			}
+
+			if _, exists := references[referenceParentType]; !exists {
+				references[referenceParentType] = make(map[MessageID]types.Empty)
+			}
+			references[referenceParentType][referenceMessageID] = types.Void
+
+			if len(references[referenceParentType]) > MaxParentsCount {
+				opinionCanBeExpressed = false
+				break
+			}
+		}
+
+		if !opinionCanBeExpressed {
+			references = referencesCopy
 			continue
 		}
 
-		if _, exists := references[referenceParentType]; !exists {
-			references[referenceParentType] = make(map[MessageID]types.Empty)
-		}
+		references[StrongParentType][strongParent] = types.Void
+	}
 
-		references[referenceParentType][referenceMessageID] = types.Void
+	if len(references[StrongParentType]) == 0 {
+		return nil, errors.Errorf("none of the provided strong parents can be referenced")
 	}
 
 	return

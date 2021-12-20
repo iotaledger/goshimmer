@@ -68,7 +68,7 @@ func (b *Booker) Setup() {
 	}))
 
 	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByForkEvent) {
-		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID, debuglogger.New("PropagateForkedBranch")); err != nil {
+		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID, nil); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))

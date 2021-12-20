@@ -223,7 +223,7 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
-	tangle.MessageFactory.likeReferencesFunc = emptyLikeReferences
+	tangle.MessageFactory.referencesFunc = emptyLikeReferences
 
 	testMessage, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
