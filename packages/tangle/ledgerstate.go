@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -29,6 +30,15 @@ func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
 			ledgerstate.CacheTimeProvider(tangle.Options.CacheTimeProvider),
 		),
 	}
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
+func (l *LedgerState) Setup() {
+	l.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		if l.tangle.Options.LedgerState.MergeBranches {
+			l.SetBranchConfirmed(branchID)
+		}
+	}))
 }
 
 // Shutdown shuts down the LedgerState and persists its state.

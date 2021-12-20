@@ -107,6 +107,7 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
+			LedgerState:                  struct{ MergeBranches bool }{MergeBranches: true},
 		}
 	}
 
@@ -123,6 +124,7 @@ func (t *Tangle) Setup() {
 	t.Scheduler.Setup()
 	t.Orderer.Setup()
 	t.Booker.Setup()
+	t.LedgerState.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
@@ -242,6 +244,7 @@ type Options struct {
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
 	CacheTimeProvider            *database.CacheTimeProvider
+	LedgerState                  struct{ MergeBranches bool }
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -328,6 +331,13 @@ func StartSynced(startSynced bool) Option {
 func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
 		options.CacheTimeProvider = cacheTimeProvider
+	}
+}
+
+// MergeBranches is an Option for the Tangle that prevents the LedgerState from merging Branches.
+func MergeBranches(mergeBranches bool) Option {
+	return func(o *Options) {
+		o.LedgerState.MergeBranches = mergeBranches
 	}
 }
 
