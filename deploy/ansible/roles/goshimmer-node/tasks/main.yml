@@ -33,8 +33,10 @@
     cmd: rm -rf /opt/{{ nodeType }}/db/*
     warn: false
 
-- pause:
-    seconds: 30
+- name: Remove DB
+  shell:
+    cmd: conntrack -D -p udp
+    warn: false
 
 - name: Run node
   community.general.docker_compose:
