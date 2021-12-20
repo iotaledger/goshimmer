@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -422,11 +421,7 @@ func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Mark
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
-		fmt.Println(newBranchID, branchWeight, totalWeight, weightsOfSupporters)
-
 		newWeight := branchWeight / totalWeight
-
-		fmt.Println(newBranchID, newWeight)
 
 		a.tangle.Storage.BranchWeight(newBranchID, NewBranchWeight).Consume(func(b *BranchWeight) {
 			if newWeight > b.Weight() {
