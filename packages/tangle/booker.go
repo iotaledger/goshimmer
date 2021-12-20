@@ -549,7 +549,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 		return nil
 	}
 
-	if !b.MarkersManager.SetBranchID(currentMarker, b.tangle.LedgerState.AggregateConflictBranchesID(oldConflictBranchIDs.Add(newBranchID))) {
+	if !b.MarkersManager.SetBranchID(currentMarker, b.tangle.LedgerState.AggregateConflictBranchesID(oldConflictBranchIDs.Clone().Add(newBranchID))) {
 		debugLogger.Println("return // BranchID not updated")
 		return nil
 	}

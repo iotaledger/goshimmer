@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -111,23 +112,9 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 // Shutdown shuts down the ApprovalWeightManager and persists its state.
 func (a *ApprovalWeightManager) Shutdown() {}
 
-func (a *ApprovalWeightManager) statementFromMessage(message *Message, optionalBranchID ...ledgerstate.BranchID) (statement *Statement, isNewStatement bool) {
-	nodeID := identity.NewID(message.IssuerPublicKey())
-
-	var branchIDs ledgerstate.BranchIDs
-	if len(optionalBranchID) > 0 {
-		branchIDs = ledgerstate.NewBranchIDs(optionalBranchID[0])
-	} else {
-		if messageBranchIDs, messageBranchIDsErr := a.tangle.Booker.MessageBranchIDs(message.ID()); messageBranchIDsErr != nil {
-			// TODO: handle error properly
-			panic(messageBranchIDsErr)
-		} else {
-			branchIDs = messageBranchIDs
-		}
-	}
-
-	statement = NewStatement(nodeID, branchIDs)
-	a.tangle.Storage.Statement(statement.AggregatedBranchID(), nodeID, func() *Statement {
+func (a *ApprovalWeightManager) statementFromMessage(message *Message) (statement *Statement, isNewStatement bool) {
+	statement = NewStatement(identity.NewID(message.IssuerPublicKey()))
+	a.tangle.Storage.Statement(statement.Supporter(), func() *Statement {
 		return statement
 	}).Consume(func(consumedStatement *Statement) {
 		statement = consumedStatement
@@ -165,6 +152,10 @@ func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
 
 // SupportersOfAggregatedBranch returns the Supporters of the given aggregatedbranch ledgerstate.BranchID.
 func (a *ApprovalWeightManager) SupportersOfConflictBranches(conflictBranchIDs ledgerstate.BranchIDs) (supporters *Supporters) {
+	if len(conflictBranchIDs) == 0 {
+		return NewSupporters()
+	}
+
 	for conflictBranchID := range conflictBranchIDs {
 		if !a.tangle.Storage.BranchSupporters(conflictBranchID).Consume(func(branchSupporters *BranchSupporters) {
 			if supporters == nil {
@@ -173,8 +164,7 @@ func (a *ApprovalWeightManager) SupportersOfConflictBranches(conflictBranchIDs l
 				supporters = supporters.Intersect(branchSupporters.Supporters())
 			}
 		}) {
-			supporters = NewSupporters()
-			return
+			return NewSupporters()
 		}
 	}
 
@@ -203,17 +193,20 @@ func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supp
 }
 
 func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
-	// Don't do anything if the supporter is not relevant.
 	if !a.isRelevantSupporter(message) {
 		return
 	}
 
-	statement, isNewStatement := a.statementFromMessage(message)
-	if !isNewStatement {
+	conflictBranchIDs, err := a.tangle.Booker.MessageBranchIDs(message.ID())
+	if err != nil {
+		panic(err) // TODO: handle errors properly
+	}
+
+	if _, isNewStatement := a.statementFromMessage(message); !isNewStatement {
 		return
 	}
 
-	a.propagateSupportToBranches(statement.BranchIDs(), message)
+	a.propagateSupportToBranches(conflictBranchIDs, message)
 }
 
 func (a *ApprovalWeightManager) propagateSupportToBranches(conflictBranchIDs ledgerstate.BranchIDs, message *Message) {
@@ -233,7 +226,7 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 	}
 
 	// Keep track of a nodes' statements per branchID and abort if it is not a new statement for this branchID.
-	if _, isNewStatement := a.statementFromMessage(message, branchID); !isNewStatement {
+	if _, isNewStatement := a.statementFromMessage(message); !isNewStatement {
 		return
 	}
 
@@ -268,7 +261,7 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 }
 
 func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
-	if _, isNewStatement := a.statementFromMessage(message, branchID); !isNewStatement {
+	if _, isNewStatement := a.statementFromMessage(message); !isNewStatement {
 		return
 	}
 
@@ -352,8 +345,7 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 }
 
 func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID) {
-	supportersOfMarker := a.supportersOfMarker(marker)
-	netSupporters := supportersOfMarker
+	netSupporters := a.supportersOfMarker(marker)
 	if len(oldBranchIDs) != 0 {
 		netSupporters = netSupporters.Intersect(a.SupportersOfConflictBranches(oldBranchIDs))
 	}
@@ -430,7 +422,11 @@ func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Mark
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
+		fmt.Println(newBranchID, branchWeight, totalWeight, weightsOfSupporters)
+
 		newWeight := branchWeight / totalWeight
+
+		fmt.Println(newBranchID, newWeight)
 
 		a.tangle.Storage.BranchWeight(newBranchID, NewBranchWeight).Consume(func(b *BranchWeight) {
 			if newWeight > b.Weight() {
@@ -681,10 +677,8 @@ func (c *CachedBranchWeight) String() string {
 
 // Statement is a data structure that tracks the latest statement by a Supporter per ledgerstate.BranchID.
 type Statement struct {
-	supporter          Supporter
-	sequenceNumber     uint64
-	branchIDs          ledgerstate.BranchIDs
-	aggregatedBranchID ledgerstate.BranchID
+	supporter      Supporter
+	sequenceNumber uint64
 
 	sequenceNumberMutex sync.RWMutex
 
@@ -692,11 +686,9 @@ type Statement struct {
 }
 
 // NewStatement creates a new Statement.
-func NewStatement(supporter Supporter, branchIDs ledgerstate.BranchIDs) (statement *Statement) {
+func NewStatement(supporter Supporter) (statement *Statement) {
 	statement = &Statement{
-		supporter:          supporter,
-		aggregatedBranchID: ledgerstate.NewAggregatedBranch(branchIDs).ID(),
-		branchIDs:          branchIDs,
+		supporter: supporter,
 	}
 
 	statement.Persist()
@@ -729,13 +721,6 @@ func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *
 		err = errors.Errorf("failed to parse sequence number (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-
-	if statement.branchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-		return
-	}
-
-	statement.aggregatedBranchID = ledgerstate.NewAggregatedBranch(statement.branchIDs).ID()
 
 	return
 }
@@ -780,17 +765,6 @@ func (s *Statement) UpdateSequenceNumber(sequenceNumber uint64) (updated bool) {
 	return
 }
 
-// BranchIDs returns the ConflictBranchIDs that the Statement voted for.
-func (s *Statement) BranchIDs() (branchIDs ledgerstate.BranchIDs) {
-	return s.branchIDs
-}
-
-// AggregatedBranchID returns the aggregated BranchID that represents the ConflictBranchIDs that the Statement voted
-// for.
-func (s *Statement) AggregatedBranchID() (aggregatedBranchID ledgerstate.BranchID) {
-	return s.aggregatedBranchID
-}
-
 // Bytes returns a marshaled version of the Statement.
 func (s *Statement) Bytes() (marshaledSequenceSupporters []byte) {
 	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
@@ -801,8 +775,6 @@ func (s *Statement) String() string {
 	return stringify.Struct("Statement",
 		stringify.StructField("supporter", s.Supporter()),
 		stringify.StructField("sequenceNumber", s.SequenceNumber()),
-		stringify.StructField("branchIDs", s.BranchIDs()),
-		stringify.StructField("aggregatedBranchID", s.AggregatedBranchID()),
 	)
 }
 
@@ -820,10 +792,7 @@ func (s *Statement) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Statement into a sequence of bytes that are used as the value part in the
 // object storage.
 func (s *Statement) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		WriteUint64(s.SequenceNumber()).
-		Write(s.BranchIDs()).
-		Bytes()
+	return marshalutil.New(marshalutil.Uint64Size).WriteUint64(s.SequenceNumber()).Bytes()
 }
 
 // code contract (make sure the struct implements all required methods).
