@@ -212,7 +212,7 @@ func (m MessageIDs) Slice() MessageIDsSlice {
 type ParentsType uint8
 
 const (
-	// StrongParentType is the ParentsType for a strong parent.
+	// UndefinedParentType is the undefined parent.
 	UndefinedParentType ParentsType = iota
 	// StrongParentType is the ParentsType for a strong parent.
 	StrongParentType
@@ -222,19 +222,16 @@ const (
 	ShallowLikeParentType
 	// ShallowDislikeParentType is the ParentsType for a shallow dislike parent.
 	ShallowDislikeParentType
+)
 
-	// NumberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents.
-	// it must be placed after the declaration of all block types.
-	NumberOfBlockTypes
-
-	// NumberOfUniqueBlocks counts the blocks that may not have their parents repeat in other blocks.
-	// Currently it is only Weak and Dislike blocks.
-	NumberOfUniqueBlocks = 2
+const (
+	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents, ShallowDislikeParents.
+	LastValidBlockType = ShallowDislikeParentType
 )
 
 // String returns string representation of ParentsType.
 func (bp ParentsType) String() string {
-	return []string{"Strong Parent", "Weak Parent", "Dislike Parent", "Like Parent"}[bp]
+	return fmt.Sprintf("ParentType(%s)", []string{"Undefined", "Strong", "Weak", "Shallow Like", "Shallow Dislike"}[bp])
 }
 
 // ParentsBlock is the container for parents in a Message.
@@ -292,17 +289,17 @@ func NewMessage(references map[ParentsType]MessageIDs, issuingTime time.Time, is
 		})
 	}
 
-	if shallowDislikeParentsCount > 0 {
-		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: ShallowDislikeParentType,
-			References:  sortedShallowDislikeParents,
-		})
-	}
-
 	if shallowLikeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
 			ParentsType: ShallowLikeParentType,
 			References:  sortedShallowLikeParents,
+		})
+	}
+
+	if shallowDislikeParentsCount > 0 {
+		parentsBlocks = append(parentsBlocks, ParentsBlock{
+			ParentsType: ShallowDislikeParentType,
+			References:  sortedShallowDislikeParents,
 		})
 	}
 
@@ -335,7 +332,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 			return nil, ErrBlocksNotOrderedByType
 		}
 		// we can skip the first block because we already ascertained it is of StrongParentType
-		if parentsBlocks[i+1].ParentsType >= NumberOfBlockTypes {
+		if parentsBlocks[i+1].ParentsType > LastValidBlockType {
 			return nil, ErrBlockTypeIsUnknown
 		}
 	}
@@ -358,8 +355,8 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 		}
 	}
 
-	if !referencesUniqueAcrossBlocks(parentsBlocks) {
-		return nil, ErrRepeatingMessagesAcrossBlocks
+	if areReferencesConflictingAcrossBlocks(parentsBlocks) {
+		return nil, ErrConflictingReferenceAcrossBlocks
 	}
 
 	return &Message{
@@ -376,25 +373,27 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 
 // validate messagesIDs are unique across blocks
 // there may be repetition across strong and like parents.
-func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
-	combinedParents := make(map[MessageID]types.Empty, NumberOfBlockTypes*MaxParentsCount)
-	uniqueParents := make(MessageIDsSlice, 0, MaxParentsCount*NumberOfUniqueBlocks)
-	for _, block := range parentsBlocks {
-		// combine strong parent and like parents
-		if block.ParentsType == StrongParentType || block.ParentsType == ShallowLikeParentType {
-			for _, parent := range block.References {
-				combinedParents[parent] = types.Void
+func areReferencesConflictingAcrossBlocks(parentsBlocks []ParentsBlock) bool {
+	additiveParents := MessageIDs{}
+	subtractiveParents := MessageIDs{}
+
+	for _, parentBlock := range parentsBlocks {
+		for _, parent := range parentBlock.References {
+			if parentBlock.ParentsType == WeakParentType || parentBlock.ParentsType == ShallowLikeParentType {
+				additiveParents[parent] = types.Void
+			} else if parentBlock.ParentsType == ShallowDislikeParentType {
+				subtractiveParents[parent] = types.Void
 			}
-		} else {
-			uniqueParents = append(uniqueParents, block.References...)
 		}
 	}
-	expectedLength := len(combinedParents) + len(uniqueParents)
-	for _, parent := range uniqueParents {
-		combinedParents[parent] = types.Void
+
+	for parent := range subtractiveParents {
+		if _, exists := additiveParents[parent]; exists {
+			return true
+		}
 	}
 
-	return expectedLength == len(combinedParents)
+	return false
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
@@ -1361,7 +1360,7 @@ var (
 	// ErrBlocksNotOrderedByType is triggered when the blocks are not ordered by their type.
 	ErrBlocksNotOrderedByType = errors.New("blocks should be ordered in ascending order according to their type")
 	// ErrBlockTypeIsUnknown is triggered when the block type is unknown.
-	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
+	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 1, LastValidBlockType-1)
 	// ErrParentsOutOfRange is triggered when a block is out of range.
 	ErrParentsOutOfRange = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
 	// ErrParentsNotLexicographicallyOrdered is triggred when parents are not lexicographically ordered.
@@ -1370,8 +1369,8 @@ var (
 	ErrRepeatingBlockTypes = errors.New("block types within a message must not repeat")
 	// ErrRepeatingReferencesInBlock is triggered if there are duplicate parents in a message block.
 	ErrRepeatingReferencesInBlock = errors.New("duplicate parents in a message block")
-	// ErrRepeatingMessagesAcrossBlocks is triggered if there are duplicate messages in distinct blocks.
-	ErrRepeatingMessagesAcrossBlocks = errors.New("different blocks have repeating messages")
+	// ErrConflictingReferenceAcrossBlocks is triggered if there conflicting references across blocks.
+	ErrConflictingReferenceAcrossBlocks = errors.New("different blocks have conflicting references")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
