@@ -28,9 +28,7 @@ func obtainSchedulerStats(timestamp time.Time) {
 		Timestamp:                    timestamp,
 	}
 
-	if err := deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send "+record.Type+" record", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(record)
 }
 
 func prepQueueMaps(s *tangle.Scheduler) (queueMap map[string]uint32, aManaNormalizedMap map[string]float64) {

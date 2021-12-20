@@ -83,9 +83,7 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 		})
 	})
 
-	if err := deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send "+recordType+" record", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(record)
 }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
@@ -143,9 +141,7 @@ func onMessageFinalized(messageID tangle.MessageID) {
 		})
 	})
 
-	if err := deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send MessageFinalizedMetrics record", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(record)
 }
 
 func onMissingMessageRequest(messageID tangle.MessageID) {
@@ -177,7 +173,5 @@ func sendMissingMessageRecord(messageID tangle.MessageID, recordType string) {
 		record.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
 	})
 
-	if err := deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send "+recordType+" record", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(record)
 }
