@@ -42,6 +42,7 @@ goshimmers:
     logLevel: "debug"
     debugPorts: true
     remoteDebugging: true
+    snapshotResetTime: true
 
 drands:
   hosts:

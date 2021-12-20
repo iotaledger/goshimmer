@@ -6,10 +6,14 @@ services:
     image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: analysis-server
     restart: unless-stopped
-    network_mode: "host"
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - 6063:6063
+      - 21888:21888
+      - 28080:28080
+      - 9311:9311
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - PROFILING_BINDADDRESS=0.0.0.0:6063
@@ -21,7 +25,7 @@ services:
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
       --analysis.dashboard.manaDashboardAddress="http://{{ manaDashboardHost }}:8081"
-      --prometheus.bindAddress=0.0.0.0:9312
+      --prometheus.bindAddress=0.0.0.0:9311
       --metrics.local=false
       --metrics.global=true
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus
