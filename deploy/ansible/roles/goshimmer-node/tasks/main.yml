@@ -33,6 +33,9 @@
     cmd: rm -rf /opt/{{ nodeType }}/db/*
     warn: false
 
+- pause:
+    seconds: 30
+
 - name: Run node
   community.general.docker_compose:
     project_src: /opt/{{ nodeType }}
