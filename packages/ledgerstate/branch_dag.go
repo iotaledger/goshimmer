@@ -217,6 +217,10 @@ func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (confli
 		}
 	}
 
+	if len(result) == 0 {
+		return NewBranchIDs(MasterBranchID), nil
+	}
+
 	return result, nil
 }
 

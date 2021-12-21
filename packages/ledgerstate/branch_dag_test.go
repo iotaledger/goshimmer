@@ -44,8 +44,12 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.False(t, newBranchCreated)
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), conflictBranch2.Conflicts())
 
-	_, _, err = ledgerstate.CreateConflictBranch(BranchID{4}, NewBranchIDs(cachedConflictBranch2.ID(), cachedConflictBranch3.ID()), NewConflictIDs(ConflictID{3}))
-	require.Error(t, err)
+	cachedConflictBranch3, _, err = ledgerstate.CreateConflictBranch(BranchID{4}, NewBranchIDs(cachedConflictBranch2.ID(), cachedConflictBranch3.ID()), NewConflictIDs(ConflictID{3}))
+	require.NoError(t, err)
+	defer cachedConflictBranch3.Release()
+	conflictBranch3, err = cachedConflictBranch3.UnwrapConflictBranch()
+	assert.False(t, newBranchCreated)
+	assert.Equal(t, NewConflictIDs(ConflictID{3}), conflictBranch3.Conflicts())
 }
 
 func TestBranchDAG_ConflictMembers(t *testing.T) {
