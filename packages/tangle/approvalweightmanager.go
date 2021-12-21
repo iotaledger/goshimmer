@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -193,6 +194,7 @@ func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supp
 
 func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 	if !a.isRelevantSupporter(message) {
+		fmt.Println("return // not relevant supporter")
 		return
 	}
 
@@ -202,13 +204,104 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 	}
 
 	if _, isNewStatement := a.statementFromMessage(message); !isNewStatement {
+		fmt.Println("return // not new statement")
 		return
 	}
 
 	a.propagateSupportToBranches(conflictBranchIDs, message)
 }
 
+func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.BranchIDs, voter Supporter, sequenceNumber uint64) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
+	vote := &Vote{
+		Issuer:         voter,
+		SequenceNumber: sequenceNumber,
+	}
+
+	addedBranches, _ = a.determineBranchesToAdd(conflictBranchIDs, vote)
+	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, vote)
+
+	return
+}
+
+// determineBranchesToAdd iterates through the past cone of the given ConflictBranches and determines the BranchIDs that
+// are affected by the given Vote.
+func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches ledgerstate.BranchIDs, allParentsAdded bool) {
+	allParentsAdded = true
+	for currentConflictBranchID := range conflictBranchIDs {
+		currentVote := vote.Supported(currentConflictBranchID)
+
+		if a.differentVoteWithHigherSequenceExists(currentVote) {
+			allParentsAdded = false
+			continue
+		}
+
+		if a.identicalVoteWithHigherSequenceExists(currentVote) {
+			continue
+		}
+
+		a.tangle.LedgerState.Branch(currentConflictBranchID).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
+			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(conflictBranch.Parents(), vote)
+			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
+
+			addedBranches.AddAll(addedBranchesOfCurrentBranch)
+		})
+
+		if allParentsAdded {
+			addedBranches.Add(currentConflictBranchID)
+		}
+	}
+
+	return
+}
+
+func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerstate.BranchIDs, vote *Vote) (revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
+	subTractionWalker := walker.New()
+	for addedBranch := range addedBranches {
+		a.tangle.LedgerState.ForEachConflictingBranchID(addedBranch, func(conflictingBranchID ledgerstate.BranchID) bool {
+			subTractionWalker.Push(conflictingBranchID)
+
+			return true
+		})
+	}
+
+	for subTractionWalker.HasNext() {
+		currentVote := vote.Rejected(subTractionWalker.Next().(ledgerstate.BranchID))
+
+		if isInvalid = addedBranches.Contains(currentVote.BranchID); isInvalid {
+			return
+		}
+
+		if a.voteWithHigherSequenceExists(currentVote) {
+			continue
+		}
+
+		a.tangle.LedgerState.ChildBranches(currentVote.BranchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
+			if childBranch.ChildBranchType() == ledgerstate.AggregatedBranchType {
+				return
+			}
+
+			subTractionWalker.Push(childBranch.ChildBranchID())
+		})
+	}
+
+	return
+}
+
+func (a *ApprovalWeightManager) differentVoteWithHigherSequenceExists(vote *Vote) (exists bool) {
+	return false
+}
+
+func (a *ApprovalWeightManager) identicalVoteWithHigherSequenceExists(vote *Vote) (exists bool) {
+	return false
+}
+
+func (a *ApprovalWeightManager) voteWithHigherSequenceExists(vote *Vote) (exists bool) {
+	return false
+}
+
 func (a *ApprovalWeightManager) propagateSupportToBranches(conflictBranchIDs ledgerstate.BranchIDs, message *Message) {
+	fmt.Println("propagateSupportToBranches", conflictBranchIDs, message)
+
 	supportWalker := walker.New(false)
 	for conflictBranchID := range conflictBranchIDs {
 		supportWalker.Push(conflictBranchID)
@@ -1344,6 +1437,54 @@ func (c *CachedSequenceSupporters) String() string {
 	return stringify.Struct("CachedSequenceSupporters",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Opinion //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Opinion is a type that represents the Opinion of a node on a certain Branch.
+type Opinion uint8
+
+const (
+	// UndefinedOpinion represents the zero value of the Opinion type.
+	UndefinedOpinion Opinion = iota
+
+	// Supported represents Opinion that a given Branch is the winning one.
+	Supported
+
+	// Rejected represents the Opinion that a given Branch is the loosing one.
+	Rejected
+)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Vote /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Vote represents a struct that holds information about the shared Opinion of a node regarding an individual Branch.
+type Vote struct {
+	Issuer         Supporter
+	BranchID       ledgerstate.BranchID
+	Opinion        Opinion
+	SequenceNumber uint64
+}
+
+func (v *Vote) Supported(branchID ledgerstate.BranchID) (supportedVote *Vote) {
+	return &Vote{
+		Issuer:         v.Issuer,
+		BranchID:       branchID,
+		Opinion:        Supported,
+		SequenceNumber: v.SequenceNumber,
+	}
+}
+
+func (v *Vote) Rejected(branchID ledgerstate.BranchID) (rejectedVote *Vote) {
+	return &Vote{
+		Issuer:         v.Issuer,
+		BranchID:       branchID,
+		Opinion:        Rejected,
+		SequenceNumber: v.SequenceNumber,
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
