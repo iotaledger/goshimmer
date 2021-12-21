@@ -255,6 +255,19 @@ func (b BranchIDs) Slice() (list []BranchID) {
 	return
 }
 
+// IsMasterBranch returns true if the BranchIDs are either empty or contain only the MasterBranch.
+func (b BranchIDs) IsMasterBranch() (isMasterBranch bool) {
+	if len(b) == 0 {
+		return true
+	}
+
+	if _, masterBranchExists := b[MasterBranchID]; len(b) == 1 && masterBranchExists {
+		return true
+	}
+
+	return false
+}
+
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
 	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(b)*BranchIDLength)

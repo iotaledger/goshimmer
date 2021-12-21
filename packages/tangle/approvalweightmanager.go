@@ -345,7 +345,8 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 
 func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID) {
 	netSupporters := a.supportersOfMarker(marker)
-	if len(oldBranchIDs) != 0 {
+
+	if !oldBranchIDs.IsMasterBranch() {
 		netSupporters = netSupporters.Intersect(a.SupportersOfConflictBranches(oldBranchIDs))
 	}
 

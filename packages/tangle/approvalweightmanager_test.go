@@ -2,12 +2,10 @@ package tangle
 
 import (
 	"encoding/binary"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -43,10 +41,6 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
-	approvalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *MarkerWeightChangedEvent) {
-		fmt.Println(e.Marker.SequenceID(), e.Marker.Index(), e.Weight)
-	}))
-
 	// build markers DAG where each sequence has only 1 marker building a chain of sequences
 	totalMarkers := 10000
 	{
@@ -54,13 +48,11 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 		for i := uint32(1); i < uint32(totalMarkers); i++ {
 			if previousMarker == nil {
 				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
-				fmt.Println(previousMarker.SequenceID, previousMarker.PastMarkers)
 				continue
 			}
 
 			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
 		}
-		fmt.Println(previousMarker.SequenceID, previousMarker.PastMarkers)
 	}
 
 	// measure time for each marker
@@ -72,7 +64,6 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 			approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
 			total += time.Since(start)
 		}
-		fmt.Printf("(%d,%d): %s\n", i, i, total/time.Duration(measurements))
 	}
 }
 
@@ -449,7 +440,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
 		testFramework.IssueMessages("Message1").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message1")), "Branch1")
-		fmt.Println(testFramework.MessageMetadata("Message1"))
 	}
 
 	// ISSUE Message2
@@ -457,8 +447,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
 		testFramework.IssueMessages("Message2").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message2")), "Branch2")
-
-		fmt.Println(testFramework.MessageMetadata("Message2"))
 	}
 
 	// ISSUE Message3
@@ -466,8 +454,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
 		testFramework.IssueMessages("Message3").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message3")), "Branch3")
-
-		fmt.Println(testFramework.MessageMetadata("Message3"))
 	}
 
 	// ISSUE Message4
@@ -475,8 +461,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		testFramework.IssueMessages("Message4").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message4")), "Branch4")
-
-		fmt.Println(testFramework.MessageMetadata("Message4"))
 	}
 
 	// ISSUE Message5
@@ -491,8 +475,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			}).ID(),
 			"Branch4+5",
 		)
-
-		fmt.Println(testFramework.MessageMetadata("Message5"))
 	}
 
 	// ISSUE Message6
@@ -501,7 +483,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.IssueMessages("Message6").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch6")
 
-		fmt.Println(testFramework.MessageMetadata("Message6"))
 		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message6").ID())
 		require.NoError(t, err)
 	}
@@ -519,8 +500,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			}).ID(),
 			"Branch4+5+7",
 		)
-
-		fmt.Println(testFramework.MessageMetadata("Message7"))
 	}
 
 	// ISSUE Message8
@@ -536,7 +515,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			}).ID(),
 			"Branch4+5+8",
 		)
-		fmt.Println(testFramework.MessageMetadata("Message8"))
 		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message8").ID())
 		require.NoError(t, err)
 	}
