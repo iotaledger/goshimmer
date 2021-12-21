@@ -38,7 +38,7 @@ func TestScenario_1(t *testing.T) {
 	testFramework.IssueMessages("Message7", "Message9").WaitMessagesBooked()
 	testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
-	for _, messageAlias := range []string{"Message7", "Message8", "Message9"} {
+	for _, messageAlias := range []string{"Message9"} {
 		assert.Truef(t, testFramework.MessageMetadata(messageAlias).objectivelyInvalid, "%s not invalid", messageAlias)
 	}
 

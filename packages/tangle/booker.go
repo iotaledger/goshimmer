@@ -68,7 +68,7 @@ func (b *Booker) Setup() {
 	}))
 
 	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByForkEvent) {
-		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID, nil); err != nil {
+		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID, debuglogger.New("PropagateForkedBranch")); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
@@ -103,6 +103,10 @@ func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs ledgerstate.Br
 
 	if _, _, branchIDs, err = b.messageBookingDetails(messageID); err != nil {
 		err = errors.Errorf("failed to retrieve booking details of Message with %s: %w", messageID, err)
+	}
+
+	if len(branchIDs) == 0 {
+		return ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), nil
 	}
 
 	return
@@ -217,7 +221,7 @@ func (b *Booker) branchMappingTarget(newSequenceCreated bool, diffsEmpty bool, i
 
 // determineBookingDetails determines the booking details of an unbooked Message.
 func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs ledgerstate.BranchIDs, err error) {
-	branchIDOfPayload, bookingErr := b.bookPayload(message)
+	branchIDsOfPayload, bookingErr := b.bookPayload(message)
 	if bookingErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to book payload of %s: %w", message.ID(), bookingErr)
 	}
@@ -228,7 +232,7 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 		return
 	}
 
-	arithmeticBranchIDs := NewArithmeticBranchIDs(parentsBranchIDs.Add(branchIDOfPayload))
+	arithmeticBranchIDs := NewArithmeticBranchIDs(parentsBranchIDs.AddAll(branchIDsOfPayload))
 	if weakParentsErr := b.collectWeakParentsBranchIDs(message, arithmeticBranchIDs); weakParentsErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect weak parents of %s: %w", message.ID(), weakParentsErr)
 	}
@@ -450,20 +454,26 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message, arithmeticBranchI
 }
 
 // bookPayload books the Payload of a Message and returns its assigned BranchID.
-func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, err error) {
+func (b *Booker) bookPayload(message *Message) (conflictBranchIDs ledgerstate.BranchIDs, err error) {
 	payload := message.Payload()
 	if payload == nil || payload.Type() != ledgerstate.TransactionType {
-		return ledgerstate.MasterBranchID, nil
+		return ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), nil
 	}
 
 	transaction := payload.(*ledgerstate.Transaction)
 
 	if transactionErr := b.tangle.LedgerState.TransactionValid(transaction, message.ID()); transactionErr != nil {
-		return ledgerstate.UndefinedBranchID, errors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
+		return nil, errors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
 	}
 
-	if branchID, err = b.tangle.LedgerState.BookTransaction(transaction, message.ID()); err != nil {
-		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)
+	aggregatedBranchID, err := b.tangle.LedgerState.BookTransaction(transaction, message.ID())
+	if err != nil {
+		return nil, errors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)
+	}
+
+	conflictBranchIDs, err = b.tangle.LedgerState.ResolvePendingConflictBranchIDs(ledgerstate.NewBranchIDs(aggregatedBranchID))
+	if err != nil {
+		return nil, errors.Errorf("failed to resolve pending ConflictBranches of aggregated %s: %w", aggregatedBranchID, err)
 	}
 
 	for _, output := range transaction.Essence().Outputs() {
@@ -474,7 +484,7 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 		attachment.Release()
 	}
 
-	return branchID, nil
+	return conflictBranchIDs, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
