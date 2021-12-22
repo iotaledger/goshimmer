@@ -29,29 +29,30 @@ var ErrNotRunning = errors.New("scheduler stopped")
 
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
-	MaxBufferSize               int
-	Rate                        time.Duration
-	AccessManaRetrieveFunc      func(identity.ID) float64
-	TotalAccessManaRetrieveFunc func() float64
-	AccessManaMapRetrieverFunc  func() map[identity.ID]float64
+	MaxBufferSize                     int
+	Rate                              time.Duration
+	AccessManaRetrieveFunc            func(identity.ID) float64
+	TotalAccessManaRetrieveFunc       func() float64
+	AccessManaMapRetrieverFunc        func() map[identity.ID]float64
+	ConfirmedMessageScheduleThreshold time.Duration
 }
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type Scheduler struct {
 	Events *SchedulerEvents
 
-	tangle          *Tangle
-	ticker          *time.Ticker
-	started         typeutils.AtomicBool
-	stopped         typeutils.AtomicBool
-	accessManaCache *schedulerutils.AccessManaCache
-	mu              sync.Mutex
-	buffer          *schedulerutils.BufferQueue
-	deficits        map[identity.ID]float64
-	rate            *atomic.Duration
-
-	shutdownSignal chan struct{}
-	shutdownOnce   sync.Once
+	tangle                *Tangle
+	ticker                *time.Ticker
+	started               typeutils.AtomicBool
+	stopped               typeutils.AtomicBool
+	accessManaCache       *schedulerutils.AccessManaCache
+	mu                    sync.RWMutex
+	buffer                *schedulerutils.BufferQueue
+	deficits              map[identity.ID]float64
+	rate                  *atomic.Duration
+	confirmedMsgThreshold time.Duration
+	shutdownSignal        chan struct{}
+	shutdownOnce          sync.Once
 }
 
 // NewScheduler returns a new Scheduler.
@@ -62,6 +63,10 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 
 	// maximum buffer size (in bytes)
 	maxBuffer := tangle.Options.SchedulerParams.MaxBufferSize
+
+	// threshold after which confirmed messages are not scheduled
+	confirmedMessageScheduleThreshold := tangle.Options.SchedulerParams.ConfirmedMessageScheduleThreshold
+
 	// maximum access mana-scaled inbox length
 	maxQueue := float64(maxBuffer) / float64(tangle.LedgerState.TotalSupply())
 
@@ -71,16 +76,18 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		Events: &SchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
+			MessageSkipped:   events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 			Error:            events.NewEvent(events.ErrorCaller),
 		},
-		tangle:          tangle,
-		accessManaCache: accessManaCache,
-		rate:            atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
-		ticker:          time.NewTicker(tangle.Options.SchedulerParams.Rate),
-		buffer:          schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
-		deficits:        make(map[identity.ID]float64),
-		shutdownSignal:  make(chan struct{}),
+		tangle:                tangle,
+		accessManaCache:       accessManaCache,
+		rate:                  atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
+		ticker:                time.NewTicker(tangle.Options.SchedulerParams.Rate),
+		buffer:                schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
+		confirmedMsgThreshold: confirmedMessageScheduleThreshold,
+		deficits:              make(map[identity.ID]float64),
+		shutdownSignal:        make(chan struct{}),
 	}
 }
 
@@ -130,6 +137,15 @@ func (s *Scheduler) Setup() {
 		if scheduled {
 			return
 		}
+		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			if clock.Since(message.IssuingTime()) > s.confirmedMsgThreshold {
+				err := s.Unsubmit(messageID)
+				if err != nil {
+					s.Events.Error.Trigger(errors.Errorf("failed to unsubmit confirmed message from scheduler: %w", err))
+				}
+				s.Events.MessageSkipped.Trigger(messageID)
+			}
+		})
 		s.updateApprovers(messageID)
 	}
 	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageConfirmed))
@@ -153,8 +169,8 @@ func (s *Scheduler) Rate() time.Duration {
 
 // NodeQueueSize returns the size of the nodeIDs queue.
 func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	nodeQueue := s.buffer.NodeQueue(nodeID)
 	if nodeQueue == nil {
@@ -165,8 +181,8 @@ func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
 
 // NodeQueueSizes returns the size for each node queue.
 func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	nodeQueueSizes := make(map[identity.ID]int)
 	for _, nodeID := range s.buffer.NodeIDs() {
@@ -178,29 +194,29 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 
 // MaxBufferSize returns the max size of the buffer.
 func (s *Scheduler) MaxBufferSize() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.buffer.MaxSize()
 }
 
 // BufferSize returns the size of the buffer.
 func (s *Scheduler) BufferSize() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.buffer.Size()
 }
 
 // ReadyMessagesCount returns the size buffer.
 func (s *Scheduler) ReadyMessagesCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.buffer.ReadyMessagesCount()
 }
 
 // TotalMessagesCount returns the size buffer.
 func (s *Scheduler) TotalMessagesCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.buffer.TotalMessagesCount()
 }
 
@@ -362,14 +378,29 @@ func (s *Scheduler) schedule() *Message {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready
 		// (its issuing time is not in the future and all of its parents are eligible).
-		if msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) {
-			// compute how often the deficit needs to be incremented until the message can be scheduled
-			remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-			nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
-			// find the first node that will be allowed to schedule a message
-			if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
-				rounds = r
-				schedulingNode = q
+		// while loop to skip all the confirmed messages
+		foundMsg := false
+		for msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) && !foundMsg {
+			msgID, _, err := MessageIDFromBytes(msg.IDBytes())
+			if err != nil {
+				panic("MessageID could not be parsed!")
+			}
+			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > s.confirmedMsgThreshold {
+				// if a message is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
+				// do we want to mark those messages somehow for debugging?
+				s.Events.MessageSkipped.Trigger(msgID)
+				s.buffer.PopFront()
+				msg = q.Front()
+			} else {
+				foundMsg = true
+				// compute how often the deficit needs to be incremented until the message can be scheduled
+				remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
+				nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
+				// find the first node that will be allowed to schedule a message
+				if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
+					rounds = r
+					schedulingNode = q
+				}
 			}
 		}
 
@@ -487,9 +518,12 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 type SchedulerEvents struct {
 	// MessageScheduled is triggered when a message is ready to be scheduled.
 	MessageScheduled *events.Event
+	// MessageDiscarded is triggered when a message is removed from the longest mana-scaled queue when the buffer is full.
 	MessageDiscarded *events.Event
-	NodeBlacklisted  *events.Event
-	Error            *events.Event
+	// MessageSkipped is triggered when a message is confirmed before it's scheduled, and is skipped by the scheduler.
+	MessageSkipped  *events.Event
+	NodeBlacklisted *events.Event
+	Error           *events.Event
 }
 
 // NodeIDCaller is the caller function for events that hand over a NodeID.
