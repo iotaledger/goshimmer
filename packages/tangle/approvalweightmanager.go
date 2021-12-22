@@ -217,18 +217,18 @@ func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.Bra
 		SequenceNumber: sequenceNumber,
 	}
 
-	addedBranches, _ = a.determineBranchesToAdd(conflictBranchIDs, vote)
-	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, vote)
+	addedBranches, _ = a.determineBranchesToAdd(conflictBranchIDs, vote.WithOpinion(Confirmed))
+	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, vote.WithOpinion(Rejected))
 
 	return
 }
 
 // determineBranchesToAdd iterates through the past cone of the given ConflictBranches and determines the BranchIDs that
-// are affected by the given Vote.
+// are affected by the Vote.
 func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches ledgerstate.BranchIDs, allParentsAdded bool) {
 	allParentsAdded = true
 	for currentConflictBranchID := range conflictBranchIDs {
-		currentVote := vote.Supported(currentConflictBranchID)
+		currentVote := vote.WithBranchID(currentConflictBranchID)
 
 		if a.differentVoteWithHigherSequenceExists(currentVote) {
 			allParentsAdded = false
@@ -254,6 +254,8 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 	return
 }
 
+// determineBranchesToRevoke determines which Branches of the conflicting future cone of the added Branches are affected
+// by the vote and if the vote is valid (not voting for conflicting Branches).
 func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerstate.BranchIDs, vote *Vote) (revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
 	subTractionWalker := walker.New()
 	for addedBranch := range addedBranches {
@@ -265,7 +267,7 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerst
 	}
 
 	for subTractionWalker.HasNext() {
-		currentVote := vote.Rejected(subTractionWalker.Next().(ledgerstate.BranchID))
+		currentVote := vote.WithBranchID(subTractionWalker.Next().(ledgerstate.BranchID))
 
 		if isInvalid = addedBranches.Contains(currentVote.BranchID); isInvalid {
 			return
@@ -1450,8 +1452,8 @@ const (
 	// UndefinedOpinion represents the zero value of the Opinion type.
 	UndefinedOpinion Opinion = iota
 
-	// Supported represents Opinion that a given Branch is the winning one.
-	Supported
+	// Confirmed represents the Opinion that a given Branch is the winning one.
+	Confirmed
 
 	// Rejected represents the Opinion that a given Branch is the loosing one.
 	Rejected
@@ -1469,20 +1471,22 @@ type Vote struct {
 	SequenceNumber uint64
 }
 
-func (v *Vote) Supported(branchID ledgerstate.BranchID) (supportedVote *Vote) {
+// WithOpinion derives a vote for the given Opinion.
+func (v *Vote) WithOpinion(opinion Opinion) (voteWithOpinion *Vote) {
 	return &Vote{
 		Issuer:         v.Issuer,
-		BranchID:       branchID,
-		Opinion:        Supported,
+		BranchID:       v.BranchID,
+		Opinion:        opinion,
 		SequenceNumber: v.SequenceNumber,
 	}
 }
 
-func (v *Vote) Rejected(branchID ledgerstate.BranchID) (rejectedVote *Vote) {
+// WithBranchID derives a vote for the given BranchID.
+func (v *Vote) WithBranchID(branchID ledgerstate.BranchID) (rejectedVote *Vote) {
 	return &Vote{
 		Issuer:         v.Issuer,
 		BranchID:       branchID,
-		Opinion:        Rejected,
+		Opinion:        v.Opinion,
 		SequenceNumber: v.SequenceNumber,
 	}
 }
