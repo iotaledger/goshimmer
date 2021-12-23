@@ -6,6 +6,7 @@ replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20
 
 require (
 	github.com/DataDog/zstd v1.4.8 // indirect
+	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/beevik/ntp v0.3.0
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
@@ -28,6 +29,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.4.1
 	github.com/multiformats/go-varint v0.0.6
 	github.com/panjf2000/ants/v2 v2.4.7
+	github.com/paulbellamy/ratecounter v0.2.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/shirou/gopsutil v2.20.5+incompatible
 	github.com/spf13/afero v1.3.0 // indirect
