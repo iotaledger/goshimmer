@@ -134,6 +134,9 @@ func configureGossipIntegration() {
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		deps.Selection.RemoveNeighbor(n.ID())
 	}))
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborMessagesLimitHit.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+		//deps.Selection.BlockNeighbor(n.ID())
+	}))
 }
 
 func configureEvents() {

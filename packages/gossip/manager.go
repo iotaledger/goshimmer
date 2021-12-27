@@ -74,14 +74,20 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
+	messagesRateLimiterConf *RateLimiterConf
+	messagesRateLimiter     *neighborRateLimiter
+
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
 	messageWorkerPool *workerpool.NonBlockingQueuedWorkerPool
 
 	messageRequestWorkerPool *workerpool.NonBlockingQueuedWorkerPool
 }
 
+type ManagerOption func(m *Manager)
+
 // NewManager creates a new Manager.
-func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manager {
+func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log *logger.Logger, opts ...ManagerOption,
+) (*Manager, error) {
 	m := &Manager{
 		Libp2pHost:      libp2pHost,
 		acceptMap:       map[libp2ppeer.ID]*acceptMatcher{},
@@ -110,8 +116,31 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 	}, workerpool.WorkerCount(messageRequestWorkerCount), workerpool.QueueSize(messageRequestWorkerQueueSize))
 
 	m.Libp2pHost.SetStreamHandler(protocolID, m.streamHandler)
+	for _, opt := range opts {
+		opt(m)
+	}
+	if m.messagesRateLimiterConf != nil {
+		var err error
+		m.messagesRateLimiter, err = newNeighborRateLimiter(
+			"messagesRateLimiter",
+			m.messagesRateLimiterConf,
+			map[NeighborsGroup]*events.Event{
+				NeighborsGroupAuto:   m.neighborsEvents[NeighborsGroupAuto].NeighborMessagesLimitHit,
+				NeighborsGroupManual: m.neighborsEvents[NeighborsGroupManual].NeighborMessagesLimitHit,
+			},
+		)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+	}
 
-	return m
+	return m, nil
+}
+
+func WithMessagesRateLimiter(conf *RateLimiterConf) ManagerOption {
+	return func(m *Manager) {
+		m.messagesRateLimiterConf = conf
+	}
 }
 
 // Stop stops the manager and closes all established connections.
@@ -128,6 +157,11 @@ func (m *Manager) Stop() {
 
 	m.messageWorkerPool.Stop()
 	m.messageRequestWorkerPool.Stop()
+	if m.messagesRateLimiter != nil {
+		if err := m.messagesRateLimiter.close(); err != nil {
+			m.log.Warnw("Failed to stop message rate limiter", "err", err)
+		}
+	}
 }
 
 func (m *Manager) dropAllNeighbors() {
@@ -306,6 +340,9 @@ func (m *Manager) setNeighbor(nbr *Neighbor) error {
 }
 
 func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
+	if m.messagesRateLimiter != nil {
+		m.messagesRateLimiter.count(nbr)
+	}
 	switch packetBody := packet.GetBody().(type) {
 	case *pb.Packet_Message:
 		if _, added := m.messageWorkerPool.TrySubmit(packetBody, nbr); !added {

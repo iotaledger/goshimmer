@@ -60,10 +60,20 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		libp2p.NATPortMap(),
 	)
 	if err != nil {
-		Plugin.LogFatalf("Could create libp2p host: %s", err)
+		Plugin.LogFatalf("Couldn't create libp2p host: %s", err)
 	}
-
-	return gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger())
+	var opts []gossip.ManagerOption
+	if Parameters.MessagesRateLimit != nil {
+		opts = append(opts, gossip.WithMessagesRateLimiter(&gossip.RateLimiterConf{
+			Interval: Parameters.MessagesRateLimit.Interval,
+			Limit:    Parameters.MessagesRateLimit.Limit,
+		}))
+	}
+	mgr, err := gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger(), opts...)
+	if err != nil {
+		Plugin.LogFatalf("Couldn't create gossip manager: %+v", err)
+	}
+	return mgr
 }
 
 func start(ctx context.Context) {

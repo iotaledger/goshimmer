@@ -24,11 +24,11 @@ type limiterRecord struct {
 type neighborRateLimiter struct {
 	name             string
 	conf             *RateLimiterConf
-	event            *events.Event
+	hitEvent         map[NeighborsGroup]*events.Event
 	neighborsRecords *ttlcache.Cache
 }
 
-func newNeighborRateLimiter(name string, conf *RateLimiterConf, event *events.Event) (*neighborRateLimiter, error) {
+func newNeighborRateLimiter(name string, conf *RateLimiterConf, hitEvent map[NeighborsGroup]*events.Event) (*neighborRateLimiter, error) {
 	records := ttlcache.NewCache()
 	records.SetLoaderFunction(func(_ string) (interface{}, time.Duration, error) {
 		record := &limiterRecord{counter: ratecounter.NewRateCounter(conf.Interval), limitHitReported: atomic.NewBool(false)}
@@ -40,18 +40,18 @@ func newNeighborRateLimiter(name string, conf *RateLimiterConf, event *events.Ev
 	return &neighborRateLimiter{
 		name:             name,
 		conf:             conf,
-		event:            event,
+		hitEvent:         hitEvent,
 		neighborsRecords: records,
 	}, nil
 }
 
-func (nrl *neighborRateLimiter) Count(nbr *Neighbor) {
-	if err := nrl.count(nbr); err != nil {
+func (nrl *neighborRateLimiter) count(nbr *Neighbor) {
+	if err := nrl.doCount(nbr); err != nil {
 		nbr.log.Warnw("Rate limiter failed to neighbor activity", "rateLimiter", nrl.name)
 	}
 }
 
-func (nrl *neighborRateLimiter) count(nbr *Neighbor) error {
+func (nrl *neighborRateLimiter) doCount(nbr *Neighbor) error {
 	nbrKey := getNeighborKey(nbr)
 	nbrRecordI, err := nrl.neighborsRecords.Get(nbrKey)
 	if err != nil {
@@ -61,12 +61,16 @@ func (nrl *neighborRateLimiter) count(nbr *Neighbor) error {
 	nbrRecord.counter.Incr(1)
 	if int(nbrRecord.counter.Rate()) > nrl.conf.Limit {
 		if !nbrRecord.limitHitReported.Swap(true) {
-			nrl.event.Trigger(nbr)
+			nrl.hitEvent[nbr.Group].Trigger(nbr)
 		}
 	} else {
 		nbrRecord.limitHitReported.Store(false)
 	}
 	return nil
+}
+
+func (nrl *neighborRateLimiter) close() error {
+	return errors.WithStack(nrl.neighborsRecords.Close())
 }
 
 func getNeighborKey(nbr *Neighbor) string {
