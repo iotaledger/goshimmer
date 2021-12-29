@@ -64,7 +64,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 	}
 	var opts []gossip.ManagerOption
 	if Parameters.MessagesRateLimit != nil {
-		opts = append(opts, gossip.WithMessagesRateLimiter(&gossip.RateLimiterConf{
+		opts = append(opts, gossip.WithMessagesRateLimit(&gossip.RateLimit{
 			Interval: Parameters.MessagesRateLimit.Interval,
 			Limit:    Parameters.MessagesRateLimit.Limit,
 		}))

@@ -78,8 +78,9 @@ type Manager struct {
 	knownPeersMutex   sync.RWMutex
 	knownPeers        map[identity.ID]*knownPeer
 
-	onGossipNeighborRemovedClosure *events.Closure
-	onGossipNeighborAddedClosure   *events.Closure
+	onGossipNeighborRemovedClosure      *events.Closure
+	onGossipNeighborMsgsLimitHitClosure *events.Closure
+	onGossipNeighborAddedClosure        *events.Closure
 }
 
 // NewManager initializes a new Manager instance.
@@ -92,6 +93,7 @@ func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Mana
 		knownPeers:        map[identity.ID]*knownPeer{},
 	}
 	m.onGossipNeighborRemovedClosure = events.NewClosure(m.onGossipNeighborRemoved)
+	m.onGossipNeighborMsgsLimitHitClosure = events.NewClosure(m.onGossipNeighborMsgsLimitHitClosure)
 	m.onGossipNeighborAddedClosure = events.NewClosure(m.onGossipNeighborAdded)
 	return m
 }
@@ -176,6 +178,7 @@ func (m *Manager) GetPeers(opts ...GetPeersOption) []*KnownPeer {
 func (m *Manager) Start() {
 	m.startOnce.Do(func() {
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborRemovedClosure)
+		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborMsgsLimitHitClosure)
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborAdded.Attach(m.onGossipNeighborAddedClosure)
 		m.isStarted.Set()
 	})
@@ -192,6 +195,7 @@ func (m *Manager) Stop() (err error) {
 		m.isStopped = true
 		err = errors.WithStack(m.removeAllKnownPeers())
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
+		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborMsgsLimitHitClosure)
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborAdded.Detach(m.onGossipNeighborAddedClosure)
 	})
 	return err
@@ -352,6 +356,14 @@ func (m *Manager) onGossipNeighborAdded(neighbor *gossip.Neighbor) {
 	m.log.Infow(
 		"Gossip layer successfully connected with the peer",
 		"peer", neighbor.Peer,
+	)
+}
+
+func (m *Manager) onGossipNeighborMsgsLimitHit(neighbor *gossip.Neighbor) {
+	limit := m.gm.MessagesRateLimit()
+	m.log.Warnw(
+		"Neighbor sends to many messages. It might be faulty, consider removing it from your known peers list",
+		"peerId", neighbor.ID(), "limit", limit,
 	)
 }
 
