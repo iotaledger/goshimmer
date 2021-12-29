@@ -63,7 +63,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		Plugin.LogFatalf("Couldn't create libp2p host: %s", err)
 	}
 	var opts []gossip.ManagerOption
-	if Parameters.MessagesRateLimit != nil {
+	if Parameters.MessagesRateLimit != (RateLimitParameters{}) {
 		opts = append(opts, gossip.WithMessagesRateLimit(&gossip.RateLimit{
 			Interval: Parameters.MessagesRateLimit.Interval,
 			Limit:    Parameters.MessagesRateLimit.Limit,

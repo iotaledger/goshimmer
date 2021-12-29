@@ -14,10 +14,10 @@ type ParametersDefinition struct {
 	// MissingMessageRequestRelayProbability defines the probability of missing message requests being relayed to other neighbors.
 	MissingMessageRequestRelayProbability float64 `default:"0.01" usage:"the probability of missing message requests being relayed to other neighbors"`
 
-	MessagesRateLimit *RateLimiterParameters `usage:"messages rate limit configuration"`
+	MessagesRateLimit RateLimitParameters
 }
 
-type RateLimiterParameters struct {
+type RateLimitParameters struct {
 	Interval time.Duration `default:"1m" usage:"the time interval for which we count the rate"`
 	Limit    int           `default:"1000" usage:"the limit of activity per interval"`
 }
