@@ -22,6 +22,7 @@ networkVersion=$NETWORK_VERSION
 grafanaAdminPassword=$GRAFANA_ADMIN_PASSWORD
 elkElasticUser=$ELK_ELASTIC_USER
 elkElasticPassword=$ELK_ELASTIC_PASSWORD
+powDifficulty=$POW_DIFFICULTY
 goshimmerDockerImage=$GOSHIMMER_DOCKER_IMAGE
 goshimmerDockerTag=$GOSHIMMER_DOCKER_TAG
 snapshotterBucket=$SNAPSHOTTER_BUCKET

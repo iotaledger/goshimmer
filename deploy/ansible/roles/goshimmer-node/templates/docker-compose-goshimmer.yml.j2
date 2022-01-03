@@ -30,6 +30,8 @@ services:
       # pprof profiling
       - "127.0.0.1:6061:6061/tcp"
     {% endif %}
+      # prometheus
+      - "0.0.0.0:9311:9311/tcp"
     environment:
       - NODE_SEED={{ seed }}
       - DATABASE_DIRECTORY=/db/mainnetdb
@@ -42,19 +44,16 @@ services:
       - PROFILING_BINDADDRESS=0.0.0.0:6061
     command: >
       --skip-config=true
-<<<<<<< HEAD
-      --node.overwriteStoredSeed=true
-      --messageLayer.snapshot.genesisNode=7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k
-      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
-=======
+     {% if snapshotResetTime|default(false) %}
+      --mana.snapshotResetTime=true
+     {% endif %}
       --autoPeering.entryNodes={{ entryNodePubKey }}@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
->>>>>>> develop
-      {% if networkVersion|default(None) %}
+     {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
-      {% endif %}
+     {% endif %}
       --node.disablePlugins=portcheck
       --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,"WebAPI tools Endpoint"
-      --prometheus.bindAddress=0.0.0.0:9312
+      --prometheus.bindAddress=0.0.0.0:9311
       --messageLayer.snapshot.file=/snapshot.bin
      {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}
@@ -62,22 +61,25 @@ services:
      {% endif %}
       --pow.numThreads=8
       --pow.timeout=60s
+     {% if powDifficulty|default(None) %}
+      --pow.difficulty={{ powDifficulty }}
+     {% endif %}
       --logger.level={{ logLevel }}
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
-      {% if faucet|default(false) %}
+     {% if faucet|default(false) %}
       --messageLayer.startSynced=false
-      {% else %}
+     {% else %}
       --messageLayer.startSynced=true
-      {% endif %}
+     {% endif %}
       --messageLayer.tangleTimeWindow=10m
       --messageLayer.snapshot.genesisNode={{ bootstrapNodePubKey }}
       --drng.pollen.instanceID=1
       --drng.pollen.threshold=3
       --drng.pollen.committeeMembers=AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG,FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z,GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P,4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7,64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga
-      {% if xteamDRNG|default(false) %}
+     {% if xteamDRNG|default(false) %}
       --drng.xTeam.instanceID=1339
       --drng.xTeam.threshold=4
       --drng.xTeam.committeeMembers=GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo,68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt,Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1,75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs,CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf,7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16,CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx
-      {% endif %}
+     {% endif %}
       --messageLayer.tangleTimeWindow=10m

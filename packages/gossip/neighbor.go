@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/mux"
+	"github.com/libp2p/go-yamux/v2"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 )
@@ -133,6 +134,6 @@ func (n *Neighbor) disconnect() (err error) {
 
 func isAlreadyClosedError(err error) bool {
 	return strings.Contains(err.Error(), "use of closed network connection") ||
-		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset) ||
+		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset) || errors.Is(err, yamux.ErrStreamClosed) ||
 		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }
