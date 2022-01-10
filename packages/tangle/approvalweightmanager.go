@@ -240,7 +240,9 @@ func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.Bra
 // determineBranchesToAdd iterates through the past cone of the given ConflictBranches and determines the BranchIDs that
 // are affected by the Vote.
 func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches ledgerstate.BranchIDs, allParentsAdded bool) {
+	addedBranches = ledgerstate.NewBranchIDs()
 	allParentsAdded = true
+
 	for currentConflictBranchID := range conflictBranchIDs {
 		currentVote := vote.WithBranchID(currentConflictBranchID)
 
