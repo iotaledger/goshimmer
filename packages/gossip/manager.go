@@ -230,7 +230,7 @@ func (m *Manager) send(packet *pb.Packet, to ...identity.ID) {
 	}
 
 	for _, nbr := range neighbors {
-		if err := nbr.ps.writePacket(packet); err != nil {
+		if err := nbr.ps.writePacket(packet); err != nil && !isAlreadyClosedError(err) {
 			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
 			nbr.close()
 		}
@@ -352,7 +352,7 @@ func (m *Manager) processMessageRequest(packetMsgReq *pb.Packet_MessageRequest, 
 
 	// send the loaded message directly to the neighbor
 	packet := &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: msgBytes}}}
-	if err := nbr.ps.writePacket(packet); err != nil {
+	if err := nbr.ps.writePacket(packet); err != nil && !isAlreadyClosedError(err) {
 		nbr.log.Warnw("Failed to send requested message back to the neighbor", "err", err)
 		nbr.close()
 	}

@@ -35,7 +35,17 @@ func TestFaucetPrepare(t *testing.T) {
 	)
 
 	// check consensus mana
-	for i, p := range n.Peers() {
+	// faucet node has zero mana because it pledges its mana to `1111111` node
+	require.Eventually(t, func() bool {
+		return tests.Mana(t, n.Peers()[0]).Consensus == 0
+	}, tests.Timeout, tests.Tick)
+	// the rest of the nodes should have mana as in snapshot
+	for i, p := range n.Peers()[1:] {
+		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+			require.Eventually(t, func() bool {
+				return tests.Mana(t, p).Consensus > 0
+			}, tests.Timeout, tests.Tick)
+		}
 		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, p).Consensus)
 	}
 
