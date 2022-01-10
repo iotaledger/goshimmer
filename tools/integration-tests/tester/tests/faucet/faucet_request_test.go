@@ -29,7 +29,17 @@ func TestFaucetRequest(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	// check consensus mana
-	for i, peer := range n.Peers() {
+	// faucet node has zero mana because it pledges its mana to `1111111` node
+	require.Eventually(t, func() bool {
+		return tests.Mana(t, n.Peers()[0]).Consensus == 0
+	}, tests.Timeout, tests.Tick)
+	// the rest of the nodes should have mana as in snapshot
+	for i, peer := range n.Peers()[1:] {
+		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+			require.Eventually(t, func() bool {
+				return tests.Mana(t, peer).Consensus > 0
+			}, tests.Timeout, tests.Tick)
+		}
 		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
