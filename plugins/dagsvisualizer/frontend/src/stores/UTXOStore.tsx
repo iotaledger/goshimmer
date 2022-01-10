@@ -7,7 +7,7 @@ import layoutUtilities from 'cytoscape-layout-utilities';
 import 'styles/style.css';
 
 export class utxoVertex {
-  msgID:          string;   
+  msgID:          string;
 	ID:             string;
 	inputs:         Array<input>;
   outputs:        Array<string>;
@@ -55,8 +55,8 @@ export class UTXOStore {
     layout;
     layoutApi;
 
-    constructor() { 
-        makeObservable(this);       
+    constructor() {
+        makeObservable(this);
         registerHandler(WSMsgType.Transaction, this.addTransaction);
         registerHandler(WSMsgType.TransactionBooked, this.setTxBranch);
         registerHandler(WSMsgType.TransactionConfirmed, this.setTXConfirmedTime);
@@ -82,7 +82,7 @@ export class UTXOStore {
 
             if (this.paused) {
               // keep the removed tx that should be removed from the graph after resume.
-              this.txToRemoveAfterResume.push(removed);              
+              this.txToRemoveAfterResume.push(removed);
             } else {
               this.removeVertex(removed);
             }
@@ -168,17 +168,16 @@ export class UTXOStore {
     @action
     searchAndSelect = () => {
       if (!this.search) return;
-        
+
       this.selectTx(this.search);
     }
 
     selectTx = (txID: string) => {
       // clear pre-selected node first.
       this.clearSelected(true);
-       
+
       this.highlightTx(txID);
-      this.centerTx(txID);
-      
+
       this.updateSelected(this.search);
     }
 
@@ -239,7 +238,7 @@ export class UTXOStore {
         let tx = this.transactions.get(txID);
         if (tx) {
           this.drawVertex(tx);
-        }        
+        }
       })
       this.txToAddAfterResume = [];
 
@@ -278,7 +277,7 @@ export class UTXOStore {
 
     drawVertex = (tx: utxoVertex) => {
         this.vertexChanges++;
-        let collection = this.cy.collection();       
+        let collection = this.cy.collection();
 
         // draw grouping (tx)
         collection = collection.union(this.cy.add({
@@ -299,7 +298,7 @@ export class UTXOStore {
                   classes: 'input'
                 }
               ));
-            
+
             // align every 5 inputs in the same level
             if (index >= 5) {
               collection = collection.union(this.cy.add({
@@ -341,10 +340,10 @@ export class UTXOStore {
             }
             outputIDs.push(outputID);
         })
-        
+
         // alignment of inputs and outputs
         let inIndex = Math.floor(inputIDs.length/5)*5 + inputIDs.length%5 - 1;
-        let outIndex = Math.min(outputIDs.length, 2);
+        let outIndex = Math.min(outputIDs.length-1, 2);
         collection = collection.union(this.cy.add({
           group: "edges",
           data: { source: inputIDs[inIndex], target: outputIDs[outIndex] },
@@ -376,7 +375,7 @@ export class UTXOStore {
                     'width': 20,
                     'height': 20,
                   }
-                },            
+                },
                 {
                   selector: 'edge',
                   style: {
@@ -442,7 +441,7 @@ export class UTXOStore {
         this.cy.on('select', 'node', (evt) => {
           var node = evt.target;
           const nodeData = node.json();
-          
+
           this.updateSelected(nodeData.data.id);
         });
 
@@ -456,7 +455,7 @@ export class UTXOStore {
 
     stop = () => {
       this.unregisterHandlers()
-      
+
       // stop updating layout.
       clearInterval(this.layoutUpdateTimerID);
       // maybe store graph history?
