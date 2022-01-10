@@ -750,11 +750,12 @@ var (
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
 	testSchedulerParams = SchedulerParams{
-		MaxBufferSize:               testMaxBuffer,
-		Rate:                        testRate,
-		AccessManaMapRetrieverFunc:  mockAccessManaMapRetriever,
-		AccessManaRetrieveFunc:      mockAccessManaRetriever,
-		TotalAccessManaRetrieveFunc: mockTotalAccessManaRetriever,
+		MaxBufferSize:                     testMaxBuffer,
+		Rate:                              testRate,
+		AccessManaMapRetrieverFunc:        mockAccessManaMapRetriever,
+		AccessManaRetrieveFunc:            mockAccessManaRetriever,
+		TotalAccessManaRetrieveFunc:       mockTotalAccessManaRetriever,
+		ConfirmedMessageScheduleThreshold: time.Minute,
 	}
 )
 

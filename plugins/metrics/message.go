@@ -44,6 +44,8 @@ const (
 	Scheduler
 	// SchedulerDropped denotes messages dropped by the scheduler.
 	SchedulerDropped
+	// SchedulerSkipped denotes confirmed messages skipped by the scheduler.
+	SchedulerSkipped
 	// Booker denotes messages booked by the booker.
 	Booker
 )
@@ -59,6 +61,8 @@ func (c ComponentType) String() string {
 		return "Scheduler"
 	case SchedulerDropped:
 		return "SchedulerDropped"
+	case SchedulerSkipped:
+		return "SchedulerSkipped"
 	case Booker:
 		return "Booker"
 	default:
