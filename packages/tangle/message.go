@@ -792,6 +792,8 @@ type MessageMetadata struct {
 	branchID            ledgerstate.BranchID
 	scheduled           bool
 	scheduledTime       time.Time
+	discardedTime       time.Time
+	queuedTime          time.Time
 	booked              bool
 	bookedTime          time.Time
 	invalid             bool
@@ -804,6 +806,8 @@ type MessageMetadata struct {
 	branchIDMutex           sync.RWMutex
 	scheduledMutex          sync.RWMutex
 	scheduledTimeMutex      sync.RWMutex
+	discardedTimeMutex      sync.RWMutex
+	queuedTimeMutex         sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
 	invalidMutex            sync.RWMutex
@@ -1031,6 +1035,38 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 	defer m.scheduledTimeMutex.RUnlock()
 
 	return m.scheduledTime
+}
+
+// SetDiscardedTime add the discarded time of a message to the metadata.
+func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
+	m.discardedTimeMutex.Lock()
+	defer m.discardedTimeMutex.Unlock()
+
+	m.discardedTime = discardedTime
+}
+
+// DiscardedTime returns when the message was discarded.
+func (m *MessageMetadata) DiscardedTime() time.Time {
+	m.discardedTimeMutex.RLock()
+	defer m.discardedTimeMutex.RUnlock()
+
+	return m.discardedTime
+}
+
+// QueuedTime returns the time a message entered the scheduling queue.
+func (m *MessageMetadata) QueuedTime() time.Time {
+	m.queuedTimeMutex.RLock()
+	defer m.queuedTimeMutex.RUnlock()
+
+	return m.queuedTime
+}
+
+// SetQueuedTime records the time the message entered the scheduler queue.
+func (m *MessageMetadata) SetQueuedTime(queuedTime time.Time) {
+	m.queuedTimeMutex.Lock()
+	defer m.queuedTimeMutex.Unlock()
+
+	m.queuedTime = queuedTime
 }
 
 // SetBooked sets the message associated with this metadata as booked.

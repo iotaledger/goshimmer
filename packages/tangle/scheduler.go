@@ -283,6 +283,11 @@ func (s *Scheduler) SubmitAndReady(messageID MessageID) (err error) {
 	return err
 }
 
+// GetManaFromCache allows you to get the cached mana for a node ID. This is exposed for analytics purposes.
+func (s *Scheduler) GetManaFromCache(nodeID identity.ID) float64 {
+	return s.accessManaCache.GetCachedMana(nodeID)
+}
+
 // Clear removes all submitted messages (ready or not) from the scheduler.
 // The MessageDiscarded event is triggered for each of these messages.
 func (s *Scheduler) Clear() {
@@ -292,7 +297,11 @@ func (s *Scheduler) Clear() {
 	for q := s.buffer.Current(); q != nil; q = s.buffer.Next() {
 		s.buffer.RemoveNode(q.NodeID())
 		for _, id := range q.IDs() {
-			s.Events.MessageDiscarded.Trigger(MessageID(id))
+			messageID := MessageID(id)
+			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+				messageMetadata.SetDiscardedTime(time.Now())
+			})
+			s.Events.MessageDiscarded.Trigger(messageID)
 		}
 	}
 }
@@ -343,10 +352,16 @@ func (s *Scheduler) submit(message *Message) error {
 		return ErrNotRunning
 	}
 
+	s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		// shortly before submitting we set the queued time
+		messageMetadata.SetQueuedTime(time.Now())
+	})
 	// when removing the zero mana node solution, check if nodes have MinMana here
-
 	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
 	for _, droppedMsgID := range droppedMessageIDs {
+		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetDiscardedTime(time.Now())
+		})
 		s.Events.MessageDiscarded.Trigger(MessageID(droppedMsgID))
 	}
 	return nil
