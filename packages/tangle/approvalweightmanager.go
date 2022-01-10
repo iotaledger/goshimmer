@@ -66,10 +66,45 @@ func (a *ApprovalWeightManager) Setup() {
 // approval weights for branch and markers are reached.
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		a.updateBranchSupporters(message)
-		a.updateSequenceSupporters(message)
+		branchesOfMessage, err := a.tangle.Booker.MessageBranchIDs(messageID)
+		if err != nil {
+			panic(err)
+		}
+		defer a.Events.MessageProcessed.Trigger(messageID)
 
-		a.Events.MessageProcessed.Trigger(messageID)
+		voter := identity.NewID(message.IssuerPublicKey())
+
+		vote := &Vote{
+			Voter:          voter,
+			SequenceNumber: sequenceNumber,
+		}
+
+		addedBranchIDs, revokedBranchIDs, isInvalid := a.determineVotes(branchesOfMessage, vote)
+		if isInvalid {
+			a.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+				messageMetadata.SetSubjectivelyInvalid(true)
+			})
+		}
+
+		if !a.isRelevantSupporter(message) {
+			return
+		}
+
+		a.tangle.Storage.LatestVotes(voter, NewLatestVotes).Consume(func(latestVotes *LatestVotes) {
+			addedVote := vote.WithOpinion(Confirmed)
+			for addBranchID := range addedBranchIDs {
+				latestVotes.Store(addedVote.WithBranchID(addBranchID))
+				a.addSupportToBranch(addBranchID, voter)
+			}
+
+			revokedVote := vote.WithOpinion(Rejected)
+			for revokedBranchID := range revokedBranchIDs {
+				latestVotes.Store(revokedVote.WithBranchID(revokedBranchID))
+				a.revokeSupportFromBranch(revokedBranchID, voter)
+			}
+
+		})
+
 	})
 }
 
@@ -102,7 +137,7 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 
 	supportersOfMarker := a.supportersOfMarker(marker)
 	supporterWeight := float64(0)
-	supportersOfMarker.ForEach(func(supporter Supporter) {
+	supportersOfMarker.ForEach(func(supporter Voter) {
 		supporterWeight += activeWeight[supporter]
 	})
 
@@ -192,31 +227,7 @@ func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supp
 	return
 }
 
-func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
-	if !a.isRelevantSupporter(message) {
-		fmt.Println("return // not relevant supporter")
-		return
-	}
-
-	conflictBranchIDs, err := a.tangle.Booker.MessageBranchIDs(message.ID())
-	if err != nil {
-		panic(err) // TODO: handle errors properly
-	}
-
-	if _, isNewStatement := a.statementFromMessage(message); !isNewStatement {
-		fmt.Println("return // not new statement")
-		return
-	}
-
-	a.propagateSupportToBranches(conflictBranchIDs, message)
-}
-
-func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.BranchIDs, voter Supporter, sequenceNumber uint64) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
-	vote := &Vote{
-		Issuer:         voter,
-		SequenceNumber: sequenceNumber,
-	}
-
+func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
 	addedBranches, _ = a.determineBranchesToAdd(conflictBranchIDs, vote.WithOpinion(Confirmed))
 	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, vote.WithOpinion(Rejected))
 
@@ -235,6 +246,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 			continue
 		}
 
+		// Do not queue parents if a newer vote exists for this branch for this voter.
 		if a.identicalVoteWithHigherSequenceExists(currentVote) {
 			continue
 		}
@@ -273,7 +285,7 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerst
 			return
 		}
 
-		if a.voteWithHigherSequenceExists(currentVote) {
+		if _, exists := a.voteWithHigherSequence(currentVote); exists {
 			continue
 		}
 
@@ -290,15 +302,23 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerst
 }
 
 func (a *ApprovalWeightManager) differentVoteWithHigherSequenceExists(vote *Vote) (exists bool) {
-	return false
+	existingVote, exists := a.voteWithHigherSequence(vote)
+
+	return exists && vote.Opinion != existingVote.Opinion
 }
 
 func (a *ApprovalWeightManager) identicalVoteWithHigherSequenceExists(vote *Vote) (exists bool) {
-	return false
+	existingVote, exists := a.voteWithHigherSequence(vote)
+
+	return exists && vote.Opinion == existingVote.Opinion
 }
 
-func (a *ApprovalWeightManager) voteWithHigherSequenceExists(vote *Vote) (exists bool) {
-	return false
+func (a *ApprovalWeightManager) voteWithHigherSequence(vote *Vote) (existingVote *Vote, exists bool) {
+	a.tangle.Storage.LatestVotes(vote.Voter).Consume(func(latestVotes *LatestVotes) {
+		existingVote, exists = latestVotes.Vote(vote.BranchID)
+	})
+
+	return existingVote, exists && existingVote.SequenceNumber > vote.SequenceNumber
 }
 
 func (a *ApprovalWeightManager) propagateSupportToBranches(conflictBranchIDs ledgerstate.BranchIDs, message *Message) {
@@ -310,11 +330,24 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(conflictBranchIDs led
 	}
 
 	for supportWalker.HasNext() {
-		a.addSupportToBranch(supportWalker.Next().(ledgerstate.BranchID), message, supportWalker)
+		a.addSupportToBranchDeep(supportWalker.Next().(ledgerstate.BranchID), message, supportWalker)
 	}
 }
 
-func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
+func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, voter Voter) {
+	if branchID == ledgerstate.MasterBranchID {
+		return
+	}
+
+	a.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
+		branchSupporters.AddSupporter(voter)
+	})
+
+	a.updateBranchWeight(branchID)
+}
+
+// TODO: Revisit and remove
+func (a *ApprovalWeightManager) addSupportToBranchDeep(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
 	if branchID == ledgerstate.MasterBranchID {
 		return
 	}
@@ -339,13 +372,13 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 		revokeWalker.Push(conflictingBranchID)
 
 		for revokeWalker.HasNext() {
-			a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), message, revokeWalker)
+			a.revokeSupportFromBranchDeep(revokeWalker.Next().(ledgerstate.BranchID), message, revokeWalker)
 		}
 
 		return true
 	})
 
-	a.updateBranchWeight(branchID, message)
+	a.updateBranchWeight(branchID)
 
 	a.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		for parentBranchID := range branch.Parents() {
@@ -354,7 +387,16 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 	})
 }
 
-func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
+func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, voter Voter) {
+	a.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
+		branchSupporters.DeleteSupporter(voter)
+	})
+
+	a.updateBranchWeight(branchID)
+}
+
+// TODO: Revisit and remove
+func (a *ApprovalWeightManager) revokeSupportFromBranchDeep(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
 	if _, isNewStatement := a.statementFromMessage(message); !isNewStatement {
 		return
 	}
@@ -369,7 +411,7 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 		return
 	}
 
-	a.updateBranchWeight(branchID, message)
+	a.updateBranchWeight(branchID)
 
 	a.tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
 		if childBranch.ChildBranchType() != ledgerstate.ConflictBranchType {
@@ -450,7 +492,7 @@ func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *marke
 	})
 
 	a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
-		a.updateBranchWeight(newBranchID, message)
+		a.updateBranchWeight(newBranchID)
 	})
 }
 
@@ -467,7 +509,7 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 
 		supportersOfMarker := a.supportersOfMarker(currentMarker)
 		supporterWeight := float64(0)
-		supportersOfMarker.ForEach(func(supporter Supporter) {
+		supportersOfMarker.ForEach(func(supporter Voter) {
 			supporterWeight += activeWeights[supporter]
 		})
 
@@ -480,11 +522,11 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 	}
 }
 
-func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID, _ *Message) {
+func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID) {
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
 	var supporterWeight float64
-	a.SupportersOfConflictBranch(branchID).ForEach(func(supporter Supporter) {
+	a.SupportersOfConflictBranch(branchID).ForEach(func(supporter Voter) {
 		supporterWeight += activeWeights[supporter]
 	})
 
@@ -513,7 +555,7 @@ func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Mark
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 		branchWeight := float64(0)
-		a.SupportersOfConflictBranches(oldBranchIDs).ForEach(func(supporter Supporter) {
+		a.SupportersOfConflictBranches(oldBranchIDs).ForEach(func(supporter Voter) {
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
@@ -768,7 +810,7 @@ func (c *CachedBranchWeight) String() string {
 
 // Statement is a data structure that tracks the latest statement by a Supporter per ledgerstate.BranchID.
 type Statement struct {
-	supporter      Supporter
+	supporter      Voter
 	sequenceNumber uint64
 
 	sequenceNumberMutex sync.RWMutex
@@ -777,7 +819,7 @@ type Statement struct {
 }
 
 // NewStatement creates a new Statement.
-func NewStatement(supporter Supporter) (statement *Statement) {
+func NewStatement(supporter Voter) (statement *Statement) {
 	statement = &Statement{
 		supporter: supporter,
 	}
@@ -827,7 +869,7 @@ func StatementFromObjectStorage(key, data []byte) (result objectstorage.Storable
 }
 
 // Supporter returns the Supporter that is being tracked.
-func (s *Statement) Supporter() (supporter Supporter) {
+func (s *Statement) Supporter() (supporter Voter) {
 	return s.supporter
 }
 
@@ -936,10 +978,10 @@ func (c *CachedStatement) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Supporter ////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Voter ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Supporter is a type wrapper for identity.ID and defines a node that supports a branch or marker.
-type Supporter = identity.ID
+// Voter is a type wrapper for identity.ID and defines a node that supports a branch or marker.
+type Voter = identity.ID
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -958,31 +1000,31 @@ func NewSupporters() (supporters *Supporters) {
 }
 
 // Add adds a new Supporter to the Set and returns true if the Supporter was not present in the set before.
-func (s *Supporters) Add(supporter Supporter) (added bool) {
+func (s *Supporters) Add(supporter Voter) (added bool) {
 	return s.Set.Add(supporter)
 }
 
 // Delete removes the Supporter from the Set and returns true if it did exist.
-func (s *Supporters) Delete(supporter Supporter) (deleted bool) {
+func (s *Supporters) Delete(supporter Voter) (deleted bool) {
 	return s.Set.Delete(supporter)
 }
 
 // Has returns true if the Supporter exists in the Set.
-func (s *Supporters) Has(supporter Supporter) (has bool) {
+func (s *Supporters) Has(supporter Voter) (has bool) {
 	return s.Set.Has(supporter)
 }
 
 // ForEach iterates through the Supporters and calls the callback for every element.
-func (s *Supporters) ForEach(callback func(supporter Supporter)) {
+func (s *Supporters) ForEach(callback func(supporter Voter)) {
 	s.Set.ForEach(func(element interface{}) {
-		callback(element.(Supporter))
+		callback(element.(Voter))
 	})
 }
 
 // Clone returns a copy of the Supporters.
 func (s *Supporters) Clone() (clonedSupporters *Supporters) {
 	clonedSupporters = NewSupporters()
-	s.ForEach(func(supporter Supporter) {
+	s.ForEach(func(supporter Voter) {
 		clonedSupporters.Add(supporter)
 	})
 
@@ -992,7 +1034,7 @@ func (s *Supporters) Clone() (clonedSupporters *Supporters) {
 // Intersect creates an intersection of two set of Supporters.
 func (s *Supporters) Intersect(other *Supporters) (intersection *Supporters) {
 	intersection = NewSupporters()
-	s.ForEach(func(supporter Supporter) {
+	s.ForEach(func(supporter Voter) {
 		if other.Has(supporter) {
 			intersection.Add(supporter)
 		}
@@ -1004,7 +1046,7 @@ func (s *Supporters) Intersect(other *Supporters) (intersection *Supporters) {
 // String returns a human readable version of the Supporters.
 func (s *Supporters) String() string {
 	structBuilder := stringify.StructBuilder("Supporters")
-	s.ForEach(func(supporter Supporter) {
+	s.ForEach(func(supporter Voter) {
 		structBuilder.AddField(stringify.StructField(supporter.String(), "true"))
 	})
 
@@ -1093,7 +1135,7 @@ func (b *BranchSupporters) BranchID() (branchID ledgerstate.BranchID) {
 }
 
 // AddSupporter adds a new Supporter to the tracked ledgerstate.BranchID.
-func (b *BranchSupporters) AddSupporter(supporter Supporter) (added bool) {
+func (b *BranchSupporters) AddSupporter(supporter Voter) (added bool) {
 	b.supportersMutex.Lock()
 	defer b.supportersMutex.Unlock()
 
@@ -1107,7 +1149,7 @@ func (b *BranchSupporters) AddSupporter(supporter Supporter) (added bool) {
 
 // AddSupporters adds the supporters set to the tracked ledgerstate.BranchID.
 func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
-	supporters.ForEach(func(supporter Supporter) {
+	supporters.ForEach(func(supporter Voter) {
 		if b.supporters.Add(supporter) {
 			added = true
 		}
@@ -1121,7 +1163,7 @@ func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
 }
 
 // DeleteSupporter deletes a Supporter from the tracked ledgerstate.BranchID.
-func (b *BranchSupporters) DeleteSupporter(supporter Supporter) (deleted bool) {
+func (b *BranchSupporters) DeleteSupporter(supporter Voter) (deleted bool) {
 	b.supportersMutex.Lock()
 	defer b.supportersMutex.Unlock()
 
@@ -1174,7 +1216,7 @@ func (b *BranchSupporters) ObjectStorageValue() []byte {
 	marshalUtil := marshalutil.New(marshalutil.Uint64Size + b.supporters.Size()*identity.IDLength)
 	marshalUtil.WriteUint64(uint64(b.supporters.Size()))
 
-	b.supporters.ForEach(func(supporter Supporter) {
+	b.supporters.ForEach(func(supporter Voter) {
 		marshalUtil.WriteBytes(supporter.Bytes())
 	})
 
@@ -1236,7 +1278,7 @@ func (c *CachedBranchSupporters) String() string {
 // SequenceSupporters is a data structure that tracks which nodes have confirmed which Index in a given Sequence.
 type SequenceSupporters struct {
 	sequenceID              markers.SequenceID
-	supportersPerIndex      map[Supporter]markers.Index
+	supportersPerIndex      map[Voter]markers.Index
 	supportersPerIndexMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -1246,7 +1288,7 @@ type SequenceSupporters struct {
 func NewSequenceSupporters(sequenceID markers.SequenceID) (sequenceSupporters *SequenceSupporters) {
 	sequenceSupporters = &SequenceSupporters{
 		sequenceID:         sequenceID,
-		supportersPerIndex: make(map[Supporter]markers.Index),
+		supportersPerIndex: make(map[Voter]markers.Index),
 	}
 
 	sequenceSupporters.Persist()
@@ -1279,7 +1321,7 @@ func SequenceSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (se
 		err = errors.Errorf("failed to parse supporters count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	sequenceSupporters.supportersPerIndex = make(map[Supporter]markers.Index)
+	sequenceSupporters.supportersPerIndex = make(map[Voter]markers.Index)
 	for i := uint64(0); i < supportersCount; i++ {
 		supporter, supporterErr := identity.IDFromMarshalUtil(marshalUtil)
 		if supporterErr != nil {
@@ -1315,7 +1357,7 @@ func (s *SequenceSupporters) SequenceID() (sequenceID markers.SequenceID) {
 }
 
 // AddSupporter adds a new Supporter of a given index to the Sequence.
-func (s *SequenceSupporters) AddSupporter(supporter Supporter, index markers.Index) (added bool) {
+func (s *SequenceSupporters) AddSupporter(supporter Voter, index markers.Index) (added bool) {
 	s.supportersPerIndexMutex.Lock()
 	defer s.supportersPerIndexMutex.Unlock()
 
@@ -1461,20 +1503,232 @@ const (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region LatestVotes //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// LatestVotes represents the branch supported from an Issuer
+type LatestVotes struct {
+	voter       Voter
+	latestVotes map[ledgerstate.BranchID]*Vote
+
+	sync.RWMutex
+	objectstorage.StorableObjectFlags
+}
+
+func (l *LatestVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exists bool) {
+	l.RLock()
+	defer l.RUnlock()
+
+	vote, exists = l.latestVotes[branchID]
+
+	return
+}
+
+func (l *LatestVotes) Store(vote *Vote) {
+	l.Lock()
+	defer l.Unlock()
+
+	l.latestVotes[vote.BranchID] = vote
+
+	l.SetModified()
+	l.Persist()
+}
+
+// NewLatestVotes creates a new LatestVotes.
+func NewLatestVotes(supporter Voter) (latestVotes *LatestVotes) {
+	latestVotes = &LatestVotes{
+		voter: supporter,
+	}
+
+	latestVotes.Persist()
+	latestVotes.SetModified()
+
+	return
+}
+
+// LatestVotesFromBytes unmarshals a LatestVotes object from a sequence of bytes.
+func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestVotes, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if latestVotes, err = LatestVotesFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse LatestVotes from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// LatestVotesFromMarshalUtil unmarshals a LatestVotes object using a MarshalUtil (for easier unmarshalling).
+func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVotes *LatestVotes, err error) {
+	latestVotes = &LatestVotes{}
+	if latestVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
+		return
+	}
+
+	mapSize, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = errors.Errorf("failed to parse map size (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	latestVotes.latestVotes = make(map[ledgerstate.BranchID]*Vote, int(mapSize))
+
+	for i := uint64(0); i < mapSize; i++ {
+		branchID, voteErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
+		if voteErr != nil {
+			err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", voteErr)
+			return
+		}
+
+		vote, voteErr := VoteFromMarshalUtil(marshalUtil)
+		if voteErr != nil {
+			err = errors.Errorf("failed to parse Vote from MarshalUtil: %w", voteErr)
+			return
+		}
+
+		latestVotes.latestVotes[branchID] = vote
+	}
+
+	return
+}
+
+// LatestVotesFromObjectStorage restores a LatestVotes object from the object storage.
+func LatestVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = LatestVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = errors.Errorf("failed to parse LatestVotes from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// Bytes returns a marshaled version of the LatestVotes.
+func (l *LatestVotes) Bytes() (marshaledSequenceSupporters []byte) {
+	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
+}
+
+// String returns a human-readable version of the LatestVotes.
+func (l *LatestVotes) String() string {
+	return stringify.Struct("LatestVotes",
+		stringify.StructField("voter", l.voter),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (l *LatestVotes) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (l *LatestVotes) ObjectStorageKey() []byte {
+	return l.voter.Bytes()
+}
+
+// ObjectStorageValue marshals the LatestVotes into a sequence of bytes that are used as the value part in the
+// object storage.
+func (l *LatestVotes) ObjectStorageValue() []byte {
+	marshalUtil := marshalutil.New()
+
+	marshalUtil.WriteUint64(uint64(len(l.latestVotes)))
+
+	for branchID, vote := range l.latestVotes {
+		marshalUtil.Write(branchID)
+		marshalUtil.Write(vote)
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// code contract (make sure the struct implements all required methods).
+var _ objectstorage.StorableObject = &LatestVotes{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedLatestVotes //////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedLatestVotes is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedLatestVotes struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedLatestVotes) Retain() *CachedLatestVotes {
+	return &CachedLatestVotes{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedLatestVotes) Unwrap() *LatestVotes {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*LatestVotes)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedLatestVotes) Consume(consumer func(latestVotes *LatestVotes), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*LatestVotes))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedLatestVotes.
+func (c *CachedLatestVotes) String() string {
+	return stringify.Struct("CachedLatestVotes",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region Vote /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Vote represents a struct that holds information about the shared Opinion of a node regarding an individual Branch.
 type Vote struct {
-	Issuer         Supporter
+	Voter          Voter
 	BranchID       ledgerstate.BranchID
 	Opinion        Opinion
 	SequenceNumber uint64
 }
 
+// VoteFromMarshalUtil unmarshals a Vote structure using a MarshalUtil (for easier unmarshaling).
+func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *Vote, err error) {
+	vote = &Vote{}
+
+	if vote.Voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
+	}
+
+	if vote.BranchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+	}
+
+	untypedOpinion, err := marshalUtil.ReadUint8()
+	if err != nil {
+		return nil, errors.Errorf("failed to parse Opinion from MarshalUtil: %w", err)
+	}
+	vote.Opinion = Opinion(untypedOpinion)
+
+	if vote.SequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+		return nil, errors.Errorf("failed to parse SequenceNumber from MarshalUtil: %w", err)
+	}
+
+	return
+}
+
 // WithOpinion derives a vote for the given Opinion.
 func (v *Vote) WithOpinion(opinion Opinion) (voteWithOpinion *Vote) {
 	return &Vote{
-		Issuer:         v.Issuer,
+		Voter:          v.Voter,
 		BranchID:       v.BranchID,
 		Opinion:        opinion,
 		SequenceNumber: v.SequenceNumber,
@@ -1484,11 +1738,21 @@ func (v *Vote) WithOpinion(opinion Opinion) (voteWithOpinion *Vote) {
 // WithBranchID derives a vote for the given BranchID.
 func (v *Vote) WithBranchID(branchID ledgerstate.BranchID) (rejectedVote *Vote) {
 	return &Vote{
-		Issuer:         v.Issuer,
+		Voter:          v.Voter,
 		BranchID:       branchID,
 		Opinion:        v.Opinion,
 		SequenceNumber: v.SequenceNumber,
 	}
+}
+
+// Bytes returns the bytes of the Vote
+func (v *Vote) Bytes() []byte {
+	return marshalutil.New().
+		Write(v.Voter).
+		Write(v.BranchID).
+		WriteUint8(uint8(v.Opinion)).
+		WriteUint64(v.SequenceNumber).
+		Bytes()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

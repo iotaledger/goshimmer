@@ -47,6 +47,9 @@ const (
 	// PrefixStatement defines the storage prefix for the Statement.
 	PrefixStatement
 
+	// PrefixLatestVotes defines the storage prefix for the LatestVotes.
+	PrefixLatestVotes
+
 	// PrefixBranchWeight defines the storage prefix for the BranchWeight.
 	PrefixBranchWeight
 
@@ -77,6 +80,7 @@ type Storage struct {
 	sequenceSupportersStorage         *objectstorage.ObjectStorage
 	branchSupportersStorage           *objectstorage.ObjectStorage
 	statementStorage                  *objectstorage.ObjectStorage
+	latestVotesStorage                *objectstorage.ObjectStorage
 	branchWeightStorage               *objectstorage.ObjectStorage
 	markerMessageMappingStorage       *objectstorage.ObjectStorage
 
@@ -101,6 +105,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestVotesStorage:                osFactory.New(PrefixLatestVotes, LatestVotesFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
@@ -341,7 +346,7 @@ func (s *Storage) BranchSupporters(branchID ledgerstate.BranchID, computeIfAbsen
 }
 
 // Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
-func (s *Storage) Statement(supporter Supporter, computeIfAbsentCallback ...func() *Statement) *CachedStatement {
+func (s *Storage) Statement(supporter Voter, computeIfAbsentCallback ...func() *Statement) *CachedStatement {
 	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedStatement{s.statementStorage.ComputeIfAbsent(byteutils.ConcatBytes(supporter.Bytes()), func(key []byte) objectstorage.StorableObject {
 			return computeIfAbsentCallback[0]()
@@ -349,6 +354,17 @@ func (s *Storage) Statement(supporter Supporter, computeIfAbsentCallback ...func
 	}
 
 	return &CachedStatement{CachedObject: s.statementStorage.Load(byteutils.ConcatBytes(supporter.Bytes()))}
+}
+
+// Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
+func (s *Storage) LatestVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestVotes) *CachedLatestVotes {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedLatestVotes{s.latestVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(voter.Bytes()), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](voter)
+		})}
+	}
+
+	return &CachedLatestVotes{CachedObject: s.latestVotesStorage.Load(byteutils.ConcatBytes(voter.Bytes()))}
 }
 
 // BranchWeight retrieves the BranchWeight with the given ledgerstate.BranchID.

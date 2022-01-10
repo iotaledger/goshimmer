@@ -114,7 +114,7 @@ func NewGetBranchSupportersResponse(branchID ledgerstate.BranchID, supporters *t
 		BranchID: branchID.Base58(),
 		Supporters: func() (supportersStr []string) {
 			supportersStr = make([]string, 0)
-			supporters.ForEach(func(supporter tangle.Supporter) {
+			supporters.ForEach(func(supporter tangle.Voter) {
 				supportersStr = append(supportersStr, supporter.String())
 			})
 			return
