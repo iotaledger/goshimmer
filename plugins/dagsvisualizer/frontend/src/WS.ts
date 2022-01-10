@@ -1,13 +1,13 @@
 export enum WSMsgType {
-	Message,
-	MessageBooked,
-	MessageConfirmed,
-	FutureMarkerUpdated,
-	Transaction,
+    Message,
+    MessageBooked,
+    MessageConfirmed,
+    FutureMarkerUpdated,
+    Transaction,
     TransactionBooked,
-	TransactionConfirmed,
-	Branch,
-	BranchParentsUpdate,
+    TransactionConfirmed,
+    Branch,
+    BranchParentsUpdate,
     BranchConfirmed,
     BranchWeightChanged
 }
@@ -19,7 +19,7 @@ export interface WSMessage {
 
 type DataHandler = (data: any) => void;
 
-let handlers = {};
+const handlers = {};
 
 export function registerHandler(msgType: number, handler: DataHandler) {
     handlers[msgType] = handler;
@@ -30,7 +30,7 @@ export function unregisterHandler(msgType: number) {
 }
 
 export function connectWebSocket(path: string, onOpen, onClose, onError) {
-    let loc = window.location;
+    const loc = window.location;
     let uri = 'ws:';
 
     if (loc.protocol === 'https:') {
@@ -38,17 +38,17 @@ export function connectWebSocket(path: string, onOpen, onClose, onError) {
     }
     uri += '//' + loc.host + path;
     //uri += '//' + path;
-    let ws = new WebSocket(uri);
+    const ws = new WebSocket(uri);
 
     ws.onopen = onOpen;
     ws.onclose = onClose;
     ws.onerror = onError;
 
-    ws.onmessage = (e) => {
-        let wsMsg: WSMessage = JSON.parse(e.data)
-        let handler: DataHandler = handlers[wsMsg.type]
+    ws.onmessage = e => {
+        const wsMsg: WSMessage = JSON.parse(e.data);
+        const handler: DataHandler = handlers[wsMsg.type];
         if (handler != null) {
-            handler(wsMsg.data)
+            handler(wsMsg.data);
         }
     };
 }

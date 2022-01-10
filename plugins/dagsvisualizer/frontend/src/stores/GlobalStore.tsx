@@ -1,13 +1,13 @@
 import { action, makeObservable, observable } from 'mobx';
-import {Moment} from 'moment';
-import TangleStore, { tangleVertex } from "./TangleStore";
-import UTXOStore, { utxoVertex } from "./UTXOStore";
-import BranchStore, { branchVertex } from "./BranchStore";
+import { Moment } from 'moment';
+import TangleStore, { tangleVertex } from './TangleStore';
+import UTXOStore, { utxoVertex } from './UTXOStore';
+import BranchStore, { branchVertex } from './BranchStore';
 
 export class searchResult {
     messages: Array<tangleVertex>;
-    txs:      Array<utxoVertex>;
-	branches: Array<branchVertex>;
+    txs: Array<utxoVertex>;
+    branches: Array<branchVertex>;
 }
 
 export class GlobalStore {
@@ -18,7 +18,11 @@ export class GlobalStore {
     utxoStore: UTXOStore;
     branchStore: BranchStore;
 
-    constructor(tangleStore: TangleStore, utxoStore: UTXOStore, branchStore: BranchStore) {
+    constructor(
+        tangleStore: TangleStore,
+        utxoStore: UTXOStore,
+        branchStore: BranchStore
+    ) {
         makeObservable(this);
 
         this.tangleStore = tangleStore;
@@ -27,7 +31,7 @@ export class GlobalStore {
     }
 
     syncWithMsg = () => {
-        let msg = this.tangleStore.selectedMsg;
+        const msg = this.tangleStore.selectedMsg;
         if (!msg) return;
 
         if (msg.isTx) {
@@ -35,38 +39,38 @@ export class GlobalStore {
             this.utxoStore.centerTx(msg.txID);
         }
         this.branchStore.selectBranch(msg.branchID);
-    }
+    };
 
     syncWithTx = () => {
-        let tx = this.utxoStore.selectedTx;
+        const tx = this.utxoStore.selectedTx;
         if (!tx) return;
 
-        let msg = this.tangleStore.getTangleVertex(tx.msgID);
+        const msg = this.tangleStore.getTangleVertex(tx.msgID);
         if (msg) {
             this.tangleStore.selectMsg(tx.msgID);
             this.tangleStore.centerMsg(tx.msgID);
         }
 
-        let branch = this.branchStore.getBranchVertex(tx.branchID);
+        const branch = this.branchStore.getBranchVertex(tx.branchID);
         if (branch) {
             this.branchStore.selectBranch(tx.branchID);
             this.branchStore.centerBranch(tx.branchID);
         }
-    }
+    };
 
     syncWithBranch = () => {
-        let branch = this.branchStore.selectedBranch;
+        const branch = this.branchStore.selectedBranch;
         if (!branch) return;
 
         // iterate messages to highlight all messages lies in that branch
-        let msgs = this.tangleStore.getMsgsFromBranch(branch.ID);
+        const msgs = this.tangleStore.getMsgsFromBranch(branch.ID);
         this.tangleStore.clearSelected();
         this.tangleStore.highlightMsgs(msgs);
 
-        let txs = this.utxoStore.getTxsFromBranch(branch.ID);
+        const txs = this.utxoStore.getTxsFromBranch(branch.ID);
         this.utxoStore.clearSelected(true);
         this.utxoStore.highlightTxs(txs);
-    }
+    };
 
     clearSync = () => {
         this.tangleStore.clearSelected();
@@ -74,50 +78,56 @@ export class GlobalStore {
         this.utxoStore.clearSelected(true);
         this.utxoStore.clearHighlightedTxs();
         this.branchStore.clearSelected(true);
-    }
+    };
 
     @action
     updateExplorerAddress = (addr: string) => {
         this.tangleStore.updateExplorerAddress(addr);
         this.branchStore.updateExplorerAddress(addr);
         this.utxoStore.updateExplorerAddress(addr);
-    }
+    };
 
     @action
     updateSearchStartingTime = (dateTime: Moment) => {
         this.searchStartingTime = dateTime.unix();
-    }
+    };
 
     @action
     updateSearchEndingTime = (dateTime: Moment) => {
         this.searchEndingTime = dateTime.unix();
-    }
+    };
 
     @action
     searchAndDrawResults = async () => {
         try {
-            let res = await fetch(`/api/dagsvisualizer/search/${this.searchStartingTime}/${this.searchEndingTime}`);
-            let result: searchResult = await res.json();
+            const res = await fetch(
+                `/api/dagsvisualizer/search/${this.searchStartingTime}/${
+                    this.searchEndingTime
+                }`
+            );
+            const result: searchResult = await res.json();
             this.stopDrawNewVertices();
             this.clearGraphs();
 
-            result.messages.forEach((msg) => {
+            result.messages.forEach(msg => {
                 this.tangleStore.drawVertex(msg);
-            })
+            });
 
-            result.txs.forEach((tx) => {
+            result.txs.forEach(tx => {
                 this.utxoStore.drawVertex(tx);
-            })
+            });
 
-            result.branches.forEach((branch) => {
+            result.branches.forEach(branch => {
                 this.branchStore.drawVertex(branch);
-            })
-
+            });
         } catch (err) {
-            console.log("Fail to fetch messages/txs/branches with the given interval", err);
+            console.log(
+                'Fail to fetch messages/txs/branches with the given interval',
+                err
+            );
         }
-        return
-    }
+        return;
+    };
 
     @action
     clearSearchAndResume = () => {
@@ -129,7 +139,7 @@ export class GlobalStore {
         this.branchStore.drawExistedBranches();
 
         this.drawNewVertices();
-    }
+    };
 
     drawNewVertices() {
         // resume need redraw all existed vertices
