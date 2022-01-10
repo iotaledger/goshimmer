@@ -214,6 +214,7 @@ export class TangleStore {
         if (!this.search) return;
 
         this.selectMsg(this.search);
+        this.centerMsg(this.search);
     };
 
     updateExplorerAddress = (addr: string) => {
@@ -240,6 +241,11 @@ export class TangleStore {
         const centerX = (rect.x1 + rect.x2) / 2;
 
         this.renderer.moveTo(centerX, centerY);
+    };
+
+    centerMsg = (msgID: string) => {
+        const pos = this.layout.getNodePosition(msgID);
+        this.renderer.moveTo(pos.x, pos.y);
     };
 
     drawVertex = (msg: tangleVertex) => {
@@ -392,10 +398,6 @@ export class TangleStore {
 
         this.updateSelected(vertex.data);
         this.selected_origin_color = this.highlightMsg(vertex.data.ID);
-
-        // center the selected node.
-        const pos = this.layout.getNodePosition(msgID);
-        this.renderer.moveTo(pos.x, pos.y);
     };
 
     @action

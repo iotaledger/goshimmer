@@ -179,7 +179,6 @@ export class UTXOStore {
         this.clearSelected(true);
 
         this.highlightTx(txID);
-        this.centerTx(txID);
 
         this.updateSelected(this.search);
     };
@@ -372,7 +371,7 @@ export class UTXOStore {
         // alignment of inputs and outputs
         const inIndex =
             Math.floor(inputIDs.length / 5) * 5 + inputIDs.length % 5 - 1;
-        const outIndex = Math.min(outputIDs.length, 2);
+        const outIndex = Math.min(outputIDs.length - 1, 2);
         collection = collection.union(
             this.cy.add({
                 group: 'edges',

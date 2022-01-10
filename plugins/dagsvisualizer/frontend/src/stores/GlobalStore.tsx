@@ -36,6 +36,7 @@ export class GlobalStore {
 
         if (msg.isTx) {
             this.utxoStore.selectTx(msg.txID);
+            this.utxoStore.centerTx(msg.txID);
         }
         this.branchStore.selectBranch(msg.branchID);
     };
@@ -47,11 +48,13 @@ export class GlobalStore {
         const msg = this.tangleStore.getTangleVertex(tx.msgID);
         if (msg) {
             this.tangleStore.selectMsg(tx.msgID);
+            this.tangleStore.centerMsg(tx.msgID);
         }
 
         const branch = this.branchStore.getBranchVertex(tx.branchID);
         if (branch) {
             this.branchStore.selectBranch(tx.branchID);
+            this.branchStore.centerBranch(tx.branchID);
         }
     };
 

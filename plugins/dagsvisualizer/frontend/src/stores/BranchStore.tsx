@@ -191,9 +191,15 @@ export class BranchStore {
         if (!branchNode) return;
         // select the node manually
         branchNode.select();
-        this.cy.center(branchNode);
+        this.centerBranch(branchID);
 
         this.updateSelected(branchID);
+    };
+
+    centerBranch = (branchID: string) => {
+        const branchNode = this.cy.getElementById(branchID);
+        if (!branchNode) return;
+        this.cy.center(branchNode);
     };
 
     updateExplorerAddress = (addr: string) => {
