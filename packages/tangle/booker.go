@@ -185,8 +185,8 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 	}
 
 	aggregatedInheritedBranchID := b.tangle.LedgerState.AggregateConflictBranchesID(inheritedBranchIDs)
-	addedBranchIDs := inheritedBranchIDs.Clone().Subtract(pastMarkersBranchIDs)
-	subtractedBranchIDs := pastMarkersBranchIDs.Clone().Subtract(inheritedBranchIDs)
+	addedBranchIDs := inheritedBranchIDs.Clone().Subtract(pastMarkersBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
+	subtractedBranchIDs := pastMarkersBranchIDs.Clone().Subtract(inheritedBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
 
 	inheritedStructureDetails, newSequenceCreated := b.MarkersManager.InheritStructureDetails(message, structureDetails, markers.NewSequenceAlias(aggregatedInheritedBranchID.Bytes()))
 	messageMetadata.SetStructureDetails(inheritedStructureDetails)
