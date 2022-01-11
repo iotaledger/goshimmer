@@ -91,17 +91,31 @@ func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...
 	m.branchIDs[alias] = branchID
 	m.aggregatedBranchIDs[branchID] = aggregation
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)
-	fmt.Println("Register alias", alias)
 }
 
 // BranchID returns the BranchID registered with the given alias.
-func (m *MessageTestFramework) BranchID(alias string) ledgerstate.BranchID {
+func (m *MessageTestFramework) BranchID(alias string) (branchID ledgerstate.BranchID) {
 	branchID, ok := m.branchIDs[alias]
 	if !ok {
 		panic("no branch registered with such alias " + alias)
 	}
 
-	return branchID
+	return
+}
+
+// BranchIDs returns the BranchIDs registered with the given aliases.
+func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs ledgerstate.BranchIDs) {
+	branchIDs = ledgerstate.NewBranchIDs()
+
+	for _, alias := range aliases {
+		branchID, ok := m.branchIDs[alias]
+		if !ok {
+			panic("no branch registered with such alias " + alias)
+		}
+		branchIDs.Add(branchID)
+	}
+
+	return
 }
 
 // ResolveConflictBranchIDs returns the ConflictBranchIDs of the provided AggregatedBranchID.
@@ -111,7 +125,7 @@ func (m *MessageTestFramework) ResolveConflictBranchIDs(branchID ledgerstate.Bra
 		return ledgerstate.NewBranchIDs(branchID)
 	}
 
-	return branchIDs
+	return
 }
 
 // CreateMessage creates a Message with the given alias and MessageTestFrameworkMessageOptions.
