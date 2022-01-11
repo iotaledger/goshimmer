@@ -82,16 +82,16 @@ func TestScenario_2(t *testing.T) {
 	testFramework.IssueMessages("Message8").WaitMessagesBooked()
 	testFramework.IssueMessages("Message9").WaitMessagesBooked()
 
-	testFramework.RegisterBranchID("purple", "Message2")
+	testFramework.RegisterBranchID("purple", "Message5")
 	testFramework.RegisterBranchID("red", "Message4")
-	testFramework.RegisterBranchID("yellow+purple", "Message2", "Message5")
-	testFramework.RegisterBranchID("red+orange", "Message4", "Message7")
-	testFramework.RegisterBranchID("red+orange+blue", "Message4", "Message7", "Message9")
+	testFramework.RegisterBranchID("yellow", "Message2")
+	testFramework.RegisterBranchID("orange", "Message7")
+	testFramework.RegisterBranchID("blue", "Message9")
 
 	checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 		"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-		"Message2": testFramework.BranchIDs("purple"),
-		"Message3": testFramework.BranchIDs("purple"),
+		"Message2": testFramework.BranchIDs("yellow"),
+		"Message3": testFramework.BranchIDs("yellow"),
 		"Message4": testFramework.BranchIDs("red"),
 		"Message5": testFramework.BranchIDs("yellow", "purple"),
 		"Message6": testFramework.BranchIDs("yellow", "purple"),
@@ -146,9 +146,8 @@ func TestScenario_3(t *testing.T) {
 	testFramework.RegisterBranchID("purple", "Message2")
 	testFramework.RegisterBranchID("red", "Message4")
 	testFramework.RegisterBranchID("yellow", "Message5")
-	testFramework.RegisterBranchID("yellow+purple", "Message2", "Message5")
-	testFramework.RegisterBranchID("red+orange", "Message4", "Message7")
-	testFramework.RegisterBranchID("red+orange+blue", "Message4", "Message7", "Message9")
+	testFramework.RegisterBranchID("orange", "Message7")
+	testFramework.RegisterBranchID("blue", "Message9")
 
 	checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 		"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
@@ -156,10 +155,10 @@ func TestScenario_3(t *testing.T) {
 		"Message3": testFramework.BranchIDs("purple"),
 		"Message4": testFramework.BranchIDs("red"),
 		"Message5": testFramework.BranchIDs("yellow"),
-		"Message6": testFramework.BranchIDs("yellow+purple"),
-		"Message7": testFramework.BranchIDs("red+orange"),
-		"Message8": testFramework.BranchIDs("red+orange"),
-		"Message9": testFramework.BranchIDs("red+orange+blue"),
+		"Message6": testFramework.BranchIDs("yellow", "purple"),
+		"Message7": testFramework.BranchIDs("red", "orange"),
+		"Message8": testFramework.BranchIDs("red", "orange"),
+		"Message9": testFramework.BranchIDs("red", "orange", "blue"),
 	})
 }
 
@@ -270,9 +269,6 @@ func TestBookerMarkerGap(t *testing.T) {
 		testFramework.RegisterBranchID("Message1", "Message1")
 		testFramework.RegisterBranchID("Message4", "Message4")
 
-		testFramework.RegisterBranchID("Message1+Message2", "Message1", "Message2")
-		testFramework.RegisterBranchID("Message3+Message4", "Message3", "Message4")
-
 		testFramework.IssueMessages("Message4").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -292,9 +288,9 @@ func TestBookerMarkerGap(t *testing.T) {
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 			"Message1":   testFramework.BranchIDs("Message1"),
 			"Message1.5": testFramework.BranchIDs("Message1"),
-			"Message2":   testFramework.BranchIDs("Message1+Message2"),
+			"Message2":   testFramework.BranchIDs("Message1", "Message2"),
 			"Message3":   testFramework.BranchIDs("Message3"),
-			"Message4":   testFramework.BranchIDs("Message3+Message4"),
+			"Message4":   testFramework.BranchIDs("Message3", "Message4"),
 		})
 	}
 }
@@ -433,8 +429,6 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateMessage("Message6", WithStrongParents("Message1", "Message3"))
 		testFramework.IssueMessages("Message6").WaitMessagesBooked()
 
-		testFramework.RegisterBranchID("Message1+Message3", "Message1", "Message3")
-
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
 			"Message2": markers.NewMarkers(markers.NewMarker(2, 1)),
@@ -457,7 +451,7 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message3": testFramework.BranchIDs("Message3"),
 			"Message4": testFramework.BranchIDs("Message4"),
 			"Message5": testFramework.BranchIDs("Message1"),
-			"Message6": testFramework.BranchIDs("Message1+Message3"),
+			"Message6": testFramework.BranchIDs("Message1", "Message3"),
 		})
 	}
 
@@ -490,8 +484,8 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message3": testFramework.BranchIDs("Message3"),
 			"Message4": testFramework.BranchIDs("Message4"),
 			"Message5": testFramework.BranchIDs("Message1"),
-			"Message6": testFramework.BranchIDs("Message1+Message3"),
-			"Message7": testFramework.BranchIDs("Message1+Message3"),
+			"Message6": testFramework.BranchIDs("Message1", "Message3"),
+			"Message7": testFramework.BranchIDs("Message1", "Message3"),
 		})
 	}
 
@@ -500,9 +494,7 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateMessage("Message8", WithStrongParents("Genesis"), WithInputs("Genesis3"), WithOutput("Message8", 500))
 
 		testFramework.RegisterBranchID("Message5", "Message5")
-		testFramework.RegisterBranchID("Message1+Message5", "Message1", "Message5")
 		testFramework.RegisterBranchID("Message8", "Message8")
-		testFramework.RegisterBranchID("Message1+Message3+Message5", "Message1", "Message3", "Message5")
 
 		testFramework.IssueMessages("Message8").WaitMessagesBooked()
 
@@ -532,9 +524,9 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message2": testFramework.BranchIDs("Message2"),
 			"Message3": testFramework.BranchIDs("Message3"),
 			"Message4": testFramework.BranchIDs("Message4"),
-			"Message5": testFramework.BranchIDs("Message1+Message5"),
-			"Message6": testFramework.BranchIDs("Message1+Message3"),
-			"Message7": testFramework.BranchIDs("Message1+Message3+Message5"),
+			"Message5": testFramework.BranchIDs("Message1", "Message5"),
+			"Message6": testFramework.BranchIDs("Message1", "Message3"),
+			"Message7": testFramework.BranchIDs("Message1", "Message3", "Message5"),
 			"Message8": testFramework.BranchIDs("Message8"),
 		})
 	}
@@ -672,7 +664,6 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 
 		testFramework.RegisterBranchID("A1", "A1")
 		testFramework.RegisterBranchID("A1*", "A1*")
-		testFramework.RegisterBranchID("A1+A3", "A1", "A3")
 
 		testFramework.IssueMessages("A1*").WaitMessagesBooked()
 
@@ -695,8 +686,8 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 			"A1":  testFramework.BranchIDs("A1"),
 			"A2":  testFramework.BranchIDs("A1"),
-			"A3":  testFramework.BranchIDs("A1+A3"),
-			"A4":  testFramework.BranchIDs("A1+A3"),
+			"A3":  testFramework.BranchIDs("A1", "A3"),
+			"A4":  testFramework.BranchIDs("A1", "A3"),
 			"A3*": testFramework.BranchIDs("A3*"),
 			"A1*": testFramework.BranchIDs("A1*"),
 		})

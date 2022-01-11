@@ -28,7 +28,6 @@ import (
 type MessageTestFramework struct {
 	tangle                   *Tangle
 	branchIDs                map[string]ledgerstate.BranchID
-	aggregatedBranchIDs      map[ledgerstate.BranchID]ledgerstate.BranchIDs
 	messagesByAlias          map[string]*Message
 	walletsByAlias           map[string]wallet
 	walletsByAddress         map[ledgerstate.Address]wallet
@@ -44,16 +43,15 @@ type MessageTestFramework struct {
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
 func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
 	messageTestFramework = &MessageTestFramework{
-		tangle:              tangle,
-		branchIDs:           make(map[string]ledgerstate.BranchID),
-		aggregatedBranchIDs: make(map[ledgerstate.BranchID]ledgerstate.BranchIDs),
-		messagesByAlias:     make(map[string]*Message),
-		walletsByAlias:      make(map[string]wallet),
-		walletsByAddress:    make(map[ledgerstate.Address]wallet),
-		inputsByAlias:       make(map[string]ledgerstate.Input),
-		outputsByAlias:      make(map[string]ledgerstate.Output),
-		outputsByID:         make(map[ledgerstate.OutputID]ledgerstate.Output),
-		options:             NewMessageTestFrameworkOptions(options...),
+		tangle:           tangle,
+		branchIDs:        make(map[string]ledgerstate.BranchID),
+		messagesByAlias:  make(map[string]*Message),
+		walletsByAlias:   make(map[string]wallet),
+		walletsByAddress: make(map[ledgerstate.Address]wallet),
+		inputsByAlias:    make(map[string]ledgerstate.Input),
+		outputsByAlias:   make(map[string]ledgerstate.Output),
+		outputsByID:      make(map[ledgerstate.OutputID]ledgerstate.Output),
+		options:          NewMessageTestFrameworkOptions(options...),
 	}
 
 	messageTestFramework.createGenesisOutputs()
@@ -89,7 +87,6 @@ func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...
 	}
 	branchID := ledgerstate.NewAggregatedBranch(aggregation).ID()
 	m.branchIDs[alias] = branchID
-	m.aggregatedBranchIDs[branchID] = aggregation
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)
 }
 
@@ -113,16 +110,6 @@ func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs ledgersta
 			panic("no branch registered with such alias " + alias)
 		}
 		branchIDs.Add(branchID)
-	}
-
-	return
-}
-
-// ResolveConflictBranchIDs returns the ConflictBranchIDs of the provided AggregatedBranchID.
-func (m *MessageTestFramework) ResolveConflictBranchIDs(branchID ledgerstate.BranchID) (branchIDs ledgerstate.BranchIDs) {
-	branchIDs, ok := m.aggregatedBranchIDs[branchID]
-	if !ok {
-		return ledgerstate.NewBranchIDs(branchID)
 	}
 
 	return
