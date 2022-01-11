@@ -324,6 +324,10 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 		err = errors.Errorf("failed to retrieve MessageMetadata with %s: %w", messageID, cerrors.ErrFatal)
 	}
 
+	if len(messageBranchIDs) > 1 {
+		messageBranchIDs.Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
+	}
+
 	return structureDetails, pastMarkersBranchIDs, messageBranchIDs, err
 }
 
