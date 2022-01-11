@@ -105,6 +105,8 @@ func websocketRoute(c echo.Context) error {
 	clientID, wsClient := registerWSClient()
 	defer removeWsClient(clientID)
 
+	sendInitialData(ws)
+
 	for {
 		msg := <-wsClient.channel
 		if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
@@ -113,6 +115,26 @@ func websocketRoute(c echo.Context) error {
 		if err := ws.WriteJSON(msg); err != nil {
 			break
 		}
+	}
+	return nil
+}
+
+func sendInitialData(ws *websocket.Conn) {
+	bufferMutex.RLock()
+	defer bufferMutex.RUnlock()
+	for _, msg := range buffer {
+		if err := sendJSON(ws, msg); err != nil {
+			log.Errorf("failed to send DAG message to client: %s", err.Error())
+		}
+	}
+}
+
+func sendJSON(ws *websocket.Conn, msg *wsMessage) error {
+	if err := ws.WriteJSON(msg); err != nil {
+		return err
+	}
+	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
+		return err
 	}
 	return nil
 }
