@@ -90,6 +90,9 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 			return
 		}
 
+		// Update Markers weight.
+		a.updateSequenceSupporters(message)
+
 		a.tangle.Storage.LatestVotes(voter, NewLatestVotes).Consume(func(latestVotes *LatestVotes) {
 			addedVote := vote.WithOpinion(Confirmed)
 			for addBranchID := range addedBranchIDs {
@@ -237,6 +240,7 @@ func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.Bra
 // determineBranchesToAdd iterates through the past cone of the given ConflictBranches and determines the BranchIDs that
 // are affected by the Vote.
 func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches ledgerstate.BranchIDs, allParentsAdded bool) {
+	addedBranches = ledgerstate.NewBranchIDs()
 	allParentsAdded = true
 	for currentConflictBranchID := range conflictBranchIDs {
 		currentVote := vote.WithBranchID(currentConflictBranchID)
@@ -269,6 +273,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 // determineBranchesToRevoke determines which Branches of the conflicting future cone of the added Branches are affected
 // by the vote and if the vote is valid (not voting for conflicting Branches).
 func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerstate.BranchIDs, vote *Vote) (revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
+	revokedBranches = ledgerstate.NewBranchIDs()
 	subTractionWalker := walker.New()
 	for addedBranch := range addedBranches {
 		a.tangle.LedgerState.ForEachConflictingBranchID(addedBranch, func(conflictingBranchID ledgerstate.BranchID) bool {
@@ -288,6 +293,8 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerst
 		if _, exists := a.voteWithHigherSequence(currentVote); exists {
 			continue
 		}
+
+		revokedBranches.Add(currentVote.BranchID)
 
 		a.tangle.LedgerState.ChildBranches(currentVote.BranchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
 			if childBranch.ChildBranchType() == ledgerstate.AggregatedBranchType {
@@ -1536,7 +1543,8 @@ func (l *LatestVotes) Store(vote *Vote) {
 // NewLatestVotes creates a new LatestVotes.
 func NewLatestVotes(supporter Voter) (latestVotes *LatestVotes) {
 	latestVotes = &LatestVotes{
-		voter: supporter,
+		voter:       supporter,
+		latestVotes: make(map[ledgerstate.BranchID]*Vote),
 	}
 
 	latestVotes.Persist()
