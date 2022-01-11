@@ -68,9 +68,6 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.updateBranchSupporters(message)
 		a.updateSequenceSupporters(message)
-		// Update Markers weight.
-		a.updateSequenceSupporters(message)
-
 
 		a.Events.MessageProcessed.Trigger(messageID)
 	})
