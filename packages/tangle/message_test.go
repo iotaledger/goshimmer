@@ -423,10 +423,10 @@ func TestNewMessageWithValidation(t *testing.T) {
 		}
 		likeBlock := ParentsBlock{
 			ParentsType: ShallowLikeParentType,
-			References:  parents,
+			References:  testSortParents(randomParents(MaxParentsCount)),
 		}
 		unknownBlock := ParentsBlock{
-			ParentsType: LastValidBlockType, // this should always be out of range
+			ParentsType: LastValidBlockType + 1, // this should always be out of range
 			References:  parents,
 		}
 
