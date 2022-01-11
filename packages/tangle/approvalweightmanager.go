@@ -66,48 +66,13 @@ func (a *ApprovalWeightManager) Setup() {
 // approval weights for branch and markers are reached.
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		branchesOfMessage, err := a.tangle.Booker.MessageBranchIDs(messageID)
-		if err != nil {
-			panic(err)
-		}
-		defer a.Events.MessageProcessed.Trigger(messageID)
-
-		voter := identity.NewID(message.IssuerPublicKey())
-
-		vote := &Vote{
-			Voter:          voter,
-			SequenceNumber: sequenceNumber,
-		}
-
-		addedBranchIDs, revokedBranchIDs, isInvalid := a.determineVotes(branchesOfMessage, vote)
-		if isInvalid {
-			a.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				messageMetadata.SetSubjectivelyInvalid(true)
-			})
-		}
-
-		if !a.isRelevantSupporter(message) {
-			return
-		}
-
+		a.updateBranchSupporters(message)
+		a.updateSequenceSupporters(message)
 		// Update Markers weight.
 		a.updateSequenceSupporters(message)
 
-		a.tangle.Storage.LatestVotes(voter, NewLatestVotes).Consume(func(latestVotes *LatestVotes) {
-			addedVote := vote.WithOpinion(Confirmed)
-			for addBranchID := range addedBranchIDs {
-				latestVotes.Store(addedVote.WithBranchID(addBranchID))
-				a.addSupportToBranch(addBranchID, voter)
-			}
 
-			revokedVote := vote.WithOpinion(Rejected)
-			for revokedBranchID := range revokedBranchIDs {
-				latestVotes.Store(revokedVote.WithBranchID(revokedBranchID))
-				a.revokeSupportFromBranch(revokedBranchID, voter)
-			}
-
-		})
-
+		a.Events.MessageProcessed.Trigger(messageID)
 	})
 }
 
@@ -230,6 +195,44 @@ func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supp
 	return
 }
 
+func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
+	branchesOfMessage, err := a.tangle.Booker.MessageBranchIDs(message.ID())
+	if err != nil {
+		panic(err)
+	}
+
+	voter := identity.NewID(message.IssuerPublicKey())
+	vote := &Vote{
+		Voter:          voter,
+		SequenceNumber: sequenceNumber,
+	}
+
+	addedBranchIDs, revokedBranchIDs, isInvalid := a.determineVotes(branchesOfMessage, vote)
+	if isInvalid {
+		a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetSubjectivelyInvalid(true)
+		})
+	}
+
+	if !a.isRelevantSupporter(message) {
+		return
+	}
+
+	a.tangle.Storage.LatestVotes(voter, NewLatestVotes).Consume(func(latestVotes *LatestVotes) {
+		addedVote := vote.WithOpinion(Confirmed)
+		for addBranchID := range addedBranchIDs {
+			latestVotes.Store(addedVote.WithBranchID(addBranchID))
+			a.addSupportToBranch(addBranchID, voter)
+		}
+
+		revokedVote := vote.WithOpinion(Rejected)
+		for revokedBranchID := range revokedBranchIDs {
+			latestVotes.Store(revokedVote.WithBranchID(revokedBranchID))
+			a.revokeSupportFromBranch(revokedBranchID, voter)
+		}
+	})
+}
+
 func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
 	addedBranches, _ = a.determineBranchesToAdd(conflictBranchIDs, vote.WithOpinion(Confirmed))
 	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, vote.WithOpinion(Rejected))
@@ -242,6 +245,7 @@ func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.Bra
 func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches ledgerstate.BranchIDs, allParentsAdded bool) {
 	addedBranches = ledgerstate.NewBranchIDs()
 	allParentsAdded = true
+
 	for currentConflictBranchID := range conflictBranchIDs {
 		currentVote := vote.WithBranchID(currentConflictBranchID)
 
@@ -985,12 +989,12 @@ func (c *CachedStatement) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Voter ////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Voter ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Voter is a type wrapper for identity.ID and defines a node that supports a branch or marker.
 type Voter = identity.ID
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Supporters ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1653,7 +1657,7 @@ var _ objectstorage.StorableObject = &LatestVotes{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedLatestVotes //////////////////////////////////////////////////////////////////////////////////////////////
+// region CachedLatestVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
 // CachedLatestVotes is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
@@ -1696,7 +1700,7 @@ func (c *CachedLatestVotes) String() string {
 	)
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Vote /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
