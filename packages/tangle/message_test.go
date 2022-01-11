@@ -310,7 +310,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		}
 		dislikeBlock := ParentsBlock{
 			ParentsType: ShallowDislikeParentType,
-			References:  parents,
+			References:  testSortParents(randomParents(MaxParentsCount)),
 		}
 		likeBlock := ParentsBlock{
 			ParentsType: ShallowLikeParentType,
@@ -356,7 +356,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		_, err = newMessageWithValidation(
 			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock, likeBlock, dislikeBlock},
+			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock, likeBlock},
 			time.Now(),
 			ed25519.PublicKey{},
 			payload.NewGenericDataPayload([]byte("")),
@@ -364,7 +364,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "like block came before dislike block")
+		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before like block")
 	})
 
 	t.Run("CASE: Repeating block types", func(t *testing.T) {
