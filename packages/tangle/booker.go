@@ -109,6 +109,10 @@ func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs ledgerstate.Br
 		return ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), nil
 	}
 
+	if len(branchIDs) > 1 {
+		branchIDs.Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
+	}
+
 	return
 }
 
@@ -322,10 +326,6 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 		}
 	}) {
 		err = errors.Errorf("failed to retrieve MessageMetadata with %s: %w", messageID, cerrors.ErrFatal)
-	}
-
-	if len(messageBranchIDs) > 1 {
-		messageBranchIDs.Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
 	}
 
 	return structureDetails, pastMarkersBranchIDs, messageBranchIDs, err
