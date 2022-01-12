@@ -288,7 +288,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	}, time.Now())
 
 	// Test empty set of parents
-	checkReferences(t, tangle, MessageIDsSlice{}, map[ParentsType]MessageIDs{}, time.Now())
+	checkReferences(t, tangle, MessageIDsSlice{}, map[ParentsType]MessageIDs{}, time.Now(), true)
 
 	// Add reattachment that is older than the original message
 	// Message 5 (reattachment)
