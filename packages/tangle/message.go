@@ -792,7 +792,8 @@ type MessageMetadata struct {
 	branchID            ledgerstate.BranchID
 	scheduled           bool
 	scheduledTime       time.Time
-	scheduledBypass     bool
+	discardedTime       time.Time
+	queuedTime          time.Time
 	booked              bool
 	bookedTime          time.Time
 	invalid             bool
@@ -805,7 +806,8 @@ type MessageMetadata struct {
 	branchIDMutex           sync.RWMutex
 	scheduledMutex          sync.RWMutex
 	scheduledTimeMutex      sync.RWMutex
-	scheduledBypassMutex    sync.RWMutex
+	discardedTimeMutex      sync.RWMutex
+	queuedTimeMutex         sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
 	invalidMutex            sync.RWMutex
@@ -863,10 +865,6 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
-		return
-	}
-	if result.scheduledBypass, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse scheduledBypass flag of message metadata: %w", err)
 		return
 	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
@@ -1039,29 +1037,36 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 	return m.scheduledTime
 }
 
-// SetScheduledBypass sets the message associated with this metadata as scheduledBypass.
-// It returns true if the scheduledBypass status is modified. False otherwise.
-func (m *MessageMetadata) SetScheduledBypass(scheduledBypass bool) (modified bool) {
-	m.scheduledBypassMutex.Lock()
-	defer m.scheduledBypassMutex.Unlock()
+// SetDiscardedTime add the discarded time of a message to the metadata.
+func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
+	m.discardedTimeMutex.Lock()
+	defer m.discardedTimeMutex.Unlock()
 
-	if m.scheduledBypass == scheduledBypass {
-		return false
-	}
-
-	m.scheduledBypass = scheduledBypass
-	m.SetModified()
-	modified = true
-
-	return
+	m.discardedTime = discardedTime
 }
 
-// ScheduledBypass returns true if the message represented by this metadata was scheduledBypassed. False otherwise.
-func (m *MessageMetadata) ScheduledBypass() (result bool) {
-	m.scheduledBypassMutex.RLock()
-	defer m.scheduledBypassMutex.RUnlock()
+// DiscardedTime returns when the message was discarded.
+func (m *MessageMetadata) DiscardedTime() time.Time {
+	m.discardedTimeMutex.RLock()
+	defer m.discardedTimeMutex.RUnlock()
 
-	return m.scheduledBypass
+	return m.discardedTime
+}
+
+// QueuedTime returns the time a message entered the scheduling queue.
+func (m *MessageMetadata) QueuedTime() time.Time {
+	m.queuedTimeMutex.RLock()
+	defer m.queuedTimeMutex.RUnlock()
+
+	return m.queuedTime
+}
+
+// SetQueuedTime records the time the message entered the scheduler queue.
+func (m *MessageMetadata) SetQueuedTime(queuedTime time.Time) {
+	m.queuedTimeMutex.Lock()
+	defer m.queuedTimeMutex.Unlock()
+
+	m.queuedTime = queuedTime
 }
 
 // SetBooked sets the message associated with this metadata as booked.
@@ -1183,7 +1188,6 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Write(m.BranchID()).
 		WriteBool(m.Scheduled()).
 		WriteTime(m.ScheduledTime()).
-		WriteBool(m.ScheduledBypass()).
 		WriteBool(m.IsBooked()).
 		WriteTime(m.BookedTime()).
 		WriteBool(m.IsInvalid()).
@@ -1209,7 +1213,6 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("branchID", m.BranchID()),
 		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("scheduledTime", m.ScheduledTime()),
-		stringify.StructField("scheduledBypass", m.ScheduledBypass()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("invalid", m.IsInvalid()),

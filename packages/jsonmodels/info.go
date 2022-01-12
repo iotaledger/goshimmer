@@ -57,9 +57,11 @@ type Mana struct {
 
 // Scheduler is the scheduler details.
 type Scheduler struct {
-	Running        bool           `json:"running"`
-	Rate           string         `json:"rate"`
-	NodeQueueSizes map[string]int `json:"nodeQueueSizes"`
+	Running           bool           `json:"running"`
+	Rate              string         `json:"rate"`
+	MaxBufferSize     int            `json:"maxBufferSize"`
+	CurrentBufferSize int            `json:"currentBufferSizer"`
+	NodeQueueSizes    map[string]int `json:"nodeQueueSizes"`
 }
 
 // RateSetter is the rate setter details.

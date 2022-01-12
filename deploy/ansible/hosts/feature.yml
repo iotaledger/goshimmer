@@ -43,6 +43,7 @@ goshimmers:
     debugPorts: true
     remoteDebugging: true
     snapshotResetTime: true
+    spammer: true
 
 drands:
   hosts:

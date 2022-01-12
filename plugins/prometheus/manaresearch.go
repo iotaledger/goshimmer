@@ -53,11 +53,12 @@ func registerManaResearchMetrics() {
 }
 
 func collectManaResearchMetrics() {
+	accessManaMapResearch.Reset()
 	for nodeID, value := range metrics.AccessResearchManaMap() {
 		accessManaMapResearch.WithLabelValues(nodeID.String()).Set(value)
 	}
 	accessPercentileResearch.Set(metrics.AccessResearchPercentile())
-
+	consensusManaMapResearch.Reset()
 	for nodeID, value := range metrics.ConsensusResearchManaMap() {
 		consensusManaMapResearch.WithLabelValues(nodeID.String()).Set(value)
 	}
