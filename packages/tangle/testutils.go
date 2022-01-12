@@ -119,24 +119,31 @@ func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs ledgersta
 func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
 	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
 
+	references := map[ParentsType]MessageIDs{
+		StrongParentType:         m.strongParentIDs(options),
+		WeakParentType:           m.weakParentIDs(options),
+		ShallowDislikeParentType: m.shallowDislikeParentIDs(options),
+		ShallowLikeParentType:    m.shallowLikeParentIDs(options),
+	}
+
 	if options.reattachmentMessageAlias != "" {
 		reattachmentPayload := m.Message(options.reattachmentMessageAlias).Payload()
 		if options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(reattachmentPayload, references, options.issuer)
 		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(reattachmentPayload, references, options.issuer, options.issuingTime)
 		}
 	} else {
 		transaction := m.buildTransaction(options)
 
 		if transaction != nil && options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, references, options.issuer)
 		} else if transaction != nil && !options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(transaction, references, options.issuer, options.issuingTime)
 		} else if options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
+			m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, references, options.issuer)
 		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageTimestampIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
+			m.messagesByAlias[messageAlias] = newTestParentsDataMessageTimestampIssuer(messageAlias, references, options.issuer, options.issuingTime)
 		}
 	}
 
@@ -395,8 +402,8 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 
 // strongParentIDs returns the MessageIDs that were defined to be the strong parents of the
 // MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMessageOptions) (strongParentIDs MessageIDsSlice) {
-	strongParentIDs = make(MessageIDsSlice, 0)
+func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
+	strongParentIDs := make(MessageIDsSlice, 0)
 	for strongParentAlias := range options.strongParents {
 		if strongParentAlias == "Genesis" {
 			strongParentIDs = append(strongParentIDs, EmptyMessageID)
@@ -407,13 +414,13 @@ func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMess
 		strongParentIDs = append(strongParentIDs, m.messagesByAlias[strongParentAlias].ID())
 	}
 
-	return
+	return strongParentIDs.ToMessageIDs()
 }
 
 // weakParentIDs returns the MessageIDs that were defined to be the weak parents of the
 // MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) (weakParentIDs MessageIDsSlice) {
-	weakParentIDs = make(MessageIDsSlice, 0)
+func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
+	weakParentIDs := make(MessageIDsSlice, 0)
 	for weakParentAlias := range options.weakParents {
 		if weakParentAlias == "Genesis" {
 			weakParentIDs = append(weakParentIDs, EmptyMessageID)
@@ -424,24 +431,41 @@ func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessag
 		weakParentIDs = append(weakParentIDs, m.messagesByAlias[weakParentAlias].ID())
 	}
 
-	return
+	return weakParentIDs.ToMessageIDs()
 }
 
-// likeParentIDs returns the MessageIDs that were defined to be the like parents of the
+// shallowDislikeParentIDs returns the MessageIDs that were defined to be the shallow dislike parents of the
 // MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) likeParentIDs(options *MessageTestFrameworkMessageOptions) (likeParentIDs MessageIDsSlice) {
-	likeParentIDs = make(MessageIDsSlice, 0)
-	for likeParentAlias := range options.likeParents {
-		if likeParentAlias == "Genesis" {
-			likeParentIDs = append(likeParentIDs, EmptyMessageID)
+func (m *MessageTestFramework) shallowDislikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
+	shallowDislikeParentIDs := make(MessageIDsSlice, 0)
+	for shallowDislikeParentAlias := range options.shallowDislikeParents {
+		if shallowDislikeParentAlias == "Genesis" {
+			shallowDislikeParentIDs = append(shallowDislikeParentIDs, EmptyMessageID)
 
 			continue
 		}
 
-		likeParentIDs = append(likeParentIDs, m.messagesByAlias[likeParentAlias].ID())
+		shallowDislikeParentIDs = append(shallowDislikeParentIDs, m.messagesByAlias[shallowDislikeParentAlias].ID())
 	}
 
-	return
+	return shallowDislikeParentIDs.ToMessageIDs()
+}
+
+// shallowLikeParentIDs returns the MessageIDs that were defined to be the shallow like parents of the
+// MessageTestFrameworkMessageOptions.
+func (m *MessageTestFramework) shallowLikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
+	shallowLikeParentIDs := make(MessageIDsSlice, 0)
+	for shallowLikeParentAlias := range options.shallowLikeParents {
+		if shallowLikeParentAlias == "Genesis" {
+			shallowLikeParentIDs = append(shallowLikeParentIDs, EmptyMessageID)
+
+			continue
+		}
+
+		shallowLikeParentIDs = append(shallowLikeParentIDs, m.messagesByAlias[shallowLikeParentAlias].ID())
+	}
+
+	return shallowLikeParentIDs.ToMessageIDs()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -515,7 +539,8 @@ type MessageTestFrameworkMessageOptions struct {
 	coloredOutputs           map[string]map[ledgerstate.Color]uint64
 	strongParents            map[string]types.Empty
 	weakParents              map[string]types.Empty
-	likeParents              map[string]types.Empty
+	shallowLikeParents       map[string]types.Empty
+	shallowDislikeParents    map[string]types.Empty
 	issuer                   ed25519.PublicKey
 	issuingTime              time.Time
 	reattachmentMessageAlias string
@@ -524,11 +549,12 @@ type MessageTestFrameworkMessageOptions struct {
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
 func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
 	messageOptions = &MessageTestFrameworkMessageOptions{
-		inputs:        make(map[string]types.Empty),
-		outputs:       make(map[string]uint64),
-		strongParents: make(map[string]types.Empty),
-		weakParents:   make(map[string]types.Empty),
-		likeParents:   make(map[string]types.Empty),
+		inputs:                make(map[string]types.Empty),
+		outputs:               make(map[string]uint64),
+		strongParents:         make(map[string]types.Empty),
+		weakParents:           make(map[string]types.Empty),
+		shallowLikeParents:    make(map[string]types.Empty),
+		shallowDislikeParents: make(map[string]types.Empty),
 	}
 
 	for _, option := range options {
@@ -583,11 +609,20 @@ func WithWeakParents(messageAliases ...string) MessageOption {
 	}
 }
 
-// WithLikeParents returns a MessageOption that is used to define the like parents of the Message.
-func WithLikeParents(messageAliases ...string) MessageOption {
+// WithShallowLikeParents returns a MessageOption that is used to define the shallow like parents of the Message.
+func WithShallowLikeParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
-			options.likeParents[messageAlias] = types.Void
+			options.shallowLikeParents[messageAlias] = types.Void
+		}
+	}
+}
+
+// WithShallowLikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
+func WithShallowDislikeParents(messageAliases ...string) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		for _, messageAlias := range messageAliases {
+			options.shallowDislikeParents[messageAlias] = types.Void
 		}
 	}
 }
@@ -650,73 +685,38 @@ func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicK
 	return message
 }
 
-func newTestParentsDataMessage(payloadString string, strongParents, weakParents, shallowDislikeParents, shallowLikeParents MessageIDsSlice) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType:         strongParents.ToMessageIDs(),
-		WeakParentType:           weakParents.ToMessageIDs(),
-		ShallowDislikeParentType: shallowDislikeParents.ToMessageIDs(),
-		ShallowLikeParentType:    shallowLikeParents.ToMessageIDs(),
-	}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessage(payloadString string, references map[ParentsType]MessageIDs) *Message {
+	message, _ := NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return message
 }
 
-func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents, shallowDislikeParents, shallowLikeParents MessageIDsSlice, issuer ed25519.PublicKey) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType:         strongParents.ToMessageIDs(),
-		WeakParentType:           weakParents.ToMessageIDs(),
-		ShallowDislikeParentType: shallowDislikeParents.ToMessageIDs(),
-		ShallowLikeParentType:    shallowLikeParents.ToMessageIDs(),
-	}, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessageIssuer(payloadString string, references map[ParentsType]MessageIDs, issuer ed25519.PublicKey) *Message {
+	message, _ := NewMessage(references, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return message
 }
 
-func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents, shallowDislikeParents, shallowLikeParents MessageIDsSlice, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType:         strongParents.ToMessageIDs(),
-		WeakParentType:           weakParents.ToMessageIDs(),
-		ShallowDislikeParentType: shallowDislikeParents.ToMessageIDs(),
-		ShallowLikeParentType:    shallowLikeParents.ToMessageIDs(),
-	}, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestParentsDataMessageTimestampIssuer(payloadString string, references map[ParentsType]MessageIDs, issuer ed25519.PublicKey, timestamp time.Time) *Message {
+	message, _ := NewMessage(references, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return message
 }
 
-func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents, shallowDislikeParents, shallowLikeParents MessageIDsSlice) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType:         strongParents.ToMessageIDs(),
-		WeakParentType:           weakParents.ToMessageIDs(),
-		ShallowDislikeParentType: shallowDislikeParents.ToMessageIDs(),
-		ShallowLikeParentType:    shallowLikeParents.ToMessageIDs(),
-	}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessage(p payload.Payload, references map[ParentsType]MessageIDs) *Message {
+	message, _ := NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 	return message
 }
 
-func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents, shallowDislikeParents, shallowLikeParents MessageIDsSlice, issuer ed25519.PublicKey) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType:         strongParents.ToMessageIDs(),
-		WeakParentType:           weakParents.ToMessageIDs(),
-		ShallowDislikeParentType: shallowDislikeParents.ToMessageIDs(),
-		ShallowLikeParentType:    shallowLikeParents.ToMessageIDs(),
-	}, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessageIssuer(p payload.Payload, references map[ParentsType]MessageIDs, issuer ed25519.PublicKey) *Message {
+	message, _ := NewMessage(references, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
 	return message
 }
 
-func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, strongParents, weakParents, shallowDislikeParents, shallowLikeParents MessageIDsSlice, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType:         strongParents.ToMessageIDs(),
-		WeakParentType:           weakParents.ToMessageIDs(),
-		ShallowDislikeParentType: shallowDislikeParents.ToMessageIDs(),
-		ShallowLikeParentType:    shallowLikeParents.ToMessageIDs(),
-	}, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, references map[ParentsType]MessageIDs, issuer ed25519.PublicKey, timestamp time.Time) *Message {
+	message, _ := NewMessage(references, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
 	return message
 }
 
-func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents, shallowDislikeParents, shallowLikeParents MessageIDsSlice, timestamp time.Time) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType:         strongParents.ToMessageIDs(),
-		WeakParentType:           weakParents.ToMessageIDs(),
-		ShallowDislikeParentType: shallowDislikeParents.ToMessageIDs(),
-		ShallowLikeParentType:    shallowLikeParents.ToMessageIDs(),
-	}, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadWithTimestamp(p payload.Payload, references map[ParentsType]MessageIDs, timestamp time.Time) *Message {
+	message, _ := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 	return message
 }
 

@@ -333,9 +333,17 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
-	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
-	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
+	messageA := newTestParentsDataMessage("A", map[ParentsType]MessageIDs{
+		StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+	})
+	messageB := newTestParentsDataMessage("B", map[ParentsType]MessageIDs{
+		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
+		WeakParentType:   MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+	})
+	messageC := newTestParentsDataMessage("C", map[ParentsType]MessageIDs{
+		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
+		WeakParentType:   MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+	})
 
 	var wg sync.WaitGroup
 
