@@ -524,8 +524,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			0,
 		)
-
-		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks, "messages repeating in weak and strong block")
+		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
 
 		// check for repeating message across weak and dislike block
 		weakParents := testSortParents(randomParents(4))
@@ -540,7 +539,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		}
 
 		dislikeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
+			ParentsType: ShallowDislikeParentType,
 			References:  dislikeParents,
 		}
 
@@ -553,7 +552,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			0,
 			ed25519.Signature{},
 			0)
-
+		fmt.Println(err)
 		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks, "message repeated across weak and dislike blocks")
 	})
 }
