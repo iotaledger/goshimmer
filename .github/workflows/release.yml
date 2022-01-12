@@ -74,7 +74,7 @@ jobs:
           repository: iotaledger/goshimmer
           username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
           password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
-          tags: latest
+          tags: latest,${{github.event.inputs.tagName}}
           tag_with_ref: true
 
       - name: Install SSH Key
