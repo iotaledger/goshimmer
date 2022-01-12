@@ -8,7 +8,7 @@ on:
 
 jobs:
   docker:
-    environment: feature
+    environment: devnet
     name: Docker build and push
     runs-on:
       - ubuntu-latest
@@ -22,8 +22,8 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         with:
-          repository: iotaledgertesting/goshimmer
-          username: '${{ secrets.IOTALEDGERTESTING_HUB_DOCKER_LOGIN }}'
-          password: '${{ secrets.IOTALEDGERTESTING_HUB_DOCKER_PASSWORD }}'
+          repository: iotaledger/goshimmer
+          username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
+          password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
           tags: latest,${{github.event.inputs.tagName}}
           tag_with_ref: true
