@@ -121,10 +121,9 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 			}
 		}
 
-		// if the submitted message is older than the oldest ready message, then drop the submitted message
-		// otherwise drop the oldest ready message
+		// if the oldest not-ready message is older than the oldest ready message, drop the former otherwise the latter
 		readyQueueFront := longestQueue.Front()
-		if oldestMessage != nil && (readyQueueFront == nil || readyQueueFront != nil && oldestMessage.IssuingTime().Before(readyQueueFront.IssuingTime())) {
+		if oldestMessage != nil && (readyQueueFront == nil || oldestMessage.IssuingTime().Before(readyQueueFront.IssuingTime())) {
 			messagesDropped = append(messagesDropped, ElementIDFromBytes(oldestMessage.IDBytes()))
 			// no need to check if Unsubmit call succeeded, as the mutex of the scheduler is locked to current context
 			b.Unsubmit(oldestMessage)
