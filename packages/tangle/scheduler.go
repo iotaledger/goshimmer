@@ -299,7 +299,7 @@ func (s *Scheduler) Clear() {
 		for _, id := range q.IDs() {
 			messageID := MessageID(id)
 			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				messageMetadata.SetDiscardedTime(time.Now())
+				messageMetadata.SetDiscardedTime(clock.SyncedTime())
 			})
 			s.Events.MessageDiscarded.Trigger(messageID)
 		}
@@ -354,13 +354,13 @@ func (s *Scheduler) submit(message *Message) error {
 
 	s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// shortly before submitting we set the queued time
-		messageMetadata.SetQueuedTime(time.Now())
+		messageMetadata.SetQueuedTime(clock.SyncedTime())
 	})
 	// when removing the zero mana node solution, check if nodes have MinMana here
 	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
 	for _, droppedMsgID := range droppedMessageIDs {
 		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetDiscardedTime(time.Now())
+			messageMetadata.SetDiscardedTime(clock.SyncedTime())
 		})
 		s.Events.MessageDiscarded.Trigger(MessageID(droppedMsgID))
 	}
@@ -394,8 +394,7 @@ func (s *Scheduler) schedule() *Message {
 		// a message can be scheduled, if it is ready
 		// (its issuing time is not in the future and all of its parents are eligible).
 		// while loop to skip all the confirmed messages
-		foundMsg := false
-		for msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) && !foundMsg {
+		for msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) {
 			msgID, _, err := MessageIDFromBytes(msg.IDBytes())
 			if err != nil {
 				panic("MessageID could not be parsed!")
@@ -407,7 +406,6 @@ func (s *Scheduler) schedule() *Message {
 				s.buffer.PopFront()
 				msg = q.Front()
 			} else {
-				foundMsg = true
 				// compute how often the deficit needs to be incremented until the message can be scheduled
 				remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
 				nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
@@ -416,6 +414,7 @@ func (s *Scheduler) schedule() *Message {
 					rounds = r
 					schedulingNode = q
 				}
+				break
 			}
 		}
 

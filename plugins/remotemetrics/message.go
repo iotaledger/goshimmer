@@ -3,10 +3,11 @@ package remotemetrics
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 func onMessageScheduled(messageID tangle.MessageID) {
