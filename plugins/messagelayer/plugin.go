@@ -99,7 +99,6 @@ func configure(plugin *node.Plugin) {
 
 	deps.Tangle.Parser.Events.BytesRejected.Attach(events.NewClosure(func(ev *tangle.BytesRejectedEvent, err error) {
 		if errors.Is(err, tangle.ErrReceivedDuplicateBytes) {
-			plugin.LogDebugf("bytes rejected from peer %s: %v", ev.Peer.ID(), err)
 			return
 		}
 
