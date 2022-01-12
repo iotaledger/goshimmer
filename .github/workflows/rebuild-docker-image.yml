@@ -1,13 +1,10 @@
 name: Build image version with specific tag
 on:
-  #  workflow_dispatch:
-  #    inputs:
-  #      tagName:
-  #        description: 'Tag name'
-  #        required: true
-  push:
-    branches:
-      - feat/tag-release-image
+    workflow_dispatch:
+      inputs:
+        tagName:
+          description: 'Tag name'
+          required: true
 
 jobs:
   docker:
