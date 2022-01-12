@@ -185,11 +185,21 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 	}
 
 	aggregatedInheritedBranchID := b.tangle.LedgerState.AggregateConflictBranchesID(inheritedBranchIDs)
-	addedBranchIDs := inheritedBranchIDs.Clone().Subtract(pastMarkersBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
-	subtractedBranchIDs := pastMarkersBranchIDs.Clone().Subtract(inheritedBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
 
 	inheritedStructureDetails, newSequenceCreated := b.MarkersManager.InheritStructureDetails(message, structureDetails, markers.NewSequenceAlias(aggregatedInheritedBranchID.Bytes()))
 	messageMetadata.SetStructureDetails(inheritedStructureDetails)
+
+	// We have to determine the diff metadata from the normalized set of StructureDetails after inheriting.
+	if !newSequenceCreated {
+		inheritedStructureDetailsBranchIDs, inheritedStructureDetailsBranchIDsErr := b.branchIDsFromStructureDetails(inheritedStructureDetails)
+		if inheritedStructureDetailsBranchIDsErr != nil {
+			return errors.Errorf("failed to determine BranchIDs of inherited StructureDetails of Message with %s: %w", message.ID(), inheritedStructureDetailsBranchIDsErr)
+		}
+		pastMarkersBranchIDs = inheritedStructureDetailsBranchIDs
+	}
+
+	addedBranchIDs := inheritedBranchIDs.Clone().Subtract(pastMarkersBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
+	subtractedBranchIDs := pastMarkersBranchIDs.Clone().Subtract(inheritedBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
 
 	switch b.branchMappingTarget(newSequenceCreated, len(addedBranchIDs)+len(subtractedBranchIDs) == 0, inheritedStructureDetails.IsPastMarker) {
 	case MarkerMappingTarget:
@@ -230,13 +240,13 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 		return nil, nil, nil, errors.Errorf("failed to book payload of %s: %w", message.ID(), bookingErr)
 	}
 
-	parentsStructureDetails, parentsPastMarkersBranchIDs, parentsBranchIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(message)
+	parentsStructureDetails, parentsPastMarkersBranchIDs, strongParentsBranchIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(message)
 	if bookingDetailsErr != nil {
 		err = errors.Errorf("failed to retrieve booking details of parents of Message with %s: %w", message.ID(), bookingErr)
 		return
 	}
 
-	arithmeticBranchIDs := NewArithmeticBranchIDs(parentsBranchIDs.AddAll(branchIDsOfPayload))
+	arithmeticBranchIDs := NewArithmeticBranchIDs(strongParentsBranchIDs.AddAll(branchIDsOfPayload))
 	if weakParentsErr := b.collectWeakParentsBranchIDs(message, arithmeticBranchIDs); weakParentsErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect weak parents of %s: %w", message.ID(), weakParentsErr)
 	}
@@ -291,19 +301,13 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 			return
 		}
 
-		// obtain all the Markers
-		structureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			conflictBranchIDs, conflictBranchIDsErr := b.MarkersManager.ConflictBranchIDs(markers.NewMarker(sequenceID, index))
-			if conflictBranchIDsErr != nil {
-				err = errors.Errorf("failed to retrieve ConflictBranchIDs of %s: %w", markers.NewMarker(sequenceID, index), conflictBranchIDsErr)
-				return false
-			}
-
-			pastMarkersBranchIDs.AddAll(conflictBranchIDs)
-			messageBranchIDs.AddAll(conflictBranchIDs)
-
-			return true
-		})
+		structureDetailsBranchIDs, structureDetailsBranchIDsErr := b.branchIDsFromStructureDetails(structureDetails)
+		if structureDetailsBranchIDsErr != nil {
+			err = errors.Errorf("failed to retrieve BranchIDs from Structure Details %s: %w", structureDetails, structureDetailsBranchIDsErr)
+			return
+		}
+		pastMarkersBranchIDs.AddAll(structureDetailsBranchIDs)
+		messageBranchIDs.AddAll(structureDetailsBranchIDs)
 
 		if metadataDiffAdd := messageMetadata.AddedBranchIDs(); metadataDiffAdd != ledgerstate.UndefinedBranchID {
 			conflictBranchIDs, conflictBranchIDsErr := b.tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(metadataDiffAdd))
@@ -331,7 +335,26 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 	return structureDetails, pastMarkersBranchIDs, messageBranchIDs, err
 }
 
-// strongParentsBranchIDs returns the branches of the Message's strong parents.
+// branchIDsFromStructureDetails returns the BranchIDs from StructureDetails.
+func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (branchIDs ledgerstate.BranchIDs, err error) {
+	branchIDs = ledgerstate.NewBranchIDs()
+	// obtain all the Markers
+	structureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		conflictBranchIDs, conflictBranchIDsErr := b.MarkersManager.ConflictBranchIDs(markers.NewMarker(sequenceID, index))
+		if conflictBranchIDsErr != nil {
+			err = errors.Errorf("failed to retrieve ConflictBranchIDs of %s: %w", markers.NewMarker(sequenceID, index), conflictBranchIDsErr)
+			return false
+		}
+
+		branchIDs.AddAll(conflictBranchIDs)
+
+		return true
+	})
+
+	return
+}
+
+// collectStrongParentsBookingDetails returns the booking details of a Message's strong parents.
 func (b *Booker) collectStrongParentsBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, parentsBranchIDs ledgerstate.BranchIDs, err error) {
 	parentsStructureDetails = make([]*markers.StructureDetails, 0)
 	parentsPastMarkersBranchIDs = ledgerstate.NewBranchIDs()
