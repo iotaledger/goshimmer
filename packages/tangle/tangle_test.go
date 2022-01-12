@@ -228,7 +228,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb))
+	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
 	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.LedgerState.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
 
 	defer tangle.Shutdown()
@@ -329,17 +329,17 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := NewTestTangle()
+	messageTangle := NewTestTangle(Identity(selfLocalIdentity))
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
-	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
-	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil)
+	messageA := newTestParentsDataMessageIssuer("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil, selfLocalIdentity.PublicKey())
+	messageB := newTestParentsDataMessageIssuer("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil, selfLocalIdentity.PublicKey())
+	messageC := newTestParentsDataMessageIssuer("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil, selfLocalIdentity.PublicKey())
 
 	var wg sync.WaitGroup
 
-	messageTangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(MessageID) {
+	messageTangle.Dispatcher.Events.MessageDispatched.Attach(events.NewClosure(func(MessageID) {
 		wg.Done()
 	}))
 
@@ -361,7 +361,7 @@ func TestTangle_Flow(t *testing.T) {
 		testPort    = 8000
 		targetPOW   = 2
 
-		solidMsgCount   = 0
+		solidMsgCount   = 2000
 		invalidMsgCount = 10
 		tangleWidth     = 250
 		networkDelay    = 5 * time.Millisecond
@@ -383,7 +383,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb))
+	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	// create local peer
@@ -392,7 +392,7 @@ func TestTangle_Flow(t *testing.T) {
 	localIdentity := tangle.Options.Identity
 	localPeer := peer.NewPeer(localIdentity.Identity, net.IPv4zero, services)
 
-	// setup the message factory
+	// set up the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
 		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
@@ -473,20 +473,20 @@ func TestTangle_Flow(t *testing.T) {
 
 	// counter for the different stages
 	var (
-		parsedMessages    int32
-		storedMessages    int32
-		missingMessages   int32
-		solidMessages     int32
-		scheduledMessages int32
-		bookedMessages    int32
-		orderedMessages   int32
-		awMessages        int32
-		invalidMessages   int32
-		rejectedMessages  int32
+		parsedMessages     int32
+		storedMessages     int32
+		missingMessages    int32
+		solidMessages      int32
+		scheduledMessages  int32
+		bookedMessages     int32
+		dispatchedMessages int32
+		awMessages         int32
+		invalidMessages    int32
+		rejectedMessages   int32
 	)
 
-	tangle.Parser.Events.BytesRejected.AttachAfter(events.NewClosure(func(e *BytesRejectedEvent) {
-		t.Logf("rejected bytes %v", e.Bytes)
+	tangle.Parser.Events.BytesRejected.AttachAfter(events.NewClosure(func(e *BytesRejectedEvent, err error) {
+		t.Logf("rejected bytes %v - %s", e.Bytes, err)
 	}))
 
 	// filter rejected events
@@ -540,9 +540,9 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.Orderer.Events.MessageOrdered.AttachAfter(events.NewClosure(func(messageID MessageID) {
-		n := atomic.AddInt32(&orderedMessages, 1)
-		t.Logf("ordered messages %d/%d", n, totalMsgCount)
+	tangle.Dispatcher.Events.MessageDispatched.AttachAfter(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&dispatchedMessages, 1)
+		t.Logf("dispatched messages %d/%d", n, totalMsgCount)
 	}))
 	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&awMessages, 1)
@@ -571,15 +571,15 @@ func TestTangle_Flow(t *testing.T) {
 	// wait for all messages to be scheduled
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
-	assert.EqualValuesf(t, solidMsgCount, atomic.LoadInt32(&parsedMessages), "parsed messages does not match")
-	assert.EqualValuesf(t, solidMsgCount, atomic.LoadInt32(&storedMessages), "stored messages does not match")
+	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&parsedMessages), "parsed messages does not match")
+	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&storedMessages), "stored messages does not match")
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&bookedMessages))
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&orderedMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&dispatchedMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&awMessages))
 	// messages with invalid timestamp are not forwarded from the timestamp filter, thus there are 0.
-	assert.EqualValues(t, 0, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&rejectedMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }

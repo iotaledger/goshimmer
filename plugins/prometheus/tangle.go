@@ -7,29 +7,38 @@ import (
 )
 
 var (
-	messageTips                  prometheus.Gauge
-	messagePerTypeCount          *prometheus.GaugeVec
-	messagePerComponentCount     *prometheus.GaugeVec
-	parentsCount                 *prometheus.GaugeVec
-	messageTotalCount            prometheus.Gauge
-	messageTotalCountDB          prometheus.Gauge
-	messageSolidCountDB          prometheus.Gauge
-	solidificationTotalTime      prometheus.Gauge
-	messageMissingCountDB        prometheus.Gauge
-	messageRequestCount          prometheus.Gauge
-	confirmedBranchCount         prometheus.Gauge
-	branchConfirmationTotalTime  prometheus.Gauge
-	totalBranchCountDB           prometheus.Gauge
-	finalizedBranchCountDB       prometheus.Gauge
-	finalizedMessageCount        *prometheus.GaugeVec
-	messageFinalizationTotalTime *prometheus.GaugeVec
-	transactionCounter           prometheus.Gauge
+	messageTips                               prometheus.Gauge
+	solidificationRequests                    prometheus.Gauge
+	messagePerTypeCount                       *prometheus.GaugeVec
+	initialMessagePerComponentCount           *prometheus.GaugeVec
+	messagePerComponentCount                  *prometheus.GaugeVec
+	initialSinceReceivedTotalTime             *prometheus.GaugeVec
+	sinceReceivedTotalTime                    *prometheus.GaugeVec
+	sinceIssuedTotalTime                      *prometheus.GaugeVec
+	initialSchedulerTotalTime                 prometheus.Gauge
+	schedulerTotalTime                        prometheus.Gauge
+	parentsCount                              *prometheus.GaugeVec
+	initialMissingMessagesCountDB             prometheus.Gauge
+	messageMissingCountDB                     prometheus.Gauge
+	messageRequestCount                       prometheus.Gauge
+	confirmedBranchCount                      prometheus.Gauge
+	branchConfirmationTotalTime               prometheus.Gauge
+	totalBranchCountDB                        prometheus.Gauge
+	finalizedBranchCountDB                    prometheus.Gauge
+	finalizedMessageCount                     *prometheus.GaugeVec
+	messageFinalizationTotalTimeSinceReceived *prometheus.GaugeVec
+	messageFinalizationTotalTimeSinceIssued   *prometheus.GaugeVec
 )
 
 func registerTangleMetrics() {
 	messageTips = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_message_tips_count",
 		Help: "Current number of tips in message tangle",
+	})
+
+	solidificationRequests = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_solidification_missing_message_count",
+		Help: "Total number of messages requested by Solidifier.",
 	})
 
 	messagePerTypeCount = prometheus.NewGaugeVec(
@@ -47,6 +56,13 @@ func registerTangleMetrics() {
 		}, []string{
 			"type",
 		})
+	initialMessagePerComponentCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_initial_messages_per_component_count",
+			Help: "number of messages per component seen since at the start of the node",
+		}, []string{
+			"component",
+		})
 
 	messagePerComponentCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -56,34 +72,48 @@ func registerTangleMetrics() {
 			"component",
 		})
 
-	messageTotalCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_total_count",
-		Help: "total number of messages seen since the start of the node",
+	initialSinceReceivedTotalTime = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_initial_message_total_time_since_received",
+			Help: "total time it took for a message to be processed by each component since it has been received at the start of the node",
+		}, []string{
+			"component",
+		})
+
+	sinceReceivedTotalTime = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_message_total_time_since_received",
+			Help: "total time it took for a message to be processed by each component since it has been received, since the start of the node",
+		}, []string{
+			"component",
+		})
+
+	sinceIssuedTotalTime = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_message_total_time_since_issued",
+			Help: "total time it took for a message to be processed by each component since it has been issued since the start of the node",
+		}, []string{
+			"component",
+		})
+
+	initialSchedulerTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_initial_total_scheduling_time",
+		Help: "total time the scheduled messages spend in the scheduling queue at the start of the node",
 	})
 
-	messageTotalCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_total_count_db",
-		Help: "total number of messages in the node's database",
-	})
-
-	messageSolidCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_solid_count_db",
-		Help: "number of solid messages on the node's database",
-	})
-
-	solidificationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_avg_solidification_time",
-		Help: "average time it takes for a message to become solid",
+	schedulerTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_total_scheduling_time",
+		Help: "total time the scheduled messages spend in the scheduling queue since the node start",
 	})
 
 	messageMissingCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_missing_count_db",
-		Help: "number of missing messages in the node's database",
+		Name: "tangle_message_missing_initial_count_db",
+		Help: "number of missing messages in the node's database at the start of the node",
 	})
 
-	transactionCounter = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_value_transaction_counter",
-		Help: "number of value transactions (value payloads) seen",
+	initialMissingMessagesCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_missing_count_db",
+		Help: "number of missing messages in the node's database since the start of the node",
 	})
 
 	messageRequestCount = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -91,10 +121,17 @@ func registerTangleMetrics() {
 		Help: "current number requested messages by the message tangle",
 	})
 
-	messageFinalizationTotalTime = prometheus.NewGaugeVec(
+	messageFinalizationTotalTimeSinceReceived = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "tangle_message_finalization_time",
-			Help: "total number of milliseconds taken for messages to finalize",
+			Name: "tangle_message_finalization_time_since_received",
+			Help: "total number of milliseconds taken for messages to finalize since message received",
+		}, []string{
+			"messageType",
+		})
+	messageFinalizationTotalTimeSinceIssued = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tangle_message_finalization_time_since_issued",
+			Help: "total number of milliseconds taken for messages to finalize since message issued",
 		}, []string{
 			"messageType",
 		})
@@ -127,40 +164,65 @@ func registerTangleMetrics() {
 	})
 
 	registry.MustRegister(messageTips)
+	registry.MustRegister(solidificationRequests)
 	registry.MustRegister(messagePerTypeCount)
 	registry.MustRegister(parentsCount)
+	registry.MustRegister(initialMessagePerComponentCount)
 	registry.MustRegister(messagePerComponentCount)
-	registry.MustRegister(messageTotalCount)
-	registry.MustRegister(messageTotalCountDB)
-	registry.MustRegister(messageSolidCountDB)
-	registry.MustRegister(solidificationTotalTime)
+	registry.MustRegister(sinceIssuedTotalTime)
+	registry.MustRegister(initialSinceReceivedTotalTime)
+	registry.MustRegister(sinceReceivedTotalTime)
+	registry.MustRegister(initialSchedulerTotalTime)
+	registry.MustRegister(schedulerTotalTime)
+	registry.MustRegister(initialMissingMessagesCountDB)
 	registry.MustRegister(messageMissingCountDB)
 	registry.MustRegister(messageRequestCount)
-	registry.MustRegister(messageFinalizationTotalTime)
+	registry.MustRegister(messageFinalizationTotalTimeSinceReceived)
+	registry.MustRegister(messageFinalizationTotalTimeSinceIssued)
 	registry.MustRegister(finalizedMessageCount)
 	registry.MustRegister(branchConfirmationTotalTime)
 	registry.MustRegister(confirmedBranchCount)
 	registry.MustRegister(totalBranchCountDB)
 	registry.MustRegister(finalizedBranchCountDB)
-	registry.MustRegister(transactionCounter)
 
 	addCollect(collectTangleMetrics)
 }
 
 func collectTangleMetrics() {
 	messageTips.Set(float64(metrics.MessageTips()))
+	solidificationRequests.Set(float64(metrics.SolidificationRequests()))
 	msgCountPerPayload := metrics.MessageCountSinceStartPerPayload()
 	for payloadType, count := range msgCountPerPayload {
 		messagePerTypeCount.WithLabelValues(payloadType.String()).Set(float64(count))
 	}
+
+	initialMsgCountPerComponent := metrics.InitialMessageCountPerComponentGrafana()
+	for component, count := range initialMsgCountPerComponent {
+		initialMessagePerComponentCount.WithLabelValues(component.String()).Set(float64(count))
+	}
+
 	msgCountPerComponent := metrics.MessageCountSinceStartPerComponentGrafana()
 	for component, count := range msgCountPerComponent {
 		messagePerComponentCount.WithLabelValues(component.String()).Set(float64(count))
 	}
-	messageTotalCount.Set(float64(metrics.MessageTotalCountSinceStart()))
-	messageTotalCountDB.Set(float64(metrics.MessageTotalCountDB()))
-	messageSolidCountDB.Set(float64(metrics.MessageSolidCountDB()))
-	solidificationTotalTime.Set(float64(metrics.SolidificationTime()))
+
+	initialSumTimeSinceReceived := metrics.InitialSumTimeSinceReceived()
+	for component, count := range initialSumTimeSinceReceived {
+		initialSinceReceivedTotalTime.WithLabelValues(component.String()).Set(float64(count))
+	}
+
+	sumTimeSinceReceived := metrics.SumTimeSinceReceived()
+	for component, count := range sumTimeSinceReceived {
+		sinceReceivedTotalTime.WithLabelValues(component.String()).Set(float64(count))
+	}
+	sumTimeSinceIssued := metrics.SumTimeSinceIssued()
+	for component, count := range sumTimeSinceIssued {
+		sinceIssuedTotalTime.WithLabelValues(component.String()).Set(float64(count))
+	}
+
+	initialSchedulerTotalTime.Set(float64(metrics.InitialSchedulerTime()))
+	schedulerTotalTime.Set(float64(metrics.SchedulerTime()))
+	initialMissingMessagesCountDB.Set(float64(metrics.InitialMessageMissingCountDB()))
 	messageMissingCountDB.Set(float64(metrics.MessageMissingCountDB()))
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
 	confirmedBranchCount.Set(float64(metrics.ConfirmedBranchCount()))
@@ -172,13 +234,17 @@ func collectTangleMetrics() {
 	for messageType, count := range finalizedMessageCountPerType {
 		finalizedMessageCount.WithLabelValues(messageType.String()).Set(float64(count))
 	}
-	messageFinalizationTotalTimePerType := metrics.MessageFinalizationTotalTimePerType()
-	for messageType, count := range messageFinalizationTotalTimePerType {
-		messageFinalizationTotalTime.WithLabelValues(messageType.String()).Set(float64(count))
+	messageFinalizationTotalTimeSinceReceivePerType := metrics.MessageFinalizationTotalTimeSinceReceivedPerType()
+	for messageType, count := range messageFinalizationTotalTimeSinceReceivePerType {
+		messageFinalizationTotalTimeSinceReceived.WithLabelValues(messageType.String()).Set(float64(count))
 	}
+	messageFinalizationTotalTimeSinceIssuederType := metrics.MessageFinalizationTotalTimeSinceIssuedPerType()
+	for messageType, count := range messageFinalizationTotalTimeSinceIssuederType {
+		messageFinalizationTotalTimeSinceIssued.WithLabelValues(messageType.String()).Set(float64(count))
+	}
+
 	parentsCountPerType := metrics.ParentCountPerType()
 	for parentType, count := range parentsCountPerType {
 		parentsCount.WithLabelValues(parentType.String()).Set(float64(count))
 	}
-	// transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
 }

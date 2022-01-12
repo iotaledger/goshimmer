@@ -1,0 +1,7 @@
+scrape_configs:
+  - job_name: goshimmer_local
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+          # goshimmer prometheus plugin export
+          - goshimmer:9311

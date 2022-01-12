@@ -78,8 +78,8 @@ func configureMessageLayer() {
 		deps.Tangle.ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
-	// configure flow of outgoing messages (gossip after ordering)
-	deps.Tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	// configure flow of outgoing messages (gossip upon dispatched messages)
+	deps.Tangle.Dispatcher.Events.MessageDispatched.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			deps.GossipMgr.SendMessage(message.Bytes())
 		})
