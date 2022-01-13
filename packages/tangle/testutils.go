@@ -128,22 +128,13 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 
 	if options.reattachmentMessageAlias != "" {
 		reattachmentPayload := m.Message(options.reattachmentMessageAlias).Payload()
-		if options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(reattachmentPayload, references, options.issuer)
-		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(reattachmentPayload, references, options.issuer, options.issuingTime)
-		}
+		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageWithOptions(reattachmentPayload, references, options)
 	} else {
 		transaction := m.buildTransaction(options)
-
-		if transaction != nil && options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, references, options.issuer)
-		} else if transaction != nil && !options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(transaction, references, options.issuer, options.issuingTime)
-		} else if options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, references, options.issuer)
+		if transaction != nil {
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageWithOptions(transaction, references, options)
 		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageTimestampIssuer(messageAlias, references, options.issuer, options.issuingTime)
+			m.messagesByAlias[messageAlias] = newTestParentsDataMessageWithOptions(messageAlias, references, options)
 		}
 	}
 
@@ -544,6 +535,8 @@ type MessageTestFrameworkMessageOptions struct {
 	issuer                   ed25519.PublicKey
 	issuingTime              time.Time
 	reattachmentMessageAlias string
+	sequenceNumber           uint64
+	overrideSequenceNumber   bool
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
@@ -648,6 +641,14 @@ func WithReattachment(messageAlias string) MessageOption {
 	}
 }
 
+// WithSequenceNumber returns a MessageOption that is used to define the sequence number of the Message.
+func WithSequenceNumber(sequenceNumber uint64) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.sequenceNumber = sequenceNumber
+		options.overrideSequenceNumber = true
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -685,34 +686,44 @@ func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicK
 	return message
 }
 
-func newTestParentsDataMessage(payloadString string, references map[ParentsType]MessageIDs) *Message {
-	message, _ := NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-	return message
+func newTestParentsDataMessage(payloadString string, references map[ParentsType]MessageIDs) (message *Message) {
+	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return
 }
 
-func newTestParentsDataMessageIssuer(payloadString string, references map[ParentsType]MessageIDs, issuer ed25519.PublicKey) *Message {
-	message, _ := NewMessage(references, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-	return message
+func newTestParentsDataMessageWithOptions(payloadString string, references map[ParentsType]MessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
+	var sequenceNumber uint64
+	if options.overrideSequenceNumber {
+		sequenceNumber = options.sequenceNumber
+	} else {
+		sequenceNumber = nextSequenceNumber()
+	}
+	if options.issuingTime.IsZero() {
+		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	} else {
+		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	}
+	return
 }
 
-func newTestParentsDataMessageTimestampIssuer(payloadString string, references map[ParentsType]MessageIDs, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	message, _ := NewMessage(references, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-	return message
+func newTestParentsPayloadMessage(p payload.Payload, references map[ParentsType]MessageIDs) (message *Message) {
+	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return
 }
 
-func newTestParentsPayloadMessage(p payload.Payload, references map[ParentsType]MessageIDs) *Message {
-	message, _ := NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
-	return message
-}
-
-func newTestParentsPayloadMessageIssuer(p payload.Payload, references map[ParentsType]MessageIDs, issuer ed25519.PublicKey) *Message {
-	message, _ := NewMessage(references, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
-	return message
-}
-
-func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, references map[ParentsType]MessageIDs, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	message, _ := NewMessage(references, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
-	return message
+func newTestParentsPayloadMessageWithOptions(p payload.Payload, references map[ParentsType]MessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
+	var sequenceNumber uint64
+	if options.overrideSequenceNumber {
+		sequenceNumber = options.sequenceNumber
+	} else {
+		sequenceNumber = nextSequenceNumber()
+	}
+	if options.issuingTime.IsZero() {
+		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+	} else {
+		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+	}
+	return
 }
 
 func newTestParentsPayloadWithTimestamp(p payload.Payload, references map[ParentsType]MessageIDs, timestamp time.Time) *Message {
@@ -985,7 +996,7 @@ func (e *EventMock) attach(event *events.Event, f interface{}) {
 	}{event, closure})
 }
 
-// AssertExpectations assets expectations.
+// AssertExpectations asserts expectations.
 func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	calledEvents := atomic.LoadUint64(&e.calledEvents)
 	expectedEvents := atomic.LoadUint64(&e.expectedEvents)
