@@ -201,7 +201,7 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 	voter := identity.NewID(message.IssuerPublicKey())
 	vote := &Vote{
 		Voter:          voter,
-		SequenceNumber: sequenceNumber,
+		SequenceNumber: message.SequenceNumber(),
 	}
 
 	addedBranchIDs, revokedBranchIDs, isInvalid := a.determineVotes(branchesOfMessage, vote)
@@ -231,7 +231,13 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 }
 
 func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
-	addedBranches, _ = a.determineBranchesToAdd(conflictBranchIDs, vote.WithOpinion(Confirmed))
+	addedBranches = ledgerstate.NewBranchIDs()
+	for conflictBranchID := range conflictBranchIDs {
+		// The starting branches should not be considered as having common Parents, hence we treat them separately.
+		conflictAddedBranches, _ := a.determineBranchesToAdd(ledgerstate.NewBranchIDs(conflictBranchID), vote.WithOpinion(Confirmed))
+		addedBranches.AddAll(conflictAddedBranches)
+
+	}
 	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, vote.WithOpinion(Rejected))
 
 	return
