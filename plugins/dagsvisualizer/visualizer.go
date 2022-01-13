@@ -205,7 +205,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 
 		reqValid := isTimeIntervalValid(startTimestamp, endTimestamp)
 		if !reqValid {
-			return
+			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
 
 		messages := []*tangleVertex{}

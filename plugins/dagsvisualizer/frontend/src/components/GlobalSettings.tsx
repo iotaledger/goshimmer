@@ -87,6 +87,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
     };
 
     render() {
+        const { searchError } = this.props.globalStore;
         return (
             <Container>
                 <div
@@ -123,7 +124,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </h5>
                             </div>
                             <Collapse in={this.state.searchOpen}>
-                                <Row xs={5}>
+                                <Row md={4}>
                                     <Col>
                                         From:{' '}
                                         <Datetime onChange={this.updateFrom} />
@@ -161,6 +162,17 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                         >
                                             Clear and Resume
                                         </Button>
+                                    </Col>
+                                    <Col
+                                        className="align-self-end"
+                                        style={{
+                                            display: 'flex',
+                                            color: 'red'
+                                        }}
+                                    >
+                                        <div>
+                                            <p>{searchError}</p>
+                                        </div>
                                     </Col>
                                 </Row>
                             </Collapse>

@@ -8,11 +8,13 @@ export class searchResult {
     messages: Array<tangleVertex>;
     txs: Array<utxoVertex>;
     branches: Array<branchVertex>;
+    error: string;
 }
 
 export class GlobalStore {
     @observable searchStartingTime: number;
     @observable searchEndingTime: number;
+    @observable searchError = '';
 
     tangleStore: TangleStore;
     utxoStore: UTXOStore;
@@ -98,6 +100,11 @@ export class GlobalStore {
     };
 
     @action
+    updateSearchError = (e: string) => {
+        this.searchError = e;
+    };
+
+    @action
     searchAndDrawResults = async () => {
         try {
             const res = await fetch(
@@ -106,6 +113,16 @@ export class GlobalStore {
                 }`
             );
             const result: searchResult = await res.json();
+            if (res.status !== 200) {
+                this.updateSearchError(result.error);
+                return;
+            }
+
+            if (result.messages.length === 0) {
+                this.updateSearchError('no messages found!');
+                return;
+            }
+
             this.stopDrawNewVertices();
             this.clearGraphs();
 
@@ -139,6 +156,7 @@ export class GlobalStore {
         this.branchStore.drawExistedBranches();
 
         this.drawNewVertices();
+        this.updateSearchError('');
     };
 
     drawNewVertices() {
