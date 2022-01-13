@@ -360,10 +360,9 @@ func (m *Manager) onGossipNeighborAdded(neighbor *gossip.Neighbor) {
 }
 
 func (m *Manager) onGossipNeighborMsgsLimitHit(neighbor *gossip.Neighbor) {
-	limit := m.gm.MessagesRateLimit()
 	m.log.Warnw(
 		"Neighbor sends to many messages. It might be faulty, consider removing it from your known peers list",
-		"peerId", neighbor.ID(), "limit", limit,
+		"peerId", neighbor.ID(),
 	)
 }
 

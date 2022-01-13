@@ -12,13 +12,43 @@ import (
 	"go.uber.org/atomic"
 )
 
-type RateLimit struct {
-	Limit    int
-	Interval time.Duration
+type limit interface {
+	limit() int
+	extend()
 }
 
-func (rl RateLimit) String() string {
-	return fmt.Sprintf("%d per %s", rl.Limit, rl.Interval)
+//type StaticLimit struct {
+//	limit int
+//}
+//
+//func NewStaticLimit(limit int) *StaticLimit { return &StaticLimit{limit: limit} }
+//
+//func (sl *StaticLimit) limit() int { return sl.limit }
+
+type dynamicLimit struct {
+	baseLimit        int
+	extensionCounter *ratecounter.RateCounter
+}
+
+func newDynamicLimit(baseLimit int, extensionInterval time.Duration) *dynamicLimit {
+	return &dynamicLimit{
+		baseLimit:        baseLimit,
+		extensionCounter: ratecounter.NewRateCounter(extensionInterval),
+	}
+}
+
+func (dl *dynamicLimit) limit() int {
+	return dl.baseLimit + int(dl.extensionCounter.Rate())
+}
+
+func (dl *dynamicLimit) extend() {
+	dl.extensionCounter.Incr(1)
+}
+
+type RateLimitConfig struct {
+	Interval               time.Duration
+	Limit                  int
+	LimitExtensionInterval time.Duration
 }
 
 type limiterRecord struct {
@@ -28,24 +58,26 @@ type limiterRecord struct {
 
 type neighborRateLimiter struct {
 	name             string
-	conf             *RateLimit
+	limit            limit
+	interval         time.Duration
 	hitEvent         map[NeighborsGroup]*events.Event
 	log              *logger.Logger
 	neighborsRecords *ttlcache.Cache
 }
 
-func newNeighborRateLimiter(name string, limit *RateLimit, hitEvent map[NeighborsGroup]*events.Event) (*neighborRateLimiter, error) {
+func newNeighborRateLimiter(name string, conf *RateLimitConfig, hitEvent map[NeighborsGroup]*events.Event) (*neighborRateLimiter, error) {
 	records := ttlcache.NewCache()
 	records.SetLoaderFunction(func(_ string) (interface{}, time.Duration, error) {
-		record := &limiterRecord{counter: ratecounter.NewRateCounter(limit.Interval), limitHitReported: atomic.NewBool(false)}
+		record := &limiterRecord{counter: ratecounter.NewRateCounter(conf.Interval), limitHitReported: atomic.NewBool(false)}
 		return record, ttlcache.ItemExpireWithGlobalTTL, nil
 	})
-	if err := records.SetTTL(limit.Interval); err != nil {
+	if err := records.SetTTL(conf.Interval); err != nil {
 		return nil, errors.WithStack(err)
 	}
 	return &neighborRateLimiter{
 		name:             name,
-		conf:             limit,
+		interval:         conf.Interval,
+		limit:            newDynamicLimit(conf.Limit, conf.LimitExtensionInterval),
 		hitEvent:         hitEvent,
 		neighborsRecords: records,
 	}, nil
@@ -57,6 +89,10 @@ func (nrl *neighborRateLimiter) count(nbr *Neighbor) {
 	}
 }
 
+func (nrl *neighborRateLimiter) extendLimit() {
+	nrl.limit.extend()
+}
+
 func (nrl *neighborRateLimiter) doCount(nbr *Neighbor) error {
 	nbrKey := getNeighborKey(nbr)
 	nbrRecordI, err := nrl.neighborsRecords.Get(nbrKey)
@@ -65,10 +101,11 @@ func (nrl *neighborRateLimiter) doCount(nbr *Neighbor) error {
 	}
 	nbrRecord := nbrRecordI.(*limiterRecord)
 	nbrRecord.counter.Incr(1)
-	if int(nbrRecord.counter.Rate()) > nrl.conf.Limit {
+	limitValue := nrl.limit.limit()
+	if int(nbrRecord.counter.Rate()) > limitValue {
 		if !nbrRecord.limitHitReported.Swap(true) {
 			nbr.log.Infow("Neighbor hit the activity limit, notifying subscribers to take action",
-				"rateLimiter", nrl.name, "limit", nrl.conf)
+				"rateLimiter", nrl.name, "limit", limitValue, "interval", nrl.interval)
 			nrl.hitEvent[nbr.Group].Trigger(nbr)
 		}
 	} else {

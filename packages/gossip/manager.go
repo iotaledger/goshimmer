@@ -74,7 +74,7 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
-	messagesRateLimit   *RateLimit
+	messagesRateLimit   *RateLimitConfig
 	messagesRateLimiter *neighborRateLimiter
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
@@ -137,14 +137,10 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 	return m, nil
 }
 
-func WithMessagesRateLimit(rl *RateLimit) ManagerOption {
+func WithMessagesRateLimit(rl *RateLimitConfig) ManagerOption {
 	return func(m *Manager) {
 		m.messagesRateLimit = rl
 	}
-}
-
-func (m *Manager) MessagesRateLimit() *RateLimit {
-	return m.messagesRateLimit
 }
 
 // Stop stops the manager and closes all established connections.

@@ -64,9 +64,10 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 	}
 	var opts []gossip.ManagerOption
 	if Parameters.MessagesRateLimit != (RateLimitParameters{}) {
-		opts = append(opts, gossip.WithMessagesRateLimit(&gossip.RateLimit{
-			Interval: Parameters.MessagesRateLimit.Interval,
-			Limit:    Parameters.MessagesRateLimit.Limit,
+		opts = append(opts, gossip.WithMessagesRateLimit(&gossip.RateLimitConfig{
+			Interval:               Parameters.MessagesRateLimit.Interval,
+			Limit:                  Parameters.MessagesRateLimit.Limit,
+			LimitExtensionInterval: Parameters.MessagesRateLimit.LimitExtensionInterval,
 		}))
 	}
 	mgr, err := gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger(), opts...)

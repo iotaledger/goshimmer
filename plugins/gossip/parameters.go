@@ -18,8 +18,9 @@ type ParametersDefinition struct {
 }
 
 type RateLimitParameters struct {
-	Interval time.Duration `default:"1m" usage:"the time interval for which we count the rate"`
-	Limit    int           `default:"1000" usage:"the limit of activity per interval"`
+	Interval               time.Duration `default:"1m" usage:"the time interval for which we count the rate"`
+	Limit                  int           `default:"1000" usage:"the limit of activity per interval"`
+	LimitExtensionInterval time.Duration `default:"30m" usage:"the time interval for which we extend the limit"`
 }
 
 // Parameters contains the configuration parameters of the gossip plugin.
