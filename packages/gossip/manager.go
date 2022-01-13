@@ -220,6 +220,9 @@ func (m *Manager) RequestMessage(messageID []byte, to ...identity.ID) {
 	msgReq := &pb.MessageRequest{Id: messageID}
 	packet := &pb.Packet{Body: &pb.Packet_MessageRequest{MessageRequest: msgReq}}
 	m.send(packet, to...)
+	if m.messagesRateLimiter != nil {
+		m.messagesRateLimiter.extendLimit()
+	}
 }
 
 // SendMessage adds the given message the send queue of the neighbors.
