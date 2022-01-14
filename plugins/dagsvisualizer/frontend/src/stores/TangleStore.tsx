@@ -5,6 +5,7 @@ import {
     unregisterHandler,
     WSMsgType
 } from 'utils/WS';
+import { MAX_VERTICES, DEFAULT_DASHBOARD_URL } from 'utils/constants';
 import { default as Viva } from 'vivagraphjs';
 import { COLOR, LINE_TYPE, LINE_WIDTH, VERTEX } from 'styles/tangleStyles';
 
@@ -48,7 +49,7 @@ export enum parentRefType {
 }
 
 export class TangleStore {
-    @observable maxTangleVertices = 500;
+    @observable maxTangleVertices = MAX_VERTICES;
     @observable messages = new ObservableMap<string, tangleVertex>();
     // might still need markerMap for advanced features
     @observable markerMap = new ObservableMap<string, Array<string>>();
@@ -57,7 +58,7 @@ export class TangleStore {
     @observable selected_approvees_count = 0;
     @observable paused = false;
     @observable search = '';
-    @observable explorerAddress = 'http://localhost:8081';
+    @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     msgOrder: Array<string> = [];
     lastMsgAddedBeforePause = '';
     selected_origin_color = '';

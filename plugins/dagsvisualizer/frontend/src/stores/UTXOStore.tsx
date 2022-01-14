@@ -1,5 +1,6 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
+import { MAX_VERTICES, DEFAULT_DASHBOARD_URL } from 'utils/constants';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { dagreOptions } from 'styles/graphStyle';
@@ -34,12 +35,12 @@ export class utxoConfirmed {
 }
 
 export class UTXOStore {
-    @observable maxUTXOVertices = 500;
+    @observable maxUTXOVertices = MAX_VERTICES;
     @observable transactions = new ObservableMap<string, utxoVertex>();
     @observable selectedTx: utxoVertex = null;
     @observable paused = false;
     @observable search = '';
-    @observable explorerAddress = 'localhost:8081';
+    @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     outputMap = new Map();
     txOrder: Array<any> = [];
     highligtedTxs = [];

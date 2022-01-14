@@ -1,5 +1,6 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
+import { MAX_VERTICES, DEFAULT_DASHBOARD_URL } from 'utils/constants';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { dagreOptions } from 'styles/graphStyle';
@@ -40,12 +41,12 @@ export class branchWeightChanged {
 }
 
 export class BranchStore {
-    @observable maxBranchVertices = 500;
+    @observable maxBranchVertices = MAX_VERTICES;
     @observable branches = new ObservableMap<string, branchVertex>();
     @observable selectedBranch: branchVertex = null;
     @observable paused = false;
     @observable search = '';
-    @observable explorerAddress = 'localhost:8081';
+    @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     branchOrder: Array<any> = [];
     draw = true;
 
