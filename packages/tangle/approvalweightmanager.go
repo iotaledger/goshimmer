@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -215,7 +216,7 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 		return
 	}
 
-	a.tangle.Storage.LatestVotes(voter, NewLatestVotes).Consume(func(latestVotes *LatestVotes) {
+	a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
 		addedVote := vote.WithOpinion(Confirmed)
 		for addBranchID := range addedBranchIDs {
 			latestVotes.Store(addedVote.WithBranchID(addBranchID))
@@ -328,7 +329,7 @@ func (a *ApprovalWeightManager) identicalVoteWithHigherSequenceExists(vote *Vote
 }
 
 func (a *ApprovalWeightManager) voteWithHigherSequence(vote *Vote) (existingVote *Vote, exists bool) {
-	a.tangle.Storage.LatestVotes(vote.Voter).Consume(func(latestVotes *LatestVotes) {
+	a.tangle.Storage.LatestVotes(vote.Voter).Consume(func(latestVotes *LatestBranchVotes) {
 		existingVote, exists = latestVotes.Vote(vote.BranchID)
 	})
 
@@ -1517,10 +1518,24 @@ const (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region LatestVotes //////////////////////////////////////////////////////////////////////////////////////////////////
+// region LatestMarkerVotes //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// LatestVotes represents the branch supported from an Issuer
-type LatestVotes struct {
+// LatestBrachVotes represents the branch supported from an Issuer
+type LatestMarkerVotes struct {
+	sequenceID  markers.SequenceID
+	voter       Voter
+	latestVotes *thresholdmap.ThresholdMap
+
+	sync.RWMutex
+	objectstorage.StorableObjectFlags
+}
+
+func NewLatestMarkerVotes(supporter)
+
+// region LatestBranchVotes //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// LatestBranchVotes represents the branch supported from an Issuer
+type LatestBranchVotes struct {
 	voter       Voter
 	latestVotes map[ledgerstate.BranchID]*Vote
 
@@ -1528,7 +1543,7 @@ type LatestVotes struct {
 	objectstorage.StorableObjectFlags
 }
 
-func (l *LatestVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exists bool) {
+func (l *LatestBranchVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
 
@@ -1537,7 +1552,7 @@ func (l *LatestVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exists bo
 	return
 }
 
-func (l *LatestVotes) Store(vote *Vote) {
+func (l *LatestBranchVotes) Store(vote *Vote) {
 	l.Lock()
 	defer l.Unlock()
 
@@ -1547,9 +1562,9 @@ func (l *LatestVotes) Store(vote *Vote) {
 	l.Persist()
 }
 
-// NewLatestVotes creates a new LatestVotes.
-func NewLatestVotes(supporter Voter) (latestVotes *LatestVotes) {
-	latestVotes = &LatestVotes{
+// NewLatestBranchVotes creates a new LatestVotes.
+func NewLatestBranchVotes(supporter Voter) (latestVotes *LatestBranchVotes) {
+	latestVotes = &LatestBranchVotes{
 		voter:       supporter,
 		latestVotes: make(map[ledgerstate.BranchID]*Vote),
 	}
@@ -1561,7 +1576,7 @@ func NewLatestVotes(supporter Voter) (latestVotes *LatestVotes) {
 }
 
 // LatestVotesFromBytes unmarshals a LatestVotes object from a sequence of bytes.
-func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestVotes, consumedBytes int, err error) {
+func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestBranchVotes, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if latestVotes, err = LatestVotesFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestVotes from MarshalUtil: %w", err)
@@ -1573,8 +1588,8 @@ func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestVotes, consumedBytes
 }
 
 // LatestVotesFromMarshalUtil unmarshals a LatestVotes object using a MarshalUtil (for easier unmarshalling).
-func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVotes *LatestVotes, err error) {
-	latestVotes = &LatestVotes{}
+func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVotes *LatestBranchVotes, err error) {
+	latestVotes = &LatestBranchVotes{}
 	if latestVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
 		return
@@ -1618,31 +1633,31 @@ func LatestVotesFromObjectStorage(key, data []byte) (result objectstorage.Storab
 }
 
 // Bytes returns a marshaled version of the LatestVotes.
-func (l *LatestVotes) Bytes() (marshaledSequenceSupporters []byte) {
+func (l *LatestBranchVotes) Bytes() (marshaledSequenceSupporters []byte) {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
 }
 
 // String returns a human-readable version of the LatestVotes.
-func (l *LatestVotes) String() string {
+func (l *LatestBranchVotes) String() string {
 	return stringify.Struct("LatestVotes",
 		stringify.StructField("voter", l.voter),
 	)
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (l *LatestVotes) Update(objectstorage.StorableObject) {
+func (l *LatestBranchVotes) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (l *LatestVotes) ObjectStorageKey() []byte {
+func (l *LatestBranchVotes) ObjectStorageKey() []byte {
 	return l.voter.Bytes()
 }
 
 // ObjectStorageValue marshals the LatestVotes into a sequence of bytes that are used as the value part in the
 // object storage.
-func (l *LatestVotes) ObjectStorageValue() []byte {
+func (l *LatestBranchVotes) ObjectStorageValue() []byte {
 	marshalUtil := marshalutil.New()
 
 	marshalUtil.WriteUint64(uint64(len(l.latestVotes)))
@@ -1656,7 +1671,7 @@ func (l *LatestVotes) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &LatestVotes{}
+var _ objectstorage.StorableObject = &LatestBranchVotes{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1674,13 +1689,13 @@ func (c *CachedLatestVotes) Retain() *CachedLatestVotes {
 }
 
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedLatestVotes) Unwrap() *LatestVotes {
+func (c *CachedLatestVotes) Unwrap() *LatestBranchVotes {
 	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
 
-	typedObject := untypedObject.(*LatestVotes)
+	typedObject := untypedObject.(*LatestBranchVotes)
 	if typedObject == nil || typedObject.IsDeleted() {
 		return nil
 	}
@@ -1690,9 +1705,9 @@ func (c *CachedLatestVotes) Unwrap() *LatestVotes {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedLatestVotes) Consume(consumer func(latestVotes *LatestVotes), forceRelease ...bool) (consumed bool) {
+func (c *CachedLatestVotes) Consume(consumer func(latestVotes *LatestBranchVotes), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*LatestVotes))
+		consumer(object.(*LatestBranchVotes))
 	}, forceRelease...)
 }
 

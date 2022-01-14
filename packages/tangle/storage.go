@@ -357,7 +357,7 @@ func (s *Storage) Statement(supporter Voter, computeIfAbsentCallback ...func() *
 }
 
 // Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
-func (s *Storage) LatestVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestVotes) *CachedLatestVotes {
+func (s *Storage) LatestVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestBranchVotes) *CachedLatestVotes {
 	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedLatestVotes{s.latestVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(voter.Bytes()), func(key []byte) objectstorage.StorableObject {
 			return computeIfAbsentCallback[0](voter)
