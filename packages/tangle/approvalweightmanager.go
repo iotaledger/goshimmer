@@ -1518,7 +1518,9 @@ const (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region LatestMarkerVotes //////////////////////////////////////////////////////////////////////////////////////////////////
+// region LatestMarkerVotes ////////////////////////////////////////////////////////////////////////////////////////////
+
+var LatestMarkerVotesKeys = objectstorage.PartitionKey(markers.SequenceIDLength, identity.IDLength)
 
 // LatestMarkerVotes represents the markers supported from a certain Voter.
 type LatestMarkerVotes struct {
@@ -1540,7 +1542,71 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 	return
 }
 
+func LatestMarkerVotesFromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if latestMarkerVotes, err = LatestMarkerVotesFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse LatestVotes from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestMarkerVotes *LatestMarkerVotes, err error) {
+	latestMarkerVotes = &LatestMarkerVotes{}
+	if latestMarkerVotes.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+	}
+	if latestMarkerVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
+	}
+
+	mapSize, err := marshalUtil.ReadUint64()
+	if err != nil {
+		return nil, errors.Errorf("failed to read mapSize from MarshalUtil: %w", err)
+	}
+
+	latestMarkerVotes.latestVotes = thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	for i := uint64(0); i < mapSize; i++ {
+		markerIndex, markerIndexErr := markers.IndexFromMarshalUtil(marshalUtil)
+		if markerIndexErr != nil {
+			return nil, errors.Errorf("failed to read Index from MarshalUtil: %w", markerIndexErr)
+		}
+
+		sequenceNumber, sequenceNumberErr := marshalUtil.ReadUint64()
+		if markerIndexErr != nil {
+			return nil, errors.Errorf("failed to read sequence number from MarshalUtil: %w", sequenceNumberErr)
+		}
+
+		latestMarkerVotes.latestVotes.Set(markerIndex, sequenceNumber)
+	}
+
+	return latestMarkerVotes, nil
+}
+
+func LatestMarkerVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = LatestMarkerVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+func (l *LatestMarkerVotes) SequenceNumber(index markers.Index) (sequenceNumber uint64, exists bool) {
+	l.RLock()
+	defer l.RUnlock()
+
+	key, exists := l.latestVotes.Get(index)
+
+	return key.(uint64), exists
+}
+
 func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) {
+	l.Lock()
+	defer l.Unlock()
+
 	// abort if we already have a higher value on an Index that is larger or equal
 	if _, ceilingValue, ceilingExists := l.latestVotes.Ceiling(index); ceilingExists && sequenceNumber < ceilingValue.(uint64) {
 		return
@@ -1570,7 +1636,83 @@ func (l *LatestMarkerVotes) String() string {
 	return builder.String()
 }
 
-// region LatestBranchVotes //////////////////////////////////////////////////////////////////////////////////////////////////
+func (l *LatestMarkerVotes) Bytes() []byte {
+	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
+}
+func (l *LatestMarkerVotes) Update(other objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
+	return marshalutil.New().
+		Write(l.sequenceID).
+		Write(l.voter).
+		Bytes()
+}
+
+func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint64(uint64(l.latestVotes.Size()))
+	l.latestVotes.ForEach(func(node *thresholdmap.Element) bool {
+		marshalUtil.Write(node.Key().(markers.Index))
+		marshalUtil.WriteUint64(node.Value().(uint64))
+
+		return true
+	})
+
+	return marshalUtil.Bytes()
+}
+
+var _ objectstorage.StorableObject = &LatestMarkerVotes{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedLatestVotes ////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedLatestMarkerVotes is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedLatestMarkerVotes struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedLatestMarkerVotes) Retain() *CachedLatestMarkerVotes {
+	return &CachedLatestMarkerVotes{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedLatestMarkerVotes) Unwrap() *LatestMarkerVotes {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*LatestMarkerVotes)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedLatestMarkerVotes) Consume(consumer func(latestMarkerVotes *LatestMarkerVotes), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*LatestMarkerVotes))
+	}, forceRelease...)
+}
+
+// String returns a human-readable version of the CachedLatestMarkerVotes.
+func (c *CachedLatestMarkerVotes) String() string {
+	return stringify.Struct("CachedLatestMarkerVotes",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region LatestBranchVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
 // LatestBranchVotes represents the branch supported from an Issuer
 type LatestBranchVotes struct {
@@ -1756,7 +1898,7 @@ func (c *CachedLatestVotes) String() string {
 	)
 }
 
-// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Vote /////////////////////////////////////////////////////////////////////////////////////////////////////////
 

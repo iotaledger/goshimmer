@@ -47,8 +47,11 @@ const (
 	// PrefixStatement defines the storage prefix for the Statement.
 	PrefixStatement
 
-	// PrefixLatestVotes defines the storage prefix for the LatestVotes.
-	PrefixLatestVotes
+	// PrefixLatestBranchVotes defines the storage prefix for the LatestVotes.
+	PrefixLatestBranchVotes
+
+	// PrefixLatestMarkerVotes defines the storage prefix for the LatestMarkerVotes.
+	PrefixLatestMarkerVotes
 
 	// PrefixBranchWeight defines the storage prefix for the BranchWeight.
 	PrefixBranchWeight
@@ -81,6 +84,7 @@ type Storage struct {
 	branchSupportersStorage           *objectstorage.ObjectStorage
 	statementStorage                  *objectstorage.ObjectStorage
 	latestVotesStorage                *objectstorage.ObjectStorage
+	latestMarkerVotesStorage          *objectstorage.ObjectStorage
 	branchWeightStorage               *objectstorage.ObjectStorage
 	markerMessageMappingStorage       *objectstorage.ObjectStorage
 
@@ -105,7 +109,8 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestVotesStorage:                osFactory.New(PrefixLatestVotes, LatestVotesFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestVotesStorage:                osFactory.New(PrefixLatestBranchVotes, LatestVotesFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestMarkerVotesStorage:          osFactory.New(PrefixLatestMarkerVotes, LatestMarkerVotesFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeys, objectstorage.LeakDetectionEnabled(false)),
 		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
@@ -367,6 +372,16 @@ func (s *Storage) LatestVotes(voter Voter, computeIfAbsentCallback ...func(voter
 	return &CachedLatestVotes{CachedObject: s.latestVotesStorage.Load(byteutils.ConcatBytes(voter.Bytes()))}
 }
 
+func (s *Storage) LatestMarkerVotes(sequenceID markers.SequenceID, voter Voter, computeIfAbsentCallback ...func(sequenceID markers.SequenceID, voter Voter) *LatestMarkerVotes) *CachedLatestMarkerVotes {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedLatestMarkerVotes{s.latestMarkerVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(sequenceID.Bytes(), voter.Bytes()), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](sequenceID, voter)
+		})}
+	}
+
+	return &CachedLatestMarkerVotes{CachedObject: s.latestMarkerVotesStorage.Load(byteutils.ConcatBytes(sequenceID.Bytes(), voter.Bytes()))}
+}
+
 // BranchWeight retrieves the BranchWeight with the given ledgerstate.BranchID.
 func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *CachedBranchWeight {
 	if len(computeIfAbsentCallback) >= 1 {
@@ -422,6 +437,8 @@ func (s *Storage) Shutdown() {
 	s.sequenceSupportersStorage.Shutdown()
 	s.branchSupportersStorage.Shutdown()
 	s.statementStorage.Shutdown()
+	s.latestVotesStorage.Shutdown()
+	s.latestMarkerVotesStorage.Shutdown()
 	s.branchWeightStorage.Shutdown()
 	s.markerMessageMappingStorage.Shutdown()
 

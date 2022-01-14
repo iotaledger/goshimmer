@@ -653,10 +653,10 @@ func WithSequenceNumber(sequenceNumber uint64) MessageOption {
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
 
-var sequenceNumber uint64
+var _sequenceNumber uint64
 
 func nextSequenceNumber() uint64 {
-	return atomic.AddUint64(&sequenceNumber, 1) - 1
+	return atomic.AddUint64(&_sequenceNumber, 1) - 1
 }
 
 func newTestNonceMessage(nonce uint64) *Message {
