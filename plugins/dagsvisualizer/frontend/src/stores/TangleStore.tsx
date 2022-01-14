@@ -4,9 +4,9 @@ import {
     registerHandler,
     unregisterHandler,
     WSMsgType
-} from '../WS';
+} from 'utils/WS';
 import { default as Viva } from 'vivagraphjs';
-import { COLOR, LINE_TYPE, LINE_WIDTH, VERTEX } from '../styles/tangleStyles';
+import { COLOR, LINE_TYPE, LINE_WIDTH, VERTEX } from 'styles/tangleStyles';
 
 export class tangleVertex {
     ID: string;
