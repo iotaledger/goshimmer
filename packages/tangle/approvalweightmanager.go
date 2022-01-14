@@ -1541,45 +1541,21 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 }
 
 func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) {
-	l.store(index, sequenceNumber, false)
-}
-
-func (l *LatestMarkerVotes) store(index markers.Index, sequenceNumber uint64, setAlready bool) {
-	ceilingKey, ceilingValue, exists := l.latestVotes.Ceiling(index)
-	if !exists {
-		lastElement := l.latestVotes.MaxElement()
-
-		l.latestVotes.Set(index, sequenceNumber)
-
-		if lastElement != nil {
-			l.store(lastElement.Key().(markers.Index), sequenceNumber, true)
-		}
-
+	// abort if we already have a higher value on an Index that is larger or equal
+	if _, ceilingValue, ceilingExists := l.latestVotes.Ceiling(index); ceilingExists && sequenceNumber < ceilingValue.(uint64) {
 		return
 	}
 
-	if ceilingValue.(uint64) > sequenceNumber {
-		return
-	}
-
-	if ceilingKey.(markers.Index) == index {
-		if !setAlready {
-			l.latestVotes.Set(index, sequenceNumber)
-			return
-		}
-
-		l.latestVotes.Delete(index)
-
-		floorKey, _, floorExists := l.latestVotes.Floor(index)
-		if !floorExists {
-			return
-		}
-
-		l.store(floorKey.(markers.Index), sequenceNumber, true)
-		return
-	}
-
+	// set the new value
 	l.latestVotes.Set(index, sequenceNumber)
+
+	// remove all predecessors that are lower than the newly set value
+	floorKey, floorValue, floorExists := l.latestVotes.Floor(index - 1)
+	for floorExists && floorValue.(uint64) < sequenceNumber {
+		l.latestVotes.Delete(floorKey)
+
+		floorKey, floorValue, floorExists = l.latestVotes.Floor(index - 1)
+	}
 }
 
 func (l *LatestMarkerVotes) String() string {
