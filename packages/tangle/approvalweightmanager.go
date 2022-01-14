@@ -1520,7 +1520,7 @@ const (
 
 // region LatestMarkerVotes //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// LatestBrachVotes represents the branch supported from an Issuer
+// LatestMarkerVotes represents the markers supported from a certain Voter.
 type LatestMarkerVotes struct {
 	sequenceID  markers.SequenceID
 	voter       Voter
@@ -1530,7 +1530,69 @@ type LatestMarkerVotes struct {
 	objectstorage.StorableObjectFlags
 }
 
-func NewLatestMarkerVotes(supporter)
+func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
+	newLatestMarkerVotes = &LatestMarkerVotes{
+		sequenceID:  sequenceID,
+		voter:       voter,
+		latestVotes: thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator),
+	}
+
+	return
+}
+
+func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) {
+	l.store(index, sequenceNumber, false)
+}
+
+func (l *LatestMarkerVotes) store(index markers.Index, sequenceNumber uint64, setAlready bool) {
+	ceilingKey, ceilingValue, exists := l.latestVotes.Ceiling(index)
+	if !exists {
+		lastElement := l.latestVotes.MaxElement()
+
+		l.latestVotes.Set(index, sequenceNumber)
+
+		if lastElement != nil {
+			l.store(lastElement.Key().(markers.Index), sequenceNumber, true)
+		}
+
+		return
+	}
+
+	if ceilingValue.(uint64) > sequenceNumber {
+		return
+	}
+
+	if ceilingKey.(markers.Index) == index {
+		if !setAlready {
+			l.latestVotes.Set(index, sequenceNumber)
+			return
+		}
+
+		l.latestVotes.Delete(index)
+
+		floorKey, _, floorExists := l.latestVotes.Floor(index)
+		if !floorExists {
+			return
+		}
+
+		l.store(floorKey.(markers.Index), sequenceNumber, true)
+		return
+	}
+
+	l.latestVotes.Set(index, sequenceNumber)
+}
+
+func (l *LatestMarkerVotes) String() string {
+	builder := stringify.StructBuilder("LatestMarkerVotes")
+
+	l.latestVotes.ForEach(func(node *thresholdmap.Element) bool {
+		builder.AddField(stringify.StructField(node.Key().(markers.Index).String(), node.Value()))
+
+		return true
+	})
+
+	return builder.String()
+}
 
 // region LatestBranchVotes //////////////////////////////////////////////////////////////////////////////////////////////////
 

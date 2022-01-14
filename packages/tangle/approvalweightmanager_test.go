@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"encoding/binary"
+	"fmt"
 	"testing"
 	"time"
 
@@ -945,6 +946,16 @@ func TestOutOfOrderStatments(t *testing.T) {
 	*/
 
 	testEventMock.AssertExpectations(t)
+}
+
+func TestNewLatestMarkerVotes(t *testing.T) {
+	latestMarkerVotes := NewLatestMarkerVotes(1, Voter{1})
+	latestMarkerVotes.Store(1, 8)
+	latestMarkerVotes.Store(2, 10)
+	latestMarkerVotes.Store(3, 7)
+	latestMarkerVotes.Store(4, 9)
+	latestMarkerVotes.Store(4, 11)
+	fmt.Println(latestMarkerVotes)
 }
 
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
