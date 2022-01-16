@@ -1,3 +1,28 @@
+# v0.8.4 - 2022-01-12
+
+> This release introduces a complete Congestion Control overhaul and several bug fixes.
+
+The snapshot has been taken at 2022-01-12 17:31 CET.
+
+Changelog:
+- Build and push images tagged with version number (#1950)
+- New Scheduler buffer management & data flow (#1856)
+- Remove spam debug log about duplicate bytes (#1949)
+- Snapshot nil pointer dereference fix (#1943)
+- Devnet AnalysisServer should use LBed dashboards WS (#1942)
+- changes to spammer tool (#1854)
+- Fix/feature network port forwarding problem (#1940)
+- Fix node identity problem after restart (#1939)
+- Update aMana update formula to fix NaN problem (#1930)
+- Customize PoW difficulty on feature network (#1937)
+- Fix prometheus scrape ports (#1928)
+- Fix feature network deployment. (#1925)
+- Don't log errors on write to closed connection (#1915)
+- Fix mana integration test (#1909)
+- Improve integration tests (#1906)
+- Add missing prometheus.yml file and improve volumes in docker-compose files. (#1899)
+- Internal feature network support (#1895)
+
 # v0.8.3 - 2021-11-30
 
 > This release introduces a critical bug fix on the network read loop

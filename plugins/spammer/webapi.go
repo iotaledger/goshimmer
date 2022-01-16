@@ -18,6 +18,7 @@ func handleRequest(c echo.Context) error {
 	switch request.Cmd {
 	case "start":
 		if request.Rate == 0 {
+			log.Infof("Requesting invalid spamming at rate 0 mps. Setting it to 1 mps")
 			request.Rate = 1
 		}
 

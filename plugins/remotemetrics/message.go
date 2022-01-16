@@ -1,10 +1,91 @@
 package remotemetrics
 
 import (
+	"time"
+
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
+
+func onMessageScheduled(messageID tangle.MessageID) {
+	sendMessageSchedulerRecord(messageID, "messageScheduled")
+}
+
+func onMessageDiscarded(messageID tangle.MessageID) {
+	sendMessageSchedulerRecord(messageID, "messageDiscarded")
+}
+
+func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
+	if !deps.Tangle.Synced() {
+		return
+	}
+
+	var nodeID string
+	if deps.Local != nil {
+		nodeID = deps.Local.Identity.ID().String()
+	}
+
+	record := &remotemetrics.MessageScheduledMetrics{
+		Type:         recordType,
+		NodeID:       nodeID,
+		MetricsLevel: Parameters.MetricsLevel,
+		MessageID:    messageID.Base58(),
+	}
+
+	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		issuerID := identity.NewID(message.IssuerPublicKey())
+		record.IssuedTimestamp = message.IssuingTime()
+		record.AccessMana = deps.Tangle.Scheduler.GetManaFromCache(issuerID)
+		record.StrongEdgeCount = len(message.ParentsByType(tangle.StrongParentType))
+		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
+			record.StrongEdgeCount = weakParentsCount
+		}
+		if likeParentsCount := len(message.ParentsByType(tangle.LikeParentType)); likeParentsCount > 0 {
+			record.StrongEdgeCount = len(message.ParentsByType(tangle.LikeParentType))
+		}
+
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			record.ScheduledTimestamp = messageMetadata.ScheduledTime()
+			record.DroppedTimestamp = messageMetadata.DiscardedTime()
+			record.BookedTimestamp = messageMetadata.BookedTime()
+			// may be overridden by tx data
+			record.SolidTimestamp = messageMetadata.SolidificationTime()
+			record.DeltaSolid = messageMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
+			record.QueuedTimestamp = messageMetadata.QueuedTime()
+			record.DeltaBooked = messageMetadata.BookedTime().Sub(record.IssuedTimestamp).Nanoseconds()
+			record.GradeOfFinality = uint8(messageMetadata.GradeOfFinality())
+			record.GradeOfFinalityTimestamp = messageMetadata.GradeOfFinalityTime()
+			if !messageMetadata.GradeOfFinalityTime().IsZero() {
+				record.DeltaGradeOfFinalityTime = messageMetadata.GradeOfFinalityTime().Sub(record.IssuedTimestamp).Nanoseconds()
+			}
+
+			var scheduleDoneTime time.Time
+			// one of those conditions must be true
+			if !record.ScheduledTimestamp.IsZero() {
+				scheduleDoneTime = record.ScheduledTimestamp
+			} else if !record.DroppedTimestamp.IsZero() {
+				scheduleDoneTime = record.DroppedTimestamp
+			}
+			record.DeltaScheduled = scheduleDoneTime.Sub(record.IssuedTimestamp).Nanoseconds()
+			record.ProcessingTime = scheduleDoneTime.Sub(messageMetadata.ReceivedTime()).Nanoseconds()
+			record.SchedulingTime = scheduleDoneTime.Sub(messageMetadata.QueuedTime()).Nanoseconds()
+		})
+	})
+
+	// override message solidification data if message contains a transaction
+	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			record.SolidTimestamp = transactionMetadata.SolidificationTime()
+			record.TransactionID = transactionID.Base58()
+			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
+		})
+	})
+
+	_ = deps.RemoteLogger.Send(record)
+}
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 	if !deps.Tangle.Synced() {
@@ -61,7 +142,37 @@ func onMessageFinalized(messageID tangle.MessageID) {
 		})
 	})
 
-	if err := deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send MessageFinalizedMetrics record", "err", err)
+	_ = deps.RemoteLogger.Send(record)
+}
+
+func onMissingMessageRequest(messageID tangle.MessageID) {
+	sendMissingMessageRecord(messageID, "missingMessage")
+}
+
+func onMissingMessageStored(messageID tangle.MessageID) {
+	sendMissingMessageRecord(messageID, "missingMessageStored")
+}
+
+func sendMissingMessageRecord(messageID tangle.MessageID, recordType string) {
+	if !deps.Tangle.Synced() {
+		return
 	}
+
+	var nodeID string
+	if deps.Local != nil {
+		nodeID = deps.Local.Identity.ID().String()
+	}
+
+	record := &remotemetrics.MissingMessageMetrics{
+		Type:         recordType,
+		NodeID:       nodeID,
+		MetricsLevel: Parameters.MetricsLevel,
+		MessageID:    messageID.Base58(),
+	}
+
+	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		record.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
+	})
+
+	_ = deps.RemoteLogger.Send(record)
 }

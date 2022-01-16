@@ -82,6 +82,7 @@ func (t *TimeManager) Start() {
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TimeManager) Setup() {
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(t.updateTime))
+	t.Start()
 }
 
 // Shutdown shuts down the TimeManager and persists its state.

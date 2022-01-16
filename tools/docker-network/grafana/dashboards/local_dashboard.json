@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1633935850165,
+  "iteration": 1639386999471,
   "links": [],
   "panels": [
     {
@@ -203,6 +203,7 @@
       "pluginVersion": "7.5.6",
       "targets": [
         {
+          "exemplar": true,
           "expr": "time() - process_start_time_seconds{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
@@ -330,7 +331,8 @@
       "pluginVersion": "7.5.6",
       "targets": [
         {
-          "expr": "irate(tangle_message_total_count{instance=\"$instance\"}[5m])",
+          "exemplar": true,
+          "expr": "irate(tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "Total MPS",
           "refId": "A"
@@ -440,6 +442,7 @@
       "pluginVersion": "7.5.6",
       "targets": [
         {
+          "exemplar": true,
           "expr": "mana_consensus{instance=\"$instance\",nodeID=\"$NodeID\"}",
           "interval": "",
           "legendFormat": "",
@@ -687,45 +690,10 @@
             {
               "exemplar": true,
               "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\"}[5m])",
+              "hide": false,
               "interval": "",
               "legendFormat": "Message Per Second {{message_type}}",
               "refId": "A"
-            },
-            {
-              "exemplar": true,
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"TransactionType(1337)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "Transaction Per Second",
-              "refId": "B"
-            },
-            {
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"dRNG(111)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "dRNG Messages Per Second",
-              "refId": "C"
-            },
-            {
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"faucet(2)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "Faucet Messages Per Second",
-              "refId": "D"
-            },
-            {
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"networkdelay(189)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "Network Delay Messages Per Second",
-              "refId": "E"
-            },
-            {
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\",message_type=\"Statement(3)\"}[5m])",
-              "hide": true,
-              "interval": "",
-              "legendFormat": "Statements Per Second",
-              "refId": "G"
             }
           ],
           "thresholds": [],
@@ -817,31 +785,11 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Store\"}[5m])",
+              "exemplar": true,
+              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\"}[5m])",
               "interval": "",
-              "legendFormat": "Store MPS",
+              "legendFormat": "{{component}} MPS",
               "refId": "A"
-            },
-            {
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Solidifier\"}[5m])",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Solidifier MPS",
-              "refId": "B"
-            },
-            {
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Scheduler\"}[5m])",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Scheduler MPS",
-              "refId": "C"
-            },
-            {
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\",component=\"Booker\"}[5m])",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Booker MPS",
-              "refId": "D"
             }
           ],
           "thresholds": [],
@@ -1324,7 +1272,7 @@
           "dashLength": 10,
           "dashes": false,
           "datasource": "Prometheus",
-          "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
+          "description": "Number of messages requested through solidification. ",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1335,7 +1283,7 @@
           "fillGradient": 0,
           "gridPos": {
             "h": 8,
-            "w": 11,
+            "w": 5,
             "x": 0,
             "y": 25
           },
@@ -1367,9 +1315,10 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_message_missing_count_db{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "irate(tangle_message_solidification_missing_message_count{instance=\"$instance\"}[5m])",
               "interval": "",
-              "legendFormat": "Missing Messages",
+              "legendFormat": "Solidifier-requested messages",
               "refId": "A"
             }
           ],
@@ -1377,7 +1326,104 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Missing Messages",
+          "title": "Solidifier-requested messages per second",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "Prometheus",
+          "description": "Number of messages requested through solidification. ",
+          "fieldConfig": {
+            "defaults": {
+              "links": []
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 5,
+            "y": 25
+          },
+          "hiddenSeries": false,
+          "id": 148,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": {
+            "alertThreshold": true
+          },
+          "percentage": false,
+          "pluginVersion": "7.5.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "tangle_message_solidification_missing_message_count{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "Solidifier-requested messages",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Solidifier-requested messages total",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1610,7 +1656,7 @@
           "dashLength": 10,
           "dashes": false,
           "datasource": "Prometheus",
-          "description": "Number of messages currently requested by the message tangle.",
+          "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1626,7 +1672,7 @@
             "y": 33
           },
           "hiddenSeries": false,
-          "id": 69,
+          "id": 147,
           "legend": {
             "avg": false,
             "current": false,
@@ -1653,9 +1699,9 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_message_request_queue_size{instance=\"$instance\"}",
+              "expr": "tangle_message_missing_count_db{instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Message Request Queue Size",
+              "legendFormat": "Missing Messages",
               "refId": "A"
             }
           ],
@@ -1663,7 +1709,7 @@
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Message Request Queue Size",
+          "title": "Missing Messages",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1683,7 +1729,7 @@
               "label": null,
               "logBase": 1,
               "max": null,
-              "min": "0",
+              "min": null,
               "show": true
             },
             {
@@ -1691,8 +1737,8 @@
               "label": null,
               "logBase": 1,
               "max": null,
-              "min": "0",
-              "show": false
+              "min": null,
+              "show": true
             }
           ],
           "yaxis": {
@@ -1751,19 +1797,22 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_message_solid_count_db{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Solid Messages in DB",
               "refId": "A"
             },
             {
-              "expr": "tangle_message_total_count_db{instance=\"$instance\"} - tangle_message_solid_count_db{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"} - tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Not Solid Messages in DB",
               "refId": "B"
             },
             {
-              "expr": "tangle_message_total_count_db{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Total Messages in DB",
               "refId": "C"
@@ -1816,6 +1865,7 @@
           "dashLength": 10,
           "dashes": false,
           "datasource": "Prometheus",
+          "description": "Number of messages currently requested by the message tangle.",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1825,10 +1875,212 @@
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
-            "h": 11,
+            "h": 8,
             "w": 11,
             "x": 0,
             "y": 41
+          },
+          "hiddenSeries": false,
+          "id": 69,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": {
+            "alertThreshold": true
+          },
+          "percentage": false,
+          "pluginVersion": "7.5.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "tangle_message_request_queue_size{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "Message Request Queue Size",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Message Request Queue Size",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": "0",
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": "0",
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "Prometheus",
+          "description": "Average time it takes to solidify messages.",
+          "fieldConfig": {
+            "defaults": {
+              "links": [],
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 9,
+            "w": 13,
+            "x": 11,
+            "y": 45
+          },
+          "hiddenSeries": false,
+          "id": 75,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": {
+            "alertThreshold": true
+          },
+          "percentage": false,
+          "pluginVersion": "7.5.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "rate(tangle_message_total_time_since_received{component=\"Solidifier\",instance=\"$instance\"}[5m])/rate(tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}[5m])",
+              "interval": "",
+              "legendFormat": "Avg Solidification Time",
+              "refId": "A"
+            },
+            {
+              "exemplar": true,
+              "expr": "",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Average Solidification Time",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ms",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "links": []
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 7,
+            "w": 11,
+            "x": 0,
+            "y": 49
           },
           "hiddenSeries": false,
           "id": 26,
@@ -1942,104 +2194,6 @@
           }
         },
         {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "Prometheus",
-          "description": "Average time it takes to solidify messages.",
-          "fieldConfig": {
-            "defaults": {
-              "links": [],
-              "unit": "ms"
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 9,
-            "w": 13,
-            "x": 11,
-            "y": 45
-          },
-          "hiddenSeries": false,
-          "id": 75,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "7.5.6",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "irate(tangle_message_avg_solidification_time[5m]) ",
-              "interval": "",
-              "legendFormat": "Avg Solidification Time",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Average Solidification Time",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "ms",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
           "datasource": "Prometheus",
           "fieldConfig": {
             "defaults": {
@@ -2060,8 +2214,8 @@
           "gridPos": {
             "h": 2,
             "w": 2,
-            "x": 1,
-            "y": 52
+            "x": 11,
+            "y": 54
           },
           "id": 59,
           "options": {
@@ -2114,8 +2268,8 @@
           "gridPos": {
             "h": 2,
             "w": 2,
-            "x": 3,
-            "y": 52
+            "x": 13,
+            "y": 54
           },
           "id": 67,
           "options": {
@@ -2167,9 +2321,9 @@
           },
           "gridPos": {
             "h": 2,
-            "w": 2,
-            "x": 5,
-            "y": 52
+            "w": 3,
+            "x": 15,
+            "y": 54
           },
           "id": 66,
           "options": {
@@ -2221,9 +2375,9 @@
           },
           "gridPos": {
             "h": 2,
-            "w": 2,
-            "x": 7,
-            "y": 52
+            "w": 3,
+            "x": 18,
+            "y": 54
           },
           "id": 63,
           "options": {
@@ -2275,9 +2429,9 @@
           },
           "gridPos": {
             "h": 2,
-            "w": 2,
-            "x": 9,
-            "y": 52
+            "w": 3,
+            "x": 21,
+            "y": 54
           },
           "id": 62,
           "options": {
@@ -3950,7 +4104,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_message_finalization_time{instance=\"$instance\"}[1m]) / irate(tangle_message_finalized_count{instance=\"$instance\"}[1m])",
+              "expr": "irate(tangle_message_finalization_time_since_received{instance=\"$instance\"}[1m]) / irate(tangle_message_finalized_count{instance=\"$instance\"}[1m])",
               "interval": "",
               "legendFormat": "{{messageType}} avg. finalization time",
               "queryType": "randomWalk",
@@ -4438,6 +4592,648 @@
       ],
       "title": "OTV metrics",
       "type": "row"
+    },
+    {
+      "collapsed": true,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 128,
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 15,
+            "x": 0,
+            "y": 59
+          },
+          "id": 146,
+          "options": {
+            "displayMode": "lcd",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "text": {}
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "topk(15, sum by (node_id) (scheduler_buffer_size_per_node{instance=\"$instance\"}/scheduler_amana_per_node{instance=\"$instance\"}))",
+              "instant": true,
+              "interval": "",
+              "legendFormat": "Node: {{node_id}}",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Mana-scaled queue size",
+          "type": "bargauge"
+        },
+        {
+          "datasource": "Prometheus",
+          "description": "Rate at which scheduler processes messages from the buffer",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 15,
+            "y": 59
+          },
+          "id": 132,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "scheduler_rate{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Scheduling rate",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 18,
+            "y": 59
+          },
+          "id": 142,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"Scheduler\",instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Scheduled messages",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "description": "Messages skipped by the scheduler, because they were confirmed before. ",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 21,
+            "y": 59
+          },
+          "id": 149,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"SchedulerSkipped\",instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Skipped messages",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "green",
+                "mode": "fixed"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 15,
+            "y": 63
+          },
+          "id": 143,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "value"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": false,
+              "expr": "scheduler_buffer_max_size{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Max buffer size",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 18,
+            "y": 63
+          },
+          "id": 140,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "tangle_messages_per_component_count{component=\"SchedulerDropped\",instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Dropped messages",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 21,
+            "y": 63
+          },
+          "id": 134,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "scheduler_buffer_total_msg_count{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "All messages count",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 15,
+            "x": 0,
+            "y": 65
+          },
+          "id": 145,
+          "options": {
+            "displayMode": "lcd",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "text": {}
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "topk(15, sum by (node_id) (scheduler_buffer_size_per_node{instance=\"$instance\"}))",
+              "instant": true,
+              "interval": "",
+              "legendFormat": "Node: {{node_id}}",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Queue size",
+          "type": "bargauge"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "green",
+                "mode": "fixed"
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 15,
+            "y": 67
+          },
+          "id": 130,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "value"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": false,
+              "expr": "scheduler_buffer_total_size{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Current buffer size",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 18,
+            "y": 67
+          },
+          "id": 138,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "scheduler_buffer_total_msg_count{instance=\"$instance\"} - scheduler_buffer_ready_msg_count{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Unready messages count",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 21,
+            "y": 67
+          },
+          "id": 136,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "scheduler_buffer_ready_msg_count{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Ready messages count",
+          "type": "stat"
+        }
+      ],
+      "title": "Scheduler metrics",
+      "type": "row"
     }
   ],
   "refresh": "10s",
@@ -4450,8 +5246,8 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "peer_master:9311",
-          "value": "peer_master:9311"
+          "text": "peer_master2:9311",
+          "value": "peer_master2:9311"
         },
         "datasource": "Prometheus",
         "definition": "label_values(iota_info_app, instance)",
@@ -4481,8 +5277,8 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "4AeXyZ26e4G",
-          "value": "4AeXyZ26e4G"
+          "text": "dAnF7pQ6k7a",
+          "value": "dAnF7pQ6k7a"
         },
         "datasource": "Prometheus",
         "definition": "label_values(iota_info_app, nodeID)",
@@ -4511,7 +5307,7 @@
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {
@@ -4530,5 +5326,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 35
+  "version": 2
 }

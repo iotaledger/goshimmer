@@ -318,7 +318,7 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := a.vector[nodeID]; !exist {
-		return tangle.MinMana, t, nil
+		return 0, t, nil
 	}
 	if len(optionalUpdateTime) > 0 {
 		t = optionalUpdateTime[0]
@@ -328,7 +328,7 @@ func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ..
 	baseMana := a.vector[nodeID]
 	effectiveValue := baseMana.EffectiveValue()
 	if effectiveValue < tangle.MinMana {
-		effectiveValue = tangle.MinMana
+		effectiveValue = 0
 	}
 	return effectiveValue, t, nil
 }

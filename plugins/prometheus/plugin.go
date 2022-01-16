@@ -68,6 +68,7 @@ func configure(plugin *node.Plugin) {
 		registerProcessMetrics()
 		registerTangleMetrics()
 		registerManaMetrics()
+		registerSchedulerMetrics()
 	}
 
 	if metrics.Parameters.Global {
