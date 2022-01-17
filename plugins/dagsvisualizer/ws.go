@@ -130,11 +130,9 @@ func sendInitialData(ws *websocket.Conn) {
 }
 
 func sendJSON(ws *websocket.Conn, msg *wsMessage) error {
-	if err := ws.WriteJSON(msg); err != nil {
-		return err
+	var err error
+	if err = ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err == nil {
+		err = ws.WriteJSON(msg)
 	}
-	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
-		return err
-	}
-	return nil
+	return err
 }
