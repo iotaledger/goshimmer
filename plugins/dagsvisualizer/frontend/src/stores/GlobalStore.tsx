@@ -3,7 +3,8 @@ import { Moment } from 'moment';
 import TangleStore, { tangleVertex } from './TangleStore';
 import UTXOStore from './UTXOStore';
 import { utxoVertex } from 'models/utxo';
-import BranchStore, { branchVertex } from './BranchStore';
+import BranchStore from './BranchStore';
+import { branchVertex } from 'models/branch';
 
 export class searchResult {
     messages: Array<tangleVertex>;
