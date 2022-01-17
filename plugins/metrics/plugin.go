@@ -194,7 +194,7 @@ func registerLocalMetrics() {
 		defer sumTimeMutex.Unlock()
 
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
-			if msgMetaData.Scheduled() {
+			if msgMetaData.IsBooked() {
 				sumTimesSinceReceived[Booker] += msgMetaData.BookedTime().Sub(msgMetaData.ReceivedTime())
 				deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 					sumTimesSinceIssued[Booker] += msgMetaData.BookedTime().Sub(message.IssuingTime())
