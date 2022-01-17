@@ -1,12 +1,7 @@
-import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import {
-    connectWebSocket,
-    registerHandler,
-    unregisterHandler,
-    WSMsgType
-} from '../WS';
-import { default as Viva } from 'vivagraphjs';
-import { COLOR, LINE_TYPE, LINE_WIDTH, VERTEX } from '../styles/tangleStyles';
+import {action, makeObservable, observable, ObservableMap} from 'mobx';
+import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from '../WS';
+import {default as Viva} from 'vivagraphjs';
+import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from '../styles/tangleStyles';
 
 export class tangleVertex {
     ID: string;
@@ -61,7 +56,7 @@ export class TangleStore {
     msgOrder: Array<string> = [];
     lastMsgAddedBeforePause = '';
     selected_origin_color = '';
-    highligtedMsgs = new Map<string, string>();
+    highlightedMsgs = new Map<string, string>();
     draw = true;
     vertexChanges = 0;
     graph;
@@ -133,6 +128,7 @@ export class TangleStore {
             }
             this.removeVertex(msgID);
             this.messages.delete(msgID);
+            this.graphics.releaseNode(msgID);
         }
     };
 
@@ -202,6 +198,7 @@ export class TangleStore {
     @action
     updateVerticesLimit = (num: number) => {
         this.maxTangleVertices = num;
+        this.trimTangleToVerticesLimit();
     };
 
     @action
@@ -421,7 +418,7 @@ export class TangleStore {
         // update highlighted msgs and its original color
         msgIDs.forEach(id => {
             const original_color = this.highlightMsg(id);
-            this.highligtedMsgs.set(id, original_color);
+            this.highlightedMsgs.set(id, original_color);
         });
     };
 
@@ -478,13 +475,13 @@ export class TangleStore {
     };
 
     clearHighlightedMsgs = () => {
-        if (this.highligtedMsgs.size === 0) {
+        if (this.highlightedMsgs.size === 0) {
             return;
         }
-        this.highligtedMsgs.forEach((color: string, id) => {
+        this.highlightedMsgs.forEach((color: string, id) => {
             this.clearHighlightedMsg(id);
         });
-        this.highligtedMsgs.clear();
+        this.highlightedMsgs.clear();
     };
 
     clearHighlightedMsg = (msgID: string) => {
@@ -500,7 +497,7 @@ export class TangleStore {
         if (this.selectedMsg && msgID === this.selectedMsg.ID) {
             color = this.selected_origin_color;
         } else {
-            color = this.highligtedMsgs.get(msgID);
+            color = this.highlightedMsgs.get(msgID);
         }
 
         const nodeUI = this.graphics.getNodeUI(msgID);
@@ -683,6 +680,22 @@ export class TangleStore {
             this.updateNodeDataAndColor(msg.ID, msg);
         }
     };
+
+    trimTangleToVerticesLimit() {
+        if (this.msgOrder.length >= this.maxTangleVertices) {
+            const removeStartIndex = this.msgOrder.length - this.maxTangleVertices;
+            const removed = this.msgOrder.slice(0, removeStartIndex);
+            this.msgOrder = this.msgOrder.slice(removeStartIndex);
+            this.removeMessages(removed);
+
+        }
+    }
+
+    removeMessages(removed: string[]) {
+        removed.forEach((msgID: string) => {
+            this.removeMessage(msgID);
+        });
+    }
 }
 
 const svgNodeBuilder = function(): any {
