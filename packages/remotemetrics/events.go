@@ -70,6 +70,7 @@ type MessageScheduledMetrics struct {
 	MessageID                string    `json:"messageID" bson:"messageID"`
 	TransactionID            string    `json:"transactionID,omitempty" bson:"transactionID"`
 	IssuedTimestamp          time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	ReceivedTimestamp        time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
 	SolidTimestamp           time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
 	ScheduledTimestamp       time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
 	BookedTimestamp          time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`

@@ -48,6 +48,7 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 		}
 
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			record.ReceivedTimestamp = messageMetadata.ReceivedTime()
 			record.ScheduledTimestamp = messageMetadata.ScheduledTime()
 			record.DroppedTimestamp = messageMetadata.DiscardedTime()
 			record.BookedTimestamp = messageMetadata.BookedTime()
