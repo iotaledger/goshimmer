@@ -206,11 +206,15 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 		b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), aggregatedInheritedBranchID)
 	case MetadataMappingTarget:
 		if len(addedBranchIDs) != 0 {
-			messageMetadata.SetAddedBranchIDs(b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs))
+			if aggregatedAddedBranchIDs := b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs); aggregatedAddedBranchIDs != ledgerstate.MasterBranchID {
+				messageMetadata.SetAddedBranchIDs(aggregatedAddedBranchIDs)
+			}
 		}
 
 		if len(subtractedBranchIDs) != 0 {
-			messageMetadata.SetSubtractedBranchIDs(b.tangle.LedgerState.AggregateConflictBranchesID(subtractedBranchIDs))
+			if aggregatedSubtractedBranchIDs := b.tangle.LedgerState.AggregateConflictBranchesID(subtractedBranchIDs); aggregatedSubtractedBranchIDs != ledgerstate.MasterBranchID {
+				messageMetadata.SetSubtractedBranchIDs(aggregatedSubtractedBranchIDs)
+			}
 		}
 	}
 
