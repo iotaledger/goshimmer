@@ -1,7 +1,8 @@
 import { action, makeObservable, observable } from 'mobx';
 import { Moment } from 'moment';
 import TangleStore, { tangleVertex } from './TangleStore';
-import UTXOStore, { utxoVertex } from './UTXOStore';
+import UTXOStore from './UTXOStore';
+import { utxoVertex } from 'models/utxo';
 import BranchStore, { branchVertex } from './BranchStore';
 
 export class searchResult {
