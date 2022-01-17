@@ -23,7 +23,7 @@ var (
 	visualizerWorkerCount     = 1
 	visualizerWorkerQueueSize = 500
 	visualizerWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	maxEventsBufferSize       = 200
+	maxWsMessageBufferSize    = 200
 	buffer                    []*wsMessage
 	bufferMutex               sync.RWMutex
 )
@@ -58,7 +58,7 @@ func registerTangleEvents() {
 			Data: newTangleVertex(messageID),
 		}
 		visualizerWorkerPool.TrySubmit(msg)
-		storeMessage(msg)
+		storeWsMessage(msg)
 	})
 
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
@@ -77,7 +77,7 @@ func registerTangleEvents() {
 				},
 			}
 			visualizerWorkerPool.TrySubmit(msg)
-			storeMessage(msg)
+			storeWsMessage(msg)
 		})
 	})
 
@@ -92,7 +92,7 @@ func registerTangleEvents() {
 				},
 			}
 			visualizerWorkerPool.TrySubmit(msg)
-			storeMessage(msg)
+			storeWsMessage(msg)
 		})
 	})
 
@@ -105,7 +105,7 @@ func registerTangleEvents() {
 			},
 		}
 		visualizerWorkerPool.TrySubmit(msg)
-		storeMessage(msg)
+		storeWsMessage(msg)
 	})
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
@@ -124,7 +124,7 @@ func registerUTXOEvents() {
 					Data: newUTXOVertex(messageID, tx),
 				}
 				visualizerWorkerPool.TrySubmit(wsMsg)
-				storeMessage(wsMsg)
+				storeWsMessage(wsMsg)
 			}
 		})
 	})
@@ -144,7 +144,7 @@ func registerUTXOEvents() {
 					},
 				}
 				visualizerWorkerPool.TrySubmit(msg)
-				storeMessage(msg)
+				storeWsMessage(msg)
 			}
 		})
 	})
@@ -160,7 +160,7 @@ func registerUTXOEvents() {
 				},
 			}
 			visualizerWorkerPool.TrySubmit(msg)
-			storeMessage(msg)
+			storeWsMessage(msg)
 		})
 	})
 
@@ -186,7 +186,7 @@ func registerBranchEvents() {
 			},
 		}
 		visualizerWorkerPool.TrySubmit(msg)
-		storeMessage(msg)
+		storeWsMessage(msg)
 	})
 
 	branchConfirmedClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
@@ -197,7 +197,7 @@ func registerBranchEvents() {
 			},
 		}
 		visualizerWorkerPool.TrySubmit(msg)
-		storeMessage(msg)
+		storeWsMessage(msg)
 	})
 
 	branchWeightChangedClosure := events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
@@ -211,7 +211,7 @@ func registerBranchEvents() {
 			},
 		}
 		visualizerWorkerPool.TrySubmit(msg)
-		storeMessage(msg)
+		storeWsMessage(msg)
 	})
 
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
@@ -372,10 +372,10 @@ func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
 	return
 }
 
-func storeMessage(msg *wsMessage) {
+func storeWsMessage(msg *wsMessage) {
 	bufferMutex.Lock()
 	defer bufferMutex.Unlock()
-	if len(buffer) >= maxEventsBufferSize {
+	if len(buffer) >= maxWsMessageBufferSize {
 		buffer = buffer[1:]
 	}
 	buffer = append(buffer, msg)
