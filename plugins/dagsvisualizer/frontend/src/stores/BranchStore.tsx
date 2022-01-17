@@ -1,44 +1,15 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
 import { MAX_VERTICES, DEFAULT_DASHBOARD_URL } from 'utils/constants';
-import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
-import { dagreOptions } from 'styles/graphStyle';
 import layoutUtilities from 'cytoscape-layout-utilities';
-
-export class branchVertex {
-    ID: string;
-    type: string;
-    parents: Array<string>;
-    isConfirmed: boolean;
-    conflicts: conflictBranches;
-    gof: string;
-    aw: number;
-}
-
-export class conflictBranches {
-    branchID: string;
-    conflicts: Array<conflict>;
-}
-
-export class conflict {
-    outputID: any;
-    branchIDs: Array<string>;
-}
-export class branchParentUpdate {
-    ID: string;
-    parents: Array<string>;
-}
-
-export class branchConfirmed {
-    ID: string;
-}
-
-export class branchWeightChanged {
-    ID: string;
-    weight: number;
-    gof: string;
-}
+import { cytoscapeLib, drawBranch, initBranchDAG } from 'graph/cytoscape';
+import {
+    branchVertex,
+    branchParentUpdate,
+    branchConfirmed,
+    branchWeightChanged
+} from 'models/branch';
 
 export class BranchStore {
     @observable maxBranchVertices = MAX_VERTICES;
@@ -54,10 +25,8 @@ export class BranchStore {
     branchToRemoveAfterResume = [];
     branchToAddAfterResume = [];
 
-    cy;
-    layout;
-    layoutApi;
     layoutUpdateTimerID;
+    graph;
 
     constructor() {
         makeObservable(this);
@@ -68,9 +37,6 @@ export class BranchStore {
             WSMsgType.BranchWeightChanged,
             this.branchWeightChanged
         );
-
-        cytoscape.use(dagre);
-        cytoscape.use(layoutUtilities);
     }
 
     unregisterHandlers() {
@@ -147,7 +113,7 @@ export class BranchStore {
     clearSelected = (removePreSelectedNode?: boolean) => {
         // unselect preselected node manually
         if (removePreSelectedNode && this.selectedBranch) {
-            this.cy.getElementById(this.selectedBranch.ID).unselect();
+            this.graph.unselectVertex(this.selectedBranch.ID);
         }
 
         this.selectedBranch = null;
@@ -184,25 +150,6 @@ export class BranchStore {
         return this.branches.get(branchID);
     };
 
-    selectBranch = (branchID: string) => {
-        // clear pre-selected branch.
-        this.clearSelected(true);
-
-        const branchNode = this.cy.getElementById(branchID);
-        if (!branchNode) return;
-        // select the node manually
-        branchNode.select();
-        this.centerBranch(branchID);
-
-        this.updateSelected(branchID);
-    };
-
-    centerBranch = (branchID: string) => {
-        const branchNode = this.cy.getElementById(branchID);
-        if (!branchNode) return;
-        this.cy.center(branchNode);
-    };
-
     updateExplorerAddress = (addr: string) => {
         this.explorerAddress = addr;
     };
@@ -215,14 +162,6 @@ export class BranchStore {
 
     updateDrawStatus = (draw: boolean) => {
         this.draw = draw;
-    };
-
-    clearGraph = () => {
-        this.cy.elements().remove();
-    };
-
-    centerEntireGraph = () => {
-        this.cy.center();
     };
 
     resumeAndSyncGraph = () => {
@@ -242,85 +181,49 @@ export class BranchStore {
         this.branchToRemoveAfterResume = [];
     };
 
-    removeVertex = (branchID: string) => {
-        this.vertexChanges++;
-        const uiID = '#' + branchID;
-        this.cy.remove(uiID);
-    };
-
     drawVertex = (branch: branchVertex) => {
         this.vertexChanges++;
 
-        const v = this.cy.add({
-            group: 'nodes',
-            data: { id: branch.ID }
-        });
+        drawBranch(branch, this.graph, this.branches);
+    };
 
-        branch.parents.forEach(pID => {
-            const b = this.branches.get(pID);
-            if (b) {
-                this.cy.add({
-                    group: 'edges',
-                    data: { source: pID, target: branch.ID }
-                });
-            }
-        });
+    removeVertex = (branchID: string) => {
+        this.vertexChanges++;
+        this.graph.removeVertex(branchID);
+    };
 
-        this.layoutApi.placeNewNodes(v);
+    selectBranch = (branchID: string) => {
+        // clear pre-selected branch.
+        this.clearSelected(true);
+
+        this.graph.selectVertex(branchID);
+
+        this.updateSelected(branchID);
+    };
+
+    centerBranch = (branchID: string) => {
+        this.graph.centerVertex(branchID);
+    };
+
+    centerEntireGraph = () => {
+        this.graph.centerGraph();
+    };
+
+    clearGraph = () => {
+        this.graph.clearGraph();
     };
 
     updateLayoutTimer = () => {
         this.layoutUpdateTimerID = setInterval(() => {
             if (this.vertexChanges > 0 && !this.paused) {
-                this.cy.layout(this.layout).run();
+                this.graph.updateLayout();
                 this.vertexChanges = 0;
             }
         }, 10000);
     };
 
     start = () => {
-        this.cy = cytoscape({
-            container: document.getElementById('branchVisualizer'), // container to render in
-            style: [
-                // the stylesheet for the graph
-                {
-                    selector: 'node',
-                    style: {
-                        'background-color': '#2E8BC0',
-                        shape: 'rectangle',
-                        width: 25,
-                        height: 15
-                    }
-                },
-                {
-                    selector: 'edge',
-                    style: {
-                        width: 1,
-                        'curve-style': 'bezier',
-                        'line-color': '#696969',
-                        'control-point-step-size': '10px',
-                        events: 'no'
-                    }
-                },
-                {
-                    selector: 'node:selected',
-                    style: {
-                        'background-opacity': 0.333,
-                        'background-color': 'red'
-                    }
-                }
-            ],
-            layout: {
-                name: 'dagre'
-            }
-        });
-        this.layout = dagreOptions;
-        this.layoutApi = this.cy.layoutUtilities({
-            desiredAspectRatio: 1,
-            polyominoGridSizeFactor: 1,
-            utilityFunction: 0,
-            componentSpacing: 200
-        });
+        this.graph = new cytoscapeLib([dagre, layoutUtilities], initBranchDAG);
 
         // add master branch
         const master: branchVertex = {
@@ -336,7 +239,7 @@ export class BranchStore {
             '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
             master
         );
-        this.cy.add({
+        this.graph.drawVertex({
             data: {
                 id: '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
                 label: 'master'
@@ -344,12 +247,12 @@ export class BranchStore {
             style: {
                 'background-color': '#616161',
                 label: 'master'
-            },
-            classes: 'top-center'
+            }
         });
+        this.graph.centerVertex(master.ID);
 
         // set up click event.
-        this.cy.on('select', 'node', evt => {
+        this.graph.cy.on('select', 'node', evt => {
             const node = evt.target;
             const nodeData = node.json();
 
@@ -357,7 +260,7 @@ export class BranchStore {
         });
 
         // clear selected node.
-        this.cy.on('unselect', 'node', () => {
+        this.graph.cy.on('unselect', 'node', () => {
             this.clearSelected();
         });
 

@@ -3,6 +3,8 @@ import cytoscape from 'cytoscape';
 import { dagreOptions } from 'styles/graphStyle';
 import { utxoVertex } from 'models/utxo';
 import { hashString } from 'utils/hashString';
+import { branchVertex } from 'models/branch';
+import { ObservableMap } from 'mobx';
 
 export class cytoscapeLib implements IGraph {
     cy;
@@ -15,7 +17,6 @@ export class cytoscapeLib implements IGraph {
         });
 
         [this.cy, this.layout, this.layoutApi] = init();
-        console.log(this.cy);
     }
 
     drawVertex(data: any): void {
@@ -170,6 +171,29 @@ export function drawTransaction(
     graph.layoutApi.placeNewNodes(collection);
 }
 
+export function drawBranch(
+    branch: branchVertex,
+    graph: cytoscapeLib,
+    branchMap: ObservableMap<string, branchVertex>
+) {
+    const v = graph.cy.add({
+        group: 'nodes',
+        data: { id: branch.ID }
+    });
+
+    branch.parents.forEach(pID => {
+        const b = branchMap.get(pID);
+        if (b) {
+            graph.cy.add({
+                group: 'edges',
+                data: { source: pID, target: branch.ID }
+            });
+        }
+    });
+
+    graph.layoutApi.placeNewNodes(v);
+}
+
 export function initUTXODAG() {
     const cy = cytoscape({
         container: document.getElementById('utxoVisualizer'), // container to render in
@@ -290,9 +314,5 @@ export function initBranchDAG() {
         componentSpacing: 200
     });
 
-    return {
-        cy,
-        layout,
-        layoutApi
-    };
+    return [cy, layout, layoutApi];
 }
