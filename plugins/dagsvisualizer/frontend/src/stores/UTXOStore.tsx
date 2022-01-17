@@ -1,38 +1,11 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
 import { MAX_VERTICES, DEFAULT_DASHBOARD_URL } from 'utils/constants';
-import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
-import { dagreOptions } from 'styles/graphStyle';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import 'styles/style.css';
-
-export class utxoVertex {
-    msgID: string;
-    ID: string;
-    inputs: Array<input>;
-    outputs: Array<string>;
-    branchID: string;
-    isConfirmed: boolean;
-    gof: string;
-    confirmedTime: number;
-}
-
-export class input {
-    type: string;
-    referencedOutputID: any;
-}
-
-export class utxoBooked {
-    ID: string;
-    branchID: string;
-}
-
-export class utxoConfirmed {
-    ID: string;
-    gof: string;
-    confirmedTime: number;
-}
+import { cytoscapeLib, drawTransaction, initUTXODAG } from 'graph/cytoscape';
+import { utxoVertex, utxoBooked, utxoConfirmed } from 'models/utxo';
 
 export class UTXOStore {
     @observable maxUTXOVertices = MAX_VERTICES;
@@ -50,10 +23,9 @@ export class UTXOStore {
     txToRemoveAfterResume = [];
     txToAddAfterResume = [];
 
-    cy;
     layoutUpdateTimerID;
-    layout;
-    layoutApi;
+
+    graph;
 
     constructor() {
         makeObservable(this);
@@ -63,9 +35,6 @@ export class UTXOStore {
             WSMsgType.TransactionConfirmed,
             this.setTXConfirmedTime
         );
-
-        cytoscape.use(dagre);
-        cytoscape.use(layoutUtilities);
     }
 
     unregisterHandlers() {
@@ -142,7 +111,7 @@ export class UTXOStore {
     clearSelected = (removePreSelectedNode?: boolean) => {
         // unselect preselected node manually
         if (removePreSelectedNode && this.selectedTx) {
-            this.cy.getElementById(this.selectedTx.ID).unselect();
+            this.graph.unselectVertex(this.selectedTx.ID);
         }
 
         this.selectedTx = null;
@@ -179,45 +148,9 @@ export class UTXOStore {
         // clear pre-selected node first.
         this.clearSelected(true);
 
-        this.highlightTx(txID);
+        this.graph.selectVertex(txID);
 
         this.updateSelected(this.search);
-    };
-
-    highlightTxs = (txIDs: string[]) => {
-        this.highligtedTxs.forEach(id => {
-            this.clearHighlightedTx(id);
-        });
-
-        // update highlighted msgs
-        this.highligtedTxs = txIDs;
-        txIDs.forEach(id => {
-            this.highlightTx(id);
-        });
-    };
-
-    highlightTx = (txID: string) => {
-        const txNode = this.cy.getElementById(txID);
-        if (!txNode) return;
-        txNode.select();
-    };
-
-    centerTx = (txID: string) => {
-        const txNode = this.cy.getElementById(txID);
-        if (!txNode) return;
-        this.cy.center(txNode);
-    };
-
-    clearHighlightedTx = (txID: string) => {
-        const txNode = this.cy.getElementById(txID);
-        if (!txNode) return;
-        txNode.unselect();
-    };
-
-    clearHighlightedTxs = () => {
-        this.highligtedTxs.forEach(id => {
-            this.clearHighlightedTx(id);
-        });
     };
 
     getTxsFromBranch = (branchID: string) => {
@@ -262,135 +195,48 @@ export class UTXOStore {
         this.draw = draw;
     };
 
-    clearGraph = () => {
-        this.cy.elements().remove();
-    };
-
-    centerEntireGraph = () => {
-        this.cy.center();
+    drawVertex = (tx: utxoVertex) => {
+        drawTransaction(tx, this.graph, this.outputMap);
+        this.vertexChanges++;
     };
 
     removeVertex = (txID: string) => {
-        const children = this.cy.getElementById(txID).children();
-
-        this.cy.remove('#' + txID);
-        this.cy.remove(children);
+        this.graph.removeVertex(txID);
         this.vertexChanges++;
     };
 
-    drawVertex = (tx: utxoVertex) => {
-        this.vertexChanges++;
-        let collection = this.cy.collection();
+    highlightTxs = (txIDs: string[]) => {
+        this.clearHighlightedTxs();
 
-        // draw grouping (tx)
-        collection = collection.union(
-            this.cy.add({
-                group: 'nodes',
-                data: { id: tx.ID },
-                classes: 'transaction'
-            })
-        );
-
-        // draw inputs
-        const inputIDs = [];
-        tx.inputs.forEach((input, index) => {
-            // input node
-            const inputNodeID = hashString(
-                input.referencedOutputID.base58 + tx.ID + '_input'
-            );
-            collection = collection.union(
-                this.cy.add({
-                    group: 'nodes',
-                    data: {
-                        id: inputNodeID,
-                        parent: tx.ID,
-                        input: input.referencedOutputID.base58
-                    },
-                    classes: 'input'
-                })
-            );
-
-            // align every 5 inputs in the same level
-            if (index >= 5) {
-                collection = collection.union(
-                    this.cy.add({
-                        group: 'edges',
-                        data: {
-                            source: inputIDs[index - 5],
-                            target: inputNodeID
-                        },
-                        classes: 'invisible'
-                    })
-                );
-            }
-            inputIDs.push(inputNodeID);
-
-            // link input to the unspent output
-            const spentOutput = this.outputMap.get(
-                input.referencedOutputID.base58
-            );
-            if (spentOutput) {
-                collection = collection.union(
-                    this.cy.add({
-                        group: 'edges',
-                        data: {
-                            source: input.referencedOutputID.base58,
-                            target: inputNodeID
-                        }
-                    })
-                );
-            }
+        // update highlighted msgs
+        this.highligtedTxs = txIDs;
+        txIDs.forEach(id => {
+            this.graph.selectVertex(id);
         });
+    };
 
-        // draw outputs
-        const outputIDs = [];
-        tx.outputs.forEach((outputID, index) => {
-            collection = collection.union(
-                this.cy.add({
-                    group: 'nodes',
-                    data: { id: outputID, parent: tx.ID },
-                    classes: 'output'
-                })
-            );
-
-            // align every 5 outputs in the same level
-            if (index >= 5) {
-                collection = collection.union(
-                    this.cy.add({
-                        group: 'edges',
-                        data: {
-                            source: outputIDs[index - 5],
-                            target: outputID
-                        },
-                        classes: 'invisible'
-                    })
-                );
-            }
-            outputIDs.push(outputID);
+    clearHighlightedTxs = () => {
+        this.highligtedTxs.forEach(id => {
+            this.graph.unselectVertex(id);
         });
+    };
 
-        // alignment of inputs and outputs
-        const inIndex =
-            Math.floor(inputIDs.length / 5) * 5 + inputIDs.length % 5 - 1;
-        const outIndex = Math.min(outputIDs.length - 1, 2);
-        collection = collection.union(
-            this.cy.add({
-                group: 'edges',
-                data: {
-                    source: inputIDs[inIndex],
-                    target: outputIDs[outIndex]
-                },
-                classes: 'invisible'
-            })
-        );
+    centerTx = (txID: string) => {
+        this.graph.centerVertex(txID);
+    };
 
-        this.layoutApi.placeNewNodes(collection);
+    centerEntireGraph = () => {
+        this.graph.centerGraph();
+    };
+
+    clearGraph = () => {
+        this.graph.clearGraph();
     };
 
     updateLayoutTimer = () => {
         this.layoutUpdateTimerID = setInterval(() => {
             if (this.vertexChanges > 0 && !this.paused) {
-                this.cy.layout(this.layout).run();
+                this.graph.updateLayout();
                 this.vertexChanges = 0;
                 console.log('layout updated');
             }
@@ -398,80 +244,10 @@ export class UTXOStore {
     };
 
     start = () => {
-        this.cy = cytoscape({
-            container: document.getElementById('utxoVisualizer'), // container to render in
-            style: [
-                // the stylesheet for the graph
-                {
-                    selector: 'node',
-                    style: {
-                        'font-weight': 'bold',
-                        shape: 'rectangle',
-                        width: 20,
-                        height: 20
-                    }
-                },
-                {
-                    selector: 'edge',
-                    style: {
-                        width: 1,
-                        'curve-style': 'bezier',
-                        'line-color': '#696969',
-                        'control-point-step-size': '10px',
-                        events: 'no'
-                    }
-                },
-                {
-                    selector: ':parent',
-                    style: {
-                        'background-opacity': 0.333,
-                        'background-color': '#15B5B0',
-                        'min-width': '50px',
-                        'min-height': '50px'
-                    }
-                },
-                {
-                    selector: 'node:selected',
-                    style: {
-                        'background-opacity': 0.333,
-                        'background-color': 'red'
-                    }
-                },
-                {
-                    selector: '.input',
-                    style: {
-                        'background-color': '#F9BDC0',
-                        events: 'no'
-                    }
-                },
-                {
-                    selector: '.output',
-                    style: {
-                        'background-color': '#FBE698',
-                        events: 'no'
-                    }
-                },
-                {
-                    selector: '.invisible',
-                    style: {
-                        visibility: 'hidden'
-                    }
-                }
-            ],
-            layout: {
-                name: 'dagre'
-            }
-        });
-        this.layout = dagreOptions;
-        this.layoutApi = this.cy.layoutUtilities({
-            desiredAspectRatio: 1,
-            polyominoGridSizeFactor: 1,
-            utilityFunction: 0,
-            componentSpacing: 80
-        });
+        this.graph = new cytoscapeLib([dagre, layoutUtilities], initUTXODAG);
 
         // set up click event
-        this.cy.on('select', 'node', evt => {
+        this.graph.cy.on('select', 'node', evt => {
             const node = evt.target;
             const nodeData = node.json();
 
@@ -479,7 +255,7 @@ export class UTXOStore {
         });
 
         // clear selected node
-        this.cy.on('unselect', 'node', () => {
+        this.graph.cy.on('unselect', 'node', () => {
             this.clearSelected();
         });
 
@@ -491,21 +267,7 @@ export class UTXOStore {
 
         // stop updating layout.
         clearInterval(this.layoutUpdateTimerID);
-        // maybe store graph history?
     };
 }
 
 export default UTXOStore;
-
-function hashString(source: string) {
-    let hash = 0;
-    if (source.length === 0) {
-        return hash;
-    }
-    for (let i = 0; i < source.length; i++) {
-        const char = source.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash.toString();
-}
