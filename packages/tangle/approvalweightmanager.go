@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -27,17 +26,13 @@ const (
 	minSupporterWeight float64 = 0.000000000000001
 )
 
-// MarkerConfirmed is a function type that provides information whether a marker is confirmed.
-type MarkerConfirmed func(marker *markers.Marker) (confirmed bool)
-
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 // ApprovalWeightManager is a Tangle component to keep track of relative weights of branches and markers so that
 // consensus can be based on the heaviest perception on the tangle as a data structure.
 type ApprovalWeightManager struct {
-	Events               *ApprovalWeightManagerEvents
-	tangle               *Tangle
-	lastConfirmedMarkers map[markers.SequenceID]markers.Index
+	Events *ApprovalWeightManagerEvents
+	tangle *Tangle
 }
 
 // NewApprovalWeightManager is the constructor for ApprovalWeightManager.
@@ -48,8 +43,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 			MarkerWeightChanged: events.NewEvent(markerWeightChangedEventHandler),
 			BranchWeightChanged: events.NewEvent(branchWeightChangedEventHandler),
 		},
-		tangle:               tangle,
-		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
+		tangle: tangle,
 	}
 
 	return
@@ -57,15 +51,15 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (a *ApprovalWeightManager) Setup() {
-	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.ProcessMessage))
-	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.moveMessageWeightToNewBranch))
-	a.tangle.Booker.Events.MarkerBranchAdded.Attach(events.NewClosure(a.moveMarkerWeightToNewBranch))
+	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.processBookedMessage))
+	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.processForkedMessage))
+	a.tangle.Booker.Events.MarkerBranchAdded.Attach(events.NewClosure(a.processForkedMarker))
 }
 
-// ProcessMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
+// processBookedMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
 // supporters of the Message's ledgerstate.Branch and approved markers.Marker and eventually triggers events when
 // approval weights for branch and markers are reached.
-func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
+func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.updateBranchSupporters(message)
 		a.updateSequenceSupporters(message)
@@ -113,46 +107,14 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 // Shutdown shuts down the ApprovalWeightManager and persists its state.
 func (a *ApprovalWeightManager) Shutdown() {}
 
-func (a *ApprovalWeightManager) statementFromMessage(message *Message) (statement *Statement, isNewStatement bool) {
-	statement = NewStatement(identity.NewID(message.IssuerPublicKey()))
-	a.tangle.Storage.Statement(statement.Supporter(), func() *Statement {
-		return statement
-	}).Consume(func(consumedStatement *Statement) {
-		statement = consumedStatement
-
-		isNewStatement = statement.UpdateSequenceNumber(message.SequenceNumber())
-	})
-
-	return
-}
-
-// firstUnconfirmedMarkerIndex returns the first Index in the given Sequence that was not confirmed, yet.
-func (a *ApprovalWeightManager) firstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (index markers.Index) {
-	index, exists := a.lastConfirmedMarkers[sequenceID]
-	if !exists {
-		a.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
-			index = sequence.LowestIndex()
-		})
-
-		for ; a.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)); index++ {
-			a.lastConfirmedMarkers[sequenceID] = index
-		}
-		return
-	}
-
-	index++
-
-	return
-}
-
 func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
 	supporterWeight, totalWeight := a.tangle.WeightProvider.Weight(message)
 
 	return supporterWeight/totalWeight >= minSupporterWeight
 }
 
-// SupportersOfAggregatedBranch returns the Supporters of the given aggregatedbranch ledgerstate.BranchID.
-func (a *ApprovalWeightManager) SupportersOfConflictBranches(conflictBranchIDs ledgerstate.BranchIDs) (supporters *Supporters) {
+// SupportersOfBranches returns the Supporters of the given BranchIDs.
+func (a *ApprovalWeightManager) SupportersOfBranches(conflictBranchIDs ledgerstate.BranchIDs) (supporters *Supporters) {
 	if len(conflictBranchIDs) == 0 {
 		return NewSupporters()
 	}
@@ -184,13 +146,31 @@ func (a *ApprovalWeightManager) SupportersOfConflictBranch(branchID ledgerstate.
 
 // supportersOfMarker returns the Supporters of the given markers.Marker.
 func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
-	if !a.tangle.Storage.SequenceSupporters(marker.SequenceID()).Consume(func(sequenceSupporters *SequenceSupporters) {
-		supporters = sequenceSupporters.Supporters(marker.Index())
-	}) {
-		supporters = NewSupporters()
-	}
+	supporters = NewSupporters()
+	a.tangle.Storage.AllLatestMarkerVotes(marker.SequenceID()).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
+		if _, exists := latestMarkerVotes.SequenceNumber(marker.Index()); !exists {
+			return
+		}
+
+		supporters.Add(latestMarkerVotes.Voter())
+	})
 
 	return
+}
+
+// markerVotes returns a map containing all Voters and their respective SequenceNumbers.
+func (a *ApprovalWeightManager) markerVotes(marker *markers.Marker) (markerVotes map[Voter]uint64) {
+	markerVotes = make(map[Voter]uint64)
+	a.tangle.Storage.AllLatestMarkerVotes(marker.SequenceID()).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
+		lastSequenceNumber, exists := latestMarkerVotes.SequenceNumber(marker.Index())
+		if !exists {
+			return
+		}
+
+		markerVotes[latestMarkerVotes.Voter()] = lastSequenceNumber
+	})
+
+	return markerVotes
 }
 
 func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
@@ -336,19 +316,6 @@ func (a *ApprovalWeightManager) voteWithHigherSequence(vote *Vote) (existingVote
 	return existingVote, exists && existingVote.SequenceNumber > vote.SequenceNumber
 }
 
-func (a *ApprovalWeightManager) propagateSupportToBranches(conflictBranchIDs ledgerstate.BranchIDs, message *Message) {
-	fmt.Println("propagateSupportToBranches", conflictBranchIDs, message)
-
-	supportWalker := walker.New(false)
-	for conflictBranchID := range conflictBranchIDs {
-		supportWalker.Push(conflictBranchID)
-	}
-
-	for supportWalker.HasNext() {
-		a.addSupportToBranchDeep(supportWalker.Next().(ledgerstate.BranchID), message, supportWalker)
-	}
-}
-
 func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, voter Voter) {
 	if branchID == ledgerstate.MasterBranchID {
 		return
@@ -361,47 +328,6 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 	a.updateBranchWeight(branchID)
 }
 
-// TODO: Revisit and remove
-func (a *ApprovalWeightManager) addSupportToBranchDeep(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
-	if branchID == ledgerstate.MasterBranchID {
-		return
-	}
-
-	// Keep track of a nodes' statements per branchID and abort if it is not a new statement for this branchID.
-	if _, isNewStatement := a.statementFromMessage(message); !isNewStatement {
-		return
-	}
-
-	var added bool
-	a.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-		added = branchSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()))
-	})
-
-	// Abort if this node already supported this branch.
-	if !added {
-		return
-	}
-
-	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
-		revokeWalker := walker.New(false)
-		revokeWalker.Push(conflictingBranchID)
-
-		for revokeWalker.HasNext() {
-			a.revokeSupportFromBranchDeep(revokeWalker.Next().(ledgerstate.BranchID), message, revokeWalker)
-		}
-
-		return true
-	})
-
-	a.updateBranchWeight(branchID)
-
-	a.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		for parentBranchID := range branch.Parents() {
-			walk.Push(parentBranchID)
-		}
-	})
-}
-
 func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, voter Voter) {
 	a.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
 		branchSupporters.DeleteSupporter(voter)
@@ -410,35 +336,7 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 	a.updateBranchWeight(branchID)
 }
 
-// TODO: Revisit and remove
-func (a *ApprovalWeightManager) revokeSupportFromBranchDeep(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
-	if _, isNewStatement := a.statementFromMessage(message); !isNewStatement {
-		return
-	}
-
-	var deleted bool
-	a.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-		deleted = branchSupporters.DeleteSupporter(identity.NewID(message.IssuerPublicKey()))
-	})
-
-	// Abort if this node did not support this branch.
-	if !deleted {
-		return
-	}
-
-	a.updateBranchWeight(branchID)
-
-	a.tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
-		if childBranch.ChildBranchType() != ledgerstate.ConflictBranchType {
-			return
-		}
-
-		walk.Push(childBranch.ChildBranchID())
-	})
-}
-
 func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
-	// Don't do anything if the supporter is not relevant.
 	if !a.isRelevantSupporter(message) {
 		return
 	}
@@ -449,7 +347,6 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 		supportWalker := walker.New(false)
 
 		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			// Avoid adding and tracking support of markers in sequence 0.
 			if sequenceID == 0 {
 				return true
 			}
@@ -466,23 +363,22 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 }
 
 func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, message *Message, walk *walker.Walker) {
-	// TODO: check map size
 	// We don't add the supporter and abort if the marker is already confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new branch once a conflict arrives and we copy over the
 	// supporters of the marker to the branch. Since the marker is already seen as confirmed it should not matter too much though.
-	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
+	if a.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(marker.SequenceID()) >= marker.Index() {
 		return
 	}
 
-	a.tangle.Storage.SequenceSupporters(marker.SequenceID(), func() *SequenceSupporters {
-		return NewSequenceSupporters(marker.SequenceID())
-	}).Consume(func(sequenceSupporters *SequenceSupporters) {
-		sequenceSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()), marker.Index())
+	a.tangle.Storage.LatestMarkerVotes(marker.SequenceID(), identity.NewID(message.IssuerPublicKey()), NewLatestMarkerVotes).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
+		if !latestMarkerVotes.Store(marker.Index(), message.SequenceNumber()) {
+			return
+		}
+
 		a.updateMarkerWeight(&marker, message)
 
-		a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+		a.tangle.Booker.MarkersManager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 			sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-				// Avoid adding and tracking support of markers in sequence 0.
 				if sequenceID == 0 {
 					return true
 				}
@@ -495,26 +391,10 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 	})
 }
 
-func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID) {
-	netSupporters := a.supportersOfMarker(marker)
-
-	if !oldBranchIDs.IsMasterBranch() {
-		netSupporters = netSupporters.Intersect(a.SupportersOfConflictBranches(oldBranchIDs))
-	}
-
-	a.tangle.Storage.BranchSupporters(newBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-		branchSupporters.AddSupporters(netSupporters)
-	})
-
-	a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
-		a.updateBranchWeight(newBranchID)
-	})
-}
-
 func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Message) {
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
-	for i := a.firstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
+	for i := a.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
@@ -522,18 +402,12 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 			continue
 		}
 
-		supportersOfMarker := a.supportersOfMarker(currentMarker)
 		supporterWeight := float64(0)
-		supportersOfMarker.ForEach(func(supporter Voter) {
+		a.supportersOfMarker(currentMarker).ForEach(func(supporter Voter) {
 			supporterWeight += activeWeights[supporter]
 		})
 
 		a.Events.MarkerWeightChanged.Trigger(&MarkerWeightChangedEvent{currentMarker, supporterWeight / totalWeight})
-
-		// remember that the current marker is confirmed, so we can start from it next time instead from beginning of the sequence
-		if a.tangle.ConfirmationOracle.IsMarkerConfirmed(currentMarker) {
-			a.lastConfirmedMarkers[currentMarker.SequenceID()] = currentMarker.Index()
-		}
 	}
 }
 
@@ -556,32 +430,77 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 	})
 }
 
-func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, newBranchID ledgerstate.BranchID) {
+// processForkedMessage updates the Branch weight after an individually mapped Message was forked into a new Branch.
+func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID ledgerstate.BranchID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		a.propagateSupportToBranches(ledgerstate.NewBranchIDs(newBranchID), message)
+		a.tangle.Storage.BranchSupporters(forkedBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
+			voter := identity.NewID(message.IssuerPublicKey())
+
+			a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
+				latestVotes.Store(&Vote{
+					Voter:          voter,
+					BranchID:       forkedBranchID,
+					Opinion:        Confirmed,
+					SequenceNumber: message.SequenceNumber(),
+				})
+			})
+
+			if !branchSupporters.AddSupporter(voter) {
+				return
+			}
+
+			a.updateBranchWeight(forkedBranchID)
+		})
 	})
 }
 
 // take everything in future cone because it was not conflicting before and move to new branch.
-func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, newBranchID ledgerstate.BranchID) {
-	a.migrateMarkerSupportersToNewBranch(marker, oldBranchIDs, newBranchID)
+func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, forkedBranchID ledgerstate.BranchID) {
+	a.tangle.Storage.BranchSupporters(forkedBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
+		a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(branch ledgerstate.Branch) {
+			parentBranchIDs := branch.(*ledgerstate.ConflictBranch).Parents()
 
-	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
-	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
-		branchWeight := float64(0)
-		a.SupportersOfConflictBranches(oldBranchIDs).ForEach(func(supporter Voter) {
-			branchWeight += weightsOfSupporters[supporter]
-		})
+			for voter, sequenceNumber := range a.markerVotes(marker) {
+				if !a.voterSupportsAllBranches(voter, parentBranchIDs) {
+					return
+				}
 
-		newWeight := branchWeight / totalWeight
+				a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
+					latestVotes.Store(&Vote{
+						Voter:          voter,
+						BranchID:       forkedBranchID,
+						Opinion:        Confirmed,
+						SequenceNumber: sequenceNumber,
+					})
+				})
 
-		a.tangle.Storage.BranchWeight(newBranchID, NewBranchWeight).Consume(func(b *BranchWeight) {
-			if newWeight > b.Weight() {
-				b.SetWeight(newWeight)
+				branchSupporters.AddSupporter(voter)
 			}
 		})
 	})
+
+	a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
+		a.updateBranchWeight(forkedBranchID)
+	})
+}
+
+func (a *ApprovalWeightManager) voterSupportsAllBranches(voter Voter, branchIDs ledgerstate.BranchIDs) (allBranchesSupported bool) {
+	allBranchesSupported = true
+	for branchID := range branchIDs {
+		if branchID == ledgerstate.MasterBranchID {
+			continue
+		}
+
+		a.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {
+			allBranchesSupported = branchSupporters.Has(voter)
+		})
+
+		if !allBranchesSupported {
+			return false
+		}
+	}
+
+	return allBranchesSupported
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -821,178 +740,6 @@ func (c *CachedBranchWeight) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Statement is a data structure that tracks the latest statement by a Supporter per ledgerstate.BranchID.
-type Statement struct {
-	supporter      Voter
-	sequenceNumber uint64
-
-	sequenceNumberMutex sync.RWMutex
-
-	objectstorage.StorableObjectFlags
-}
-
-// NewStatement creates a new Statement.
-func NewStatement(supporter Voter) (statement *Statement) {
-	statement = &Statement{
-		supporter: supporter,
-	}
-
-	statement.Persist()
-	statement.SetModified()
-
-	return
-}
-
-// StatementFromBytes unmarshals a SequenceSupporters object from a sequence of bytes.
-func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if statement, err = StatementFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// StatementFromMarshalUtil unmarshals a Statement object using a MarshalUtil (for easier unmarshalling).
-func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err error) {
-	statement = &Statement{}
-	if statement.supporter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Supporter from MarshalUtil: %w", err)
-		return
-	}
-
-	if statement.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse sequence number (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
-// StatementFromObjectStorage restores a Statement object from the object storage.
-func StatementFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = StatementFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse Statement from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// Supporter returns the Supporter that is being tracked.
-func (s *Statement) Supporter() (supporter Voter) {
-	return s.supporter
-}
-
-// SequenceNumber returns the sequence number of the Statement.
-func (s *Statement) SequenceNumber() (sequenceNumber uint64) {
-	s.sequenceNumberMutex.RLock()
-	defer s.sequenceNumberMutex.RUnlock()
-
-	return sequenceNumber
-}
-
-// UpdateSequenceNumber updates the sequence number of the Statement if it is greater than the currently stored
-// sequence number and returns true if it was updated.
-func (s *Statement) UpdateSequenceNumber(sequenceNumber uint64) (updated bool) {
-	s.sequenceNumberMutex.Lock()
-	defer s.sequenceNumberMutex.Unlock()
-
-	if s.sequenceNumber > sequenceNumber {
-		return false
-	}
-
-	s.sequenceNumber = sequenceNumber
-	updated = true
-	s.SetModified()
-
-	return
-}
-
-// Bytes returns a marshaled version of the Statement.
-func (s *Statement) Bytes() (marshaledSequenceSupporters []byte) {
-	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
-}
-
-// String returns a human-readable version of the Statement.
-func (s *Statement) String() string {
-	return stringify.Struct("Statement",
-		stringify.StructField("supporter", s.Supporter()),
-		stringify.StructField("sequenceNumber", s.SequenceNumber()),
-	)
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (s *Statement) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (s *Statement) ObjectStorageKey() []byte {
-	return s.Supporter().Bytes()
-}
-
-// ObjectStorageValue marshals the Statement into a sequence of bytes that are used as the value part in the
-// object storage.
-func (s *Statement) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.Uint64Size).WriteUint64(s.SequenceNumber()).Bytes()
-}
-
-// code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &Statement{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedStatement //////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedStatement is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedStatement struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedStatement) Retain() *CachedStatement {
-	return &CachedStatement{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedStatement) Unwrap() *Statement {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*Statement)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedStatement) Consume(consumer func(statement *Statement), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*Statement))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedStatement.
-func (c *CachedStatement) String() string {
-	return stringify.Struct("CachedStatement",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Voter ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Voter is a type wrapper for identity.ID and defines a node that supports a branch or marker.
@@ -1149,6 +896,14 @@ func (b *BranchSupporters) BranchID() (branchID ledgerstate.BranchID) {
 	return b.branchID
 }
 
+// Has returns true if the given Voter is currently supporting this Branch.
+func (b *BranchSupporters) Has(voter Voter) bool {
+	b.supportersMutex.RLock()
+	defer b.supportersMutex.RUnlock()
+
+	return b.supporters.Has(voter)
+}
+
 // AddSupporter adds a new Supporter to the tracked ledgerstate.BranchID.
 func (b *BranchSupporters) AddSupporter(supporter Voter) (added bool) {
 	b.supportersMutex.Lock()
@@ -1288,218 +1043,6 @@ func (c *CachedBranchSupporters) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region SequenceSupporters ///////////////////////////////////////////////////////////////////////////////////////////
-
-// SequenceSupporters is a data structure that tracks which nodes have confirmed which Index in a given Sequence.
-type SequenceSupporters struct {
-	sequenceID              markers.SequenceID
-	supportersPerIndex      map[Voter]markers.Index
-	supportersPerIndexMutex sync.RWMutex
-
-	objectstorage.StorableObjectFlags
-}
-
-// NewSequenceSupporters is the constructor for the SequenceSupporters object.
-func NewSequenceSupporters(sequenceID markers.SequenceID) (sequenceSupporters *SequenceSupporters) {
-	sequenceSupporters = &SequenceSupporters{
-		sequenceID:         sequenceID,
-		supportersPerIndex: make(map[Voter]markers.Index),
-	}
-
-	sequenceSupporters.Persist()
-	sequenceSupporters.SetModified()
-
-	return
-}
-
-// SequenceSupportersFromBytes unmarshals a SequenceSupporters object from a sequence of bytes.
-func SequenceSupportersFromBytes(bytes []byte) (sequenceSupporters *SequenceSupporters, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if sequenceSupporters, err = SequenceSupportersFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// SequenceSupportersFromMarshalUtil unmarshals a SequenceSupporters object using a MarshalUtil (for easier unmarshaling).
-func SequenceSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceSupporters *SequenceSupporters, err error) {
-	sequenceSupporters = &SequenceSupporters{}
-	if sequenceSupporters.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-		return
-	}
-	supportersCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse supporters count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	sequenceSupporters.supportersPerIndex = make(map[Voter]markers.Index)
-	for i := uint64(0); i < supportersCount; i++ {
-		supporter, supporterErr := identity.IDFromMarshalUtil(marshalUtil)
-		if supporterErr != nil {
-			err = errors.Errorf("failed to parse Supporter (%v): %w", supporterErr, cerrors.ErrParseBytesFailed)
-			return
-		}
-
-		index, indexErr := markers.IndexFromMarshalUtil(marshalUtil)
-		if indexErr != nil {
-			err = errors.Errorf("failed to parse Index: %w", indexErr)
-			return
-		}
-
-		sequenceSupporters.supportersPerIndex[supporter] = index
-	}
-
-	return
-}
-
-// SequenceSupportersFromObjectStorage restores a SequenceSupporters object from the object storage.
-func SequenceSupportersFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = SequenceSupportersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse SequenceSupporters from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// SequenceID returns the SequenceID that is being tracked.
-func (s *SequenceSupporters) SequenceID() (sequenceID markers.SequenceID) {
-	return s.sequenceID
-}
-
-// AddSupporter adds a new Supporter of a given index to the Sequence.
-func (s *SequenceSupporters) AddSupporter(supporter Voter, index markers.Index) (added bool) {
-	s.supportersPerIndexMutex.Lock()
-	defer s.supportersPerIndexMutex.Unlock()
-
-	highestApprovedIndex, exists := s.supportersPerIndex[supporter]
-
-	if added = !exists || highestApprovedIndex < index; !added {
-		return
-	}
-	s.SetModified()
-
-	s.supportersPerIndex[supporter] = index
-
-	return
-}
-
-// Supporters returns the set of Supporters that have approved the given Index.
-func (s *SequenceSupporters) Supporters(index markers.Index) (supporters *Supporters) {
-	s.supportersPerIndexMutex.RLock()
-	defer s.supportersPerIndexMutex.RUnlock()
-
-	supporters = NewSupporters()
-	for supporter, supportedIndex := range s.supportersPerIndex {
-		if supportedIndex >= index {
-			supporters.Add(supporter)
-		}
-	}
-
-	return
-}
-
-// Bytes returns a marshaled version of the SequenceSupporters.
-func (s *SequenceSupporters) Bytes() (marshaledSequenceSupporters []byte) {
-	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
-}
-
-// String returns a human readable version of the SequenceSupporters.
-func (s *SequenceSupporters) String() string {
-	structBuilder := stringify.StructBuilder("SequenceSupporters",
-		stringify.StructField("sequenceID", s.SequenceID()),
-	)
-
-	s.supportersPerIndexMutex.RLock()
-	defer s.supportersPerIndexMutex.RUnlock()
-	for supporter, index := range s.supportersPerIndex {
-		stringify.StructField(supporter.String(), index)
-	}
-
-	return structBuilder.String()
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (s *SequenceSupporters) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (s *SequenceSupporters) ObjectStorageKey() []byte {
-	return s.sequenceID.Bytes()
-}
-
-// ObjectStorageValue marshals the SequenceSupporters into a sequence of bytes that are used as the value part in the
-// object storage.
-func (s *SequenceSupporters) ObjectStorageValue() []byte {
-	s.supportersPerIndexMutex.RLock()
-	defer s.supportersPerIndexMutex.RUnlock()
-
-	marshalUtil := marshalutil.New(marshalutil.Uint64Size + len(s.supportersPerIndex)*(identity.IDLength+marshalutil.Uint64Size))
-	marshalUtil.WriteUint64(uint64(len(s.supportersPerIndex)))
-	for supporter, index := range s.supportersPerIndex {
-		marshalUtil.WriteBytes(supporter.Bytes())
-		marshalUtil.WriteUint64(uint64(index))
-	}
-
-	return marshalUtil.Bytes()
-}
-
-// code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &SequenceSupporters{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedSequenceSupporters /////////////////////////////////////////////////////////////////////////////////////
-
-// CachedSequenceSupporters is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedSequenceSupporters struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedSequenceSupporters) Retain() *CachedSequenceSupporters {
-	return &CachedSequenceSupporters{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedSequenceSupporters) Unwrap() *SequenceSupporters {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*SequenceSupporters)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedSequenceSupporters) Consume(consumer func(sequenceSupporters *SequenceSupporters), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*SequenceSupporters))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedSequenceSupporters.
-func (c *CachedSequenceSupporters) String() string {
-	return stringify.Struct("CachedSequenceSupporters",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Opinion //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Opinion is a type that represents the Opinion of a node on a certain Branch.
@@ -1520,7 +1063,8 @@ const (
 
 // region LatestMarkerVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
-var LatestMarkerVotesKeys = objectstorage.PartitionKey(markers.SequenceIDLength, identity.IDLength)
+// LatestMarkerVotesKeyPartition defines the partition of the storage key of the LastMarkerVotes model.
+var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceIDLength, identity.IDLength)
 
 // LatestMarkerVotes represents the markers supported from a certain Voter.
 type LatestMarkerVotes struct {
@@ -1532,12 +1076,16 @@ type LatestMarkerVotes struct {
 	objectstorage.StorableObjectFlags
 }
 
+// NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
 func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
 	newLatestMarkerVotes = &LatestMarkerVotes{
 		sequenceID:  sequenceID,
 		voter:       voter,
 		latestVotes: thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator),
 	}
+
+	newLatestMarkerVotes.SetModified()
+	newLatestMarkerVotes.Persist()
 
 	return
 }
@@ -1594,22 +1142,29 @@ func LatestMarkerVotesFromObjectStorage(key, data []byte) (result objectstorage.
 	return
 }
 
+func (l *LatestMarkerVotes) Voter() Voter {
+	return l.voter
+}
+
 func (l *LatestMarkerVotes) SequenceNumber(index markers.Index) (sequenceNumber uint64, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
 
 	key, exists := l.latestVotes.Get(index)
+	if !exists {
+		return 0, exists
+	}
 
 	return key.(uint64), exists
 }
 
-func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) {
+func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (stored bool) {
 	l.Lock()
 	defer l.Unlock()
 
 	// abort if we already have a higher value on an Index that is larger or equal
 	if _, ceilingValue, ceilingExists := l.latestVotes.Ceiling(index); ceilingExists && sequenceNumber < ceilingValue.(uint64) {
-		return
+		return false
 	}
 
 	// set the new value
@@ -1622,6 +1177,8 @@ func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) {
 
 		floorKey, floorValue, floorExists = l.latestVotes.Floor(index - 1)
 	}
+
+	return true
 }
 
 func (l *LatestMarkerVotes) String() string {
@@ -1667,7 +1224,7 @@ var _ objectstorage.StorableObject = &LatestMarkerVotes{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedLatestVotes ////////////////////////////////////////////////////////////////////////////////////////////
+// region CachedLatestMarkerVotes //////////////////////////////////////////////////////////////////////////////////////
 
 // CachedLatestMarkerVotes is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
@@ -1708,6 +1265,20 @@ func (c *CachedLatestMarkerVotes) String() string {
 	return stringify.Struct("CachedLatestMarkerVotes",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedLatestMarkerVotesByVoter ///////////////////////////////////////////////////////////////////////////////
+
+type CachedLatestMarkerVotesByVoter map[Voter]*CachedLatestMarkerVotes
+
+func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes *LatestMarkerVotes), forceRelease ...bool) (consumed bool) {
+	for _, cachedLatestMarkerVotes := range c {
+		consumed = cachedLatestMarkerVotes.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1910,7 +1481,7 @@ type Vote struct {
 	SequenceNumber uint64
 }
 
-// VoteFromMarshalUtil unmarshals a Vote structure using a MarshalUtil (for easier unmarshaling).
+// VoteFromMarshalUtil unmarshals a Vote structure using a MarshalUtil (for easier unmarshalling).
 func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *Vote, err error) {
 	vote = &Vote{}
 

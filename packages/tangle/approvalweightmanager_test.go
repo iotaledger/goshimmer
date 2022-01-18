@@ -80,17 +80,6 @@ func TestBranchWeightMarshalling(t *testing.T) {
 	assert.Equal(t, branchWeight.Weight(), branchWeightFromBytes.Weight())
 }
 
-func TestStatementMarshalling(t *testing.T) {
-	statement := NewStatement(identity.GenerateIdentity().ID())
-	statement.UpdateSequenceNumber(10)
-	statementFromBytes, _, err := StatementFromBytes(statement.Bytes())
-	require.NoError(t, err)
-
-	assert.Equal(t, statement.Bytes(), statementFromBytes.Bytes())
-	assert.Equal(t, statement.Supporter(), statementFromBytes.Supporter())
-	assert.Equal(t, statement.SequenceNumber(), statementFromBytes.SequenceNumber())
-}
-
 func TestBranchSupportersMarshalling(t *testing.T) {
 	branchSupporters := NewBranchSupporters(ledgerstate.BranchIDFromRandomness())
 
@@ -818,15 +807,12 @@ func TestOutOfOrderStatments(t *testing.T) {
 			*markers.NewMarker(1, 6): 0.10,
 		})
 	}
+
 	// ISSUE Message12
 	{
 		// We simulate an "old" vote
 		testFramework.CreateMessage("Message12", WithStrongParents("Message10"), WithIssuer(nodes["E"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.75)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.55)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 6), 0.55)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 7), 0.25)
@@ -852,6 +838,7 @@ func TestOutOfOrderStatments(t *testing.T) {
 			*markers.NewMarker(4, 8): 0.10,
 		})
 	}
+
 	// ISSUE Message12.1
 	{
 		// We simulate an "old" vote
@@ -859,8 +846,6 @@ func TestOutOfOrderStatments(t *testing.T) {
 		testFramework.RegisterBranchID("X", "Message3")
 		testFramework.RegisterBranchID("Y", "Message12.1")
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(5, 3), 0.10)
 
 		// **********
@@ -1005,7 +990,7 @@ func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeigh
 		if err != nil {
 			panic(err)
 		}
-		supporters := approvalWeightManager.SupportersOfConflictBranches(conflictBranchIDs)
+		supporters := approvalWeightManager.SupportersOfBranches(conflictBranchIDs)
 		if supporters != nil {
 			actualResult = supporters.Has(supporter)
 		}

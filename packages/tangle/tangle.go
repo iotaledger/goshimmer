@@ -60,6 +60,7 @@ type ConfirmationOracle interface {
 	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
 	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
 	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
+	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
 	Events() *ConfirmationEvents
 }
 

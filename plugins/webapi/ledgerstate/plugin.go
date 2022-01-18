@@ -302,7 +302,7 @@ func GetBranchSupporters(c echo.Context) (err error) {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-	supporters := deps.Tangle.ApprovalWeightManager.SupportersOfConflictBranches(conflictBranchIDs)
+	supporters := deps.Tangle.ApprovalWeightManager.SupportersOfBranches(conflictBranchIDs)
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchSupportersResponse(branchID, supporters))
 }

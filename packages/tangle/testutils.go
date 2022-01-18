@@ -856,6 +856,10 @@ func NewTestTangle(options ...Option) *Tangle {
 // MockConfirmationOracle is a mock of a ConfirmationOracle.
 type MockConfirmationOracle struct{}
 
+func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
+	return 0
+}
+
 // IsMarkerConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
 	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
