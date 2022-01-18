@@ -14,13 +14,13 @@ type ParametersDefinition struct {
 	// MissingMessageRequestRelayProbability defines the probability of missing message requests being relayed to other neighbors.
 	MissingMessageRequestRelayProbability float64 `default:"0.01" usage:"the probability of missing message requests being relayed to other neighbors"`
 
-	MessagesRateLimit RateLimitParameters
+	MessagesRateLimit MessagesLimitParameters
 }
 
-type RateLimitParameters struct {
-	Interval               time.Duration `default:"1m" usage:"the time interval for which we count the rate"`
-	Limit                  int           `default:"1000" usage:"the limit of activity per interval"`
-	LimitExtensionInterval time.Duration `default:"30m" usage:"the time interval for which we extend the limit"`
+type MessagesLimitParameters struct {
+	Interval        time.Duration `default:"1s" usage:"the time interval for which we count the messages rate"`
+	Limit           int           `default:"200" usage:"the default limit of messages per interval"`
+	DuringSyncLimit int           `default:"5000" usage:"the limit of messages per interval during node sync"`
 }
 
 // Parameters contains the configuration parameters of the gossip plugin.

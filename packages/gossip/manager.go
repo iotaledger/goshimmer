@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 
+	"github.com/iotaledger/goshimmer/packages/firewall"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -74,8 +75,7 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
-	messagesRateLimit   *RateLimitConfig
-	messagesRateLimiter *neighborRateLimiter
+	messagesRateLimiter *firewall.PeerRateLimiter
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
 	messageWorkerPool *workerpool.NonBlockingQueuedWorkerPool
@@ -119,28 +119,18 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 	for _, opt := range opts {
 		opt(m)
 	}
-	if m.messagesRateLimit != nil {
-		var err error
-		m.messagesRateLimiter, err = newNeighborRateLimiter(
-			"messagesRateLimiter",
-			m.messagesRateLimit,
-			map[NeighborsGroup]*events.Event{
-				NeighborsGroupAuto:   m.neighborsEvents[NeighborsGroupAuto].NeighborMessagesLimitHit,
-				NeighborsGroupManual: m.neighborsEvents[NeighborsGroupManual].NeighborMessagesLimitHit,
-			},
-		)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-	}
 
 	return m, nil
 }
 
-func WithMessagesRateLimit(rl *RateLimitConfig) ManagerOption {
+func WithMessagesRateLimiter(prl *firewall.PeerRateLimiter) ManagerOption {
 	return func(m *Manager) {
-		m.messagesRateLimit = rl
+		m.messagesRateLimiter = prl
 	}
+}
+
+func (m *Manager) MessagesRateLimiter() *firewall.PeerRateLimiter {
+	return m.messagesRateLimiter
 }
 
 // Stop stops the manager and closes all established connections.
@@ -157,11 +147,6 @@ func (m *Manager) Stop() {
 
 	m.messageWorkerPool.Stop()
 	m.messageRequestWorkerPool.Stop()
-	if m.messagesRateLimiter != nil {
-		if err := m.messagesRateLimiter.close(); err != nil {
-			m.log.Warnw("Failed to stop message rate limiter", "err", err)
-		}
-	}
 }
 
 func (m *Manager) dropAllNeighbors() {
@@ -193,9 +178,19 @@ func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsG
 	return m.addNeighbor(ctx, p, group, m.acceptPeer, connectOpts)
 }
 
+func (m *Manager) GetNeighbor(id identity.ID) (*Neighbor, error) {
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
+	nbr, ok := m.neighbors[id]
+	if !ok {
+		return nil, ErrUnknownNeighbor
+	}
+	return nbr, nil
+}
+
 // DropNeighbor disconnects the neighbor with the given ID and the group.
 func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
-	nbr, err := m.getNeighbor(id, group)
+	nbr, err := m.getNeighborWithGroup(id, group)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -203,8 +198,8 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 	return nil
 }
 
-// getNeighbor returns neighbor by ID and group.
-func (m *Manager) getNeighbor(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
+// getNeighborWithGroup returns neighbor by ID and group.
+func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
 	m.neighborsMutex.RLock()
 	defer m.neighborsMutex.RUnlock()
 	nbr, ok := m.neighbors[id]
@@ -220,9 +215,6 @@ func (m *Manager) RequestMessage(messageID []byte, to ...identity.ID) {
 	msgReq := &pb.MessageRequest{Id: messageID}
 	packet := &pb.Packet{Body: &pb.Packet_MessageRequest{MessageRequest: msgReq}}
 	m.send(packet, to...)
-	if m.messagesRateLimiter != nil {
-		m.messagesRateLimiter.extendLimit()
-	}
 }
 
 // SendMessage adds the given message the send queue of the neighbors.
@@ -344,7 +336,7 @@ func (m *Manager) setNeighbor(nbr *Neighbor) error {
 
 func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
 	if m.messagesRateLimiter != nil {
-		m.messagesRateLimiter.count(nbr)
+		m.messagesRateLimiter.Count(nbr.Peer)
 	}
 	switch packetBody := packet.GetBody().(type) {
 	case *pb.Packet_Message:

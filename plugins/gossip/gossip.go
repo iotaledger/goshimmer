@@ -9,8 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/libp2p/go-libp2p"
 
+	"github.com/iotaledger/goshimmer/packages/firewall"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/libp2putil"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -63,12 +65,13 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		Plugin.LogFatalf("Couldn't create libp2p host: %s", err)
 	}
 	var opts []gossip.ManagerOption
-	if Parameters.MessagesRateLimit != (RateLimitParameters{}) {
-		opts = append(opts, gossip.WithMessagesRateLimit(&gossip.RateLimitConfig{
-			Interval:               Parameters.MessagesRateLimit.Interval,
-			Limit:                  Parameters.MessagesRateLimit.Limit,
-			LimitExtensionInterval: Parameters.MessagesRateLimit.LimitExtensionInterval,
-		}))
+	if Parameters.MessagesRateLimit != (MessagesLimitParameters{}) {
+		log := Plugin.Logger().With("rateLimiter", "messagesRateLimiter")
+		mrl, err := firewall.NewPeerRateLimiter(Parameters.MessagesRateLimit.Interval, Parameters.MessagesRateLimit.Limit, log)
+		if err != nil {
+			Plugin.LogFatalf("Failed to initialize messages rate limiter: %+v", err)
+		}
+		opts = append(opts, gossip.WithMessagesRateLimiter(mrl))
 	}
 	mgr, err := gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger(), opts...)
 	if err != nil {
@@ -79,7 +82,18 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
-
+	if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
+		setLimitClosure := events.NewClosure(func(ev *tangle.SyncChangedEvent) {
+			if ev.Synced {
+				mrl.SetLimit(Parameters.MessagesRateLimit.Limit)
+			} else {
+				mrl.SetLimit(Parameters.MessagesRateLimit.DuringSyncLimit)
+			}
+		})
+		deps.Tangle.TimeManager.Events.SyncChanged.Attach(setLimitClosure)
+		defer deps.Tangle.TimeManager.Events.SyncChanged.Detach(setLimitClosure)
+		mrl.Close()
+	}
 	defer deps.GossipMgr.Stop()
 	defer func() {
 		if err := deps.GossipMgr.Libp2pHost.Close(); err != nil {
