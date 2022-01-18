@@ -17,8 +17,6 @@ type NeighborsEvents struct {
 	NeighborAdded *events.Event
 	// Fired when a neighbor has been removed.
 	NeighborRemoved *events.Event
-	// Fired when a neighbor hit the limit of sent messages in an interval.
-	NeighborMessagesLimitHit *events.Event
 }
 
 // NewNeighborsEvents returns a new instance of NeighborsEvents.
@@ -26,7 +24,6 @@ func NewNeighborsEvents() NeighborsEvents {
 	return NeighborsEvents{
 		NeighborAdded:            events.NewEvent(neighborCaller),
 		NeighborRemoved:          events.NewEvent(neighborCaller),
-		NeighborMessagesLimitHit: events.NewEvent(neighborCaller),
 	}
 }
 

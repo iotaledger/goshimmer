@@ -134,13 +134,6 @@ func configureGossipIntegration() {
 	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		deps.Selection.RemoveNeighbor(n.ID())
 	}))
-	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborMessagesLimitHit.Attach(events.NewClosure(func(n *gossip.Neighbor) {
-		Plugin.Logger().Infow(
-			"Neighbor spams to many messages asking autopeering to drop and blocklist it",
-			"peerId", n.ID(),
-		)
-		deps.Selection.BlockNeighbor(n.ID())
-	}))
 }
 
 func configureEvents() {
