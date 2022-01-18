@@ -1,4 +1,4 @@
-package firewall
+package ratelimiter
 
 import (
 	"fmt"

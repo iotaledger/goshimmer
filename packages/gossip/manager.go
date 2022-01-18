@@ -15,8 +15,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 
-	"github.com/iotaledger/goshimmer/packages/firewall"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
+	"github.com/iotaledger/goshimmer/packages/ratelimiter"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -75,7 +75,7 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
-	messagesRateLimiter *firewall.PeerRateLimiter
+	messagesRateLimiter *ratelimiter.PeerRateLimiter
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
 	messageWorkerPool *workerpool.NonBlockingQueuedWorkerPool
@@ -123,13 +123,13 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 	return m, nil
 }
 
-func WithMessagesRateLimiter(prl *firewall.PeerRateLimiter) ManagerOption {
+func WithMessagesRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
 	return func(m *Manager) {
 		m.messagesRateLimiter = prl
 	}
 }
 
-func (m *Manager) MessagesRateLimiter() *firewall.PeerRateLimiter {
+func (m *Manager) MessagesRateLimiter() *ratelimiter.PeerRateLimiter {
 	return m.messagesRateLimiter
 }
 
