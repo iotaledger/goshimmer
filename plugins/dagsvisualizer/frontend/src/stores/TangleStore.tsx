@@ -28,8 +28,6 @@ export class TangleStore {
     // might still need markerMap for advanced features
     @observable markerMap = new ObservableMap<string, Array<string>>();
     @observable selectedMsg: tangleVertex = null;
-    @observable selected_approvers_count = 0;
-    @observable selected_approvees_count = 0;
     @observable paused = false;
     @observable search = '';
     @observable explorerAddress = DEFAULT_DASHBOARD_URL;
@@ -264,8 +262,6 @@ export class TangleStore {
         if (!this.selectedMsg) {
             return;
         }
-        this.selected_approvers_count = 0;
-        this.selected_approvees_count = 0;
         this.clearHighlightedMsg(this.selectedMsg.ID);
         this.selectedMsg = null;
     };
