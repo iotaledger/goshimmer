@@ -41,6 +41,8 @@ export class BranchStore {
     unregisterHandlers() {
         unregisterHandler(WSMsgType.Branch);
         unregisterHandler(WSMsgType.BranchParentsUpdate);
+        unregisterHandler(WSMsgType.BranchConfirmed);
+        unregisterHandler(WSMsgType.BranchWeightChanged);
     }
 
     @action
