@@ -12,12 +12,14 @@ export class searchResult {
     messages: Array<tangleVertex>;
     txs: Array<utxoVertex>;
     branches: Array<branchVertex>;
+    error: string;
 }
 
 export class GlobalStore {
     @observable searchStartingTime: number;
     @observable searchEndingTime: number;
     @observable explorerAddress = DEFAULT_DASHBOARD_URL;
+    @observable searchResponse = '';
 
     tangleStore: TangleStore;
     utxoStore: UTXOStore;
@@ -101,6 +103,11 @@ export class GlobalStore {
     };
 
     @action
+    updateSearchResponse = (e: string) => {
+        this.searchResponse = e;
+    };
+
+    @action
     searchAndDrawResults = async () => {
         try {
             const res = await fetch(
@@ -109,6 +116,18 @@ export class GlobalStore {
                 }`
             );
             const result: searchResult = await res.json();
+            if (res.status !== 200) {
+                this.updateSearchResponse(result.error);
+                return;
+            } else {
+                this.updateSearchResponse('Done!');
+            }
+
+            if (result.messages.length === 0) {
+                this.updateSearchResponse('no messages found!');
+                return;
+            }
+
             this.stopDrawNewVertices();
             this.clearGraphs();
 
@@ -135,6 +154,7 @@ export class GlobalStore {
     @action
     clearSearchAndResume = () => {
         this.clearGraphs();
+        this.clearSelectedVertices();
 
         // re-draw all existed latest vertices.
         this.tangleStore.drawExistedMsgs();
@@ -142,6 +162,7 @@ export class GlobalStore {
         this.branchStore.drawExistedBranches();
 
         this.drawNewVertices();
+        this.updateSearchResponse('');
     };
 
     drawNewVertices() {
@@ -155,6 +176,12 @@ export class GlobalStore {
         this.tangleStore.updateDrawStatus(false);
         this.utxoStore.updateDrawStatus(false);
         this.branchStore.updateDrawStatus(false);
+    }
+
+    clearSelectedVertices() {
+        this.tangleStore.clearSelected();
+        this.utxoStore.clearSelected();
+        this.branchStore.clearSelected();
     }
 
     clearGraphs() {

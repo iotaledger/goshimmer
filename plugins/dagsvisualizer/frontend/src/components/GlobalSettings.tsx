@@ -24,6 +24,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
         super(props);
         this.state = {
             isIdle: true,
+            searching: false,
             open: true,
             searchOpen: true,
             dashboardUrlOpen: true,
@@ -45,8 +46,10 @@ export default class GlobalSettings extends React.Component<Props, any> {
     };
 
     searchVerticesInLedger = () => {
-        this.setState({ isIdle: false });
-        this.props.globalStore.searchAndDrawResults();
+        this.setState({ searching: true, isIdle: false });
+        this.props.globalStore
+            .searchAndDrawResults()
+            .then(() => this.setState({ searching: false }));
     };
 
     clearSearch = () => {
@@ -84,6 +87,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
     };
 
     render() {
+        const { searchResponse } = this.props.globalStore;
         return (
             <Container>
                 <div
@@ -120,7 +124,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </h5>
                             </div>
                             <Collapse in={this.state.searchOpen}>
-                                <Row xs={5}>
+                                <Row md={4}>
                                     <Col>
                                         From:{' '}
                                         <Datetime onChange={this.updateFrom} />
@@ -142,7 +146,14 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                             }
                                             variant="outline-secondary"
                                         >
-                                            Search
+                                            {this.state.searching ? (
+                                                <div>
+                                                    <span className="spinner-border spinner-border-sm text-secondary" />{' '}
+                                                    Searching...
+                                                </div>
+                                            ) : (
+                                                'Search'
+                                            )}
                                         </Button>
                                         <Button
                                             disabled={this.state.isIdle}
@@ -151,6 +162,17 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                         >
                                             Clear and Resume
                                         </Button>
+                                    </Col>
+                                    <Col
+                                        className="align-self-end"
+                                        style={{
+                                            display: 'flex',
+                                            color: 'red'
+                                        }}
+                                    >
+                                        <div>
+                                            <p>{searchResponse}</p>
+                                        </div>
                                     </Col>
                                 </Row>
                             </Collapse>

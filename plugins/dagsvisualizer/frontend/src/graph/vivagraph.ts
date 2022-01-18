@@ -20,6 +20,7 @@ export class vivagraphLib implements IGraph {
 
     removeVertex(id: string): void {
         this.graph.removeNode(id);
+        this.graphics.releaseNode(id);
     }
 
     selectVertex(id: string): void {

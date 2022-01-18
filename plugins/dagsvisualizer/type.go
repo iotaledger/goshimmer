@@ -113,4 +113,5 @@ type searchResult struct {
 	Messages []*tangleVertex `json:"messages"`
 	Txs      []*utxoVertex   `json:"txs"`
 	Branches []*branchVertex `json:"branches"`
+	Error    string          `json:"error,omitempty"`
 }

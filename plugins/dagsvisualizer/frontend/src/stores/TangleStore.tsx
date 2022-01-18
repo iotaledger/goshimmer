@@ -33,7 +33,7 @@ export class TangleStore {
     msgOrder: Array<string> = [];
     lastMsgAddedBeforePause = '';
     selected_origin_color = '';
-    highligtedMsgs = new Map<string, string>();
+    highlightedMsgs = new Map<string, string>();
     draw = true;
     vertexChanges = 0;
     graph;
@@ -171,6 +171,7 @@ export class TangleStore {
     @action
     updateVerticesLimit = (num: number) => {
         this.maxTangleVertices = num;
+        this.trimTangleToVerticesLimit();
     };
 
     @action
@@ -272,18 +273,18 @@ export class TangleStore {
         msgIDs.forEach(id => {
             const original_color = this.graph.getNodeColor(id);
             selectMessage(id, this.graph);
-            this.highligtedMsgs.set(id, original_color);
+            this.highlightedMsgs.set(id, original_color);
         });
     };
 
     clearHighlightedMsgs = () => {
-        if (this.highligtedMsgs.size === 0) {
+        if (this.highlightedMsgs.size === 0) {
             return;
         }
-        this.highligtedMsgs.forEach((color: string, id) => {
+        this.highlightedMsgs.forEach((color: string, id) => {
             this.clearHighlightedMsg(id);
         });
-        this.highligtedMsgs.clear();
+        this.highlightedMsgs.clear();
     };
 
     clearHighlightedMsg = (msgID: string) => {
@@ -291,7 +292,7 @@ export class TangleStore {
         if (this.selectedMsg && msgID === this.selectedMsg.ID) {
             color = this.selected_origin_color;
         } else {
-            color = this.highligtedMsgs.get(msgID);
+            color = this.highlightedMsgs.get(msgID);
         }
 
         unselectMessage(msgID, color, this.graph);
@@ -344,6 +345,22 @@ export class TangleStore {
             updateNodeDataAndColor(msg.ID, msg, this.graph);
         }
     };
+
+    trimTangleToVerticesLimit() {
+        if (this.msgOrder.length >= this.maxTangleVertices) {
+            const removeStartIndex =
+                this.msgOrder.length - this.maxTangleVertices;
+            const removed = this.msgOrder.slice(0, removeStartIndex);
+            this.msgOrder = this.msgOrder.slice(removeStartIndex);
+            this.removeMessages(removed);
+        }
+    }
+
+    removeMessages(removed: string[]) {
+        removed.forEach((msgID: string) => {
+            this.removeMessage(msgID);
+        });
+    }
 }
 
 export default TangleStore;

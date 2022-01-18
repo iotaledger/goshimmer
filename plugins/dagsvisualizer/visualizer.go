@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -22,6 +23,9 @@ var (
 	visualizerWorkerCount     = 1
 	visualizerWorkerQueueSize = 500
 	visualizerWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
+	maxWsMessageBufferSize    = 200
+	buffer                    []*wsMessage
+	bufferMutex               sync.RWMutex
 )
 
 func setupVisualizer() {
@@ -49,10 +53,12 @@ func runVisualizer() {
 
 func registerTangleEvents() {
 	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		visualizerWorkerPool.TrySubmit(&wsMessage{
+		msg := &wsMessage{
 			Type: MsgTypeTangleVertex,
 			Data: newTangleVertex(messageID),
-		})
+		}
+		visualizerWorkerPool.TrySubmit(msg)
+		storeWsMessage(msg)
 	})
 
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
@@ -62,38 +68,44 @@ func registerTangleEvents() {
 				branchID = ledgerstate.BranchID{}
 			}
 
-			visualizerWorkerPool.TrySubmit((&wsMessage{
+			msg := &wsMessage{
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
 					ID:       messageID.Base58(),
 					IsMarker: msgMetadata.StructureDetails().IsPastMarker,
 					BranchID: branchID.Base58(),
 				},
-			}))
+			}
+			visualizerWorkerPool.TrySubmit(msg)
+			storeWsMessage(msg)
 		})
 	})
 
 	msgConfirmedClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			visualizerWorkerPool.TrySubmit(&wsMessage{
+			msg := &wsMessage{
 				Type: MsgTypeTangleConfirmed,
 				Data: &tangleConfirmed{
 					ID:            messageID.Base58(),
 					GoF:           msgMetadata.GradeOfFinality().String(),
 					ConfirmedTime: msgMetadata.GradeOfFinalityTime().UnixNano(),
 				},
-			})
+			}
+			visualizerWorkerPool.TrySubmit(msg)
+			storeWsMessage(msg)
 		})
 	})
 
 	fmUpdateClosure := events.NewClosure(func(fmUpdate *tangle.FutureMarkerUpdate) {
-		visualizerWorkerPool.TrySubmit(&wsMessage{
+		msg := &wsMessage{
 			Type: MsgTypeFutureMarkerUpdated,
 			Data: &tangleFutureMarkerUpdated{
 				ID:             fmUpdate.ID.Base58(),
 				FutureMarkerID: fmUpdate.FutureMarker.Base58(),
 			},
-		})
+		}
+		visualizerWorkerPool.TrySubmit(msg)
+		storeWsMessage(msg)
 	})
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
@@ -107,11 +119,12 @@ func registerUTXOEvents() {
 		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() == ledgerstate.TransactionType {
 				tx := msg.Payload().(*ledgerstate.Transaction)
-
-				visualizerWorkerPool.TrySubmit(&wsMessage{
+				wsMsg := &wsMessage{
 					Type: MsgTypeUTXOVertex,
 					Data: newUTXOVertex(messageID, tx),
-				})
+				}
+				visualizerWorkerPool.TrySubmit(wsMsg)
+				storeWsMessage(wsMsg)
 			}
 		})
 	})
@@ -123,28 +136,31 @@ func registerUTXOEvents() {
 				if err != nil {
 					branchID = ledgerstate.BranchID{}
 				}
-
-				visualizerWorkerPool.TrySubmit((&wsMessage{
+				msg := &wsMessage{
 					Type: MsgTypeUTXOBooked,
 					Data: &utxoBooked{
 						ID:       message.Payload().(*ledgerstate.Transaction).ID().Base58(),
 						BranchID: branchID.Base58(),
 					},
-				}))
+				}
+				visualizerWorkerPool.TrySubmit(msg)
+				storeWsMessage(msg)
 			}
 		})
 	})
 
 	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
 		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
-			visualizerWorkerPool.TrySubmit(&wsMessage{
+			msg := &wsMessage{
 				Type: MsgTypeUTXOConfirmed,
 				Data: &utxoConfirmed{
 					ID:            txID.Base58(),
 					GoF:           txMetadata.GradeOfFinality().String(),
 					ConfirmedTime: txMetadata.GradeOfFinalityTime().UnixNano(),
 				},
-			})
+			}
+			visualizerWorkerPool.TrySubmit(msg)
+			storeWsMessage(msg)
 		})
 	})
 
@@ -162,34 +178,40 @@ func registerBranchEvents() {
 	})
 
 	parentUpdateClosure := events.NewClosure(func(parentUpdate *ledgerstate.BranchParentUpdate) {
-		visualizerWorkerPool.TrySubmit(&wsMessage{
+		msg := &wsMessage{
 			Type: MsgTypeBranchParentsUpdate,
 			Data: &branchParentUpdate{
 				ID:      parentUpdate.ID.Base58(),
 				Parents: parentUpdate.NewParents.Strings(),
 			},
-		})
+		}
+		visualizerWorkerPool.TrySubmit(msg)
+		storeWsMessage(msg)
 	})
 
 	branchConfirmedClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
-		visualizerWorkerPool.TrySubmit(&wsMessage{
+		msg := &wsMessage{
 			Type: MsgTypeBranchConfirmed,
 			Data: &branchConfirmed{
 				ID: branchID.Base58(),
 			},
-		})
+		}
+		visualizerWorkerPool.TrySubmit(msg)
+		storeWsMessage(msg)
 	})
 
 	branchWeightChangedClosure := events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
 		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(e.BranchID)
-		visualizerWorkerPool.TrySubmit(&wsMessage{
+		msg := &wsMessage{
 			Type: MsgTypeBranchWeightChanged,
 			Data: &branchWeightChanged{
 				ID:     e.BranchID.Base58(),
 				Weight: e.Weight,
 				GoF:    branchGoF.String(),
 			},
-		})
+		}
+		visualizerWorkerPool.TrySubmit(msg)
+		storeWsMessage(msg)
 	})
 
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
@@ -205,7 +227,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 
 		reqValid := isTimeIntervalValid(startTimestamp, endTimestamp)
 		if !reqValid {
-			return
+			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
 
 		messages := []*tangleVertex{}
@@ -213,33 +235,35 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		branches := []*branchVertex{}
 		branchMap := make(map[ledgerstate.BranchID]struct{})
 
-		deps.Tangle.Utils.WalkMessage(func(msg *tangle.Message, walker *walker.Walker) {
-			// only keep messages that is issued in the given time interval
-			if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
-				// add message
-				tangleNode := newTangleVertex(msg.ID())
-				messages = append(messages, tangleNode)
+		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+			deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+				// only keep messages that is issued in the given time interval
+				if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
+					// add message
+					tangleNode := newTangleVertex(msg.ID())
+					messages = append(messages, tangleNode)
 
-				// add tx
-				if tangleNode.IsTx {
-					utxoNode := newUTXOVertex(msg.ID(), msg.Payload().(*ledgerstate.Transaction))
-					txs = append(txs, utxoNode)
+					// add tx
+					if tangleNode.IsTx {
+						utxoNode := newUTXOVertex(msg.ID(), msg.Payload().(*ledgerstate.Transaction))
+						txs = append(txs, utxoNode)
+					}
+
+					// add branch
+					branchID, err := deps.Tangle.Booker.MessageBranchID(msg.ID())
+					if err != nil {
+						branchID = ledgerstate.BranchID{}
+					}
+					if _, ok := branchMap[branchID]; !ok {
+						branchMap[branchID] = struct{}{}
+
+						branchNode := newBranchVertex(branchID)
+						branches = append(branches, branchNode)
+					}
 				}
+			})
 
-				// add branch
-				branchID, err := deps.Tangle.Booker.MessageBranchID(msg.ID())
-				if err != nil {
-					branchID = ledgerstate.BranchID{}
-				}
-				if _, ok := branchMap[branchID]; !ok {
-					branchMap[branchID] = struct{}{}
-
-					branchNode := newBranchVertex(branchID)
-					branches = append(branches, branchNode)
-				}
-			}
-
-			deps.Tangle.Storage.Approvers(msg.ID()).Consume(func(approver *tangle.Approver) {
+			deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 				walker.Push(approver.ApproverMessageID())
 			})
 		}, tangle.MessageIDs{tangle.EmptyMessageID})
@@ -348,4 +372,13 @@ func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
 		}
 	})
 	return
+}
+
+func storeWsMessage(msg *wsMessage) {
+	bufferMutex.Lock()
+	defer bufferMutex.Unlock()
+	if len(buffer) >= maxWsMessageBufferSize {
+		buffer = buffer[1:]
+	}
+	buffer = append(buffer, msg)
 }
