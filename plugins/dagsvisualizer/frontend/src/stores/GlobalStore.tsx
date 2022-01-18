@@ -1,6 +1,7 @@
 import { action, makeObservable, observable } from 'mobx';
 import { Moment } from 'moment';
-import TangleStore, { tangleVertex } from './TangleStore';
+import TangleStore from './TangleStore';
+import { tangleVertex } from 'models/tangle';
 import UTXOStore from './UTXOStore';
 import { utxoVertex } from 'models/utxo';
 import BranchStore from './BranchStore';
