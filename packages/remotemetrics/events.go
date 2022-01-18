@@ -64,12 +64,15 @@ type MessageFinalizedMetrics struct {
 
 // MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger.
 type MessageScheduledMetrics struct {
-	Type                     string    `json:"type" bson:"type"`
-	NodeID                   string    `json:"nodeID" bson:"nodeID"`
-	MetricsLevel             uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID                string    `json:"messageID" bson:"messageID"`
-	TransactionID            string    `json:"transactionID,omitempty" bson:"transactionID"`
-	IssuedTimestamp          time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	Type          string `json:"type" bson:"type"`
+	NodeID        string `json:"nodeID" bson:"nodeID"`
+	MetricsLevel  uint8  `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID     string `json:"messageID" bson:"messageID"`
+	TransactionID string `json:"transactionID,omitempty" bson:"transactionID"`
+	// Time where the message was created by the issuing node
+	IssuedTimestamp time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	// Time where the message was first seen by the node
+	ReceivedTimestamp        time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
 	SolidTimestamp           time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
 	ScheduledTimestamp       time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
 	BookedTimestamp          time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
@@ -79,11 +82,14 @@ type MessageScheduledMetrics struct {
 	GradeOfFinality          uint8     `json:"gradeOfFinality" bson:"GradeOfFinality"`
 	DeltaGradeOfFinalityTime int64     `json:"deltaGradeOfFinalityTime" bson:"deltaGradeOfFinalityTime"`
 	DeltaSolid               int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
-	DeltaScheduled           int64     `json:"deltaScheduled" bson:"deltaScheduled"`
-	DeltaBooked              int64     `json:"deltaBooked" bson:"deltaBooked"`
-	// scheduledTimestamp - ReceivedTimestamp in nanoseconds
-	ProcessingTime int64 `json:"processingTime" bson:"processingTime"`
-	// scheduledTimestamp - QueuedTimestamp in nanoseconds
+	// ScheduledTimestamp - IssuedTimestamp in nanoseconds
+	DeltaScheduledIssued int64 `json:"deltaScheduledIssued" bson:"deltaScheduledIssued"`
+	DeltaBooked          int64 `json:"deltaBooked" bson:"deltaBooked"`
+	// ScheduledTimestamp - ReceivedTimestamp in nanoseconds
+	DeltaScheduledReceived int64 `json:"deltaScheduledReceived" bson:"deltaScheduledReceived"`
+	// ReceivedTimestamp - IssuedTimestamp in nanoseconds
+	DeltaReceivedIssued int64 `json:"DeltaReceivedIssued" bson:"DeltaReceivedIssued"`
+	// ScheduledTimestamp - QueuedTimestamp in nanoseconds
 	SchedulingTime  int64   `json:"schedulingTime" bson:"schedulingTime"`
 	AccessMana      float64 `json:"accessMana" bson:"accessMana"`
 	StrongEdgeCount int     `json:"strongEdgeCount" bson:"strongEdgeCount"`
