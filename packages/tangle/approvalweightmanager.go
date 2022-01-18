@@ -418,23 +418,28 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 // processForkedMessage updates the Branch weight after an individually mapped Message was forked into a new Branch.
 func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID ledgerstate.BranchID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		a.tangle.Storage.BranchSupporters(forkedBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-			voter := identity.NewID(message.IssuerPublicKey())
+		a.tangle.Storage.BranchSupporters(forkedBranchID, NewBranchSupporters).Consume(func(forkedBranchSupporters *BranchSupporters) {
+			a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch ledgerstate.Branch) {
+				voter := identity.NewID(message.IssuerPublicKey())
+				if !a.voterSupportsAllBranches(voter, forkedBranch.(*ledgerstate.ConflictBranch).Parents()) {
+					return
+				}
 
-			a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
-				latestVotes.Store(&Vote{
-					Voter:          voter,
-					BranchID:       forkedBranchID,
-					Opinion:        Confirmed,
-					SequenceNumber: message.SequenceNumber(),
+				a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
+					latestVotes.Store(&Vote{
+						Voter:          voter,
+						BranchID:       forkedBranchID,
+						Opinion:        Confirmed,
+						SequenceNumber: message.SequenceNumber(),
+					})
 				})
+
+				if !forkedBranchSupporters.AddSupporter(voter) {
+					return
+				}
+
+				a.updateBranchWeight(forkedBranchID)
 			})
-
-			if !branchSupporters.AddSupporter(voter) {
-				return
-			}
-
-			a.updateBranchWeight(forkedBranchID)
 		})
 	})
 }
@@ -442,12 +447,12 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 // take everything in future cone because it was not conflicting before and move to new branch.
 func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, forkedBranchID ledgerstate.BranchID) {
 	a.tangle.Storage.BranchSupporters(forkedBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-		a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(branch ledgerstate.Branch) {
-			parentBranchIDs := branch.(*ledgerstate.ConflictBranch).Parents()
+		a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch ledgerstate.Branch) {
+			parentBranchIDs := forkedBranch.(*ledgerstate.ConflictBranch).Parents()
 
 			for voter, sequenceNumber := range a.markerVotes(marker) {
 				if !a.voterSupportsAllBranches(voter, parentBranchIDs) {
-					return
+					continue
 				}
 
 				a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
@@ -1163,6 +1168,8 @@ func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (s
 		floorKey, floorValue, floorExists = l.latestVotes.Floor(index - 1)
 	}
 
+	l.SetModified()
+
 	return true
 }
 
@@ -1295,7 +1302,6 @@ func (l *LatestBranchVotes) Store(vote *Vote) {
 	l.latestVotes[vote.BranchID] = vote
 
 	l.SetModified()
-	l.Persist()
 }
 
 // NewLatestBranchVotes creates a new LatestVotes.
