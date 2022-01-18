@@ -87,7 +87,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
     };
 
     render() {
-        const { searchError } = this.props.globalStore;
+        const { searchResponse } = this.props.globalStore;
         return (
             <Container>
                 <div
@@ -171,7 +171,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                         }}
                                     >
                                         <div>
-                                            <p>{searchError}</p>
+                                            <p>{searchResponse}</p>
                                         </div>
                                     </Col>
                                 </Row>

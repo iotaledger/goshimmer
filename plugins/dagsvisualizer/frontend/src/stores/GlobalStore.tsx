@@ -14,7 +14,7 @@ export class searchResult {
 export class GlobalStore {
     @observable searchStartingTime: number;
     @observable searchEndingTime: number;
-    @observable searchError = '';
+    @observable searchResponse = '';
 
     tangleStore: TangleStore;
     utxoStore: UTXOStore;
@@ -100,8 +100,8 @@ export class GlobalStore {
     };
 
     @action
-    updateSearchError = (e: string) => {
-        this.searchError = e;
+    updateSearchResponse = (e: string) => {
+        this.searchResponse = e;
     };
 
     @action
@@ -114,12 +114,14 @@ export class GlobalStore {
             );
             const result: searchResult = await res.json();
             if (res.status !== 200) {
-                this.updateSearchError(result.error);
+                this.updateSearchResponse(result.error);
                 return;
+            } else {
+                this.updateSearchResponse('Done!');
             }
 
             if (result.messages.length === 0) {
-                this.updateSearchError('no messages found!');
+                this.updateSearchResponse('no messages found!');
                 return;
             }
 
@@ -156,7 +158,7 @@ export class GlobalStore {
         this.branchStore.drawExistedBranches();
 
         this.drawNewVertices();
-        this.updateSearchError('');
+        this.updateSearchResponse('');
     };
 
     drawNewVertices() {
