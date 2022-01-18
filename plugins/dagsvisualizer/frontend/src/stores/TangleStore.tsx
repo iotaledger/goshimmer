@@ -720,24 +720,26 @@ function dfsIterator(
 
         if (cb(node)) return true;
 
-        for (const link of node.links) {
-            if (cbLinks) cbLinks(link);
+        if (node.links) {
+            for (const link of node.links) {
+                if (cbLinks) cbLinks(link);
 
-            if (
-                !up &&
-                link.toId === node.id &&
-                !seenNodes.includes(graph.getNode(link.fromId))
-            ) {
-                seenNodes.push(graph.getNode(link.fromId));
-                continue;
-            }
+                if (
+                    !up &&
+                    link.toId === node.id &&
+                    !seenNodes.includes(graph.getNode(link.fromId))
+                ) {
+                    seenNodes.push(graph.getNode(link.fromId));
+                    continue;
+                }
 
-            if (
-                up &&
-                link.fromId === node.id &&
-                !seenNodes.includes(graph.getNode(link.toId))
-            ) {
-                seenNodes.push(graph.getNode(link.toId));
+                if (
+                    up &&
+                    link.fromId === node.id &&
+                    !seenNodes.includes(graph.getNode(link.toId))
+                ) {
+                    seenNodes.push(graph.getNode(link.toId));
+                }
             }
         }
     }
