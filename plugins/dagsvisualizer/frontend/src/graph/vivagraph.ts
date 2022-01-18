@@ -173,7 +173,7 @@ export function drawMessage(
     if (existing) {
         node = existing;
     } else {
-        node = vivaLib.drawVertex(msg);
+        node = vivaLib.graph.addNode(msg.ID, msg);
         updateNodeColorOnConfirmation(msg, vivaLib);
     }
 
