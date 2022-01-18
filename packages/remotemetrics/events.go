@@ -82,12 +82,14 @@ type MessageScheduledMetrics struct {
 	GradeOfFinality          uint8     `json:"gradeOfFinality" bson:"GradeOfFinality"`
 	DeltaGradeOfFinalityTime int64     `json:"deltaGradeOfFinalityTime" bson:"deltaGradeOfFinalityTime"`
 	DeltaSolid               int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
-	// scheduledTimestamp - IssuedTimestamp in nanoseconds
+	// ScheduledTimestamp - IssuedTimestamp in nanoseconds
 	DeltaScheduledIssued int64 `json:"deltaScheduledIssued" bson:"deltaScheduledIssued"`
 	DeltaBooked          int64 `json:"deltaBooked" bson:"deltaBooked"`
-	// scheduledTimestamp - ReceivedTimestamp in nanoseconds
+	// ScheduledTimestamp - ReceivedTimestamp in nanoseconds
 	DeltaScheduledReceived int64 `json:"deltaScheduledReceived" bson:"deltaScheduledReceived"`
-	// scheduledTimestamp - QueuedTimestamp in nanoseconds
+	// ReceivedTimestamp - IssuedTimestamp in nanoseconds
+	DeltaReceivedIssued int64 `json:"DeltaReceivedIssued" bson:"DeltaReceivedIssued"`
+	// ScheduledTimestamp - QueuedTimestamp in nanoseconds
 	SchedulingTime  int64   `json:"schedulingTime" bson:"schedulingTime"`
 	AccessMana      float64 `json:"accessMana" bson:"accessMana"`
 	StrongEdgeCount int     `json:"strongEdgeCount" bson:"strongEdgeCount"`
