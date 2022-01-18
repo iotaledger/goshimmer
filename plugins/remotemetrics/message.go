@@ -70,8 +70,8 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 			} else if !record.DroppedTimestamp.IsZero() {
 				scheduleDoneTime = record.DroppedTimestamp
 			}
-			record.DeltaScheduled = scheduleDoneTime.Sub(record.IssuedTimestamp).Nanoseconds()
-			record.ProcessingTime = scheduleDoneTime.Sub(messageMetadata.ReceivedTime()).Nanoseconds()
+			record.DeltaScheduledIssued = scheduleDoneTime.Sub(record.IssuedTimestamp).Nanoseconds()
+			record.DeltaScheduledReceived = scheduleDoneTime.Sub(messageMetadata.ReceivedTime()).Nanoseconds()
 			record.SchedulingTime = scheduleDoneTime.Sub(messageMetadata.QueuedTime()).Nanoseconds()
 		})
 	})
