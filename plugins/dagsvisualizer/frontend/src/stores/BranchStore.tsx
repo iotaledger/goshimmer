@@ -255,15 +255,17 @@ export class BranchStore {
             data: { id: branch.ID }
         });
 
-        branch.parents.forEach(pID => {
-            const b = this.branches.get(pID);
-            if (b) {
-                this.cy.add({
-                    group: 'edges',
-                    data: { source: pID, target: branch.ID }
-                });
-            }
-        });
+        if (branch.parents) {
+            branch.parents.forEach(pID => {
+                const b = this.branches.get(pID);
+                if (b) {
+                    this.cy.add({
+                        group: 'edges',
+                        data: { source: pID, target: branch.ID }
+                    });
+                }
+            });
+        }
 
         this.layoutApi.placeNewNodes(v);
     };

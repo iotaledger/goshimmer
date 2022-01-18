@@ -227,7 +227,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 
 		reqValid := isTimeIntervalValid(startTimestamp, endTimestamp)
 		if !reqValid {
-			return
+			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
 
 		messages := []*tangleVertex{}
@@ -235,33 +235,35 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		branches := []*branchVertex{}
 		branchMap := make(map[ledgerstate.BranchID]struct{})
 
-		deps.Tangle.Utils.WalkMessage(func(msg *tangle.Message, walker *walker.Walker) {
-			// only keep messages that is issued in the given time interval
-			if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
-				// add message
-				tangleNode := newTangleVertex(msg.ID())
-				messages = append(messages, tangleNode)
+		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+			deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+				// only keep messages that is issued in the given time interval
+				if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
+					// add message
+					tangleNode := newTangleVertex(msg.ID())
+					messages = append(messages, tangleNode)
 
-				// add tx
-				if tangleNode.IsTx {
-					utxoNode := newUTXOVertex(msg.ID(), msg.Payload().(*ledgerstate.Transaction))
-					txs = append(txs, utxoNode)
+					// add tx
+					if tangleNode.IsTx {
+						utxoNode := newUTXOVertex(msg.ID(), msg.Payload().(*ledgerstate.Transaction))
+						txs = append(txs, utxoNode)
+					}
+
+					// add branch
+					branchID, err := deps.Tangle.Booker.MessageBranchID(msg.ID())
+					if err != nil {
+						branchID = ledgerstate.BranchID{}
+					}
+					if _, ok := branchMap[branchID]; !ok {
+						branchMap[branchID] = struct{}{}
+
+						branchNode := newBranchVertex(branchID)
+						branches = append(branches, branchNode)
+					}
 				}
+			})
 
-				// add branch
-				branchID, err := deps.Tangle.Booker.MessageBranchID(msg.ID())
-				if err != nil {
-					branchID = ledgerstate.BranchID{}
-				}
-				if _, ok := branchMap[branchID]; !ok {
-					branchMap[branchID] = struct{}{}
-
-					branchNode := newBranchVertex(branchID)
-					branches = append(branches, branchNode)
-				}
-			}
-
-			deps.Tangle.Storage.Approvers(msg.ID()).Consume(func(approver *tangle.Approver) {
+			deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 				walker.Push(approver.ApproverMessageID())
 			})
 		}, tangle.MessageIDs{tangle.EmptyMessageID})
