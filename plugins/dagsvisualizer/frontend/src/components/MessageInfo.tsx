@@ -5,6 +5,7 @@ import { inject, observer } from 'mobx-react';
 import TangleStore from 'stores/TangleStore';
 import { resolveBase58BranchID } from 'utils/BranchIDResolver';
 import * as dateformat from 'dateformat';
+import LinkToDashboard from 'components/LinkToDashboard';
 
 interface Props {
     tangleStore?: TangleStore;
@@ -14,7 +15,7 @@ interface Props {
 @observer
 export class MessageInfo extends React.Component<Props, any> {
     render() {
-        const { selectedMsg, explorerAddress } = this.props.tangleStore;
+        const { selectedMsg } = this.props.tangleStore;
 
         return (
             selectedMsg && (
@@ -22,15 +23,10 @@ export class MessageInfo extends React.Component<Props, any> {
                     <Card style={{ width: '100%' }}>
                         <Card.Body>
                             <Card.Title>
-                                <a
-                                    href={`${explorerAddress}/explorer/message/${
-                                        selectedMsg.ID
-                                    }`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    {selectedMsg.ID}
-                                </a>
+                                <LinkToDashboard
+                                    route={`explorer/message/${selectedMsg.ID}`}
+                                    title={selectedMsg.ID}
+                                />
                             </Card.Title>
                             <ListGroup variant="flush">
                                 <ListGroup.Item>
@@ -39,13 +35,10 @@ export class MessageInfo extends React.Component<Props, any> {
                                         {selectedMsg.strongParentIDs.map(
                                             (p, i) => (
                                                 <ListGroup.Item key={i}>
-                                                    <a
-                                                        href={`${explorerAddress}/explorer/message/${p}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        {p}
-                                                    </a>
+                                                    <LinkToDashboard
+                                                        route={`explorer/message/${p}`}
+                                                        title={p}
+                                                    />
                                                 </ListGroup.Item>
                                             )
                                         )}
@@ -57,13 +50,10 @@ export class MessageInfo extends React.Component<Props, any> {
                                         {selectedMsg.weakParentIDs.map(
                                             (p, i) => (
                                                 <ListGroup.Item key={i}>
-                                                    <a
-                                                        href={`${explorerAddress}/explorer/message/${p}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        {p}
-                                                    </a>
+                                                    <LinkToDashboard
+                                                        route={`explorer/message/${p}`}
+                                                        title={p}
+                                                    />
                                                 </ListGroup.Item>
                                             )
                                         )}
@@ -75,13 +65,10 @@ export class MessageInfo extends React.Component<Props, any> {
                                         {selectedMsg.likedParentIDs.map(
                                             (p, i) => (
                                                 <ListGroup.Item key={i}>
-                                                    <a
-                                                        href={`${explorerAddress}/explorer/message/${p}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        {p}
-                                                    </a>
+                                                    <LinkToDashboard
+                                                        route={`explorer/message/${p}`}
+                                                        title={p}
+                                                    />
                                                 </ListGroup.Item>
                                             )
                                         )}
@@ -90,30 +77,24 @@ export class MessageInfo extends React.Component<Props, any> {
                                 {selectedMsg.isTx && (
                                     <ListGroup.Item>
                                         Transaction:{' '}
-                                        <a
-                                            href={`${explorerAddress}/explorer/transaction/${
+                                        <LinkToDashboard
+                                            route={`explorer/transaction/${
                                                 selectedMsg.txID
                                             }`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            {selectedMsg.txID}
-                                        </a>
+                                            title={selectedMsg.txID}
+                                        />
                                     </ListGroup.Item>
                                 )}
                                 <ListGroup.Item>
                                     Branch:{' '}
-                                    <a
-                                        href={`${explorerAddress}/explorer/branch/${
+                                    <LinkToDashboard
+                                        route={`explorer/branch/${
                                             selectedMsg.branchID
                                         }`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        {resolveBase58BranchID(
+                                        title={resolveBase58BranchID(
                                             selectedMsg.branchID
                                         )}
-                                    </a>
+                                    />
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     isMarker: {selectedMsg.isMarker.toString()}

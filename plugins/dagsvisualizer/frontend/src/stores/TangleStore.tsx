@@ -5,7 +5,7 @@ import {
     unregisterHandler,
     WSMsgType
 } from 'utils/WS';
-import { MAX_VERTICES, DEFAULT_DASHBOARD_URL } from 'utils/constants';
+import { MAX_VERTICES } from 'utils/constants';
 import {
     tangleVertex,
     tangleBooked,
@@ -30,7 +30,6 @@ export class TangleStore {
     @observable selectedMsg: tangleVertex = null;
     @observable paused = false;
     @observable search = '';
-    @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     msgOrder: Array<string> = [];
     lastMsgAddedBeforePause = '';
     selected_origin_color = '';
@@ -185,10 +184,6 @@ export class TangleStore {
 
         this.selectMsg(this.search);
         this.centerMsg(this.search);
-    };
-
-    updateExplorerAddress = (addr: string) => {
-        this.explorerAddress = addr;
     };
 
     drawExistedMsgs = () => {

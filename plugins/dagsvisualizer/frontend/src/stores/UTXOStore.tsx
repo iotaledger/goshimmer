@@ -1,6 +1,6 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
 import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
-import { MAX_VERTICES, DEFAULT_DASHBOARD_URL } from 'utils/constants';
+import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import 'styles/style.css';
@@ -13,7 +13,6 @@ export class UTXOStore {
     @observable selectedTx: utxoVertex = null;
     @observable paused = false;
     @observable search = '';
-    @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     outputMap = new Map();
     txOrder: Array<any> = [];
     highligtedTxs = [];
@@ -162,10 +161,6 @@ export class UTXOStore {
         });
 
         return txs;
-    };
-
-    updateExplorerAddress = (addr: string) => {
-        this.explorerAddress = addr;
     };
 
     resumeAndSyncGraph = () => {
