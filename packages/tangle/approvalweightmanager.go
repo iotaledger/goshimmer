@@ -95,11 +95,10 @@ func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (w
 func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
 	activeWeight, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
-	supportersOfMarker := a.supportersOfMarker(marker)
 	supporterWeight := float64(0)
-	supportersOfMarker.ForEach(func(supporter Voter) {
+	for supporter := range a.markerVotes(marker) {
 		supporterWeight += activeWeight[supporter]
-	})
+	}
 
 	return supporterWeight / totalWeight
 }
@@ -144,21 +143,7 @@ func (a *ApprovalWeightManager) SupportersOfConflictBranch(branchID ledgerstate.
 	return
 }
 
-// supportersOfMarker returns the Supporters of the given markers.Marker.
-func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
-	supporters = NewSupporters()
-	a.tangle.Storage.AllLatestMarkerVotes(marker.SequenceID()).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
-		if _, exists := latestMarkerVotes.SequenceNumber(marker.Index()); !exists {
-			return
-		}
-
-		supporters.Add(latestMarkerVotes.Voter())
-	})
-
-	return
-}
-
-// markerVotes returns a map containing all Voters and their respective SequenceNumbers.
+// markerVotes returns a map containing Voters associated to their respective SequenceNumbers.
 func (a *ApprovalWeightManager) markerVotes(marker *markers.Marker) (markerVotes map[Voter]uint64) {
 	markerVotes = make(map[Voter]uint64)
 	a.tangle.Storage.AllLatestMarkerVotes(marker.SequenceID()).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
@@ -403,9 +388,9 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Me
 		}
 
 		supporterWeight := float64(0)
-		a.supportersOfMarker(currentMarker).ForEach(func(supporter Voter) {
+		for supporter := range a.markerVotes(currentMarker) {
 			supporterWeight += activeWeights[supporter]
-		})
+		}
 
 		a.Events.MarkerWeightChanged.Trigger(&MarkerWeightChangedEvent{currentMarker, supporterWeight / totalWeight})
 	}
@@ -1426,21 +1411,21 @@ var _ objectstorage.StorableObject = &LatestBranchVotes{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedLatestVotes ////////////////////////////////////////////////////////////////////////////////////////////
+// region CachedLatestBranchVotes //////////////////////////////////////////////////////////////////////////////////////
 
-// CachedLatestVotes is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// CachedLatestBranchVotes is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
-type CachedLatestVotes struct {
+type CachedLatestBranchVotes struct {
 	objectstorage.CachedObject
 }
 
 // Retain marks the CachedObject to still be in use by the program.
-func (c *CachedLatestVotes) Retain() *CachedLatestVotes {
-	return &CachedLatestVotes{c.CachedObject.Retain()}
+func (c *CachedLatestBranchVotes) Retain() *CachedLatestBranchVotes {
+	return &CachedLatestBranchVotes{c.CachedObject.Retain()}
 }
 
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedLatestVotes) Unwrap() *LatestBranchVotes {
+func (c *CachedLatestBranchVotes) Unwrap() *LatestBranchVotes {
 	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
@@ -1456,15 +1441,15 @@ func (c *CachedLatestVotes) Unwrap() *LatestBranchVotes {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedLatestVotes) Consume(consumer func(latestVotes *LatestBranchVotes), forceRelease ...bool) (consumed bool) {
+func (c *CachedLatestBranchVotes) Consume(consumer func(latestVotes *LatestBranchVotes), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*LatestBranchVotes))
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedLatestVotes.
-func (c *CachedLatestVotes) String() string {
-	return stringify.Struct("CachedLatestVotes",
+// String returns a human readable version of the CachedLatestBranchVotes.
+func (c *CachedLatestBranchVotes) String() string {
+	return stringify.Struct("CachedLatestBranchVotes",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
 }

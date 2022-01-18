@@ -945,11 +945,12 @@ func TestNewLatestMarkerVotes(t *testing.T) {
 
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
 	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
-		supporters := approvalWeightManager.supportersOfMarker(markersMap[markerAlias].PastMarkers.Marker())
+		supporters := approvalWeightManager.markerVotes(markersMap[markerAlias].PastMarkers.Marker())
 
-		assert.Equal(t, len(expectedSupportersOfMarker), supporters.Size(), "size of supporters for Marker("+markerAlias+") does not match")
+		assert.Equal(t, len(expectedSupportersOfMarker), len(supporters), "size of supporters for Marker("+markerAlias+") does not match")
 		for _, supporter := range expectedSupportersOfMarker {
-			assert.Equal(t, true, supporters.Has(supporter.ID()))
+			_, supporterExists := supporters[supporter.ID()]
+			assert.True(t, supporterExists)
 		}
 	}
 }
