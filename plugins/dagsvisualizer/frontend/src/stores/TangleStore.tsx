@@ -225,7 +225,7 @@ export class TangleStore {
         if (this.paused) {
             return;
         } else {
-            this.graph.removeNode(msgID);
+            this.graph.removeVertex(msgID);
         }
     };
 
