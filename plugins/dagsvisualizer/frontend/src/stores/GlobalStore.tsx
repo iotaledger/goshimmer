@@ -151,6 +151,7 @@ export class GlobalStore {
     @action
     clearSearchAndResume = () => {
         this.clearGraphs();
+        this.clearSelectedVertices();
 
         // re-draw all existed latest vertices.
         this.tangleStore.drawExistedMsgs();
@@ -172,6 +173,12 @@ export class GlobalStore {
         this.tangleStore.updateDrawStatus(false);
         this.utxoStore.updateDrawStatus(false);
         this.branchStore.updateDrawStatus(false);
+    }
+
+    clearSelectedVertices() {
+        this.tangleStore.clearSelected();
+        this.utxoStore.clearSelected();
+        this.branchStore.clearSelected();
     }
 
     clearGraphs() {
