@@ -321,7 +321,7 @@ export class TangleStore {
 
     stop = () => {
         this.unregisterHandlers();
-        this.graph.dispose();
+        this.graph.stop();
         this.selectedMsg = null;
     };
 
