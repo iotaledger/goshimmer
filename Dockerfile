@@ -71,7 +71,7 @@ RUN --mount=target=. \
     fi
 
 # Docker cache will be invalidated for RUNs after ARG definition (https://docs.docker.com/engine/reference/builder/#impact-on-build-caching)
-ARG DEFAULT_SNAPSHOT_URL=https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/automated/latest-snapshot.bin
+ARG DEFAULT_SNAPSHOT_URL=https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
 ARG CUSTOM_SNAPSHOT_URL
 
 # Enable building the image without downloading the snapshot.
