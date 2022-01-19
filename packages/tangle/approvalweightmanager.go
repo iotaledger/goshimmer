@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -200,18 +199,13 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 func (a *ApprovalWeightManager) determineVotes(votedBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
 	addedBranches = ledgerstate.NewBranchIDs()
 	for votedBranchID := range votedBranchIDs {
-		fmt.Println("determineVotes", votedBranchID)
-		//
 		conflictingBranchWithHigherVoteExists := false
 		a.tangle.LedgerState.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID ledgerstate.BranchID) bool {
-			fmt.Println("ForEachConflictingBranchID", conflictingBranchID)
-			fmt.Println("Original Vote", vote.Voter, vote.BranchID, vote.SequenceNumber, vote.Opinion)
-			if a.identicalVoteWithHigherSequenceExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed)) {
-				conflictingBranchWithHigherVoteExists = true
-			}
-			fmt.Println("identicalVoteWithHigherSequenceExists", conflictingBranchWithHigherVoteExists)
+			conflictingBranchWithHigherVoteExists = a.identicalVoteWithHigherSequenceExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed))
+
 			return !conflictingBranchWithHigherVoteExists
 		})
+
 		if conflictingBranchWithHigherVoteExists {
 			continue
 		}
@@ -305,18 +299,12 @@ func (a *ApprovalWeightManager) differentVoteWithHigherSequenceExists(vote *Vote
 
 func (a *ApprovalWeightManager) identicalVoteWithHigherSequenceExists(vote *Vote) (exists bool) {
 	existingVote, exists := a.voteWithHigherSequence(vote)
-	if exists {
-		fmt.Println("identicalVoteWithHigherSequenceExists existingVote", existingVote.BranchID, existingVote.SequenceNumber, existingVote.Opinion)
-	}
 
 	return exists && vote.Opinion == existingVote.Opinion
 }
 
 func (a *ApprovalWeightManager) voteWithHigherSequence(vote *Vote) (existingVote *Vote, exists bool) {
 	a.tangle.Storage.LatestVotes(vote.Voter).Consume(func(latestVotes *LatestBranchVotes) {
-		for _, v := range latestVotes.latestVotes {
-			fmt.Println("voteWithHigherSequence", v.BranchID, v.Voter, v.SequenceNumber, v.Opinion)
-		}
 		existingVote, exists = latestVotes.Vote(vote.BranchID)
 	})
 
@@ -446,12 +434,6 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 					return
 				}
 
-				a.tangle.Storage.LatestVotes(identity.NewID(message.IssuerPublicKey())).Consume(func(latestVotes *LatestBranchVotes) {
-					for _, v := range latestVotes.latestVotes {
-						fmt.Println("processForkedMessage", v.BranchID, v.Voter, v.SequenceNumber, v.Opinion)
-					}
-				})
-
 				a.updateBranchWeight(forkedBranchID)
 			})
 		})
@@ -460,33 +442,20 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 
 // take everything in future cone because it was not conflicting before and move to new branch.
 func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, forkedBranchID ledgerstate.BranchID) {
-	fmt.Println("=================================================================================")
-	fmt.Println("processForkedMarker", marker.SequenceID(), marker.Index(), forkedBranchID)
 	branchVotesUpdated := false
 	a.tangle.Storage.BranchSupporters(forkedBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
 		a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch ledgerstate.Branch) {
 			parentBranchIDs := forkedBranch.(*ledgerstate.ConflictBranch).Parents()
 
-			fmt.Println(parentBranchIDs)
 			for voter, sequenceNumber := range a.markerVotes(marker) {
-				fmt.Println(voter, sequenceNumber)
 				if !a.addSupportToForkedBranchSupporters(voter, branchSupporters, parentBranchIDs, sequenceNumber) {
-					fmt.Println("continue")
 					continue
 				}
 
 				branchVotesUpdated = true
-				a.tangle.Storage.LatestVotes(voter).Consume(func(latestVotes *LatestBranchVotes) {
-					for _, v := range latestVotes.latestVotes {
-						fmt.Println(v.BranchID, v.Voter, v.SequenceNumber, v.Opinion)
-					}
-				})
 			}
 		})
-		fmt.Println(branchSupporters)
-
 	})
-	fmt.Println("=================================================================================")
 
 	if !branchVotesUpdated {
 		return
@@ -1342,14 +1311,10 @@ func (l *LatestBranchVotes) Store(vote *Vote) (stored bool) {
 	if currentVote, exists := l.latestVotes[vote.BranchID]; exists && currentVote.SequenceNumber >= vote.SequenceNumber {
 		return false
 	}
-	fmt.Println("+++++++++++++++++++++++++++++++++++++++")
-	fmt.Println("current", l.latestVotes[vote.BranchID])
-	fmt.Println("storedVote", vote)
+
 	l.latestVotes[vote.BranchID] = vote
-
-	fmt.Println("+++++++++++++++++++++++++++++++++++++++")
-
 	l.SetModified()
+
 	return true
 }
 

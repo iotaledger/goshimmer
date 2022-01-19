@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/debuglogger"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -68,7 +67,7 @@ func (b *Booker) Setup() {
 	}))
 
 	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByForkEvent) {
-		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID, debuglogger.New("PropagateForkedBranch")); err != nil {
+		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
@@ -133,11 +132,6 @@ func (b *Booker) Shutdown() {
 // as booked. Following, the message branch is set, and it can continue in the dataflow to add support to the determined
 // branches and markers.
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
-	debugLogger := debuglogger.New("BookMessage")
-
-	debugLogger.MethodStart("Booker", "BookMessage", messageID)
-	defer debugLogger.MethodEnd()
-
 	b.RLock()
 	defer b.RUnlock()
 
@@ -523,26 +517,21 @@ func (b *Booker) bookPayload(message *Message) (conflictBranchIDs ledgerstate.Br
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
-func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, forkedBranchID ledgerstate.BranchID, debugLogger *debuglogger.DebugLogger) (err error) {
-	defer debugLogger.MethodStart("Booker", "PropagateForkedBranch", transactionID, forkedBranchID).MethodEnd()
-
+func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, forkedBranchID ledgerstate.BranchID) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker) {
-		defer debugLogger.MethodStart("Utils", "WalkMessageMetadata", messageMetadata.ID()).MethodEnd()
-
 		if !messageMetadata.IsBooked() {
-			debugLogger.Println("return // Message is not booked")
 			return
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID, debugLogger); err != nil {
+			if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID); err != nil {
 				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
 				messageWalker.StopWalk()
 			}
 			return
 		}
 
-		if err = b.propagateForkedTransactionToMetadataFutureCone(messageMetadata, forkedBranchID, messageWalker, debugLogger); err != nil {
+		if err = b.propagateForkedTransactionToMetadataFutureCone(messageMetadata, forkedBranchID, messageWalker); err != nil {
 			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", forkedBranchID, messageMetadata.ID(), err)
 			messageWalker.StopWalk()
 			return
@@ -553,17 +542,14 @@ func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, 
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
-func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID ledgerstate.BranchID, debugLogger *debuglogger.DebugLogger) (err error) {
-	debugLogger.MethodStart("Booker", "propagateForkedTransactionToMarkerFutureCone", marker, branchID)
-	defer debugLogger.MethodEnd()
-
+func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID ledgerstate.BranchID) (err error) {
 	markerWalker := walker.New(false)
 	markerWalker.Push(marker)
 
 	for markerWalker.HasNext() {
 		currentMarker := markerWalker.Next().(*markers.Marker)
 
-		if err = b.forkSingleMarker(currentMarker, branchID, markerWalker, debugLogger); err != nil {
+		if err = b.forkSingleMarker(currentMarker, branchID, markerWalker); err != nil {
 			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", branchID, currentMarker, err)
 			return
 		}
@@ -574,24 +560,19 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Ma
 
 // forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
 // visited.
-func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID ledgerstate.BranchID, markerWalker *walker.Walker, debugLogger *debuglogger.DebugLogger) (err error) {
-	defer debugLogger.MethodStart("Booker", "forkSingleMarker", currentMarker, newBranchID).MethodEnd()
-
+func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID ledgerstate.BranchID, markerWalker *walker.Walker) (err error) {
 	// update BranchID mapping
 	oldConflictBranchIDs, err := b.MarkersManager.ConflictBranchIDs(currentMarker)
 	if err != nil {
-		debugLogger.Println("return // error occurred")
 		return errors.Errorf("failed to retrieve ConflictBranchIDs of %s: %w", currentMarker, err)
 	}
 
 	_, newBranchIDExists := oldConflictBranchIDs[newBranchID]
 	if newBranchIDExists {
-		debugLogger.Println("return // BranchID not updated")
 		return nil
 	}
 
 	if !b.MarkersManager.SetBranchID(currentMarker, b.tangle.LedgerState.AggregateConflictBranchesID(oldConflictBranchIDs.Clone().Add(newBranchID))) {
-		debugLogger.Println("return // BranchID not updated")
 		return nil
 	}
 
@@ -600,13 +581,11 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 
 	// propagate updates to later BranchID mappings of the same sequence.
 	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ ledgerstate.BranchID) {
-		debugLogger.Println("markerWalker.Push(", mappedMarker, ") // later mapping of same sequence")
 		markerWalker.Push(mappedMarker)
 	})
 
 	// propagate updates to referencing markers of later sequences ...
 	b.MarkersManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker *markers.Marker) {
-		debugLogger.Println("markerWalker.Push(", referencingMarker, ") // referencing marker of later sequence")
 		markerWalker.Push(referencingMarker)
 	})
 
@@ -614,9 +593,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 }
 
 // propagateForkedTransactionToMetadataFutureCone updates the future cone of a Message to belong to the given conflict BranchID.
-func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker, debugLogger *debuglogger.DebugLogger) (err error) {
-	defer debugLogger.MethodStart("Booker", "propagateForkedTransactionToMetadataFutureCone", messageMetadata.ID(), newConflictBranchID).MethodEnd()
-
+func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
 	branchIDAdded, err := b.addBranchIDToAddedBranchIDs(messageMetadata, newConflictBranchID)
 	if err != nil {
 		return errors.Errorf("failed to add conflict %s to addedBranchIDs of Message with %s: %w", newConflictBranchID, messageMetadata.ID(), err)

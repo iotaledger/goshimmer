@@ -2,7 +2,6 @@ package ledgerstate
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -640,8 +639,6 @@ func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modif
 	if modified = c.inclusionState != inclusionState; !modified {
 		return
 	}
-
-	fmt.Println(c.ID(), "setInclusionState from", c.inclusionState, "to", inclusionState)
 
 	c.inclusionState = inclusionState
 	c.SetModified()
