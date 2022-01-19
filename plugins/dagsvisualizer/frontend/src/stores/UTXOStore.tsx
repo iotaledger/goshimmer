@@ -38,7 +38,7 @@ export class UTXOStore {
 
     unregisterHandlers() {
         unregisterHandler(WSMsgType.Transaction);
-        unregisterHandler(WSMsgType.TransactionConfirmed);
+        unregisterHandler(WSMsgType.TransactionBooked);
         unregisterHandler(WSMsgType.TransactionConfirmed);
     }
 
