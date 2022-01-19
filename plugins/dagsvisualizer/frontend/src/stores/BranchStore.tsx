@@ -198,9 +198,7 @@ export class BranchStore {
     selectBranch = (branchID: string) => {
         // clear pre-selected branch.
         this.clearSelected(true);
-
         this.graph.selectVertex(branchID);
-
         this.updateSelected(branchID);
     };
 
@@ -275,7 +273,7 @@ export class BranchStore {
         this.graph.centerVertex(master.ID);
 
         // set up click event.
-        this.graph.cy.on('select', 'node', evt => {
+        this.graph.addNodeEventListener('select', evt => {
             const node = evt.target;
             const nodeData = node.json();
 
@@ -283,7 +281,7 @@ export class BranchStore {
         });
 
         // clear selected node.
-        this.graph.cy.on('unselect', 'node', () => {
+        this.graph.addNodeEventListener('unselect', () => {
             this.clearSelected();
         });
 

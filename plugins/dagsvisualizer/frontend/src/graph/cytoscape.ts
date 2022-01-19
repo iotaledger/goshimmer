@@ -59,6 +59,10 @@ export class cytoscapeLib implements IGraph {
     updateLayout(): void {
         this.cy.layout(this.layout).run();
     }
+
+    addNodeEventListener(event: string, listener: () => void): void {
+        this.cy.on(event, 'node', listener);
+    }
 }
 
 export function drawTransaction(

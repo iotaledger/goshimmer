@@ -269,7 +269,7 @@ export class UTXOStore {
         this.graph = new cytoscapeLib([dagre, layoutUtilities], initUTXODAG);
 
         // set up click event
-        this.graph.cy.on('select', 'node', evt => {
+        this.graph.addNodeEventListener('select', evt => {
             const node = evt.target;
             const nodeData = node.json();
 
@@ -277,7 +277,7 @@ export class UTXOStore {
         });
 
         // clear selected node
-        this.graph.cy.on('unselect', 'node', () => {
+        this.graph.addNodeEventListener('unselect', () => {
             this.clearSelected();
         });
 
