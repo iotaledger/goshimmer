@@ -275,6 +275,10 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 
 	for confirmationWalker.HasNext() {
 		currentElement := confirmationWalker.Next().(tangle.Parent)
+		if currentElement.ID == tangle.EmptyMessageID {
+			continue
+		}
+
 		s.tangle.Storage.MessageMetadata(currentElement.ID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			if messageMetadata.GradeOfFinality() >= gradeOfFinality || !s.setMessageGoF(messageMetadata, gradeOfFinality) {
 				return
