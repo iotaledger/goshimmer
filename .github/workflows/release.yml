@@ -103,6 +103,7 @@ jobs:
           SNAPSHOTTER_BUCKET: '${{ secrets.SNAPSHOTTER_BUCKET }}'
           SNAPSHOTTER_ACCESS_KEY: '${{ secrets.SNAPSHOTTER_ACCESS_KEY }}'
           SNAPSHOTTER_SECRET_KEY: '${{ secrets.SNAPSHOTTER_SECRET_KEY }}'
+          SLACK_NOTIFICATION_WEBHOOK: '${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}'
           GOSHIMMER_DOCKER_IMAGE: 'iotaledger/goshimmer'
           GOSHIMMER_DOCKER_TAG: 'latest'
         run: |

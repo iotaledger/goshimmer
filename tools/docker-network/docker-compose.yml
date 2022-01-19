@@ -150,6 +150,8 @@ services:
       # path to provisioning definitions can only be defined as
       # environment variables for grafana within docker
       - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+      - GF_ALERTING_ENABLED=true
+      - GF_UNIFIED_ALERTING_ENABLED=false
     networks:
       - shimmer
     ports:
