@@ -13,7 +13,7 @@ services:
       - 6063:6063
       - 21888:21888
       - 28080:28080
-      - 9312:9312
+      - 9311:9311
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - PROFILING_BINDADDRESS=0.0.0.0:6063
@@ -24,10 +24,10 @@ services:
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
-      --analysis.dashboard.manaDashboardAddress="http://{{ manaDashboardHost }}:8081"
-      --prometheus.bindAddress=0.0.0.0:9312
+      --analysis.dashboard.manaDashboardAddress="{{ manaDashboardHost }}"
+      --prometheus.bindAddress=0.0.0.0:9311
       --metrics.local=false
       --metrics.global=true
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus
-      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint
+      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint,remotelog,remotelogmetrics
       --logger.level={{ logLevel }}

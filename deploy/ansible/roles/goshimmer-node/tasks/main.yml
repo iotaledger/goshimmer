@@ -33,6 +33,12 @@
     cmd: rm -rf /opt/{{ nodeType }}/db/*
     warn: false
 
+- name: Clean conntrack
+  shell:
+    cmd: conntrack -D -p udp
+    warn: false
+  ignore_errors: true # sometimes conntrack might not be installed
+
 - name: Run node
   community.general.docker_compose:
     project_src: /opt/{{ nodeType }}

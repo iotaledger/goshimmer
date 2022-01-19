@@ -6,7 +6,7 @@ supports:
   hosts:
     analysisentry-01.devnet.shimmer.iota.cafe:
       entryNodeSeed: "{{ ANALYSISSENTRY_01_ENTRYNODE_SEED }}"
-      manaDashboardHost: "bootstrap-01.devnet.shimmer.iota.cafe"
+      manaDashboardHost: "http://dashboards.nectar.iota.cafe:80"
       logLevel: "info"
 
 goshimmers:

@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -12,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -62,6 +64,13 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 func (b *Booker) Setup() {
 	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
 		b.bookerQueue <- messageID
+	}))
+
+	b.tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID MessageID) {
+		b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			nodeID := identity.NewID(message.IssuerPublicKey())
+			b.MarkersManager.discardedNodes[nodeID] = time.Now()
+		})
 	}))
 
 	b.tangle.LedgerState.UTXODAG.Events().TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledgerstate.TransactionBranchIDUpdatedByForkEvent) {
@@ -549,28 +558,43 @@ func messageBranchUpdatedCaller(handler interface{}, params ...interface{}) {
 // MarkersManager is a Tangle component that takes care of managing the Markers which are used to infer structural
 // information about the Tangle in an efficient way.
 type MarkersManager struct {
-	tangle *Tangle
-
+	tangle         *Tangle
+	discardedNodes map[identity.ID]time.Time
 	*markers.Manager
 }
 
 // NewMarkersManager is the constructor of the MarkersManager.
 func NewMarkersManager(tangle *Tangle) *MarkersManager {
 	return &MarkersManager{
-		tangle:  tangle,
-		Manager: markers.NewManager(tangle.Options.Store, tangle.Options.CacheTimeProvider),
+		tangle:         tangle,
+		discardedNodes: make(map[identity.ID]time.Time),
+		Manager:        markers.NewManager(tangle.Options.Store, tangle.Options.CacheTimeProvider),
 	}
 }
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong and like parents.
 func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongAndLikeParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
+	// customize the function, so that markers are not assigned to nodes whose messages might be dropped
+	// this is a temporary solution, that's why the function signature is not change to additionally accept messageID
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongAndLikeParents(message), func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
+		nodeID := identity.NewID(message.IssuerPublicKey())
+		bufferUsedRatio := float64(m.tangle.Scheduler.BufferSize()) / float64(m.tangle.Scheduler.MaxBufferSize())
+		nodeQueueRatio := float64(m.tangle.Scheduler.NodeQueueSize(nodeID)) / float64(m.tangle.Scheduler.BufferSize())
+		if bufferUsedRatio > 0.01 && nodeQueueRatio > 0.1 {
+			return false
+		}
+		if discardTime, ok := m.discardedNodes[nodeID]; ok && time.Since(discardTime) < time.Minute {
+			return false
+		} else if ok && time.Since(discardTime) >= time.Minute {
+			delete(m.discardedNodes, nodeID)
+		}
+		return m.tangle.Options.IncreaseMarkersIndexCallback(sequenceID, currentHighestIndex)
+	}, sequenceAlias)
 	if structureDetails.IsPastMarker {
 		m.SetMessageID(structureDetails.PastMarkers.Marker(), message.ID())
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
 	}
-
 	return
 }
 

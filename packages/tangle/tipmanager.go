@@ -130,12 +130,16 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID MessageID) {
+	t.tangle.Dispatcher.Events.MessageDispatched.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
 	}))
 
 	t.Events.TipRemoved.Attach(events.NewClosure(func(tipEvent *TipEvent) {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
+	}))
+
+	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
+		t.tangle.Storage.Message(messageID).Consume(t.removeStrongParents)
 	}))
 }
 
@@ -162,10 +166,10 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	// TODO: possible logical race condition if a child message gets added before its parents.
-	//  To be sure we probably need to check "It is not directly referenced by any strong message via strong/weak parent"
-	//  before adding a message as a tip. For now we're using only 1 worker after the scheduler and it shouldn't be a problem.
-
+	// Check if any approvers that are confirmed or scheduled and return if true, to guarantee that the parents are not added to the tipset after its approvers.
+	if t.checkApprovers(messageID) {
+		return
+	}
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(&TipEvent{
 			MessageID: messageID,
@@ -182,6 +186,35 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	// a tip loses its tip status if it is referenced by another message
+	t.removeStrongParents(message)
+}
+
+func (t *TipManager) checkApprovers(messageID MessageID) bool {
+	approverScheduledConfirmed := false
+	t.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
+		if approverScheduledConfirmed {
+			return
+		}
+
+		msgConfirmed := t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.approverMessageID)
+		if !msgConfirmed {
+			var msgScheduled bool
+			t.tangle.Storage.MessageMetadata(approver.approverMessageID).Consume(func(messageMetadata *MessageMetadata) {
+				msgScheduled = messageMetadata.Scheduled()
+			})
+			if msgScheduled {
+				approverScheduledConfirmed = true
+				return
+			}
+		} else {
+			approverScheduledConfirmed = true
+			return
+		}
+	})
+	return approverScheduledConfirmed
+}
+
+func (t *TipManager) removeStrongParents(message *Message) {
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
 		if _, deleted := t.tips.Delete(parentMessageID); deleted {
 			t.Events.TipRemoved.Trigger(&TipEvent{

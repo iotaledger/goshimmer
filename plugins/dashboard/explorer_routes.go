@@ -45,7 +45,6 @@ type ExplorerMessage struct {
 	BranchID            string              `json:"branchID"`
 	MetadataBranchID    string              `json:"metadataBranchID"`
 	Scheduled           bool                `json:"scheduled"`
-	ScheduledBypass     bool                `json:"scheduledBypass"`
 	Booked              bool                `json:"booked"`
 	Invalid             bool                `json:"invalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
@@ -90,7 +89,6 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		BranchID:                branchID.Base58(),
 		MetadataBranchID:        messageMetadata.BranchID().Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
-		ScheduledBypass:         messageMetadata.ScheduledBypass(),
 		Booked:                  messageMetadata.IsBooked(),
 		Invalid:                 messageMetadata.IsInvalid(),
 		GradeOfFinality:         messageMetadata.GradeOfFinality(),
