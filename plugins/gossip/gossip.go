@@ -66,8 +66,12 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 	}
 	var opts []gossip.ManagerOption
 	if Parameters.MessagesRateLimit != (MessagesLimitParameters{}) {
-		log := Plugin.Logger().With("rateLimiter", "messagesRateLimiter")
-		mrl, err := ratelimiter.NewPeerRateLimiter(Parameters.MessagesRateLimit.Interval, Parameters.MessagesRateLimit.Limit, log)
+		Plugin.Logger().Infof("Initializing messages rate limiter with the following parameters: %+v",
+			Parameters.MessagesRateLimit)
+		mrl, err := ratelimiter.NewPeerRateLimiter(
+			Parameters.MessagesRateLimit.Interval, Parameters.MessagesRateLimit.Limit,
+			Plugin.Logger().With("rateLimiter", "messagesRateLimiter"),
+		)
 		if err != nil {
 			Plugin.LogFatalf("Failed to initialize messages rate limiter: %+v", err)
 		}

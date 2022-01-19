@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/firewall"
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/ratelimiter"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 
@@ -58,7 +59,7 @@ func run(plugin *node.Plugin) {
 
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
-	mrlClosure := events.NewClosure(func(p *peer.Peer, rl *firewall.RateLimit) {
+	mrlClosure := events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
 		deps.Firewall.OnFaultyPeer(p, &firewall.FaultinessDetails{
 			Reason: "Messages rate limit hit",
 			Info: map[string]interface{}{
