@@ -7,7 +7,7 @@ notifiers:
     org_id: 1
     is_default: true
     send_reminder: true
-    frequency: 4h
+    frequency: 12h
     disable_resolve_message: false
     # See `Supported Settings` section for settings supported for each
     # alert notification type.

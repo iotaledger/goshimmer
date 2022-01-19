@@ -21,7 +21,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -42,7 +41,7 @@
             "query": {
               "params": [
                 "A",
-                "5m",
+                "1m",
                 "now"
               ]
             },
@@ -160,6 +159,7 @@
       "type": "timeseries"
     }
   ],
+  "refresh": "10s",
   "schemaVersion": 34,
   "style": "dark",
   "tags": [],
@@ -167,13 +167,13 @@
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Node Monitoring",
   "uid": "ok_NLw17k",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
