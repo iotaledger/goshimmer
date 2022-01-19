@@ -17,4 +17,4 @@ keywords:
 3. Go to release workflow https://github.com/iotaledger/goshimmer/actions/workflows/release.yml and click the gray "Run workflow" button to configure the release process.
 4. In "Branch" field set `master`, in "Tag name" set current version, in "Release description" paste the changes recently added to `CHANGELOG.md`. Click the green "Run workflow" to trigger the automatic release and deployment process.
 5. Check that the binaries are working.
-6. Check that the nodes are up and functioning on `devnet`__.
+6. Check that the nodes are up and functioning on `devnet`.
