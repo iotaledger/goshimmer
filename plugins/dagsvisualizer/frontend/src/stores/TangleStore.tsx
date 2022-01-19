@@ -78,18 +78,22 @@ export class TangleStore {
 
     @action
     addMessage = (msg: tangleVertex) => {
-        if (this.msgOrder.length >= this.maxTangleVertices) {
-            const removed = this.msgOrder.shift();
-            this.removeMessage(removed);
-        }
-        msg.isTip = true;
+        this.checkLimit();
 
-        this.msgOrder.push(msg.ID);
+        msg.isTip = true;
         msg.futureMarkers = [];
+        this.msgOrder.push(msg.ID);
         this.messages.set(msg.ID, msg);
 
         if (this.draw) {
             this.drawVertex(msg);
+        }
+    };
+
+    checkLimit = () => {
+        if (this.msgOrder.length >= this.maxTangleVertices) {
+            const removed = this.msgOrder.shift();
+            this.removeMessage(removed);
         }
     };
 

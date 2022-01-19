@@ -47,6 +47,20 @@ export class BranchStore {
 
     @action
     addBranch = (branch: branchVertex) => {
+        this.checkLimit();
+
+        this.branchOrder.push(branch.ID);
+        this.branches.set(branch.ID, branch);
+
+        if (this.paused) {
+            this.branchToAddAfterResume.push(branch.ID);
+        }
+        if (this.draw) {
+            this.drawVertex(branch);
+        }
+    };
+
+    checkLimit = () => {
         if (this.branchOrder.length >= this.maxBranchVertices) {
             const removed = this.branchOrder.shift();
             this.branches.delete(removed);
@@ -57,16 +71,6 @@ export class BranchStore {
             } else {
                 this.removeVertex(removed);
             }
-        }
-
-        this.branchOrder.push(branch.ID);
-        this.branches.set(branch.ID, branch);
-
-        if (this.paused) {
-            this.branchToAddAfterResume.push(branch.ID);
-        }
-        if (this.draw) {
-            this.drawVertex(branch);
         }
     };
 

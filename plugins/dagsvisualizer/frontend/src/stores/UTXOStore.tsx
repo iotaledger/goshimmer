@@ -44,6 +44,25 @@ export class UTXOStore {
 
     @action
     addTransaction = (tx: utxoVertex) => {
+        this.checkLimit();
+
+        tx.branchID = '';
+        this.txOrder.push(tx.ID);
+        this.transactions.set(tx.ID, tx);
+        tx.outputs.forEach(outputID => {
+            this.outputMap.set(outputID, {});
+        });
+
+        if (this.paused) {
+            this.txToAddAfterResume.push(tx.ID);
+            return;
+        }
+        if (this.draw) {
+            this.drawVertex(tx);
+        }
+    };
+
+    checkLimit = () => {
         if (this.txOrder.length >= this.maxUTXOVertices) {
             const removed = this.txOrder.shift();
             const txObj = this.transactions.get(removed);
@@ -58,21 +77,6 @@ export class UTXOStore {
             } else {
                 this.removeVertex(removed);
             }
-        }
-
-        this.txOrder.push(tx.ID);
-        tx.branchID = '';
-        this.transactions.set(tx.ID, tx);
-        tx.outputs.forEach(outputID => {
-            this.outputMap.set(outputID, {});
-        });
-
-        if (this.paused) {
-            this.txToAddAfterResume.push(tx.ID);
-            return;
-        }
-        if (this.draw) {
-            this.drawVertex(tx);
         }
     };
 
