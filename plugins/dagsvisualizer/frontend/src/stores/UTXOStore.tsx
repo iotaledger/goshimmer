@@ -134,6 +134,7 @@ export class UTXOStore {
     @action
     updateVerticesLimit = (num: number) => {
         this.maxUTXOVertices = num;
+        this.trimTxToVerticesLimit();
     };
 
     @action
@@ -242,6 +243,28 @@ export class UTXOStore {
             }
         }, 10000);
     };
+
+    trimTxToVerticesLimit() {
+        if (this.txOrder.length >= this.maxUTXOVertices) {
+            const removeStartIndex = this.txOrder.length - this.maxUTXOVertices;
+            const removed = this.txOrder.slice(0, removeStartIndex);
+            this.txOrder = this.txOrder.slice(removeStartIndex);
+            this.removeTxs(removed);
+        }
+    }
+
+    removeTxs(removed: string[]) {
+        removed.forEach((id: string) => {
+            const t = this.transactions.get(id);
+            if (t) {
+                this.removeVertex(id);
+                t.outputs.forEach(output => {
+                    this.outputMap.delete(output);
+                });
+                this.transactions.delete(id);
+            }
+        });
+    }
 
     start = () => {
         this.graph = new cytoscapeLib([dagre, layoutUtilities], initUTXODAG);

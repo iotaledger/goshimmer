@@ -137,6 +137,7 @@ export class BranchStore {
     @action
     updateVerticesLimit = (num: number) => {
         this.maxBranchVertices = num;
+        this.trimBranchToVerticesLimit();
     };
 
     @action
@@ -222,6 +223,26 @@ export class BranchStore {
             }
         }, 10000);
     };
+
+    trimBranchToVerticesLimit() {
+        if (this.branchOrder.length >= this.maxBranchVertices) {
+            const removeStartIndex =
+                this.branchOrder.length - this.maxBranchVertices;
+            const removed = this.branchOrder.slice(0, removeStartIndex);
+            this.branchOrder = this.branchOrder.slice(removeStartIndex);
+            this.removeBranches(removed);
+        }
+    }
+
+    removeBranches(removed: string[]) {
+        removed.forEach((id: string) => {
+            const b = this.branches.get(id);
+            if (b) {
+                this.removeVertex(id);
+                this.branches.delete(id);
+            }
+        });
+    }
 
     start = () => {
         this.graph = new cytoscapeLib([dagre, layoutUtilities], initBranchDAG);
