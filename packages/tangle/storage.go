@@ -451,18 +451,40 @@ func (s *Storage) Prune() error {
 	return nil
 }
 
+// DBStatsResult is a structure containing all the statistics retrieved by DBStats() method.
+type DBStatsResult struct {
+	StoredCount                   int
+	SolidCount                    int
+	BookedCount                   int
+	ScheduledCount                int
+	SumSolidificationReceivedTime time.Duration
+	SumBookedReceivedTime         time.Duration
+	SumSchedulerReceivedTime      time.Duration
+	SumSchedulerBookedTime        time.Duration
+	MissingMessageCount           int
+}
+
 // DBStats returns the number of solid messages and total number of messages in the database (messageMetadataStorage,
 // that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
 // the average time it takes to solidify messages.
-func (s *Storage) DBStats() (solidCount, messageCount int, sumSolidificationTime int64, missingMessageCount int) {
+func (s *Storage) DBStats() (res DBStatsResult) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			msgMetaData := object.(*MessageMetadata)
-			messageCount++
+			res.StoredCount++
 			received := msgMetaData.ReceivedTime()
 			if msgMetaData.IsSolid() {
-				solidCount++
-				sumSolidificationTime += msgMetaData.solidificationTime.Sub(received).Milliseconds()
+				res.SolidCount++
+				res.SumSolidificationReceivedTime += msgMetaData.solidificationTime.Sub(received)
+			}
+			if msgMetaData.IsBooked() {
+				res.BookedCount++
+				res.SumBookedReceivedTime += msgMetaData.bookedTime.Sub(received)
+			}
+			if msgMetaData.Scheduled() {
+				res.ScheduledCount++
+				res.SumSchedulerReceivedTime += msgMetaData.scheduledTime.Sub(received)
+				res.SumSchedulerBookedTime += msgMetaData.scheduledTime.Sub(msgMetaData.bookedTime)
 			}
 		})
 		return true
@@ -470,7 +492,7 @@ func (s *Storage) DBStats() (solidCount, messageCount int, sumSolidificationTime
 
 	s.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
-			missingMessageCount++
+			res.MissingMessageCount++
 		})
 		return true
 	})

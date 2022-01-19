@@ -10,11 +10,17 @@ import (
 type CollectionLogEvents struct {
 	// TangleTimeSyncChanged defines the local sync status change event based on tangle time.
 	TangleTimeSyncChanged *events.Event
+	SchedulerQuery        *events.Event
 }
 
 // SyncStatusChangedEventCaller is called when a node changes its sync status.
 func SyncStatusChangedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(SyncStatusChangedEvent))(params[0].(SyncStatusChangedEvent))
+}
+
+// TimeEventCaller is used everytime you want to send an event with a timestamp.
+func TimeEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(time.Time))(params[0].(time.Time))
 }
 
 // SyncStatusChangedEvent is triggered by a node when its sync status changes. It is also structure that is sent to remote logger.
@@ -57,6 +63,50 @@ type MessageFinalizedMetrics struct {
 	ShallowDislikeEdgeCount int       `json:"shallowDislikeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
+// MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger.
+type MessageScheduledMetrics struct {
+	Type          string `json:"type" bson:"type"`
+	NodeID        string `json:"nodeID" bson:"nodeID"`
+	MetricsLevel  uint8  `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID     string `json:"messageID" bson:"messageID"`
+	TransactionID string `json:"transactionID,omitempty" bson:"transactionID"`
+	// Time where the message was created by the issuing node
+	IssuedTimestamp time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	// Time where the message was first seen by the node
+	ReceivedTimestamp        time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
+	SolidTimestamp           time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
+	ScheduledTimestamp       time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
+	BookedTimestamp          time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	QueuedTimestamp          time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
+	DroppedTimestamp         time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
+	GradeOfFinalityTimestamp time.Time `json:"gradeOfFinalityTimestamp,omitempty" bson:"GradeOfFinalityTimestamp"`
+	GradeOfFinality          uint8     `json:"gradeOfFinality" bson:"GradeOfFinality"`
+	DeltaGradeOfFinalityTime int64     `json:"deltaGradeOfFinalityTime" bson:"deltaGradeOfFinalityTime"`
+	DeltaSolid               int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
+	// ScheduledTimestamp - IssuedTimestamp in nanoseconds
+	DeltaScheduledIssued int64 `json:"deltaScheduledIssued" bson:"deltaScheduledIssued"`
+	DeltaBooked          int64 `json:"deltaBooked" bson:"deltaBooked"`
+	// ScheduledTimestamp - ReceivedTimestamp in nanoseconds
+	DeltaScheduledReceived int64 `json:"deltaScheduledReceived" bson:"deltaScheduledReceived"`
+	// ReceivedTimestamp - IssuedTimestamp in nanoseconds
+	DeltaReceivedIssued int64 `json:"DeltaReceivedIssued" bson:"DeltaReceivedIssued"`
+	// ScheduledTimestamp - QueuedTimestamp in nanoseconds
+	SchedulingTime  int64   `json:"schedulingTime" bson:"schedulingTime"`
+	AccessMana      float64 `json:"accessMana" bson:"accessMana"`
+	StrongEdgeCount int     `json:"strongEdgeCount" bson:"strongEdgeCount"`
+	WeakEdgeCount   int     `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
+	LikeEdgeCount   int     `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
+}
+
+// MissingMessageMetrics defines message solidification record that is sent to the remote logger.
+type MissingMessageMetrics struct {
+	Type         string `json:"type" bson:"type"`
+	NodeID       string `json:"nodeID" bson:"nodeID"`
+	MetricsLevel uint8  `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID    string `json:"messageID" bson:"messageID"`
+	IssuerID     string `json:"issuerID"  bson:"issuerID"`
+}
+
 // BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.
 type BranchConfirmationMetrics struct {
 	Type               string    `json:"type" bson:"type"`
@@ -67,6 +117,20 @@ type BranchConfirmationMetrics struct {
 	CreatedTimestamp   time.Time `json:"createdTimestamp" bson:"createdTimestamp"`
 	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
 	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
+}
+
+// SchedulerMetrics defines the schedule metrics sent to the remote logger.
+type SchedulerMetrics struct {
+	Type                         string             `json:"type" bson:"type"`
+	NodeID                       string             `json:"nodeID" bson:"nodeID"`
+	Synced                       bool               `json:"synced" bson:"synced"`
+	MetricsLevel                 uint8              `json:"metricsLevel" bson:"metricsLevel"`
+	QueueLengthPerNode           map[string]uint32  `json:"queueLengthPerNode" bson:"queueLengthPerNode"`
+	AManaNormalizedLengthPerNode map[string]float64 `json:"aManaNormalizedQueueLengthPerNode" bson:"aManaNormalizedQueueLengthPerNode"`
+	BufferSize                   uint32             `json:"bufferSize" bson:"bufferSize"`
+	BufferLength                 uint32             `json:"bufferLength" bson:"bufferLength"`
+	ReadyMessagesInBuffer        uint32             `json:"readyMessagesInBuffer" bson:"readyMessagesInBuffer"`
+	Timestamp                    time.Time          `json:"timestamp" bson:"timestamp"`
 }
 
 // BranchCountUpdate defines the branch confirmation metrics record that is sent to remote logger.

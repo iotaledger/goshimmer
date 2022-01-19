@@ -20,6 +20,8 @@ services:
       - "0.0.0.0:8081:8081/tcp"
       # pprof profiling
       - "0.0.0.0:6061:6061/tcp"
+      # prometheus
+      - "0.0.0.0:9311:9311/tcp"
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - NODE_PEERDBDIRECTORY=/db/peerdb
@@ -37,16 +39,20 @@ services:
       {% endif %}
       --node.disablePlugins=portcheck
       --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}
-      --prometheus.bindAddress=0.0.0.0:9312
+      --prometheus.bindAddress=0.0.0.0:9311
       {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000
       {% endif %}
       --pow.numThreads=7
       --pow.timeout=60s
+     {% if powDifficulty|default(None) %}
+      --pow.difficulty={{ powDifficulty }}
+     {% endif %}
       --logger.level={{ logLevel }}
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
+      --remotemetrics.metricsLevel=0
       {% if faucet|default(false) %}
       --messageLayer.startSynced=false
       {% else %}

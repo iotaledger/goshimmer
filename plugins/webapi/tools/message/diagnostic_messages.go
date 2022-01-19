@@ -153,7 +153,6 @@ var DiagnosticMessagesTableDescription = []string{
 	"WeakApprovers",
 	"BranchID",
 	"Scheduled",
-	"ScheduledBypass",
 	"Booked",
 	"Invalid",
 	"Rank",
@@ -188,7 +187,6 @@ type DiagnosticMessagesInfo struct {
 	WeakApprovers         tangle.MessageIDsSlice
 	BranchID              string
 	Scheduled             bool
-	ScheduledBypass       bool
 	Booked                bool
 	ObjectivelyInvalid    bool
 	Rank                  uint64
@@ -234,7 +232,6 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.BranchID = branchID.String()
 		msgInfo.Scheduled = metadata.Scheduled()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
-		msgInfo.ScheduledBypass = metadata.ScheduledBypass()
 		msgInfo.BookedTime = metadata.BookedTime()
 		msgInfo.GradeOfFinality = metadata.GradeOfFinality()
 		msgInfo.GradeOfFinalityTime = metadata.GradeOfFinalityTime()
@@ -278,7 +275,6 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		strings.Join(d.WeakApprovers.ToStrings(), ";"),
 		d.BranchID,
 		fmt.Sprint(d.Scheduled),
-		fmt.Sprint(d.ScheduledBypass),
 		fmt.Sprint(d.Booked),
 		fmt.Sprint(d.ObjectivelyInvalid),
 		fmt.Sprint(d.Rank),

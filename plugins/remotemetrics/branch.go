@@ -67,9 +67,7 @@ func onBranchConfirmed(branchID ledgerstate.BranchID) {
 		DeltaConfirmed:     clock.Since(oldestAttachmentTime).Nanoseconds(),
 	}
 
-	if err = deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(record)
 	sendBranchMetrics()
 }
 
@@ -97,9 +95,7 @@ func sendBranchMetrics() {
 		InitialFinalizedBranchCount:    initialFinalizedBranchCountDB,
 		FinalizedBranchCountSinceStart: finalizedBranchCountDB.Load(),
 	}
-	if err := deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(record)
 }
 
 func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate.TransactionID) (time.Time, tangle.MessageID, error) {

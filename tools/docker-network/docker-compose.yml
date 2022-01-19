@@ -77,10 +77,12 @@ services:
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins="webapi tools endpoint",activity,spammer
+      --node.enablePlugins="webapi tools endpoint",activity,spammer,prometheus
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=false
       --mana.snapshotResetTime=true
       --messageLayer.startSynced=true
     secrets:
@@ -104,7 +106,9 @@ services:
       --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity,spammer
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.overwriteStoredSeed=true
-      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
+      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity,prometheus
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=false
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
@@ -146,6 +150,8 @@ services:
       # path to provisioning definitions can only be defined as
       # environment variables for grafana within docker
       - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+      - GF_ALERTING_ENABLED=true
+      - GF_UNIFIED_ALERTING_ENABLED=false
     networks:
       - shimmer
     ports:
