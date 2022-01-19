@@ -554,7 +554,7 @@ GCC and G++ are required for the compilation to work properly.  You can install 
 sudo apt install gcc g++
 ```
 
-#### Installing Golang-go 1.16
+#### Installing Golang-go
 
 In order for the build script to work later on, we have to install the programming language Go. Which version you need to install is specified in: 
 ```bash
