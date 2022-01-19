@@ -537,18 +537,17 @@ Lets first upgrade the packages on our system:
 apt update && apt dist-upgrade -y
 ```  
 
-### Installing RocksDB compression libraries
+### Installing RocksDB
 
-GoShimmer uses RocksDB as its underlying db engine. That requires a few dependencies before building the project. This can be done by installing the compression libraries:
+GoShimmer uses RocksDB as its underlying db engine. That requires installing its compression libraries. Please use the tutorial from RocksDB's Github:
 
 ```bash
-sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
+https://github.com/facebook/rocksdb/blob/main/INSTALL.md
 ```  
-
 
 ### Install GCC and G++
 
-This is required in order for the compilation to work properly
+GCC and G++ are required for the compilation to work properly.
 
 ```bash
 sudo apt install gcc g++
@@ -561,71 +560,41 @@ Now we have to get the GoShimmer repository by cloning it into the `/opt` direct
 ```bash
 cd /opt
 ```
+
 ```bash
 git clone https://github.com/iotaledger/goshimmer.git
 ```
 
-### Installing Golang-go 1.16
+### Installing Golang-go
 
-In order for the build script to work later on, we have to install the programming language Go
+In order for the build script to work later on, we have to install the programming language Go. Which version you need to install is specified in: 
+```bash
+https://github.com/iotaledger/goshimmer/blob/4e3ff2d23d65ddd31053f195fb40d530ef62acf3/go.mod#L3
+```
+
+Use apt to install:
 
 ```bash
 apt install golang-go
 ````
 
-Check the go version
+Check the go version:
 
 ```bash
 go version
 ```
 
-If apt did not install go version 1.16+, use the method below  
-
-
-```bash
-cd /home
-```
-```bash
-wget https://dl.google.com/go/go1.16.4.linux-amd64.tar.gz
-```
-```bash
-sudo tar -xvf go1.16.4.linux-amd64.tar.gz
-```
-```bash
-sudo mv go /usr/local
-```
-```bash
-export GOROOT=/usr/local/go
-```
-```bash
-cd /opt/goshimmer
-```
-```bash
-mkdir gopath
-```
-```bash
-export GOPATH=/opt/goshimmer/gopath
-```
-```bash
-export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-```
-
-Use `go version` to check if it successfully installed golang-go 1.16
-Note that it only installs for this session. If you enter a new session then you would have to enter these commands again:
+If apt did not install the correct go version, use the tutorial provided by the go.dev page:
 
 ```bash
-export GOROOT=/usr/local/go
+https://go.dev/doc/install
 ```
-```bash
-export GOPATH=/opt/goshimmer/gopath
-```
-```bash
-export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-```
+
+Use `go version` to check if it successfully installed golang-go.
 
 
 ### Downloading the snapshot
-We now have to get the latest snapshot (make sure to be in the goshimmer directory)
+We now have to get the latest snapshot (make sure to be in the goshimmer directory).
 
 
 ```bash
@@ -634,13 +603,13 @@ sudo wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.co
 
 ### Making the node dashboard accessible
 
-Access the `config.default.json` file
+Access the `config.default.json` file.
 
 ```bash
 nano config.default.json
 ```
 
-On line `23` of the file, change the **bindAddress** to `0.0.0.0:8081`.
+In the config file where it says **dashboard**, change the **bindAddress** from `"127.0.0.1:8081"` to `"0.0.0.0:8081"`.
 
 Then press `CTRL+X` to exit.
 Then save the modified buffer (press `Y`).
