@@ -544,6 +544,7 @@ func TestOutOfOrderStatments(t *testing.T) {
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
 		nodes[node] = identity.GenerateIdentity()
+		identity.RegisterIDAlias(nodes[node].ID(), node)
 	}
 
 	var weightProvider *CManaWeightProvider
@@ -562,6 +563,7 @@ func TestOutOfOrderStatments(t *testing.T) {
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+	tangle.Configure(MergeBranches(false))
 	tangle.Setup()
 	testEventMock := NewEventMock(t, tangle.ApprovalWeightManager)
 	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("A", 500), WithGenesisOutput("B", 500))
@@ -861,8 +863,8 @@ func TestOutOfOrderStatments(t *testing.T) {
 		// **********
 		// **********
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 1.0)
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 0.9)
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Y"), 0.1)
+		//testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 0.9)
+		//testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Y"), 0.1)
 		//testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Y"), 0.0)
 
 		IssueAndValidateMessageApproval(t, "Message12.1", testEventMock, testFramework, map[string]float64{
@@ -870,8 +872,8 @@ func TestOutOfOrderStatments(t *testing.T) {
 			"B": 0.45,
 			"C": 0.55,
 			"D": 0.20,
-			"X": 0.90,
-			"Y": 0.10,
+			"X": 1.00,
+			"Y": 0.00,
 		}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 1.0,
 			*markers.NewMarker(1, 2): 1.0,
@@ -883,6 +885,7 @@ func TestOutOfOrderStatments(t *testing.T) {
 			*markers.NewMarker(4, 6): 0.55,
 			*markers.NewMarker(4, 7): 0.25,
 			*markers.NewMarker(4, 8): 0.10,
+			*markers.NewMarker(5, 3): 0.10,
 		})
 	}
 	/*

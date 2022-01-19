@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -196,15 +197,30 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 	})
 }
 
-func (a *ApprovalWeightManager) determineVotes(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
+func (a *ApprovalWeightManager) determineVotes(votedBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
 	addedBranches = ledgerstate.NewBranchIDs()
-	for conflictBranchID := range conflictBranchIDs {
-		// The starting branches should not be considered as having common Parents, hence we treat them separately.
-		conflictAddedBranches, _ := a.determineBranchesToAdd(ledgerstate.NewBranchIDs(conflictBranchID), vote.WithOpinion(Confirmed))
-		addedBranches.AddAll(conflictAddedBranches)
+	for votedBranchID := range votedBranchIDs {
+		fmt.Println("determineVotes", votedBranchID)
+		//
+		conflictingBranchWithHigherVoteExists := false
+		a.tangle.LedgerState.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+			fmt.Println("ForEachConflictingBranchID", conflictingBranchID)
+			fmt.Println("Original Vote", vote.Voter, vote.BranchID, vote.SequenceNumber, vote.Opinion)
+			if a.identicalVoteWithHigherSequenceExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed)) {
+				conflictingBranchWithHigherVoteExists = true
+			}
+			fmt.Println("identicalVoteWithHigherSequenceExists", conflictingBranchWithHigherVoteExists)
+			return !conflictingBranchWithHigherVoteExists
+		})
+		if conflictingBranchWithHigherVoteExists {
+			continue
+		}
 
+		// The starting branches should not be considered as having common Parents, hence we treat them separately.
+		conflictAddedBranches, _ := a.determineBranchesToAdd(ledgerstate.NewBranchIDs(votedBranchID), vote.WithOpinion(Confirmed))
+		addedBranches.AddAll(conflictAddedBranches)
 	}
-	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, vote.WithOpinion(Rejected))
+	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, votedBranchIDs, vote.WithOpinion(Rejected))
 
 	return
 }
@@ -245,7 +261,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 
 // determineBranchesToRevoke determines which Branches of the conflicting future cone of the added Branches are affected
 // by the vote and if the vote is valid (not voting for conflicting Branches).
-func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerstate.BranchIDs, vote *Vote) (revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
+func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBranches ledgerstate.BranchIDs, vote *Vote) (revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
 	revokedBranches = ledgerstate.NewBranchIDs()
 	subTractionWalker := walker.New()
 	for addedBranch := range addedBranches {
@@ -259,7 +275,7 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches ledgerst
 	for subTractionWalker.HasNext() {
 		currentVote := vote.WithBranchID(subTractionWalker.Next().(ledgerstate.BranchID))
 
-		if isInvalid = addedBranches.Contains(currentVote.BranchID); isInvalid {
+		if isInvalid = addedBranches.Contains(currentVote.BranchID) || votedBranches.Contains(currentVote.BranchID); isInvalid {
 			return
 		}
 
@@ -289,12 +305,18 @@ func (a *ApprovalWeightManager) differentVoteWithHigherSequenceExists(vote *Vote
 
 func (a *ApprovalWeightManager) identicalVoteWithHigherSequenceExists(vote *Vote) (exists bool) {
 	existingVote, exists := a.voteWithHigherSequence(vote)
+	if exists {
+		fmt.Println("identicalVoteWithHigherSequenceExists existingVote", existingVote.BranchID, existingVote.SequenceNumber, existingVote.Opinion)
+	}
 
 	return exists && vote.Opinion == existingVote.Opinion
 }
 
 func (a *ApprovalWeightManager) voteWithHigherSequence(vote *Vote) (existingVote *Vote, exists bool) {
 	a.tangle.Storage.LatestVotes(vote.Voter).Consume(func(latestVotes *LatestBranchVotes) {
+		for _, v := range latestVotes.latestVotes {
+			fmt.Println("voteWithHigherSequence", v.BranchID, v.Voter, v.SequenceNumber, v.Opinion)
+		}
 		existingVote, exists = latestVotes.Vote(vote.BranchID)
 	})
 
@@ -424,6 +446,12 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 					return
 				}
 
+				a.tangle.Storage.LatestVotes(identity.NewID(message.IssuerPublicKey())).Consume(func(latestVotes *LatestBranchVotes) {
+					for _, v := range latestVotes.latestVotes {
+						fmt.Println("processForkedMessage", v.BranchID, v.Voter, v.SequenceNumber, v.Opinion)
+					}
+				})
+
 				a.updateBranchWeight(forkedBranchID)
 			})
 		})
@@ -432,20 +460,33 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 
 // take everything in future cone because it was not conflicting before and move to new branch.
 func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, forkedBranchID ledgerstate.BranchID) {
+	fmt.Println("=================================================================================")
+	fmt.Println("processForkedMarker", marker.SequenceID(), marker.Index(), forkedBranchID)
 	branchVotesUpdated := false
 	a.tangle.Storage.BranchSupporters(forkedBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
 		a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch ledgerstate.Branch) {
 			parentBranchIDs := forkedBranch.(*ledgerstate.ConflictBranch).Parents()
 
+			fmt.Println(parentBranchIDs)
 			for voter, sequenceNumber := range a.markerVotes(marker) {
+				fmt.Println(voter, sequenceNumber)
 				if !a.addSupportToForkedBranchSupporters(voter, branchSupporters, parentBranchIDs, sequenceNumber) {
+					fmt.Println("continue")
 					continue
 				}
 
 				branchVotesUpdated = true
+				a.tangle.Storage.LatestVotes(voter).Consume(func(latestVotes *LatestBranchVotes) {
+					for _, v := range latestVotes.latestVotes {
+						fmt.Println(v.BranchID, v.Voter, v.SequenceNumber, v.Opinion)
+					}
+				})
 			}
 		})
+		fmt.Println(branchSupporters)
+
 	})
+	fmt.Println("=================================================================================")
 
 	if !branchVotesUpdated {
 		return
@@ -462,7 +503,7 @@ func (a *ApprovalWeightManager) addSupportToForkedBranchSupporters(voter Voter, 
 	}
 
 	a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
-		latestVotes.Store(&Vote{
+		supportAdded = latestVotes.Store(&Vote{
 			Voter:          voter,
 			BranchID:       forkedBranchSupporters.BranchID(),
 			Opinion:        Confirmed,
@@ -470,7 +511,7 @@ func (a *ApprovalWeightManager) addSupportToForkedBranchSupporters(voter Voter, 
 		})
 	})
 
-	return forkedBranchSupporters.AddSupporter(voter)
+	return supportAdded && forkedBranchSupporters.AddSupporter(voter)
 }
 
 func (a *ApprovalWeightManager) voterSupportsAllBranches(voter Voter, branchIDs ledgerstate.BranchIDs) (allBranchesSupported bool) {
@@ -1294,13 +1335,22 @@ func (l *LatestBranchVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exi
 	return
 }
 
-func (l *LatestBranchVotes) Store(vote *Vote) {
+func (l *LatestBranchVotes) Store(vote *Vote) (stored bool) {
 	l.Lock()
 	defer l.Unlock()
 
+	if currentVote, exists := l.latestVotes[vote.BranchID]; exists && currentVote.SequenceNumber >= vote.SequenceNumber {
+		return false
+	}
+	fmt.Println("+++++++++++++++++++++++++++++++++++++++")
+	fmt.Println("current", l.latestVotes[vote.BranchID])
+	fmt.Println("storedVote", vote)
 	l.latestVotes[vote.BranchID] = vote
 
+	fmt.Println("+++++++++++++++++++++++++++++++++++++++")
+
 	l.SetModified()
+	return true
 }
 
 // NewLatestBranchVotes creates a new LatestVotes.
@@ -1524,6 +1574,15 @@ func (v *Vote) Bytes() []byte {
 		WriteUint8(uint8(v.Opinion)).
 		WriteUint64(v.SequenceNumber).
 		Bytes()
+}
+
+func (v *Vote) String() string {
+	return stringify.Struct("Vote",
+		stringify.StructField("Voter", v.Voter),
+		stringify.StructField("BranchID", v.BranchID),
+		stringify.StructField("Opinion", int(v.Opinion)),
+		stringify.StructField("SequenceNumber", v.SequenceNumber),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
