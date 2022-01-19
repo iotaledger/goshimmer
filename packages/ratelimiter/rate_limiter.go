@@ -74,6 +74,7 @@ func (prl *PeerRateLimiter) Close() {
 	}
 }
 func (prl *PeerRateLimiter) doCount(p *peer.Peer) error {
+	prl.log.Debug("Count peer activity", "peerId", p.ID())
 	peerKey := p.ID().String()
 	nbrRecordI, err := prl.peersRecords.Get(peerKey)
 	if err != nil {
