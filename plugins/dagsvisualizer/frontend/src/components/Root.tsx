@@ -1,22 +1,34 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
-import { inject, observer } from 'mobx-react';
-import TangleStore from 'stores/TangleStore';
 import TangleDAG from 'components/TangleDAG';
 import UTXODAG from 'components/UTXODAG';
 import BranchDAG from 'components/BranchDAG';
 import GlobalSettings from 'components/GlobalSettings';
+import { connectWebSocket } from 'utils/WS';
 
-interface Props {
-    tangleStore?: TangleStore;
-}
+export class Root extends React.Component {
+    connect = () => {
+        connectWebSocket(
+            '/ws',
+            () => {
+                console.log('connection opened');
+            },
+            this.reconnect,
+            () => {
+                console.log('connection error');
+            }
+        );
+    };
 
-@inject('tangleStore')
-@observer
-export class Root extends React.Component<Props, any> {
+    reconnect = () => {
+        setTimeout(() => {
+            this.connect();
+        }, 1000);
+    };
+
     componentDidMount(): void {
-        this.props.tangleStore.connect();
+        this.connect();
     }
 
     render() {

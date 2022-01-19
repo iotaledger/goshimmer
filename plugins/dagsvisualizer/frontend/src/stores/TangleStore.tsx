@@ -1,10 +1,5 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import {
-    connectWebSocket,
-    registerHandler,
-    unregisterHandler,
-    WSMsgType
-} from 'utils/WS';
+import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
 import { MAX_VERTICES } from 'utils/constants';
 import {
     tangleVertex,
@@ -55,25 +50,6 @@ export class TangleStore {
         unregisterHandler(WSMsgType.MessageBooked);
         unregisterHandler(WSMsgType.MessageConfirmed);
         unregisterHandler(WSMsgType.FutureMarkerUpdated);
-    }
-
-    connect() {
-        connectWebSocket(
-            '/ws',
-            () => {
-                console.log('connection opened');
-            },
-            this.reconnect,
-            () => {
-                console.log('connection error');
-            }
-        );
-    }
-
-    reconnect() {
-        setTimeout(() => {
-            this.connect();
-        }, 1000);
     }
 
     @action
