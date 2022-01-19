@@ -338,11 +338,9 @@ func TestRetrieveAllTips(t *testing.T) {
 	})
 	messageB := newTestParentsDataMessage("B", map[ParentsType]MessageIDs{
 		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
-		WeakParentType:   MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
 	})
 	messageC := newTestParentsDataMessage("C", map[ParentsType]MessageIDs{
 		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
-		WeakParentType:   MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
 	})
 
 	var wg sync.WaitGroup
