@@ -12,9 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/libp2p/go-libp2p"
 
-	"github.com/iotaledger/goshimmer/packages/firewall"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/libp2putil"
+	"github.com/iotaledger/goshimmer/packages/ratelimiter"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -67,7 +67,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 	var opts []gossip.ManagerOption
 	if Parameters.MessagesRateLimit != (MessagesLimitParameters{}) {
 		log := Plugin.Logger().With("rateLimiter", "messagesRateLimiter")
-		mrl, err := firewall.NewPeerRateLimiter(Parameters.MessagesRateLimit.Interval, Parameters.MessagesRateLimit.Limit, log)
+		mrl, err := ratelimiter.NewPeerRateLimiter(Parameters.MessagesRateLimit.Interval, Parameters.MessagesRateLimit.Limit, log)
 		if err != nil {
 			Plugin.LogFatalf("Failed to initialize messages rate limiter: %+v", err)
 		}
