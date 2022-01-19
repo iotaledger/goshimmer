@@ -1,3 +1,16 @@
+# v0.8.5 - 2022-01-19
+
+> This release introduces minor bug fixes and improvements.
+
+The snapshot has been taken at 2022-01-13 22:30 CET.
+
+- Improve grafana dashboard (#1967)
+- Add recieved time remote metric (#1965)
+- Build(deps): bump follow-redirects from 1.13.0 to 1.14.7 in node and analysis dashboard (#1962)
+- Fix booker time metric (#1963)
+- Revert "Default to automated snapshot on Docker image creation (#1953)" (#1956)
+- Build(deps-dev): bump postcss from 8.2.10 to 8.2.13 in /plugins/dashboard/frontend (#1951)
+
 # v0.8.4 - 2022-01-12
 
 > This release introduces a complete Congestion Control overhaul and several bug fixes.
