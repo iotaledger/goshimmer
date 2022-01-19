@@ -540,7 +540,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	}
 }
 
-func TestOutOfOrderStatments(t *testing.T) {
+func TestOutOfOrderStatements(t *testing.T) {
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
 		nodes[node] = identity.GenerateIdentity()
@@ -850,22 +850,7 @@ func TestOutOfOrderStatments(t *testing.T) {
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(5, 3), 0.10)
 
-		// **********
-		// **********
-		// **********
-		// **********
-		// **********
-		// ALL WRONG
-		// **********
-		// **********
-		// **********
-		// **********
-		// **********
-		// **********
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 1.0)
-		//testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 0.9)
-		//testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Y"), 0.1)
-		//testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Y"), 0.0)
 
 		IssueAndValidateMessageApproval(t, "Message12.1", testEventMock, testFramework, map[string]float64{
 			"A": 0.10,
