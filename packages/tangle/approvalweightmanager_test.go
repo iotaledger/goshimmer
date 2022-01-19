@@ -2,11 +2,11 @@ package tangle
 
 import (
 	"encoding/binary"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -921,14 +921,66 @@ func TestOutOfOrderStatements(t *testing.T) {
 	testEventMock.AssertExpectations(t)
 }
 
-func TestNewLatestMarkerVotes(t *testing.T) {
-	latestMarkerVotes := NewLatestMarkerVotes(1, Voter{1})
-	latestMarkerVotes.Store(1, 8)
-	latestMarkerVotes.Store(2, 10)
-	latestMarkerVotes.Store(3, 7)
-	latestMarkerVotes.Store(4, 9)
-	latestMarkerVotes.Store(4, 11)
-	fmt.Println(latestMarkerVotes)
+func TestLatestMarkerVotes(t *testing.T) {
+	{
+		latestMarkerVotes := NewLatestMarkerVotes(1, Voter{1})
+		latestMarkerVotes.Store(1, 8)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			1: 8,
+		})
+		latestMarkerVotes.Store(2, 10)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			2: 10,
+		})
+		latestMarkerVotes.Store(3, 7)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			2: 10,
+			3: 7,
+		})
+		latestMarkerVotes.Store(4, 9)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			2: 10,
+			4: 9,
+		})
+		latestMarkerVotes.Store(4, 11)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			4: 11,
+		})
+		latestMarkerVotes.Store(1, 15)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			1: 15,
+			4: 11,
+		})
+	}
+
+	{
+		latestMarkerVotes := NewLatestMarkerVotes(1, Voter{1})
+		latestMarkerVotes.Store(3, 7)
+		latestMarkerVotes.Store(2, 10)
+		latestMarkerVotes.Store(4, 9)
+		latestMarkerVotes.Store(1, 8)
+		latestMarkerVotes.Store(1, 15)
+		latestMarkerVotes.Store(4, 11)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			1: 15,
+			4: 11,
+		})
+	}
+
+}
+
+func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
+	votes.latestVotes.ForEach(func(node *thresholdmap.Element) bool {
+		index := node.Key().(markers.Index)
+		seq := node.Value().(uint64)
+
+		_, exists := expectedVotes[index]
+		assert.Truef(t, exists, "%s:%d does not exist in latestVotes", index, seq)
+		delete(expectedVotes, index)
+
+		return true
+	})
+	assert.Empty(t, expectedVotes)
 }
 
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
