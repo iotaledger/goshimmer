@@ -147,14 +147,13 @@ export class UTXOStore {
         if (!this.search) return;
 
         this.selectTx(this.search);
+        this.centerTx(this.search);
     };
 
     selectTx = (txID: string) => {
         // clear pre-selected node first.
         this.clearSelected(true);
-
         this.graph.selectVertex(txID);
-
         this.updateSelected(this.search);
     };
 

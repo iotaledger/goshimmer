@@ -150,6 +150,7 @@ export class BranchStore {
         if (!this.search) return;
 
         this.selectBranch(this.search);
+        this.centerBranch(this.search);
     };
 
     getBranchVertex = (branchID: string) => {
