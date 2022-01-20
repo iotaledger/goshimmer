@@ -125,8 +125,6 @@ func TestBlub(t *testing.T) {
 
 // TestApprovalWeightManager_updateBranchSupporters tests the ApprovalWeightManager's functionality regarding branches.
 // The scenario can be found in images/approvalweight-updateBranchSupporters.png.
-
-/*
 func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
@@ -280,7 +278,6 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 }
-*/
 
 // TestApprovalWeightManager_updateSequenceSupporters tests the ApprovalWeightManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
