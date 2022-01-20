@@ -150,13 +150,6 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			// it should be done as part of the solidification refactor, as a payload can only be solid if all its inputs are solid,
 			// therefore we would know the payload branch from the solidifier and we could check for this
 
-			if b.isAnyParentObjectivelyInvalid(message) {
-				messageMetadata.SetObjectivelyInvalid(true)
-				err = errors.Errorf("failed to book message %s: referencing objectively invalid parent", messageID)
-				b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-				return
-			}
-
 			// Like and dislike references need to point to Messages containing transactions to evaluate opinion.
 			for _, parentType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType} {
 				if !b.allMessagesContainTransactions(message.ParentsByType(parentType)) {
@@ -265,19 +258,6 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 	}
 
 	return parentsStructureDetails, parentsPastMarkersBranchIDs, arithmeticBranchIDs.BranchIDs(), nil
-}
-
-func (b *Booker) isAnyParentObjectivelyInvalid(message *Message) (isAnyParentObjectivelyInvalid bool) {
-	isAnyParentObjectivelyInvalid = false
-	message.ForEachParent(func(parent Parent) {
-		if isAnyParentObjectivelyInvalid {
-			return
-		}
-		b.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-			isAnyParentObjectivelyInvalid = messageMetadata.IsObjectivelyInvalid()
-		})
-	})
-	return
 }
 
 // allMessagesContainTransactions checks whether all passed messages contain a transaction.
