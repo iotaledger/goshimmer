@@ -36,7 +36,7 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
-	Orderer               *Orderer
+	Dispatcher            *Dispatcher
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -93,7 +93,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
 	tangle.Utils = NewUtils(tangle)
-	tangle.Orderer = NewOrderer(tangle)
+	tangle.Dispatcher = NewDispatcher(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
 
@@ -121,7 +121,7 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.Scheduler.Setup()
-	t.Orderer.Setup()
+	t.Dispatcher.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
@@ -173,7 +173,7 @@ func (t *Tangle) Shutdown() {
 	t.Parser.Shutdown()
 	t.MessageFactory.Shutdown()
 	t.Scheduler.Shutdown()
-	t.Orderer.Shutdown()
+	t.Dispatcher.Shutdown()
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()

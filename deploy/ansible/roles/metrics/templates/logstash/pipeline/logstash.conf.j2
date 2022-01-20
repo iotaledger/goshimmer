@@ -32,24 +32,6 @@ output {
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
         }
-    } else if [log][type] == "statement" {
-        elasticsearch {
-            hosts => "elasticsearch:9200"
-            user => "{{ elkElasticUser }}"
-            password => "{{ elkElasticPassword }}"
-            ilm_rollover_alias => "statement"
-            ilm_pattern => "000001"
-            ilm_policy => "logstash-policy"
-        }
-    } else if [log][type] == "fpc" {
-      elasticsearch {
-          hosts => "elasticsearch:9200"
-            user => "{{ elkElasticUser }}"
-            password => "{{ elkElasticPassword }}"
-          ilm_rollover_alias => "fpc"
-          ilm_pattern => "000001"
-          ilm_policy => "logstash-policy"
-      }
     } else if [log][type] == "sync" {
         elasticsearch {
             hosts => "elasticsearch:9200"
@@ -68,15 +50,78 @@ output {
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
         }
-    } else if [log][type] == "transaction" {
+    } else if [log][type] == "messageFinalized" {
+         elasticsearch {
+            hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
+            ilm_rollover_alias => "messagefinalized"
+            ilm_pattern => "000001"
+            ilm_policy => "logstash-policy"
+         }
+    } else if [log][type] == "branchConfirmation" {
         elasticsearch {
             hosts => "elasticsearch:9200"
             user => "{{ elkElasticUser }}"
             password => "{{ elkElasticPassword }}"
-            ilm_rollover_alias => "transaction"
+            ilm_rollover_alias => "branchconfirmation"
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
         }
+    } else if [log][type] == "branchCounts" {
+        elasticsearch {
+            hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
+            ilm_rollover_alias => "branchcounts"
+            ilm_pattern => "000001"
+            ilm_policy => "logstash-policy"
+        }
+    } else if [log][type] == "messageScheduled" {
+        elasticsearch {
+            hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
+            ilm_rollover_alias => "messagescheduled"
+            ilm_pattern => "000001"
+            ilm_policy => "logstash-policy"
+        }
+    } else if [log][type] == "messageDiscarded" {
+        elasticsearch {
+            hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
+            ilm_rollover_alias => "messagediscarded"
+            ilm_pattern => "000001"
+            ilm_policy => "logstash-policy"
+        }
+    } else if [log][type] == "missingMessage" {
+        elasticsearch {
+            hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
+            ilm_rollover_alias => "missingmessage"
+            ilm_pattern => "000001"
+            ilm_policy => "logstash-policy"
+        }
+    } else if [log][type] == "missingMessageStored" {
+        elasticsearch {
+            hosts => "elasticsearch:9200"
+            user => "{{ elkElasticUser }}"
+            password => "{{ elkElasticPassword }}"
+            ilm_rollover_alias => "missingmessagestored"
+            ilm_pattern => "000001"
+            ilm_policy => "logstash-policy"
+        }
+    } else if [log][type] == "schedulerSample" {
+         elasticsearch {
+             hosts => "elasticsearch:9200"
+             user => "{{ elkElasticUser }}"
+             password => "{{ elkElasticPassword }}"
+             ilm_rollover_alias => "schedulersample"
+             ilm_pattern => "000001"
+             ilm_policy => "logstash-policy"
+         }
     } else{
         elasticsearch {
             hosts => "elasticsearch:9200"
