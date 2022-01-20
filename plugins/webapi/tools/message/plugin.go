@@ -43,14 +43,8 @@ const (
 	RouteDiagnosticsUtxoDag = routeDiagnostics + "/utxodag"
 	// RouteDiagnosticsBranches is the API route for branches diagnostics.
 	RouteDiagnosticsBranches = routeDiagnostics + "/branches"
-	// RouteDiagnosticsInvalidBranches is the API route for invalid branches diagnostics.
-	RouteDiagnosticsInvalidBranches = RouteDiagnosticsBranches + "/invalid"
 	// RouteDiagnosticsTips is the API route for tips diagnostics.
 	RouteDiagnosticsTips = routeDiagnostics + "/tips"
-	// RouteDiagnosticsStrongTips is the API route for strong tips diagnostics.
-	RouteDiagnosticsStrongTips = RouteDiagnosticsTips + "/strong"
-	// RouteDiagnosticsWeakTips is the API route for weak tips diagnostics.
-	RouteDiagnosticsWeakTips = RouteDiagnosticsTips + "/weak"
 )
 
 func configure(_ *node.Plugin) {

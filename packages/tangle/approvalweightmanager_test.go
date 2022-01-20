@@ -97,36 +97,8 @@ func TestBranchSupportersMarshalling(t *testing.T) {
 	})
 }
 
-/*
-func TestBlub(t *testing.T) {
-	keyPair := ed25519.GenerateKeyPair()
-
-	var weightProvider *CManaWeightProvider
-	manaRetrieverMock := func() map[identity.ID]float64 {
-		nodeID := identity.NewID(keyPair.PublicKey)
-		weightProvider.Update(time.Now(), nodeID)
-		return map[identity.ID]float64{
-			nodeID: 100,
-		}
-	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
-
-	tangle := NewTestTangle(ApprovalWeights(weightProvider))
-	defer tangle.Shutdown()
-	approvalWeightManager := tangle.ApprovalWeightManager
-	tangle.Configure(MergeBranches(false))
-
-	branches := make(map[string]ledgerstate.BranchID)
-	branches["A"] := ledgerstate.BranchIDFromRandomness()
-	branches["B"] := ledgerstate.BranchIDFromRandomness()
-
-}
-*/
-
 // TestApprovalWeightManager_updateBranchSupporters tests the ApprovalWeightManager's functionality regarding branches.
 // The scenario can be found in images/approvalweight-updateBranchSupporters.png.
-
-/*
 func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
@@ -280,7 +252,6 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 }
-*/
 
 // TestApprovalWeightManager_updateSequenceSupporters tests the ApprovalWeightManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
