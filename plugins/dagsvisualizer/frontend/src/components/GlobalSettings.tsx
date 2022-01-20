@@ -196,7 +196,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 <p>
                                     {' '}
                                     default is the local explorer:{' '}
-                                    <i>localhost:8081</i>{' '}
+                                    <i>http://localhost:8081</i>{' '}
                                 </p>
                             </div>
                             <Collapse in={this.state.dashboardUrlOpen}>
