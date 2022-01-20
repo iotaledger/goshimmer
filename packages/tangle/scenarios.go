@@ -153,7 +153,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
 			testFramework.RegisterBranchID("Branch1", "Message5")
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.90)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.90)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.75)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.50)
@@ -197,9 +196,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.55)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.25)
@@ -223,11 +219,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message7.1", WithStrongParents("Message7"), WithIssuer(nodes["A"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.55)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.55)
 
 			testFramework.PreventNewMarkers(true)
@@ -249,10 +240,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message8", WithStrongParents("Message6"), WithIssuer(nodes["D"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.3)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.2)
 
@@ -276,10 +263,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message9", WithStrongParents("Message8"), WithIssuer(nodes["A"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.85)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.6)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.5)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 7), 0.3)
@@ -306,8 +289,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.75)
@@ -339,11 +320,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testFramework.RegisterBranchID("Branch3", "Message7")
 			testFramework.RegisterBranchID("Branch4", "Message11")
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.55)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 6), 0.3)
 
 			testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.55)
@@ -374,10 +350,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.75)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 6), 0.5)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 7), 0.2)
@@ -410,10 +382,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message13", WithStrongParents("Message12"), WithIssuer(nodes["E"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.85)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 6), 0.6)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 7), 0.3)
@@ -448,10 +416,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 1.0)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 1.0)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 6), 0.75)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 7), 0.45)
