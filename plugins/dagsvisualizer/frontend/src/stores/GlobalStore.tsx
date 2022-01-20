@@ -1,8 +1,12 @@
 import { action, makeObservable, observable } from 'mobx';
 import { Moment } from 'moment';
-import TangleStore, { tangleVertex } from './TangleStore';
-import UTXOStore, { utxoVertex } from './UTXOStore';
-import BranchStore, { branchVertex } from './BranchStore';
+import TangleStore from './TangleStore';
+import { tangleVertex } from 'models/tangle';
+import UTXOStore from './UTXOStore';
+import { utxoVertex } from 'models/utxo';
+import BranchStore from './BranchStore';
+import { branchVertex } from 'models/branch';
+import { DEFAULT_DASHBOARD_URL } from 'utils/constants';
 
 export class searchResult {
     messages: Array<tangleVertex>;
@@ -14,6 +18,7 @@ export class searchResult {
 export class GlobalStore {
     @observable searchStartingTime: number;
     @observable searchEndingTime: number;
+    @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     @observable searchResponse = '';
 
     tangleStore: TangleStore;
@@ -84,9 +89,7 @@ export class GlobalStore {
 
     @action
     updateExplorerAddress = (addr: string) => {
-        this.tangleStore.updateExplorerAddress(addr);
-        this.branchStore.updateExplorerAddress(addr);
-        this.utxoStore.updateExplorerAddress(addr);
+        this.explorerAddress = addr;
     };
 
     @action

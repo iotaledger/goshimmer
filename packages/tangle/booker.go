@@ -571,6 +571,9 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 		tangle:         tangle,
 		discardedNodes: make(map[identity.ID]time.Time),
 		Manager:        markers.NewManager(tangle.Options.Store, tangle.Options.CacheTimeProvider),
+		Events: &MarkersManagerEvents{
+			FutureMarkerUpdated: events.NewEvent(futureMarkerUpdateEventCaller),
+		},
 	}
 }
 
@@ -770,10 +773,13 @@ func increaseMarkersIndexCallbackStrategy(markers.SequenceID, markers.Index) boo
 	return true
 }
 
+// MarkersManagerEvents represents events happening in the Markers Manager.
 type MarkersManagerEvents struct {
 	// FutureMarkerUpdated is triggered when a message's future marker is updated.
 	FutureMarkerUpdated *events.Event
 }
+
+// FutureMarkerUpdate contains the messageID of the future marker of a message.
 type FutureMarkerUpdate struct {
 	ID           MessageID
 	FutureMarker MessageID

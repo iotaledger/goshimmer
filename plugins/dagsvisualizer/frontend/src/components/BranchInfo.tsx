@@ -3,6 +3,7 @@ import Card from 'react-bootstrap/Card';
 import ListGroup from 'react-bootstrap/ListGroup';
 import { inject, observer } from 'mobx-react';
 import BranchStore from 'stores/BranchStore';
+import LinkToDashboard from 'components/LinkToDashboard';
 
 interface Props {
     branchStore?: BranchStore;
@@ -12,7 +13,7 @@ interface Props {
 @observer
 export class BranchInfo extends React.Component<Props, any> {
     render() {
-        const { selectedBranch, explorerAddress } = this.props.branchStore;
+        const { selectedBranch } = this.props.branchStore;
 
         return (
             selectedBranch && (
@@ -29,13 +30,10 @@ export class BranchInfo extends React.Component<Props, any> {
                                     <ListGroup>
                                         {selectedBranch.parents.map((p, i) => (
                                             <ListGroup.Item key={i}>
-                                                <a
-                                                    href={`${explorerAddress}/explorer/branch/${p}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    {p}
-                                                </a>
+                                                <LinkToDashboard
+                                                    route={`explorer/branch/${p}`}
+                                                    title={p}
+                                                />
                                             </ListGroup.Item>
                                         ))}
                                     </ListGroup>
@@ -60,17 +58,14 @@ export class BranchInfo extends React.Component<Props, any> {
                                                     <ListGroup key={i}>
                                                         <ListGroup.Item>
                                                                 OutputID:{' '}
-                                                            <a
-                                                                href={`${explorerAddress}/explorer/output/${p}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                            >
-                                                                {
+                                                            <LinkToDashboard
+                                                                route={`explorer/output/${p}`}
+                                                                title={
                                                                     p
                                                                         .outputID
                                                                         .base58
                                                                 }
-                                                            </a>
+                                                            />
                                                         </ListGroup.Item>
                                                         <ListGroup.Item>
                                                                 Branches:
@@ -85,15 +80,12 @@ export class BranchInfo extends React.Component<Props, any> {
                                                                                 i
                                                                             }
                                                                         >
-                                                                            <a
-                                                                                href={`${explorerAddress}/explorer/branch/${p}`}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                            >
-                                                                                {
+                                                                            <LinkToDashboard
+                                                                                route={`explorer/branch/${p}`}
+                                                                                title={
                                                                                     p
                                                                                 }
-                                                                            </a>
+                                                                            />
                                                                         </ListGroup.Item>
                                                                     )
                                                                 )}

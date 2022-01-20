@@ -4,6 +4,7 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import { inject, observer } from 'mobx-react';
 import UTXOStore from 'stores/UTXOStore';
 import * as dateformat from 'dateformat';
+import LinkToDashboard from 'components/LinkToDashboard';
 
 interface Props {
     utxoStore?: UTXOStore;
@@ -13,7 +14,7 @@ interface Props {
 @observer
 export class TransactionInfo extends React.Component<Props, any> {
     render() {
-        const { selectedTx, explorerAddress } = this.props.utxoStore;
+        const { selectedTx } = this.props.utxoStore;
 
         return (
             selectedTx && (
@@ -21,47 +22,38 @@ export class TransactionInfo extends React.Component<Props, any> {
                     <Card style={{ width: '100%' }}>
                         <Card.Body>
                             <Card.Title>
-                                <a
-                                    href={`${explorerAddress}/explorer/transaction/${
+                                <LinkToDashboard
+                                    route={`explorer/transaction/${
                                         selectedTx.ID
                                     }`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    {selectedTx.ID}
-                                </a>
+                                    title={selectedTx.ID}
+                                />
                             </Card.Title>
                             <ListGroup variant="flush">
                                 <ListGroup.Item>
                                     Msg ID:
-                                    <a
-                                        href={`${explorerAddress}/explorer/messasge/${
+                                    <LinkToDashboard
+                                        route={`explorer/messasge/${
                                             selectedTx.msgID
                                         }`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        {selectedTx.msgID}
-                                    </a>
+                                        title={selectedTx.msgID}
+                                    />
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     Inputs:
                                     <ListGroup>
                                         {selectedTx.inputs.map((p, i) => (
                                             <ListGroup.Item key={i}>
-                                                <a
-                                                    href={`${explorerAddress}/explorer/output/${
+                                                <LinkToDashboard
+                                                    route={`explorer/output/${
                                                         p.referencedOutputID
                                                             .base58
                                                     }`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    {
+                                                    title={
                                                         p.referencedOutputID
                                                             .base58
                                                     }
-                                                </a>
+                                                />
                                             </ListGroup.Item>
                                         ))}
                                     </ListGroup>
@@ -71,13 +63,10 @@ export class TransactionInfo extends React.Component<Props, any> {
                                     <ListGroup>
                                         {selectedTx.outputs.map((p, i) => (
                                             <ListGroup.Item key={i}>
-                                                <a
-                                                    href={`${explorerAddress}/explorer/output/${p}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    {p}
-                                                </a>
+                                                <LinkToDashboard
+                                                    route={`/explorer/output/${p}`}
+                                                    title={p}
+                                                />
                                             </ListGroup.Item>
                                         ))}
                                     </ListGroup>
