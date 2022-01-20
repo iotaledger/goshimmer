@@ -175,7 +175,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 }
 
 func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMetadata) (err error) {
-	structureDetails, pastMarkersBranchIDs, inheritedBranchIDs, bookingDetailsErr := b.determineBookingDetails(message)
+	structureDetails, _, inheritedBranchIDs, bookingDetailsErr := b.determineBookingDetails(message)
 	if bookingDetailsErr != nil {
 		return errors.Errorf("failed to determine booking details of Message with %s: %w", message.ID(), bookingDetailsErr)
 	}
@@ -185,52 +185,33 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 	inheritedStructureDetails, newSequenceCreated := b.MarkersManager.InheritStructureDetails(message, structureDetails, markers.NewSequenceAlias(aggregatedInheritedBranchID.Bytes()))
 	messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
-	// We have to determine the diff metadata from the normalized set of StructureDetails after inheriting.
-	if !newSequenceCreated {
-		inheritedStructureDetailsBranchIDs, inheritedStructureDetailsBranchIDsErr := b.branchIDsFromStructureDetails(inheritedStructureDetails)
-		if inheritedStructureDetailsBranchIDsErr != nil {
-			return errors.Errorf("failed to determine BranchIDs of inherited StructureDetails of Message with %s: %w", message.ID(), inheritedStructureDetailsBranchIDsErr)
-		}
-		pastMarkersBranchIDs = inheritedStructureDetailsBranchIDs
+	if newSequenceCreated {
+		b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), aggregatedInheritedBranchID)
+		return nil
+	}
+
+	// TODO: do not retrieve markers branches once again, determineBookingDetails already does it
+	pastMarkersBranchIDs, inheritedStructureDetailsBranchIDsErr := b.branchIDsFromStructureDetails(inheritedStructureDetails)
+	if inheritedStructureDetailsBranchIDsErr != nil {
+		return errors.Errorf("failed to determine BranchIDs of inherited StructureDetails of Message with %s: %w", message.ID(), inheritedStructureDetailsBranchIDsErr)
 	}
 
 	addedBranchIDs := inheritedBranchIDs.Clone().Subtract(pastMarkersBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
 	subtractedBranchIDs := pastMarkersBranchIDs.Clone().Subtract(inheritedBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
 
-	switch b.branchMappingTarget(newSequenceCreated, len(addedBranchIDs)+len(subtractedBranchIDs) == 0, inheritedStructureDetails.IsPastMarker) {
-	case MarkerMappingTarget:
-		b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), aggregatedInheritedBranchID)
-	case MetadataMappingTarget:
-		if len(addedBranchIDs) != 0 {
-			if aggregatedAddedBranchIDs := b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs); aggregatedAddedBranchIDs != ledgerstate.MasterBranchID {
-				messageMetadata.SetAddedBranchIDs(aggregatedAddedBranchIDs)
-			}
+	if len(addedBranchIDs) != 0 {
+		if aggregatedAddedBranchIDs := b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs); aggregatedAddedBranchIDs != ledgerstate.MasterBranchID {
+			messageMetadata.SetAddedBranchIDs(aggregatedAddedBranchIDs)
 		}
+	}
 
-		if len(subtractedBranchIDs) != 0 {
-			if aggregatedSubtractedBranchIDs := b.tangle.LedgerState.AggregateConflictBranchesID(subtractedBranchIDs); aggregatedSubtractedBranchIDs != ledgerstate.MasterBranchID {
-				messageMetadata.SetSubtractedBranchIDs(aggregatedSubtractedBranchIDs)
-			}
+	if len(subtractedBranchIDs) != 0 {
+		if aggregatedSubtractedBranchIDs := b.tangle.LedgerState.AggregateConflictBranchesID(subtractedBranchIDs); aggregatedSubtractedBranchIDs != ledgerstate.MasterBranchID {
+			messageMetadata.SetSubtractedBranchIDs(aggregatedSubtractedBranchIDs)
 		}
 	}
 
 	return nil
-}
-
-func (b *Booker) branchMappingTarget(newSequenceCreated bool, diffsEmpty bool, isPastMarker bool) (mappingTarget MappingTarget) {
-	if newSequenceCreated {
-		return MarkerMappingTarget
-	}
-
-	if diffsEmpty {
-		return UndefinedMappingTarget
-	}
-
-	if isPastMarker {
-		return MarkerMappingTarget
-	}
-
-	return MetadataMappingTarget
 }
 
 // determineBookingDetails determines the booking details of an unbooked Message.
@@ -772,17 +753,6 @@ func (m *MarkersManager) registerSequenceAliasMappingIfLastMappedMarker(marker *
 	}
 }
 
-// BranchMappedByPastMarkers returns true if the given BranchID is associated to at least one of the given past Markers.
-func (m *MarkersManager) BranchMappedByPastMarkers(branch ledgerstate.BranchID, pastMarkers *markers.Markers) (branchMappedByPastMarkers bool) {
-	pastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		branchMappedByPastMarkers = m.BranchID(markers.NewMarker(sequenceID, index)) == branch
-
-		return !branchMappedByPastMarkers
-	})
-
-	return
-}
-
 // Floor returns the largest Index that is <= the given Marker, it's BranchID and a boolean value indicating if it
 // exists.
 func (m *MarkersManager) Floor(referenceMarker *markers.Marker) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
@@ -801,13 +771,6 @@ func (m *MarkersManager) Ceiling(referenceMarker *markers.Marker) (marker marker
 	})
 
 	return
-}
-
-// ForEachMessageApprovingMarker iterates through all Messages that strongly approve the given Marker.
-func (m *MarkersManager) ForEachMessageApprovingMarker(marker *markers.Marker, callback func(approvingMessageID MessageID)) {
-	for _, approvingMessageID := range m.tangle.Utils.ApprovingMessageIDs(m.MessageID(marker), StrongApprover) {
-		callback(approvingMessageID)
-	}
 }
 
 // ForEachBranchIDMapping iterates over all BranchID mappings in the given Sequence that are bigger than the given
@@ -1438,24 +1401,5 @@ func (a ArithmeticBranchIDs) String() string {
 
 	return result
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MappingTarget ////////////////////////////////////////////////////////////////////////////////////////////////
-
-type MappingTarget uint8
-
-const (
-	// UndefinedMappingTarget is the zero-value of the MappingTarget type.
-	UndefinedMappingTarget MappingTarget = iota
-
-	// MarkerMappingTarget represents the MarkerMappingTarget that indicates that the Branch should be mapped through
-	// the Markers.
-	MarkerMappingTarget
-
-	// MetadataMappingTarget represents the MarkerMappingTarget that indicates that the Branch should be mapped through
-	// the MessageMetadata.
-	MetadataMappingTarget
-)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
