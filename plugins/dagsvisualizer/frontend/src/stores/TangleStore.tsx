@@ -186,8 +186,8 @@ export class TangleStore {
     pauseResume = () => {
         if (this.paused) {
             this.renderer.resume();
-            this.svgRendererOnResume();
             this.paused = false;
+            this.svgRendererOnResume();
             return;
         }
         this.lastMsgAddedBeforePause = this.msgOrder[this.msgOrder.length - 1];
@@ -265,9 +265,9 @@ export class TangleStore {
             parentIDs: Array<string>
         ) => {
             if (parentIDs) {
-                parentIDs.forEach(value => {
+                parentIDs.forEach(parentID => {
                     // remove tip status
-                    const parent = this.messages.get(value);
+                    const parent = this.messages.get(parentID);
                     if (parent) {
                         parent.isTip = false;
                         this.updateNodeColorOnConfirmation(parent);
@@ -275,14 +275,14 @@ export class TangleStore {
 
                     // if value is valid AND (links is empty OR there is no between parent and children)
                     if (
-                        value &&
+                        parentID &&
                         (!node.links ||
-                            !node.links.some(link => link.fromId === value))
+                            !node.links.some(link => link.fromId === parentID))
                     ) {
                         // draw the link only when the parent exists
-                        const existing = this.graph.getNode(value);
+                        const existing = this.graph.getNode(parentID);
                         if (existing) {
-                            const link = this.graph.addLink(value, msg.ID);
+                            const link = this.graph.addLink(parentID, msg.ID);
                             this.updateParentRefUI(link.id, parentType);
                         }
                     }
@@ -654,10 +654,9 @@ export class TangleStore {
         if (!this.messages.get(this.lastMsgAddedBeforePause)) {
             this.clearGraph();
             this.drawExistedMsgs();
-
             return;
         }
-        // pause was short - clear only the needed part
+        // pause was short - clear only the needed part on left from this.lastMsgAddedBeforePause
         this.graph.forEachNode(node => {
             const msg = this.messages.get(node.id);
             if (!msg) {
@@ -666,11 +665,12 @@ export class TangleStore {
                 this.updateNodeDataAndColor(msg.ID, msg);
             }
         });
-
-        for (const msgId in this.messages) {
-            const exist = this.graphics.getNodeUI(msgId);
-            if (!exist) {
-                this.drawVertex(this.messages.get(msgId));
+        const idx = this.msgOrder.indexOf(this.lastMsgAddedBeforePause);
+        for (const msgID of this.msgOrder.slice(idx)) {
+            const msg = this.messages.get(msgID);
+            if (msg) {
+                this.drawVertex(msg);
+                this.updateNodeColorOnConfirmation(msg);
             }
         }
     };
