@@ -43,6 +43,9 @@ export class vivagraphLib implements IGraph {
 
     unselectVertex(id: string): void {
         const nodeUI = this.graphics.getNodeUI(id);
+        if (!nodeUI) {
+            return;
+        }
         setUINodeSize(nodeUI, VERTEX.SIZE_DEFAULT);
         resetRectBorder(nodeUI);
     }
