@@ -303,6 +303,7 @@ export function unselectMessage(
 
 export function updateGraph(
     vivaLib: vivagraphLib,
+    newMsgToAdd: string[],
     messageMap: ObservableMap<string, tangleVertex>
 ) {
     vivaLib.graph.forEachNode(node => {
@@ -314,10 +315,12 @@ export function updateGraph(
         }
     });
 
-    for (const msgId in messageMap) {
-        const exist = vivaLib.nodeExist(msgId);
-        if (!exist) {
-            vivaLib.drawVertex(messageMap.get(msgId));
+    // new messages to add after pause.
+    for (const msgID of newMsgToAdd) {
+        const msg = messageMap.get(msgID);
+        if (msg) {
+            vivaLib.drawVertex(msg);
+            updateNodeColorOnConfirmation(msg, vivaLib);
         }
     }
 }

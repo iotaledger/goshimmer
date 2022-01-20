@@ -58,7 +58,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock"}
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics"}
 
 	c.Network.Enabled = true
 
@@ -107,7 +107,8 @@ func EntryNodeConfig() config.GoShimmer {
 
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus", "manarefresher", "manualpeering", "chat",
 		"WebAPIDataEndpoint", "WebAPIDRNGEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "Snapshot", "WebAPIToolsDRNGEndpoint",
-		"WebAPIToolsMessageEndpoint", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "DAGs visualizer")
+		"WebAPIToolsMessageEndpoint", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "remotelog", "remotelogmetrics",
+		"DAGs visualizer")
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true

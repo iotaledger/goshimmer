@@ -139,8 +139,8 @@ export class TangleStore {
     pauseResume = () => {
         if (this.paused) {
             this.graph.resume();
-            this.svgRendererOnResume();
             this.paused = false;
+            this.svgRendererOnResume();
             return;
         }
         this.lastMsgAddedBeforePause = this.msgOrder[this.msgOrder.length - 1];
@@ -312,12 +312,12 @@ export class TangleStore {
         if (!this.messages.get(this.lastMsgAddedBeforePause)) {
             this.clearGraph();
             this.drawExistedMsgs();
-
             return;
         }
 
-        // pause was short - clear only the needed part
-        updateGraph(this.graph, this.messages);
+        // pause was short - clear only the needed part on left from this.lastMsgAddedBeforePause
+        const idx = this.msgOrder.indexOf(this.lastMsgAddedBeforePause);
+        updateGraph(this.graph, this.msgOrder.slice(idx), this.messages);
     };
 
     updateIfNotPaused = (msg: tangleVertex) => {

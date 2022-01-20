@@ -21,6 +21,7 @@ import (
 )
 
 var (
+	// minAccessMana is minimal amout of mana required to access the network
 	minAccessMana    = tangle.MinMana
 	minConsensusMana = 0.0
 
@@ -188,7 +189,7 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana %+v", resp)
 		require.Equal(t, fullID(emptyNodeID), resp.NodeID)
-		require.Equal(t, minAccessMana, resp.Access)
+		require.Equal(t, 0.0, resp.Access)
 		require.Greater(t, resp.Consensus, minConsensusMana)
 	})
 
