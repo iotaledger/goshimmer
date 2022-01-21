@@ -366,11 +366,14 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 	}
 
 	a.tangle.Storage.LatestMarkerVotes(marker.SequenceID(), identity.NewID(message.IssuerPublicKey()), NewLatestMarkerVotes).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
-		if !latestMarkerVotes.Store(marker.Index(), message.SequenceNumber()) {
+		stored, previousHighestIndex := latestMarkerVotes.Store(marker.Index(), message.SequenceNumber())
+		if !stored {
 			return
 		}
 
-		a.updateMarkerWeight(&marker, message)
+		if marker.Index() > previousHighestIndex {
+			a.updateMarkerWeights(marker.SequenceID(), previousHighestIndex+1, marker.Index())
+		}
 
 		a.tangle.Booker.MarkersManager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 			sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
@@ -386,11 +389,15 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 	})
 }
 
-func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Message) {
-	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
+// updateMarkerWeights updates the marker weights in the given range and triggers the MarkerWeightChanged event.
+func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceID, rangeStartIndex markers.Index, rangeEndIndex markers.Index) {
+	if rangeStartIndex <= 1 {
+		rangeStartIndex = a.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(sequenceID)
+	}
 
-	for i := a.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
-		currentMarker := markers.NewMarker(marker.SequenceID(), i)
+	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
+	for i := rangeStartIndex; i <= rangeEndIndex; i++ {
+		currentMarker := markers.NewMarker(sequenceID, i)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
 		if a.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID {
@@ -1157,13 +1164,18 @@ func (l *LatestMarkerVotes) SequenceNumber(index markers.Index) (sequenceNumber 
 	return key.(uint64), exists
 }
 
-func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (stored bool) {
+func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (stored bool, previousHighestIndex markers.Index) {
 	l.Lock()
 	defer l.Unlock()
 
+	if maxElement := l.latestVotes.MaxElement(); maxElement != nil {
+		previousHighestIndex = maxElement.Key().(markers.Index)
+	}
+
 	// abort if we already have a higher value on an Index that is larger or equal
-	if _, ceilingValue, ceilingExists := l.latestVotes.Ceiling(index); ceilingExists && sequenceNumber < ceilingValue.(uint64) {
-		return false
+	_, ceilingValue, ceilingExists := l.latestVotes.Ceiling(index)
+	if ceilingExists && sequenceNumber < ceilingValue.(uint64) {
+		return false, previousHighestIndex
 	}
 
 	// set the new value
@@ -1179,7 +1191,7 @@ func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (s
 
 	l.SetModified()
 
-	return true
+	return true, previousHighestIndex
 }
 
 func (l *LatestMarkerVotes) String() string {

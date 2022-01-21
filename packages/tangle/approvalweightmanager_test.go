@@ -595,7 +595,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A3"), WithOutput("A5", 500))
 		testFramework.RegisterBranchID("A", "Message5")
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.90)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.90)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.75)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.50)
@@ -640,8 +639,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message7", WithStrongParents("Message3"), WithIssuer(nodes["B"].PublicKey()), WithInputs("B"), WithOutput("B7", 500))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
 
 		IssueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[string]float64{
@@ -662,9 +659,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testFramework.RegisterBranchID("C", "Message7")
 		testFramework.RegisterBranchID("D", "Message8")
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 4), 0.20)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.15)
@@ -689,10 +683,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message9", WithStrongParents("Message6", "Message7"), WithIssuer(nodes["A"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.60)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.40)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 6), 0.30)
 
@@ -720,9 +710,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.75)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.55)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 6), 0.45)
@@ -752,10 +739,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 		// We skip ahead with the Sequence Number
 		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["E"].PublicKey()), WithSequenceNumber(1000))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.75)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.40)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.10)
 
@@ -786,7 +769,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 		// We simulate an "old" vote
 		testFramework.CreateMessage("Message12", WithStrongParents("Message10"), WithIssuer(nodes["E"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.55)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 6), 0.55)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 7), 0.25)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 8), 0.10)
