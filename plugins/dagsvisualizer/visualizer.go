@@ -171,10 +171,12 @@ func registerUTXOEvents() {
 
 func registerBranchEvents() {
 	createdClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
-		visualizerWorkerPool.TrySubmit(&wsMessage{
+		wsMsg := &wsMessage{
 			Type: MsgTypeBranchVertex,
 			Data: newBranchVertex(branchID),
-		})
+		}
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
 	parentUpdateClosure := events.NewClosure(func(parentUpdate *ledgerstate.BranchParentUpdate) {
