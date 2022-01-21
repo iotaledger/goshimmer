@@ -236,6 +236,10 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		txs := []*utxoVertex{}
 		branches := []*branchVertex{}
 		branchMap := make(map[ledgerstate.BranchID]struct{})
+		entryMsgs := tangle.MessageIDs{}
+		deps.Tangle.Storage.Approvers(tangle.EmptyMessageID).Consume(func(approver *tangle.Approver) {
+			entryMsgs = append(entryMsgs, approver.ApproverMessageID())
+		})
 
 		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
 			deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
@@ -263,12 +267,15 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 						branches = append(branches, branchNode)
 					}
 				}
-			})
 
-			deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
-				walker.Push(approver.ApproverMessageID())
+				// continue walking if the message is issued before endTimestamp
+				if msg.IssuingTime().Before(endTimestamp) {
+					deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+						walker.Push(approver.ApproverMessageID())
+					})
+				}
 			})
-		}, tangle.MessageIDs{tangle.EmptyMessageID})
+		}, entryMsgs)
 
 		return c.JSON(http.StatusOK, searchResult{Messages: messages, Txs: txs, Branches: branches})
 	})
