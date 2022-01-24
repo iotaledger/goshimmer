@@ -1426,6 +1426,9 @@ func (l *LatestBranchVotes) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the LatestVotes into a sequence of bytes that are used as the value part in the
 // object storage.
 func (l *LatestBranchVotes) ObjectStorageValue() []byte {
+	l.RLock()
+	defer l.RUnlock()
+
 	marshalUtil := marshalutil.New()
 
 	marshalUtil.WriteUint64(uint64(len(l.latestVotes)))
