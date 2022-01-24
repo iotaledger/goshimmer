@@ -98,7 +98,7 @@ func setupRoutes(e *echo.Echo) {
 		var statusCode int
 		var message string
 
-		switch errors.Unwrap(err) {
+		switch errors.UnwrapAll(err) {
 		case echo.ErrNotFound:
 			c.Redirect(http.StatusSeeOther, "/")
 			return
