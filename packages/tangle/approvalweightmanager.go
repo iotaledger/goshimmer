@@ -223,15 +223,9 @@ func (a *ApprovalWeightManager) determineVotes(votedBranchIDs ledgerstate.Branch
 // are affected by the Vote.
 func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgerstate.BranchIDs, vote *Vote) (addedBranches ledgerstate.BranchIDs, allParentsAdded bool) {
 	addedBranches = ledgerstate.NewBranchIDs()
-	allParentsAdded = true
 
 	for currentConflictBranchID := range conflictBranchIDs {
 		currentVote := vote.WithBranchID(currentConflictBranchID)
-
-		if a.differentVoteWithHigherSequenceExists(currentVote) {
-			allParentsAdded = false
-			continue
-		}
 
 		// Do not queue parents if a newer vote exists for this branch for this voter.
 		if a.identicalVoteWithHigherSequenceExists(currentVote) {
@@ -245,9 +239,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 			addedBranches.AddAll(addedBranchesOfCurrentBranch)
 		})
 
-		if allParentsAdded {
-			addedBranches.Add(currentConflictBranchID)
-		}
+		addedBranches.Add(currentConflictBranchID)
 	}
 
 	return
