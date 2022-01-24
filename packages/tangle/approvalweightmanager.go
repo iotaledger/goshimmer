@@ -265,10 +265,6 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBr
 			return
 		}
 
-		if _, exists := a.voteWithHigherSequence(currentVote); exists {
-			continue
-		}
-
 		revokedBranches.Add(currentVote.BranchID)
 
 		a.tangle.LedgerState.ChildBranches(currentVote.BranchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
@@ -281,12 +277,6 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBr
 	}
 
 	return
-}
-
-func (a *ApprovalWeightManager) differentVoteWithHigherSequenceExists(vote *Vote) (exists bool) {
-	existingVote, exists := a.voteWithHigherSequence(vote)
-
-	return exists && vote.Opinion != existingVote.Opinion
 }
 
 func (a *ApprovalWeightManager) identicalVoteWithHigherSequenceExists(vote *Vote) (exists bool) {
