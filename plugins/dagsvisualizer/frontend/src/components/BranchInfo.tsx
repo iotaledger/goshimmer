@@ -20,7 +20,12 @@ export class BranchInfo extends React.Component<Props, any> {
                 <div className="selectedInfo">
                     <Card style={{ width: '100%' }}>
                         <Card.Body>
-                            <Card.Title>{selectedBranch.ID}</Card.Title>
+                            <Card.Title>
+                                <LinkToDashboard
+                                    route={`explorer/branch/${selectedBranch.ID}`}
+                                    title={selectedBranch.ID}
+                                />
+                            </Card.Title>
                             <ListGroup variant="flush">
                                 <ListGroup.Item>
                                     Type: {selectedBranch.type}
