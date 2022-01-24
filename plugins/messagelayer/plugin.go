@@ -115,18 +115,6 @@ func configure(plugin *node.Plugin) {
 
 	deps.Tangle.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", ev.Synced)
-		if ev.Synced {
-			// make sure that we are using the configured rate when synced
-			rate := deps.Tangle.Options.SchedulerParams.Rate
-			deps.Tangle.Scheduler.SetRate(rate)
-			plugin.LogInfof("Scheduler rate: %v", rate)
-		} else {
-			// increase scheduler rate
-			rate := deps.Tangle.Options.SchedulerParams.Rate
-			rate -= rate / 2 // 50% increase
-			deps.Tangle.Scheduler.SetRate(rate)
-			plugin.LogInfof("Scheduler rate: %v", rate)
-		}
 	}))
 
 	// read snapshot file
