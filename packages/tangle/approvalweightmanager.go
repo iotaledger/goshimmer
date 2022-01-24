@@ -102,27 +102,6 @@ func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
 	return supporterWeight/totalWeight >= minSupporterWeight
 }
 
-// SupportersOfBranches returns the Supporters of the given BranchIDs.
-func (a *ApprovalWeightManager) SupportersOfBranches(conflictBranchIDs ledgerstate.BranchIDs) (supporters *Supporters) {
-	if len(conflictBranchIDs) == 0 {
-		return NewSupporters()
-	}
-
-	for conflictBranchID := range conflictBranchIDs {
-		if !a.tangle.Storage.BranchSupporters(conflictBranchID).Consume(func(branchSupporters *BranchSupporters) {
-			if supporters == nil {
-				supporters = branchSupporters.Supporters()
-			} else {
-				supporters = supporters.Intersect(branchSupporters.Supporters())
-			}
-		}) {
-			return NewSupporters()
-		}
-	}
-
-	return
-}
-
 // SupportersOfConflictBranch returns the Supporters of the given conflictbranch ledgerstate.BranchID.
 func (a *ApprovalWeightManager) SupportersOfConflictBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
 	if !a.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {

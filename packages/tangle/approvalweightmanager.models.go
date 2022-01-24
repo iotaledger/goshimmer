@@ -217,6 +217,13 @@ func (s *Supporters) Add(supporter Voter) (added bool) {
 	return s.Set.Add(supporter)
 }
 
+// AddAll adds all new Supporters to the Set.
+func (s *Supporters) AddAll(supporters *Supporters) {
+	supporters.ForEach(func(supporter Voter) {
+		s.Set.Add(supporter)
+	})
+}
+
 // Delete removes the Supporter from the Set and returns true if it did exist.
 func (s *Supporters) Delete(supporter Voter) (deleted bool) {
 	return s.Set.Delete(supporter)

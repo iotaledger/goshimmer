@@ -984,9 +984,14 @@ func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeigh
 		if err != nil {
 			panic(err)
 		}
-		supporters := approvalWeightManager.SupportersOfBranches(conflictBranchIDs)
-		if supporters != nil {
-			actualResult = supporters.Has(supporter)
+		for conflictBranchID := range conflictBranchIDs {
+			supporters := approvalWeightManager.SupportersOfConflictBranch(conflictBranchID)
+			if supporters != nil {
+				actualResult = supporters.Has(supporter)
+			}
+			if !actualResult {
+				break
+			}
 		}
 
 		assert.Equalf(t, expectedResult, actualResult, "%s(%s) does not match", branchIDString, branchIDs[branchIDString])
