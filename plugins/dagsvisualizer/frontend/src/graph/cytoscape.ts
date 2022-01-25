@@ -10,6 +10,7 @@ export class cytoscapeLib implements IGraph {
     cy;
     layout;
     layoutApi;
+    branchAPICache: Map<string,branchVertex>
 
     constructor(options: Array<any>, init: () => any) {
         options.forEach(o => {
@@ -17,6 +18,8 @@ export class cytoscapeLib implements IGraph {
         });
 
         [this.cy, this.layout, this.layoutApi] = init();
+
+        this.branchAPICache = new Map();
     }
 
     drawVertex(data: any): void {
@@ -175,27 +178,48 @@ export function drawTransaction(
     graph.layoutApi.placeNewNodes(collection);
 }
 
-export function drawBranch(
+export async function drawBranch(
     branch: branchVertex,
     graph: cytoscapeLib,
     branchMap: ObservableMap<string, branchVertex>
 ) {
-    const v = graph.cy.add({
-        group: 'nodes',
-        data: { id: branch.ID }
-    });
+    if(!branch){
+        return;
+    }
+    console.log(branch);
+    let v: any;
+    if(!branchMap.get(branch.ID)){
+        v = graph.cy.add({
+            group: 'nodes',
+            data: { id: branch.ID }
+        });
+        console.log('v: ', branch.ID);
+        branchMap.set(branch.ID, branch);
+    }
 
-    branch.parents.forEach(pID => {
+
+    branch.parents  = branch.parents || [];
+    for (let i = 0; i < branch.parents.length; i++){
+        const pID = branch.parents[i];
         const b = branchMap.get(pID);
         if (b) {
             graph.cy.add({
                 group: 'edges',
                 data: { source: pID, target: branch.ID }
             });
+            console.log('added');
+        }else{
+            // recursively fetch branch and draw parent
+            const res = await fetch(`/api/dagsvisualizer/branch/${pID}`);
+            const vertex: branchVertex = await res.json() as branchVertex;
+            console.log('recursion');
+            await drawBranch(vertex, graph, branchMap);
         }
-    });
+    }
 
-    graph.layoutApi.placeNewNodes(v);
+    if (v) {
+        graph.layoutApi.placeNewNodes(v);
+    }
 }
 
 export function initUTXODAG() {

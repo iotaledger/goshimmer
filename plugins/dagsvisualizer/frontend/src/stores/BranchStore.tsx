@@ -184,10 +184,9 @@ export class BranchStore {
         this.branchToRemoveAfterResume = [];
     };
 
-    drawVertex = (branch: branchVertex) => {
+    drawVertex = async (branch: branchVertex) => {
         this.vertexChanges++;
-
-        drawBranch(branch, this.graph, this.branches);
+        await drawBranch(branch, this.graph, this.branches);
     };
 
     removeVertex = (branchID: string) => {
@@ -212,6 +211,7 @@ export class BranchStore {
 
     clearGraph = () => {
         this.graph.clearGraph();
+        this.addMasterBranch();
     };
 
     updateLayoutTimer = () => {
@@ -243,10 +243,7 @@ export class BranchStore {
         });
     }
 
-    start = () => {
-        this.graph = new cytoscapeLib([dagre, layoutUtilities], initBranchDAG);
-
-        // add master branch
+    addMasterBranch = (): branchVertex => {
         const master: branchVertex = {
             ID: '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
             type: 'ConflictBranchType',
@@ -270,6 +267,14 @@ export class BranchStore {
                 label: 'master'
             }
         });
+        return master;
+    }
+
+    start = () => {
+        this.graph = new cytoscapeLib([dagre, layoutUtilities], initBranchDAG);
+
+        // add master branch
+        const master = this.addMasterBranch();
         this.graph.centerVertex(master.ID);
 
         // set up click event.
