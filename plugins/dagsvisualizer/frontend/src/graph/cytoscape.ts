@@ -92,12 +92,10 @@ export function drawTransaction(
             group: 'nodes',
             data: {
                 id: inputNodeID,
-                parent: tx.ID
-            },
-            classes: ['input', 'center-center'],
-            style: {
+                parent: tx.ID,
                 label: inputLabel
-            }
+            },
+            classes: ['input', 'center-center']
         })
     );
 
@@ -126,11 +124,8 @@ export function drawTransaction(
     collection = collection.union(
         graph.cy.add({
             group: 'nodes',
-            data: { id: outputNodeID, parent: tx.ID },
-            classes: ['output', 'center-center'],
-            style: {
-                label: outputLabel
-            }
+            data: { id: outputNodeID, parent: tx.ID, label: outputLabel },
+            classes: ['output', 'center-center']
         })
     );
 
@@ -216,6 +211,8 @@ export function initUTXODAG() {
                 selector: '.input',
                 style: {
                     'background-color': '#F9BDC0',
+                    'font-size': 16,
+                    label: 'data(label)',
                     events: 'no'
                 }
             },
@@ -223,6 +220,8 @@ export function initUTXODAG() {
                 selector: '.output',
                 style: {
                     'background-color': '#FBE698',
+                    'font-size': 16,
+                    label: 'data(label)',
                     events: 'no'
                 }
             },
