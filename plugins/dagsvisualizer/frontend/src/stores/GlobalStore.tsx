@@ -142,6 +142,7 @@ export class GlobalStore {
             const branches = result.branches || [];
             for (let i = 0; i < branches.length; i++){
                 await this.branchStore.drawVertex(branches[i]);
+                this.branchStore.graph.cy.getElementById(branches[i].ID).addClass('search');
             }
         } catch (err) {
             console.log(

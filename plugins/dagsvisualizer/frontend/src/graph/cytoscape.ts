@@ -7,65 +7,65 @@ import { branchVertex } from 'models/branch';
 import { ObservableMap } from 'mobx';
 
 export class cytoscapeLib implements IGraph {
-    cy;
-    layout;
-    layoutApi;
-    branchAPICache: Map<string,branchVertex>
+  cy;
+  layout;
+  layoutApi;
+  branchAPICache: Map<string, branchVertex>;
 
-    constructor(options: Array<any>, init: () => any) {
-        options.forEach(o => {
-            cytoscape.use(o);
-        });
+  constructor(options: Array<any>, init: () => any) {
+      options.forEach((o) => {
+          cytoscape.use(o);
+      });
 
-        [this.cy, this.layout, this.layoutApi] = init();
+      [this.cy, this.layout, this.layoutApi] = init();
 
-        this.branchAPICache = new Map();
-    }
+      this.branchAPICache = new Map();
+  }
 
-    drawVertex(data: any): void {
-        this.cy.add(data);
-    }
+  drawVertex(data: any): void {
+      this.cy.add(data);
+  }
 
-    removeVertex(id: string): void {
-        const children = this.cy.getElementById(id).children();
+  removeVertex(id: string): void {
+      const children = this.cy.getElementById(id).children();
 
-        this.cy.remove('#' + id);
-        this.cy.remove(children);
-    }
+      this.cy.remove('#' + id);
+      this.cy.remove(children);
+  }
 
-    selectVertex(id: string): void {
-        const node = this.cy.getElementById(id);
-        if (!node) return;
-        node.select();
-    }
+  selectVertex(id: string): void {
+      const node = this.cy.getElementById(id);
+      if (!node) return;
+      node.select();
+  }
 
-    unselectVertex(id: string): void {
-        const node = this.cy.getElementById(id);
-        if (!node) return;
-        node.unselect();
-    }
+  unselectVertex(id: string): void {
+      const node = this.cy.getElementById(id);
+      if (!node) return;
+      node.unselect();
+  }
 
-    centerVertex(id: string): void {
-        const node = this.cy.getElementById(id);
-        if (!node) return;
-        this.cy.center(node);
-    }
+  centerVertex(id: string): void {
+      const node = this.cy.getElementById(id);
+      if (!node) return;
+      this.cy.center(node);
+  }
 
-    centerGraph(): void {
-        this.cy.center();
-    }
+  centerGraph(): void {
+      this.cy.center();
+  }
 
-    clearGraph(): void {
-        this.cy.elements().remove();
-    }
+  clearGraph(): void {
+      this.cy.elements().remove();
+  }
 
-    updateLayout(): void {
-        this.cy.layout(this.layout).run();
-    }
+  updateLayout(): void {
+      this.cy.layout(this.layout).run();
+  }
 
-    addNodeEventListener(event: string, listener: () => void): void {
-        this.cy.on(event, 'node', listener);
-    }
+  addNodeEventListener(event: string, listener: () => void): void {
+      this.cy.on(event, 'node', listener);
+  }
 }
 
 export function drawTransaction(
@@ -80,14 +80,14 @@ export function drawTransaction(
         graph.cy.add({
             group: 'nodes',
             data: { id: tx.ID },
-            classes: 'transaction'
+            classes: 'transaction',
         })
     );
 
     // draw inputs
     const inputIDs = [];
     tx.inputs.forEach((input, index) => {
-        // input node
+    // input node
         const inputNodeID = hashString(
             input.referencedOutputID.base58 + tx.ID + '_input'
         );
@@ -97,9 +97,9 @@ export function drawTransaction(
                 data: {
                     id: inputNodeID,
                     parent: tx.ID,
-                    input: input.referencedOutputID.base58
+                    input: input.referencedOutputID.base58,
                 },
-                classes: 'input'
+                classes: 'input',
             })
         );
 
@@ -110,9 +110,9 @@ export function drawTransaction(
                     group: 'edges',
                     data: {
                         source: inputIDs[index - 5],
-                        target: inputNodeID
+                        target: inputNodeID,
                     },
-                    classes: 'invisible'
+                    classes: 'invisible',
                 })
             );
         }
@@ -126,8 +126,8 @@ export function drawTransaction(
                     group: 'edges',
                     data: {
                         source: input.referencedOutputID.base58,
-                        target: inputNodeID
-                    }
+                        target: inputNodeID,
+                    },
                 })
             );
         }
@@ -140,7 +140,7 @@ export function drawTransaction(
             graph.cy.add({
                 group: 'nodes',
                 data: { id: outputID, parent: tx.ID },
-                classes: 'output'
+                classes: 'output',
             })
         );
 
@@ -151,9 +151,9 @@ export function drawTransaction(
                     group: 'edges',
                     data: {
                         source: outputIDs[index - 5],
-                        target: outputID
+                        target: outputID,
                     },
-                    classes: 'invisible'
+                    classes: 'invisible',
                 })
             );
         }
@@ -162,16 +162,16 @@ export function drawTransaction(
 
     // alignment of inputs and outputs
     const inIndex =
-        Math.floor(inputIDs.length / 5) * 5 + inputIDs.length % 5 - 1;
+    Math.floor(inputIDs.length / 5) * 5 + (inputIDs.length % 5) - 1;
     const outIndex = Math.min(outputIDs.length - 1, 2);
     collection = collection.union(
         graph.cy.add({
             group: 'edges',
             data: {
                 source: inputIDs[inIndex],
-                target: outputIDs[outIndex]
+                target: outputIDs[outIndex],
             },
-            classes: 'invisible'
+            classes: 'invisible',
         })
     );
 
@@ -183,37 +183,43 @@ export async function drawBranch(
     graph: cytoscapeLib,
     branchMap: ObservableMap<string, branchVertex>
 ) {
-    if(!branch){
+    if (!branch) {
         return;
     }
-    console.log(branch);
     let v: any;
-    if(!branchMap.get(branch.ID)){
+    try {
         v = graph.cy.add({
             group: 'nodes',
-            data: { id: branch.ID }
+            data: { id: branch.ID },
         });
-        console.log('v: ', branch.ID);
+    } catch (e) {
+        // already exists. never mind
+    } finally {
         branchMap.set(branch.ID, branch);
     }
 
-
-    branch.parents  = branch.parents || [];
-    for (let i = 0; i < branch.parents.length; i++){
+    branch.parents = branch.parents || [];
+    for (let i = 0; i < branch.parents.length; i++) {
         const pID = branch.parents[i];
         const b = branchMap.get(pID);
         if (b) {
             graph.cy.add({
                 group: 'edges',
-                data: { source: pID, target: branch.ID }
+                data: { source: pID, target: branch.ID },
             });
-            console.log('added');
-        }else{
+        } else {
             // recursively fetch branch and draw parent
             const res = await fetch(`/api/dagsvisualizer/branch/${pID}`);
-            const vertex: branchVertex = await res.json() as branchVertex;
-            console.log('recursion');
+            const vertex: branchVertex = (await res.json()) as branchVertex;
+            console.log('parent found: ', vertex);
             await drawBranch(vertex, graph, branchMap);
+            // make sure the parent was added
+            if (branchMap.get(pID)) {
+                graph.cy.add({
+                    group: 'edges',
+                    data: { source: pID, target: branch.ID },
+                });
+            }
         }
     }
 
@@ -233,8 +239,8 @@ export function initUTXODAG() {
                     'font-weight': 'bold',
                     shape: 'rectangle',
                     width: 20,
-                    height: 20
-                }
+                    height: 20,
+                },
             },
             {
                 selector: 'edge',
@@ -243,8 +249,8 @@ export function initUTXODAG() {
                     'curve-style': 'bezier',
                     'line-color': '#696969',
                     'control-point-step-size': '10px',
-                    events: 'no'
-                }
+                    events: 'no',
+                },
             },
             {
                 selector: ':parent',
@@ -252,47 +258,47 @@ export function initUTXODAG() {
                     'background-opacity': 0.333,
                     'background-color': '#15B5B0',
                     'min-width': '50px',
-                    'min-height': '50px'
-                }
+                    'min-height': '50px',
+                },
             },
             {
                 selector: 'node:selected',
                 style: {
                     'background-opacity': 0.333,
-                    'background-color': 'red'
-                }
+                    'background-color': 'red',
+                },
             },
             {
                 selector: '.input',
                 style: {
                     'background-color': '#F9BDC0',
-                    events: 'no'
-                }
+                    events: 'no',
+                },
             },
             {
                 selector: '.output',
                 style: {
                     'background-color': '#FBE698',
-                    events: 'no'
-                }
+                    events: 'no',
+                },
             },
             {
                 selector: '.invisible',
                 style: {
-                    visibility: 'hidden'
-                }
-            }
+                    visibility: 'hidden',
+                },
+            },
         ],
         layout: {
-            name: 'dagre'
-        }
+            name: 'dagre',
+        },
     });
     const layout = dagreOptions;
     const layoutApi = cy.layoutUtilities({
         desiredAspectRatio: 1,
         polyominoGridSizeFactor: 1,
         utilityFunction: 0,
-        componentSpacing: 80
+        componentSpacing: 80,
     });
 
     return [cy, layout, layoutApi];
@@ -309,8 +315,8 @@ export function initBranchDAG() {
                     'background-color': '#2E8BC0',
                     shape: 'rectangle',
                     width: 25,
-                    height: 15
-                }
+                    height: 15,
+                },
             },
             {
                 selector: 'edge',
@@ -319,27 +325,33 @@ export function initBranchDAG() {
                     'curve-style': 'bezier',
                     'line-color': '#696969',
                     'control-point-step-size': '10px',
-                    events: 'no'
-                }
+                    events: 'no',
+                },
             },
             {
                 selector: 'node:selected',
                 style: {
                     'background-opacity': 0.333,
-                    'background-color': 'red'
-                }
-            }
+                    'background-color': 'red',
+                },
+            },
+            {
+                selector: '.search',
+                style: {
+                    'background-color': 'yellow',
+                },
+            },
         ],
         layout: {
-            name: 'dagre'
-        }
+            name: 'dagre',
+        },
     });
     const layout = dagreOptions;
     const layoutApi = cy.layoutUtilities({
         desiredAspectRatio: 1,
         polyominoGridSizeFactor: 1,
         utilityFunction: 0,
-        componentSpacing: 200
+        componentSpacing: 200,
     });
 
     return [cy, layout, layoutApi];

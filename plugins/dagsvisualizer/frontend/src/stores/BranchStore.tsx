@@ -14,6 +14,7 @@ import {
 export class BranchStore {
     @observable maxBranchVertices = MAX_VERTICES;
     @observable branches = new ObservableMap<string, branchVertex>();
+    branchesBeforeSearching: Map<string,branchVertex>;
     @observable selectedBranch: branchVertex = null;
     @observable paused = false;
     @observable search = '';
@@ -50,7 +51,6 @@ export class BranchStore {
         this.checkLimit();
 
         this.branchOrder.push(branch.ID);
-        this.branches.set(branch.ID, branch);
 
         if (this.paused) {
             this.branchToAddAfterResume.push(branch.ID);
@@ -63,8 +63,6 @@ export class BranchStore {
     checkLimit = () => {
         if (this.branchOrder.length >= this.maxBranchVertices) {
             const removed = this.branchOrder.shift();
-            this.branches.delete(removed);
-
             if (this.paused) {
                 // keep the removed tx that should be removed from the graph after resume.
                 this.branchToRemoveAfterResume.push(removed);
@@ -82,7 +80,8 @@ export class BranchStore {
         }
 
         b.parents = newParents.parents;
-        this.branches.set(newParents.ID, b);
+        // draw new links
+        this.drawVertex(b);
     };
 
     @action
@@ -158,9 +157,11 @@ export class BranchStore {
     };
 
     drawExistedBranches = () => {
-        this.branches.forEach(branch => {
+        for(const branch of this.branchesBeforeSearching.values()){
             this.drawVertex(branch);
-        });
+        }
+        this.resumeAndSyncGraph();
+        this.branchesBeforeSearching = undefined;
     };
 
     updateDrawStatus = (draw: boolean) => {
@@ -192,6 +193,7 @@ export class BranchStore {
     removeVertex = (branchID: string) => {
         this.vertexChanges++;
         this.graph.removeVertex(branchID);
+        this.branches.delete(branchID);
     };
 
     selectBranch = (branchID: string) => {
@@ -211,6 +213,13 @@ export class BranchStore {
 
     clearGraph = () => {
         this.graph.clearGraph();
+        if(!this.branchesBeforeSearching){
+            this.branchesBeforeSearching = new Map<string,branchVertex>();
+            this.branches.forEach((branch,branchID)=> {
+                this.branchesBeforeSearching.set(branchID,branch);
+            });
+        }
+        this.branches.clear();
         this.addMasterBranch();
     };
 
