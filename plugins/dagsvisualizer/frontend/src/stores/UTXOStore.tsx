@@ -50,7 +50,7 @@ export class UTXOStore {
         this.txOrder.push(tx.ID);
         this.transactions.set(tx.ID, tx);
         tx.outputs.forEach(outputID => {
-            this.outputMap.set(outputID, {});
+            this.outputMap.set(outputID, tx.ID);
         });
 
         if (this.paused) {
