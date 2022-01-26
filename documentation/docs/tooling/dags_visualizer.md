@@ -6,6 +6,12 @@ The DAGs visualizer is our all round tool for visualizing DAGs. Be it Tangle, UT
 DAGs visualizer is already packed into `pkged.go`.
 To run it just simply launch a goshimmer node, open browser and go to `http://localhost:8061`.
 
+:::note
+
+UTXO-DAG and Branch-DAG will check if there's any added or removed vertex every 10 seconds and rearrange vertices positions.
+
+:::
+
 [![DAGs visualizer Overview](/img/tooling/dags-visualizer.png "DAGs visualizer overview")](/img/tooling/dags-visualizer.png)
 
 ### Global Functions
