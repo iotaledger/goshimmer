@@ -44,8 +44,8 @@ func init() {
 	}))
 }
 
-func createFirewall(gossipMgr *gossip.Manager, autopeeringMgr *selection.Protocol) *firewall.Firewall {
-	return firewall.NewFirewall(gossipMgr, autopeeringMgr, Plugin.Logger())
+func createFirewall() *firewall.Firewall {
+	return firewall.NewFirewall(deps.GossipMgr, deps.AutopeeringMgr, Plugin.Logger())
 }
 
 func configure(_ *node.Plugin) {
