@@ -112,10 +112,8 @@ func anyGenesisNodePledge() bool {
 	return false
 }
 
-type (
-	TransactionMap map[ledgerstate.TransactionID]ledgerstate.Record
-	AccessManaMap  map[identity.ID]ledgerstate.AccessMana
-)
+type TransactionMap map[ledgerstate.TransactionID]ledgerstate.Record
+type AccessManaMap map[identity.ID]ledgerstate.AccessMana
 
 func init() {
 	flag.Uint64(cfgGenesisTokenAmount, 800000, "the amount of tokens to add to the genesis output") // we pledge this amount to peer master
@@ -167,7 +165,7 @@ func readGenesisConfig() *Genesis {
 }
 
 func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) {
-	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
+	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal("unable to create snapshot file", err)
 	}
@@ -186,7 +184,7 @@ func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) {
 }
 
 func verifySnapshot(snapshotFileName string) {
-	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
+	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal("unable to create snapshot file ", err)
 	}
