@@ -48,11 +48,13 @@ func (f *Firewall) OnFaultyPeer(p *peer.Peer, details *FaultinessDetails) {
 		return
 	}
 	if nbr.Group == gossip.NeighborsGroupAuto {
-		f.log.Infow(
-			"Blocklisting peer in the autopeering selection",
-			"peerId", p.ID(),
-		)
-		f.autopeering.BlockNeighbor(p.ID())
+		if f.autopeering != nil {
+			f.log.Infow(
+				"Blocklisting peer in the autopeering selection",
+				"peerId", p.ID(),
+			)
+			f.autopeering.BlockNeighbor(p.ID())
+		}
 	} else if nbr.Group == gossip.NeighborsGroupManual {
 		f.log.Warnw("To the node operator. One of neighbors connected via manual peering acts faulty, no automatic actions taken. Consider removing it from the known peers list.",
 			"neighborId", p.ID(), details.toKVList())

@@ -30,7 +30,7 @@ type dependencies struct {
 	dig.In
 
 	GossipMgr      *gossip.Manager
-	AutopeeringMgr *selection.Protocol
+	AutopeeringMgr *selection.Protocol `optional:"true"`
 	Firewall       *firewall.Firewall
 }
 
