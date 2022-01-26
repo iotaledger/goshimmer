@@ -17,7 +17,7 @@ Here are the main directories in `/src`:
 ### Back-end
 The `.go` files forms a plugin that register several events to collect data from each DAG and a back-end server for the webpage.
 
-## Dashboard in dev mode
+## DAGs visualizer in dev mode
 
 Dev mode has only been tested on Linux.
 
