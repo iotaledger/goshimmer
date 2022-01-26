@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/stringify"
 	"net/http"
 	"strconv"
 
@@ -41,7 +42,35 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("messages/:messageID/metadata", GetMessageMetadata)
 	deps.Server.POST("messages/payload", PostPayload)
 
+	deps.Server.GET("messages/sequences/:sequenceID", GetSequence)
 	deps.Server.GET("messages/sequences/:sequenceID/markerindexbranchidmapping", GetMarkerIndexBranchIDMapping)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetSequence //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// GetSequence is the handler for the /messages/sequences/:sequenceID endpoint.
+func GetSequence(c echo.Context) (err error) {
+	sequenceID, err := sequenceIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	if deps.Tangle.Booker.MarkersManager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
+		messageWithLastMarker := deps.Tangle.Booker.MarkersManager.MessageID(markers.NewMarker(sequenceID, sequence.HighestIndex()))
+		err = c.String(http.StatusOK, stringify.Struct("Sequence",
+			stringify.StructField("ID", sequence.ID()),
+			stringify.StructField("Rank", sequence.Rank()),
+			stringify.StructField("LowestIndex", sequence.LowestIndex()),
+			stringify.StructField("HighestIndex", sequence.HighestIndex()),
+			stringify.StructField("MessageWithLastMarker", messageWithLastMarker),
+		))
+	}) {
+		return
+	}
+
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Sequence with %s", sequenceID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
