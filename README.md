@@ -66,18 +66,19 @@ Please follow this guide: https://github.com/facebook/rocksdb/blob/master/INSTAL
 
 When compiling GoShimmer, just run the build script:
 
-```bash
+```shell
 ./scripts/build.sh
 ```
 
 If you also want to link the libraries statically (only on Linux) run this instead:
-```bash
+
+```shell
 ./scripts/build_goshimmer_rocksdb_builtin.sh
 ```
 
 Finally, download the latest snapshot and make sure to place it in the root folder of GoShimmer:
 
-```bash
+```shell
 wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
 ```
 
