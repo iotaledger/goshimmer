@@ -38,11 +38,11 @@ Depending on how you run your GoShimmer node, there are different ways to set up
 One of the easiest ways to run a node is to use [Docker](https://www.docker.com/). To automatically launch GoShimmer and the Monitoring Dashboard with docker, follow these steps:
 1. [Install docker](https://docs.docker.com/get-docker/). On Linux, make sure you install both the [Docker Engine](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/).
 2. Clone the GoShimmer repository.
-   ```bash
+   ```shell
    $ git clone git@github.com:iotaledger/goshimmer.git
    ```
 3. Create a `config.json` from the provided `config.default.json`.
-   ```bash
+   ```shell
    $ cd goshimmer
    $ cp config.default.json config.json
    ```
@@ -55,7 +55,7 @@ One of the easiest ways to run a node is to use [Docker](https://www.docker.com/
    }
    ```
 4. From the root of the repo, start GoShimmer with:
-   ```bash
+   ```shell
    $ docker-compose up
    ```
 
