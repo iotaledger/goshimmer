@@ -24,9 +24,9 @@ The list and description of messages in the protocol can be found in
 
 The TXStream plugin supports the following configuration value in `config.json`:
 
-```
+```json
 "txstream": {
-  "bindAddress": ":5000",
+"bindAddress": ":5000",
 }
 ```
 
