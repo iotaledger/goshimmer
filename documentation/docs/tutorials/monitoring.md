@@ -179,7 +179,7 @@ Note: you have to have root privileges with your user to carry out the following
    $ sudo nano /etc/systemd/system/prometheus.service
    ```
    Copy the following content into the file:
-   ```yaml
+   ```
    [Unit]
    Description=Prometheus GoShimmer Server
    Wants=network-online.target

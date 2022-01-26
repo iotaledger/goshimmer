@@ -305,16 +305,16 @@ for _, m := accessMana.Online {
 ```
 
 ### Response examples
-```josn
+```json
 {
   "online": [
-      {
-        "rank": 1,
-        "shortNodeID": "4AeXyZ26e4G",
-        "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
-        "mana": 75
-      }
-  ],  
+    {
+      "rank": 1,
+      "shortNodeID": "4AeXyZ26e4G",
+      "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
+      "mana": 75
+    }
+  ],
   "timestamp": 1614924295
 }
 ```
