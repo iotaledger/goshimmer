@@ -83,6 +83,7 @@ type Manager struct {
 	messageRequestWorkerPool *workerpool.NonBlockingQueuedWorkerPool
 }
 
+// ManagerOption configures the Manager instance.
 type ManagerOption func(m *Manager)
 
 // NewManager creates a new Manager.
@@ -123,12 +124,15 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 	return m, nil
 }
 
+// WithMessagesRateLimiter allows to set a PeerRateLimiter instance
+// to be used as messages rate limiter in the gossip manager.
 func WithMessagesRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
 	return func(m *Manager) {
 		m.messagesRateLimiter = prl
 	}
 }
 
+// MessagesRateLimiter returns the messages rate limiter instance used in the gossip manager.
 func (m *Manager) MessagesRateLimiter() *ratelimiter.PeerRateLimiter {
 	return m.messagesRateLimiter
 }
@@ -178,6 +182,7 @@ func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsG
 	return m.addNeighbor(ctx, p, group, m.acceptPeer, connectOpts)
 }
 
+// GetNeighbor returns the neighbor by its id.
 func (m *Manager) GetNeighbor(id identity.ID) (*Neighbor, error) {
 	m.neighborsMutex.RLock()
 	defer m.neighborsMutex.RUnlock()

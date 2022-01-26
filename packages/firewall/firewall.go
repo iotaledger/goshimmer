@@ -8,12 +8,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 )
 
+// Firewall is a object responsible for taking actions on faulty peers.
 type Firewall struct {
 	gossipMgr   *gossip.Manager
 	autopeering *selection.Protocol
 	log         *logger.Logger
 }
 
+// NewFirewall create a new instance of Firewall object.
 func NewFirewall(gossipMgr *gossip.Manager, autopeering *selection.Protocol, log *logger.Logger) *Firewall {
 	return &Firewall{
 		gossipMgr:   gossipMgr,
@@ -22,6 +24,7 @@ func NewFirewall(gossipMgr *gossip.Manager, autopeering *selection.Protocol, log
 	}
 }
 
+// FaultinessDetails contains information about why the peers is considered faulty.
 type FaultinessDetails struct {
 	Reason string
 	Info   map[string]interface{}
@@ -35,6 +38,7 @@ func (fd *FaultinessDetails) toKVList() []interface{} {
 	return list
 }
 
+// OnFaultyPeer handles a faulty peer and takes appropriate actions.
 func (f *Firewall) OnFaultyPeer(p *peer.Peer, details *FaultinessDetails) {
 	f.log.Info("Peer is faulty, executing firewall logic to handle the peer",
 		"peerId", p.ID(), details.toKVList())
