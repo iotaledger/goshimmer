@@ -53,12 +53,12 @@ func runVisualizer() {
 
 func registerTangleEvents() {
 	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		msg := &wsMessage{
+		wsMsg := &wsMessage{
 			Type: MsgTypeTangleVertex,
 			Data: newTangleVertex(messageID),
 		}
-		visualizerWorkerPool.TrySubmit(msg)
-		storeWsMessage(msg)
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
@@ -68,7 +68,7 @@ func registerTangleEvents() {
 				branchID = ledgerstate.BranchID{}
 			}
 
-			msg := &wsMessage{
+			wsMsg := &wsMessage{
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
 					ID:       messageID.Base58(),
@@ -76,14 +76,14 @@ func registerTangleEvents() {
 					BranchID: branchID.Base58(),
 				},
 			}
-			visualizerWorkerPool.TrySubmit(msg)
-			storeWsMessage(msg)
+			visualizerWorkerPool.TrySubmit(wsMsg)
+			storeWsMessage(wsMsg)
 		})
 	})
 
 	msgConfirmedClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			msg := &wsMessage{
+			wsMsg := &wsMessage{
 				Type: MsgTypeTangleConfirmed,
 				Data: &tangleConfirmed{
 					ID:            messageID.Base58(),
@@ -91,21 +91,21 @@ func registerTangleEvents() {
 					ConfirmedTime: msgMetadata.GradeOfFinalityTime().UnixNano(),
 				},
 			}
-			visualizerWorkerPool.TrySubmit(msg)
-			storeWsMessage(msg)
+			visualizerWorkerPool.TrySubmit(wsMsg)
+			storeWsMessage(wsMsg)
 		})
 	})
 
 	fmUpdateClosure := events.NewClosure(func(fmUpdate *tangle.FutureMarkerUpdate) {
-		msg := &wsMessage{
+		wsMsg := &wsMessage{
 			Type: MsgTypeFutureMarkerUpdated,
 			Data: &tangleFutureMarkerUpdated{
 				ID:             fmUpdate.ID.Base58(),
 				FutureMarkerID: fmUpdate.FutureMarker.Base58(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(msg)
-		storeWsMessage(msg)
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
@@ -136,22 +136,22 @@ func registerUTXOEvents() {
 				if err != nil {
 					branchID = ledgerstate.BranchID{}
 				}
-				msg := &wsMessage{
+				wsMsg := &wsMessage{
 					Type: MsgTypeUTXOBooked,
 					Data: &utxoBooked{
 						ID:       message.Payload().(*ledgerstate.Transaction).ID().Base58(),
 						BranchID: branchID.Base58(),
 					},
 				}
-				visualizerWorkerPool.TrySubmit(msg)
-				storeWsMessage(msg)
+				visualizerWorkerPool.TrySubmit(wsMsg)
+				storeWsMessage(wsMsg)
 			}
 		})
 	})
 
 	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
 		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
-			msg := &wsMessage{
+			wsMsg := &wsMessage{
 				Type: MsgTypeUTXOConfirmed,
 				Data: &utxoConfirmed{
 					ID:            txID.Base58(),
@@ -159,8 +159,8 @@ func registerUTXOEvents() {
 					ConfirmedTime: txMetadata.GradeOfFinalityTime().UnixNano(),
 				},
 			}
-			visualizerWorkerPool.TrySubmit(msg)
-			storeWsMessage(msg)
+			visualizerWorkerPool.TrySubmit(wsMsg)
+			storeWsMessage(wsMsg)
 		})
 	})
 
@@ -171,38 +171,40 @@ func registerUTXOEvents() {
 
 func registerBranchEvents() {
 	createdClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
-		visualizerWorkerPool.TrySubmit(&wsMessage{
+		wsMsg := &wsMessage{
 			Type: MsgTypeBranchVertex,
 			Data: newBranchVertex(branchID),
-		})
+		}
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
 	parentUpdateClosure := events.NewClosure(func(parentUpdate *ledgerstate.BranchParentUpdate) {
-		msg := &wsMessage{
+		wsMsg := &wsMessage{
 			Type: MsgTypeBranchParentsUpdate,
 			Data: &branchParentUpdate{
 				ID:      parentUpdate.ID.Base58(),
 				Parents: parentUpdate.NewParents.Strings(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(msg)
-		storeWsMessage(msg)
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
 	branchConfirmedClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
-		msg := &wsMessage{
+		wsMsg := &wsMessage{
 			Type: MsgTypeBranchConfirmed,
 			Data: &branchConfirmed{
 				ID: branchID.Base58(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(msg)
-		storeWsMessage(msg)
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
 	branchWeightChangedClosure := events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
 		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(e.BranchID)
-		msg := &wsMessage{
+		wsMsg := &wsMessage{
 			Type: MsgTypeBranchWeightChanged,
 			Data: &branchWeightChanged{
 				ID:     e.BranchID.Base58(),
@@ -210,8 +212,8 @@ func registerBranchEvents() {
 				GoF:    branchGoF.String(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(msg)
-		storeWsMessage(msg)
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
@@ -243,6 +245,10 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		txs := []*utxoVertex{}
 		branches := []*branchVertex{}
 		branchMap := make(map[ledgerstate.BranchID]struct{})
+		entryMsgs := tangle.MessageIDs{}
+		deps.Tangle.Storage.Approvers(tangle.EmptyMessageID).Consume(func(approver *tangle.Approver) {
+			entryMsgs = append(entryMsgs, approver.ApproverMessageID())
+		})
 
 		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
 			deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
@@ -270,12 +276,15 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 						branches = append(branches, branchNode)
 					}
 				}
-			})
 
-			deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
-				walker.Push(approver.ApproverMessageID())
+				// continue walking if the message is issued before endTimestamp
+				if msg.IssuingTime().Before(endTimestamp) {
+					deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+						walker.Push(approver.ApproverMessageID())
+					})
+				}
 			})
-		}, tangle.MessageIDs{tangle.EmptyMessageID})
+		}, entryMsgs)
 
 		return c.JSON(http.StatusOK, searchResult{Messages: messages, Txs: txs, Branches: branches})
 	})

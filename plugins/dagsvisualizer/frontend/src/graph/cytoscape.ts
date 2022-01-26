@@ -85,91 +85,60 @@ export function drawTransaction(
     );
 
     // draw inputs
-    const inputIDs = [];
-    tx.inputs.forEach((input, index) => {
-    // input node
-        const inputNodeID = hashString(
-            input.referencedOutputID.base58 + tx.ID + '_input'
-        );
-        collection = collection.union(
-            graph.cy.add({
-                group: 'nodes',
-                data: {
-                    id: inputNodeID,
-                    parent: tx.ID,
-                    input: input.referencedOutputID.base58,
-                },
-                classes: 'input',
-            })
-        );
+    const inputNodeID = tx.ID + '_input';
+    let inputLabel = '';
+    if (tx.inputs.length > 1) {
+        inputLabel = tx.inputs.length + ' inputs';
+    }
+    collection = collection.union(
+        graph.cy.add({
+            group: 'nodes',
+            data: {
+                id: inputNodeID,
+                parent: tx.ID,
+                label: inputLabel
+            },
+            classes: ['input', 'center-center']
+        })
+    );
 
-        // align every 5 inputs in the same level
-        if (index >= 5) {
+    tx.inputs.forEach(input => {
+        // link input to the tx that contains unspent output
+        const spentOutputTx = outputMap.get(input.referencedOutputID.base58);
+        if (spentOutputTx) {
             collection = collection.union(
                 graph.cy.add({
                     group: 'edges',
                     data: {
-                        source: inputIDs[index - 5],
-                        target: inputNodeID,
-                    },
-                    classes: 'invisible',
-                })
-            );
-        }
-        inputIDs.push(inputNodeID);
-
-        // link input to the unspent output
-        const spentOutput = outputMap.get(input.referencedOutputID.base58);
-        if (spentOutput) {
-            collection = collection.union(
-                graph.cy.add({
-                    group: 'edges',
-                    data: {
-                        source: input.referencedOutputID.base58,
-                        target: inputNodeID,
-                    },
+                        source: spentOutputTx + '_output',
+                        target: inputNodeID
+                    }
                 })
             );
         }
     });
 
     // draw outputs
-    const outputIDs = [];
-    tx.outputs.forEach((outputID, index) => {
-        collection = collection.union(
-            graph.cy.add({
-                group: 'nodes',
-                data: { id: outputID, parent: tx.ID },
-                classes: 'output',
-            })
-        );
-
-        // align every 5 outputs in the same level
-        if (index >= 5) {
-            collection = collection.union(
-                graph.cy.add({
-                    group: 'edges',
-                    data: {
-                        source: outputIDs[index - 5],
-                        target: outputID,
-                    },
-                    classes: 'invisible',
-                })
-            );
-        }
-        outputIDs.push(outputID);
-    });
+    const outputNodeID = tx.ID + '_output';
+    let outputLabel = '';
+    if (tx.outputs.length > 1) {
+        outputLabel = tx.outputs.length + ' outputs';
+    }
+    collection = collection.union(
+        graph.cy.add({
+            group: 'nodes',
+            data: { id: outputNodeID, parent: tx.ID, label: outputLabel },
+            classes: ['output', 'center-center']
+        })
+    );
 
     // alignment of inputs and outputs
-    const inIndex =
-    Math.floor(inputIDs.length / 5) * 5 + (inputIDs.length % 5) - 1;
-    const outIndex = Math.min(outputIDs.length - 1, 2);
     collection = collection.union(
         graph.cy.add({
             group: 'edges',
             data: {
-                source: inputIDs[inIndex],
-                target: outputIDs[outIndex],
+                source: inputNodeID,
+                target: outputNodeID
             },
             classes: 'invisible',
         })
@@ -272,15 +241,19 @@ export function initUTXODAG() {
                 selector: '.input',
                 style: {
                     'background-color': '#F9BDC0',
-                    events: 'no',
-                },
+                    'font-size': 16,
+                    label: 'data(label)',
+                    events: 'no'
+                }
             },
             {
                 selector: '.output',
                 style: {
                     'background-color': '#FBE698',
-                    events: 'no',
-                },
+                    'font-size': 16,
+                    label: 'data(label)',
+                    events: 'no'
+                }
             },
             {
                 selector: '.invisible',
