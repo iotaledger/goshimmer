@@ -42,12 +42,13 @@ type ExplorerMessage struct {
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
 	Solid               bool                `json:"solid"`
-	BranchID            string              `json:"branchID"`
-	AddedBranchIDs      string              `json:"addedBranchIDs"`
-	SubtractedBranchIDs string              `json:"subtractedBranchID"`
+	BranchIDs           []string            `json:"branchIDs"`
+	AddedBranchIDs      []string            `json:"addedBranchIDs"`
+	SubtractedBranchIDs []string            `json:"subtractedBranchIDs"`
 	Scheduled           bool                `json:"scheduled"`
 	Booked              bool                `json:"booked"`
 	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
+	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 	// PayloadType defines the type of the payload.
@@ -70,10 +71,25 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
 
-	var branchID ledgerstate.BranchID
-	branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
-	if err == nil {
-		branchID = ledgerstate.NewAggregatedBranch(branchIDs).ID()
+	branchIDsB58 := make([]string, 0)
+	if branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID); err == nil {
+		for branchID := range branchIDs {
+			branchIDsB58 = append(branchIDsB58, branchID.Base58())
+		}
+	}
+
+	addedBranchIDsB58 := make([]string, 0)
+	if addedBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(messageMetadata.AddedBranchIDs())); err == nil {
+		for addedBranchID := range addedBranchIDs {
+			addedBranchIDsB58 = append(addedBranchIDsB58, addedBranchID.Base58())
+		}
+	}
+
+	subtractedBranchIDsB58 := make([]string, 0)
+	if subtractedBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(messageMetadata.SubtractedBranchIDs())); err == nil {
+		for subtractedBranchID := range subtractedBranchIDs {
+			subtractedBranchIDsB58 = append(subtractedBranchIDsB58, subtractedBranchID.Base58())
+		}
 	}
 
 	t := &ExplorerMessage{
@@ -88,12 +104,13 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                branchID.Base58(),
-		AddedBranchIDs:          messageMetadata.AddedBranchIDs().Base58(),
-		SubtractedBranchIDs:     messageMetadata.SubtractedBranchIDs().Base58(),
+		BranchIDs:               branchIDsB58,
+		AddedBranchIDs:          addedBranchIDsB58,
+		SubtractedBranchIDs:     subtractedBranchIDsB58,
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
+		SubjectivelyInvalid:     messageMetadata.IsSubjectivelyInvalid(),
 		GradeOfFinality:         messageMetadata.GradeOfFinality(),
 		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),

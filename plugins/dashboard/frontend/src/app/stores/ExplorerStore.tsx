@@ -37,11 +37,13 @@ export class Message {
     strongApprovers: Array<string>;
     weakApprovers: Array<string>;
     solid: boolean;
-    branchID: string;
-    metadataBranchID: string;
+    branchIDs: Array<string>;
+    addedBranchIDs: Array<string>;
+    subtractedBranchIDs: Array<string>;
     scheduled: boolean;
     booked: boolean;
-    invalid: boolean;
+    objectivelyInvalid: boolean;
+    subjectivelyInvalid: boolean;
     gradeOfFinality: number;
     gradeOfFinalityTime: number;
     payload_type: number;
