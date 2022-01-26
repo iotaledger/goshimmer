@@ -204,7 +204,6 @@ func registerLocalMetrics() {
 		}
 
 		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(branchID.TransactionID())
-
 		if err != nil {
 			return
 		}

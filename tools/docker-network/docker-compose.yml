@@ -71,6 +71,33 @@ services:
       - shimmer
     depends_on:
       - peer_master
+  peer_replica_rate_limited:
+    build: *goshimmer_build
+    stop_grace_period: 1m
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/tmp/mainnetdb
+      --node.peerDBDirectory=/tmp/peerdb
+      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
+      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
+      --messageLayer.snapshot.genesisNode=
+      --node.disablePlugins=portcheck,clock
+      --mana.snapshotResetTime=true
+      --webAPI.exportPath=/tmp/
+      --gossip.messagesRateLimit.limit=3
+      --gossip.messagesRateLimit.interval=60s
+      --gossip.messagesRateLimit.duringSyncLimit=5
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+    secrets:
+      - goshimmer.config.json
+      - goshimmer.message.snapshot.bin
+    networks:
+      - shimmer
+    depends_on:
+      - peer_master
   peer_master2:
     build: *goshimmer_build
     stop_grace_period: 1m

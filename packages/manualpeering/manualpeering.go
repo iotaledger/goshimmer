@@ -78,8 +78,8 @@ type Manager struct {
 	knownPeersMutex   sync.RWMutex
 	knownPeers        map[identity.ID]*knownPeer
 
-	onGossipNeighborRemovedClosure      *events.Closure
-	onGossipNeighborAddedClosure        *events.Closure
+	onGossipNeighborRemovedClosure *events.Closure
+	onGossipNeighborAddedClosure   *events.Closure
 }
 
 // NewManager initializes a new Manager instance.

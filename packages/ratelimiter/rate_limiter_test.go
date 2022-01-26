@@ -59,7 +59,6 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testLimit int) {
 		prl.Count(expectedPeer)
 	}
 	assert.Never(t, func() bool { return eventCalled.Load() > 1 }, time.Second, time.Millisecond)
-
 }
 
 func newTestRateLimiter(t testing.TB) *ratelimiter.PeerRateLimiter {
