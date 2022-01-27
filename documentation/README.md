@@ -9,7 +9,7 @@ The documentation is built using [Docusaurus 2](https://docusaurus.io/). The dep
 
 ## Installation
 
-```console
+```shell
 npm i
 npm run setup
 ```
@@ -18,7 +18,7 @@ This command checks out a local copy of the wiki and creates links to the conten
 
 ## Local Development
 
-```console
+```shell
 npm start
 ```
 
@@ -26,7 +26,7 @@ This command starts a local development server and opens up a browser window. Mo
 
 ## Tear Down
 
-```console
+```shell
 npm run clean
 ```
 
@@ -35,13 +35,13 @@ This command deletes the local wiki and local links.
 
 ## Including .md file
 
-```console
+```shell
 {@import <file path>}
 ```
 
 Example:
 
-```console
+```shell
 {@import ../../../../bindings/wasm/docs/api-reference.md}
 ```
 

@@ -40,7 +40,6 @@ export class Message {
     branchID: string;
     metadataBranchID: string;
     scheduled: boolean;
-    scheduledBypass: boolean;
     booked: boolean;
     invalid: boolean;
     gradeOfFinality: number;

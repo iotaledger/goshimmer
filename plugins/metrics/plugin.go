@@ -78,6 +78,7 @@ func run(_ *node.Plugin) {
 				measureRequestQueueSize()
 				measureGossipTraffic()
 				measurePerComponentCounter()
+				measureSchedulerMetrics()
 			}, 1*time.Second, ctx)
 		}
 
@@ -131,31 +132,29 @@ func registerLocalMetrics() {
 
 	// increase received MPS counter whenever we attached a message
 	deps.Tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			increaseReceivedMPSCounter()
 			increasePerPayloadCounter(message.Payload().Type())
-			// MessageStored is triggered in storeMessageWorker that saves the msg to database
-			messageTotalCountDB.Inc()
+
+			deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+				sumTimesSinceIssued[Store] += msgMetaData.ReceivedTime().Sub(message.IssuingTime())
+			})
 		})
 		increasePerComponentCounter(Store)
-	}))
-
-	deps.Tangle.Storage.Events.MessageRemoved.Attach(events.NewClosure(func(messageId tangle.MessageID) {
-		// MessageRemoved triggered when the message gets removed from database.
-		messageTotalCountDB.Dec()
 	}))
 
 	// messages can only become solid once, then they stay like that, hence no .Dec() part
 	deps.Tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		increasePerComponentCounter(Solidifier)
-		solidTimeMutex.Lock()
-		defer solidTimeMutex.Unlock()
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
 
 		// Consume should release cachedMessageMetadata
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.IsSolid() {
-				messageSolidCountDBInc.Inc()
-				sumSolidificationTime += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
+				sumTimesSinceReceived[Solidifier] += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
 			}
 		})
 	}))
@@ -163,6 +162,7 @@ func registerLocalMetrics() {
 	// fired when a message gets added to missing message storage
 	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		missingMessageCountDB.Inc()
+		solidificationRequests.Inc()
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
@@ -172,10 +172,61 @@ func registerLocalMetrics() {
 
 	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		increasePerComponentCounter(Scheduler)
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
+
+		// Consume should release cachedMessageMetadata
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+			if msgMetaData.Scheduled() {
+				sumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.BookedTime())
+
+				sumTimesSinceReceived[Scheduler] += msgMetaData.ScheduledTime().Sub(msgMetaData.ReceivedTime())
+				deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+					sumTimesSinceIssued[Scheduler] += msgMetaData.ScheduledTime().Sub(message.IssuingTime())
+				})
+			}
+		})
 	}))
 
-	deps.Tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(message tangle.MessageID) {
+	deps.Tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		increasePerComponentCounter(Booker)
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
+
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+			if msgMetaData.IsBooked() {
+				sumTimesSinceReceived[Booker] += msgMetaData.BookedTime().Sub(msgMetaData.ReceivedTime())
+				deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+					sumTimesSinceIssued[Booker] += msgMetaData.BookedTime().Sub(message.IssuingTime())
+				})
+			}
+		})
+	}))
+
+	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		increasePerComponentCounter(SchedulerDropped)
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
+
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+			sumTimesSinceReceived[SchedulerDropped] += clock.Since(msgMetaData.ReceivedTime())
+			deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+				sumTimesSinceIssued[SchedulerDropped] += clock.Since(message.IssuingTime())
+			})
+		})
+	}))
+
+	deps.Tangle.Scheduler.Events.MessageSkipped.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		increasePerComponentCounter(SchedulerSkipped)
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
+
+		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+			sumTimesSinceReceived[SchedulerSkipped] += clock.Since(msgMetaData.ReceivedTime())
+			deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+				sumTimesSinceIssued[SchedulerSkipped] += clock.Since(message.IssuingTime())
+			})
+		})
 	}))
 
 	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -183,14 +234,17 @@ func registerLocalMetrics() {
 		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
 			messageType = Transaction
 		})
+		messageFinalizationTotalTimeMutex.Lock()
+		defer messageFinalizationTotalTimeMutex.Unlock()
 
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			message.ForEachParent(func(parent tangle.Parent) {
 				increasePerParentType(parent.Type)
 			})
+			messageFinalizationIssuedTotalTime[messageType] += uint64(clock.Since(message.IssuingTime()).Milliseconds())
 		})
 		if deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			messageFinalizationTotalTime[messageType] += uint64(clock.Since(messageMetadata.ReceivedTime()).Milliseconds())
+			messageFinalizationReceivedTotalTime[messageType] += uint64(clock.Since(messageMetadata.ReceivedTime()).Milliseconds())
 		}) {
 			finalizedMessageCount[messageType]++
 		}
@@ -202,7 +256,6 @@ func registerLocalMetrics() {
 		if _, exists := activeBranches[branchID]; !exists {
 			return
 		}
-
 		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(branchID.TransactionID())
 		if err != nil {
 			return
@@ -238,9 +291,6 @@ func registerLocalMetrics() {
 	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64) {
 		memUsageBytes.Store(memAllocBytes)
 	}))
-	metrics.Events().TangleTimeSynced.Attach(events.NewClosure(func(synced bool) {
-		isTangleTimeSynced.Store(synced)
-	}))
 
 	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
 	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
@@ -249,10 +299,6 @@ func registerLocalMetrics() {
 		deps.Selection.Events().IncomingPeering.Attach(onAutopeeringSelection)
 		deps.Selection.Events().OutgoingPeering.Attach(onAutopeeringSelection)
 	}
-
-	metrics.Events().MessageTips.Attach(events.NewClosure(func(tipsCount uint64) {
-		messageTips.Store(tipsCount)
-	}))
 
 	// mana pledge events
 	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {

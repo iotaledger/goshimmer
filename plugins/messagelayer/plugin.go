@@ -16,8 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -25,6 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 var (
@@ -100,7 +99,6 @@ func configure(plugin *node.Plugin) {
 
 	deps.Tangle.Parser.Events.BytesRejected.Attach(events.NewClosure(func(ev *tangle.BytesRejectedEvent, err error) {
 		if errors.Is(err, tangle.ErrReceivedDuplicateBytes) {
-			plugin.LogDebugf("bytes rejected from peer %s: %v", ev.Peer.ID(), err)
 			return
 		}
 
@@ -117,18 +115,6 @@ func configure(plugin *node.Plugin) {
 
 	deps.Tangle.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", ev.Synced)
-		if ev.Synced {
-			// make sure that we are using the configured rate when synced
-			rate := deps.Tangle.Options.SchedulerParams.Rate
-			deps.Tangle.Scheduler.SetRate(rate)
-			plugin.LogInfof("Scheduler rate: %v", rate)
-		} else {
-			// increase scheduler rate
-			rate := deps.Tangle.Options.SchedulerParams.Rate
-			rate -= rate / 2 // 50% increase
-			deps.Tangle.Scheduler.SetRate(rate)
-			plugin.LogInfof("Scheduler rate: %v", rate)
-		}
 	}))
 
 	// read snapshot file
@@ -180,10 +166,12 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.Width(Parameters.TangleWidth),
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		tangle.SchedulerConfig(tangle.SchedulerParams{
-			MaxBufferSize:               SchedulerParameters.MaxBufferSize,
-			Rate:                        schedulerRate(SchedulerParameters.Rate),
-			AccessManaRetrieveFunc:      accessManaRetriever,
-			TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
+			MaxBufferSize:                     SchedulerParameters.MaxBufferSize,
+			ConfirmedMessageScheduleThreshold: parseDuration(SchedulerParameters.ConfirmedMessageThreshold),
+			Rate:                              parseDuration(SchedulerParameters.Rate),
+			AccessManaMapRetrieverFunc:        accessManaMapRetriever,
+			AccessManaRetrieveFunc:            accessManaRetriever,
+			TotalAccessManaRetrieveFunc:       totalAccessManaRetriever,
 		}),
 		tangle.RateSetterConfig(tangle.RateSetterParams{
 			Initial: &RateSetterParameters.Initial,
@@ -208,7 +196,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 
 // region Scheduler ///////////////////////////////////////////////////////////////////////////////////////////
 
-func schedulerRate(durationString string) time.Duration {
+func parseDuration(durationString string) time.Duration {
 	duration, err := time.ParseDuration(durationString)
 	// if parseDuration failed, scheduler will take default value (5ms)
 	if err != nil {
@@ -217,10 +205,19 @@ func schedulerRate(durationString string) time.Duration {
 	return duration
 }
 
+func accessManaMapRetriever() map[identity.ID]float64 {
+	nodeMap, _, err := GetManaMap(mana.AccessMana)
+	if err != nil {
+		return mana.NodeMap{}
+	}
+	return nodeMap
+}
+
 func accessManaRetriever(nodeID identity.ID) float64 {
 	nodeMana, _, err := GetAccessMana(nodeID)
-	if err != nil {
-		return 0
+	// return at least MinMana so that zero mana nodes can access the network
+	if err != nil && nodeMana < tangle.MinMana {
+		return tangle.MinMana
 	}
 	return nodeMana
 }

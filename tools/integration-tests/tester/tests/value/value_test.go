@@ -194,6 +194,7 @@ func TestValueAliasPersistence(t *testing.T) {
 
 // TestValueAliasDelegation tests if a delegation output can be used to refresh mana.
 func TestValueAliasDelegation(t *testing.T) {
+	t.Skip("Value Alias Delegation test needs to be fixed.")
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{

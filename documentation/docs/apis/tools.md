@@ -201,7 +201,7 @@ curl --location 'http://localhost:8080/tools/diagnostic/messages'
 
 #### Response examples
 The response is written in a csv file.
-```
+```csv
 ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,BookedTime,GradeOfFinality,GradeOfFinalityTime,StrongParents,WeakParents,DislikeParents,LikeParents,StrongApprovers,WeakApprovers,BranchID,Scheduled,Booked,Invalid,Rank,IsPastMarker,PastMarkers,PMHI,PMLI,FutureMarkers,FMHI,FMLI,PayloadType,TransactionID
 
 ...

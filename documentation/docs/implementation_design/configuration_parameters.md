@@ -30,7 +30,7 @@ For example, the config below contains example parameters for the PoW plugin.
 The same arguments can be passed through command line arguments in the following way. Embedded objects' values are described using JSON dot-notation.
 Additionally,the user can pass the path of the JSON config file through a command-line argument as well, as shown in an example below. 
 
-```bash
+```shell
 goshimmer \
 --config=/tmp/config.json \
 --pow.difficulty=2 \
