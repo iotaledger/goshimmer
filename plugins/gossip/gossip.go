@@ -77,10 +77,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		}
 		opts = append(opts, gossip.WithMessagesRateLimiter(mrl))
 	}
-	mgr, err := gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger(), opts...)
-	if err != nil {
-		Plugin.LogFatalf("Couldn't create gossip manager: %+v", err)
-	}
+	mgr := gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger(), opts...)
 	return mgr
 }
 
@@ -96,7 +93,7 @@ func start(ctx context.Context) {
 		})
 		deps.Tangle.TimeManager.Events.SyncChanged.Attach(setLimitClosure)
 		defer deps.Tangle.TimeManager.Events.SyncChanged.Detach(setLimitClosure)
-		mrl.Close()
+		defer mrl.Close()
 	}
 	defer deps.GossipMgr.Stop()
 	defer func() {

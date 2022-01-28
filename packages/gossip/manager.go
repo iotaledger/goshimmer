@@ -88,7 +88,7 @@ type ManagerOption func(m *Manager)
 
 // NewManager creates a new Manager.
 func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log *logger.Logger, opts ...ManagerOption,
-) (*Manager, error) {
+) *Manager {
 	m := &Manager{
 		Libp2pHost:      libp2pHost,
 		acceptMap:       map[libp2ppeer.ID]*acceptMatcher{},
@@ -121,7 +121,7 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 		opt(m)
 	}
 
-	return m, nil
+	return m
 }
 
 // WithMessagesRateLimiter allows to set a PeerRateLimiter instance

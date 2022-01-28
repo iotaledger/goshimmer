@@ -67,7 +67,7 @@ func run(plugin *node.Plugin) {
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 	mrlClosure := events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
-		deps.Firewall.HandleFaultyPeer(p, &firewall.FaultinessDetails{
+		deps.Firewall.HandleFaultyPeer(p.ID(), &firewall.FaultinessDetails{
 			Reason: "Messages rate limit hit",
 			Info: map[string]interface{}{
 				"rateLimit": rl,
