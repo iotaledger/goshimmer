@@ -2,7 +2,6 @@ import { IGraph } from './graph';
 import cytoscape from 'cytoscape';
 import { dagreOptions } from 'styles/graphStyle';
 import { utxoVertex } from 'models/utxo';
-import { hashString } from 'utils/hashString';
 import { branchVertex } from 'models/branch';
 import { ObservableMap } from 'mobx';
 
@@ -102,7 +101,7 @@ export function drawTransaction(
         })
     );
 
-    tx.inputs.forEach(input => {
+    tx.inputs.forEach((input) => {
         // link input to the tx that contains unspent output
         const spentOutputTx = outputMap.get(input.referencedOutputID.base58);
         if (spentOutputTx) {

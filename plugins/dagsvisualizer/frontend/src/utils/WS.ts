@@ -44,7 +44,7 @@ export function connectWebSocket(path: string, onOpen, onClose, onError) {
     ws.onclose = onClose;
     ws.onerror = onError;
 
-    ws.onmessage = e => {
+    ws.onmessage = (e) => {
         const wsMsg: WSMessage = JSON.parse(e.data);
         const handler: DataHandler = handlers[wsMsg.type];
         if (handler != null) {

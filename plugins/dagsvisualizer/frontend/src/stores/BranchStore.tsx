@@ -170,7 +170,7 @@ export class BranchStore {
 
     resumeAndSyncGraph = () => {
         // add buffered tx
-        this.branchToAddAfterResume.forEach(branchID => {
+        this.branchToAddAfterResume.forEach((branchID) => {
             const b = this.branches.get(branchID);
             if (b) {
                 this.drawVertex(b);
@@ -179,7 +179,7 @@ export class BranchStore {
         this.branchToAddAfterResume = [];
 
         // remove removed tx
-        this.branchToRemoveAfterResume.forEach(branchID => {
+        this.branchToRemoveAfterResume.forEach((branchID) => {
             this.removeVertex(branchID);
         });
         this.branchToRemoveAfterResume = [];
@@ -287,7 +287,7 @@ export class BranchStore {
         this.graph.centerVertex(master.ID);
 
         // set up click event.
-        this.graph.addNodeEventListener('select', evt => {
+        this.graph.addNodeEventListener('select', (evt) => {
             const node = evt.target;
             const nodeData = node.json();
 
