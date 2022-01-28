@@ -1,33 +1,45 @@
 package firewall
 
 import (
-	"github.com/iotaledger/hive.go/autopeering/peer"
+	"time"
+
+	"github.com/ReneKroon/ttlcache/v2"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 )
+
+const defaultFaultyPeersTTL = time.Minute
 
 // Firewall is a object responsible for taking actions on faulty peers.
 type Firewall struct {
 	gossipMgr   *gossip.Manager
 	autopeering *selection.Protocol
 	log         *logger.Logger
+	faultyPeers *ttlcache.Cache
 }
 
 // NewFirewall create a new instance of Firewall object.
-func NewFirewall(gossipMgr *gossip.Manager, autopeering *selection.Protocol, log *logger.Logger) *Firewall {
+func NewFirewall(gossipMgr *gossip.Manager, autopeering *selection.Protocol, log *logger.Logger) (*Firewall, error) {
+	faultyPeers := ttlcache.NewCache()
+	if err := faultyPeers.SetTTL(defaultFaultyPeersTTL); err != nil {
+		return nil, errors.WithStack(err)
+	}
 	return &Firewall{
 		gossipMgr:   gossipMgr,
 		autopeering: autopeering,
 		log:         log,
-	}
+		faultyPeers: faultyPeers,
+	}, nil
 }
 
 // FaultinessDetails contains information about why the peers is considered faulty.
 type FaultinessDetails struct {
-	Reason string
-	Info   map[string]interface{}
+	Reason string                 `json:"reason"`
+	Info   map[string]interface{} `json:"info"`
 }
 
 func (fd *FaultinessDetails) toKVList() []interface{} {
@@ -38,25 +50,40 @@ func (fd *FaultinessDetails) toKVList() []interface{} {
 	return list
 }
 
-// OnFaultyPeer handles a faulty peer and takes appropriate actions.
-func (f *Firewall) OnFaultyPeer(p *peer.Peer, details *FaultinessDetails) {
+// HandleFaultyPeer handles a faulty peer and takes appropriate actions.
+func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetails) {
 	f.log.Info("Peer is faulty, executing firewall logic to handle the peer",
-		"peerId", p.ID(), details.toKVList())
-	nbr, err := f.gossipMgr.GetNeighbor(p.ID())
+		"peerId", peerID, details.toKVList())
+	if err := f.faultyPeers.Set(peerID.EncodeBase58(), details); err != nil {
+		f.log.Errorw("Failed to save faulty peer into cache", "peerId", peerID, "err", err)
+	}
+	nbr, err := f.gossipMgr.GetNeighbor(peerID)
 	if err != nil {
-		f.log.Errorw("Can't get neighbor info from the gossip manager", "peerId", p.ID())
+		f.log.Errorw("Can't get neighbor info from the gossip manager", "peerId", peerID)
 		return
 	}
 	if nbr.Group == gossip.NeighborsGroupAuto {
 		if f.autopeering != nil {
 			f.log.Infow(
 				"Blocklisting peer in the autopeering selection",
-				"peerId", p.ID(),
+				"peerId", peerID,
 			)
-			f.autopeering.BlockNeighbor(p.ID())
+			f.autopeering.BlockNeighbor(peerID)
 		}
 	} else if nbr.Group == gossip.NeighborsGroupManual {
 		f.log.Warnw("To the node operator. One of neighbors connected via manual peering acts faulty, no automatic actions taken. Consider removing it from the known peers list.",
-			"neighborId", p.ID(), details.toKVList())
+			"neighborId", peerID, details.toKVList())
 	}
+}
+
+// IsFaulty returns faultiness details if the peer is faulty, otherwise it returns nil.
+func (f *Firewall) IsFaulty(peerID identity.ID) *FaultinessDetails {
+	item, err := f.faultyPeers.Get(peerID.EncodeBase58())
+	if err != nil {
+		if !errors.Is(err, ttlcache.ErrNotFound) {
+			f.log.Errorw("Failed to get faulty peer info from the cache", "peerId", peerID, "err", err)
+		}
+		return nil
+	}
+	return item.(*FaultinessDetails)
 }

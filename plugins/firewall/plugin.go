@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/firewall"
@@ -31,6 +32,7 @@ type dependencies struct {
 
 	GossipMgr      *gossip.Manager
 	AutopeeringMgr *selection.Protocol `optional:"true"`
+	Server           *echo.Echo
 	Firewall       *firewall.Firewall
 }
 
@@ -45,10 +47,15 @@ func init() {
 }
 
 func createFirewall() *firewall.Firewall {
-	return firewall.NewFirewall(deps.GossipMgr, deps.AutopeeringMgr, Plugin.Logger())
+	f, err := firewall.NewFirewall(deps.GossipMgr, deps.AutopeeringMgr, Plugin.Logger())
+	if err != nil {
+		Plugin.LogFatalf("Couldn't initialize firewall instance: %+v", err)
+	}
+	return f
 }
 
 func configure(_ *node.Plugin) {
+	configureWebAPI()
 }
 
 func run(plugin *node.Plugin) {
@@ -60,7 +67,7 @@ func run(plugin *node.Plugin) {
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 	mrlClosure := events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
-		deps.Firewall.OnFaultyPeer(p, &firewall.FaultinessDetails{
+		deps.Firewall.HandleFaultyPeer(p, &firewall.FaultinessDetails{
 			Reason: "Messages rate limit hit",
 			Info: map[string]interface{}{
 				"rateLimit": rl,
