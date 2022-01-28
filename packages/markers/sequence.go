@@ -632,6 +632,13 @@ func (s *SequenceAliasMapping) SequenceID(referencedMarkers *Markers) (sequenceI
 	return
 }
 
+// ForEachSequenceID calls the passed callback for each SequenceID in the mapping.
+func (s *SequenceAliasMapping) ForEachSequenceID(callback func(sequenceID SequenceID) bool) {
+	s.sequenceIDs.ForEach(func(sequenceID, value interface{}) bool {
+		return callback(sequenceID.(SequenceID))
+	})
+}
+
 // RegisterMapping adds a mapping to a new SequenceID from the current SequenceAlias.
 func (s *SequenceAliasMapping) RegisterMapping(sequenceID SequenceID) (updated bool) {
 	if updated = s.sequenceIDs.Set(sequenceID, types.Void); updated {

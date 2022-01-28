@@ -192,6 +192,15 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 	addedBranchIDs := inheritedBranchIDs.Clone().Subtract(pastMarkersBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
 	subtractedBranchIDs := pastMarkersBranchIDs.Clone().Subtract(inheritedBranchIDs).Subtract(ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID))
 
+	if len(addedBranchIDs)+len(subtractedBranchIDs) == 0 {
+		return nil
+	}
+
+	if inheritedStructureDetails.IsPastMarker {
+		b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), aggregatedInheritedBranchID)
+		return nil
+	}
+
 	if len(addedBranchIDs) != 0 {
 		if aggregatedAddedBranchIDs := b.tangle.LedgerState.AggregateConflictBranchesID(addedBranchIDs); aggregatedAddedBranchIDs != ledgerstate.MasterBranchID {
 			messageMetadata.SetAddedBranchIDs(aggregatedAddedBranchIDs)

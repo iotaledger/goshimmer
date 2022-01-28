@@ -3,6 +3,7 @@ package tangle
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -3547,16 +3548,16 @@ func TestBookerMarkerMappings(t *testing.T) {
 }
 
 func TestBookerMarkerMappingContinue(t *testing.T) {
-	tangle := NewTestTangle()
-	defer tangle.Shutdown()
+	tg := NewTestTangle()
+	defer tg.Shutdown()
 
 	testFramework := NewMessageTestFramework(
-		tangle,
+		tg,
 		WithGenesisOutput("A", 500),
 		WithGenesisOutput("B", 500),
 	)
 
-	tangle.Setup()
+	tg.Setup()
 
 	// ISSUE Message1
 	{
@@ -3576,7 +3577,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 
 	// ISSUE Message2
 	{
-		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithInputs("A"), WithOutput("A.1", 500))
+		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithInputs("A"), WithOutput("blue", 500))
 		testFramework.IssueMessages("Message2").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -3618,10 +3619,10 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 
 	// ISSUE Message4
 	{
-		testFramework.CreateMessage("Message4", WithStrongParents("Message1"), WithInputs("A"), WithOutput("A.2", 500))
+		testFramework.CreateMessage("Message4", WithStrongParents("Message1"), WithInputs("A"), WithOutput("red", 500))
 
-		testFramework.RegisterBranchID("A.1", "Message2")
-		testFramework.RegisterBranchID("A.2", "Message4")
+		testFramework.RegisterBranchID("blue", "Message2")
+		testFramework.RegisterBranchID("red", "Message4")
 
 		testFramework.IssueMessages("Message4").WaitMessagesBooked()
 
@@ -3639,16 +3640,16 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 			"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message2": testFramework.BranchIDs("A.1"),
-			"Message3": testFramework.BranchIDs("A.1"),
-			"Message4": testFramework.BranchIDs("A.2"),
+			"Message2": testFramework.BranchIDs("blue"),
+			"Message3": testFramework.BranchIDs("blue"),
+			"Message4": testFramework.BranchIDs("red"),
 		})
 	}
 
 	// ISSUE Message5
 	{
 
-		testFramework.CreateMessage("Message5", WithStrongParents("Message3"), WithInputs("B"), WithOutput("B.1", 500))
+		testFramework.CreateMessage("Message5", WithStrongParents("Message3"))
 
 		testFramework.IssueMessages("Message5").WaitMessagesBooked()
 
@@ -3668,20 +3669,22 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 			"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message2": testFramework.BranchIDs("A.1"),
-			"Message3": testFramework.BranchIDs("A.1"),
-			"Message4": testFramework.BranchIDs("A.2"),
-			"Message5": testFramework.BranchIDs("A.1"),
+			"Message2": testFramework.BranchIDs("blue"),
+			"Message3": testFramework.BranchIDs("blue"),
+			"Message4": testFramework.BranchIDs("red"),
+			"Message5": testFramework.BranchIDs("blue"),
 		})
 	}
 
 	// ISSUE Message6
 	{
 
-		testFramework.CreateMessage("Message6", WithStrongParents("Message3"), WithInputs("B"), WithOutput("B.2", 500))
+		tg.LedgerState.SetBranchConfirmed(testFramework.BranchID("red"))
+		tg.Booker.MarkersManager.SequenceAliasMapping(markers.SequenceAlias(testFramework.BranchID("red"))).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
+			sequenceAliasMapping.Delete()
+		})
 
-		testFramework.RegisterBranchID("B.1", "Message5")
-		testFramework.RegisterBranchID("B.2", "Message6")
+		testFramework.CreateMessage("Message6", WithStrongParents("Message4"))
 
 		testFramework.IssueMessages("Message6").WaitMessagesBooked()
 
@@ -3691,7 +3694,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(1, 3)),
 			"Message4": markers.NewMarkers(markers.NewMarker(2, 2)),
 			"Message5": markers.NewMarkers(markers.NewMarker(1, 4)),
-			"Message6": markers.NewMarkers(markers.NewMarker(3, 4)),
+			"Message6": markers.NewMarkers(markers.NewMarker(2, 2)),
 		})
 		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]ledgerstate.BranchID{
 			"Message1": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
@@ -3703,21 +3706,18 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 			"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message2": testFramework.BranchIDs("A.1"),
-			"Message3": testFramework.BranchIDs("A.1"),
-			"Message4": testFramework.BranchIDs("A.2"),
-			"Message5": testFramework.BranchIDs("A.1", "B.1"),
-			"Message6": testFramework.BranchIDs("A.1", "B.2"),
+			"Message2": testFramework.BranchIDs("blue"),
+			"Message3": testFramework.BranchIDs("blue"),
+			"Message4": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
+			"Message5": testFramework.BranchIDs("blue"),
+			"Message6": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
 		})
 	}
 
 	// ISSUE Message7
 	{
 
-		tangle.LedgerState.SetBranchConfirmed(testFramework.BranchID("A.1"))
-		tangle.LedgerState.SetBranchConfirmed(testFramework.BranchID("B.1"))
-
-		testFramework.CreateMessage("Message7", WithStrongParents("Message6"), WithShallowLikeParents("Message5"))
+		testFramework.CreateMessage("Message7", WithStrongParents("Message6"))
 
 		testFramework.IssueMessages("Message7").WaitMessagesBooked()
 
@@ -3727,8 +3727,8 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(1, 3)),
 			"Message4": markers.NewMarkers(markers.NewMarker(2, 2)),
 			"Message5": markers.NewMarkers(markers.NewMarker(1, 4)),
-			"Message6": markers.NewMarkers(markers.NewMarker(3, 4)),
-			"Message7": markers.NewMarkers(markers.NewMarker(3, 4)),
+			"Message6": markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Message7": markers.NewMarkers(markers.NewMarker(2, 2)),
 		})
 		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]ledgerstate.BranchID{
 			"Message1": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
@@ -3737,54 +3737,32 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message4": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
 			"Message5": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
 			"Message6": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-			"Message7": {ledgerstate.UndefinedBranchID, testFramework.BranchID("B.2")},
+			"Message7": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 			"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message2": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message3": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message4": testFramework.BranchIDs("A.2"),
-			"Message5": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message6": testFramework.BranchIDs("B.2"),
+			"Message2": testFramework.BranchIDs("blue"),
+			"Message3": testFramework.BranchIDs("blue"),
+			"Message4": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
+			"Message5": testFramework.BranchIDs("blue"),
+			"Message6": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
 			"Message7": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
 		})
 	}
 
-	// ISSUE Message8
-	{
-		testFramework.CreateMessage("Message8", WithStrongParents("Message5", "Message7"))
-
-		testFramework.IssueMessages("Message8").WaitMessagesBooked()
-
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
-			"Message2": markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Message3": markers.NewMarkers(markers.NewMarker(1, 3)),
-			"Message4": markers.NewMarkers(markers.NewMarker(2, 2)),
-			"Message5": markers.NewMarkers(markers.NewMarker(1, 4)),
-			"Message6": markers.NewMarkers(markers.NewMarker(3, 4)),
-			"Message7": markers.NewMarkers(markers.NewMarker(3, 4)),
-			"Message8": markers.NewMarkers(markers.NewMarker(1, 5)),
+	sequenceIDs := make([]string, 0)
+	tg.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(ledgerstate.MasterBranchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
+		sequenceAliasMapping.ForEachSequenceID(func(sequenceID markers.SequenceID) bool {
+			sequenceIDs = append(sequenceIDs, strconv.FormatUint(uint64(sequenceID), 10))
+			return true
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]ledgerstate.BranchID{
-			"Message1": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-			"Message2": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-			"Message3": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-			"Message4": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-			"Message5": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-			"Message6": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-			"Message7": {ledgerstate.UndefinedBranchID, testFramework.BranchID("B.2")},
-			"Message8": {ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID},
-		})
-		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
-			"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message2": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message3": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message4": testFramework.BranchIDs("A.2"),
-			"Message5": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message6": testFramework.BranchIDs("B.2"),
-			"Message7": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
-			"Message8": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
+	})
+
+	fmt.Println(sequenceIDs)
+
+	for _, sequenceID := range []uint{1, 2} {
+		tg.Storage.MarkerIndexBranchIDMapping(markers.SequenceID(sequenceID)).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+			fmt.Println(markerIndexBranchIDMapping.String())
 		})
 	}
 
