@@ -537,7 +537,7 @@ func newTestManagers(t testing.TB, doMock bool, names ...string) []*testManager 
 		require.NoError(t, err)
 
 		// start the actual gossipping
-		mgr, err := NewManager(hst, local, loadTestMessage, l)
+		mgr := NewManager(hst, local, loadTestMessage, l)
 		require.NoError(t, err)
 		tearDown := func() {
 			mgr.Stop()

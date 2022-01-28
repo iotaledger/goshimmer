@@ -32,7 +32,7 @@ type dependencies struct {
 
 	GossipMgr      *gossip.Manager
 	AutopeeringMgr *selection.Protocol `optional:"true"`
-	Server           *echo.Echo
+	Server         *echo.Echo
 	Firewall       *firewall.Firewall
 }
 
