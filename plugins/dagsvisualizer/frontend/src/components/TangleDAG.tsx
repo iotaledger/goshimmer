@@ -38,11 +38,11 @@ export default class TangleDAG extends React.Component<Props, any> {
         this.props.tangleStore.pauseResume();
     };
 
-    updateVerticesLimit = e => {
+    updateVerticesLimit = (e) => {
         this.props.tangleStore.updateVerticesLimit(e.target.value);
     };
 
-    updateSearch = e => {
+    updateSearch = (e) => {
         this.props.tangleStore.updateSearch(e.target.value);
     };
 
@@ -62,7 +62,9 @@ export default class TangleDAG extends React.Component<Props, any> {
             <Container>
                 <div
                     onClick={() =>
-                        this.setState(prevState => ({ open: !prevState.open }))
+                        this.setState((prevState) => ({
+                            open: !prevState.open
+                        }))
                     }
                 >
                     <h2>

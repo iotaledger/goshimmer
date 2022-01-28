@@ -37,11 +37,11 @@ export default class UTXODAG extends React.Component<Props, any> {
         this.props.utxoStore.pauseResume();
     };
 
-    updateVerticesLimit = e => {
+    updateVerticesLimit = (e) => {
         this.props.utxoStore.updateVerticesLimit(e.target.value);
     };
 
-    updateSearch = e => {
+    updateSearch = (e) => {
         this.props.utxoStore.updateSearch(e.target.value);
     };
 
@@ -61,7 +61,9 @@ export default class UTXODAG extends React.Component<Props, any> {
             <Container>
                 <div
                     onClick={() =>
-                        this.setState(prevState => ({ open: !prevState.open }))
+                        this.setState((prevState) => ({
+                            open: !prevState.open
+                        }))
                     }
                 >
                     <h2>
