@@ -168,7 +168,7 @@ export class TangleStore {
     };
 
     drawExistedMsgs = () => {
-        this.messages.forEach(msg => {
+        this.messages.forEach((msg) => {
             this.drawVertex(msg);
         });
     };
@@ -250,7 +250,7 @@ export class TangleStore {
         this.clearHighlightedMsgs();
 
         // update highlighted msgs and its original color
-        msgIDs.forEach(id => {
+        msgIDs.forEach((id) => {
             const original_color = this.graph.getNodeColor(id);
             selectMessage(id, this.graph);
             this.highlightedMsgs.set(id, original_color);

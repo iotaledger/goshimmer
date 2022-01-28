@@ -38,11 +38,11 @@ export default class BranchDAG extends React.Component<Props, any> {
         this.props.branchStore.pauseResume();
     };
 
-    updateVerticesLimit = e => {
+    updateVerticesLimit = (e) => {
         this.props.branchStore.updateVerticesLimit(e.target.value);
     };
 
-    updateSearch = e => {
+    updateSearch = (e) => {
         this.props.branchStore.updateSearch(e.target.value);
     };
 
@@ -62,7 +62,9 @@ export default class BranchDAG extends React.Component<Props, any> {
             <Container>
                 <div
                     onClick={() =>
-                        this.setState(prevState => ({ open: !prevState.open }))
+                        this.setState((prevState) => ({
+                            open: !prevState.open
+                        }))
                     }
                 >
                     <h2>

@@ -49,7 +49,7 @@ export class UTXOStore {
         tx.branchID = '';
         this.txOrder.push(tx.ID);
         this.transactions.set(tx.ID, tx);
-        tx.outputs.forEach(outputID => {
+        tx.outputs.forEach((outputID) => {
             this.outputMap.set(outputID, tx.ID);
         });
 
@@ -66,7 +66,7 @@ export class UTXOStore {
         if (this.txOrder.length >= this.maxUTXOVertices) {
             const removed = this.txOrder.shift();
             const txObj = this.transactions.get(removed);
-            txObj.outputs.forEach(output => {
+            txObj.outputs.forEach((output) => {
                 this.outputMap.delete(output);
             });
             this.transactions.delete(removed);
@@ -170,7 +170,7 @@ export class UTXOStore {
 
     resumeAndSyncGraph = () => {
         // add buffered tx
-        this.txToAddAfterResume.forEach(txID => {
+        this.txToAddAfterResume.forEach((txID) => {
             const tx = this.transactions.get(txID);
             if (tx) {
                 this.drawVertex(tx);
@@ -179,14 +179,14 @@ export class UTXOStore {
         this.txToAddAfterResume = [];
 
         // remove removed tx
-        this.txToRemoveAfterResume.forEach(txID => {
+        this.txToRemoveAfterResume.forEach((txID) => {
             this.removeVertex(txID);
         });
         this.txToRemoveAfterResume = [];
     };
 
     drawExistedTxs = () => {
-        this.transactions.forEach(tx => {
+        this.transactions.forEach((tx) => {
             this.drawVertex(tx);
         });
     };
@@ -210,13 +210,13 @@ export class UTXOStore {
 
         // update highlighted msgs
         this.highligtedTxs = txIDs;
-        txIDs.forEach(id => {
+        txIDs.forEach((id) => {
             this.graph.selectVertex(id);
         });
     };
 
     clearHighlightedTxs = () => {
-        this.highligtedTxs.forEach(id => {
+        this.highligtedTxs.forEach((id) => {
             this.graph.unselectVertex(id);
         });
     };
@@ -257,7 +257,7 @@ export class UTXOStore {
             const t = this.transactions.get(id);
             if (t) {
                 this.removeVertex(id);
-                t.outputs.forEach(output => {
+                t.outputs.forEach((output) => {
                     this.outputMap.delete(output);
                 });
                 this.transactions.delete(id);
@@ -269,7 +269,7 @@ export class UTXOStore {
         this.graph = new cytoscapeLib([dagre, layoutUtilities], initUTXODAG);
 
         // set up click event
-        this.graph.addNodeEventListener('select', evt => {
+        this.graph.addNodeEventListener('select', (evt) => {
             const node = evt.target;
             const nodeData = node.json();
 

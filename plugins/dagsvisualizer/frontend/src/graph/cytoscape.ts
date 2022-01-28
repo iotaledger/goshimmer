@@ -2,7 +2,6 @@ import { IGraph } from './graph';
 import cytoscape from 'cytoscape';
 import { dagreOptions } from 'styles/graphStyle';
 import { utxoVertex } from 'models/utxo';
-import { hashString } from 'utils/hashString';
 import { branchVertex } from 'models/branch';
 import { ObservableMap } from 'mobx';
 
@@ -12,7 +11,7 @@ export class cytoscapeLib implements IGraph {
     layoutApi;
 
     constructor(options: Array<any>, init: () => any) {
-        options.forEach(o => {
+        options.forEach((o) => {
             cytoscape.use(o);
         });
 
@@ -99,7 +98,7 @@ export function drawTransaction(
         })
     );
 
-    tx.inputs.forEach(input => {
+    tx.inputs.forEach((input) => {
         // link input to the tx that contains unspent output
         const spentOutputTx = outputMap.get(input.referencedOutputID.base58);
         if (spentOutputTx) {
@@ -154,7 +153,7 @@ export function drawBranch(
         data: { id: branch.ID }
     });
 
-    branch.parents.forEach(pID => {
+    branch.parents.forEach((pID) => {
         const b = branchMap.get(pID);
         if (b) {
             graph.cy.add({

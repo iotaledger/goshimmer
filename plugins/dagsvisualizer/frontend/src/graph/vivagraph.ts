@@ -186,7 +186,7 @@ export function drawMessage(
         parentIDs: Array<string>
     ) => {
         if (parentIDs) {
-            parentIDs.forEach(value => {
+            parentIDs.forEach((value) => {
                 // remove tip status
                 const parent = messageMap.get(value);
                 if (parent) {
@@ -198,7 +198,7 @@ export function drawMessage(
                 if (
                     value &&
                     (!node.links ||
-                        !node.links.some(link => link.fromId === value))
+                        !node.links.some((link) => link.fromId === value))
                 ) {
                     // draw the link only when the parent exists
                     const existing = vivaLib.graph.getNode(value);
@@ -235,7 +235,7 @@ export function selectMessage(id: string, vivaLib: vivagraphLib) {
             return false;
         },
         true,
-        link => {
+        (link) => {
             const linkUI = vivaLib.graphics.getLinkUI(link.id);
             setUILinkColor(linkUI, COLOR.LINK_FUTURE_CONE);
         },
@@ -248,7 +248,7 @@ export function selectMessage(id: string, vivaLib: vivagraphLib) {
             return false;
         },
         false,
-        link => {
+        (link) => {
             const linkUI = vivaLib.graphics.getLinkUI(link.id);
             setUILinkColor(linkUI, COLOR.LINK_PAST_CONE);
         },
@@ -285,7 +285,7 @@ export function unselectMessage(
             return false;
         },
         true,
-        link => {
+        (link) => {
             updateParentRefUI(link.id, vivaLib);
         },
         seenBackwards
@@ -297,7 +297,7 @@ export function unselectMessage(
             return false;
         },
         false,
-        link => {
+        (link) => {
             updateParentRefUI(link.id, vivaLib);
         },
         seenForward
@@ -309,7 +309,7 @@ export function updateGraph(
     newMsgToAdd: string[],
     messageMap: ObservableMap<string, tangleVertex>
 ) {
-    vivaLib.graph.forEachNode(node => {
+    vivaLib.graph.forEachNode((node) => {
         const msg = messageMap.get(node.id);
         if (!msg) {
             vivaLib.removeVertex(node.id);
@@ -347,7 +347,7 @@ function svgUpdateNodePos(nodeUI, pos) {
 }
 
 function resetLinks(vivaLib: vivagraphLib) {
-    vivaLib.graph.forEachLink(link => {
+    vivaLib.graph.forEachLink((link) => {
         updateParentRefUI(link.id, vivaLib);
     });
 }

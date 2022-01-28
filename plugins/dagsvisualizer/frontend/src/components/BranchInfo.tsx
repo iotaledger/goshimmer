@@ -22,7 +22,9 @@ export class BranchInfo extends React.Component<Props, any> {
                         <Card.Body>
                             <Card.Title>
                                 <LinkToDashboard
-                                    route={`explorer/branch/${selectedBranch.ID}`}
+                                    route={`explorer/branch/${
+                                        selectedBranch.ID
+                                    }`}
                                     title={selectedBranch.ID}
                                 />
                             </Card.Title>
