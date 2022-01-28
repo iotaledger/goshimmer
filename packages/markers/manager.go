@@ -58,7 +58,7 @@ func NewManager(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
 // message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
-func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback, sequenceAlias SequenceAlias) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
+func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = &StructureDetails{
 		FutureMarkers: NewMarkers(),
 	}
@@ -89,7 +89,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		referencedSequences = map[SequenceID]types.Empty{0: types.Void}
 	}
 
-	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, inheritedStructureDetails.PastMarkerGap, rankOfReferencedSequences, sequenceAlias)
+	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, inheritedStructureDetails.PastMarkerGap, rankOfReferencedSequences)
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
 			inheritedStructureDetails.SequenceID = sequence.id
@@ -457,59 +457,48 @@ func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *
 
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
-func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
-	cachedSequenceAliasMapping := m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
-		m.sequenceIDCounterMutex.Lock()
-		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
-		sequence.increaseVerticesWithoutFutureMarker()
-		m.sequenceIDCounter++
-		m.sequenceIDCounterMutex.Unlock()
+func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, sequenceRank uint64) (marker *Marker, created bool) {
+	referencedMarkers.ForEachSorted(func(sequenceID SequenceID, index Index) bool {
+		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+			if sequence.HighestIndex() == index && increaseIndexCallback(sequenceID, index) {
+				var newIndex Index
+				newIndex, created = sequence.IncreaseHighestIndex(referencedMarkers)
+				if created {
+					marker = NewMarker(sequenceID, newIndex)
+				}
+			}
+		})
 
-		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
-
-		sequenceAliasMapping := &SequenceAliasMapping{
-			sequenceAlias: sequenceAlias,
-			sequenceIDs:   orderedmap.New(),
-		}
-		sequenceAliasMapping.RegisterMapping(sequence.id)
-		sequenceAliasMapping.Persist()
-		sequenceAliasMapping.SetModified()
-
-		return sequenceAliasMapping
+		return !created
 	})
 
-	if isNew = cachedSequence != nil; isNew {
-		cachedSequenceAliasMapping.Release()
-		return
+	if created {
+		return marker, true
 	}
 
-	cachedSequenceAliasMapping.Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID(referencedMarkers))
+	// increase counters per sequence
+	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+			sequence.increaseVerticesWithoutFutureMarker()
+			if created = sequence.newSequenceRequired(pastMarkerGap); !created {
+				return
+			}
 
-		sequence := cachedSequence.Unwrap()
-		if sequence == nil {
-			return
-		}
-		sequence.increaseVerticesWithoutFutureMarker()
-		if !sequence.newSequenceRequired(pastMarkerGap) {
-			return
-		}
+			// create new sequence
+			m.sequenceIDCounterMutex.Lock()
+			newSequence := NewSequence(m.sequenceIDCounter, referencedMarkers, sequenceRank+1)
+			newSequence.increaseVerticesWithoutFutureMarker()
+			m.sequenceIDCounter++
+			m.sequenceIDCounterMutex.Unlock()
 
-		cachedSequence.Release()
-
-		m.sequenceIDCounterMutex.Lock()
-		sequence = NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
-		sequence.increaseVerticesWithoutFutureMarker()
-		m.sequenceIDCounter++
-		m.sequenceIDCounterMutex.Unlock()
-
-		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
-		isNew = true
-
-		sequenceAliasMapping.RegisterMapping(sequence.id)
+			cachedSequence := &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
+			cachedSequence.Release()
+			return NewMarker(newSequence.id, newSequence.lowestIndex), true
+		})
+		return true
 	})
 
-	return
+	return nil, false
 }
 
 // rankOfSequence is an internal utility function that returns the rank of the given Sequence.

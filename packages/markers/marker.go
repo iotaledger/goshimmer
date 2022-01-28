@@ -290,7 +290,7 @@ func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index
 		sequenceIDs = append(sequenceIDs, sequenceID)
 	}
 	sort.Slice(sequenceIDs, func(i, j int) bool {
-		return sequenceIDs[i] < sequenceIDs[j]
+		return sequenceIDs[i] > sequenceIDs[j]
 	})
 
 	success = true
