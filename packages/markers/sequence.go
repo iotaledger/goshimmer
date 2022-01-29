@@ -155,6 +155,37 @@ func (s *Sequence) HighestIndex() Index {
 // IncreaseHighestIndex increases the highest Index of the Sequence if the referencedMarkers directly reference the
 // Marker with the currently highest Index. It returns the new Index and a boolean flag that indicates if the value was
 // increased.
+func (s *Sequence) ExtendSequence(referencedMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (index Index, increased bool) {
+	s.highestIndexMutex.Lock()
+	defer s.highestIndexMutex.Unlock()
+
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedMarkers.Get(s.id)
+	if !referencedSequenceIndexExists {
+		panic("tried to extend unreferenced Sequence")
+	}
+
+	// TODO: this is a quick'n'dirty solution and should be revisited.
+	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
+	//  For example, (1,5) <-> (1,8) are valid subsequent markers of sequence 1.
+	if increased = referencedSequenceIndex == s.highestIndex && increaseIndexCallback(s.id, referencedSequenceIndex); increased {
+		s.highestIndex = referencedMarkers.HighestIndex() + 1
+
+		if referencedMarkers.Size() > 1 {
+			referencedMarkers.Delete(s.id)
+
+			s.referencedMarkers.Add(s.highestIndex, referencedMarkers)
+		}
+
+		s.SetModified()
+	}
+	index = s.highestIndex
+
+	return
+}
+
+// IncreaseHighestIndex increases the highest Index of the Sequence if the referencedMarkers directly reference the
+// Marker with the currently highest Index. It returns the new Index and a boolean flag that indicates if the value was
+// increased.
 func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index, increased bool) {
 	s.highestIndexMutex.Lock()
 	defer s.highestIndexMutex.Unlock()

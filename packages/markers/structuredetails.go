@@ -17,7 +17,6 @@ type StructureDetails struct {
 	Rank                     uint64
 	PastMarkerGap            uint64
 	IsPastMarker             bool
-	SequenceID               SequenceID
 	PastMarkers              *Markers
 	FutureMarkers            *Markers
 	futureMarkersUpdateMutex sync.Mutex
@@ -35,7 +34,7 @@ func StructureDetailsFromBytes(markersBytes []byte) (markersPair *StructureDetai
 	return
 }
 
-// StructureDetailsFromMarshalUtil unmarshals a StructureDetails using a MarshalUtil (for easier unmarshaling).
+// StructureDetailsFromMarshalUtil unmarshals a StructureDetails using a MarshalUtil (for easier unmarshalling).
 func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (structureDetails *StructureDetails, err error) {
 	detailsExist, err := marshalUtil.ReadBool()
 	if err != nil {
@@ -59,10 +58,6 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (stru
 		err = errors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if structureDetails.SequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-		return
-	}
 	if structureDetails.PastMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
 		return
@@ -81,7 +76,6 @@ func (m *StructureDetails) Clone() (clone *StructureDetails) {
 		Rank:          m.Rank,
 		PastMarkerGap: m.PastMarkerGap,
 		IsPastMarker:  m.IsPastMarker,
-		SequenceID:    m.SequenceID,
 		PastMarkers:   m.PastMarkers.Clone(),
 		FutureMarkers: m.FutureMarkers.Clone(),
 	}
@@ -98,19 +92,17 @@ func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
 		WriteUint64(m.Rank).
 		WriteUint64(m.PastMarkerGap).
 		WriteBool(m.IsPastMarker).
-		Write(m.SequenceID).
 		Write(m.PastMarkers).
 		Write(m.FutureMarkers).
 		Bytes()
 }
 
-// String returns a human readable version of the StructureDetails.
+// String returns a human-readable version of the StructureDetails.
 func (m *StructureDetails) String() (humanReadableStructureDetails string) {
 	return stringify.Struct("StructureDetails",
 		stringify.StructField("Rank", m.Rank),
 		stringify.StructField("PastMarkerGap", m.PastMarkerGap),
 		stringify.StructField("IsPastMarker", m.IsPastMarker),
-		stringify.StructField("SequenceID", m.SequenceID),
 		stringify.StructField("PastMarkers", m.PastMarkers),
 		stringify.StructField("FutureMarkers", m.FutureMarkers),
 	)
