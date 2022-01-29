@@ -63,11 +63,12 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 
 	// if this is the first marker create the genesis sequence and index
 	normalizedMarkers, highestRankOfReferencedSequences := m.normalizeMarkers(inheritedStructureDetails.PastMarkers)
-	if referencedMarkers.Size() == 0 {
-		referencedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
+	if normalizedMarkers.Size() == 0 {
+		normalizedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
 	}
+	inheritedStructureDetails.PastMarkers = normalizedMarkers
 
-	assignedMarker, sequenceExtended := m.extendReferencedSequence(referencedMarkers, inheritedStructureDetails.PastMarkerGap, highestRankOfReferencedSequences, increaseIndexCallback)
+	assignedMarker, sequenceExtended := m.extendReferencedSequence(inheritedStructureDetails.PastMarkers, inheritedStructureDetails.PastMarkerGap, highestRankOfReferencedSequences, increaseIndexCallback)
 	if sequenceExtended {
 		inheritedStructureDetails.IsPastMarker = true
 		inheritedStructureDetails.PastMarkerGap = 0
