@@ -59,7 +59,7 @@ func NewManager(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 // message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
 // InheritStructureDetails inherits the structure details of the given parent StructureDetails.
-func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
+func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback) (inheritedStructureDetails *StructureDetails) {
 	inheritedStructureDetails = m.mergeParentStructureDetails(referencedStructureDetails)
 
 	normalizedMarkers, highestRankOfReferencedSequences := m.normalizeMarkers(inheritedStructureDetails.PastMarkers)
@@ -77,7 +77,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		return
 	}
 
-	return inheritedStructureDetails, newSequenceCreated
+	return inheritedStructureDetails
 }
 
 func (m *Manager) mergeParentStructureDetails(referencedStructureDetails []*StructureDetails) (mergedStructureDetails *StructureDetails) {
