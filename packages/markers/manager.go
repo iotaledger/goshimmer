@@ -48,7 +48,7 @@ func NewManager(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 		sequenceIDCounter:         sequenceIDCounter,
 	}
 
-	if cachedSequence, stored := newManager.sequenceStore.StoreIfAbsent(NewSequence(SequenceID(0), NewMarkers(), 0)); stored {
+	if cachedSequence, stored := newManager.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers(), 0)); stored {
 		cachedSequence.Release()
 	}
 

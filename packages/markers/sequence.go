@@ -44,6 +44,10 @@ type Sequence struct {
 func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequence {
 	initialIndex := referencedMarkers.HighestIndex() + 1
 
+	if id == 0 {
+		initialIndex--
+	}
+
 	return &Sequence{
 		id:                 id,
 		referencedMarkers:  NewReferencedMarkers(referencedMarkers),
