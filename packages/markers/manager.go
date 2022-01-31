@@ -70,6 +70,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		inheritedStructureDetails.IsPastMarker = true
 		inheritedStructureDetails.PastMarkerGap = 0
 		inheritedStructureDetails.PastMarkers = NewMarkers(assignedMarker)
+		fmt.Println(inheritedStructureDetails.PastMarkers)
 
 		return
 	}
@@ -110,7 +111,7 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 	structureDetailsToUpdate.futureMarkersUpdateMutex.Lock()
 	defer structureDetailsToUpdate.futureMarkersUpdateMutex.Unlock()
 
-	// abort if future markers of structureDetailsToUpdate reference markerToInherit
+	// abort if future structureDetails of structureDetailsToUpdate reference markerToInherit
 	if m.markersReferenceMarkers(NewMarkers(markerToInherit), structureDetailsToUpdate.FutureMarkers, false) {
 		return
 	}
@@ -184,7 +185,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 			return types.False
 		}
 
-		// Iterate the future markers of laterStructureDetails and check if the earlier one has future markers in the same sequence,
+		// Iterate the future structureDetails of laterStructureDetails and check if the earlier one has future structureDetails in the same sequence,
 		// if yes, then make sure the index is smaller than the one of laterStructureDetails.
 		if laterStructureDetails.FutureMarkers.Size() != 0 && !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 			earlierIndex, similarSequenceExists := earlierStructureDetails.FutureMarkers.Get(sequenceID)
@@ -395,13 +396,17 @@ func (m *Manager) extendReferencedSequences(referencedMarkers *Markers, pastMark
 		return
 	}
 
+	fmt.Println(referencedMarkers)
+
 	// increase counters per sequence
+	newSequenceRequired := false
 	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 			sequence.increaseVerticesWithoutFutureMarker()
-			if extended = sequence.newSequenceRequired(pastMarkerGap); !extended {
+			if newSequenceRequired = sequence.newSequenceRequired(pastMarkerGap); !newSequenceRequired {
 				return
 			}
+			fmt.Println("requireNewSequence", sequenceID, index)
 
 			// create new sequence
 			m.sequenceIDCounterMutex.Lock()
@@ -410,15 +415,19 @@ func (m *Manager) extendReferencedSequences(referencedMarkers *Markers, pastMark
 			m.sequenceIDCounter++
 			m.sequenceIDCounterMutex.Unlock()
 
-			(&CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}).Release()
+			(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
 
 			marker = NewMarker(newSequence.id, newSequence.lowestIndex)
+			fmt.Println(marker.SequenceID(), marker.Index())
 		})
 
-		return !extended
+		return !newSequenceRequired
 	})
 
-	return
+	if newSequenceRequired {
+		fmt.Println(marker.SequenceID(), marker.Index(), newSequenceRequired)
+	}
+	return marker, newSequenceRequired
 }
 
 func (m *Manager) extendHighestAvailableSequence(referencedMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {

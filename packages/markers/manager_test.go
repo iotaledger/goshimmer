@@ -1,6 +1,7 @@
 package markers
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -55,93 +56,89 @@ func alwaysIncreaseIndex(SequenceID, Index) bool {
 
 func TestManager(t *testing.T) {
 	testMessages := []*message{
-		newMessage("msg0", false, nil),
-		newMessage("msg1", false, nil),
-		newMessage("msg2", false, []string{"msg1"}),
-		newMessage("msg3", false, []string{"msg0", "msg1"}),
-		newMessage("msg4", false, nil),
-		newMessage("msg5", true, []string{"msg2", "msg3"}),
-		newMessage("msg6", false, []string{"msg4"}),
-		newMessage("msg7", false, []string{"msg5", "msg6"}),
-		newMessage("msg8", false, []string{"msg3", "msg5"}),
-		newMessage("msg9", false, []string{"msg5", "msg6"}),
-		newMessage("msg10", false, []string{"msg7", "msg9"}),
-		newMessage("msg11", true, []string{"msg8"}),
-		newMessage("msg12", true, []string{"msg2", "msg6", "msg10", "msg11"}),
-		newMessage("msg13", false, nil),
-		newMessage("msg14", false, []string{"msg13"}),
-		newMessage("msg15", false, []string{"msg3", "msg14"}),
-		newMessage("msg16", true, []string{"msg11", "msg15"}),
+		newMessage("msg1"),
+		newMessage("msg2"),
+		newMessage("msg3", "msg1", "msg2"),
+		newMessage("msg4", "msg3"),
+		newMessage("msg5", "msg1", "msg2"),
+		newMessage("msg6", "msg3", "msg5"),
+		newMessage("msg7", "msg4"),
+		newMessage("msg8", "msg4"),
+		newMessage("msg9", "msg8"),
+		newMessage("msg10", "msg4"),
+		newMessage("msg11", "msg6"),
+		newMessage("msg12", "msg6"),
+		newMessage("msg13", "msg6"),
 	}
 
 	messageDB := makeMessageDB(testMessages...)
-	db := mapdb.NewMapDB()
-	manager := NewManager(db, database.NewCacheTimeProvider(0))
+	manager := NewManager(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
 
-	for _, message := range testMessages {
-		if futureMarkerToPropagate := inheritPastMarkers(message, manager, messageDB); futureMarkerToPropagate != nil {
-			distributeNewFutureMarkerToPastCone(futureMarkerToPropagate, message.parents, manager, messageDB)
+	for _, m := range testMessages {
+		if futureMarkerToPropagate := inheritPastMarkers(m, manager, messageDB); futureMarkerToPropagate != nil {
+			//distributeNewFutureMarkerToPastCone(futureMarkerToPropagate, m.parents, manager, messageDB)
 		}
 	}
 
-	for messageID, expectedParentMarkers := range map[string]*Markers{
-		"msg0":  NewMarkers(&Marker{sequenceID: 1, index: 1}),
-		"msg1":  NewMarkers(&Marker{sequenceID: 0, index: 0}),
-		"msg2":  NewMarkers(&Marker{sequenceID: 0, index: 0}),
-		"msg3":  NewMarkers(&Marker{sequenceID: 1, index: 1}),
-		"msg4":  NewMarkers(&Marker{sequenceID: 2, index: 1}),
-		"msg5":  NewMarkers(&Marker{sequenceID: 1, index: 2}),
-		"msg6":  NewMarkers(&Marker{sequenceID: 2, index: 1}),
-		"msg7":  NewMarkers(&Marker{sequenceID: 3, index: 3}),
-		"msg8":  NewMarkers(&Marker{sequenceID: 1, index: 2}),
-		"msg9":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 2, index: 1}),
-		"msg10": NewMarkers(&Marker{sequenceID: 3, index: 3}),
-		"msg11": NewMarkers(&Marker{sequenceID: 1, index: 3}),
-		"msg12": NewMarkers(&Marker{sequenceID: 3, index: 4}),
-		"msg13": NewMarkers(&Marker{sequenceID: 4, index: 1}),
-		"msg14": NewMarkers(&Marker{sequenceID: 4, index: 1}),
-		"msg15": NewMarkers(&Marker{sequenceID: 5, index: 2}),
-		"msg16": NewMarkers(&Marker{sequenceID: 5, index: 4}),
+	for messageID, expectedParentMarkersMap := range map[string]map[SequenceID]Index{
+		"msg1":  {0: 1},
+		"msg2":  {0: 0},
+		"msg3":  {0: 2},
+		"msg4":  {0: 3},
+		"msg5":  {0: 1},
+		"msg6":  {0: 2},
+		"msg7":  {0: 4},
+		"msg8":  {1: 4},
+		"msg9":  {1: 5},
+		"msg10": {0: 3},
+		"msg11": {2: 3},
+		"msg12": {0: 2},
+		"msg13": {3: 3},
 	} {
-		assert.Equal(t, expectedParentMarkers, messageDB[messageID].markers.PastMarkers, messageID+" has unexpected past Markers")
-	}
-
-	for messageID, expectedFutureMarkers := range map[string]*Markers{
-		"msg0":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
-		"msg1":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
-		"msg2":  NewMarkers(&Marker{sequenceID: 1, index: 2}),
-		"msg3":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
-		"msg4":  NewMarkers(&Marker{sequenceID: 3, index: 3}),
-		"msg5":  NewMarkers(&Marker{sequenceID: 3, index: 3}, &Marker{sequenceID: 1, index: 3}),
-		"msg6":  NewMarkers(&Marker{sequenceID: 3, index: 3}),
-		"msg7":  NewMarkers(&Marker{sequenceID: 3, index: 4}),
-		"msg8":  NewMarkers(&Marker{sequenceID: 1, index: 3}),
-		"msg9":  NewMarkers(&Marker{sequenceID: 3, index: 4}),
-		"msg10": NewMarkers(&Marker{sequenceID: 3, index: 4}),
-		"msg11": NewMarkers(&Marker{sequenceID: 3, index: 4}, &Marker{sequenceID: 5, index: 4}),
-		"msg12": NewMarkers(),
-		"msg13": NewMarkers(&Marker{sequenceID: 5, index: 2}),
-		"msg14": NewMarkers(&Marker{sequenceID: 5, index: 2}),
-		"msg15": NewMarkers(&Marker{sequenceID: 5, index: 4}),
-		"msg16": NewMarkers(),
-	} {
-		assert.Equal(t, expectedFutureMarkers, messageDB[messageID].markers.FutureMarkers, messageID+" has unexpected future Markers")
-	}
-
-	for _, earlierMessage := range messageDB {
-		for _, laterMessage := range messageDB {
-			if earlierMessage != laterMessage {
-				switch messageReferencesMessage(laterMessage, earlierMessage, messageDB) {
-				case types.True:
-					referencesResult := manager.IsInPastCone(earlierMessage.markers, laterMessage.markers)
-					assert.True(t, referencesResult == types.True || referencesResult == types.Maybe, earlierMessage.id+" should be in past cone of "+laterMessage.id)
-				case types.False:
-					referencesResult := manager.IsInPastCone(earlierMessage.markers, laterMessage.markers)
-					assert.True(t, referencesResult == types.False || referencesResult == types.Maybe, earlierMessage.id+" shouldn't be in past cone of "+laterMessage.id)
-				}
-			}
+		expectedPastMarkers := NewMarkers()
+		for seq, index := range expectedParentMarkersMap {
+			expectedPastMarkers.Set(seq, index)
 		}
+
+		assert.Equal(t, expectedPastMarkers, messageDB[messageID].structureDetails.PastMarkers, messageID+" has unexpected past Markers")
 	}
+
+	//for messageID, expectedFutureMarkers := range map[string]*Markers{
+	//	"msg0":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
+	//	"msg1":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
+	//	"msg2":  NewMarkers(&Marker{sequenceID: 1, index: 2}),
+	//	"msg3":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
+	//	"msg4":  NewMarkers(&Marker{sequenceID: 3, index: 3}),
+	//	"msg5":  NewMarkers(&Marker{sequenceID: 3, index: 3}, &Marker{sequenceID: 1, index: 3}),
+	//	"msg6":  NewMarkers(&Marker{sequenceID: 3, index: 3}),
+	//	"msg7":  NewMarkers(&Marker{sequenceID: 3, index: 4}),
+	//	"msg8":  NewMarkers(&Marker{sequenceID: 1, index: 3}),
+	//	"msg9":  NewMarkers(&Marker{sequenceID: 3, index: 4}),
+	//	"msg10": NewMarkers(&Marker{sequenceID: 3, index: 4}),
+	//	"msg11": NewMarkers(&Marker{sequenceID: 3, index: 4}, &Marker{sequenceID: 5, index: 4}),
+	//	"msg12": NewMarkers(),
+	//	"msg13": NewMarkers(&Marker{sequenceID: 5, index: 2}),
+	//	"msg14": NewMarkers(&Marker{sequenceID: 5, index: 2}),
+	//	"msg15": NewMarkers(&Marker{sequenceID: 5, index: 4}),
+	//	"msg16": NewMarkers(),
+	//} {
+	//	assert.Equal(t, expectedFutureMarkers, messageDB[messageID].structureDetails.FutureMarkers, messageID+" has unexpected future Markers")
+	//}
+
+	//for _, earlierMessage := range messageDB {
+	//	for _, laterMessage := range messageDB {
+	//		if earlierMessage != laterMessage {
+	//			switch messageReferencesMessage(laterMessage, earlierMessage, messageDB) {
+	//			case types.True:
+	//				referencesResult := manager.IsInPastCone(earlierMessage.structureDetails, laterMessage.structureDetails)
+	//				assert.True(t, referencesResult == types.True || referencesResult == types.Maybe, earlierMessage.id+" should be in past cone of "+laterMessage.id)
+	//			case types.False:
+	//				referencesResult := manager.IsInPastCone(earlierMessage.structureDetails, laterMessage.structureDetails)
+	//				assert.True(t, referencesResult == types.False || referencesResult == types.Maybe, earlierMessage.id+" shouldn't be in past cone of "+laterMessage.id)
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 func messageReferencesMessage(laterMessage, earlierMessage *message, messageDB map[string]*message) types.TriBool {
@@ -165,14 +162,15 @@ func inheritPastMarkers(message *message, manager *Manager, messageDB map[string
 	// merge past Markers of referenced parents
 	pastMarkers := make([]*StructureDetails, len(message.parents))
 	for i, parentID := range message.parents {
-		pastMarkers[i] = messageDB[parentID].markers
+		pastMarkers[i] = messageDB[parentID].structureDetails
 	}
 
 	// inherit new past Markers
-	message.markers = manager.InheritStructureDetails(pastMarkers, increaseIndex(message))
-	if message.markers.IsPastMarker {
-		pastMarkerToPropagate = message.markers.PastMarkers.Marker()
-	}
+	fmt.Println(message.id, "++++++++++++++++++++++++++++++")
+	message.structureDetails = manager.InheritStructureDetails(pastMarkers, alwaysIncreaseIndex)
+	//if message.structureDetails.IsPastMarker {
+	//	pastMarkerToPropagate = message.structureDetails.PastMarkers.Marker()
+	//}
 
 	return
 }
@@ -182,7 +180,7 @@ func distributeNewFutureMarkerToPastCone(futureMarker *Marker, messageParents []
 	for _, parentID := range messageParents {
 		parentMessage := messageDB[parentID]
 
-		if _, inheritFutureMarkerFurther := manager.UpdateStructureDetails(parentMessage.markers, futureMarker); inheritFutureMarkerFurther {
+		if _, inheritFutureMarkerFurther := manager.UpdateStructureDetails(parentMessage.structureDetails, futureMarker); inheritFutureMarkerFurther {
 			nextMessageParents = append(nextMessageParents, parentMessage.parents...)
 		}
 	}
@@ -202,18 +200,17 @@ func makeMessageDB(messages ...*message) (messageDB map[string]*message) {
 }
 
 type message struct {
-	id             string
-	forceNewMarker bool
-	parents        []string
-	markers        *StructureDetails
+	id               string
+	forceNewMarker   bool
+	parents          []string
+	structureDetails *StructureDetails
 }
 
-func newMessage(id string, forceNewMarker bool, parents []string) *message {
+func newMessage(id string, parents ...string) *message {
 	return &message{
-		id:             id,
-		forceNewMarker: forceNewMarker,
-		parents:        parents,
-		markers: &StructureDetails{
+		id:      id,
+		parents: parents,
+		structureDetails: &StructureDetails{
 			PastMarkers:   NewMarkers(),
 			FutureMarkers: NewMarkers(),
 		},
@@ -226,10 +223,4 @@ func (m *message) String() string {
 		stringify.StructField("forceNewMarker", m.forceNewMarker),
 		stringify.StructField("parents", m.parents),
 	)
-}
-
-func increaseIndex(message *message) IncreaseIndexCallback {
-	return func(sequenceID SequenceID, currentHighestIndex Index) bool {
-		return message.forceNewMarker
-	}
 }

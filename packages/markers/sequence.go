@@ -15,7 +15,7 @@ import (
 
 // maxVerticesWithoutFutureMarker defines the amount of vertices in the DAG are allowed to have no future marker before
 // we spawn a new Sequence for the same SequenceAlias.
-const maxVerticesWithoutFutureMarker = 3000
+const maxVerticesWithoutFutureMarker = 3
 
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -166,7 +166,7 @@ func (s *Sequence) ExtendSequence(referencedMarkers *Markers, increaseIndexCallb
 
 	// TODO: this is a quick'n'dirty solution and should be revisited.
 	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
-	//  For example, (1,5) <-> (1,8) are valid subsequent markers of sequence 1.
+	//  For example, (1,5) <-> (1,8) are valid subsequent structureDetails of sequence 1.
 	if increased = referencedSequenceIndex == s.highestIndex && increaseIndexCallback(s.id, referencedSequenceIndex); increased {
 		s.highestIndex = referencedMarkers.HighestIndex() + 1
 
@@ -197,7 +197,7 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 
 	// TODO: this is a quick'n'dirty solution and should be revisited.
 	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
-	//  For example, (1,5) <-> (1,8) are valid subsequent markers of sequence 1.
+	//  For example, (1,5) <-> (1,8) are valid subsequent structureDetails of sequence 1.
 	if increased = referencedSequenceIndex >= s.highestIndex; increased {
 		s.highestIndex = referencedMarkers.HighestIndex() + 1
 
