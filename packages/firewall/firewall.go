@@ -1,10 +1,8 @@
 package firewall
 
 import (
-	"time"
+	"sync"
 
-	"github.com/ReneKroon/ttlcache/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
@@ -12,27 +10,22 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 )
 
-const defaultFaultyPeersTTL = time.Minute
-
 // Firewall is a object responsible for taking actions on faulty peers.
 type Firewall struct {
-	gossipMgr   *gossip.Manager
-	autopeering *selection.Protocol
-	log         *logger.Logger
-	faultyPeers *ttlcache.Cache
+	gossipMgr                 *gossip.Manager
+	autopeering               *selection.Protocol
+	log                       *logger.Logger
+	peersFaultinessCountMutex sync.RWMutex
+	peersFaultinessCount      map[identity.ID]int
 }
 
 // NewFirewall create a new instance of Firewall object.
 func NewFirewall(gossipMgr *gossip.Manager, autopeering *selection.Protocol, log *logger.Logger) (*Firewall, error) {
-	faultyPeers := ttlcache.NewCache()
-	if err := faultyPeers.SetTTL(defaultFaultyPeersTTL); err != nil {
-		return nil, errors.WithStack(err)
-	}
 	return &Firewall{
-		gossipMgr:   gossipMgr,
-		autopeering: autopeering,
-		log:         log,
-		faultyPeers: faultyPeers,
+		gossipMgr:            gossipMgr,
+		autopeering:          autopeering,
+		log:                  log,
+		peersFaultinessCount: map[identity.ID]int{},
 	}, nil
 }
 
@@ -54,9 +47,7 @@ func (fd *FaultinessDetails) toKVList() []interface{} {
 func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetails) {
 	f.log.Info("Peer is faulty, executing firewall logic to handle the peer",
 		"peerId", peerID, details.toKVList())
-	if err := f.faultyPeers.Set(peerID.EncodeBase58(), details); err != nil {
-		f.log.Errorw("Failed to save faulty peer into cache", "peerId", peerID, "err", err)
-	}
+	f.incrPeerFaultinessCount(peerID)
 	nbr, err := f.gossipMgr.GetNeighbor(peerID)
 	if err != nil {
 		f.log.Errorw("Can't get neighbor info from the gossip manager", "peerId", peerID)
@@ -76,14 +67,15 @@ func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetai
 	}
 }
 
-// IsFaulty returns faultiness details if the peer is faulty, otherwise it returns nil.
-func (f *Firewall) IsFaulty(peerID identity.ID) *FaultinessDetails {
-	item, err := f.faultyPeers.Get(peerID.EncodeBase58())
-	if err != nil {
-		if !errors.Is(err, ttlcache.ErrNotFound) {
-			f.log.Errorw("Failed to get faulty peer info from the cache", "peerId", peerID, "err", err)
-		}
-		return nil
-	}
-	return item.(*FaultinessDetails)
+// GetPeerFaultinessCount returns number of times the peer has been considered faulty.
+func (f *Firewall) GetPeerFaultinessCount(peerID identity.ID) int {
+	f.peersFaultinessCountMutex.RLock()
+	defer f.peersFaultinessCountMutex.RUnlock()
+	return f.peersFaultinessCount[peerID]
+}
+
+func (f *Firewall) incrPeerFaultinessCount(peerID identity.ID) {
+	f.peersFaultinessCountMutex.Lock()
+	defer f.peersFaultinessCountMutex.Unlock()
+	f.peersFaultinessCount[peerID]++
 }

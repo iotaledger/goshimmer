@@ -30,10 +30,15 @@ var (
 type dependencies struct {
 	dig.In
 
-	GossipMgr      *gossip.Manager
+	GossipMgr *gossip.Manager
+	Server    *echo.Echo
+	Firewall  *firewall.Firewall
+}
+
+type firewallDeps struct {
+	dig.In
 	AutopeeringMgr *selection.Protocol `optional:"true"`
-	Server         *echo.Echo
-	Firewall       *firewall.Firewall
+	GossipMgr      *gossip.Manager
 }
 
 func init() {
@@ -46,8 +51,8 @@ func init() {
 	}))
 }
 
-func createFirewall() *firewall.Firewall {
-	f, err := firewall.NewFirewall(deps.GossipMgr, deps.AutopeeringMgr, Plugin.Logger())
+func createFirewall(fDeps firewallDeps) *firewall.Firewall {
+	f, err := firewall.NewFirewall(fDeps.GossipMgr, fDeps.AutopeeringMgr, Plugin.Logger())
 	if err != nil {
 		Plugin.LogFatalf("Couldn't initialize firewall instance: %+v", err)
 	}

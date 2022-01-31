@@ -6,23 +6,21 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-
-	"github.com/iotaledger/goshimmer/packages/firewall"
 )
 
 const (
-	routeFirewallIsPeerFaulty = "firewall/is-peer-faulty"
+	routeFirewallPeerFaultinessCount = "firewall/peer-faultiness-count"
 )
 
-// IsPeerFaulty checks whether node considers the peer faulty.
-func (api *GoShimmerAPI) IsPeerFaulty(peerID identity.ID) (*firewall.FaultinessDetails, error) {
-	var faultyDetails *firewall.FaultinessDetails
+// GetPeerFaultinessCount return number of time peer has been marked as faulty.
+func (api *GoShimmerAPI) GetPeerFaultinessCount(peerID identity.ID) (int, error) {
+	var count int
 	if err := api.do(
 		http.MethodGet,
-		fmt.Sprintf("%s/%s", routeFirewallIsPeerFaulty, peerID.EncodeBase58()),
-		nil, &faultyDetails,
+		fmt.Sprintf("%s/%s", routeFirewallPeerFaultinessCount, peerID.EncodeBase58()),
+		nil, &count,
 	); err != nil {
-		return nil, errors.Wrap(err, "failed to fetch peer faultiness details via HTTP API")
+		return 0, errors.Wrap(err, "failed to fetch peer faultiness details via HTTP API")
 	}
-	return faultyDetails, nil
+	return count, nil
 }
