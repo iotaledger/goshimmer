@@ -4,17 +4,12 @@ import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import { cytoscapeLib, drawBranch, initBranchDAG } from 'graph/cytoscape';
-import {
-    branchVertex,
-    branchParentUpdate,
-    branchConfirmed,
-    branchWeightChanged
-} from 'models/branch';
+import { branchConfirmed, branchParentUpdate, branchVertex, branchWeightChanged } from 'models/branch';
 
 export class BranchStore {
     @observable maxBranchVertices = MAX_VERTICES;
     @observable branches = new ObservableMap<string, branchVertex>();
-    branchesBeforeSearching: Map<string,branchVertex>;
+    branchesBeforeSearching: Map<string, branchVertex>;
     @observable selectedBranch: branchVertex = null;
     @observable paused = false;
     @observable search = '';
@@ -157,7 +152,7 @@ export class BranchStore {
     };
 
     drawExistedBranches = () => {
-        for(const branch of this.branchesBeforeSearching.values()){
+        for (const branch of this.branchesBeforeSearching.values()) {
             this.drawVertex(branch);
         }
         this.resumeAndSyncGraph();
@@ -213,10 +208,10 @@ export class BranchStore {
 
     clearGraph = () => {
         this.graph.clearGraph();
-        if(!this.branchesBeforeSearching){
-            this.branchesBeforeSearching = new Map<string,branchVertex>();
-            this.branches.forEach((branch,branchID)=> {
-                this.branchesBeforeSearching.set(branchID,branch);
+        if (!this.branchesBeforeSearching) {
+            this.branchesBeforeSearching = new Map<string, branchVertex>();
+            this.branches.forEach((branch, branchID) => {
+                this.branchesBeforeSearching.set(branchID, branch);
             });
         }
         this.branches.clear();
@@ -277,7 +272,7 @@ export class BranchStore {
             }
         });
         return master;
-    }
+    };
 
     start = () => {
         this.graph = new cytoscapeLib([dagre, layoutUtilities], initBranchDAG);

@@ -6,65 +6,65 @@ import { branchVertex } from 'models/branch';
 import { ObservableMap } from 'mobx';
 
 export class cytoscapeLib implements IGraph {
-  cy;
-  layout;
-  layoutApi;
-  branchAPICache: Map<string, branchVertex>;
+    cy;
+    layout;
+    layoutApi;
+    branchAPICache: Map<string, branchVertex>;
 
-  constructor(options: Array<any>, init: () => any) {
-      options.forEach((o) => {
-          cytoscape.use(o);
-      });
+    constructor(options: Array<any>, init: () => any) {
+        options.forEach((o) => {
+            cytoscape.use(o);
+        });
 
-      [this.cy, this.layout, this.layoutApi] = init();
+        [this.cy, this.layout, this.layoutApi] = init();
 
-      this.branchAPICache = new Map();
-  }
+        this.branchAPICache = new Map();
+    }
 
-  drawVertex(data: any): void {
-      this.cy.add(data);
-  }
+    drawVertex(data: any): void {
+        this.cy.add(data);
+    }
 
-  removeVertex(id: string): void {
-      const children = this.cy.getElementById(id).children();
+    removeVertex(id: string): void {
+        const children = this.cy.getElementById(id).children();
 
-      this.cy.remove('#' + id);
-      this.cy.remove(children);
-  }
+        this.cy.remove('#' + id);
+        this.cy.remove(children);
+    }
 
-  selectVertex(id: string): void {
-      const node = this.cy.getElementById(id);
-      if (!node) return;
-      node.select();
-  }
+    selectVertex(id: string): void {
+        const node = this.cy.getElementById(id);
+        if (!node) return;
+        node.select();
+    }
 
-  unselectVertex(id: string): void {
-      const node = this.cy.getElementById(id);
-      if (!node) return;
-      node.unselect();
-  }
+    unselectVertex(id: string): void {
+        const node = this.cy.getElementById(id);
+        if (!node) return;
+        node.unselect();
+    }
 
-  centerVertex(id: string): void {
-      const node = this.cy.getElementById(id);
-      if (!node) return;
-      this.cy.center(node);
-  }
+    centerVertex(id: string): void {
+        const node = this.cy.getElementById(id);
+        if (!node) return;
+        this.cy.center(node);
+    }
 
-  centerGraph(): void {
-      this.cy.center();
-  }
+    centerGraph(): void {
+        this.cy.center();
+    }
 
-  clearGraph(): void {
-      this.cy.elements().remove();
-  }
+    clearGraph(): void {
+        this.cy.elements().remove();
+    }
 
-  updateLayout(): void {
-      this.cy.layout(this.layout).run();
-  }
+    updateLayout(): void {
+        this.cy.layout(this.layout).run();
+    }
 
-  addNodeEventListener(event: string, listener: () => void): void {
-      this.cy.on(event, 'node', listener);
-  }
+    addNodeEventListener(event: string, listener: () => void): void {
+        this.cy.on(event, 'node', listener);
+    }
 }
 
 export function drawTransaction(
@@ -79,7 +79,7 @@ export function drawTransaction(
         graph.cy.add({
             group: 'nodes',
             data: { id: tx.ID },
-            classes: 'transaction',
+            classes: 'transaction'
         })
     );
 
@@ -139,7 +139,7 @@ export function drawTransaction(
                 source: inputNodeID,
                 target: outputNodeID
             },
-            classes: 'invisible',
+            classes: 'invisible'
         })
     );
 
@@ -158,7 +158,7 @@ export async function drawBranch(
     try {
         v = graph.cy.add({
             group: 'nodes',
-            data: { id: branch.ID },
+            data: { id: branch.ID }
         });
     } catch (e) {
         // already exists. never mind
@@ -173,7 +173,7 @@ export async function drawBranch(
         if (b) {
             graph.cy.add({
                 group: 'edges',
-                data: { source: pID, target: branch.ID },
+                data: { source: pID, target: branch.ID }
             });
         } else {
             // recursively fetch branch and draw parent
@@ -185,7 +185,7 @@ export async function drawBranch(
             if (branchMap.get(pID)) {
                 graph.cy.add({
                     group: 'edges',
-                    data: { source: pID, target: branch.ID },
+                    data: { source: pID, target: branch.ID }
                 });
             }
         }
@@ -207,8 +207,8 @@ export function initUTXODAG() {
                     'font-weight': 'bold',
                     shape: 'rectangle',
                     width: 20,
-                    height: 20,
-                },
+                    height: 20
+                }
             },
             {
                 selector: 'edge',
@@ -217,8 +217,8 @@ export function initUTXODAG() {
                     'curve-style': 'bezier',
                     'line-color': '#696969',
                     'control-point-step-size': '10px',
-                    events: 'no',
-                },
+                    events: 'no'
+                }
             },
             {
                 selector: ':parent',
@@ -226,15 +226,15 @@ export function initUTXODAG() {
                     'background-opacity': 0.333,
                     'background-color': '#15B5B0',
                     'min-width': '50px',
-                    'min-height': '50px',
-                },
+                    'min-height': '50px'
+                }
             },
             {
                 selector: 'node:selected',
                 style: {
                     'background-opacity': 0.333,
-                    'background-color': 'red',
-                },
+                    'background-color': 'red'
+                }
             },
             {
                 selector: '.input',
@@ -257,20 +257,20 @@ export function initUTXODAG() {
             {
                 selector: '.invisible',
                 style: {
-                    visibility: 'hidden',
-                },
-            },
+                    visibility: 'hidden'
+                }
+            }
         ],
         layout: {
-            name: 'dagre',
-        },
+            name: 'dagre'
+        }
     });
     const layout = dagreOptions;
     const layoutApi = cy.layoutUtilities({
         desiredAspectRatio: 1,
         polyominoGridSizeFactor: 1,
         utilityFunction: 0,
-        componentSpacing: 80,
+        componentSpacing: 80
     });
 
     return [cy, layout, layoutApi];
@@ -287,8 +287,8 @@ export function initBranchDAG() {
                     'background-color': '#2E8BC0',
                     shape: 'rectangle',
                     width: 25,
-                    height: 15,
-                },
+                    height: 15
+                }
             },
             {
                 selector: 'edge',
@@ -297,33 +297,33 @@ export function initBranchDAG() {
                     'curve-style': 'bezier',
                     'line-color': '#696969',
                     'control-point-step-size': '10px',
-                    events: 'no',
-                },
+                    events: 'no'
+                }
             },
             {
                 selector: 'node:selected',
                 style: {
                     'background-opacity': 0.333,
-                    'background-color': 'red',
-                },
+                    'background-color': 'red'
+                }
             },
             {
                 selector: '.search',
                 style: {
-                    'background-color': 'yellow',
-                },
-            },
+                    'background-color': 'yellow'
+                }
+            }
         ],
         layout: {
-            name: 'dagre',
-        },
+            name: 'dagre'
+        }
     });
     const layout = dagreOptions;
     const layoutApi = cy.layoutUtilities({
         desiredAspectRatio: 1,
         polyominoGridSizeFactor: 1,
         utilityFunction: 0,
-        componentSpacing: 200,
+        componentSpacing: 200
     });
 
     return [cy, layout, layoutApi];
