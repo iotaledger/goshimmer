@@ -6,14 +6,14 @@ import (
 )
 
 // ConsumableOutput represents a wrapper of the output object. It allows 'consume' tokens and track
-// how many remain to be consumed
+// how many remain to be consumed.
 type ConsumableOutput struct {
 	output      ledgerstate.Output
 	remaining   map[ledgerstate.Color]uint64
 	wasConsumed bool
 }
 
-// NewConsumables creates a slice of consumables out of slice of output objects
+// NewConsumables creates a slice of consumables out of slice of output objects.
 func NewConsumables(out ...ledgerstate.Output) []*ConsumableOutput {
 	ret := make([]*ConsumableOutput, len(out))
 	for i, o := range out {
@@ -22,7 +22,7 @@ func NewConsumables(out ...ledgerstate.Output) []*ConsumableOutput {
 	return ret
 }
 
-// NewConsumable creates a consumable out of an output object
+// NewConsumable creates a consumable out of an output object.
 func NewConsumable(output ledgerstate.Output) *ConsumableOutput {
 	ret := &ConsumableOutput{
 		output:    output,
@@ -35,7 +35,7 @@ func NewConsumable(output ledgerstate.Output) *ConsumableOutput {
 	return ret
 }
 
-// ToOutputs extracts output objects from consumables into the slice
+// ToOutputs extracts output objects from consumables into the slice.
 func ToOutputs(consumables ...*ConsumableOutput) []ledgerstate.Output {
 	ret := make([]ledgerstate.Output, len(consumables))
 	for i, c := range consumables {
@@ -44,7 +44,7 @@ func ToOutputs(consumables ...*ConsumableOutput) []ledgerstate.Output {
 	return ret
 }
 
-// Clone clones the consumable
+// Clone clones the consumable.
 func (o *ConsumableOutput) Clone() *ConsumableOutput {
 	ret := &ConsumableOutput{
 		output:      o.output.Clone(),
@@ -57,18 +57,18 @@ func (o *ConsumableOutput) Clone() *ConsumableOutput {
 	return ret
 }
 
-// ConsumableBalance return number of tokens remaining to consume on the consumable
+// ConsumableBalance return number of tokens remaining to consume on the consumable.
 func (o *ConsumableOutput) ConsumableBalance(color ledgerstate.Color) uint64 {
 	ret := o.remaining[color]
 	return ret
 }
 
-// WasConsumed return true if consumable was 'touched', it some tokens were already consumed
+// WasConsumed return true if consumable was 'touched', it some tokens were already consumed.
 func (o *ConsumableOutput) WasConsumed() bool {
 	return o.wasConsumed
 }
 
-// NothingRemains returns true if no tokens remain to be consumed
+// NothingRemains returns true if no tokens remain to be consumed.
 func (o *ConsumableOutput) NothingRemains() bool {
 	for _, bal := range o.remaining {
 		if bal != 0 {
@@ -78,7 +78,7 @@ func (o *ConsumableOutput) NothingRemains() bool {
 	return true
 }
 
-// ConsumableBalance returns how many tokens of the given color can be consumed from remaining
+// ConsumableBalance returns how many tokens of the given color can be consumed from remaining.
 func ConsumableBalance(color ledgerstate.Color, consumables ...*ConsumableOutput) uint64 {
 	ret := uint64(0)
 	for _, out := range consumables {
@@ -87,13 +87,13 @@ func ConsumableBalance(color ledgerstate.Color, consumables ...*ConsumableOutput
 	return ret
 }
 
-// EnoughBalance checks if it is enough tokens of the given color remains in the consumables
+// EnoughBalance checks if it is enough tokens of the given color remains in the consumables.
 func EnoughBalance(color ledgerstate.Color, amount uint64, consumables ...*ConsumableOutput) bool {
 	consumable := ConsumableBalance(color, consumables...)
 	return consumable >= amount
 }
 
-// EnoughBalances checks is it is enough remaining tokens to consume whole collection of balances
+// EnoughBalances checks is it is enough remaining tokens to consume whole collection of balances.
 func EnoughBalances(amounts map[ledgerstate.Color]uint64, consumables ...*ConsumableOutput) bool {
 	for color, amount := range amounts {
 		if !EnoughBalance(color, amount, consumables...) {
@@ -105,7 +105,7 @@ func EnoughBalances(amounts map[ledgerstate.Color]uint64, consumables ...*Consum
 
 // ConsumeColored specified amount of colored tokens sequentially from specified ConsumableOutputs
 // return nil if it was a success.
-// In case of failure ConsumableOutputs remaining unchanged
+// In case of failure ConsumableOutputs remaining unchanged.
 func ConsumeColored(color ledgerstate.Color, amount uint64, consumables ...*ConsumableOutput) bool {
 	if !EnoughBalance(color, amount, consumables...) {
 		return false
@@ -114,7 +114,7 @@ func ConsumeColored(color ledgerstate.Color, amount uint64, consumables ...*Cons
 	return true
 }
 
-// MustConsumeColored same as as ConsumeColor only panics on unsuccessful consume
+// MustConsumeColored same as as ConsumeColor only panics on unsuccessful consume.
 func MustConsumeColored(color ledgerstate.Color, amount uint64, consumables ...*ConsumableOutput) {
 	remaining := amount
 	for _, out := range consumables {
@@ -139,7 +139,7 @@ func MustConsumeColored(color ledgerstate.Color, amount uint64, consumables ...*
 	}
 }
 
-// ConsumeMany consumes whole collection of colored balances
+// ConsumeMany consumes whole collection of colored balances.
 func ConsumeMany(amounts map[ledgerstate.Color]uint64, consumables ...*ConsumableOutput) bool {
 	if !EnoughBalances(amounts, consumables...) {
 		return false
@@ -150,7 +150,7 @@ func ConsumeMany(amounts map[ledgerstate.Color]uint64, consumables ...*Consumabl
 	return true
 }
 
-// ConsumeRemaining consumes all remaining tokens and return map of wasConsumed balances
+// ConsumeRemaining consumes all remaining tokens and return map of wasConsumed balances.
 func ConsumeRemaining(consumables ...*ConsumableOutput) map[ledgerstate.Color]uint64 {
 	ret := make(map[ledgerstate.Color]uint64)
 	for _, out := range consumables {
@@ -166,7 +166,7 @@ func ConsumeRemaining(consumables ...*ConsumableOutput) map[ledgerstate.Color]ui
 	return ret
 }
 
-// SelectConsumed filters out untouched consumables and returns those which were consumed
+// SelectConsumed filters out untouched consumables and returns those which were consumed.
 func SelectConsumed(consumables ...*ConsumableOutput) []*ConsumableOutput {
 	ret := make([]*ConsumableOutput, 0)
 	for _, out := range consumables {
@@ -178,7 +178,7 @@ func SelectConsumed(consumables ...*ConsumableOutput) []*ConsumableOutput {
 }
 
 // MakeUTXOInputs from the list of consumables makes sorted inputs with NewInputs() and returns corresponding
-// outputs in the same (changed) order
+// outputs in the same (changed) order.
 func MakeUTXOInputs(consumables ...*ConsumableOutput) (ledgerstate.Inputs, []ledgerstate.Output) {
 	inputs := make(ledgerstate.Inputs, len(consumables))
 	origOrderOfInputs := make([]ledgerstate.OutputID, len(inputs))
@@ -200,7 +200,7 @@ func MakeUTXOInputs(consumables ...*ConsumableOutput) (ledgerstate.Inputs, []led
 	return retInputs, retConsumedOutputs
 }
 
-// getPermutation utility function return mapping from outputID to its index in the slice
+// getPermutation utility function return mapping from outputID to its index in the slice.
 func getPermutation(inputs ledgerstate.Inputs) map[ledgerstate.OutputID]int {
 	ret := make(map[ledgerstate.OutputID]int)
 	for i := range inputs {
@@ -209,7 +209,7 @@ func getPermutation(inputs ledgerstate.Inputs) map[ledgerstate.OutputID]int {
 	return ret
 }
 
-// FindAliasConsumableInput finds chain output with given alias address
+// FindAliasConsumableInput finds chain output with given alias address.
 func FindAliasConsumableInput(aliasAddr ledgerstate.Address, consumables ...*ConsumableOutput) (*ledgerstate.AliasOutput, int, bool) {
 	for i, out := range consumables {
 		if out.output.Address().Equals(aliasAddr) {

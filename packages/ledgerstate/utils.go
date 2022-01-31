@@ -234,7 +234,7 @@ func (g *UnlockGraph) IsCycleDetected() bool {
 }
 
 // dfs does a depth-first traversal and looks for back edges (cycles).
-func (g *UnlockGraph) dfs(node uint16, visited []bool, recursionStack []bool) bool {
+func (g *UnlockGraph) dfs(node uint16, visited, recursionStack []bool) bool {
 	// mark current node visited
 	visited[node] = true
 	// add to recursion stack

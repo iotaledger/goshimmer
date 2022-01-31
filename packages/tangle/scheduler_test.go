@@ -17,12 +17,6 @@ import (
 
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
 
-var (
-	selfLocalIdentity = identity.GenerateLocalIdentity()
-	selfNode          = identity.New(selfLocalIdentity.PublicKey())
-	peerNode          = identity.GenerateIdentity()
-)
-
 func TestScheduler_StartStop(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
@@ -45,7 +39,50 @@ func TestScheduler_Submit(t *testing.T) {
 	assert.NoError(t, tangle.Scheduler.Unsubmit(msg.ID()))
 }
 
+func TestScheduler_updateActiveNodeList(t *testing.T) {
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
+	defer tangle.Shutdown()
+	nodes := make(map[string]*identity.Identity)
+
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{})
+	assert.Equal(t, 0, tangle.Scheduler.buffer.NumActiveNodes())
+
+	for _, node := range []string{"A", "B", "C", "D", "E", "F", "G"} {
+		nodes[node] = identity.GenerateIdentity()
+	}
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{
+		nodes["A"].ID(): 30,
+		nodes["B"].ID(): 15,
+		nodes["C"].ID(): 25,
+		nodes["D"].ID(): 20,
+		nodes["E"].ID(): 10,
+		nodes["G"].ID(): 0,
+	})
+
+	assert.Equal(t, 5, tangle.Scheduler.buffer.NumActiveNodes())
+	assert.NotContains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["G"].ID())
+
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{
+		nodes["A"].ID(): 30,
+		nodes["B"].ID(): 15,
+		nodes["C"].ID(): 25,
+		nodes["E"].ID(): 0,
+		nodes["F"].ID(): 1,
+		nodes["G"].ID(): 5,
+	})
+	assert.Equal(t, 5, tangle.Scheduler.buffer.NumActiveNodes())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["A"].ID())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["B"].ID())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["C"].ID())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["F"].ID())
+	assert.Contains(t, tangle.Scheduler.buffer.NodeIDs(), nodes["G"].ID())
+
+	tangle.Scheduler.updateActiveNodesList(map[identity.ID]float64{})
+	assert.Equal(t, 0, tangle.Scheduler.buffer.NumActiveNodes())
+}
+
 func TestScheduler_Discarded(t *testing.T) {
+	t.Skip("Skip test. Zero mana nodes are allowed to issue messages.")
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
@@ -124,6 +161,102 @@ func TestScheduler_Schedule(t *testing.T) {
 		select {
 		case id := <-messageScheduled:
 			return assert.Equal(t, msg.ID(), id)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+}
+
+// MockConfirmationOracleConfirmed mocks ConfirmationOracle marking all messages as confirmed.
+type MockConfirmationOracleConfirmed struct {
+	ConfirmationOracle
+	events *ConfirmationEvents
+}
+
+// IsMessageConfirmed mocks its interface function returning that all messages are confirmed.
+func (m *MockConfirmationOracleConfirmed) IsMessageConfirmed(_ MessageID) bool {
+	return true
+}
+
+func (m *MockConfirmationOracleConfirmed) Events() *ConfirmationEvents {
+	return m.events
+}
+
+func TestScheduler_SkipConfirmed(t *testing.T) {
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
+	defer tangle.Shutdown()
+	tangle.ConfirmationOracle = &MockConfirmationOracleConfirmed{
+		ConfirmationOracle: tangle.ConfirmationOracle,
+		events: &ConfirmationEvents{
+			MessageConfirmed:     events.NewEvent(MessageIDCaller),
+			TransactionConfirmed: events.NewEvent(nil),
+			BranchConfirmed:      events.NewEvent(nil),
+		},
+	}
+
+	messageScheduled := make(chan MessageID, 1)
+	messageSkipped := make(chan MessageID, 1)
+
+	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+	tangle.Scheduler.Events.MessageSkipped.Attach(events.NewClosure(func(id MessageID) { messageSkipped <- id }))
+
+	tangle.Scheduler.Setup()
+
+	// create a new message from a different node and mark it as ready and confirmed, but younger than 1 minute
+	msgReadyConfirmedNew := newMessage(peerNode.PublicKey())
+	tangle.Storage.StoreMessage(msgReadyConfirmedNew)
+	assert.NoError(t, tangle.Scheduler.Submit(msgReadyConfirmedNew.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(msgReadyConfirmedNew.ID()))
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-messageScheduled:
+			return assert.Equal(t, msgReadyConfirmedNew.ID(), id)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+
+	// create a new message from a different node and mark it as unready and confirmed, but younger than 1 minute
+	msgUnreadyConfirmedNew := newMessage(peerNode.PublicKey())
+	tangle.Storage.StoreMessage(msgUnreadyConfirmedNew)
+	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedNew.ID()))
+	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(msgUnreadyConfirmedNew.ID())
+	// make sure that the message was not unsubmitted
+	assert.Equal(t, MessageID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), msgUnreadyConfirmedNew.ID())
+	assert.NoError(t, tangle.Scheduler.Ready(msgUnreadyConfirmedNew.ID()))
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-messageScheduled:
+			return assert.Equal(t, msgUnreadyConfirmedNew.ID(), id)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+
+	// create a new message from a different node and mark it as ready and confirmed, but older than 1 minute
+	msgReadyConfirmedOld := newMessageWithTimestamp(peerNode.PublicKey(), time.Now().Add(-2*time.Minute))
+	tangle.Storage.StoreMessage(msgReadyConfirmedOld)
+	assert.NoError(t, tangle.Scheduler.Submit(msgReadyConfirmedOld.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(msgReadyConfirmedOld.ID()))
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-messageSkipped:
+			return assert.Equal(t, msgReadyConfirmedOld.ID(), id)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+
+	// create a new message from a different node and mark it as unready and confirmed, but older than 1 minute
+	msgUnreadyConfirmedOld := newMessageWithTimestamp(peerNode.PublicKey(), time.Now().Add(-2*time.Minute))
+	tangle.Storage.StoreMessage(msgUnreadyConfirmedOld)
+	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedOld.ID()))
+	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(msgUnreadyConfirmedOld.ID())
+
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-messageSkipped:
+			return assert.Equal(t, msgUnreadyConfirmedOld.ID(), id)
 		default:
 			return false
 		}
@@ -394,6 +527,22 @@ func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 		[]MessageID{},
 		[]MessageID{},
 		time.Now(),
+		issuerPublicKey,
+		0,
+		payload.NewGenericDataPayload([]byte("")),
+		0,
+		ed25519.Signature{},
+	)
+	return message
+}
+
+func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.Time) *Message {
+	message, _ := NewMessage(
+		[]MessageID{EmptyMessageID},
+		[]MessageID{},
+		[]MessageID{},
+		[]MessageID{},
+		timestamp,
 		issuerPublicKey,
 		0,
 		payload.NewGenericDataPayload([]byte("")),

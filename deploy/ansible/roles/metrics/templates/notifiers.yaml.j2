@@ -1,0 +1,17 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+apiVersion: 1
+
+notifiers:
+  - name: Slack
+    type: slack
+    uid: slack-notifier
+    org_id: 1
+    is_default: true
+    send_reminder: true
+    frequency: 12h
+    disable_resolve_message: false
+    # See `Supported Settings` section for settings supported for each
+    # alert notification type.
+    # Secure settings that will be encrypted in the database (supported since Grafana v7.2). See `Supported Settings` section for secure settings supported for each notifier.
+    secure_settings:
+      url: "{{ slackNotificationWebhook }}"

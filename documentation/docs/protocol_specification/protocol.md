@@ -81,6 +81,6 @@ Unless the attacker controls more than 1/3 of the Consensus Mana in the system, 
 Analogously to Bitcoin's [six blocks rule](https://en.bitcoin.it/wiki/Confirmation), our protocol has certain measures of the probability of a certain message being considered valid permanently by all nodes. 
 This is achieved by the use of the [**Approval Weight**](components/consensus_mechanism.md#approval-weight-aw). 
 The Approval weight represents the *weight* of branches (and messages). 
-Different to the classical Nakamoto consensus, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* (based on FCoB/FPC). 
-This process is also known as virtual voting, and has been previously described in [On Tangle Voting](https://medium.com/@hans_94488/a-new-consensus-the-tangle-multiverse-part-1-da4cb2a69772). 
+Different to the classical Nakamoto consensus, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any message and attaching it in a part of the Tangle it *likes* based on a `Like switch`. Through the like switch, a message can even reference messages of branches it doesn't like (thereby reduce orphanage), by explicitly expressing which ones it likes instead.
+This process is known as On-Tangle-Voting.
 

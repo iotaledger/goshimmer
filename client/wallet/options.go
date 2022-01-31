@@ -36,7 +36,7 @@ func ReusableAddress(enabled bool) Option {
 	}
 }
 
-// FaucetPowDifficulty configures the wallet with the faucet's target PoW difficulty
+// FaucetPowDifficulty configures the wallet with the faucet's target PoW difficulty.
 func FaucetPowDifficulty(powTarget int) Option {
 	return func(wallet *Wallet) {
 		wallet.faucetPowDifficulty = powTarget

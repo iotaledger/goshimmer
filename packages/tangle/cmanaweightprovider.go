@@ -144,7 +144,7 @@ func (c *CManaWeightProvider) ActiveNodes() (activeNodes map[identity.ID]*Activi
 	return activeNodes
 }
 
-// ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin)
+// ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin).
 type ManaRetrieverFunc func() map[identity.ID]float64
 
 // TimeRetrieverFunc is a function type to retrieve the time.
@@ -337,7 +337,7 @@ func activityLogFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (a *Activi
 	return
 }
 
-// minHeap is a
+// minHeap is an int64 min heap.
 type minHeap []int64
 
 // Len is the number of elements in the collection.

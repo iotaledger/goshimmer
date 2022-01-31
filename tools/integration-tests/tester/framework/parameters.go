@@ -27,8 +27,6 @@ const (
 )
 
 var (
-	// GenesisTokenAmount is the amount of tokens in the genesis output.
-	GenesisTokenAmount = 1000000000000000
 	// GenesisSeed is the seed of the funds created at genesis.
 	GenesisSeed = []byte{
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
@@ -60,7 +58,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock"}
+	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics"}
 
 	c.Network.Enabled = true
 
@@ -88,8 +86,10 @@ func PeerConfig() config.GoShimmer {
 	c.Faucet.PowDifficulty = 1
 	c.Faucet.SupplyOutputsCount = 4
 	c.Faucet.SplittingMultiplier = 4
+	c.Faucet.GenesisTokenAmount = 2500000000000000
 
 	c.Mana.Enabled = true
+	c.Mana.SnapshotResetTime = true
 
 	c.Consensus.Enabled = false
 
@@ -107,7 +107,7 @@ func EntryNodeConfig() config.GoShimmer {
 
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus", "manarefresher", "manualpeering", "chat",
 		"WebAPIDataEndpoint", "WebAPIDRNGEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "Snapshot", "WebAPIToolsDRNGEndpoint",
-		"WebAPIToolsMessageEndpoint", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint")
+		"WebAPIToolsMessageEndpoint", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "remotelog", "remotelogmetrics")
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true

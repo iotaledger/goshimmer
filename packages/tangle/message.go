@@ -186,12 +186,17 @@ func (ids MessageIDs) ToStrings() []string {
 
 // region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ParentsType is a type that defines the type of the parent.
 type ParentsType uint8
 
 const (
+	// StrongParentType is the ParentsType for a strong parent.
 	StrongParentType ParentsType = iota
+	// WeakParentType is the ParentsType for a weak parent.
 	WeakParentType
+	// DislikeParentType is the ParentsType for a dislike parent.
 	DislikeParentType
+	// LikeParentType is thee ParentsType for the like parent.
 	LikeParentType
 
 	// NumberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents.
@@ -203,11 +208,12 @@ const (
 	NumberOfUniqueBlocks = 2
 )
 
-// String returns string representation of ParentsType
+// String returns string representation of ParentsType.
 func (bp ParentsType) String() string {
 	return []string{"Strong Parent", "Weak Parent", "Dislike Parent", "Like Parent"}[bp]
 }
 
+// ParentsBlock is the container for parents in a Message.
 type ParentsBlock struct {
 	ParentsType
 	References MessageIDs
@@ -279,16 +285,14 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 	return newMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, sequenceNumber)
 }
 
-/**
-newMessageWithValidation creates a new message while performing ths following syntactical checks:
-1. A Strong Parents Block must exist.
-2. Parents Block types cannot repeat.
-3. Parent count per block 1 <= x <= 8.
-4. Parents unique within block.
-5. Parents lexicographically sorted within block.
-6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
-7. Blocks should be ordered by type in ascending order.
-**/
+// newMessageWithValidation creates a new message while performing ths following syntactical checks:
+// 1. A Strong Parents Block must exist.
+// 2. Parents Block types cannot repeat.
+// 3. Parent count per block 1 <= x <= 8.
+// 4. Parents unique within block.
+// 5. Parents lexicographically sorted within block.
+// 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
+// 7. Blocks should be ordered by type in ascending order.
 func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
 	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
 	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
@@ -347,7 +351,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 }
 
 // validate messagesIDs are unique across blocks
-// there may be repetition across strong and like parents
+// there may be repetition across strong and like parents.
 func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
 	combinedParents := make(map[MessageID]types.Empty, NumberOfBlockTypes*MaxParentsCount)
 	uniqueParents := make(MessageIDs, 0, MaxParentsCount*NumberOfUniqueBlocks)
@@ -788,7 +792,8 @@ type MessageMetadata struct {
 	branchID            ledgerstate.BranchID
 	scheduled           bool
 	scheduledTime       time.Time
-	scheduledBypass     bool
+	discardedTime       time.Time
+	queuedTime          time.Time
 	booked              bool
 	bookedTime          time.Time
 	invalid             bool
@@ -801,7 +806,8 @@ type MessageMetadata struct {
 	branchIDMutex           sync.RWMutex
 	scheduledMutex          sync.RWMutex
 	scheduledTimeMutex      sync.RWMutex
-	scheduledBypassMutex    sync.RWMutex
+	discardedTimeMutex      sync.RWMutex
+	queuedTimeMutex         sync.RWMutex
 	bookedMutex             sync.RWMutex
 	bookedTimeMutex         sync.RWMutex
 	invalidMutex            sync.RWMutex
@@ -859,10 +865,6 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
-		return
-	}
-	if result.scheduledBypass, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse scheduledBypass flag of message metadata: %w", err)
 		return
 	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
@@ -1035,29 +1037,36 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 	return m.scheduledTime
 }
 
-// SetScheduledBypass sets the message associated with this metadata as scheduledBypass.
-// It returns true if the scheduledBypass status is modified. False otherwise.
-func (m *MessageMetadata) SetScheduledBypass(scheduledBypass bool) (modified bool) {
-	m.scheduledBypassMutex.Lock()
-	defer m.scheduledBypassMutex.Unlock()
+// SetDiscardedTime add the discarded time of a message to the metadata.
+func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
+	m.discardedTimeMutex.Lock()
+	defer m.discardedTimeMutex.Unlock()
 
-	if m.scheduledBypass == scheduledBypass {
-		return false
-	}
-
-	m.scheduledBypass = scheduledBypass
-	m.SetModified()
-	modified = true
-
-	return
+	m.discardedTime = discardedTime
 }
 
-// ScheduledBypass returns true if the message represented by this metadata was scheduledBypassed. False otherwise.
-func (m *MessageMetadata) ScheduledBypass() (result bool) {
-	m.scheduledBypassMutex.RLock()
-	defer m.scheduledBypassMutex.RUnlock()
+// DiscardedTime returns when the message was discarded.
+func (m *MessageMetadata) DiscardedTime() time.Time {
+	m.discardedTimeMutex.RLock()
+	defer m.discardedTimeMutex.RUnlock()
 
-	return m.scheduledBypass
+	return m.discardedTime
+}
+
+// QueuedTime returns the time a message entered the scheduling queue.
+func (m *MessageMetadata) QueuedTime() time.Time {
+	m.queuedTimeMutex.RLock()
+	defer m.queuedTimeMutex.RUnlock()
+
+	return m.queuedTime
+}
+
+// SetQueuedTime records the time the message entered the scheduler queue.
+func (m *MessageMetadata) SetQueuedTime(queuedTime time.Time) {
+	m.queuedTimeMutex.Lock()
+	defer m.queuedTimeMutex.Unlock()
+
+	m.queuedTime = queuedTime
 }
 
 // SetBooked sets the message associated with this metadata as booked.
@@ -1179,7 +1188,6 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Write(m.BranchID()).
 		WriteBool(m.Scheduled()).
 		WriteTime(m.ScheduledTime()).
-		WriteBool(m.ScheduledBypass()).
 		WriteBool(m.IsBooked()).
 		WriteTime(m.BookedTime()).
 		WriteBool(m.IsInvalid()).
@@ -1205,7 +1213,6 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("branchID", m.BranchID()),
 		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("scheduledTime", m.ScheduledTime()),
-		stringify.StructField("scheduledBypass", m.ScheduledBypass()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("invalid", m.IsInvalid()),
@@ -1260,16 +1267,25 @@ func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMe
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Errors /////////////////////////////tangle.m//////////////////////////////////////////////////////////////////////////
+// region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 var (
-	ErrNoStrongParents                    = errors.New("missing strong messages in first parent block")
-	ErrBlocksNotOrderedByType             = errors.New("blocks should be ordered in ascending order according to their type")
-	ErrBlockTypeIsUnknown                 = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
-	ErrParentsOutOfRange                  = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
+	// ErrNoStrongParents is triggered if there no strong parents.
+	ErrNoStrongParents = errors.New("missing strong messages in first parent block")
+	// ErrBlocksNotOrderedByType is triggered when the blocks are not ordered by their type.
+	ErrBlocksNotOrderedByType = errors.New("blocks should be ordered in ascending order according to their type")
+	// ErrBlockTypeIsUnknown is triggered when the block type is unknown.
+	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
+	// ErrParentsOutOfRange is triggered when a block is out of range.
+	ErrParentsOutOfRange = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
+	// ErrParentsNotLexicographicallyOrdered is triggred when parents are not lexicographically ordered.
 	ErrParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
-	ErrRepeatingBlockTypes                = errors.New("block types within a message must not repeat")
-	ErrRepeatingReferencesInBlock         = errors.New("duplicate parents in a message block")
-	ErrRepeatingMessagesAcrossBlocks      = errors.New("different blocks have repeating messages")
+	// ErrRepeatingBlockTypes is triggered if there are repeating block types in the message.
+	ErrRepeatingBlockTypes = errors.New("block types within a message must not repeat")
+	// ErrRepeatingReferencesInBlock is triggered if there are duplicate parents in a message block.
+	ErrRepeatingReferencesInBlock = errors.New("duplicate parents in a message block")
+	// ErrRepeatingMessagesAcrossBlocks is triggered if there are duplicate messages in distinct blocks.
+	ErrRepeatingMessagesAcrossBlocks = errors.New("different blocks have repeating messages")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -2,144 +2,90 @@ package gossip
 
 import (
 	"net"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
+	"github.com/iotaledger/goshimmer/packages/libp2putil/libp2ptesting"
 )
 
-var testData = []byte("foobar")
+var (
+	testPacket1 = &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: []byte("foo")}}}
+	testPacket2 = &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: []byte("bar")}}}
+)
 
 func TestNeighborClose(t *testing.T) {
-	a, _, teardown := newPipe()
+	a, _, teardown := libp2ptesting.NewStreamsPipe(t)
 	defer teardown()
 
 	n := newTestNeighbor("A", a)
-	n.Listen()
-	require.NoError(t, n.Close())
+	n.readLoop()
+	require.NoError(t, n.disconnect())
 }
 
 func TestNeighborCloseTwice(t *testing.T) {
-	a, _, teardown := newPipe()
+	a, _, teardown := libp2ptesting.NewStreamsPipe(t)
 	defer teardown()
 
 	n := newTestNeighbor("A", a)
-	n.Listen()
-	require.NoError(t, n.Close())
-	require.NoError(t, n.Close())
+	n.readLoop()
+	require.NoError(t, n.disconnect())
+	require.NoError(t, n.disconnect())
 }
 
 func TestNeighborWrite(t *testing.T) {
-	a, b, teardown := newPipe()
+	a, b, teardown := libp2ptesting.NewStreamsPipe(t)
 	defer teardown()
 
 	neighborA := newTestNeighbor("A", a)
-	defer neighborA.Close()
-	neighborA.Listen()
+	defer neighborA.disconnect()
+	var countA uint32
+	neighborA.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
+		assert.Equal(t, testPacket2.String(), packet.String())
+		atomic.AddUint32(&countA, 1)
+	}))
+	neighborA.readLoop()
 
 	neighborB := newTestNeighbor("B", b)
-	defer neighborB.Close()
+	defer neighborB.disconnect()
 
-	var count uint32
-	neighborB.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
-		assert.Equal(t, testData, data)
-		atomic.AddUint32(&count, 1)
+	var countB uint32
+	neighborB.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
+		assert.Equal(t, testPacket1.String(), packet.String())
+		atomic.AddUint32(&countB, 1)
 	}))
-	neighborB.Listen()
+	neighborB.readLoop()
 
-	_, err := neighborA.Write(testData)
+	err := neighborA.ps.writePacket(testPacket1)
+	require.NoError(t, err)
+	err = neighborB.ps.writePacket(testPacket2)
 	require.NoError(t, err)
 
-	assert.Eventually(t, func() bool { return atomic.LoadUint32(&count) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countA) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countB) == 1 }, time.Second, 10*time.Millisecond)
 }
 
-func TestNeighborParallelWrite(t *testing.T) {
-	a, b, teardown := newPipe()
-	defer teardown()
-
-	neighborA := newTestNeighbor("A", a)
-	defer neighborA.Close()
-	neighborA.Listen()
-
-	neighborB := newTestNeighbor("B", b)
-	defer neighborB.Close()
-
-	var count uint32
-	neighborB.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
-		assert.Equal(t, testData, data)
-		atomic.AddUint32(&count, 1)
-	}))
-	neighborB.Listen()
-
-	var (
-		wg       sync.WaitGroup
-		expected uint32
-	)
-	wg.Add(2)
-
-	// Writer 1
-	go func() {
-		defer wg.Done()
-		for i := 0; i < neighborQueueSize; i++ {
-			l, err := neighborA.Write(testData)
-			if errors.Is(err, ErrNeighborQueueFull) || l == 0 {
-				continue
-			}
-			assert.NoError(t, err)
-			atomic.AddUint32(&expected, 1)
-		}
-	}()
-	// Writer 2
-	go func() {
-		defer wg.Done()
-		for i := 0; i < neighborQueueSize; i++ {
-			l, err := neighborA.Write(testData)
-			if errors.Is(err, ErrNeighborQueueFull) || l == 0 {
-				continue
-			}
-			assert.NoError(t, err)
-			atomic.AddUint32(&expected, 1)
-		}
-	}()
-
-	wg.Wait()
-
-	done := func() bool {
-		actual := atomic.LoadUint32(&count)
-		return expected == actual
-	}
-	assert.Eventually(t, done, time.Second, 10*time.Millisecond)
+func newTestNeighbor(name string, stream network.Stream) *Neighbor {
+	return NewNeighbor(newTestPeer(name), NeighborsGroupAuto, newPacketsStream(stream), log.Named(name))
 }
 
-func newTestNeighbor(name string, conn net.Conn) *Neighbor {
-	return NewNeighbor(newTestPeer(name, conn), NeighborsGroupAuto, conn, log.Named(name))
-}
-
-func newTestPeer(name string, conn net.Conn) *peer.Peer {
+func newTestPeer(name string) *peer.Peer {
 	services := service.New()
-	services.Update(service.PeeringKey, conn.LocalAddr().Network(), 0)
-	services.Update(service.GossipKey, conn.LocalAddr().Network(), 0)
+	services.Update(service.PeeringKey, "tcp", 0)
+	services.Update(service.GossipKey, "tcp", 0)
 
 	var publicKey ed25519.PublicKey
 	copy(publicKey[:], name)
 
 	return peer.NewPeer(identity.New(publicKey), net.IPv4zero, services)
-}
-
-func newPipe() (net.Conn, net.Conn, func()) {
-	a, b := net.Pipe()
-	teardown := func() {
-		_ = a.Close()
-		_ = b.Close()
-	}
-	return a, b, teardown
 }

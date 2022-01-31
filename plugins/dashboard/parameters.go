@@ -25,6 +25,12 @@ type ParametersDefinition struct {
 		// Password defines the config flag of the dashboard basic auth password.
 		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
 	}
+
+	// Conflicts defines the config flag for the configs tab of the dashboard.
+	Conflicts struct {
+		// MaxCount defines the max number of conflicts stored on the dashboard.
+		MaxCount int `default:"100" usage:"max number of conflicts stored on the dashboard"`
+	}
 }
 
 // Parameters contains the configuration parameters of the dashboard plugin.

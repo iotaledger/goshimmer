@@ -193,7 +193,7 @@ func UnmarshalSigLockedSingleOutputFromBytes(data []byte) (*SigLockedSingleOutpu
 
 // region SigLockedColoredOutput ///////////////////////////////////////////////////////////////////////////////////////
 
-// SigLockedColoredOutput is the JSON model of a ledgerstate.SigLockedColoredOutput
+// SigLockedColoredOutput is the JSON model of a ledgerstate.SigLockedColoredOutput.
 type SigLockedColoredOutput struct {
 	Balances map[string]uint64 `json:"balances"`
 	Address  string            `json:"address"`
@@ -241,7 +241,7 @@ func UnmarshalSigLockedColoredOutputFromBytes(data []byte) (*SigLockedColoredOut
 
 // region AliasOutput //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// AliasOutput is the JSON model of a ledgerstate.AliasOutput
+// AliasOutput is the JSON model of a ledgerstate.AliasOutput.
 type AliasOutput struct {
 	Balances           map[string]uint64 `json:"balances"`
 	AliasAddress       string            `json:"aliasAddress"`
@@ -379,7 +379,7 @@ func UnmarshalAliasOutputFromBytes(data []byte) (*AliasOutput, error) {
 
 // region ExtendedLockOutput ///////////////////////////////////////////////////////////////////////////////////////////
 
-// ExtendedLockedOutput is the JSON model of a ledgerstate.ExtendedLockedOutput
+// ExtendedLockedOutput is the JSON model of a ledgerstate.ExtendedLockedOutput.
 type ExtendedLockedOutput struct {
 	Balances         map[string]uint64 `json:"balances"`
 	Address          string            `json:"address"`
@@ -765,7 +765,7 @@ func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata
 
 // region utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// getStringBalances translates colored balances to map[string]uint64
+// getStringBalances translates colored balances to map[string]uint64.
 func getStringBalances(output ledgerstate.Output) map[string]uint64 {
 	balances := output.Balances().Map()
 	stringBalances := make(map[string]uint64, len(balances))
@@ -775,7 +775,7 @@ func getStringBalances(output ledgerstate.Output) map[string]uint64 {
 	return stringBalances
 }
 
-// getColoredBalances translates a map[string]uint64 to ledgerstate.ColoredBalances
+// getColoredBalances translates a map[string]uint64 to ledgerstate.ColoredBalances.
 func getColoredBalances(stringBalances map[string]uint64) (*ledgerstate.ColoredBalances, error) {
 	cBalances := make(map[ledgerstate.Color]uint64, len(stringBalances))
 	for stringColor, balance := range stringBalances {

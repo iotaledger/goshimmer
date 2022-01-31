@@ -121,7 +121,7 @@ func run(*node.Plugin) {
 	}
 }
 
-func worker(shutdownSignal <-chan struct{}) {
+func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	defer wsSendWorkerPool.Stop()
@@ -144,7 +144,7 @@ func worker(shutdownSignal <-chan struct{}) {
 
 	// stop if we are shutting down or the server could not be started
 	select {
-	case <-shutdownSignal:
+	case <-ctx.Done():
 	case <-stopped:
 	}
 
@@ -244,8 +244,8 @@ type neighbormetric struct {
 	ID               string `json:"id"`
 	Address          string `json:"address"`
 	ConnectionOrigin string `json:"connection_origin"`
-	BytesRead        uint64 `json:"bytes_read"`
-	BytesWritten     uint64 `json:"bytes_written"`
+	PacketsRead      uint64 `json:"packets_read"`
+	PacketsWritten   uint64 `json:"packets_written"`
 }
 
 type tipsInfo struct {
@@ -289,8 +289,8 @@ func neighborMetrics() []neighbormetric {
 		stats = append(stats, neighbormetric{
 			ID:               neighbor.Peer.ID().String(),
 			Address:          net.JoinHostPort(host, strconv.Itoa(port)),
-			BytesRead:        neighbor.BytesRead(),
-			BytesWritten:     neighbor.BytesWritten(),
+			PacketsRead:      neighbor.PacketsRead(),
+			PacketsWritten:   neighbor.PacketsWritten(),
 			ConnectionOrigin: origin,
 		})
 	}

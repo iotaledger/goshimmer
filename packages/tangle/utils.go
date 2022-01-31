@@ -160,7 +160,7 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 	return
 }
 
-// checkBookedParents check if message parents are booked and add then to bookedParents. If we find attachmentMessageId in the parents we stop and return true
+// checkBookedParents check if message parents are booked and add then to bookedParents. If we find attachmentMessageId in the parents we stop and return true.
 func (u *Utils) checkBookedParents(message *Message, attachmentMessageID *MessageID, getParents func(*Message) MessageIDs, bookedParents *MessageIDs) bool {
 	for _, parentID := range getParents(message) {
 		var parentBooked bool

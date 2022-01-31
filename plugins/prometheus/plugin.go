@@ -68,6 +68,7 @@ func configure(plugin *node.Plugin) {
 		registerProcessMetrics()
 		registerTangleMetrics()
 		registerManaMetrics()
+		registerSchedulerMetrics()
 	}
 
 	if metrics.Parameters.Global {
@@ -83,10 +84,10 @@ func addCollect(collect func()) {
 	collects = append(collects, collect)
 }
 
-func run(plugin *node.Plugin) {
+func run(*node.Plugin) {
 	log.Info("Starting Prometheus exporter ...")
 
-	if err := daemon.BackgroundWorker("Prometheus exporter", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Prometheus exporter", func(ctx context.Context) {
 		log.Info("Starting Prometheus exporter ... done")
 
 		engine := gin.New()
@@ -117,7 +118,7 @@ func run(plugin *node.Plugin) {
 			}
 		}()
 
-		<-shutdownSignal
+		<-ctx.Done()
 		log.Info("Stopping Prometheus exporter ...")
 
 		if server != nil {

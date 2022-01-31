@@ -26,7 +26,7 @@ Prerequisites:
 - Docker 17.12.0+
 - Docker compose: file format 3.5
 
-```
+```shell
 # Mac & Linux
 cd tools/integration-tests
 ./runTests.sh

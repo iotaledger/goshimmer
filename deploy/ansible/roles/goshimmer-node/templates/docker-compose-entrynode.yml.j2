@@ -3,19 +3,20 @@ version: "3"
 
 services:
   entrynode:
-    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
+    image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: entrynode
     restart: unless-stopped
-    network_mode: "host"
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "0.0.0.0:6060:6060/tcp"
+      - "0.0.0.0:15626:15626/udp"
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - NODE_PEERDBDIRECTORY=/db/peerdb
       - NODE_SEED={{ entryNodeSeed }}
       - PROFILING_BINDADDRESS=0.0.0.0:6060
-    entrypoint: /run/goshimmer
     command: >
       --skip-config=true
       --node.overwriteStoredSeed=true
@@ -25,5 +26,5 @@ services:
       {% endif %}
       --autoPeering.entryNodes=
       --analysis.client.serverAddress=
-      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint
-      --logger.level=debug
+      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint,remotelog,remotelogmetrics
+      --logger.level={{ logLevel }} 

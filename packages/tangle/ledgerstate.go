@@ -178,7 +178,6 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	copyLedgerState := l.Transactions() // consider that this may take quite some time
 
 	for _, transaction := range copyLedgerState {
-
 		// skip transactions that are not confirmed
 		var isUnconfirmed bool
 		l.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
@@ -203,9 +202,9 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 
 			confirmedConsumerID := l.ConfirmedConsumer(output.ID())
 			if confirmedConsumerID != ledgerstate.GenesisTransactionID {
-				tx := copyLedgerState[confirmedConsumerID]
+				tx, exists := copyLedgerState[confirmedConsumerID]
 				// If the Confirmed Consumer is old enough we consider the output spent
-				if startSnapshot.Sub(tx.Essence().Timestamp()) >= minAge {
+				if exists && startSnapshot.Sub(tx.Essence().Timestamp()) >= minAge {
 					unspentOutputs[i] = false
 					includeTransaction = false
 				}

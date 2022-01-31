@@ -3,10 +3,12 @@ package mana
 import (
 	"context"
 	"log"
+	"math"
 	"testing"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -19,6 +21,7 @@ import (
 )
 
 var (
+	// minAccessMana is minimal amout of mana required to access the network
 	minAccessMana    = tangle.MinMana
 	minConsensusMana = 0.0
 
@@ -28,11 +31,11 @@ var (
 func TestManaPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
 		Activity:    true,
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -60,7 +63,7 @@ func TestManaPersistence(t *testing.T) {
 
 func TestManaPledgeFilter(t *testing.T) {
 	const (
-		numPeers         = 2
+		numPeers         = 3
 		tokensPerRequest = 100
 	)
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -68,7 +71,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Activity:    true,
-	})
+	}, tests.EqualDefaultConfigFunc(t, true))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -78,6 +81,8 @@ func TestManaPledgeFilter(t *testing.T) {
 	accessPeerID := fullID(accessPeer.ID())
 	consensusPeer := peers[1]
 	consensusPeerID := fullID(consensusPeer.ID())
+	seedBytes, err := base58.Decode(tests.EqualSnapshotDetails.PeersSeedBase58[0])
+	require.NoError(t, err)
 
 	faucetConfig := framework.PeerConfig()
 	faucetConfig.MessageLayer.StartSynced = true
@@ -88,6 +93,8 @@ func TestManaPledgeFilter(t *testing.T) {
 	faucetConfig.Mana.AllowedConsensusPledge = []string{consensusPeerID}
 	faucetConfig.Mana.AllowedConsensusFilterEnabled = true
 	faucetConfig.Activity.Enabled = true
+	faucetConfig.Seed = seedBytes
+	faucetConfig.MessageLayer.Snapshot.File = tests.EqualSnapshotDetails.FilePath
 
 	faucet, err := n.CreatePeer(ctx, faucetConfig)
 	require.NoError(t, err)
@@ -136,7 +143,7 @@ func TestManaApis(t *testing.T) {
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity messages
-	})
+	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -154,12 +161,14 @@ func TestManaApis(t *testing.T) {
 	// request mana for peer #1; do this twice to assure that peer #1 gets more mana than peer #2
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(0))
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(1))
+
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[1]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
 
 	// request mana for peer #2
 	tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
+
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[2]).Access > minAccessMana
 	}, tests.Timeout, tests.Tick)
@@ -167,20 +176,20 @@ func TestManaApis(t *testing.T) {
 
 	// Test /mana
 	t.Run("mana", func(t *testing.T) {
-		// the faucet should have access and consensus mana
+		// the faucet should have consensus mana and access mana = 1
 		resp, err := faucet.GetManaFullNodeID(fullID(faucet.ID()))
 		require.NoError(t, err)
 		t.Logf("/mana %+v", resp)
 		require.Equal(t, fullID(faucet.ID()), resp.NodeID)
 		require.Greater(t, resp.Access, minAccessMana)
-		require.Greater(t, resp.Consensus, minConsensusMana)
 
 		// on startup, the faucet pledges consensus mana to the emptyNodeID
+		require.Equal(t, resp.Consensus, minConsensusMana)
 		resp, err = faucet.GetManaFullNodeID(fullID(emptyNodeID))
 		require.NoError(t, err)
 		t.Logf("/mana %+v", resp)
 		require.Equal(t, fullID(emptyNodeID), resp.NodeID)
-		require.Equal(t, minAccessMana, resp.Access)
+		require.Equal(t, 0.0, resp.Access)
 		require.Greater(t, resp.Consensus, minConsensusMana)
 	})
 
@@ -197,16 +206,17 @@ func TestManaApis(t *testing.T) {
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	t.Run("mana/*/nhighest", func(t *testing.T) {
-		expectedAccessOrder := []identity.ID{faucet.ID(), peers[1].ID(), peers[2].ID()}
-		aResp, err := faucet.GetNHighestAccessMana(len(expectedAccessOrder))
+		aResp, err := faucet.GetNHighestAccessMana(3)
 		require.NoError(t, err)
 		t.Logf("/mana/access/nhighest %+v", aResp)
-		require.Len(t, aResp.Nodes, len(expectedAccessOrder))
-		for i := range expectedAccessOrder {
-			require.Equal(t, expectedAccessOrder[i].String(), aResp.Nodes[i].ShortNodeID)
+		require.Len(t, aResp.Nodes, 3)
+		prevMana := math.Inf(1)
+		for i := range aResp.Nodes {
+			require.LessOrEqual(t, aResp.Nodes[i].Mana, prevMana)
+			prevMana = aResp.Nodes[i].Mana
 		}
 
-		expectedConsensusOrder := []identity.ID{faucet.ID(), emptyNodeID, peers[1].ID(), peers[2].ID()}
+		expectedConsensusOrder := []identity.ID{peers[1].ID(), peers[2].ID(), peers[3].ID(), emptyNodeID}
 		cResp, err := faucet.GetNHighestConsensusMana(len(expectedConsensusOrder))
 		require.NoError(t, err)
 		t.Logf("/mana/consensus/nhighest %+v", cResp)
@@ -228,23 +238,24 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", resp)
 		require.Equal(t, fullID(emptyNodeID), resp.NodeID)
-		require.InDelta(t, 60., resp.Consensus, 0.01)
+		require.InDelta(t, 20., resp.Consensus, 0.01)
 	})
 
 	// Test /mana/access/online and /mana/consensus/online
 	t.Run("mana/*/online", func(t *testing.T) {
 		// genesis node is not online
-		expectedOnlineAccessOrder := []identity.ID{faucet.ID(), peers[1].ID(), peers[2].ID()}
+		expectedOnlineAccessOrder := []string{peers[0].ID().String(), peers[1].ID().String(), peers[2].ID().String(), peers[3].ID().String()}
 		aResp, err := faucet.GetOnlineAccessMana()
 		require.NoError(t, err)
 		t.Logf("/mana/access/online %+v", aResp)
 		require.Len(t, aResp.Online, len(expectedOnlineAccessOrder))
-		for i := range expectedOnlineAccessOrder {
-			require.Equal(t, expectedOnlineAccessOrder[i].String(), aResp.Online[i].ShortID)
+		require.Equal(t, expectedOnlineAccessOrder[0], aResp.Online[0].ShortID)
+		unorderedOnlineNodes := aResp.Online[1:]
+		for j := range unorderedOnlineNodes {
+			assert.Contains(t, expectedOnlineAccessOrder[1:], unorderedOnlineNodes[j].ShortID)
 		}
-
 		// empty node is not online
-		expectedOnlineConsensusOrder := []identity.ID{faucet.ID(), peers[1].ID(), peers[2].ID()}
+		expectedOnlineConsensusOrder := []identity.ID{peers[1].ID(), peers[2].ID(), peers[3].ID()}
 		cResp, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
 		require.NoError(t, err)
 		t.Logf("/mana/consensus/online %+v", cResp)

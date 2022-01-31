@@ -1,8 +1,6 @@
 package messagelayer
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 
@@ -11,8 +9,8 @@ import (
 )
 
 var finalityGadget finality.Gadget
-var finalityOnce sync.Once
 
+// FinalityGadget is the finality gadget instance.
 func FinalityGadget() finality.Gadget {
 	return finalityGadget
 }

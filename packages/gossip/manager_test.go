@@ -2,7 +2,9 @@ package gossip
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -12,13 +14,16 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/logger"
+	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
+	"github.com/iotaledger/goshimmer/packages/libp2putil"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -32,14 +37,15 @@ var (
 func loadTestMessage(tangle.MessageID) ([]byte, error) { return testMessageData, nil }
 
 func TestClose(t *testing.T) {
-	_, teardown, _ := newMockedManager(t, "A")
-	teardown()
+	testMgrs := newTestManagers(t, true /* doMock */, "A")
+	testMgrs[0].close()
 }
 
 func TestClosedConnection(t *testing.T) {
-	mgrA, closeA, peerA := newMockedManager(t, "A")
+	testMgrs := newTestManagers(t, true /* doMock */, t.Name()+"_A", t.Name()+"_B")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
-	mgrB, closeB, peerB := newMockedManager(t, "B")
 	defer closeB()
 
 	var wg sync.WaitGroup
@@ -79,8 +85,9 @@ func TestClosedConnection(t *testing.T) {
 }
 
 func TestP2PSend(t *testing.T) {
-	mgrA, closeA, peerA := newMockedManager(t, "A")
-	mgrB, closeB, peerB := newMockedManager(t, "B")
+	testMgrs := newTestManagers(t, true /* doMock */, t.Name()+"_A", t.Name()+"_B")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -126,8 +133,11 @@ func TestP2PSend(t *testing.T) {
 }
 
 func TestP2PSendTwice(t *testing.T) {
-	mgrA, closeA, peerA := newMockedManager(t, "A")
-	mgrB, closeB, peerB := newMockedManager(t, "B")
+	testMgrs := newTestManagers(t, true /* doMock */, t.Name()+"_A", t.Name()+"_B")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+	defer closeA()
+	defer closeB()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -175,9 +185,12 @@ func TestP2PSendTwice(t *testing.T) {
 }
 
 func TestBroadcast(t *testing.T) {
-	mgrA, closeA, peerA := newMockedManager(t, "A")
-	mgrB, closeB, peerB := newMockedManager(t, "B")
-	mgrC, closeC, peerC := newMockedManager(t, "C")
+	testMgrs := newTestManagers(t, true /* doMock */, t.Name()+"_A", t.Name()+"_B", t.Name()+"_C")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+	mgrC, closeC, peerC := testMgrs[2].mockManager, testMgrs[2].close, testMgrs[2].peer
+	defer closeA()
+	defer closeB()
 
 	var wg sync.WaitGroup
 	wg.Add(4)
@@ -236,9 +249,10 @@ func TestBroadcast(t *testing.T) {
 }
 
 func TestSingleSend(t *testing.T) {
-	mgrA, closeA, peerA := newMockedManager(t, "A")
-	mgrB, closeB, peerB := newMockedManager(t, "B")
-	mgrC, closeC, peerC := newMockedManager(t, "C")
+	testMgrs := newTestManagers(t, true /* doMock */, t.Name()+"_A", t.Name()+"_B", t.Name()+"_C")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
+	mgrC, closeC, peerC := testMgrs[2].mockManager, testMgrs[2].close, testMgrs[2].peer
 
 	var wg sync.WaitGroup
 	wg.Add(4)
@@ -297,12 +311,11 @@ func TestSingleSend(t *testing.T) {
 }
 
 func TestDropUnsuccessfulAccept(t *testing.T) {
-	mgrA, closeA, _ := newMockedManager(t, "A")
+	testMgrs := newTestManagers(t, true /* doMock */, t.Name()+"_A", t.Name()+"_B")
+	mgrA, closeA, _ := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
-	mgrB, closeB, peerB := newMockedManager(t, "B")
 	defer closeB()
-
-	mgrA.On("connectionFailed", peerB, mock.Anything).Once()
 
 	err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 	assert.Error(t, err)
@@ -312,8 +325,9 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 }
 
 func TestMessageRequest(t *testing.T) {
-	mgrA, closeA, peerA := newMockedManager(t, "A")
-	mgrB, closeB, peerB := newMockedManager(t, "B")
+	testMgrs := newTestManagers(t, true /* doMock */, t.Name()+"_A", t.Name()+"_B")
+	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -360,25 +374,28 @@ func TestMessageRequest(t *testing.T) {
 }
 
 func TestDropNeighbor(t *testing.T) {
-	mgrA, closeA, peerA := newTestManager(t, "A")
+	testMgrs := newTestManagers(t, false /* doMock */, t.Name()+"_A", t.Name()+"_B")
+	mgrA, closeA, peerA := testMgrs[0].manager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].manager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
-	mgrB, closeB, peerB := newTestManager(t, "B")
 	defer closeB()
 
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signalA := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signalB := events.NewClosure(func(_ *Neighbor) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
-		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
-		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
-		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
+		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signalA)
+		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signalA)
+		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signalB)
+		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signalB)
 
 		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)) }()
+		time.Sleep(graceTime)
 		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)) }()
 		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
@@ -420,9 +437,10 @@ func TestDropNeighbor(t *testing.T) {
 }
 
 func TestDropNeighborDifferentGroup(t *testing.T) {
-	mgrA, closeA, peerA := newTestManager(t, "A")
+	testMgrs := newTestManagers(t, false /* doMock */, t.Name()+"_A", t.Name()+"_B")
+	mgrA, closeA, peerA := testMgrs[0].manager, testMgrs[0].close, testMgrs[0].peer
+	mgrB, closeB, peerB := testMgrs[1].manager, testMgrs[1].close, testMgrs[1].peer
 	defer closeA()
-	mgrB, closeB, peerB := newTestManager(t, "B")
 	defer closeB()
 
 	// establish connection
@@ -439,6 +457,7 @@ func TestDropNeighborDifferentGroup(t *testing.T) {
 		defer mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
 
 		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupManual)) }()
+		time.Sleep(graceTime)
 		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupManual)) }()
 		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
@@ -474,45 +493,79 @@ func newTestDB(t require.TestingT) *peer.DB {
 	return db
 }
 
-func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
-	l := log.Named(name)
+type testManager struct {
+	manager     *Manager
+	mockManager *mockedManager
+	close       func()
+	peer        *peer.Peer
+}
 
-	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	lis, err := net.ListenTCP("tcp", laddr)
-	require.NoError(t, err)
+func newTestManagers(t testing.TB, doMock bool, names ...string) []*testManager {
+	ctx := context.Background()
+	mn := mocknet.New(ctx)
+	var results []*testManager
+	for _, name := range names {
+		name := name
+		l := log.Named(name)
+		services := service.New()
+		services.Update(service.PeeringKey, "peering", 0)
+		local, err := peer.NewLocal(net.ParseIP("127.0.0.1"), services, newTestDB(t))
+		require.NoError(t, err)
+		ourPrivKey, err := local.Database().LocalPrivateKey()
+		require.NoError(t, err)
+		libp2pPrivKey, err := libp2putil.ToLibp2pPrivateKey(ourPrivKey)
+		require.NoError(t, err)
+		id, err := libp2ppeer.IDFromPrivateKey(libp2pPrivKey)
+		require.NoError(t, err)
+		suffix := id
+		if len(id) > 8 {
+			suffix = id[len(id)-8:]
+		}
+		blackholeIP6 := net.ParseIP("100::")
+		ip := append(net.IP{}, blackholeIP6...)
+		copy(ip[net.IPv6len-len(suffix):], suffix)
+		addr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/4242", ip))
+		require.NoError(t, err)
+		hst, err := mn.AddPeer(libp2pPrivKey, addr)
+		require.NoError(t, err)
+		lis := hst.Addrs()[0]
+		tcpPortStr, err := lis.ValueForProtocol(multiaddr.P_TCP)
+		require.NoError(t, err)
+		tcpPort, err := strconv.Atoi(tcpPortStr)
+		require.NoError(t, err)
+		err = local.UpdateService(service.GossipKey, "tcp", tcpPort)
+		require.NoError(t, err)
 
-	services := service.New()
-	services.Update(service.PeeringKey, "peering", 0)
-	services.Update(service.GossipKey, lis.Addr().Network(), lis.Addr().(*net.TCPAddr).Port)
+		// start the actual gossipping
+		mgr := NewManager(hst, local, loadTestMessage, l)
+		tearDown := func() {
+			mgr.Stop()
+			err := hst.Close()
+			require.NoError(t, err)
+		}
+		var mockMgr *mockedManager
+		if doMock {
+			mockMgr = mockManager(t, mgr)
+		}
+		results = append(results, &testManager{
+			manager:     mgr,
+			mockManager: mockMgr,
+			peer:        local.Peer,
+			close:       tearDown,
+		})
 
-	local, err := peer.NewLocal(lis.Addr().(*net.TCPAddr).IP, services, newTestDB(t))
-	require.NoError(t, err)
-
-	srv := server.ServeTCP(local, lis, l)
-
-	// start the actual gossipping
-	mgr := NewManager(local, loadTestMessage, l)
-	mgr.Start(srv)
-
-	detach := func() {
-		mgr.Stop()
-		srv.Close()
-		_ = lis.Close()
 	}
-	return mgr, detach, local.Peer
+	err := mn.LinkAll()
+	require.NoError(t, err)
+	err = mn.ConnectAllButSelf()
+	require.NoError(t, err)
+	return results
 }
 
-func newMockedManager(t *testing.T, name string) (*mockedManager, func(), *peer.Peer) {
-	mgr, detach, p := newTestManager(t, name)
-	return mockManager(t, mgr), detach, p
-}
-
-func mockManager(t mock.TestingT, mgr *Manager) *mockedManager {
+func mockManager(t testing.TB, mgr *Manager) *mockedManager {
 	e := &mockedManager{Manager: mgr}
 	e.Test(t)
 
-	e.NeighborsEvents(NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(e.connectionFailed))
 	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(events.NewClosure(e.neighborAdded))
 	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(e.neighborRemoved))
 	e.Events().MessageReceived.Attach(events.NewClosure(e.messageReceived))
@@ -525,7 +578,6 @@ type mockedManager struct {
 	*Manager
 }
 
-func (e *mockedManager) connectionFailed(p *peer.Peer, err error) { e.Called(p, err) }
 func (e *mockedManager) neighborAdded(n *Neighbor)                { e.Called(n) }
 func (e *mockedManager) neighborRemoved(n *Neighbor)              { e.Called(n) }
 func (e *mockedManager) messageReceived(ev *MessageReceivedEvent) { e.Called(ev) }
