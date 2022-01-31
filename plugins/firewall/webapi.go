@@ -21,7 +21,7 @@ func isFaultyHandler(c echo.Context) error {
 	peerID, err := identity.DecodeIDBase58(c.Param("peerId"))
 	if err != nil {
 		Plugin.Logger().Errorw("Failed to decode peer id from the URL",
-			"peerId param", c.Param("peerId"), "err", err)
+			"err", err)
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.Wrap(err, "invalid peer id in the URL")))
 	}
 	faulty := deps.Firewall.IsFaulty(peerID)
