@@ -55,23 +55,23 @@ func alwaysIncreaseIndex(SequenceID, Index) bool {
 
 func TestManager(t *testing.T) {
 	testMessages := []*message{
-		newMessage("msg0", false, nil, "sequence0"),
-		newMessage("msg1", false, nil, "sequence0"),
-		newMessage("msg2", false, []string{"msg1"}, "sequence0"),
-		newMessage("msg3", false, []string{"msg0", "msg1"}, "sequence0"),
-		newMessage("msg4", false, nil, "sequence1"),
-		newMessage("msg5", true, []string{"msg2", "msg3"}, "sequence0"),
-		newMessage("msg6", false, []string{"msg4"}, "sequence1"),
-		newMessage("msg7", false, []string{"msg5", "msg6"}, "sequence2"),
-		newMessage("msg8", false, []string{"msg3", "msg5"}, "sequence0"),
-		newMessage("msg9", false, []string{"msg5", "msg6"}, "sequence2"),
-		newMessage("msg10", false, []string{"msg7", "msg9"}, "sequence2"),
-		newMessage("msg11", true, []string{"msg8"}, "sequence0"),
-		newMessage("msg12", true, []string{"msg2", "msg6", "msg10", "msg11"}, "sequence2"),
-		newMessage("msg13", false, nil, "sequence3"),
-		newMessage("msg14", false, []string{"msg13"}, "sequence3"),
-		newMessage("msg15", false, []string{"msg3", "msg14"}, "sequence4"),
-		newMessage("msg16", true, []string{"msg11", "msg15"}, "sequence4"),
+		newMessage("msg0", false, nil),
+		newMessage("msg1", false, nil),
+		newMessage("msg2", false, []string{"msg1"}),
+		newMessage("msg3", false, []string{"msg0", "msg1"}),
+		newMessage("msg4", false, nil),
+		newMessage("msg5", true, []string{"msg2", "msg3"}),
+		newMessage("msg6", false, []string{"msg4"}),
+		newMessage("msg7", false, []string{"msg5", "msg6"}),
+		newMessage("msg8", false, []string{"msg3", "msg5"}),
+		newMessage("msg9", false, []string{"msg5", "msg6"}),
+		newMessage("msg10", false, []string{"msg7", "msg9"}),
+		newMessage("msg11", true, []string{"msg8"}),
+		newMessage("msg12", true, []string{"msg2", "msg6", "msg10", "msg11"}),
+		newMessage("msg13", false, nil),
+		newMessage("msg14", false, []string{"msg13"}),
+		newMessage("msg15", false, []string{"msg3", "msg14"}),
+		newMessage("msg16", true, []string{"msg11", "msg15"}),
 	}
 
 	messageDB := makeMessageDB(testMessages...)
@@ -205,15 +205,13 @@ type message struct {
 	id             string
 	forceNewMarker bool
 	parents        []string
-	sequenceAlias  SequenceAlias
 	markers        *StructureDetails
 }
 
-func newMessage(id string, forceNewMarker bool, parents []string, sequenceAlias string) *message {
+func newMessage(id string, forceNewMarker bool, parents []string) *message {
 	return &message{
 		id:             id,
 		forceNewMarker: forceNewMarker,
-		sequenceAlias:  NewSequenceAlias([]byte(sequenceAlias)),
 		parents:        parents,
 		markers: &StructureDetails{
 			PastMarkers:   NewMarkers(),

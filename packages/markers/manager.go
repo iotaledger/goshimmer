@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -20,12 +19,11 @@ import (
 // Manager is the managing entity for the Marker related business logic. It is stateful and automatically stores its
 // state in an underlying KVStore.
 type Manager struct {
-	store                     kvstore.KVStore
-	sequenceStore             *objectstorage.ObjectStorage
-	sequenceAliasMappingStore *objectstorage.ObjectStorage
-	sequenceIDCounter         SequenceID
-	sequenceIDCounterMutex    sync.Mutex
-	shutdownOnce              sync.Once
+	store                  kvstore.KVStore
+	sequenceStore          *objectstorage.ObjectStorage
+	sequenceIDCounter      SequenceID
+	sequenceIDCounterMutex sync.Mutex
+	shutdownOnce           sync.Once
 }
 
 // NewManager is the constructor of the Manager that takes a KVStore to persist its state.
@@ -42,10 +40,9 @@ func NewManager(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	options := buildObjectStorageOptions(cacheProvider)
 	osFactory := objectstorage.NewFactory(store, database.PrefixMarkers)
 	newManager = &Manager{
-		store:                     store,
-		sequenceStore:             osFactory.New(PrefixSequence, SequenceFromObjectStorage, options.objectStorageOptions...),
-		sequenceAliasMappingStore: osFactory.New(PrefixSequenceAliasMapping, SequenceAliasMappingFromObjectStorage, options.objectStorageOptions...),
-		sequenceIDCounter:         sequenceIDCounter,
+		store:             store,
+		sequenceStore:     osFactory.New(PrefixSequence, SequenceFromObjectStorage, options.objectStorageOptions...),
+		sequenceIDCounter: sequenceIDCounter,
 	}
 
 	if cachedSequence, stored := newManager.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers(), 0)); stored {
@@ -239,48 +236,6 @@ func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
 
-// SequenceAliasMapping retrieves the SequenceAliasMapping from the object storage. It accepts an optional
-// computeIfAbsentCallback that is executed to determine the value if it is missing.
-func (m *Manager) SequenceAliasMapping(sequenceAlias SequenceAlias, computeIfAbsentCallback ...func(sequenceAlias SequenceAlias) *SequenceAliasMapping) (sequenceAliasMapping *CachedSequenceAliasMapping) {
-	if len(computeIfAbsentCallback) >= 1 {
-		return &CachedSequenceAliasMapping{m.sequenceAliasMappingStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
-			return computeIfAbsentCallback[0](sequenceAlias)
-		})}
-	}
-
-	return &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.Load(sequenceAlias.Bytes())}
-}
-
-// RegisterSequenceAliasMapping adds a mapping from a SequenceAlias to a Sequence.
-func (m *Manager) RegisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID) (updated bool) {
-	m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
-		newSequenceAliasMapping := &SequenceAliasMapping{
-			sequenceAlias: sequenceAlias,
-			sequenceIDs:   orderedmap.New(),
-		}
-
-		newSequenceAliasMapping.Persist()
-		newSequenceAliasMapping.SetModified()
-
-		return newSequenceAliasMapping
-	}).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		updated = sequenceAliasMapping.RegisterMapping(sequenceID)
-	})
-
-	return
-}
-
-// UnregisterSequenceAliasMapping removes the mapping of the given SequenceAlias to its corresponding Sequence.
-func (m *Manager) UnregisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID) (updated, emptied bool) {
-	m.SequenceAliasMapping(sequenceAlias).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		if updated, emptied = sequenceAliasMapping.UnregisterMapping(sequenceID); emptied {
-			sequenceAliasMapping.Delete()
-		}
-	})
-
-	return
-}
-
 // Shutdown shuts down the Manager and persists its state.
 func (m *Manager) Shutdown() {
 	m.shutdownOnce.Do(func() {
@@ -289,7 +244,6 @@ func (m *Manager) Shutdown() {
 		}
 
 		m.sequenceStore.Shutdown()
-		m.sequenceAliasMappingStore.Shutdown()
 	})
 }
 

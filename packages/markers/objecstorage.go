@@ -12,9 +12,6 @@ const (
 	// PrefixSequence defines the storage prefix for the Sequence object storage.
 	PrefixSequence byte = iota
 
-	// PrefixSequenceAliasMapping defines the storage prefix for the SequenceAliasMapping object storage.
-	PrefixSequenceAliasMapping
-
 	// cacheTime defines the number of seconds objects are cached in the object storage.
 	cacheTime = 60 * time.Second
 )
