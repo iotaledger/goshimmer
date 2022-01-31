@@ -52,6 +52,15 @@ func NewManager(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 	return
 }
 
+func (m *Manager) normalizePastMarkers(structureDetails *StructureDetails) (highestSequenceRank uint64) {
+	structureDetails.PastMarkers, highestSequenceRank = m.normalizeMarkers(structureDetails.PastMarkers)
+	if structureDetails.PastMarkers.Size() == 0 {
+		structureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
+	}
+
+	return highestSequenceRank
+}
+
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
 // message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
@@ -59,27 +68,19 @@ func NewManager(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider
 func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback) (inheritedStructureDetails *StructureDetails) {
 	inheritedStructureDetails = m.mergeParentStructureDetails(referencedStructureDetails)
 
-	normalizedMarkers, highestRankOfReferencedSequences := m.normalizeMarkers(inheritedStructureDetails.PastMarkers)
-	if normalizedMarkers.Size() == 0 {
-		normalizedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
-	}
-	inheritedStructureDetails.PastMarkers = normalizedMarkers
+	highestSequenceRank := m.normalizePastMarkers(inheritedStructureDetails)
 
-	assignedMarker, sequenceExtended := m.extendReferencedSequences(inheritedStructureDetails.PastMarkers, inheritedStructureDetails.PastMarkerGap, highestRankOfReferencedSequences, increaseIndexCallback)
+	assignedMarker, sequenceExtended := m.extendReferencedSequences(inheritedStructureDetails, highestSequenceRank, increaseIndexCallback)
 	if sequenceExtended {
 		inheritedStructureDetails.IsPastMarker = true
 		inheritedStructureDetails.PastMarkerGap = 0
 		inheritedStructureDetails.PastMarkers = NewMarkers(assignedMarker)
-		fmt.Println(inheritedStructureDetails.PastMarkers)
-
-		return
 	}
 
 	return inheritedStructureDetails
 }
 
 func (m *Manager) mergeParentStructureDetails(referencedStructureDetails []*StructureDetails) (mergedStructureDetails *StructureDetails) {
-	// merge parent's pastMarkers
 	mergedStructureDetails = &StructureDetails{
 		PastMarkers:   NewMarkers(),
 		FutureMarkers: NewMarkers(),
@@ -87,18 +88,17 @@ func (m *Manager) mergeParentStructureDetails(referencedStructureDetails []*Stru
 	}
 	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedStructureDetails.PastMarkers.Merge(referencedMarkerPair.PastMarkers)
-		// update highest past marker gap
+
 		if referencedMarkerPair.PastMarkerGap < mergedStructureDetails.PastMarkerGap {
 			mergedStructureDetails.PastMarkerGap = referencedMarkerPair.PastMarkerGap
 		}
-		// update the highest rank
+
 		if referencedMarkerPair.Rank > mergedStructureDetails.Rank {
 			mergedStructureDetails.Rank = referencedMarkerPair.Rank
 		}
 	}
-	// past marker gap for this message is set to the highest past marker gap of parents + 1
+
 	mergedStructureDetails.PastMarkerGap++
-	// rank for this message is set to the highest rank of parents + 1
 	mergedStructureDetails.Rank++
 
 	return mergedStructureDetails
@@ -391,26 +391,24 @@ func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *
 
 // extendReferencedSequences is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
-func (m *Manager) extendReferencedSequences(referencedMarkers *Markers, pastMarkerGap, sequenceRank uint64, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {
-	if marker, extended = m.extendHighestAvailableSequence(referencedMarkers, increaseIndexCallback); extended {
+func (m *Manager) extendReferencedSequences(structureDetails *StructureDetails, sequenceRank uint64, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {
+	if marker, extended = m.extendHighestAvailableSequence(structureDetails.PastMarkers, increaseIndexCallback); extended {
 		return
 	}
 
-	fmt.Println(referencedMarkers)
-
 	// increase counters per sequence
 	newSequenceRequired := false
-	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+	structureDetails.PastMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 			sequence.increaseVerticesWithoutFutureMarker()
-			if newSequenceRequired = sequence.newSequenceRequired(pastMarkerGap); !newSequenceRequired {
+			if newSequenceRequired = sequence.newSequenceRequired(structureDetails.PastMarkerGap); !newSequenceRequired {
 				return
 			}
 			fmt.Println("requireNewSequence", sequenceID, index)
 
 			// create new sequence
 			m.sequenceIDCounterMutex.Lock()
-			newSequence := NewSequence(m.sequenceIDCounter, referencedMarkers, sequenceRank+1)
+			newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers, sequenceRank+1)
 			newSequence.increaseVerticesWithoutFutureMarker()
 			m.sequenceIDCounter++
 			m.sequenceIDCounterMutex.Unlock()
