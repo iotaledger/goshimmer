@@ -1221,6 +1221,7 @@ func (s *Sequence) TryExtendSequence(referencedPastMarkers *Markers, increaseInd
 		if referencedPastMarkers.Size() > 1 {
 			remainingReferencedPastMarkers = referencedPastMarkers.Clone()
 			remainingReferencedPastMarkers.Delete(s.id)
+
 			s.referencedMarkers.Add(s.highestIndex, remainingReferencedPastMarkers)
 		}
 
