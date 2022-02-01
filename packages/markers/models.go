@@ -2,17 +2,90 @@ package markers
 
 import (
 	"fmt"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/stringify"
 )
+
+// region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// IndexLength represents the amount of bytes of a marshaled Index.
+const IndexLength = marshalutil.Uint64Size
+
+// Index represents the ever-increasing number of the Markers in a Sequence.
+type Index uint64
+
+// IndexFromBytes unmarshals an Index from a sequence of bytes.
+func IndexFromBytes(sequenceBytes []byte) (index Index, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(sequenceBytes)
+	if index, err = IndexFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse Index from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// IndexFromMarshalUtil unmarshals an Index using a MarshalUtil (for easier unmarshalling).
+func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, err error) {
+	untypedIndex, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = errors.Errorf("failed to parse Index (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	index = Index(untypedIndex)
+
+	return
+}
+
+// Bytes returns a marshaled version of the Index.
+func (i Index) Bytes() (marshaledIndex []byte) {
+	return marshalutil.New(marshalutil.Uint64Size).
+		WriteUint64(uint64(i)).
+		Bytes()
+}
+
+// String returns a human-readable version of the Index.
+func (i Index) String() (humanReadableIndex string) {
+	return "Index(" + strconv.FormatUint(uint64(i), 10) + ")"
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region IncreaseIndexCallback ////////////////////////////////////////////////////////////////////////////////////////
+
+// IncreaseIndexCallback is the type of the callback function that is used to determine if a new Index is supposed to be
+// assigned in a given Sequence.
+type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index) bool
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region IndexComparator //////////////////////////////////////////////////////////////////////////////////////////////
+
+func IndexComparator(a interface{}, b interface{}) int {
+	aCasted := a.(Index)
+	bCasted := b.(Index)
+	switch {
+	case aCasted < bCasted:
+		return -1
+	case aCasted > bCasted:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -999,6 +1072,506 @@ func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode 
 	}
 
 	return referenceMarkers, err
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Sequence represents a set of ever increasing Indexes that are encapsulating a certain part of the DAG.
+type Sequence struct {
+	id                               SequenceID
+	referencedMarkers                *ReferencedMarkers
+	referencingMarkers               *ReferencingMarkers
+	rank                             uint64
+	lowestIndex                      Index
+	highestIndex                     Index
+	verticesWithoutFutureMarker      uint64
+	verticesWithoutFutureMarkerMutex sync.RWMutex
+	highestIndexMutex                sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewSequence creates a new Sequence from the given details.
+func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequence {
+	initialIndex := referencedMarkers.HighestIndex() + 1
+
+	if id == 0 {
+		initialIndex--
+	}
+
+	return &Sequence{
+		id:                 id,
+		referencedMarkers:  NewReferencedMarkers(referencedMarkers),
+		referencingMarkers: NewReferencingMarkers(),
+		rank:               rank,
+		lowestIndex:        initialIndex,
+		highestIndex:       initialIndex,
+	}
+}
+
+// SequenceFromBytes unmarshals a Sequence from a sequence of bytes.
+func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(sequenceBytes)
+	if sequence, err = SequenceFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// SequenceFromMarshalUtil unmarshals a Sequence using a MarshalUtil (for easier unmarshaling).
+func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
+	sequence = &Sequence{}
+	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		return
+	}
+	if sequence.referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
+		return
+	}
+	if sequence.referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
+		return
+	}
+	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
+		return
+	}
+	if sequence.highestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// SequenceFromObjectStorage restores an Sequence that was stored in the object storage.
+func SequenceFromObjectStorage(key, data []byte) (sequence objectstorage.StorableObject, err error) {
+	if sequence, _, err = SequenceFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// ID returns the identifier of the Sequence.
+func (s *Sequence) ID() SequenceID {
+	return s.id
+}
+
+// ReferencedMarkers returns a collection of Markers that were referenced by the given Index.
+func (s *Sequence) ReferencedMarkers(index Index) *Markers {
+	return s.referencedMarkers.Get(index)
+}
+
+// ReferencingMarkers returns a collection of Markers that reference the given Index.
+func (s *Sequence) ReferencingMarkers(index Index) *Markers {
+	return s.referencingMarkers.Get(index)
+}
+
+// Rank returns the rank of the Sequence (maximum distance from the root of the Sequence DAG).
+func (s *Sequence) Rank() uint64 {
+	return s.rank
+}
+
+// LowestIndex returns the Index of the very first Marker in the Sequence.
+func (s *Sequence) LowestIndex() Index {
+	return s.lowestIndex
+}
+
+// HighestIndex returns the Index of the latest Marker in the Sequence.
+func (s *Sequence) HighestIndex() Index {
+	s.highestIndexMutex.RLock()
+	defer s.highestIndexMutex.RUnlock()
+
+	return s.highestIndex
+}
+
+// IncreaseHighestIndex increases the highest Index of the Sequence if the referencedMarkers directly reference the
+// Marker with the currently highest Index. It returns the new Index and a boolean flag that indicates if the value was
+// increased.
+func (s *Sequence) TryExtendSequence(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (index Index, remainingReferencedPastMarkers *Markers, increased bool) {
+	s.highestIndexMutex.Lock()
+	defer s.highestIndexMutex.Unlock()
+
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedPastMarkers.Get(s.id)
+	if !referencedSequenceIndexExists {
+		panic("tried to extend unreferenced Sequence")
+	}
+
+	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
+	//  For example, (1,5) <-> (1,8) are valid subsequent structureDetails of sequence 1.
+	if increased = referencedSequenceIndex == s.highestIndex && increaseIndexCallback(s.id, referencedSequenceIndex); increased {
+		s.highestIndex = referencedPastMarkers.HighestIndex() + 1
+
+		if referencedPastMarkers.Size() > 1 {
+			remainingReferencedPastMarkers = referencedPastMarkers.Clone()
+			remainingReferencedPastMarkers.Delete(s.id)
+			s.referencedMarkers.Add(s.highestIndex, remainingReferencedPastMarkers)
+		}
+
+		s.SetModified()
+	}
+	index = s.highestIndex
+
+	return
+}
+
+// IncreaseHighestIndex increases the highest Index of the Sequence if the referencedMarkers directly reference the
+// Marker with the currently highest Index. It returns the new Index and a boolean flag that indicates if the value was
+// increased.
+func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index, increased bool) {
+	s.highestIndexMutex.Lock()
+	defer s.highestIndexMutex.Unlock()
+
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedMarkers.Get(s.id)
+	if !referencedSequenceIndexExists {
+		panic("tried to increase Index of wrong Sequence")
+	}
+
+	// TODO: this is a quick'n'dirty solution and should be revisited.
+	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
+	//  For example, (1,5) <-> (1,8) are valid subsequent structureDetails of sequence 1.
+	if increased = referencedSequenceIndex >= s.highestIndex; increased {
+		s.highestIndex = referencedMarkers.HighestIndex() + 1
+
+		if referencedMarkers.Size() > 1 {
+			referencedMarkers.Delete(s.id)
+
+			s.referencedMarkers.Add(s.highestIndex, referencedMarkers)
+		}
+
+		s.SetModified()
+	}
+	index = s.highestIndex
+
+	return
+}
+
+// AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
+func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
+	s.referencingMarkers.Add(index, referencingMarker)
+
+	s.SetModified()
+}
+
+// String returns a human readable version of the Sequence.
+func (s *Sequence) String() string {
+	return stringify.Struct("Sequence",
+		stringify.StructField("ID", s.ID()),
+		stringify.StructField("Rank", s.Rank()),
+		stringify.StructField("LowestIndex", s.LowestIndex()),
+		stringify.StructField("HighestIndex", s.HighestIndex()),
+	)
+}
+
+// Bytes returns a marshaled version of the Sequence.
+func (s *Sequence) Bytes() []byte {
+	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
+}
+
+// Update is required to match the StorableObject interface but updates of the object are disabled.
+func (s *Sequence) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *Sequence) ObjectStorageKey() []byte {
+	return s.id.Bytes()
+}
+
+// ObjectStorageValue marshals the Sequence into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the object storage.
+func (s *Sequence) ObjectStorageValue() []byte {
+	s.verticesWithoutFutureMarkerMutex.RLock()
+	defer s.verticesWithoutFutureMarkerMutex.RUnlock()
+
+	return marshalutil.New().
+		Write(s.referencedMarkers).
+		Write(s.referencingMarkers).
+		WriteUint64(s.rank).
+		WriteUint64(s.verticesWithoutFutureMarker).
+		Write(s.lowestIndex).
+		Write(s.HighestIndex()).
+		Bytes()
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = &Sequence{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedSequence ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedSequence is a wrapper for the generic CachedObject returned by the object storage that
+// overrides the accessor methods with a type-casted one.
+type CachedSequence struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks this CachedObject to still be in use by the program.
+func (c *CachedSequence) Retain() *CachedSequence {
+	return &CachedSequence{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedSequence) Unwrap() *Sequence {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*Sequence)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
+// object when the consumer finishes and returns true of there was at least one object that was consumed.
+func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Sequence))
+	}, forceRelease...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SequenceIDLength represents the amount of bytes of a marshaled SequenceID.
+const SequenceIDLength = marshalutil.Uint64Size
+
+// SequenceID is the type of the identifier of a Sequence.
+type SequenceID uint64
+
+// SequenceIDFromBytes unmarshals a SequenceID from a sequence of bytes.
+func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(sequenceIDBytes)
+	if sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// SequenceIDFromMarshalUtil unmarshals a SequenceIDs using a MarshalUtil (for easier unmarshaling).
+func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID SequenceID, err error) {
+	untypedSequenceID, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = errors.Errorf("failed to parse SequenceID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	sequenceID = SequenceID(untypedSequenceID)
+
+	return
+}
+
+// Bytes returns a marshaled version of the SequenceID.
+func (a SequenceID) Bytes() (marshaledSequenceID []byte) {
+	return marshalutil.New(marshalutil.Uint64Size).WriteUint64(uint64(a)).Bytes()
+}
+
+// String returns a human readable version of the SequenceID.
+func (a SequenceID) String() (humanReadableSequenceID string) {
+	return "SequenceID(" + strconv.FormatUint(uint64(a), 10) + ")"
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SequenceIDs //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SequenceIDs represents a collection of SequenceIDs.
+type SequenceIDs map[SequenceID]types.Empty
+
+// NewSequenceIDs creates a new collection of SequenceIDs.
+func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
+	result = make(SequenceIDs)
+	for _, sequenceID := range sequenceIDs {
+		result[sequenceID] = types.Void
+	}
+
+	return
+}
+
+// SequenceIDsFromBytes unmarshals a collection of SequenceIDs from a sequence of bytes.
+func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(sequenceIDBytes)
+	if sequenceIDs, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SequenceIDs from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// SequenceIDsFromMarshalUtil unmarshals a collection of SequenceIDs using a MarshalUtil (for easier unmarshaling).
+func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceIDs SequenceIDs, err error) {
+	sequenceIDsCount, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = errors.Errorf("failed to parse SequenceIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	sequenceIDs = make(SequenceIDs, sequenceIDsCount)
+	for i := uint32(0); i < sequenceIDsCount; i++ {
+		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
+		if sequenceIDErr != nil {
+			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
+			return
+		}
+		sequenceIDs[sequenceID] = types.Void
+	}
+
+	return
+}
+
+// Bytes returns a marshaled version of the SequenceIDs.
+func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint32(uint32(len(s)))
+	for sequenceID := range s {
+		marshalUtil.Write(sequenceID)
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// String returns a human readable version of the SequenceIDs.
+func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
+	result := "SequenceIDs("
+	firstItem := true
+	for sequenceID := range s {
+		if !firstItem {
+			result += ", "
+		}
+		result += strconv.FormatUint(uint64(sequenceID), 10)
+
+		firstItem = false
+	}
+	result += ")"
+
+	return result
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
+
+// StructureDetails represents a container for the complete Marker related information of a node in a DAG that are used
+// to interact with the public API of this package.
+type StructureDetails struct {
+	Rank                     uint64
+	PastMarkerGap            uint64
+	IsPastMarker             bool
+	PastMarkers              *Markers
+	FutureMarkers            *Markers
+	futureMarkersUpdateMutex sync.Mutex
+}
+
+// StructureDetailsFromBytes unmarshals a StructureDetails object from a sequence of bytes.
+func StructureDetailsFromBytes(markersBytes []byte) (markersPair *StructureDetails, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(markersBytes)
+	if markersPair, err = StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// StructureDetailsFromMarshalUtil unmarshals a StructureDetails using a MarshalUtil (for easier unmarshalling).
+func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (structureDetails *StructureDetails, err error) {
+	detailsExist, err := marshalUtil.ReadBool()
+	if err != nil {
+		err = errors.Errorf("failed to parse exists flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if !detailsExist {
+		return
+	}
+
+	structureDetails = &StructureDetails{}
+	if structureDetails.Rank, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if structureDetails.PastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse PastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if structureDetails.IsPastMarker, err = marshalUtil.ReadBool(); err != nil {
+		err = errors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if structureDetails.PastMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
+		return
+	}
+	if structureDetails.FutureMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse FutureMarkers from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// Clone creates a deep copy of the StructureDetails.
+func (m *StructureDetails) Clone() (clone *StructureDetails) {
+	return &StructureDetails{
+		Rank:          m.Rank,
+		PastMarkerGap: m.PastMarkerGap,
+		IsPastMarker:  m.IsPastMarker,
+		PastMarkers:   m.PastMarkers.Clone(),
+		FutureMarkers: m.FutureMarkers.Clone(),
+	}
+}
+
+// Bytes returns a marshaled version of the StructureDetails.
+func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
+	if m == nil {
+		return marshalutil.New(marshalutil.BoolSize).WriteBool(false).Bytes()
+	}
+
+	return marshalutil.New().
+		WriteBool(true).
+		WriteUint64(m.Rank).
+		WriteUint64(m.PastMarkerGap).
+		WriteBool(m.IsPastMarker).
+		Write(m.PastMarkers).
+		Write(m.FutureMarkers).
+		Bytes()
+}
+
+// String returns a human-readable version of the StructureDetails.
+func (m *StructureDetails) String() (humanReadableStructureDetails string) {
+	return stringify.Struct("StructureDetails",
+		stringify.StructField("Rank", m.Rank),
+		stringify.StructField("PastMarkerGap", m.PastMarkerGap),
+		stringify.StructField("IsPastMarker", m.IsPastMarker),
+		stringify.StructField("PastMarkers", m.PastMarkers),
+		stringify.StructField("FutureMarkers", m.FutureMarkers),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

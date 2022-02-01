@@ -2,8 +2,10 @@ package markers
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
@@ -17,42 +19,26 @@ import (
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Manager is the managing entity for the Marker related business logic. It is stateful and automatically stores its
-// state in an underlying KVStore.
+// state in a KVStore.
 type Manager struct {
-	store                  kvstore.KVStore
+	Options *ManagerOptions
+
 	sequenceStore          *objectstorage.ObjectStorage
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
 	shutdownOnce           sync.Once
-	Options                *ManagerOptions
 }
 
 // NewManager is the constructor of the Manager that takes a KVStore to persist its state.
-func NewManager(store kvstore.KVStore, cacheProvider *database.CacheTimeProvider, options ...ManagerOption) (newManager *Manager) {
-	sequenceIDCounter := SequenceID(1)
-	if storedSequenceIDCounter, err := store.Get(kvstore.Key("sequenceIDCounter")); err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
-		panic(err)
-	} else if storedSequenceIDCounter != nil {
-		if sequenceIDCounter, _, err = SequenceIDFromBytes(storedSequenceIDCounter); err != nil {
-			panic(err)
-		}
-	}
-
-	storageOptions := buildObjectStorageOptions(cacheProvider)
-	osFactory := objectstorage.NewFactory(store, database.PrefixMarkers)
-
+func NewManager(options ...ManagerOption) (newManager *Manager) {
 	newManager = &Manager{
-		store:             store,
-		sequenceStore:     osFactory.New(PrefixSequence, SequenceFromObjectStorage, storageOptions.objectStorageOptions...),
-		sequenceIDCounter: sequenceIDCounter,
-		Options:           DefaultManagerOptions.Apply(options...),
+		Options: DefaultManagerOptions.Apply(options...),
 	}
 
-	if cachedSequence, stored := newManager.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers(), 0)); stored {
-		cachedSequence.Release()
-	}
+	newManager.initSequenceIDCounter()
+	newManager.initObjectStorage()
 
-	return
+	return newManager
 }
 
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
@@ -161,13 +147,13 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 			panic("failed to retrieve Marker")
 		}
 
-		// If earlierStructureDetails has a past marker in the same sequence of the later with a higher index or references the later,
+		// If earlierStructureDetails has a past marker in the same sequence of the latter with a higher index or references the latter,
 		// the earlier one is definitely not in its past cone.
 		if earlierIndex, sequenceExists := earlierStructureDetails.PastMarkers.Get(laterMarker.sequenceID); sequenceExists && earlierIndex >= laterMarker.index {
 			return types.False
 		}
 
-		// If earlierStructureDetails has a future marker in the same sequence of the later with a higher index,
+		// If earlierStructureDetails has a future marker in the same sequence of the latter with a higher index,
 		// the earlier one is definitely not in its past cone.
 		if earlierFutureIndex, earlierFutureIndexExists := earlierStructureDetails.FutureMarkers.Get(laterMarker.sequenceID); earlierFutureIndexExists && earlierFutureIndex > laterMarker.index {
 			return types.False
@@ -228,12 +214,39 @@ func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
 // Shutdown shuts down the Manager and persists its state.
 func (m *Manager) Shutdown() {
 	m.shutdownOnce.Do(func() {
-		if err := m.store.Set(kvstore.Key("sequenceIDCounter"), m.sequenceIDCounter.Bytes()); err != nil {
+		if err := m.Options.Store.Set(kvstore.Key("sequenceIDCounter"), m.sequenceIDCounter.Bytes()); err != nil {
 			panic(err)
 		}
 
 		m.sequenceStore.Shutdown()
 	})
+}
+
+// initSequenceIDCounter restores the sequenceIDCounter from the KVStore upon initialization.
+func (m *Manager) initSequenceIDCounter() (self *Manager) {
+	storedSequenceIDCounter, err := m.Options.Store.Get(kvstore.Key("sequenceIDCounter"))
+	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
+		panic(err)
+	}
+
+	if storedSequenceIDCounter != nil {
+		if m.sequenceIDCounter, _, err = SequenceIDFromBytes(storedSequenceIDCounter); err != nil {
+			panic(err)
+		}
+	}
+
+	return m
+}
+
+// initObjectStorage sets up the object storage for the Sequences.
+func (m *Manager) initObjectStorage() (self *Manager) {
+	m.sequenceStore = objectstorage.NewFactory(m.Options.Store, database.PrefixMarkers).New(0, SequenceFromObjectStorage, objectstorage.CacheTime(m.Options.CacheTime))
+
+	if cachedSequence, stored := m.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers(), 0)); stored {
+		cachedSequence.Release()
+	}
+
+	return m
 }
 
 // normalizeMarkers takes a set of Markers and removes each Marker that is already referenced by another Marker in the
@@ -384,13 +397,13 @@ func (m *Manager) extendReferencedSequences(structureDetails *StructureDetails, 
 		return
 	}
 
-	if structureDetails.PastMarkerGap < m.Options.maxPastMarkerDistance {
+	if structureDetails.PastMarkerGap < m.Options.MaxPastMarkerDistance {
 		return
 	}
 
 	m.sequenceIDCounterMutex.Lock()
-	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers, sequenceRank+1)
 	m.sequenceIDCounter++
+	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers, sequenceRank+1)
 	m.sequenceIDCounterMutex.Unlock()
 
 	(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
@@ -434,13 +447,26 @@ func (m *Manager) rankOfSequence(sequenceID SequenceID, ranksCache map[SequenceI
 
 // region ManagerOptions ///////////////////////////////////////////////////////////////////////////////////////////////
 
-type ManagerOptions struct {
-	// max gap to force the creation of a new Sequence.
-	maxPastMarkerDistance uint64
-}
-
+// ManagerOption represents the return type of optional parameters that can be handed into the constructor of the
+// Manager to configure its behavior.
 type ManagerOption func(options *ManagerOptions)
 
+// ManagerOptions is a container for all configurable parameters of the Manager.
+type ManagerOptions struct {
+	// Store is a parameter for the Manager that allows to specify which storage layer is supposed to be used to persist
+	// data.
+	Store kvstore.KVStore
+
+	// CacheTime is a parameter for the Manager that allows to specify how long objects should be cached in the object
+	// storage.
+	CacheTime time.Duration
+
+	// MaxPastMarkerDistance is a parameter for the Manager that allows to specify how many consecutive messages are
+	// allowed to not receive a new PastMaster before we create a new Sequence.
+	MaxPastMarkerDistance uint64
+}
+
+// Apply applies the given options to the ManagerOptions object.
 func (m *ManagerOptions) Apply(options ...ManagerOption) *ManagerOptions {
 	for _, option := range options {
 		option(m)
@@ -448,14 +474,34 @@ func (m *ManagerOptions) Apply(options ...ManagerOption) *ManagerOptions {
 	return m
 }
 
+// DefaultManagerOptions defines the default options for the Manager.
 var DefaultManagerOptions = &ManagerOptions{
-	maxPastMarkerDistance: 30,
+	Store:                 mapdb.NewMapDB(),
+	CacheTime:             30 * time.Second,
+	MaxPastMarkerDistance: 30,
 }
 
-// SetCommittee sets the initial committee
+// WithStore is an option for the Manager that allows to specify which storage layer is supposed to be used to persist
+// data.
+func WithStore(store kvstore.KVStore) ManagerOption {
+	return func(options *ManagerOptions) {
+		options.Store = store
+	}
+}
+
+// WithCacheTime is an option for the Manager that allows to specify how long objects should be cached in the object
+// storage
+func WithCacheTime(cacheTime time.Duration) ManagerOption {
+	return func(options *ManagerOptions) {
+		options.CacheTime = cacheTime
+	}
+}
+
+// WithMaxPastMarkerDistance is an Option for the Manager that allows to specify how many consecutive messages are
+// allowed to not receive a new PastMaster before we create a new Sequence.
 func WithMaxPastMarkerDistance(distance uint64) ManagerOption {
 	return func(options *ManagerOptions) {
-		options.maxPastMarkerDistance = distance
+		options.MaxPastMarkerDistance = distance
 	}
 }
 

@@ -4,17 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/database"
-
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestManagerConvergence(t *testing.T) {
-	db := mapdb.NewMapDB()
-	manager := NewManager(db, database.NewCacheTimeProvider(0))
+	manager := NewManager(WithCacheTime(0))
 
 	structureDetails1 := manager.InheritStructureDetails(nil, alwaysIncreaseIndex)
 	assert.True(t, structureDetails1.PastMarkers.Equals(NewMarkers(NewMarker(0, 1))))
@@ -81,7 +77,7 @@ func TestManager(t *testing.T) {
 	}
 
 	messageDB := makeMessageDB(testMessages...)
-	manager := NewManager(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), WithMaxPastMarkerDistance(3))
+	manager := NewManager(WithCacheTime(0), WithMaxPastMarkerDistance(3))
 
 	for _, m := range testMessages {
 		if futureMarkerToPropagate := inheritPastMarkers(m, manager, messageDB); futureMarkerToPropagate != nil {
