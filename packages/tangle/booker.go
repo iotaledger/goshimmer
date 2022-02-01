@@ -175,7 +175,7 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 
 	aggregatedInheritedBranchID := b.tangle.LedgerState.AggregateConflictBranchesID(inheritedBranchIDs)
 
-	inheritedStructureDetails, newSequenceCreated := b.MarkersManager.InheritStructureDetails(message, structureDetails, markers.NewSequenceAlias(aggregatedInheritedBranchID.Bytes()))
+	inheritedStructureDetails, newSequenceCreated := b.MarkersManager.InheritStructureDetails(message, structureDetails)
 	messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 	if newSequenceCreated {

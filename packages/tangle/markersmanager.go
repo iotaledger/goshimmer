@@ -31,21 +31,23 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong and like parents.
-func (m *MarkersManager) InheritStructureDetails(message *Message, structureDetails []*markers.StructureDetails, sequenceAlias markers.SequenceAlias) (newStructureDetails *markers.StructureDetails, newSequenceCreated bool) {
-	newStructureDetails, newSequenceCreated = m.Manager.InheritStructureDetails(structureDetails, func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
-		nodeID := identity.NewID(message.IssuerPublicKey())
-		bufferUsedRatio := float64(m.tangle.Scheduler.BufferSize()) / float64(m.tangle.Scheduler.MaxBufferSize())
-		nodeQueueRatio := float64(m.tangle.Scheduler.NodeQueueSize(nodeID)) / float64(m.tangle.Scheduler.BufferSize())
-		if bufferUsedRatio > 0.01 && nodeQueueRatio > 0.1 {
-			return false
-		}
-		if discardTime, ok := m.discardedNodes[nodeID]; ok && time.Since(discardTime) < time.Minute {
-			return false
-		} else if ok && time.Since(discardTime) >= time.Minute {
-			delete(m.discardedNodes, nodeID)
-		}
-		return m.tangle.Options.IncreaseMarkersIndexCallback(sequenceID, currentHighestIndex)
-	}, sequenceAlias)
+func (m *MarkersManager) InheritStructureDetails(message *Message, structureDetails []*markers.StructureDetails) (newStructureDetails *markers.StructureDetails, newSequenceCreated bool) {
+	//newStructureDetails, newSequenceCreated = m.Manager.InheritStructureDetails(structureDetails, func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
+	//	nodeID := identity.NewID(message.IssuerPublicKey())
+	//	bufferUsedRatio := float64(m.tangle.Scheduler.BufferSize()) / float64(m.tangle.Scheduler.MaxBufferSize())
+	//	nodeQueueRatio := float64(m.tangle.Scheduler.NodeQueueSize(nodeID)) / float64(m.tangle.Scheduler.BufferSize())
+	//	if bufferUsedRatio > 0.01 && nodeQueueRatio > 0.1 {
+	//		return false
+	//	}
+	//	if discardTime, ok := m.discardedNodes[nodeID]; ok && time.Since(discardTime) < time.Minute {
+	//		return false
+	//	} else if ok && time.Since(discardTime) >= time.Minute {
+	//		delete(m.discardedNodes, nodeID)
+	//	}
+	//	return m.tangle.Options.IncreaseMarkersIndexCallback(sequenceID, currentHighestIndex)
+	//})
+
+	newStructureDetails = m.Manager.InheritStructureDetails(structureDetails, m.tangle.Options.IncreaseMarkersIndexCallback)
 	if newStructureDetails.IsPastMarker {
 		m.SetMessageID(newStructureDetails.PastMarkers.Marker(), message.ID())
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(newStructureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
@@ -97,12 +99,8 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 		}
 
 		if floorMarker == marker.Index() {
-			m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
-
 			m.deleteBranchIDMapping(markers.NewMarker(marker.SequenceID(), floorMarker))
 		}
-
-		m.registerSequenceAliasMappingIfLastMappedMarker(marker, branchID)
 	}
 
 	m.setBranchIDMapping(marker, branchID)
@@ -120,12 +118,6 @@ func (m *MarkersManager) deleteBranchIDMapping(marker *markers.Marker) bool {
 	return m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		markerIndexBranchIDMapping.DeleteBranchID(marker.Index())
 	})
-}
-
-func (m *MarkersManager) registerSequenceAliasMappingIfLastMappedMarker(marker *markers.Marker, branchID ledgerstate.BranchID) {
-	if _, _, exists := m.Ceiling(markers.NewMarker(marker.SequenceID(), marker.Index()+1)); !exists {
-		m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
-	}
 }
 
 // Floor returns the largest Index that is <= the given Marker, it's BranchID and a boolean value indicating if it

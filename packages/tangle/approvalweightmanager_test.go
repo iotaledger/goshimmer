@@ -22,51 +22,51 @@ func toByteArray(i uint32) (arr []byte) {
 	return
 }
 
-func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
-	supporters := map[string]*identity.Identity{
-		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
-		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
-	}
-	var weightProvider *CManaWeightProvider
-	manaRetrieverMock := func() map[identity.ID]float64 {
-		m := make(map[identity.ID]float64)
-		for _, s := range supporters {
-			weightProvider.Update(time.Now(), s.ID())
-			m[s.ID()] = 100
-		}
-		return m
-	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
-
-	tangle := NewTestTangle(ApprovalWeights(weightProvider))
-	defer tangle.Shutdown()
-	approvalWeightManager := tangle.ApprovalWeightManager
-
-	// build markers DAG where each sequence has only 1 marker building a chain of sequences
-	totalMarkers := 10000
-	{
-		var previousMarker *markers.StructureDetails
-		for i := uint32(1); i < uint32(totalMarkers); i++ {
-			if previousMarker == nil {
-				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
-				continue
-			}
-
-			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
-		}
-	}
-
-	// measure time for each marker
-	for i := 1; i < 3; i++ {
-		measurements := 100
-		var total time.Duration
-		for m := 0; m < measurements; m++ {
-			start := time.Now()
-			approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
-			total += time.Since(start)
-		}
-	}
-}
+//func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
+//	supporters := map[string]*identity.Identity{
+//		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
+//		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
+//	}
+//	var weightProvider *CManaWeightProvider
+//	manaRetrieverMock := func() map[identity.ID]float64 {
+//		m := make(map[identity.ID]float64)
+//		for _, s := range supporters {
+//			weightProvider.Update(time.Now(), s.ID())
+//			m[s.ID()] = 100
+//		}
+//		return m
+//	}
+//	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+//
+//	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+//	defer tangle.Shutdown()
+//	approvalWeightManager := tangle.ApprovalWeightManager
+//
+//	// build markers DAG where each sequence has only 1 marker building a chain of sequences
+//	totalMarkers := 10000
+//	{
+//		var previousMarker *markers.StructureDetails
+//		for i := uint32(1); i < uint32(totalMarkers); i++ {
+//			if previousMarker == nil {
+//				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+//				continue
+//			}
+//
+//			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+//		}
+//	}
+//
+//	// measure time for each marker
+//	for i := 1; i < 3; i++ {
+//		measurements := 100
+//		var total time.Duration
+//		for m := 0; m < measurements; m++ {
+//			start := time.Now()
+//			approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
+//			total += time.Since(start)
+//		}
+//	}
+//}
 
 func TestBranchWeightMarshalling(t *testing.T) {
 	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
@@ -255,134 +255,134 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 
 // TestApprovalWeightManager_updateSequenceSupporters tests the ApprovalWeightManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
-func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
-	supporters := map[string]*identity.Identity{
-		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
-		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
-	}
-	var weightProvider *CManaWeightProvider
-	manaRetrieverMock := func() map[identity.ID]float64 {
-		m := make(map[identity.ID]float64)
-		for _, s := range supporters {
-			weightProvider.Update(time.Now(), s.ID())
-			m[s.ID()] = 100
-		}
-		return m
-	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
-
-	tangle := NewTestTangle(ApprovalWeights(weightProvider))
-	defer tangle.Shutdown()
-	approvalWeightManager := tangle.ApprovalWeightManager
-
-	markersMap := make(map[string]*markers.StructureDetails)
-
-	// build markers DAG
-	{
-		markersMap["1,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,1"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["2,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,1"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,2"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["3,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"], markersMap["2,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"], markersMap["3,4"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,5"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,6"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("4")))
-		markersMap["5,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"], markersMap["2,4"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("5")))
-	}
-
-	// CASE1: APPROVE MARKER(1, 3)
-	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 3)))
-
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
-			"1,4": {},
-			"2,1": {},
-			"2,2": {},
-			"2,3": {},
-			"2,4": {},
-			"3,4": {},
-			"3,5": {},
-			"3,6": {},
-			"3,7": {},
-			"4,8": {},
-			"5,8": {},
-		})
-	}
-
-	// CASE2: APPROVE MARKER(1, 4) + MARKER(3, 5)
-	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 4), markers.NewMarker(3, 5)))
-
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
-			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"]},
-			"2,2": {supporters["A"]},
-			"2,3": {supporters["A"]},
-			"2,4": {},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {},
-			"3,7": {},
-			"4,8": {},
-			"5,8": {},
-		})
-	}
-
-	// CASE3: APPROVE MARKER(5, 8)
-	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(5, 8)))
-
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
-			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"]},
-			"2,2": {supporters["A"]},
-			"2,3": {supporters["A"]},
-			"2,4": {supporters["A"]},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {supporters["A"]},
-			"3,7": {supporters["A"]},
-			"4,8": {},
-			"5,8": {supporters["A"]},
-		})
-	}
-
-	// CASE4: APPROVE MARKER(2, 3)
-	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(2, 3)))
-
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
-			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"], supporters["B"]},
-			"2,2": {supporters["A"], supporters["B"]},
-			"2,3": {supporters["A"], supporters["B"]},
-			"2,4": {supporters["A"]},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {supporters["A"]},
-			"3,7": {supporters["A"]},
-			"4,8": {},
-			"5,8": {supporters["A"]},
-		})
-	}
-}
+//func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
+//	supporters := map[string]*identity.Identity{
+//		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
+//		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
+//	}
+//	var weightProvider *CManaWeightProvider
+//	manaRetrieverMock := func() map[identity.ID]float64 {
+//		m := make(map[identity.ID]float64)
+//		for _, s := range supporters {
+//			weightProvider.Update(time.Now(), s.ID())
+//			m[s.ID()] = 100
+//		}
+//		return m
+//	}
+//	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+//
+//	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+//	defer tangle.Shutdown()
+//	approvalWeightManager := tangle.ApprovalWeightManager
+//
+//	markersMap := make(map[string]*markers.StructureDetails)
+//
+//	// build markers DAG
+//	{
+//		markersMap["1,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
+//		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,1"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
+//		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
+//		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
+//		markersMap["2,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
+//		markersMap["2,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,1"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
+//		markersMap["2,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,2"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
+//		markersMap["2,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
+//		markersMap["3,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"], markersMap["2,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
+//		markersMap["3,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"], markersMap["3,4"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
+//		markersMap["3,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,5"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
+//		markersMap["3,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,6"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
+//		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("4")))
+//		markersMap["5,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"], markersMap["2,4"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("5")))
+//	}
+//
+//	// CASE1: APPROVE MARKER(1, 3)
+//	{
+//		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 3)))
+//
+//		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
+//			"1,1": {supporters["A"]},
+//			"1,2": {supporters["A"]},
+//			"1,3": {supporters["A"]},
+//			"1,4": {},
+//			"2,1": {},
+//			"2,2": {},
+//			"2,3": {},
+//			"2,4": {},
+//			"3,4": {},
+//			"3,5": {},
+//			"3,6": {},
+//			"3,7": {},
+//			"4,8": {},
+//			"5,8": {},
+//		})
+//	}
+//
+//	// CASE2: APPROVE MARKER(1, 4) + MARKER(3, 5)
+//	{
+//		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 4), markers.NewMarker(3, 5)))
+//
+//		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
+//			"1,1": {supporters["A"]},
+//			"1,2": {supporters["A"]},
+//			"1,3": {supporters["A"]},
+//			"1,4": {supporters["A"]},
+//			"2,1": {supporters["A"]},
+//			"2,2": {supporters["A"]},
+//			"2,3": {supporters["A"]},
+//			"2,4": {},
+//			"3,4": {supporters["A"]},
+//			"3,5": {supporters["A"]},
+//			"3,6": {},
+//			"3,7": {},
+//			"4,8": {},
+//			"5,8": {},
+//		})
+//	}
+//
+//	// CASE3: APPROVE MARKER(5, 8)
+//	{
+//		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(5, 8)))
+//
+//		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
+//			"1,1": {supporters["A"]},
+//			"1,2": {supporters["A"]},
+//			"1,3": {supporters["A"]},
+//			"1,4": {supporters["A"]},
+//			"2,1": {supporters["A"]},
+//			"2,2": {supporters["A"]},
+//			"2,3": {supporters["A"]},
+//			"2,4": {supporters["A"]},
+//			"3,4": {supporters["A"]},
+//			"3,5": {supporters["A"]},
+//			"3,6": {supporters["A"]},
+//			"3,7": {supporters["A"]},
+//			"4,8": {},
+//			"5,8": {supporters["A"]},
+//		})
+//	}
+//
+//	// CASE4: APPROVE MARKER(2, 3)
+//	{
+//		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(2, 3)))
+//
+//		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
+//			"1,1": {supporters["A"]},
+//			"1,2": {supporters["A"]},
+//			"1,3": {supporters["A"]},
+//			"1,4": {supporters["A"]},
+//			"2,1": {supporters["A"], supporters["B"]},
+//			"2,2": {supporters["A"], supporters["B"]},
+//			"2,3": {supporters["A"], supporters["B"]},
+//			"2,4": {supporters["A"]},
+//			"3,4": {supporters["A"]},
+//			"3,5": {supporters["A"]},
+//			"3,6": {supporters["A"]},
+//			"3,7": {supporters["A"]},
+//			"4,8": {},
+//			"5,8": {supporters["A"]},
+//		})
+//	}
+//}
 
 // TestApprovalWeightManager_ProcessMessage tests the whole functionality of the ApprovalWeightManager.
 // The scenario can be found in images/approvalweight-processMessage.png.
