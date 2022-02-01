@@ -13,10 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 )
 
-// maxVerticesWithoutFutureMarker defines the amount of vertices in the DAG are allowed to have no future marker before
-// we spawn a new Sequence for the same SequenceAlias.
-const maxVerticesWithoutFutureMarker = 3
-
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Sequence represents a set of ever increasing Indexes that are encapsulating a certain part of the DAG.
@@ -27,8 +23,6 @@ type Sequence struct {
 	rank                             uint64
 	lowestIndex                      Index
 	highestIndex                     Index
-	newSequenceTrigger               uint64
-	maxPastMarkerGap                 uint64
 	verticesWithoutFutureMarker      uint64
 	verticesWithoutFutureMarkerMutex sync.RWMutex
 	highestIndexMutex                sync.RWMutex
@@ -83,14 +77,6 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 	}
 	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
 		err = errors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if sequence.newSequenceTrigger, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse newSequenceTrigger (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if sequence.maxPastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse maxPastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
@@ -155,25 +141,24 @@ func (s *Sequence) HighestIndex() Index {
 // IncreaseHighestIndex increases the highest Index of the Sequence if the referencedMarkers directly reference the
 // Marker with the currently highest Index. It returns the new Index and a boolean flag that indicates if the value was
 // increased.
-func (s *Sequence) ExtendSequence(referencedMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (index Index, increased bool) {
+func (s *Sequence) TryExtendSequence(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (index Index, remainingReferencedPastMarkers *Markers, increased bool) {
 	s.highestIndexMutex.Lock()
 	defer s.highestIndexMutex.Unlock()
 
-	referencedSequenceIndex, referencedSequenceIndexExists := referencedMarkers.Get(s.id)
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedPastMarkers.Get(s.id)
 	if !referencedSequenceIndexExists {
 		panic("tried to extend unreferenced Sequence")
 	}
 
-	// TODO: this is a quick'n'dirty solution and should be revisited.
 	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
 	//  For example, (1,5) <-> (1,8) are valid subsequent structureDetails of sequence 1.
 	if increased = referencedSequenceIndex == s.highestIndex && increaseIndexCallback(s.id, referencedSequenceIndex); increased {
-		s.highestIndex = referencedMarkers.HighestIndex() + 1
+		s.highestIndex = referencedPastMarkers.HighestIndex() + 1
 
-		if referencedMarkers.Size() > 1 {
-			referencedMarkers.Delete(s.id)
-
-			s.referencedMarkers.Add(s.highestIndex, referencedMarkers)
+		if referencedPastMarkers.Size() > 1 {
+			remainingReferencedPastMarkers = referencedPastMarkers.Clone()
+			remainingReferencedPastMarkers.Delete(s.id)
+			s.referencedMarkers.Add(s.highestIndex, remainingReferencedPastMarkers)
 		}
 
 		s.SetModified()
@@ -257,64 +242,10 @@ func (s *Sequence) ObjectStorageValue() []byte {
 		Write(s.referencedMarkers).
 		Write(s.referencingMarkers).
 		WriteUint64(s.rank).
-		WriteUint64(s.newSequenceTrigger).
-		WriteUint64(s.maxPastMarkerGap).
 		WriteUint64(s.verticesWithoutFutureMarker).
 		Write(s.lowestIndex).
 		Write(s.HighestIndex()).
 		Bytes()
-}
-
-func (s *Sequence) increaseVerticesWithoutFutureMarker() {
-	s.verticesWithoutFutureMarkerMutex.Lock()
-	defer s.verticesWithoutFutureMarkerMutex.Unlock()
-
-	s.verticesWithoutFutureMarker++
-
-	s.SetModified()
-}
-
-func (s *Sequence) decreaseVerticesWithoutFutureMarker() {
-	s.verticesWithoutFutureMarkerMutex.Lock()
-	defer s.verticesWithoutFutureMarkerMutex.Unlock()
-
-	s.verticesWithoutFutureMarker--
-
-	s.SetModified()
-}
-
-func (s *Sequence) newSequenceRequired(pastMarkerGap uint64) (newSequenceRequired bool) {
-	s.verticesWithoutFutureMarkerMutex.Lock()
-	defer s.verticesWithoutFutureMarkerMutex.Unlock()
-
-	s.SetModified()
-
-	// decrease the maxPastMarkerGap threshold with every processed message so it ultimately goes back to a healthy
-	// level after the triggering
-	if s.maxPastMarkerGap > 0 {
-		s.maxPastMarkerGap--
-	}
-
-	if pastMarkerGap > s.maxPastMarkerGap {
-		s.maxPastMarkerGap = pastMarkerGap
-	}
-
-	if s.verticesWithoutFutureMarker < maxVerticesWithoutFutureMarker {
-		return false
-	}
-
-	if s.newSequenceTrigger == 0 {
-		s.newSequenceTrigger = s.maxPastMarkerGap
-		return false
-	}
-
-	if pastMarkerGap < s.newSequenceTrigger {
-		return false
-	}
-
-	s.newSequenceTrigger = 0
-
-	return true
 }
 
 // code contract (make sure the type implements all required methods)

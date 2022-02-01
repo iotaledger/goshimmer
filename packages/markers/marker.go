@@ -262,6 +262,9 @@ func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
 // ForEach calls the iterator for each of the contained Markers. The iteration is aborted if the iterator returns false.
 // The method returns false if the iteration was aborted.
 func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
+	if m == nil {
+		return true
+	}
 	m.markersMutex.RLock()
 	markersCopy := make(map[SequenceID]Index)
 	for sequenceID, index := range m.markers {
@@ -282,11 +285,10 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 // ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
 // the iterator returns false. The method returns false if the iteration was aborted.
 func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	clonedMarkers := m.Clone().markers
 
-	sequenceIDs := make([]SequenceID, 0, len(m.markers))
-	for sequenceID := range m.markers {
+	sequenceIDs := make([]SequenceID, 0, len(clonedMarkers))
+	for sequenceID := range clonedMarkers {
 		sequenceIDs = append(sequenceIDs, sequenceID)
 	}
 	sort.Slice(sequenceIDs, func(i, j int) bool {
@@ -295,7 +297,7 @@ func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index
 
 	success = true
 	for _, sequenceID := range sequenceIDs {
-		if success = iterator(sequenceID, m.markers[sequenceID]); !success {
+		if success = iterator(sequenceID, clonedMarkers[sequenceID]); !success {
 			return
 		}
 	}

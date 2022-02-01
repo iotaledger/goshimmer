@@ -67,12 +67,21 @@ func TestManager(t *testing.T) {
 		newMessage("msg9", "msg8"),
 		newMessage("msg10", "msg4"),
 		newMessage("msg11", "msg6"),
-		newMessage("msg12", "msg6"),
-		newMessage("msg13", "msg6"),
+		newMessage("msg12", "msg11"),
+		newMessage("msg13", "msg12"),
+		newMessage("msg14", "msg11"),
+		newMessage("msg15", "msg13", "msg14"),
+		newMessage("msg16", "msg9", "msg15"),
+		newMessage("msg17", "msg7", "msg16"),
+		newMessage("msg18", "msg7", "msg13", "msg14"),
+		newMessage("msg19", "msg7", "msg13", "msg14"),
+		newMessage("msg20", "msg7", "msg13", "msg14", "msg11"),
+		newMessage("msg21", "msg20"),
+		newMessage("msg22", "msg21"),
 	}
 
 	messageDB := makeMessageDB(testMessages...)
-	manager := NewManager(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
+	manager := NewManager(mapdb.NewMapDB(), database.NewCacheTimeProvider(0), WithMaxPastMarkerDistance(3))
 
 	for _, m := range testMessages {
 		if futureMarkerToPropagate := inheritPastMarkers(m, manager, messageDB); futureMarkerToPropagate != nil {
@@ -80,27 +89,44 @@ func TestManager(t *testing.T) {
 		}
 	}
 
-	for messageID, expectedParentMarkersMap := range map[string]map[SequenceID]Index{
-		"msg1":  {0: 1},
-		"msg2":  {0: 0},
-		"msg3":  {0: 2},
-		"msg4":  {0: 3},
-		"msg5":  {0: 1},
-		"msg6":  {0: 2},
-		"msg7":  {0: 4},
-		"msg8":  {1: 4},
-		"msg9":  {1: 5},
-		"msg10": {0: 3},
-		"msg11": {2: 3},
-		"msg12": {0: 2},
-		"msg13": {3: 3},
-	} {
+	type expectedStructureDetails struct {
+		PastMarkers    map[SequenceID]Index
+		PastMarkersGap uint64
+	}
+
+	expected := map[string]expectedStructureDetails{
+		"msg1":  {map[SequenceID]Index{0: 1}, 0},
+		"msg2":  {map[SequenceID]Index{0: 0}, 0},
+		"msg3":  {map[SequenceID]Index{0: 2}, 0},
+		"msg4":  {map[SequenceID]Index{0: 3}, 0},
+		"msg5":  {map[SequenceID]Index{0: 1}, 1},
+		"msg6":  {map[SequenceID]Index{0: 2}, 1},
+		"msg7":  {map[SequenceID]Index{0: 4}, 0},
+		"msg8":  {map[SequenceID]Index{0: 3}, 1},
+		"msg9":  {map[SequenceID]Index{0: 3}, 2},
+		"msg10": {map[SequenceID]Index{0: 3}, 1},
+		"msg11": {map[SequenceID]Index{0: 2}, 2},
+		"msg12": {map[SequenceID]Index{1: 3}, 0},
+		"msg13": {map[SequenceID]Index{1: 4}, 0},
+		"msg14": {map[SequenceID]Index{2: 3}, 0},
+		"msg15": {map[SequenceID]Index{2: 5}, 0},
+		"msg16": {map[SequenceID]Index{2: 6}, 0},
+		"msg17": {map[SequenceID]Index{2: 7}, 0},
+		"msg18": {map[SequenceID]Index{1: 5}, 0},
+		"msg19": {map[SequenceID]Index{0: 5}, 0},
+		"msg20": {map[SequenceID]Index{0: 4, 1: 4, 2: 3}, 1},
+		"msg21": {map[SequenceID]Index{0: 4, 1: 4, 2: 3}, 2},
+		"msg22": {map[SequenceID]Index{3: 5}, 0},
+	}
+
+	for messageID, messageExpected := range expected {
 		expectedPastMarkers := NewMarkers()
-		for seq, index := range expectedParentMarkersMap {
+		for seq, index := range messageExpected.PastMarkers {
 			expectedPastMarkers.Set(seq, index)
 		}
 
 		assert.Equal(t, expectedPastMarkers, messageDB[messageID].structureDetails.PastMarkers, messageID+" has unexpected past Markers")
+		assert.Equal(t, messageExpected.PastMarkersGap, messageDB[messageID].structureDetails.PastMarkerGap, messageID+" has unexpected PastMarkerGap")
 	}
 
 	//for messageID, expectedFutureMarkers := range map[string]*Markers{
@@ -165,7 +191,6 @@ func inheritPastMarkers(message *message, manager *Manager, messageDB map[string
 		pastMarkers[i] = messageDB[parentID].structureDetails
 	}
 
-	// inherit new past Markers
 	fmt.Println(message.id, "++++++++++++++++++++++++++++++")
 	message.structureDetails = manager.InheritStructureDetails(pastMarkers, alwaysIncreaseIndex)
 	//if message.structureDetails.IsPastMarker {
