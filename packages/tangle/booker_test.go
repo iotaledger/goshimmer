@@ -53,7 +53,7 @@ func TestScenario_1(t *testing.T) {
 }
 
 func TestScenario_2(t *testing.T) {
-	tangle := NewTestTangle()
+	tangle := NewTestTangle(MergeBranches(false))
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
@@ -73,6 +73,15 @@ func TestScenario_2(t *testing.T) {
 	testFramework.CreateMessage("Message8", WithStrongParents("Message4", "Message7"), WithInputs("H", "D"), WithOutput("I", 2))
 	testFramework.CreateMessage("Message9", WithStrongParents("Message4", "Message7"), WithInputs("B"), WithOutput("J", 1))
 
+	testFramework.RegisterBranchID("green", "Message5")
+	testFramework.RegisterBranchID("red", "Message4")
+	testFramework.RegisterBranchID("yellow", "Message2")
+	testFramework.RegisterBranchID("black", "Message7")
+	testFramework.RegisterBranchID("blue", "Message9")
+
+	testFramework.RegisterBranchID("yellow+green", "Message2", "Message5")
+	testFramework.RegisterBranchID("red+black", "Message4", "Message7")
+
 	testFramework.IssueMessages("Message1").WaitMessagesBooked()
 	testFramework.IssueMessages("Message2").WaitMessagesBooked()
 	testFramework.IssueMessages("Message3", "Message4").WaitMessagesBooked()
@@ -82,34 +91,28 @@ func TestScenario_2(t *testing.T) {
 	testFramework.IssueMessages("Message8").WaitMessagesBooked()
 	testFramework.IssueMessages("Message9").WaitMessagesBooked()
 
-	testFramework.RegisterBranchID("purple", "Message5")
-	testFramework.RegisterBranchID("red", "Message4")
-	testFramework.RegisterBranchID("yellow", "Message2")
-	testFramework.RegisterBranchID("orange", "Message7")
-	testFramework.RegisterBranchID("blue", "Message9")
-
 	checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
 		"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
 		"Message2": testFramework.BranchIDs("yellow"),
 		"Message3": testFramework.BranchIDs("yellow"),
 		"Message4": testFramework.BranchIDs("red"),
-		"Message5": testFramework.BranchIDs("yellow", "purple"),
-		"Message6": testFramework.BranchIDs("yellow", "purple"),
-		"Message7": testFramework.BranchIDs("red", "orange"),
-		"Message8": testFramework.BranchIDs("red", "orange"),
-		"Message9": testFramework.BranchIDs("red", "orange", "blue"),
+		"Message5": testFramework.BranchIDs("yellow", "green"),
+		"Message6": testFramework.BranchIDs("yellow", "green"),
+		"Message7": testFramework.BranchIDs("red", "black"),
+		"Message8": testFramework.BranchIDs("red", "black"),
+		"Message9": testFramework.BranchIDs("red", "black", "blue"),
 	})
 
 	checkMarkers(t, testFramework, map[string]*markers.Markers{
-		"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
-		"Message2": markers.NewMarkers(markers.NewMarker(1, 2)),
-		"Message3": markers.NewMarkers(markers.NewMarker(1, 3)),
-		"Message4": markers.NewMarkers(markers.NewMarker(1, 1)),
-		"Message5": markers.NewMarkers(markers.NewMarker(2, 3)),
-		"Message6": markers.NewMarkers(markers.NewMarker(2, 4)),
-		"Message7": markers.NewMarkers(markers.NewMarker(3, 2)),
-		"Message8": markers.NewMarkers(markers.NewMarker(3, 3)),
-		"Message9": markers.NewMarkers(markers.NewMarker(4, 3)),
+		"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Message3": markers.NewMarkers(markers.NewMarker(0, 3)),
+		"Message4": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message5": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Message6": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Message7": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message8": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message9": markers.NewMarkers(markers.NewMarker(0, 1)),
 	})
 }
 
@@ -147,6 +150,7 @@ func TestScenario_3(t *testing.T) {
 	testFramework.RegisterBranchID("red", "Message4")
 	testFramework.RegisterBranchID("yellow", "Message5")
 	testFramework.RegisterBranchID("orange", "Message7")
+	testFramework.RegisterBranchID("blue", "Message9")
 	testFramework.RegisterBranchID("blue", "Message9")
 
 	checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
@@ -3947,6 +3951,10 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedBranchIDs map[string]ledgerstate.BranchIDs) {
 	for messageID, messageExpectedBranchIDs := range expectedBranchIDs {
 		fmt.Println(">>", messageID)
+
+		messageMetadata := testFramework.MessageMetadata(messageID)
+		fmt.Println("Add:", messageMetadata.addedBranchIDs, "Sub:", messageMetadata.subtractedBranchIDs)
+
 		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.MessageBranchIDs(testFramework.Message(messageID).ID())
 		assert.NoError(t, errRetrieve)
 

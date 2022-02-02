@@ -865,6 +865,10 @@ func NewTestTangle(options ...Option) *Tangle {
 		t.WeightProvider = &MockWeightProvider{}
 	}
 
+	t.Events.Error.Attach(events.NewClosure(func(e error) {
+		fmt.Println(e)
+	}))
+
 	return t
 }
 
