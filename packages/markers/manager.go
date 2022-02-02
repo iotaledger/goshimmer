@@ -56,10 +56,11 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 
 	assignedMarker, sequenceExtended := m.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers, increaseIndexCallback)
 	if !sequenceExtended {
-		if newSequenceCreated, assignedMarker = m.createSequenceIfNecessary(inheritedStructureDetails, highestSequenceRank); !newSequenceCreated {
-			// we didn't create a new marker
-			return inheritedStructureDetails, false
-		}
+		newSequenceCreated, assignedMarker = m.createSequenceIfNecessary(inheritedStructureDetails, highestSequenceRank)
+	}
+
+	if !sequenceExtended && !newSequenceCreated {
+		return inheritedStructureDetails, false
 	}
 
 	inheritedStructureDetails.IsPastMarker = true
@@ -416,6 +417,9 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails, 
 	return true, firstMarker
 }
 
+// extendHighestAvailableSequence is an internal utility function that tries to extend the referenced Sequences in
+// descending order. It returns the newly assigned Marker and a boolean value that indicates if one of the referenced
+// Sequences could be extended.
 func (m *Manager) extendHighestAvailableSequence(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {
 	referencedPastMarkers.ForEachSorted(func(sequenceID SequenceID, index Index) bool {
 		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {

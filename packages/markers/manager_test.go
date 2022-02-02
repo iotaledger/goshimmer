@@ -345,37 +345,37 @@ func TestManager(t *testing.T) {
 func TestManagerConvergence(t *testing.T) {
 	manager := NewManager(WithCacheTime(0))
 
-	structureDetails1 := manager.InheritStructureDetails(nil, alwaysIncreaseIndex)
+	structureDetails1, _ := manager.InheritStructureDetails(nil, alwaysIncreaseIndex)
 	assert.True(t, structureDetails1.PastMarkers.Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails2 := manager.InheritStructureDetails(nil, alwaysIncreaseIndex)
+	structureDetails2, _ := manager.InheritStructureDetails(nil, alwaysIncreaseIndex)
 	assert.True(t, structureDetails2.PastMarkers.Equals(NewMarkers(NewMarker(0, 0))))
 
-	structureDetails3 := manager.InheritStructureDetails(nil, alwaysIncreaseIndex)
+	structureDetails3, _ := manager.InheritStructureDetails(nil, alwaysIncreaseIndex)
 	assert.True(t, structureDetails3.PastMarkers.Equals(NewMarkers(NewMarker(0, 0))))
 
-	structureDetails4 := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2}, alwaysIncreaseIndex)
+	structureDetails4, _ := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2}, alwaysIncreaseIndex)
 	assert.True(t, structureDetails4.PastMarkers.Equals(NewMarkers(NewMarker(0, 2))))
 
-	structureDetails5 := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails3}, alwaysIncreaseIndex)
+	structureDetails5, _ := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails3}, alwaysIncreaseIndex)
 	assert.True(t, structureDetails5.PastMarkers.Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails6 := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2, structureDetails3}, alwaysIncreaseIndex)
+	structureDetails6, _ := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2, structureDetails3}, alwaysIncreaseIndex)
 	assert.True(t, structureDetails6.PastMarkers.Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails7 := manager.InheritStructureDetails([]*StructureDetails{structureDetails2, structureDetails3}, alwaysIncreaseIndex)
+	structureDetails7, _ := manager.InheritStructureDetails([]*StructureDetails{structureDetails2, structureDetails3}, alwaysIncreaseIndex)
 	assert.True(t, structureDetails7.PastMarkers.Equals(NewMarkers(NewMarker(0, 0))))
 
-	structureDetails8 := manager.InheritStructureDetails([]*StructureDetails{structureDetails4, structureDetails5}, alwaysIncreaseIndex)
+	structureDetails8, _ := manager.InheritStructureDetails([]*StructureDetails{structureDetails4, structureDetails5}, alwaysIncreaseIndex)
 	assert.True(t, structureDetails8.PastMarkers.Equals(NewMarkers(NewMarker(0, 3))))
 
-	structureDetails9 := manager.InheritStructureDetails([]*StructureDetails{structureDetails5, structureDetails6}, alwaysIncreaseIndex)
+	structureDetails9, _ := manager.InheritStructureDetails([]*StructureDetails{structureDetails5, structureDetails6}, alwaysIncreaseIndex)
 	assert.True(t, structureDetails9.PastMarkers.Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails10 := manager.InheritStructureDetails([]*StructureDetails{structureDetails6, structureDetails7}, alwaysIncreaseIndex)
+	structureDetails10, _ := manager.InheritStructureDetails([]*StructureDetails{structureDetails6, structureDetails7}, alwaysIncreaseIndex)
 	assert.True(t, structureDetails10.PastMarkers.Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails11 := manager.InheritStructureDetails([]*StructureDetails{structureDetails9, structureDetails10}, alwaysIncreaseIndex)
+	structureDetails11, _ := manager.InheritStructureDetails([]*StructureDetails{structureDetails9, structureDetails10}, alwaysIncreaseIndex)
 	assert.True(t, structureDetails11.PastMarkers.Equals(NewMarkers(NewMarker(0, 1))))
 }
 
@@ -407,7 +407,7 @@ func inheritPastMarkers(message *message, manager *Manager, messageDB map[string
 		pastMarkers[i] = messageDB[parentID].structureDetails
 	}
 
-	message.structureDetails = manager.InheritStructureDetails(pastMarkers, alwaysIncreaseIndex)
+	message.structureDetails, _ = manager.InheritStructureDetails(pastMarkers, alwaysIncreaseIndex)
 	if message.structureDetails.IsPastMarker {
 		pastMarkerToPropagate = message.structureDetails.PastMarkers.Marker()
 	}
