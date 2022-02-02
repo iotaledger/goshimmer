@@ -377,42 +377,20 @@ func TestManager(t *testing.T) {
 		}
 	}
 
-	//for messageID, expectedFutureMarkers := range map[string]*Markers{
-	//	"msg0":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
-	//	"msg1":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
-	//	"msg2":  NewMarkers(&Marker{sequenceID: 1, index: 2}),
-	//	"msg3":  NewMarkers(&Marker{sequenceID: 1, index: 2}, &Marker{sequenceID: 5, index: 2}),
-	//	"msg4":  NewMarkers(&Marker{sequenceID: 3, index: 3}),
-	//	"msg5":  NewMarkers(&Marker{sequenceID: 3, index: 3}, &Marker{sequenceID: 1, index: 3}),
-	//	"msg6":  NewMarkers(&Marker{sequenceID: 3, index: 3}),
-	//	"msg7":  NewMarkers(&Marker{sequenceID: 3, index: 4}),
-	//	"msg8":  NewMarkers(&Marker{sequenceID: 1, index: 3}),
-	//	"msg9":  NewMarkers(&Marker{sequenceID: 3, index: 4}),
-	//	"msg10": NewMarkers(&Marker{sequenceID: 3, index: 4}),
-	//	"msg11": NewMarkers(&Marker{sequenceID: 3, index: 4}, &Marker{sequenceID: 5, index: 4}),
-	//	"msg12": NewMarkers(),
-	//	"msg13": NewMarkers(&Marker{sequenceID: 5, index: 2}),
-	//	"msg14": NewMarkers(&Marker{sequenceID: 5, index: 2}),
-	//	"msg15": NewMarkers(&Marker{sequenceID: 5, index: 4}),
-	//	"msg16": NewMarkers(),
-	//} {
-	//	assert.Equal(t, expectedFutureMarkers, messageDB[messageID].structureDetails.FutureMarkers, messageID+" has unexpected future Markers")
-	//}
-
-	//for _, earlierMessage := range messageDB {
-	//	for _, laterMessage := range messageDB {
-	//		if earlierMessage != laterMessage {
-	//			switch messageReferencesMessage(laterMessage, earlierMessage, messageDB) {
-	//			case types.True:
-	//				referencesResult := manager.IsInPastCone(earlierMessage.structureDetails, laterMessage.structureDetails)
-	//				assert.True(t, referencesResult == types.True || referencesResult == types.Maybe, earlierMessage.id+" should be in past cone of "+laterMessage.id)
-	//			case types.False:
-	//				referencesResult := manager.IsInPastCone(earlierMessage.structureDetails, laterMessage.structureDetails)
-	//				assert.True(t, referencesResult == types.False || referencesResult == types.Maybe, earlierMessage.id+" shouldn't be in past cone of "+laterMessage.id)
-	//			}
-	//		}
-	//	}
-	//}
+	for _, earlierMessage := range messageDB {
+		for _, laterMessage := range messageDB {
+			if earlierMessage != laterMessage {
+				switch messageReferencesMessage(laterMessage, earlierMessage, messageDB) {
+				case types.True:
+					referencesResult := manager.IsInPastCone(earlierMessage.structureDetails, laterMessage.structureDetails)
+					assert.True(t, referencesResult == types.True || referencesResult == types.Maybe, earlierMessage.id+" should be in past cone of "+laterMessage.id)
+				case types.False:
+					referencesResult := manager.IsInPastCone(earlierMessage.structureDetails, laterMessage.structureDetails)
+					assert.True(t, referencesResult == types.False || referencesResult == types.Maybe, earlierMessage.id+" shouldn't be in past cone of "+laterMessage.id)
+				}
+			}
+		}
+	}
 }
 
 func TestManagerConvergence(t *testing.T) {
