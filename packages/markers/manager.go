@@ -48,15 +48,14 @@ func NewManager(options ...ManagerOption) (newManager *Manager) {
 func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = m.mergeParentStructureDetails(referencedStructureDetails)
 
-	normalizedPastMarkers, highestSequenceRank := m.normalizeMarkers(inheritedStructureDetails.PastMarkers)
-	if normalizedPastMarkers.Size() == 0 {
-		normalizedPastMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
+	inheritedStructureDetails.PastMarkers = m.normalizeMarkers(inheritedStructureDetails.PastMarkers)
+	if inheritedStructureDetails.PastMarkers.Size() == 0 {
+		inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
 	}
-	inheritedStructureDetails.PastMarkers = normalizedPastMarkers
 
 	assignedMarker, sequenceExtended := m.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers, increaseIndexCallback)
 	if !sequenceExtended {
-		newSequenceCreated, assignedMarker = m.createSequenceIfNecessary(inheritedStructureDetails, highestSequenceRank)
+		newSequenceCreated, assignedMarker = m.createSequenceIfNecessary(inheritedStructureDetails)
 	}
 
 	if !sequenceExtended && !newSequenceCreated {
@@ -248,7 +247,7 @@ func (m *Manager) initSequenceIDCounter() (self *Manager) {
 func (m *Manager) initObjectStorage() (self *Manager) {
 	m.sequenceStore = objectstorage.NewFactory(m.Options.Store, database.PrefixMarkers).New(0, SequenceFromObjectStorage, objectstorage.CacheTime(m.Options.CacheTime))
 
-	if cachedSequence, stored := m.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers(), 0)); stored {
+	if cachedSequence, stored := m.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers())); stored {
 		cachedSequence.Release()
 	}
 
@@ -259,10 +258,9 @@ func (m *Manager) initObjectStorage() (self *Manager) {
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
 // referenced by any of the Markers (the tips of the Sequence DAG).
-func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers, highestSequenceRank uint64) {
+func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers) {
 	normalizedMarkers = markers.Clone()
 
-	rankCache := make(map[SequenceID]uint64)
 	normalizeWalker := walker.New()
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		normalizeWalker.Push(NewMarker(sequenceID, index))
@@ -270,23 +268,12 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers
 		return true
 	})
 
-	lowestRankOfMarkers := m.rankOfLowestSequence(markers, rankCache)
-
 	seenMarkers := NewMarkers()
 	for i := 0; normalizeWalker.HasNext(); i++ {
 		currentMarker := normalizeWalker.Next().(*Marker)
 
-		sequenceRank := m.rankOfSequence(currentMarker.SequenceID(), rankCache)
-		if i < markers.Size() {
-			if sequenceRank > highestSequenceRank {
-				highestSequenceRank = sequenceRank
-			}
-		} else {
+		if i >= markers.Size() {
 			if added, updated := seenMarkers.Set(currentMarker.SequenceID(), currentMarker.Index()); !added && !updated {
-				continue
-			}
-
-			if sequenceRank < lowestRankOfMarkers {
 				continue
 			}
 
@@ -311,7 +298,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers
 		}
 	}
 
-	return normalizedMarkers, highestSequenceRank
+	return normalizedMarkers
 }
 
 // laterMarkersReferenceEarlierMarkers is an internal utility function that returns true if the later Markers reference
@@ -370,19 +357,6 @@ func (m *Manager) laterMarkerDirectlyReferencesEarlierMarkers(laterMarker *Marke
 	return laterMarker.Index() >= earlierIndex
 }
 
-func (m *Manager) rankOfLowestSequence(markers *Markers, rankCache map[SequenceID]uint64) (rankOfLowestSequence uint64) {
-	rankOfLowestSequence = uint64(1<<64 - 1)
-	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
-		if rankOfSequence := m.rankOfSequence(sequenceID, rankCache); rankOfSequence < rankOfLowestSequence {
-			rankOfLowestSequence = rankOfSequence
-		}
-
-		return true
-	})
-
-	return
-}
-
 // registerReferencingMarker is an internal utility function that adds a referencing Marker to the internal data
 // structure.
 func (m *Manager) registerReferencingMarker(referencedPastMarkers *Markers, marker *Marker) {
@@ -417,14 +391,14 @@ func (m *Manager) extendHighestAvailableSequence(referencedPastMarkers *Markers,
 
 // createSequenceIfNecessary is an internal utility function that creates a new Sequence if the distance to the last
 // past Marker is higher or equal than the configured threshold and returns the first Marker in that Sequence.
-func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails, highestReferencedSequenceRank uint64) (created bool, firstMarker *Marker) {
+func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails) (created bool, firstMarker *Marker) {
 	if structureDetails.PastMarkerGap < m.Options.MaxPastMarkerDistance {
 		return
 	}
 
 	m.sequenceIDCounterMutex.Lock()
 	m.sequenceIDCounter++
-	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers, highestReferencedSequenceRank+1)
+	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers)
 	m.sequenceIDCounterMutex.Unlock()
 
 	(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
@@ -434,21 +408,6 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails, 
 	m.registerReferencingMarker(structureDetails.PastMarkers, firstMarker)
 
 	return true, firstMarker
-}
-
-// rankOfSequence is an internal utility function that returns the rank of the given Sequence.
-func (m *Manager) rankOfSequence(sequenceID SequenceID, ranksCache map[SequenceID]uint64) uint64 {
-	if rank, rankKnown := ranksCache[sequenceID]; rankKnown {
-		return rank
-	}
-
-	if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
-		ranksCache[sequenceID] = sequence.rank
-	}) {
-		panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
-	}
-
-	return ranksCache[sequenceID]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
