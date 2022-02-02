@@ -21,18 +21,17 @@ type BranchMarkersMapper struct {
 }
 
 // NewBranchMarkersMapper is the constructor of the MarkersManager.
-func NewBranchMarkersMapper(tangle *Tangle) *BranchMarkersMapper {
-	b := &BranchMarkersMapper{
+func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
+	b = &BranchMarkersMapper{
 		tangle:         tangle,
 		discardedNodes: make(map[identity.ID]time.Time),
 		Manager:        markers.NewManager(markers.WithStore(tangle.Options.Store)),
 	}
 
-	if b.BranchID(markers.NewMarker(0, 1)) == ledgerstate.UndefinedBranchID {
-		b.SetBranchID(markers.NewMarker(0, 1), ledgerstate.MasterBranchID)
-	}
+	// Always set Genesis to MasterBranch.
+	b.SetBranchID(markers.NewMarker(0, 0), ledgerstate.MasterBranchID)
 
-	return b
+	return
 }
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
