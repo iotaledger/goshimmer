@@ -32,13 +32,13 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 	mtf.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7").WaitMessagesBooked()
 
 	for messageAlias, expectedMarkers := range map[string]*markers.Markers{
-		"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
-		"Message2": markers.NewMarkers(markers.NewMarker(1, 2)),
-		"Message3": markers.NewMarkers(markers.NewMarker(1, 3)),
+		"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Message3": markers.NewMarkers(markers.NewMarker(0, 3)),
 		"Message4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		"Message5": markers.NewMarkers(markers.NewMarker(0, 0)),
 		"Message6": markers.NewMarkers(markers.NewMarker(0, 0)),
-		"Message7": markers.NewMarkers(markers.NewMarker(1, 4)),
+		"Message7": markers.NewMarkers(markers.NewMarker(0, 4)),
 	} {
 		tangle.Storage.MessageMetadata(mtf.Message(messageAlias).ID()).Consume(func(messageMetadata *MessageMetadata) {
 			assert.True(t, messageMetadata.StructureDetails().PastMarkers.Equals(expectedMarkers))

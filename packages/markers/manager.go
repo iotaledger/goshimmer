@@ -56,10 +56,11 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 
 	assignedMarker, sequenceExtended := m.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers, increaseIndexCallback)
 	if !sequenceExtended {
-		if newSequenceCreated, assignedMarker = m.createSequenceIfNecessary(inheritedStructureDetails, highestSequenceRank); !newSequenceCreated {
-			// we didn't create a new marker
-			return inheritedStructureDetails, false
-		}
+		newSequenceCreated, assignedMarker = m.createSequenceIfNecessary(inheritedStructureDetails, highestSequenceRank)
+	}
+
+	if !sequenceExtended && !newSequenceCreated {
+		return inheritedStructureDetails, false
 	}
 
 	inheritedStructureDetails.IsPastMarker = true
@@ -395,8 +396,28 @@ func (m *Manager) registerReferencingMarker(referencedPastMarkers *Markers, mark
 	})
 }
 
-// createSequenceIfNecessary is an internal utility function that creates a sequence if the distance to the last
-// past marker is higher or equal than the configured threshold and returns the first marker in that sequence.
+// extendHighestAvailableSequence is an internal utility function that tries to extend the referenced Sequences in
+// descending order. It returns the newly assigned Marker and a boolean value that indicates if one of the referenced
+// Sequences could be extended.
+func (m *Manager) extendHighestAvailableSequence(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {
+	referencedPastMarkers.ForEachSorted(func(sequenceID SequenceID, index Index) bool {
+		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+			if newIndex, remainingReferencedPastMarkers, sequenceExtended := sequence.TryExtend(referencedPastMarkers, increaseIndexCallback); sequenceExtended {
+				extended = sequenceExtended
+				marker = NewMarker(sequenceID, newIndex)
+
+				m.registerReferencingMarker(remainingReferencedPastMarkers, marker)
+			}
+		})
+
+		return !extended
+	})
+
+	return
+}
+
+// createSequenceIfNecessary is an internal utility function that creates a new Sequence if the distance to the last
+// past Marker is higher or equal than the configured threshold and returns the first Marker in that Sequence.
 func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails, highestReferencedSequenceRank uint64) (created bool, firstMarker *Marker) {
 	if structureDetails.PastMarkerGap < m.Options.MaxPastMarkerDistance {
 		return
@@ -414,23 +435,6 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails, 
 	m.registerReferencingMarker(structureDetails.PastMarkers, firstMarker)
 
 	return true, firstMarker
-}
-
-func (m *Manager) extendHighestAvailableSequence(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {
-	referencedPastMarkers.ForEachSorted(func(sequenceID SequenceID, index Index) bool {
-		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
-			if newIndex, remainingReferencedPastMarkers, sequenceExtended := sequence.TryExtend(referencedPastMarkers, increaseIndexCallback); sequenceExtended {
-				extended = sequenceExtended
-				marker = NewMarker(sequenceID, newIndex)
-
-				m.registerReferencingMarker(remainingReferencedPastMarkers, marker)
-			}
-		})
-
-		return !extended
-	})
-
-	return
 }
 
 // rankOfSequence is an internal utility function that returns the rank of the given Sequence.
