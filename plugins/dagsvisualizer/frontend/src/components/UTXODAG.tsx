@@ -1,9 +1,9 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
-import { inject, observer } from 'mobx-react';
-import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
-import { Collapse } from 'react-bootstrap';
-import { TransactionInfo } from 'components/TransactionInfo';
+import {inject, observer} from 'mobx-react';
+import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
+import {Collapse} from 'react-bootstrap';
+import {TransactionInfo} from 'components/TransactionInfo';
 import UTXOStore from 'stores/UTXOStore';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
@@ -76,7 +76,7 @@ export default class UTXODAG extends React.Component<Props, any> {
                     </h2>
                 </div>
                 <Collapse in={this.state.open}>
-                    <div>
+                    <div className={'panel'}>
                         <Row xs={5}>
                             <Col
                                 className="align-self-end"
@@ -99,6 +99,7 @@ export default class UTXODAG extends React.Component<Props, any> {
                                         }
                                     >
                                         <Button
+                                            className={'button'}
                                             onClick={this.pauseResumeVisualizer}
                                             variant="outline-secondary"
                                         >
@@ -110,6 +111,7 @@ export default class UTXODAG extends React.Component<Props, any> {
                                 </InputGroup>
                                 <InputGroup className="mb-1">
                                     <Button
+                                        className={'button'}
                                         onClick={this.centerGraph}
                                         variant="outline-secondary"
                                     >

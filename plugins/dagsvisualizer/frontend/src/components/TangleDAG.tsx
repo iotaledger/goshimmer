@@ -1,10 +1,10 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
-import { inject, observer } from 'mobx-react';
-import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
-import { Collapse } from 'react-bootstrap';
+import {inject, observer} from 'mobx-react';
+import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
+import {Collapse} from 'react-bootstrap';
 import TangleStore from 'stores/TangleStore';
-import { MessageInfo } from 'components/MessageInfo';
+import {MessageInfo} from 'components/MessageInfo';
 import 'styles/style.css';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
@@ -77,7 +77,7 @@ export default class TangleDAG extends React.Component<Props, any> {
                     </h2>
                 </div>
                 <Collapse in={this.state.open}>
-                    <div>
+                    <div className={'panel'}>
                         <Row xs={5}>
                             <Col
                                 className="align-self-end"
@@ -100,6 +100,7 @@ export default class TangleDAG extends React.Component<Props, any> {
                                         }
                                     >
                                         <Button
+                                            className={'button'}
                                             onClick={this.pauseResumeVisualizer}
                                             variant="outline-secondary"
                                         >
@@ -111,6 +112,7 @@ export default class TangleDAG extends React.Component<Props, any> {
                                 </InputGroup>
                                 <InputGroup className="mb-1">
                                     <Button
+                                        className={'button'}
                                         onClick={this.centerGraph}
                                         variant="outline-secondary"
                                     >

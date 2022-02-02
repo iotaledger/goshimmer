@@ -1,8 +1,8 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
-import { inject, observer } from 'mobx-react';
-import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
-import { Collapse } from 'react-bootstrap';
+import {inject, observer} from 'mobx-react';
+import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
+import {Collapse} from 'react-bootstrap';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import GlobalStore from 'stores/GlobalStore';
@@ -10,7 +10,7 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
 import Datetime from 'react-datetime';
-import { isMoment } from 'moment';
+import {isMoment} from 'moment';
 import 'react-datetime/css/react-datetime.css';
 
 interface Props {
@@ -106,7 +106,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                 </div>
                 <Collapse in={this.state.open}>
                     <div>
-                        <div>
+                        <div className={'panel'}>
                             <div
                                 onClick={() =>
                                     this.setState(prevState => ({
@@ -141,6 +141,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                         }}
                                     >
                                         <Button
+                                            className={'button'}
                                             onClick={
                                                 this.searchVerticesInLedger
                                             }
@@ -156,6 +157,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                             )}
                                         </Button>
                                         <Button
+                                            className={'button'}
                                             disabled={this.state.isIdle}
                                             onClick={this.clearSearch}
                                             variant="outline-secondary"
@@ -177,7 +179,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </Row>
                             </Collapse>
                         </div>
-                        <div>
+                        <div className={'panel'}>
                             <div
                                 onClick={() =>
                                     this.setState(prevState => ({
@@ -185,12 +187,12 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     }))
                                 }
                             >
-                                <h5 style={{ marginTop: '10px' }}>
+                                <h5 style={{marginTop: '10px'}}>
                                     Set explorer URL{' '}
                                     {this.state.dashboardUrlOpen ? (
-                                        <MdKeyboardArrowUp />
+                                        <MdKeyboardArrowUp/>
                                     ) : (
-                                        <MdKeyboardArrowDown />
+                                        <MdKeyboardArrowDown/>
                                     )}
                                 </h5>
                                 <p>
@@ -221,7 +223,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </Row>
                             </Collapse>
                         </div>
-                        <div>
+                        <div className={'panel'}>
                             <div
                                 onClick={() =>
                                     this.setState(prevState => ({
@@ -247,6 +249,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 <Row>
                                     <Col xs="auto">
                                         <Button
+                                            className={'button'}
                                             onClick={this.syncWithMsg}
                                             variant="outline-secondary"
                                         >
@@ -255,6 +258,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     </Col>
                                     <Col xs="auto">
                                         <Button
+                                            className={'button'}
                                             onClick={this.syncWithTx}
                                             variant="outline-secondary"
                                         >
@@ -263,6 +267,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     </Col>
                                     <Col xs="auto">
                                         <Button
+                                            className={'button'}
                                             onClick={this.syncWithBranch}
                                             variant="outline-secondary"
                                         >
@@ -271,6 +276,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     </Col>
                                     <Col xs="auto">
                                         <Button
+                                            className={'button'}
                                             onClick={this.clearSync}
                                             variant="outline-secondary"
                                         >

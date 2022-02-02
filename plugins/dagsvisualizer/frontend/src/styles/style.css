@@ -1,7 +1,23 @@
 html,
 body,
 #root {
+    --iota-dark-blue: #131f37;
+    --iota-sea-color: #0fc1b7;
+    --iota-shade-blue: #123f51;
+    --iota-white: #f7f9fd;
+    --iota-light-grey: #a9b8d6;
+    --iota-dark-grey: #777c87;
+
     height: 100%;
+    background-color: var(--iota-dark-blue);
+}
+
+h2 {
+    color: var(--iota-white);
+}
+
+h5 {
+    color: var(--iota-light-grey);
 }
 
 .container {
@@ -10,7 +26,8 @@ body,
 
 .graphFrame {
     position: relative;
-    background: #ededed;
+    background: var(--iota-shade-blue);
+    margin: 2em 0;
 }
 
 #tangleVisualizer {
@@ -31,12 +48,26 @@ body,
 
 .selectedInfo {
     position: absolute;
-    width: 300px;
+    width: 20%;
+    max-width: 500px;
     height: 100%;
     top: 10px;
     right: 20px;
     z-index: 1;
     overflow: scroll;
+}
+
+.card {
+    background-color: var(--iota-dark-blue);
+    /*border: 1px solid var(--iota-sea-color);*/
+}
+
+.card div {
+    background-color: var(--iota-dark-blue);
+}
+
+.card div a {
+    color: var(--iota-sea-color);
 }
 
 .form-control {
@@ -49,4 +80,70 @@ body,
 
 .node {
     position: absolute;
+}
+
+.button {
+    color: var(--iota-sea-color);
+    border: 1px solid var(--iota-sea-color);
+}
+
+.button:hover {
+    color: var(--iota-white);
+    border: 1px solid var(--iota-sea-color);
+    background-color: var(--iota-shade-blue);
+}
+
+.panel {
+    padding: 2em 0;
+    box-shadow: 0 2px 0 0 var(--iota-sea-color);
+    color: var(--iota-white)
+}
+
+.panel input {
+    background-color: var(--iota-dark-blue);
+    border: 1px solid var(--iota-dark-grey);
+    color: var(--iota-dark-grey);
+}
+
+.panel input:focus {
+    background-color: var(--iota-shade-blue);
+    border: 1px solid var(--iota-sea-color);
+    color: var(--iota-dark-grey);
+}
+
+.panel span {
+    color: var(--iota-dark-grey);
+    border: 1px solid var(--iota-dark-grey);
+    background-color: var(--iota-dark-blue);
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.panel .rdtPicker {
+    background-color: var(--iota-shade-blue);
+    color: var(--iota-sea-color);
+    border: none;
+}
+
+.panel .rdtPicker th {
+    border-color: var(--iota-dark-blue)
+}
+
+.panel .rdtPicker .rdtCount {
+    height: auto;
+}
+
+.panel .rdtPicker .rdtDay:hover {
+    background-color: var(--iota-dark-blue);
+}
+
+.panel .rdtPicker .rdtDay:hover,
+.panel .rdtPicker .rdtDay.rdtActive,
+.panel .rdtPicker .rdtMonth:hover,
+.panel .rdtPicker .rdtMonth.rdtActive,
+.panel .rdtPicker .rdtYear:hover,
+.panel .rdtPicker .rdtYear.rdtActive,
+.panel .rdtPicker .rdtTimeToggle:hover,
+.panel .rdtPicker .rdtSwitch:hover {
+    background-color: var(--iota-dark-blue);
 }
