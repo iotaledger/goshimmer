@@ -224,12 +224,21 @@ func registerBranchEvents() {
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/dagsvisualizer/branch/:branchID", func(c echo.Context) (err error) {
+		parents := make(map[string]*branchVertex)
 		var branchID ledgerstate.BranchID
 		if branchID, err = ledgerstate.BranchIDFromBase58(c.Param("branchID")); err != nil {
-			return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+			return
 		}
-		branchVertex := newBranchVertex(branchID)
-		return c.JSON(http.StatusOK, branchVertex)
+		vertex := newBranchVertex(branchID)
+		parents[vertex.ID] = vertex
+		getBranchesToMaster(vertex, parents)
+
+		var branches []*branchVertex
+		for _, branch := range parents {
+			branches = append(branches, branch)
+		}
+		return c.JSON(http.StatusOK, branches)
 	})
 
 	routeGroup.GET("/dagsvisualizer/search/:start/:end", func(c echo.Context) (err error) {
@@ -403,4 +412,16 @@ func storeWsMessage(msg *wsMessage) {
 		buffer = buffer[1:]
 	}
 	buffer = append(buffer, msg)
+}
+
+func getBranchesToMaster(vertex *branchVertex, parents map[string]*branchVertex) {
+	for _, IDBase58 := range vertex.Parents {
+		if _, ok := parents[IDBase58]; !ok {
+			if ID, err := ledgerstate.BranchIDFromBase58(IDBase58); err == nil {
+				parentVertex := newBranchVertex(ID)
+				parents[parentVertex.ID] = parentVertex
+				getBranchesToMaster(parentVertex, parents)
+			}
+		}
+	}
 }

@@ -9,7 +9,6 @@ export class cytoscapeLib implements IGraph {
     cy;
     layout;
     layoutApi;
-    branchAPICache: Map<string, branchVertex>;
 
     constructor(options: Array<any>, init: () => any) {
         options.forEach((o) => {
@@ -17,8 +16,6 @@ export class cytoscapeLib implements IGraph {
         });
 
         [this.cy, this.layout, this.layoutApi] = init();
-
-        this.branchAPICache = new Map();
     }
 
     drawVertex(data: any): void {
@@ -146,11 +143,7 @@ export function drawTransaction(
     graph.layoutApi.placeNewNodes(collection);
 }
 
-export async function drawBranch(
-    branch: branchVertex,
-    graph: cytoscapeLib,
-    branchMap: ObservableMap<string, branchVertex>
-) {
+const drawSingleBranch = function(branch: branchVertex, graph: cytoscapeLib, branchMap: ObservableMap<string, branchVertex>): any {
     if (!branch) {
         return;
     }
@@ -161,11 +154,25 @@ export async function drawBranch(
             data: { id: branch.ID }
         });
     } catch (e) {
-        // already exists. never mind
-    } finally {
-        branchMap.set(branch.ID, branch);
+        // already drawn
     }
+    branchMap.set(branch.ID, branch);
 
+    if (v) {
+        graph.layoutApi.placeNewNodes(v);
+    }
+    return v;
+};
+
+export async function drawBranch(
+    branch: branchVertex,
+    graph: cytoscapeLib,
+    branchMap: ObservableMap<string, branchVertex>
+) {
+    if (!branch) {
+        return;
+    }
+    drawSingleBranch(branch, graph, branchMap);
     branch.parents = branch.parents || [];
     for (let i = 0; i < branch.parents.length; i++) {
         const pID = branch.parents[i];
@@ -176,23 +183,33 @@ export async function drawBranch(
                 data: { source: pID, target: branch.ID }
             });
         } else {
-            // recursively fetch branch and draw parent
             const res = await fetch(`/api/dagsvisualizer/branch/${pID}`);
-            const vertex: branchVertex = (await res.json()) as branchVertex;
-            console.log('parent found: ', vertex);
-            await drawBranch(vertex, graph, branchMap);
-            // make sure the parent was added
-            if (branchMap.get(pID)) {
-                graph.cy.add({
-                    group: 'edges',
-                    data: { source: pID, target: branch.ID }
-                });
-            }
+            const branches: Array<branchVertex> = (await res.json()) as Array<branchVertex>;
+            drawBranchesUpToMaster(branches, graph, branchMap);
+            graph.cy.add({
+                group: 'edges',
+                data: { source: pID, target: branch.ID }
+            });
         }
     }
+}
 
-    if (v) {
-        graph.layoutApi.placeNewNodes(v);
+function drawBranchesUpToMaster(branches: Array<branchVertex>, graph: cytoscapeLib, branchMap: ObservableMap<string, branchVertex>) {
+    for (let i = 0; i < branches.length; i++) {
+        const branch = branches[i];
+        drawSingleBranch(branch, graph, branchMap);
+        branch.parents?.forEach(parentID => {
+            const parent = branches.find(b => b.ID === parentID);
+            if (parent) {
+                if (!branchMap.get(parentID)) {
+                    drawSingleBranch(parent, graph, branchMap);
+                }
+                graph.cy.add({
+                    group: 'edges',
+                    data: { source: parent.ID, target: branch.ID }
+                });
+            }
+        });
     }
 }
 
