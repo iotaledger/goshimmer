@@ -127,11 +127,11 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 <Row md={4}>
                                     <Col>
                                         From:{' '}
-                                        <Datetime onChange={this.updateFrom} />
+                                        <Datetime onChange={this.updateFrom} timeFormat='HH:mm:ss' input />
                                     </Col>
                                     <Col>
                                         To:{' '}
-                                        <Datetime onChange={this.updateTo} />
+                                        <Datetime onChange={this.updateTo} timeFormat='HH:mm:ss' input />
                                     </Col>
                                     <Col
                                         className="align-self-end"
