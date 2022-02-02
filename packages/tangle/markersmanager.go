@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -52,7 +53,7 @@ func (b *BranchMarkersMapper) InheritStructureDetails(message *Message, structur
 	//	return b.tangle.Options.IncreaseMarkersIndexCallback(sequenceID, currentHighestIndex)
 	//})
 
-	newStructureDetails = b.Manager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
+	newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
 	if newStructureDetails.IsPastMarker {
 		b.SetMessageID(newStructureDetails.PastMarkers.Marker(), message.ID())
 		b.tangle.Utils.WalkMessageMetadata(b.propagatePastMarkerToFutureMarkers(newStructureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
@@ -77,8 +78,10 @@ func (b *BranchMarkersMapper) SetMessageID(marker *markers.Marker, messageID Mes
 
 // BranchID returns the BranchID that is associated with the given Marker.
 func (b *BranchMarkersMapper) BranchID(marker *markers.Marker) (branchID ledgerstate.BranchID) {
+	fmt.Println(marker)
 	b.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID()).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		branchID = markerIndexBranchIDMapping.BranchID(marker.Index())
+		fmt.Println(markerIndexBranchIDMapping)
 	})
 
 	return

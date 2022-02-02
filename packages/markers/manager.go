@@ -45,7 +45,7 @@ func NewManager(options ...ManagerOption) (newManager *Manager) {
 // message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
 // InheritStructureDetails inherits the structure details of the given parent StructureDetails.
-func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback) (inheritedStructureDetails *StructureDetails) {
+func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = m.mergeParentStructureDetails(referencedStructureDetails)
 
 	normalizedPastMarkers, highestSequenceRank := m.normalizeMarkers(inheritedStructureDetails.PastMarkers)
@@ -54,14 +54,19 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	}
 	inheritedStructureDetails.PastMarkers = normalizedPastMarkers
 
-	assignedMarker, sequenceExtended := m.extendReferencedSequences(inheritedStructureDetails, highestSequenceRank, increaseIndexCallback)
-	if sequenceExtended {
-		inheritedStructureDetails.IsPastMarker = true
-		inheritedStructureDetails.PastMarkerGap = 0
-		inheritedStructureDetails.PastMarkers = NewMarkers(assignedMarker)
+	assignedMarker, sequenceExtended := m.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers, increaseIndexCallback)
+	if !sequenceExtended {
+		if newSequenceCreated, assignedMarker = m.createSequenceIfNecessary(inheritedStructureDetails, highestSequenceRank); !newSequenceCreated {
+			// we didn't create a new marker
+			return inheritedStructureDetails, false
+		}
 	}
 
-	return inheritedStructureDetails
+	inheritedStructureDetails.IsPastMarker = true
+	inheritedStructureDetails.PastMarkerGap = 0
+	inheritedStructureDetails.PastMarkers = NewMarkers(assignedMarker)
+
+	return inheritedStructureDetails, newSequenceCreated
 }
 
 func (m *Manager) mergeParentStructureDetails(referencedStructureDetails []*StructureDetails) (mergedStructureDetails *StructureDetails) {
@@ -390,29 +395,25 @@ func (m *Manager) registerReferencingMarker(referencedPastMarkers *Markers, mark
 	})
 }
 
-// extendReferencedSequences is an internal utility function that retrieves or creates the Sequence that represents the given
-// parameters and returns it.
-func (m *Manager) extendReferencedSequences(structureDetails *StructureDetails, sequenceRank uint64, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, created bool) {
-	if marker, created = m.extendHighestAvailableSequence(structureDetails.PastMarkers, increaseIndexCallback); created {
-		return
-	}
-
+// createSequenceIfNecessary is an internal utility function that creates a sequence if the distance to the last
+// past marker is higher or equal than the configured threshold and returns the first marker in that sequence.
+func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails, highestReferencedSequenceRank uint64) (created bool, firstMarker *Marker) {
 	if structureDetails.PastMarkerGap < m.Options.MaxPastMarkerDistance {
 		return
 	}
 
 	m.sequenceIDCounterMutex.Lock()
 	m.sequenceIDCounter++
-	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers, sequenceRank+1)
+	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers, highestReferencedSequenceRank+1)
 	m.sequenceIDCounterMutex.Unlock()
 
 	(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
 
-	marker = NewMarker(newSequence.id, newSequence.lowestIndex)
+	firstMarker = NewMarker(newSequence.id, newSequence.lowestIndex)
 
-	m.registerReferencingMarker(structureDetails.PastMarkers, marker)
+	m.registerReferencingMarker(structureDetails.PastMarkers, firstMarker)
 
-	return marker, true
+	return true, firstMarker
 }
 
 func (m *Manager) extendHighestAvailableSequence(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {
