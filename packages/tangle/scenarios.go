@@ -191,7 +191,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 3): 0.85,
 				*markers.NewMarker(0, 4): 0.60,
 				*markers.NewMarker(0, 5): 0.30,
-				//*markers.NewMarker(2, 5): 0.10, TODO: there's no new marker
+				//*markers.NewMarker(2, 5): 0.10, TODO: there's no new marker, so maybe we should check individual mappings?
 			})
 		},
 		// ISSUE Message7
