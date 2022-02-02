@@ -396,27 +396,6 @@ func (m *Manager) registerReferencingMarker(referencedPastMarkers *Markers, mark
 	})
 }
 
-// createSequenceIfNecessary is an internal utility function that creates a sequence if the distance to the last
-// past marker is higher or equal than the configured threshold and returns the first marker in that sequence.
-func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails, highestReferencedSequenceRank uint64) (created bool, firstMarker *Marker) {
-	if structureDetails.PastMarkerGap < m.Options.MaxPastMarkerDistance {
-		return
-	}
-
-	m.sequenceIDCounterMutex.Lock()
-	m.sequenceIDCounter++
-	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers, highestReferencedSequenceRank+1)
-	m.sequenceIDCounterMutex.Unlock()
-
-	(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
-
-	firstMarker = NewMarker(newSequence.id, newSequence.lowestIndex)
-
-	m.registerReferencingMarker(structureDetails.PastMarkers, firstMarker)
-
-	return true, firstMarker
-}
-
 // extendHighestAvailableSequence is an internal utility function that tries to extend the referenced Sequences in
 // descending order. It returns the newly assigned Marker and a boolean value that indicates if one of the referenced
 // Sequences could be extended.
@@ -435,6 +414,27 @@ func (m *Manager) extendHighestAvailableSequence(referencedPastMarkers *Markers,
 	})
 
 	return
+}
+
+// createSequenceIfNecessary is an internal utility function that creates a new Sequence if the distance to the last
+// past Marker is higher or equal than the configured threshold and returns the first Marker in that Sequence.
+func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails, highestReferencedSequenceRank uint64) (created bool, firstMarker *Marker) {
+	if structureDetails.PastMarkerGap < m.Options.MaxPastMarkerDistance {
+		return
+	}
+
+	m.sequenceIDCounterMutex.Lock()
+	m.sequenceIDCounter++
+	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers, highestReferencedSequenceRank+1)
+	m.sequenceIDCounterMutex.Unlock()
+
+	(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
+
+	firstMarker = NewMarker(newSequence.id, newSequence.lowestIndex)
+
+	m.registerReferencingMarker(structureDetails.PastMarkers, firstMarker)
+
+	return true, firstMarker
 }
 
 // rankOfSequence is an internal utility function that returns the rank of the given Sequence.

@@ -48,6 +48,7 @@ func TestManager(t *testing.T) {
 		PastMarkersGap     uint64
 		ReferencedMarkers  *Markers
 		ReferencingMarkers *Markers
+		FutureMarkers      *Markers
 	}
 
 	expectedStructureDetails := map[string]expectedStructureDetailsType{
@@ -62,6 +63,9 @@ func TestManager(t *testing.T) {
 				NewMarker(2, 3),
 				NewMarker(3, 5),
 			),
+			FutureMarkers: NewMarkers(
+				NewMarker(0, 2),
+			),
 		},
 		"msg2": {
 			PastMarkers: NewMarkers(
@@ -73,6 +77,9 @@ func TestManager(t *testing.T) {
 				NewMarker(1, 3),
 				NewMarker(2, 3),
 				NewMarker(3, 5),
+			),
+			FutureMarkers: NewMarkers(
+				NewMarker(0, 2),
 			),
 		},
 		"msg3": {
@@ -86,6 +93,11 @@ func TestManager(t *testing.T) {
 				NewMarker(2, 3),
 				NewMarker(3, 5),
 			),
+			FutureMarkers: NewMarkers(
+				NewMarker(0, 3),
+				NewMarker(1, 3),
+				NewMarker(2, 3),
+			),
 		},
 		"msg4": {
 			PastMarkers: NewMarkers(
@@ -98,6 +110,10 @@ func TestManager(t *testing.T) {
 				NewMarker(2, 6),
 				NewMarker(3, 5),
 			),
+			FutureMarkers: NewMarkers(
+				NewMarker(0, 4),
+				NewMarker(2, 6),
+			),
 		},
 		"msg5": {
 			PastMarkers: NewMarkers(
@@ -106,6 +122,10 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(1, 3),
+				NewMarker(2, 3),
+			),
 		},
 		"msg6": {
 			PastMarkers: NewMarkers(
@@ -114,6 +134,10 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(1, 3),
+				NewMarker(2, 3),
+			),
 		},
 		"msg7": {
 			PastMarkers: NewMarkers(
@@ -126,6 +150,12 @@ func TestManager(t *testing.T) {
 				NewMarker(2, 7),
 				NewMarker(3, 5),
 			),
+			FutureMarkers: NewMarkers(
+				NewMarker(0, 5),
+				NewMarker(1, 5),
+				NewMarker(2, 7),
+				NewMarker(3, 5),
+			),
 		},
 		"msg8": {
 			PastMarkers: NewMarkers(
@@ -134,6 +164,9 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(2, 6),
+			),
 		},
 		"msg9": {
 			PastMarkers: NewMarkers(
@@ -142,6 +175,9 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:     2,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(2, 6),
+			),
 		},
 		"msg10": {
 			PastMarkers: NewMarkers(
@@ -150,6 +186,7 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers:      NewMarkers(),
 		},
 		"msg11": {
 			PastMarkers: NewMarkers(
@@ -158,6 +195,10 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:     2,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(1, 3),
+				NewMarker(2, 3),
+			),
 		},
 		"msg12": {
 			PastMarkers: NewMarkers(
@@ -172,6 +213,9 @@ func TestManager(t *testing.T) {
 				NewMarker(0, 5),
 				NewMarker(3, 5),
 			),
+			FutureMarkers: NewMarkers(
+				NewMarker(1, 4),
+			),
 		},
 		"msg13": {
 			PastMarkers: NewMarkers(
@@ -183,6 +227,12 @@ func TestManager(t *testing.T) {
 			),
 			ReferencingMarkers: NewMarkers(
 				NewMarker(0, 5),
+				NewMarker(2, 5),
+				NewMarker(3, 5),
+			),
+			FutureMarkers: NewMarkers(
+				NewMarker(0, 5),
+				NewMarker(1, 5),
 				NewMarker(2, 5),
 				NewMarker(3, 5),
 			),
@@ -200,6 +250,12 @@ func TestManager(t *testing.T) {
 				NewMarker(1, 5),
 				NewMarker(3, 5),
 			),
+			FutureMarkers: NewMarkers(
+				NewMarker(0, 5),
+				NewMarker(1, 5),
+				NewMarker(2, 5),
+				NewMarker(3, 5),
+			),
 		},
 		"msg15": {
 			PastMarkers: NewMarkers(
@@ -211,6 +267,9 @@ func TestManager(t *testing.T) {
 				NewMarker(0, 2),
 			),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(2, 6),
+			),
 		},
 		"msg16": {
 			PastMarkers: NewMarkers(
@@ -222,6 +281,9 @@ func TestManager(t *testing.T) {
 				NewMarker(1, 4),
 			),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(2, 7),
+			),
 		},
 		"msg17": {
 			PastMarkers: NewMarkers(
@@ -233,6 +295,7 @@ func TestManager(t *testing.T) {
 				NewMarker(1, 4),
 			),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers:      NewMarkers(),
 		},
 		"msg18": {
 			PastMarkers: NewMarkers(
@@ -244,6 +307,7 @@ func TestManager(t *testing.T) {
 				NewMarker(2, 3),
 			),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers:      NewMarkers(),
 		},
 		"msg19": {
 			PastMarkers: NewMarkers(
@@ -255,6 +319,7 @@ func TestManager(t *testing.T) {
 				NewMarker(2, 3),
 			),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers:      NewMarkers(),
 		},
 		"msg20": {
 			PastMarkers: NewMarkers(
@@ -265,6 +330,9 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(3, 5),
+			),
 		},
 		"msg21": {
 			PastMarkers: NewMarkers(
@@ -275,6 +343,9 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:     2,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers: NewMarkers(
+				NewMarker(3, 5),
+			),
 		},
 		"msg22": {
 			PastMarkers: NewMarkers(
@@ -287,11 +358,13 @@ func TestManager(t *testing.T) {
 				NewMarker(2, 3),
 			),
 			ReferencingMarkers: NewMarkers(),
+			FutureMarkers:      NewMarkers(),
 		},
 	}
 
 	for messageID, messageExpected := range expectedStructureDetails {
 		assert.Equal(t, messageExpected.PastMarkers, messageDB[messageID].structureDetails.PastMarkers, messageID+" has unexpected past Markers")
+		assert.Equal(t, messageExpected.FutureMarkers, messageDB[messageID].structureDetails.FutureMarkers, messageID+" has unexpected future Markers")
 		assert.Equal(t, messageExpected.PastMarkersGap, messageDB[messageID].structureDetails.PastMarkerGap, messageID+" has unexpected PastMarkerGap")
 
 		if messageExpected.PastMarkersGap == 0 {
