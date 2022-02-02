@@ -56,9 +56,13 @@ func TestManager(t *testing.T) {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 1),
 			),
-			PastMarkersGap:     0,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap:    0,
+			ReferencedMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 3),
+				NewMarker(2, 3),
+				NewMarker(3, 5),
+			),
 		},
 		"msg2": {
 			PastMarkers: NewMarkers(
