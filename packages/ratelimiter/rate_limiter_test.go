@@ -26,37 +26,49 @@ const (
 func TestPeerRateLimiter_Count(t *testing.T) {
 	t.Parallel()
 	prl := newTestRateLimiter(t)
-	testCount(t, prl, defaultTestLimit)
+	testPeer := newTestPeer()
+	testCount(t, prl, testPeer, defaultTestLimit)
 }
 
-func TestPeerRateLimiter_SetLimit(t *testing.T) {
+func TestPeerRateLimiter_SetBaseLimit(t *testing.T) {
 	t.Parallel()
 	prl := newTestRateLimiter(t)
 	customLimit := 5
-	prl.SetLimit(customLimit)
-	testCount(t, prl, customLimit)
+	prl.SetBaseLimit(customLimit)
+	testPeer := newTestPeer()
+	testCount(t, prl, testPeer, customLimit)
 }
 
-func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testLimit int) {
-	expectedPeer := newTestPeer()
+func TestPeerRateLimiter_ExtendLimit(t *testing.T) {
+	t.Parallel()
+	prl := newTestRateLimiter(t)
+	testPeer := newTestPeer()
+	limitExtensionCount := 3
+	for i := 0; i < limitExtensionCount; i++ {
+		prl.ExtendLimit(testPeer)
+	}
+	testCount(t, prl, testPeer, defaultTestLimit+limitExtensionCount)
+}
+
+func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Peer, testLimit int) {
 	activityCount := atomic.NewInt32(0)
 	expectedActivity := testLimit + 1
 	eventCalled := atomic.NewInt32(0)
 	prl.HitEvent().Attach(events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
 		eventCalled.Inc()
 		assert.Equal(t, int32(expectedActivity), activityCount.Load())
-		assert.Equal(t, expectedPeer, p)
+		assert.Equal(t, testPeer, p)
 		assert.Equal(t, defaultTestInterval, rl.Interval)
 		assert.Equal(t, testLimit, rl.Limit)
 	}))
 	for i := 0; i < expectedActivity; i++ {
 		activityCount.Inc()
-		prl.Count(expectedPeer)
+		prl.Count(testPeer)
 	}
 	assert.Eventually(t, func() bool { return eventCalled.Load() == 1 }, time.Second, time.Millisecond)
 	for i := 0; i < expectedActivity; i++ {
 		activityCount.Inc()
-		prl.Count(expectedPeer)
+		prl.Count(testPeer)
 	}
 	assert.Never(t, func() bool { return eventCalled.Load() > 1 }, time.Second, time.Millisecond)
 }

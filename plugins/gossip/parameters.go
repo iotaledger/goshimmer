@@ -20,7 +20,6 @@ type ParametersDefinition struct {
 type messagesLimitParameters struct {
 	Interval        time.Duration `default:"1s" usage:"the time interval for which we count the messages rate"`
 	Limit           int           `default:"200" usage:"the default limit of messages per interval"`
-	DuringSyncLimit int           `default:"5000" usage:"the limit of messages per interval during node sync"`
 }
 
 // Parameters contains the configuration parameters of the gossip plugin.

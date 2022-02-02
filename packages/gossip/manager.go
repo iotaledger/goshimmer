@@ -105,13 +105,13 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 		neighbors: map[identity.ID]*Neighbor{},
 	}
 	m.messageWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		m.processPacketMessage(task.Param(0).(*pb.Packet_Message), task.Param(1).(*Neighbor))
+		m.processMessagePacket(task.Param(0).(*pb.Packet_Message), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
 
 	m.messageRequestWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		m.processMessageRequest(task.Param(0).(*pb.Packet_MessageRequest), task.Param(1).(*Neighbor))
+		m.processMessageRequestPacket(task.Param(0).(*pb.Packet_MessageRequest), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageRequestWorkerCount), workerpool.QueueSize(messageRequestWorkerQueueSize))
@@ -219,7 +219,12 @@ func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*N
 func (m *Manager) RequestMessage(messageID []byte, to ...identity.ID) {
 	msgReq := &pb.MessageRequest{Id: messageID}
 	packet := &pb.Packet{Body: &pb.Packet_MessageRequest{MessageRequest: msgReq}}
-	m.send(packet, to...)
+	recipients := m.send(packet, to...)
+	if m.messagesRateLimiter != nil {
+		for _, nbr := range recipients {
+			m.messagesRateLimiter.ExtendLimit(nbr.Peer)
+		}
+	}
 }
 
 // SendMessage adds the given message the send queue of the neighbors.
@@ -257,7 +262,7 @@ func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	return result
 }
 
-func (m *Manager) send(packet *pb.Packet, to ...identity.ID) {
+func (m *Manager) send(packet *pb.Packet, to ...identity.ID) []*Neighbor {
 	neighbors := m.getNeighborsByID(to)
 	if len(neighbors) == 0 {
 		neighbors = m.AllNeighbors()
@@ -269,6 +274,7 @@ func (m *Manager) send(packet *pb.Packet, to ...identity.ID) {
 			nbr.close()
 		}
 	}
+	return neighbors
 }
 
 func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group NeighborsGroup,
@@ -340,9 +346,6 @@ func (m *Manager) setNeighbor(nbr *Neighbor) error {
 }
 
 func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
-	if m.messagesRateLimiter != nil {
-		m.messagesRateLimiter.Count(nbr.Peer)
-	}
 	switch packetBody := packet.GetBody().(type) {
 	case *pb.Packet_Message:
 		if _, added := m.messageWorkerPool.TrySubmit(packetBody, nbr); !added {
@@ -370,11 +373,14 @@ func (m *Manager) MessageRequestWorkerPoolStatus() (name string, load int) {
 	return "messageRequestWorkerPool", m.messageRequestWorkerPool.GetPendingQueueSize()
 }
 
-func (m *Manager) processPacketMessage(packetMsg *pb.Packet_Message, nbr *Neighbor) {
+func (m *Manager) processMessagePacket(packetMsg *pb.Packet_Message, nbr *Neighbor) {
+	if m.messagesRateLimiter != nil {
+		m.messagesRateLimiter.Count(nbr.Peer)
+	}
 	m.events.MessageReceived.Trigger(&MessageReceivedEvent{Data: packetMsg.Message.GetData(), Peer: nbr.Peer})
 }
 
-func (m *Manager) processMessageRequest(packetMsgReq *pb.Packet_MessageRequest, nbr *Neighbor) {
+func (m *Manager) processMessageRequestPacket(packetMsgReq *pb.Packet_MessageRequest, nbr *Neighbor) {
 	msgID, _, err := tangle.MessageIDFromBytes(packetMsgReq.MessageRequest.GetId())
 	if err != nil {
 		m.log.Debugw("invalid message id:", "err", err)

@@ -118,7 +118,7 @@ func TestFirewall(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, got2)
 
-	// Start issuing spam messages from peer2 to peer1.
+	// Start spamming messages from peer2 to peer1.
 	for i := 0; i < 51; i++ {
 		tests.SendDataMessage(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
 		require.NoError(t, err)

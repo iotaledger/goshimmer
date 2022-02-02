@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/libp2p/go-libp2p"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -83,18 +82,11 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
-	if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
-		setLimitClosure := events.NewClosure(func(ev *tangle.SyncChangedEvent) {
-			if ev.Synced {
-				mrl.SetLimit(Parameters.MessagesRateLimit.Limit)
-			} else {
-				mrl.SetLimit(Parameters.MessagesRateLimit.DuringSyncLimit)
-			}
-		})
-		deps.Tangle.TimeManager.Events.SyncChanged.Attach(setLimitClosure)
-		defer deps.Tangle.TimeManager.Events.SyncChanged.Detach(setLimitClosure)
-		defer mrl.Close()
-	}
+	defer func() {
+		if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
+			mrl.Close()
+		}
+	}()
 	defer deps.GossipMgr.Stop()
 	defer func() {
 		if err := deps.GossipMgr.Libp2pHost.Close(); err != nil {
