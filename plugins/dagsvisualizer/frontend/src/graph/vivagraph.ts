@@ -1,8 +1,8 @@
-import { IGraph } from './graph';
-import { default as Viva } from 'vivagraphjs';
-import { tangleVertex, parentRefType } from 'models/tangle';
-import { COLOR, LINE_TYPE, LINE_WIDTH, VERTEX } from 'styles/tangleStyles';
-import { ObservableMap } from 'mobx';
+import {IGraph} from './graph';
+import {default as Viva} from 'vivagraphjs';
+import {parentRefType, tangleVertex} from 'models/tangle';
+import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from 'styles/tangleStyles';
+import {ObservableMap} from 'mobx';
 
 export class vivagraphLib implements IGraph {
     graph;
@@ -20,6 +20,9 @@ export class vivagraphLib implements IGraph {
 
     removeVertex(id: string): void {
         this.graph.removeNode(id);
+    }
+
+    releaseNode(id: string): void {
         this.graphics.releaseNode(id);
     }
 
@@ -170,7 +173,7 @@ function setupRenderer(graph: any, graphics: any, layout: any) {
 export function drawMessage(
     msg: tangleVertex,
     vivaLib: vivagraphLib,
-    messageMap: ObservableMap<string, tangleVertex>
+    messageMap: ObservableMap<string, tangleVertex>,
 ) {
     let node;
     const existing = vivaLib.graph.getNode(msg.ID);
@@ -322,10 +325,25 @@ export function updateGraph(
     for (const msgID of newMsgToAdd) {
         const msg = messageMap.get(msgID);
         if (msg) {
-            vivaLib.drawVertex(msg);
+            drawMessage(msg, vivaLib, messageMap);
             updateNodeColorOnConfirmation(msg, vivaLib);
         }
     }
+}
+
+// pause was short - clear only the needed part on left from this.lastMsgAddedBeforePause
+export function reloadAfterShortPause(
+    vivaLib: vivagraphLib,
+    messageMap: ObservableMap<string, tangleVertex>
+) {
+    vivaLib.graph.forEachNode(node => {
+        const msg = messageMap.get(node.id);
+        if (!msg) {
+            vivaLib.graph.removeNode(node.id);
+        } else {
+            updateNodeDataAndColor(msg.ID, msg, vivaLib);
+        }
+    });
 }
 
 export function updateNodeDataAndColor(
