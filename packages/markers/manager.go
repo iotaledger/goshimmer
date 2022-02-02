@@ -418,7 +418,7 @@ func (m *Manager) extendReferencedSequences(structureDetails *StructureDetails, 
 func (m *Manager) extendHighestAvailableSequence(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {
 	referencedPastMarkers.ForEachSorted(func(sequenceID SequenceID, index Index) bool {
 		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
-			if newIndex, remainingReferencedPastMarkers, sequenceExtended := sequence.TryExtendSequence(referencedPastMarkers, increaseIndexCallback); sequenceExtended {
+			if newIndex, remainingReferencedPastMarkers, sequenceExtended := sequence.TryExtend(referencedPastMarkers, increaseIndexCallback); sequenceExtended {
 				extended = sequenceExtended
 				marker = NewMarker(sequenceID, newIndex)
 
@@ -471,11 +471,17 @@ type ManagerOptions struct {
 }
 
 // Apply applies the given options to the ManagerOptions object.
-func (m *ManagerOptions) Apply(options ...ManagerOption) *ManagerOptions {
-	for _, option := range options {
-		option(m)
+func (m *ManagerOptions) Apply(options ...ManagerOption) (managerOptions *ManagerOptions) {
+	managerOptions = &ManagerOptions{
+		Store:                 DefaultManagerOptions.Store,
+		CacheTime:             DefaultManagerOptions.CacheTime,
+		MaxPastMarkerDistance: DefaultManagerOptions.MaxPastMarkerDistance,
 	}
-	return m
+
+	for _, option := range options {
+		option(managerOptions)
+	}
+	return managerOptions
 }
 
 // DefaultManagerOptions defines the default options for the Manager.

@@ -1,7 +1,6 @@
 package markers
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/iotaledger/hive.go/stringify"
@@ -407,8 +406,6 @@ func inheritPastMarkers(message *message, manager *Manager, messageDB map[string
 	for i, parentID := range message.parents {
 		pastMarkers[i] = messageDB[parentID].structureDetails
 	}
-
-	fmt.Println(message.id, "++++++++++++++++++++++++++++++++++++++++")
 
 	message.structureDetails = manager.InheritStructureDetails(pastMarkers, alwaysIncreaseIndex)
 	if message.structureDetails.IsPastMarker {
