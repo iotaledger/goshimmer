@@ -102,7 +102,7 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 	defer structureDetailsToUpdate.futureMarkersUpdateMutex.Unlock()
 
 	// abort if future structureDetails of structureDetailsToUpdate reference markerToInherit
-	if m.markersReferenceMarkers(NewMarkers(markerToInherit), structureDetailsToUpdate.FutureMarkers, false) {
+	if m.laterMarkersReferenceEarlierMarkers(NewMarkers(markerToInherit), structureDetailsToUpdate.FutureMarkers, false) {
 		return
 	}
 
@@ -193,15 +193,15 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 		}
 	}
 
-	if earlierStructureDetails.FutureMarkers.Size() != 0 && m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
+	if earlierStructureDetails.FutureMarkers.Size() != 0 && m.laterMarkersReferenceEarlierMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
 		return types.True
 	}
 
-	if !m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.PastMarkers, false) {
+	if !m.laterMarkersReferenceEarlierMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.PastMarkers, false) {
 		return types.False
 	}
 
-	if earlierStructureDetails.FutureMarkers.Size() != 0 && m.markersReferenceMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
+	if earlierStructureDetails.FutureMarkers.Size() != 0 && m.laterMarkersReferenceEarlierMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
 		return types.Maybe
 	}
 
@@ -314,61 +314,60 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers
 	return normalizedMarkers, highestSequenceRank
 }
 
-// markersReferenceMarkers is an internal utility function that returns true if the later Markers reference the earlier
-// Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid reference.
-func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
+// laterMarkersReferenceEarlierMarkers is an internal utility function that returns true if the later Markers reference
+// the earlier Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid
+// reference.
+func (m *Manager) laterMarkersReferenceEarlierMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
 	referenceWalker := walker.New()
 	laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		referenceWalker.Push(NewMarker(sequenceID, index))
-
 		return true
 	})
 
 	seenMarkers := NewMarkers()
-	rankCache := make(map[SequenceID]uint64)
-	lowestRankOfEarlierPastMarkers := m.rankOfLowestSequence(earlierMarkers, rankCache)
 	for i := 0; referenceWalker.HasNext(); i++ {
-		marker := referenceWalker.Next().(*Marker)
-		if m.rankOfSequence(marker.SequenceID(), rankCache) < lowestRankOfEarlierPastMarkers {
+		laterMarker := referenceWalker.Next().(*Marker)
+		if added, updated := seenMarkers.Set(laterMarker.SequenceID(), laterMarker.Index()); !added && !updated {
 			continue
 		}
 
-		result = m.markerReferencesMarkers(marker, earlierMarkers, i < laterMarkers.Size() && requireBiggerMarkers, seenMarkers, referenceWalker)
-	}
-
-	return result
-}
-
-// markerReferencesMarkers is used to recursively check if the given Marker and its parents have an overlap with the
-// given Markers.
-func (m *Manager) markerReferencesMarkers(marker *Marker, markers *Markers, requireBiggerMarkers bool, seenMarkers *Markers, w *walker.Walker) bool {
-	if added, updated := seenMarkers.Set(marker.SequenceID(), marker.Index()); !added && !updated {
-		return false
-	}
-
-	if markers.LowestIndex() > marker.Index() || (requireBiggerMarkers && markers.LowestIndex() >= marker.Index()) {
-		return false
-	}
-
-	if earlierIndex, sequenceExists := markers.Get(marker.SequenceID()); sequenceExists {
-		if (requireBiggerMarkers && earlierIndex < marker.Index()) || (!requireBiggerMarkers && earlierIndex <= marker.Index()) {
-			w.StopWalk()
-
+		isInitialLaterMarker := i < laterMarkers.Size()
+		if m.laterMarkerDirectlyReferencesEarlierMarkers(laterMarker, earlierMarkers, isInitialLaterMarker && requireBiggerMarkers) {
 			return true
 		}
 
+		m.Sequence(laterMarker.SequenceID()).Consume(func(sequence *Sequence) {
+			sequence.ReferencedMarkers(laterMarker.Index()).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+				referenceWalker.Push(NewMarker(referencedSequenceID, referencedIndex))
+				return true
+			})
+		})
+	}
+
+	return false
+}
+
+// laterMarkerDirectlyReferencesEarlierMarkers returns true if the later Marker directly references the earlier Markers.
+func (m *Manager) laterMarkerDirectlyReferencesEarlierMarkers(laterMarker *Marker, earlierMarkers *Markers, requireBiggerMarkers bool) bool {
+	earlierMarkersLowestIndex := earlierMarkers.LowestIndex()
+	if requireBiggerMarkers {
+		earlierMarkersLowestIndex++
+	}
+
+	if laterMarker.Index() < earlierMarkersLowestIndex {
 		return false
 	}
 
-	m.Sequence(marker.SequenceID()).Consume(func(sequence *Sequence) {
-		sequence.ReferencedMarkers(marker.Index()).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
-			w.Push(NewMarker(referencedSequenceID, referencedIndex))
+	earlierIndex, sequenceExists := earlierMarkers.Get(laterMarker.SequenceID())
+	if !sequenceExists {
+		return false
+	}
 
-			return true
-		})
-	})
+	if requireBiggerMarkers {
+		earlierIndex++
+	}
 
-	return false
+	return laterMarker.Index() >= earlierIndex
 }
 
 func (m *Manager) rankOfLowestSequence(markers *Markers, rankCache map[SequenceID]uint64) (rankOfLowestSequence uint64) {
