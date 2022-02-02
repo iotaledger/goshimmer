@@ -1,20 +1,16 @@
-import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
-import { MAX_VERTICES } from 'utils/constants';
-import {
-    tangleVertex,
-    tangleBooked,
-    tangleConfirmed,
-    tangleFutureMarkerUpdated
-} from 'models/tangle';
+import {action, makeObservable, observable, ObservableMap} from 'mobx';
+import {registerHandler, unregisterHandler, WSMsgType} from 'utils/WS';
+import {MAX_VERTICES} from 'utils/constants';
+import {tangleBooked, tangleConfirmed, tangleFutureMarkerUpdated, tangleVertex} from 'models/tangle';
 import {
     drawMessage,
     initTangleDAG,
+    reloadAfterShortPause,
     selectMessage,
     unselectMessage,
-    vivagraphLib,
     updateGraph,
-    updateNodeDataAndColor
+    updateNodeDataAndColor,
+    vivagraphLib
 } from 'graph/vivagraph';
 
 export class TangleStore {
@@ -61,7 +57,7 @@ export class TangleStore {
         this.msgOrder.push(msg.ID);
         this.messages.set(msg.ID, msg);
 
-        if (this.draw) {
+        if (this.draw && !this.paused) {
             this.drawVertex(msg);
         }
     };
@@ -201,6 +197,8 @@ export class TangleStore {
         } else {
             this.graph.removeVertex(msgID);
         }
+        // release svg graphic from rendering
+        this.graph.releaseNode(msgID);
     };
 
     @action
@@ -306,7 +304,8 @@ export class TangleStore {
         tangleWindowEl.addEventListener('click', this.tangleOnClick);
     };
 
-    // clear old elements and refresh renderer
+    // For svg renderer, pausing is not going to stop elements from being added or remover from svg frame
+    // when pause we are skipping addVertex function, and trigget this function on resume to reload messages
     svgRendererOnResume = () => {
         // if pause was long enough for newest added message to be removed then clear all graph at once
         if (!this.messages.get(this.lastMsgAddedBeforePause)) {
@@ -314,8 +313,8 @@ export class TangleStore {
             this.drawExistedMsgs();
             return;
         }
+        reloadAfterShortPause(this.graph, this.messages);
 
-        // pause was short - clear only the needed part on left from this.lastMsgAddedBeforePause
         const idx = this.msgOrder.indexOf(this.lastMsgAddedBeforePause);
         updateGraph(this.graph, this.msgOrder.slice(idx), this.messages);
     };
