@@ -143,27 +143,74 @@ export function drawTransaction(
     graph.layoutApi.placeNewNodes(collection);
 }
 
-export function drawBranch(
+const drawSingleBranch = function(branch: branchVertex, graph: cytoscapeLib, branchMap: ObservableMap<string, branchVertex>): any {
+    if (!branch) {
+        return;
+    }
+    let v: any;
+    try {
+        v = graph.cy.add({
+            group: 'nodes',
+            data: { id: branch.ID }
+        });
+    } catch (e) {
+        // already drawn
+    }
+    branchMap.set(branch.ID, branch);
+
+    if (v) {
+        graph.layoutApi.placeNewNodes(v);
+    }
+    return v;
+};
+
+export async function drawBranch(
     branch: branchVertex,
     graph: cytoscapeLib,
     branchMap: ObservableMap<string, branchVertex>
 ) {
-    const v = graph.cy.add({
-        group: 'nodes',
-        data: { id: branch.ID }
-    });
-
-    branch.parents.forEach((pID) => {
+    if (!branch) {
+        return;
+    }
+    drawSingleBranch(branch, graph, branchMap);
+    branch.parents = branch.parents || [];
+    for (let i = 0; i < branch.parents.length; i++) {
+        const pID = branch.parents[i];
         const b = branchMap.get(pID);
         if (b) {
             graph.cy.add({
                 group: 'edges',
                 data: { source: pID, target: branch.ID }
             });
+        } else {
+            const res = await fetch(`/api/dagsvisualizer/branch/${pID}`);
+            const branches: Array<branchVertex> = (await res.json()) as Array<branchVertex>;
+            drawBranchesUpToMaster(branches, graph, branchMap);
+            graph.cy.add({
+                group: 'edges',
+                data: { source: pID, target: branch.ID }
+            });
         }
-    });
+    }
+}
 
-    graph.layoutApi.placeNewNodes(v);
+function drawBranchesUpToMaster(branches: Array<branchVertex>, graph: cytoscapeLib, branchMap: ObservableMap<string, branchVertex>) {
+    for (let i = 0; i < branches.length; i++) {
+        const branch = branches[i];
+        drawSingleBranch(branch, graph, branchMap);
+        branch.parents?.forEach(parentID => {
+            const parent = branches.find(b => b.ID === parentID);
+            if (parent) {
+                if (!branchMap.get(parentID)) {
+                    drawSingleBranch(parent, graph, branchMap);
+                }
+                graph.cy.add({
+                    group: 'edges',
+                    data: { source: parent.ID, target: branch.ID }
+                });
+            }
+        });
+    }
 }
 
 export function initUTXODAG() {
@@ -275,6 +322,12 @@ export function initBranchDAG() {
                 style: {
                     'background-opacity': 0.333,
                     'background-color': 'red'
+                }
+            },
+            {
+                selector: '.search',
+                style: {
+                    'background-color': 'yellow'
                 }
             }
         ],

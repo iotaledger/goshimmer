@@ -131,17 +131,19 @@ export class GlobalStore {
             this.stopDrawNewVertices();
             this.clearGraphs();
 
-            result.messages.forEach((msg) => {
+            (result.messages || []).forEach((msg) => {
                 this.tangleStore.drawVertex(msg);
             });
 
-            result.txs.forEach((tx) => {
+            (result.txs || []).forEach((tx) => {
                 this.utxoStore.drawVertex(tx);
             });
 
-            result.branches.forEach((branch) => {
-                this.branchStore.drawVertex(branch);
-            });
+            const branches = result.branches || [];
+            for (let i = 0; i < branches.length; i++) {
+                await this.branchStore.drawVertex(branches[i]);
+                this.branchStore.graph.cy.getElementById(branches[i].ID).addClass('search');
+            }
         } catch (err) {
             console.log(
                 'Fail to fetch messages/txs/branches with the given interval',

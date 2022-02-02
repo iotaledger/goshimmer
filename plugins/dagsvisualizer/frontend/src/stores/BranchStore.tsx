@@ -4,16 +4,12 @@ import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import { cytoscapeLib, drawBranch, initBranchDAG } from 'graph/cytoscape';
-import {
-    branchVertex,
-    branchParentUpdate,
-    branchConfirmed,
-    branchWeightChanged
-} from 'models/branch';
+import { branchConfirmed, branchParentUpdate, branchVertex, branchWeightChanged } from 'models/branch';
 
 export class BranchStore {
     @observable maxBranchVertices = MAX_VERTICES;
     @observable branches = new ObservableMap<string, branchVertex>();
+    branchesBeforeSearching: Map<string, branchVertex>;
     @observable selectedBranch: branchVertex = null;
     @observable paused = false;
     @observable search = '';
@@ -50,7 +46,6 @@ export class BranchStore {
         this.checkLimit();
 
         this.branchOrder.push(branch.ID);
-        this.branches.set(branch.ID, branch);
 
         if (this.paused) {
             this.branchToAddAfterResume.push(branch.ID);
@@ -63,8 +58,6 @@ export class BranchStore {
     checkLimit = () => {
         if (this.branchOrder.length >= this.maxBranchVertices) {
             const removed = this.branchOrder.shift();
-            this.branches.delete(removed);
-
             if (this.paused) {
                 // keep the removed tx that should be removed from the graph after resume.
                 this.branchToRemoveAfterResume.push(removed);
@@ -82,7 +75,8 @@ export class BranchStore {
         }
 
         b.parents = newParents.parents;
-        this.branches.set(newParents.ID, b);
+        // draw new links
+        this.drawVertex(b);
     };
 
     @action
@@ -158,9 +152,11 @@ export class BranchStore {
     };
 
     drawExistedBranches = () => {
-        this.branches.forEach((branch) => {
+        for (const branch of this.branchesBeforeSearching.values()) {
             this.drawVertex(branch);
-        });
+        }
+        this.resumeAndSyncGraph();
+        this.branchesBeforeSearching = undefined;
     };
 
     updateDrawStatus = (draw: boolean) => {
@@ -184,15 +180,15 @@ export class BranchStore {
         this.branchToRemoveAfterResume = [];
     };
 
-    drawVertex = (branch: branchVertex) => {
+    drawVertex = async (branch: branchVertex) => {
         this.vertexChanges++;
-
-        drawBranch(branch, this.graph, this.branches);
+        await drawBranch(branch, this.graph, this.branches);
     };
 
     removeVertex = (branchID: string) => {
         this.vertexChanges++;
         this.graph.removeVertex(branchID);
+        this.branches.delete(branchID);
     };
 
     selectBranch = (branchID: string) => {
@@ -212,6 +208,14 @@ export class BranchStore {
 
     clearGraph = () => {
         this.graph.clearGraph();
+        if (!this.branchesBeforeSearching) {
+            this.branchesBeforeSearching = new Map<string, branchVertex>();
+            this.branches.forEach((branch, branchID) => {
+                this.branchesBeforeSearching.set(branchID, branch);
+            });
+        }
+        this.branches.clear();
+        this.addMasterBranch();
     };
 
     updateLayoutTimer = () => {
@@ -243,10 +247,7 @@ export class BranchStore {
         });
     }
 
-    start = () => {
-        this.graph = new cytoscapeLib([dagre, layoutUtilities], initBranchDAG);
-
-        // add master branch
+    addMasterBranch = (): branchVertex => {
         const master: branchVertex = {
             ID: '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
             type: 'ConflictBranchType',
@@ -270,6 +271,14 @@ export class BranchStore {
                 label: 'master'
             }
         });
+        return master;
+    };
+
+    start = () => {
+        this.graph = new cytoscapeLib([dagre, layoutUtilities], initBranchDAG);
+
+        // add master branch
+        const master = this.addMasterBranch();
         this.graph.centerVertex(master.ID);
 
         // set up click event.
