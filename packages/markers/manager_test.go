@@ -56,9 +56,13 @@ func TestManager(t *testing.T) {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 1),
 			),
-			PastMarkersGap:     0,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap:    0,
+			ReferencedMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 3),
+				NewMarker(2, 3),
+				NewMarker(3, 5),
+			),
 		},
 		"msg2": {
 			PastMarkers: NewMarkers(
@@ -268,9 +272,10 @@ func TestManager(t *testing.T) {
 
 			manager.Sequence(pastMarker.SequenceID()).Consume(func(sequence *Sequence) {
 				assert.Equal(t, messageExpected.ReferencedMarkers, sequence.ReferencedMarkers(pastMarker.Index()), messageID+" has unexpected referenced Markers")
+				assert.Equal(t, messageExpected.ReferencingMarkers, sequence.ReferencingMarkers(pastMarker.Index()), messageID+" has unexpected referencing Markers")
 			})
 
-			// check referenced and referencing markers
+			// check referencing markers
 		}
 	}
 

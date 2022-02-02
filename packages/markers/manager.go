@@ -408,7 +408,11 @@ func (m *Manager) extendReferencedSequences(structureDetails *StructureDetails, 
 
 	(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
 
-	return NewMarker(newSequence.id, newSequence.lowestIndex), true
+	marker = NewMarker(newSequence.id, newSequence.lowestIndex)
+
+	m.registerReferencingMarker(structureDetails.PastMarkers, marker)
+
+	return marker, true
 }
 
 func (m *Manager) extendHighestAvailableSequence(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (marker *Marker, extended bool) {
