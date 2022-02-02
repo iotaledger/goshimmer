@@ -68,25 +68,37 @@ func TestManager(t *testing.T) {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 0),
 			),
-			PastMarkersGap:     0,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap:    0,
+			ReferencedMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 3),
+				NewMarker(2, 3),
+				NewMarker(3, 5),
+			),
 		},
 		"msg3": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 2),
 			),
-			PastMarkersGap:     0,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap:    0,
+			ReferencedMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 3),
+				NewMarker(2, 3),
+				NewMarker(3, 5),
+			),
 		},
 		"msg4": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 3),
 			),
-			PastMarkersGap:     0,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap:    0,
+			ReferencedMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 5),
+				NewMarker(2, 6),
+				NewMarker(3, 5),
+			),
 		},
 		"msg5": {
 			PastMarkers: NewMarkers(
@@ -108,9 +120,13 @@ func TestManager(t *testing.T) {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 4),
 			),
-			PastMarkersGap:     0,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap:    0,
+			ReferencedMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 5),
+				NewMarker(2, 7),
+				NewMarker(3, 5),
+			),
 		},
 		"msg8": {
 			PastMarkers: NewMarkers(
@@ -152,7 +168,11 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers: NewMarkers(
 				NewMarker(0, 2),
 			),
-			ReferencingMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(2, 5),
+				NewMarker(0, 5),
+				NewMarker(3, 5),
+			),
 		},
 		"msg13": {
 			PastMarkers: NewMarkers(
@@ -162,7 +182,11 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers: NewMarkers(
 				NewMarker(0, 2),
 			),
-			ReferencingMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(0, 5),
+				NewMarker(2, 5),
+				NewMarker(3, 5),
+			),
 		},
 		"msg14": {
 			PastMarkers: NewMarkers(
@@ -172,7 +196,11 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers: NewMarkers(
 				NewMarker(0, 2),
 			),
-			ReferencingMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(0, 5),
+				NewMarker(1, 5),
+				NewMarker(3, 5),
+			),
 		},
 		"msg15": {
 			PastMarkers: NewMarkers(
@@ -274,8 +302,6 @@ func TestManager(t *testing.T) {
 				assert.Equal(t, messageExpected.ReferencedMarkers, sequence.ReferencedMarkers(pastMarker.Index()), messageID+" has unexpected referenced Markers")
 				assert.Equal(t, messageExpected.ReferencingMarkers, sequence.ReferencingMarkers(pastMarker.Index()), messageID+" has unexpected referencing Markers")
 			})
-
-			// check referencing markers
 		}
 	}
 
