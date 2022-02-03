@@ -37,7 +37,7 @@ The command line wallet and this tutorial are aimed at a developer audience, you
 
 1. Download the latest cli-wallet for the system of your choice from the [GoShimmer GitHub Releases](https://github.com/iotaledger/goshimmer/releases) page.
 2. If needed, make the downloaded binary executable.  If you are using linux you can run:
-   ```bash
+   ```shell
    chmod +x <downloaded-binary>
    ```
 
@@ -71,13 +71,13 @@ You can configure the wallet by creating a `config.json` file in the directory o
    
 You can initialize your wallet by running the `init` command:
 
-```bash
+```shell
 ./cli-wallet init
 ```
 
 If successful, you'll see the generated seed (encoded in base58) on your screen:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 GENERATING NEW WALLET ...                                 [DONE]
 
@@ -96,13 +96,13 @@ CREATING WALLET STATE FILE (wallet.dat) ...               [DONE]
 
 You can request testnet tokens by executing the `request-funds` command:
 
-```bash
+```shell
 ./cli-wallet request-funds
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Requesting funds from faucet ... [PERFORMING POW]          (this can take a while)
@@ -111,13 +111,13 @@ Requesting funds from faucet ... [DONE]
 
 Once you have executed the `request-funds` command,  you can check the balance of your wallet by running the `balance` command:
 
-```bash
+```shell
 ./cli-wallet balance
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Available Token Balances
@@ -137,7 +137,7 @@ The transaction "minting" the assets can specify the amount of tokens to be crea
 
 You can create assets with the cli-wallet executing the `create-asset` command:
 
-```bash
+```shell
 ./cli-wallet create-asset -name MyUniqueToken -symbol MUT -amount 1000
 ```
 
@@ -147,7 +147,7 @@ You can create assets with the cli-wallet executing the `create-asset` command:
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Creating 1000 tokens with the color 'HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn' ...   [DONE]
@@ -155,7 +155,7 @@ Creating 1000 tokens with the color 'HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4w
 
 If you execute the `balance` command shortly after, you will notice that the wallet balances have changed:
 
-```bash
+```shell
 ./cli-wallet balance
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -177,13 +177,13 @@ To help others discover an asset's  attributes, when you create an asset the `cl
 
 When you receive a locally unknown asset to your wallet, it queries this registry service for the metadata. You can also query this metadata yourself by running the `asset-info` command in the wallet:
 
-```bash
+```shell
 ./cli-wallet asset-info -id HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Asset Info
@@ -204,13 +204,13 @@ Funds in IOTA are tied to addresses. Only the owner of the private key behind th
 these tokens to an address provided by your wallet. When you created `MyUniqueToken`, the wallet internally generated a new address
 to hold the assets. You may examine the addresses used by the wallet by executing the `address -list` command:
 
-```bash
+```shell
 ./cli-wallet address -list
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 INDEX   ADDRESS                                         SPENT
@@ -225,7 +225,7 @@ Consequently, when you wish to send tokens, you need to provide an address where
 
 The `send-funds` command can be used to send IOTA or colored tokens to any address. You can run the following command to see what options you have:
 
-```bash
+```shell
 ./cli-wallet send-funds -help
 ```
 
@@ -268,7 +268,7 @@ You can ignore the mana pledge options, as your wallet can derive pledge IDs aut
   
 To send 500 `MyUniqueTokens` to the address `1E5Q82XTF5QGyC598br9oCj71cREyjD1CGUk2gmaJaFQt`, you have to tell the wallet that `MyUniqueTokens` are of color `HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn`, as shown in the following command:
 
-```bash
+```shell
 ./cli-wallet send-funds -amount 500 -color HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn -dest-addr 1E5Q82XTF5QGyC598br9oCj71cREyjD1CGUk2gmaJaFQt
 ```
 
@@ -276,14 +276,14 @@ To send 500 `MyUniqueTokens` to the address `1E5Q82XTF5QGyC598br9oCj71cREyjD1CGU
 
 If you don't want the receiver to be able to spend the tokens you have sent right away, you should execute the `send-funds` command with the `-lock-until` flag. The `-lock-until` flag expects a unix timestamp. For example, on linux, you can get a unix timestamp 7 days in the future by executing:
 
-```bash
+```shell
 date -d "+7 days" +%s
 1621426409
 ```
 
 Once you have a unix timestamp, you can execute the transfer by running:
 
-```bash
+```shell
 $ ./cli-wallet send-funds -amount 500 -dest-addr 1E5Q82XTF5QGyC598br9oCj71cREyjD1CGUk2gmaJaFQt -lock-until 1621426409
 ```
 
@@ -296,13 +296,13 @@ have them back you should use the `-fallb-addr` and `-fallb-dealine` flags when 
 
 If you want to use your own wallet as fallback address, you can get your wallet's receive by running `./cli-wallet address -receive`:
 
-```bash
+```shell
 ./cli-wallet address -receive
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Latest Receive Address: 17KoEZbWoBLRjBsb6oSyrSKVVqd7DVdHUWpxfBFbHaMSm
@@ -310,14 +310,14 @@ Latest Receive Address: 17KoEZbWoBLRjBsb6oSyrSKVVqd7DVdHUWpxfBFbHaMSm
 
 Once you have the desired fallback address, you can execute a transfer with a fallback address by running:
 
-```bash
+```shell
 ./cli-wallet send-funds -amount 500 -dest-addr 1E5Q82XTF5QGyC598br9oCj71cREyjD1CGUk2gmaJaFQt \
 -fallb-addr 17KoEZbWoBLRjBsb6oSyrSKVVqd7DVdHUWpxfBFbHaMSm --fallb-deadline 1621426409
 ```
 
 When you receive conditional funds, they will be displayed on the balance page in the wallet:
 
-```bash
+```shell
 ./cli-wallet balance
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -336,12 +336,13 @@ STATUS  OWNED UNTIL                     BALANCE                 COLOR           
 
 As the output suggests, you need to execute the `claim-conditional` command to claim these funds:
 
-```bash
+```shell
 ./cli-wallet claim-conditional
 ```
 
 Expected output:
-```bash
+
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Claiming conditionally owned funds... [DONE]
@@ -349,13 +350,13 @@ Claiming conditionally owned funds... [DONE]
 
 After claiming the funds, you can see your balance has been updated by running:
 
-```bash
+```shell
 ./cli-wallet balance
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Available Token Balances
@@ -371,7 +372,7 @@ NFTs are non-fungible tokens that have unique properties. In IOTA, NFTs are repr
 
 You can list the option for the `create-nft` command by running `./cli-wallet create-nft -help`:
 
-```bash
+```shell
 ./cli-wallet create-nft -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -424,13 +425,13 @@ The above JSON file is just a template, you can define any binary data that fits
 
 After you have created your data file, you can create the NFT by executing:
 
-```bash
+```shell
 ./cli-wallet create-nft -immutable-data nft_metadata.json
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Created NFT with ID:  gSfeBrWp1HwDLwSL7rt1qEMM59YBFZ4iBgAqHuqaQHo5
@@ -445,13 +446,13 @@ The immutable data field contains the attached binary metadata (encoded in base6
 
 The NFT is also displayed on the balance page of the cli-wallet:
 
-```bash
+```shell
 ./cli-wallet balance
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Available Token Balances
@@ -472,7 +473,7 @@ STATUS  NFT ID (ALIAS ID)                               BALANCE                 
 
 You can use the `transfer-nft` command to send NFT.  You can run the `transfer-nft` command with the `-help` flagTo view the available options.
 
-```bash
+```shell
 ./cli-wallet transfer-nft -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -500,13 +501,13 @@ There are 2 mandatory flags that you will need to provide for a valid transfer: 
 
 The following command will send some of the `MyUniqueTokens` created in the previous example to `1E5Q82XTF5QGyC598br9oCj71cREyjD1CGUk2gmaJaFQt`: 
 
-```bash
+```shell
 ./cli-wallet transfer-nft -id gSfeBrWp1HwDLwSL7rt1qEMM59YBFZ4iBgAqHuqaQHo5 -dest-addr 1E5Q82XTF5QGyC598br9oCj71cREyjD1CGUk2gmaJaFQt
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Transferring NFT... [DONE]
@@ -519,7 +520,7 @@ The owner of an NFT has the ability to destroy it. When an NFT is destroyed, all
 
 You can use the `destroy-nft` command to destroy a NFT.  You can run the `destroy-nft` command with the `-help` flag to view the available options.
 
-```bash
+```shell
 ./cli-wallet destroy-nft -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -541,7 +542,7 @@ OPTIONS:
 The following example shows how to create a NFT, and destroy it right after.
 
 1. Create the NFT
-   ```bash
+   ```shell
    ./cli-wallet create-nft
    ```
    Expected output:
@@ -552,13 +553,13 @@ The following example shows how to create a NFT, and destroy it right after.
    Creating NFT ... [DONE]
    ```
 2. Check the balance page shows that the NFT status is `OK`:
-   ```bash
+   ```shell
    ./cli-wallet balance
    ```
    
    Expected output:
-   
-   ```bash
+
+   ```shell
    IOTA 2.0 DevNet CLI-Wallet 0.2
    
    Available Token Balances
@@ -577,7 +578,7 @@ The following example shows how to create a NFT, and destroy it right after.
    
 3. Destroy the nft:
 
-   ```bash
+   ```shell
    ./cli-wallet destroy-nft -id bdrvyKvaE6CZUEbdRDK57oBCRb2SLUyE8padFGxrV3zg
    ```
    
@@ -600,7 +601,7 @@ An NFT is not only a valid IOTA address via its NFT ID, but it is also stored as
 
 You can use the `deposit-to-nft` command to transfer tokens to a NFT. You can run the `deposit-to-nft` command with the `-help` flag to view the available options.
 
-```bash
+```shell
 ./cli-wallet deposit-to-nft -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -630,13 +631,13 @@ To deposit some previously created `MyUniqueTokens` into the NFT, we need to spe
 
 You can check your balance before the transfer by running:
 
-```bash
+```shell
 ./cli-wallet balance
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Available Token Balances
@@ -655,26 +656,26 @@ STATUS  NFT ID (ALIAS ID)                               BALANCE                 
 
 You can run the following command to deposit 500 `MyUniqueTokens` to the nft with id `f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg`:
 
-```bash
+```shell
 ./cli-wallet deposit-to-nft -id f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg -amount 500 -color HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 Depositing funds into NFT ... [DONE]
 ```
 
 After the transfer is successful, you can recheck your balance, and it should show your NFT now has 500 `MyUniqueTokens`:
 
-```bash
+```shell
 ./cli-wallet balance
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Available Token Balances
@@ -695,7 +696,7 @@ STATUS  NFT ID (ALIAS ID)                               BALANCE                 
 
 You can use the `withdraw-from-nft` command to withdraw tokens from a NFT.  If the withdrawal leaves less than the minimum required funds in the NFT, the transaction will fail. You can run the `withdraw-from-nft` command with the `-help` flag to view the available options.
 
-```bash
+```shell
 ./cli-wallet withdraw-from-nft -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -721,13 +722,13 @@ OPTIONS:
 
 You can execute the following command to withdraw the previously deposited `MyUniqueTokens`:
 
-```bash
+```shell
 ./cli-wallet withdraw-from-nft -id f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg -amount 500 -color HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Withdrawing funds from NFT... [DONE]
@@ -735,13 +736,13 @@ Withdrawing funds from NFT... [DONE]
 
 Once the transaction has been confirmed, you will see the updated balance:
 
-```bash
+```shell
 ./cli-wallet balance
 ```
 
 Expected output:
 
-```bash
+```shell
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
 Available Token Balances
@@ -762,7 +763,7 @@ STATUS  NFT ID (ALIAS ID)                               BALANCE                 
 
 You can use the `sweep-nft-owned-fun` command to collect all funds currently stored in a NFT. You can run the `sweep-nft-owned-fun` command with the `-help` flag to view the available options.
 
-```bash
+```shell
 ./cli-wallet sweep-nft-owned-funds -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -786,13 +787,13 @@ The only mandatory flag is `-id`, as it specifies which NFT ID (address) to scan
 
 In the following example, a sender has sent token to our NFT `f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg` with a normal `send-funds` command:
 
-```bash
+```shell
 ./senders-wallet send-funds -amount 1000000 -dest-addr f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg
 ```
 
 You can execute the `sweep-nft-owned-funds` command to transfer these funds into our wallet:
 
-```bash
+```shell
 ./cli-wallet sweep-nft-owned-funds -id f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg
 ```
 Expected output:
@@ -805,7 +806,7 @@ Sweeping NFT owned funds... [DONE]
 
 If you check the balance, it should be updated.  So the wallet contains 1 MI more:
 
-```bash
+```shell
 ./cli-wallet balance
 ```
 
@@ -833,7 +834,7 @@ STATUS  NFT ID (ALIAS ID)                               BALANCE                 
 NFTs can own other NFTs, that in turn can own other NFTs and so on... wow, NFTception!
 Let's say your friend created an NFT, and transferred it to your NFT's ID `f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg`.
 
-```bash
+```shell
 ./your-friends-wallet create-nft
 ```
 
@@ -856,7 +857,8 @@ Transferring NFT... [DONE]
 
 Your NFT `f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg` now owns NFT `faf9tkdBfcTv2AgPm3Zt8duX4iUGKjqbEyrdBYsUb2hi`.
 To sweep the owned NFT into your wallet, execute the `sweep-nft-owned-nft` command:
-```bash
+
+```shell
 ./cli-wallet sweep-nft-owned-nfts -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -877,9 +879,11 @@ OPTIONS:
 ```
 
 All you need to specify is the `-id` of your NFT that you would like to check for owned NFTs:
-```bash
+
+```shell
 ./cli-wallet sweep-nft-owned-nfts -id f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg
 ```
+
 ```
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -889,9 +893,10 @@ Sweeping NFT owned NFTs... [DONE]
 That's it, your wallet owns `faf9tkdBfcTv2AgPm3Zt8duX4iUGKjqbEyrdBYsUb2hi` now. If this NFT owned other funds or NFTs,
 you would be able to sweep them into your wallet just like you did for `f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg`.
 
-```bash
+```shell
 ./cli-wallet balance
 ```
+
 ```
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -924,7 +929,8 @@ Delegating funds via the cli-wallet is rather simple: you just need to execute t
 the cli-wallet will delegate funds to the node that the wallet is connected to, unless you specify a delegation
 address via the `-del-addr` flag.
 specify a valid IOTA address where to delegate to.
-```bash
+
+```shell
 ./cli-wallet delegate-funds -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -957,9 +963,11 @@ OPTIONS:
  - You can specify a certain asset to be delegated (`-color`), default is IOTA.
 
 Let's delegate some funds to an address provided by a node in the network, `1EqJf5K1LJ6bVMCrxxxdZ6VNYoBTvEoXgxnbLJe7aqajc`:
-```bash
+
+```shell
 ./cli-wallet delegate-funds -amount 1000000 -del-addr 1EqJf5K1LJ6bVMCrxxxdZ6VNYoBTvEoXgxnbLJe7aqajc
 ```
+
 ```
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -971,9 +979,11 @@ Delegating funds... [DONE]
 If we omitted the `-del-addr` flag and its value, the wallet would have asked the node it is connected to, to provide
 a delegation address. You can get this delegation address yourself as well by running the `server-status` command in
 the wallet, or querying the `/info` endpoint of a node through the webapi.
-```bash
+
+```shell
 ./cli-wallet server-status
 ```
+
 ```
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -984,9 +994,11 @@ Delegation Address:  1HG9Z5NSiWTmT1HG65JLmn1jxQj7xUcVppKKi2vHAZLmr
 ```
 
 By running the `balance` command, we can see the delegated funds:
-```bash
+
+```shell
 ./cli-wallet balance
 ```
+
 ```
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -1010,7 +1022,8 @@ To be able to reclaim the delegated funds, we will need the delegation ID of the
 
 To reclaim delegated funds, you have to tell the cli-wallet the delegation ID that is displayed on the balance page.
 Use the `reclaim-delegated` command once you got the delegation ID:
-```bash
+
+```shell
  ./cli-wallet reclaim-delegated -help
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -1031,9 +1044,11 @@ OPTIONS:
 ```
 
 To reclaim the funds delegated in the previous section, simply run:
-```bash
+
+```shell
 ./cli-wallet reclaim-delegated -id tGoTKjt2y277ssKax9stsZXfLGdf8bPj3TZFaUDcAEwK
 ```
+
 ```
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
@@ -1041,9 +1056,11 @@ Reclaimed delegation ID is:  tGoTKjt2y277ssKax9stsZXfLGdf8bPj3TZFaUDcAEwK
 Reclaiming delegated fund... [DONE]
 ```
 The balance should appear in the `Available Balances` section of the balance page:
-```bash
+
+```shell
 ./cli-wallet balance
 ```
+
 ```
 IOTA 2.0 DevNet CLI-Wallet 0.2
 
