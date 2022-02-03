@@ -75,7 +75,8 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
-	messagesRateLimiter *ratelimiter.PeerRateLimiter
+	messagesRateLimiter        *ratelimiter.PeerRateLimiter
+	messageRequestsRateLimiter *ratelimiter.PeerRateLimiter
 
 	// messageWorkerPool defines a worker pool where all incoming messages are processed.
 	messageWorkerPool *workerpool.NonBlockingQueuedWorkerPool
@@ -135,6 +136,19 @@ func WithMessagesRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
 // MessagesRateLimiter returns the messages rate limiter instance used in the gossip manager.
 func (m *Manager) MessagesRateLimiter() *ratelimiter.PeerRateLimiter {
 	return m.messagesRateLimiter
+}
+
+// WithMessageRequestsRateLimiter allows to set a PeerRateLimiter instance
+// to be used as messages requests rate limiter in the gossip manager.
+func WithMessageRequestsRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
+	return func(m *Manager) {
+		m.messageRequestsRateLimiter = prl
+	}
+}
+
+// MessageRequestsRateLimiter returns the message requests rate limiter instance used in the gossip manager.
+func (m *Manager) MessageRequestsRateLimiter() *ratelimiter.PeerRateLimiter {
+	return m.messageRequestsRateLimiter
 }
 
 // Stop stops the manager and closes all established connections.
@@ -381,6 +395,9 @@ func (m *Manager) processMessagePacket(packetMsg *pb.Packet_Message, nbr *Neighb
 }
 
 func (m *Manager) processMessageRequestPacket(packetMsgReq *pb.Packet_MessageRequest, nbr *Neighbor) {
+	if m.messageRequestsRateLimiter != nil {
+		m.messageRequestsRateLimiter.Count(nbr.Peer)
+	}
 	msgID, _, err := tangle.MessageIDFromBytes(packetMsgReq.MessageRequest.GetId())
 	if err != nil {
 		m.log.Debugw("invalid message id:", "err", err)

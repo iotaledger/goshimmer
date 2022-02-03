@@ -71,18 +71,30 @@ func run(plugin *node.Plugin) {
 
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
-	mrlClosure := events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
-		deps.Firewall.HandleFaultyPeer(p.ID(), &firewall.FaultinessDetails{
-			Reason: "Messages rate limit hit",
-			Info: map[string]interface{}{
-				"rateLimit": rl,
-			},
-		})
-	})
 
 	if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
+		mrlClosure := events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
+			deps.Firewall.HandleFaultyPeer(p.ID(), &firewall.FaultinessDetails{
+				Reason: "Messages rate limit hit",
+				Info: map[string]interface{}{
+					"rateLimit": rl,
+				},
+			})
+		})
 		mrl.HitEvent().Attach(mrlClosure)
 		defer mrl.HitEvent().Detach(mrlClosure)
+	}
+	if mrrl := deps.GossipMgr.MessageRequestsRateLimiter(); mrrl != nil {
+		mrlClosure := events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
+			deps.Firewall.HandleFaultyPeer(p.ID(), &firewall.FaultinessDetails{
+				Reason: "Message requests rate limit hit",
+				Info: map[string]interface{}{
+					"rateLimit": rl,
+				},
+			})
+		})
+		mrrl.HitEvent().Attach(mrlClosure)
+		defer mrrl.HitEvent().Detach(mrlClosure)
 	}
 	Plugin.LogInfof("%s started", PluginName)
 

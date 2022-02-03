@@ -76,6 +76,18 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		}
 		opts = append(opts, gossip.WithMessagesRateLimiter(mrl))
 	}
+	if Parameters.MessageRequestsRateLimit != (messageRequestsLimitParameters{}) {
+		Plugin.Logger().Infof("Initializing message requests rate limiter with the following parameters: %+v",
+			Parameters.MessageRequestsRateLimit)
+		mrrl, mrrlErr := ratelimiter.NewPeerRateLimiter(
+			Parameters.MessageRequestsRateLimit.Interval, Parameters.MessageRequestsRateLimit.Limit,
+			Plugin.Logger().With("rateLimiter", "messageRequestsRateLimiter"),
+		)
+		if mrrlErr != nil {
+			Plugin.LogFatalf("Failed to initialize message requests rate limiter: %+v", mrrlErr)
+		}
+		opts = append(opts, gossip.WithMessageRequestsRateLimiter(mrrl))
+	}
 	mgr := gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger(), opts...)
 	return mgr
 }
@@ -85,6 +97,11 @@ func start(ctx context.Context) {
 	defer func() {
 		if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
 			mrl.Close()
+		}
+	}()
+	defer func() {
+		if mrrl := deps.GossipMgr.MessageRequestsRateLimiter(); mrrl != nil {
+			mrrl.Close()
 		}
 	}()
 	defer deps.GossipMgr.Stop()
