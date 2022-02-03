@@ -171,7 +171,6 @@ func UnregisterMessageIDAliases() {
 // region MessageIDsSlice //////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageIDsSlice is a slice of MessageID.
-// TODO: remove
 type MessageIDsSlice []MessageID
 
 // ToStrings converts a slice of MessageIDs to a slice of strings.
@@ -194,6 +193,7 @@ func (ids MessageIDsSlice) ToMessageIDs() MessageIDs {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MessageIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
+
 type MessageIDs map[MessageID]types.Empty
 
 func (m MessageIDs) Slice() MessageIDsSlice {
@@ -842,8 +842,8 @@ type MessageMetadata struct {
 	subtractedBranchIDsMutex sync.RWMutex
 	scheduledMutex           sync.RWMutex
 	scheduledTimeMutex       sync.RWMutex
-	discardedTimeMutex      sync.RWMutex
-	queuedTimeMutex     sync.RWMutex
+	discardedTimeMutex       sync.RWMutex
+	queuedTimeMutex          sync.RWMutex
 	bookedMutex              sync.RWMutex
 	bookedTimeMutex          sync.RWMutex
 	invalidMutex             sync.RWMutex
