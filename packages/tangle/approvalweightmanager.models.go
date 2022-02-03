@@ -526,9 +526,9 @@ var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceI
 
 // LatestMarkerVotes represents the markers supported from a certain Voter.
 type LatestMarkerVotes struct {
-	sequenceID  markers.SequenceID
-	voter       Voter
-	latestVotes *thresholdmap.ThresholdMap
+	sequenceID        markers.SequenceID
+	voter             Voter
+	latestMarkerVotes *thresholdmap.ThresholdMap
 
 	sync.RWMutex
 	objectstorage.StorableObjectFlags
@@ -537,9 +537,9 @@ type LatestMarkerVotes struct {
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
 func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
 	newLatestMarkerVotes = &LatestMarkerVotes{
-		sequenceID:  sequenceID,
-		voter:       voter,
-		latestVotes: thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator),
+		sequenceID:        sequenceID,
+		voter:             voter,
+		latestMarkerVotes: thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator),
 	}
 
 	newLatestMarkerVotes.SetModified()
@@ -575,7 +575,7 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 		return nil, errors.Errorf("failed to read mapSize from MarshalUtil: %w", err)
 	}
 
-	latestMarkerVotes.latestVotes = thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	latestMarkerVotes.latestMarkerVotes = thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator)
 	for i := uint64(0); i < mapSize; i++ {
 		markerIndex, markerIndexErr := markers.IndexFromMarshalUtil(marshalUtil)
 		if markerIndexErr != nil {
@@ -587,7 +587,7 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 			return nil, errors.Errorf("failed to read sequence number from MarshalUtil: %w", sequenceNumberErr)
 		}
 
-		latestMarkerVotes.latestVotes.Set(markerIndex, sequenceNumber)
+		latestMarkerVotes.latestMarkerVotes.Set(markerIndex, sequenceNumber)
 	}
 
 	return latestMarkerVotes, nil
@@ -613,7 +613,7 @@ func (l *LatestMarkerVotes) SequenceNumber(index markers.Index) (sequenceNumber 
 	l.RLock()
 	defer l.RUnlock()
 
-	key, exists := l.latestVotes.Get(index)
+	key, exists := l.latestMarkerVotes.Get(index)
 	if !exists {
 		return 0, exists
 	}
@@ -626,25 +626,25 @@ func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (s
 	l.Lock()
 	defer l.Unlock()
 
-	if maxElement := l.latestVotes.MaxElement(); maxElement != nil {
+	if maxElement := l.latestMarkerVotes.MaxElement(); maxElement != nil {
 		previousHighestIndex = maxElement.Key().(markers.Index)
 	}
 
 	// abort if we already have a higher value on an Index that is larger or equal
-	_, ceilingValue, ceilingExists := l.latestVotes.Ceiling(index)
+	_, ceilingValue, ceilingExists := l.latestMarkerVotes.Ceiling(index)
 	if ceilingExists && sequenceNumber < ceilingValue.(uint64) {
 		return false, previousHighestIndex
 	}
 
 	// set the new value
-	l.latestVotes.Set(index, sequenceNumber)
+	l.latestMarkerVotes.Set(index, sequenceNumber)
 
 	// remove all predecessors that are lower than the newly set value
-	floorKey, floorValue, floorExists := l.latestVotes.Floor(index - 1)
+	floorKey, floorValue, floorExists := l.latestMarkerVotes.Floor(index - 1)
 	for floorExists && floorValue.(uint64) < sequenceNumber {
-		l.latestVotes.Delete(floorKey)
+		l.latestMarkerVotes.Delete(floorKey)
 
-		floorKey, floorValue, floorExists = l.latestVotes.Floor(index - 1)
+		floorKey, floorValue, floorExists = l.latestMarkerVotes.Floor(index - 1)
 	}
 
 	l.SetModified()
@@ -656,7 +656,7 @@ func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (s
 func (l *LatestMarkerVotes) String() string {
 	builder := stringify.StructBuilder("LatestMarkerVotes")
 
-	l.latestVotes.ForEach(func(node *thresholdmap.Element) bool {
+	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
 		builder.AddField(stringify.StructField(node.Key().(markers.Index).String(), node.Value()))
 
 		return true
@@ -686,8 +686,8 @@ func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
 // ObjectStorageValue returns the storage value for this instance of LatestMarkerVotes.
 func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(uint64(l.latestVotes.Size()))
-	l.latestVotes.ForEach(func(node *thresholdmap.Element) bool {
+	marshalUtil.WriteUint64(uint64(l.latestMarkerVotes.Size()))
+	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
 		marshalUtil.Write(node.Key().(markers.Index))
 		marshalUtil.WriteUint64(node.Value().(uint64))
 
@@ -767,8 +767,8 @@ func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes 
 
 // LatestBranchVotes represents the branch supported from an Issuer.
 type LatestBranchVotes struct {
-	voter       Voter
-	latestVotes map[ledgerstate.BranchID]*Vote
+	voter             Voter
+	latestBranchVotes map[ledgerstate.BranchID]*Vote
 
 	sync.RWMutex
 	objectstorage.StorableObjectFlags
@@ -779,7 +779,7 @@ func (l *LatestBranchVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exi
 	l.RLock()
 	defer l.RUnlock()
 
-	vote, exists = l.latestVotes[branchID]
+	vote, exists = l.latestBranchVotes[branchID]
 
 	return
 }
@@ -789,33 +789,33 @@ func (l *LatestBranchVotes) Store(vote *Vote) (stored bool) {
 	l.Lock()
 	defer l.Unlock()
 
-	if currentVote, exists := l.latestVotes[vote.BranchID]; exists && currentVote.SequenceNumber >= vote.SequenceNumber {
+	if currentVote, exists := l.latestBranchVotes[vote.BranchID]; exists && currentVote.SequenceNumber >= vote.SequenceNumber {
 		return false
 	}
 
-	l.latestVotes[vote.BranchID] = vote
+	l.latestBranchVotes[vote.BranchID] = vote
 	l.SetModified()
 
 	return true
 }
 
 // NewLatestBranchVotes creates a new LatestBranchVotes.
-func NewLatestBranchVotes(supporter Voter) (latestVotes *LatestBranchVotes) {
-	latestVotes = &LatestBranchVotes{
-		voter:       supporter,
-		latestVotes: make(map[ledgerstate.BranchID]*Vote),
+func NewLatestBranchVotes(supporter Voter) (latestBranchVotes *LatestBranchVotes) {
+	latestBranchVotes = &LatestBranchVotes{
+		voter:             supporter,
+		latestBranchVotes: make(map[ledgerstate.BranchID]*Vote),
 	}
 
-	latestVotes.Persist()
-	latestVotes.SetModified()
+	latestBranchVotes.Persist()
+	latestBranchVotes.SetModified()
 
 	return
 }
 
-// LatestVotesFromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
-func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestBranchVotes, consumedBytes int, err error) {
+// LatestBranchVotesFromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
+func LatestBranchVotesFromBytes(bytes []byte) (latestBranchVotes *LatestBranchVotes, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if latestVotes, err = LatestVotesFromMarshalUtil(marshalUtil); err != nil {
+	if latestBranchVotes, err = LatestBranchVotesFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
 		return
 	}
@@ -824,10 +824,10 @@ func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestBranchVotes, consume
 	return
 }
 
-// LatestVotesFromMarshalUtil unmarshals a LatestBranchVotes object using a MarshalUtil (for easier unmarshalling).
-func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVotes *LatestBranchVotes, err error) {
-	latestVotes = &LatestBranchVotes{}
-	if latestVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
+// LatestBranchVotesFromMarshalUtil unmarshals a LatestBranchVotes object using a MarshalUtil (for easier unmarshalling).
+func LatestBranchVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestBranchVotes *LatestBranchVotes, err error) {
+	latestBranchVotes = &LatestBranchVotes{}
+	if latestBranchVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
 	}
 
@@ -836,7 +836,7 @@ func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVot
 		return nil, errors.Errorf("failed to parse map size (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 
-	latestVotes.latestVotes = make(map[ledgerstate.BranchID]*Vote, int(mapSize))
+	latestBranchVotes.latestBranchVotes = make(map[ledgerstate.BranchID]*Vote, int(mapSize))
 
 	for i := uint64(0); i < mapSize; i++ {
 		branchID, voteErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
@@ -849,15 +849,15 @@ func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVot
 			return nil, errors.Errorf("failed to parse Vote from MarshalUtil: %w", voteErr)
 		}
 
-		latestVotes.latestVotes[branchID] = vote
+		latestBranchVotes.latestBranchVotes[branchID] = vote
 	}
 
-	return latestVotes, nil
+	return latestBranchVotes, nil
 }
 
-// LatestVotesFromObjectStorage restores a LatestBranchVotes object from the object storage.
-func LatestVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = LatestVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+// LatestBranchVotesFromObjectStorage restores a LatestBranchVotes object from the object storage.
+func LatestBranchVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = LatestBranchVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from bytes: %w", err)
 		return
 	}
@@ -896,9 +896,9 @@ func (l *LatestBranchVotes) ObjectStorageValue() []byte {
 
 	marshalUtil := marshalutil.New()
 
-	marshalUtil.WriteUint64(uint64(len(l.latestVotes)))
+	marshalUtil.WriteUint64(uint64(len(l.latestBranchVotes)))
 
-	for branchID, vote := range l.latestVotes {
+	for branchID, vote := range l.latestBranchVotes {
 		marshalUtil.Write(branchID)
 		marshalUtil.Write(vote)
 	}
@@ -941,7 +941,7 @@ func (c *CachedLatestBranchVotes) Unwrap() *LatestBranchVotes {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedLatestBranchVotes) Consume(consumer func(latestVotes *LatestBranchVotes), forceRelease ...bool) (consumed bool) {
+func (c *CachedLatestBranchVotes) Consume(consumer func(latestBranchVotes *LatestBranchVotes), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*LatestBranchVotes))
 	}, forceRelease...)

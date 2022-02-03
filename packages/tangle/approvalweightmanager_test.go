@@ -855,12 +855,12 @@ func TestLatestMarkerVotes(t *testing.T) {
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.latestVotes.ForEach(func(node *thresholdmap.Element) bool {
+	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
 		index := node.Key().(markers.Index)
 		seq := node.Value().(uint64)
 
 		_, exists := expectedVotes[index]
-		assert.Truef(t, exists, "%s:%d does not exist in latestVotes", index, seq)
+		assert.Truef(t, exists, "%s:%d does not exist in latestMarkerVotes", index, seq)
 		delete(expectedVotes, index)
 
 		return true
