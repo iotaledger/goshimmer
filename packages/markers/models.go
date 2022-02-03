@@ -2,7 +2,13 @@ package markers
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
@@ -10,10 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +62,7 @@ type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index
 
 // region IndexComparator //////////////////////////////////////////////////////////////////////////////////////////////
 
-func IndexComparator(a interface{}, b interface{}) int {
+func IndexComparator(a, b interface{}) int {
 	aCasted := a.(Index)
 	bCasted := b.(Index)
 	switch {
@@ -1297,7 +1299,7 @@ func (s *Sequence) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = &Sequence{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1475,7 +1477,7 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (stru
 		return
 	}
 
-	return
+	return structureDetails, nil
 }
 
 // Clone creates a deep copy of the StructureDetails.
