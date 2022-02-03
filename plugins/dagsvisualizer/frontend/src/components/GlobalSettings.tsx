@@ -9,9 +9,9 @@ import GlobalStore from 'stores/GlobalStore';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
-import Datetime from 'react-datetime';
 import {isMoment} from 'moment';
 import 'react-datetime/css/react-datetime.css';
+import {TimePickerButtons} from './timeButtons';
 
 interface Props {
     globalStore?: GlobalStore;
@@ -127,11 +127,11 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 <Row md={4}>
                                     <Col>
                                         From:{' '}
-                                        <Datetime onChange={this.updateFrom} />
+                                        <TimePickerButtons isStartTime={true}/>
                                     </Col>
                                     <Col>
                                         To:{' '}
-                                        <Datetime onChange={this.updateTo} />
+                                        <TimePickerButtons isStartTime={false}/>
                                     </Col>
                                     <Col
                                         className="align-self-end"

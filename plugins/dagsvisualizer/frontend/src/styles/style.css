@@ -93,9 +93,44 @@ h5 {
     background-color: var(--iota-shade-blue);
 }
 
+.button-wide {
+    width: 100%;
+}
+
+.tripleButton {
+    display: flex;
+    justify-content: space-evenly;
+    max-width: 500px;
+    padding-top: 5px;
+}
+
+.tripleButton .button-middle {
+    border-radius: 0;
+}
+
+.tripleButton .button-left {
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+    border-right: none;
+}
+
+.tripleButton .button-left:hover {
+    border-right: none;
+}
+
+.tripleButton .button-right {
+    border-bottom-left-radius: 0;
+    border-top-left-radius: 0;
+    border-left: none;
+}
+
+.tripleButton .button-right:hover {
+    border-left: none;
+}
+
 .panel {
     padding: 2em 0;
-    box-shadow: 0 2px 0 0 var(--iota-sea-color);
+    box-shadow: 0 2px 0 0 var(--iota-shade-blue);
     color: var(--iota-white)
 }
 

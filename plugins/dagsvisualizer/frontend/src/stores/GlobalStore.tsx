@@ -1,12 +1,12 @@
-import { action, makeObservable, observable } from 'mobx';
-import { Moment } from 'moment';
+import {action, makeObservable, observable} from 'mobx';
+import {Moment} from 'moment';
 import TangleStore from './TangleStore';
-import { tangleVertex } from 'models/tangle';
+import {tangleVertex} from 'models/tangle';
 import UTXOStore from './UTXOStore';
-import { utxoVertex } from 'models/utxo';
+import {utxoVertex} from 'models/utxo';
 import BranchStore from './BranchStore';
-import { branchVertex } from 'models/branch';
-import { DEFAULT_DASHBOARD_URL } from 'utils/constants';
+import {branchVertex} from 'models/branch';
+import {DEFAULT_DASHBOARD_URL} from 'utils/constants';
 
 export class searchResult {
     messages: Array<tangleVertex>;
@@ -95,11 +95,25 @@ export class GlobalStore {
     @action
     updateSearchStartingTime = (dateTime: Moment) => {
         this.searchStartingTime = dateTime.unix();
+        console.log(this.searchStartingTime);
+
+    };
+
+    @action
+    setSearchStartingTime = (unixDateTime: number) => {
+        console.log(this.searchStartingTime);
+        this.searchStartingTime = Math.floor(unixDateTime / 1000);
+        console.log(this.searchStartingTime);
     };
 
     @action
     updateSearchEndingTime = (dateTime: Moment) => {
         this.searchEndingTime = dateTime.unix();
+    };
+
+    @action
+    setSearchEndingTime = (unixDateTime: number) => {
+        this.searchEndingTime = unixDateTime;
     };
 
     @action
