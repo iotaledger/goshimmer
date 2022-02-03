@@ -1,23 +1,30 @@
 html,
 body,
 #root {
-    --iota-dark-blue: #131f37;
-    --iota-sea-color: #0fc1b7;
-    --iota-shade-blue: #123f51;
-    --iota-white: #f7f9fd;
-    --iota-light-grey: #a9b8d6;
-    --iota-dark-grey: #777c87;
-
+    --color-dark-blue: #131f37;
+    --color-sea: #0fc1b7;
+    --color-shade-blue: #123f51;
+    --color-white: #f7f9fd;
+    --color-light-grey: #a9b8d6;
+    --color-dark-grey: #777c87;
+    --color-darkest-blue: #0a1429;
+    width: 100%;
     height: 100%;
-    background-color: var(--iota-dark-blue);
+    background-color: var(--color-darkest-blue);
+}
+
+.nav {
+    border-bottom: var(--color-shade-blue) solid 2px;
+    margin-bottom: 40px;
+    padding: 20px;
 }
 
 h2 {
-    color: var(--iota-white);
+    color: var(--color-white);
 }
 
 h5 {
-    color: var(--iota-light-grey);
+    color: var(--color-light-grey);
 }
 
 .container {
@@ -26,7 +33,7 @@ h5 {
 
 .graphFrame {
     position: relative;
-    background: var(--iota-shade-blue);
+    background: var(--color-shade-blue);
     margin: 2em 0;
 }
 
@@ -58,16 +65,16 @@ h5 {
 }
 
 .card {
-    background-color: var(--iota-dark-blue);
-    /*border: 1px solid var(--iota-sea-color);*/
+    background-color: var(--color-dark-blue);
+    /*border: 1px solid var(--color-sea);*/
 }
 
 .card div {
-    background-color: var(--iota-dark-blue);
+    background-color: var(--color-dark-blue);
 }
 
 .card div a {
-    color: var(--iota-sea-color);
+    color: var(--color-sea);
 }
 
 .form-control {
@@ -83,14 +90,14 @@ h5 {
 }
 
 .button {
-    color: var(--iota-sea-color);
-    border: 1px solid var(--iota-sea-color);
+    color: var(--color-sea);
+    border: 1px solid var(--color-sea);
 }
 
 .button:hover {
-    color: var(--iota-white);
-    border: 1px solid var(--iota-sea-color);
-    background-color: var(--iota-shade-blue);
+    color: var(--color-white);
+    border: 1px solid var(--color-sea);
+    background-color: var(--color-shade-blue);
 }
 
 .button-wide {
@@ -130,38 +137,38 @@ h5 {
 
 .panel {
     padding: 2em 0;
-    box-shadow: 0 2px 0 0 var(--iota-shade-blue);
-    color: var(--iota-white)
+    box-shadow: 0 2px 0 0 var(--color-shade-blue);
+    color: var(--color-white)
 }
 
 .panel input {
-    background-color: var(--iota-dark-blue);
-    border: 1px solid var(--iota-dark-grey);
-    color: var(--iota-dark-grey);
+    background-color: var(--color-dark-blue);
+    border: 1px solid var(--color-dark-grey);
+    color: var(--color-dark-grey);
 }
 
 .panel input:focus {
-    background-color: var(--iota-shade-blue);
-    border: 1px solid var(--iota-sea-color);
-    color: var(--iota-dark-grey);
+    background-color: var(--color-shade-blue);
+    border: 1px solid var(--color-sea);
+    color: var(--color-dark-grey);
 }
 
 .panel span {
-    color: var(--iota-dark-grey);
-    border: 1px solid var(--iota-dark-grey);
-    background-color: var(--iota-dark-blue);
+    color: var(--color-dark-grey);
+    border: 1px solid var(--color-dark-grey);
+    background-color: var(--color-dark-blue);
     border-bottom-right-radius: 0;
     border-top-right-radius: 0;
 }
 
 .panel .rdtPicker {
-    background-color: var(--iota-shade-blue);
-    color: var(--iota-sea-color);
+    background-color: var(--color-shade-blue);
+    color: var(--color-sea);
     border: none;
 }
 
 .panel .rdtPicker th {
-    border-color: var(--iota-dark-blue)
+    border-color: var(--color-dark-blue)
 }
 
 .panel .rdtPicker .rdtCount {
@@ -169,7 +176,7 @@ h5 {
 }
 
 .panel .rdtPicker .rdtDay:hover {
-    background-color: var(--iota-dark-blue);
+    background-color: var(--color-dark-blue);
 }
 
 .panel .rdtPicker .rdtDay:hover,
@@ -180,5 +187,5 @@ h5 {
 .panel .rdtPicker .rdtYear.rdtActive,
 .panel .rdtPicker .rdtTimeToggle:hover,
 .panel .rdtPicker .rdtSwitch:hover {
-    background-color: var(--iota-dark-blue);
+    background-color: var(--color-dark-blue);
 }
