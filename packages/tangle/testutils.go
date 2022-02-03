@@ -941,7 +941,8 @@ type SimpleMockOnTangleVoting struct {
 	likedConflictMember map[ledgerstate.BranchID]LikedConflictMembers
 }
 
-// LikedConflictMembers is a struct that holds the
+// LikedConflictMembers is a struct that holds information about which Branch is the liked one out of a set of
+// ConflictMembers.
 type LikedConflictMembers struct {
 	likedBranch     ledgerstate.BranchID
 	conflictMembers ledgerstate.BranchIDs
