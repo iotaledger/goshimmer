@@ -611,7 +611,7 @@ func WithShallowLikeParents(messageAliases ...string) MessageOption {
 	}
 }
 
-// WithShallowLikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
+// WithShallowDislikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
 func WithShallowDislikeParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
@@ -874,6 +874,7 @@ func NewTestTangle(options ...Option) *Tangle {
 // MockConfirmationOracle is a mock of a ConfirmationOracle.
 type MockConfirmationOracle struct{}
 
+// FirstUnconfirmedMarkerIndex mocks its interface function.
 func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
 	return 0
 }
@@ -940,6 +941,7 @@ type SimpleMockOnTangleVoting struct {
 	likedConflictMember map[ledgerstate.BranchID]LikedConflictMembers
 }
 
+// LikedConflictMembers is a struct that holds the
 type LikedConflictMembers struct {
 	likedBranch     ledgerstate.BranchID
 	conflictMembers ledgerstate.BranchIDs
