@@ -1,4 +1,4 @@
-//nolint:dupl
+//nolint:dupl,whitespace
 package tangle
 
 import (
