@@ -293,7 +293,7 @@ fmt.Println(string(bytes))
 
 Then, post the bytes.
 
-```shell script
+```shell
 curl --location --request POST 'http://localhost:8080/ledgerstate/transactions' \
 --header 'Content-Type: application/json' \
 --data-raw '{

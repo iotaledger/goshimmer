@@ -38,11 +38,11 @@ Depending on how you run your GoShimmer node, there are different ways to set up
 One of the easiest ways to run a node is to use [Docker](https://www.docker.com/). To automatically launch GoShimmer and the Monitoring Dashboard with docker, follow these steps:
 1. [Install docker](https://docs.docker.com/get-docker/). On Linux, make sure you install both the [Docker Engine](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/).
 2. Clone the GoShimmer repository.
-   ```bash
+   ```shell
    $ git clone git@github.com:iotaledger/goshimmer.git
    ```
 3. Create a `config.json` from the provided `config.default.json`.
-   ```bash
+   ```shell
    $ cd goshimmer
    $ cp config.default.json config.json
    ```
@@ -55,7 +55,7 @@ One of the easiest ways to run a node is to use [Docker](https://www.docker.com/
    }
    ```
 4. From the root of the repo, start GoShimmer with:
-   ```bash
+   ```shell
    $ docker-compose up
    ```
 
@@ -101,7 +101,7 @@ First, we take a look on how to configure and run Prometheus as a standalone app
 
 1. [Download](https://prometheus.io/download/) the latest release of Prometheus for your system.
 2. Unpack the downloaded file:
-   ```bash
+   ```shell
    $ tar xvfz prometheus-*.tar.gz
    $ cd prometheus-*
    ```
@@ -116,7 +116,7 @@ First, we take a look on how to configure and run Prometheus as a standalone app
            - 127.0.0.1:9311
    ```
 4. Start Prometheus from the unpacked folder:
-   ```bash
+   ```shell
    # By default, Prometheus stores its database in ./data (flag --storage.tsdb.path).
    $ ./prometheus --config.file=prometheus.yml
    ```
@@ -127,7 +127,7 @@ First, we take a look on how to configure and run Prometheus as a standalone app
 
 Note: you have to have root privileges with your user to carry out the following steps.
 1. Create a Prometheus user, directories, and set this user as the owner of those directories.
-   ```
+   ```shell
    $ sudo useradd --no-create-home --shell /bin/false prometheus
    $ sudo mkdir /etc/prometheus
    $ sudo mkdir /var/lib/prometheus
@@ -135,20 +135,20 @@ Note: you have to have root privileges with your user to carry out the following
    $ sudo chown prometheus:prometheus /var/lib/prometheus
    ```
 2. Download Prometheus source, extract and rename.
-   ```
+   ```shell
    $ wget https://github.com/prometheus/prometheus/releases/download/v2.19.1/prometheus-2.19.1.linux-amd64.tar.gz
    $ tar xvfz prometheus-2.19.1.linux-amd64.tar.gz
    $ mv prometheus-2.19.1.linux-amd64.tar.gz prometheus-files
    ```
 3. Copy Prometheus binaries to `/bin` and change their ownership
-   ```
+   ```shell
    $ sudo cp prometheus-files/prometheus /usr/local/bin/
    $ sudo cp prometheus-files/promtool /usr/local/bin/
    $ sudo chown prometheus:prometheus /usr/local/bin/prometheus
    $ sudo chown prometheus:prometheus /usr/local/bin/promtool
    ```
 4. Copy Prometheus console libraries to `/etc` and change their ownership.
-   ```
+   ```shell
    $ sudo cp -r prometheus-files/consoles /etc/prometheus
    $ sudo cp -r prometheus-files/console_libraries /etc/prometheus
    $ sudo chown -R prometheus:prometheus /etc/prometheus/consoles
@@ -156,7 +156,7 @@ Note: you have to have root privileges with your user to carry out the following
    ```
 5. Create Prometheus config file, define targets.
    To create and open up the config file:
-   ```
+   ```shell
    $ sudo nano /etc/prometheus/prometheus.yml
    ```
    Put the following content into the file:
@@ -171,15 +171,15 @@ Note: you have to have root privileges with your user to carry out the following
    ```
    Save and exit the editor.
 6. Change ownership of the config file.
-   ```
+   ```shell
    $ sudo chown prometheus:prometheus /etc/prometheus/prometheus.yml
    ```
 7. Create a Prometheus service file.
-   ```
+   ```shell
    $ sudo nano /etc/systemd/system/prometheus.service
    ```
    Copy the following content into the file:
-   ```yaml
+   ```
    [Unit]
    Description=Prometheus GoShimmer Server
    Wants=network-online.target
@@ -199,19 +199,20 @@ Note: you have to have root privileges with your user to carry out the following
    WantedBy=multi-user.target
    ```
 8. Reload `systemd` service to register the prometheus service.
-   ```
+   ```shell
    $ sudo systemctl daemon-reload
    $ sudo systemctl start prometheus
    ```
 9. Check if the service is running.
-   ```
+   ```shell
    $ sudo systemctl status prometheus
    ```
 10. You can access the prometheus server at [localhost:9090](http://localhost:9090).
 11. (Optional) Prometheus server is running, but observe that [localhost:9090/targets](http://localhost:9090/targets) shows the target being `DOWN`. Run GoShimmer with the configuration from the previous stage, and you will soon see the `goshimmer_local` target being `UP`.
 
 +1. When you want to stop the service, run:
-   ```
+
+   ```shell
    $ sudo systemctl stop prometheus
    ```
 
@@ -225,7 +226,7 @@ Head over to [Grafana Documentation](https://grafana.com/docs/grafana/latest/ins
 Depending on where you install Grafana from, the configuration directories will change. For clarity, we will proceed with the binary install here.
 1. [Download Grafana](https://grafana.com/grafana/download) binary and extract it into a folder.
    For example:
-   ```bash
+   ```shell
    $ wget https://dl.grafana.com/oss/release/grafana-7.0.4.linux-amd64.tar.gz
    $ tar -zxvf grafana-7.0.4.linux-amd64.tar.gz
    ```
@@ -248,14 +249,14 @@ Depending on where you install Grafana from, the configuration directories will 
        ...
    ```
    We copy a couple configuration files from the repository into Grafana's directory:
-   ```
+   ```shell
    $ cp -R goshimmer/tools/monitoring/grafana/dashboards/local_dashboard.json grafana-7.0.4/public/dashboards/
    $ cp goshimmer/tools/monitoring/grafana/provisioning/datasources/datasources.yaml grafana-7.0.4/conf/provisioning/datasources/datasources.yaml
    $ cp goshimmer/tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml grafana-7.0.4/conf/provisioning/dashboards/dashboards.yaml
    ```
 
 3. Run Grafana.
-   ```
+   ```shell
    $ cd grafana-7.0.4/bin
    $ ./grafana-server
    ```
@@ -276,19 +277,19 @@ When you install Grafana from
 then Grafana is configured to run as a system service without any modification. All you need to do is copy config files from the GoShimmer repository:
 1. Copy [datasource yaml config](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/provisioning/datasources/datasources.yaml) to `/etc/grafana`:
    (assuming you are at the root of the cloned GoShimmer repository)
-   ```
+   ```shell
    $ sudo cp tools/monitoring/grafana/provisioning/datasources/datasources.yaml /etc/grafana/provisioning/datasources
    ```
 2. Copy [dashboard yaml config](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml) to `/etc/grafana`:
-   ```
+   ```shell
    $ sudo cp tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards
-   ```
+   ``` 
 3. Copy [GoShimmer Local Metrics](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) dashboard to `/var/lib/grafana/`:
-   ```
+   ```shell
    $ sudo cp -R tools/monitoring/grafana/dashboards /var/lib/grafana/
    ```
 4. Reload daemon and start Grafana.
-   ```
+   ```shell
    $ sudo systemctl daemon-reload
    $ sudo systemctl start grafana-server
    ```

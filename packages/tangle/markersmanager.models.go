@@ -88,7 +88,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 
 // MarkerIndexBranchIDMappingFromObjectStorage restores a MarkerIndexBranchIDMapping that was stored in the object
 // storage.
-func MarkerIndexBranchIDMappingFromObjectStorage(key []byte, data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
+func MarkerIndexBranchIDMappingFromObjectStorage(key, data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	if markerIndexBranchIDMapping, _, err = MarkerIndexBranchIDMappingFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
 		return
@@ -248,7 +248,7 @@ func markerIndexComparator(a, b interface{}) int {
 	}
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
