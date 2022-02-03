@@ -29,6 +29,12 @@
     dest: /opt/metrics/prometheus.yml
     mode: '0644'
 
+- name: Template notifiers.yaml
+  template:
+    src: notifiers.yaml.j2
+    dest: /opt/metrics/grafana/provisioning/notifiers/notifiers.yaml
+    mode: '0644'
+
 - name: Create logstash directory
   file:
     path: /opt/metrics/logstash

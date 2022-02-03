@@ -1,3 +1,75 @@
+# v0.8.5 - 2022-01-19
+
+> This release introduces minor bug fixes and improvements.
+
+The snapshot has been taken at 2022-01-13 22:30 CET.
+
+- Improve grafana dashboard (#1967)
+- Add recieved time remote metric (#1965)
+- Build(deps): bump follow-redirects from 1.13.0 to 1.14.7 in node and analysis dashboard (#1962)
+- Fix booker time metric (#1963)
+- Revert "Default to automated snapshot on Docker image creation (#1953)" (#1956)
+- Build(deps-dev): bump postcss from 8.2.10 to 8.2.13 in /plugins/dashboard/frontend (#1951)
+
+# v0.8.4 - 2022-01-12
+
+> This release introduces a complete Congestion Control overhaul and several bug fixes.
+
+The snapshot has been taken at 2022-01-12 17:31 CET.
+
+Changelog:
+- Build and push images tagged with version number (#1950)
+- New Scheduler buffer management & data flow (#1856)
+- Remove spam debug log about duplicate bytes (#1949)
+- Snapshot nil pointer dereference fix (#1943)
+- Devnet AnalysisServer should use LBed dashboards WS (#1942)
+- changes to spammer tool (#1854)
+- Fix/feature network port forwarding problem (#1940)
+- Fix node identity problem after restart (#1939)
+- Update aMana update formula to fix NaN problem (#1930)
+- Customize PoW difficulty on feature network (#1937)
+- Fix prometheus scrape ports (#1928)
+- Fix feature network deployment. (#1925)
+- Don't log errors on write to closed connection (#1915)
+- Fix mana integration test (#1909)
+- Improve integration tests (#1906)
+- Add missing prometheus.yml file and improve volumes in docker-compose files. (#1899)
+- Internal feature network support (#1895)
+
+# v0.8.3 - 2021-11-30
+
+> This release introduces a critical bug fix on the network read loop
+
+The snapshot has been taken at 2021-11-28 11:31am CET.
+
+Changelog:
+- Critical fix on the lib2p's stream readloop.
+
+# v0.8.2 - 2021-11-26
+
+> This release introduces a revamp of the network stack using libp2p, and some minor changes to the deployment logic
+
+The snapshot has been taken at 2021-11-19 11:37pm CET.
+
+Changelog:
+- Use libp2p as network stack.
+- Fix deployment logic to expose DRNGs' API ports.
+- Add community entry nodes.
+
+# v0.8.1 - 2021-11-11
+
+> This release introduces some minor changes to the message solidification and requesting mechanisms.
+
+The snapshot has been taken at 2021-11-05 12:18pm CET.
+
+Changelog:
+- There is now a 1% chance that an inbound request for a missing message gets relayed to neighbors to get resolved.
+- Messages requests are enqueued for retry with a random jitter.
+- Use of TimedExecutor for the message requester.
+- Better logging for message requester and filters.
+- Messages that could not be retrieved and get removed from the requester can be requested another time later.
+- Fixed analysis dashboard.
+
 # v0.8.0 - 2021-11-05
 
 > This release introduces changes to the consensus mechanism. Specifically, a first implementation of pure On Tangle Voting (OTV), like switch, and the Grades of Finality (GoF) is included. This release does not entail algorithmic optimizations of these components. Therefore, it is to be expected, that performance degrades over time.

@@ -77,6 +77,8 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		}
 	}(processMsgScenario, t)
 
+	processMsgScenario.Tangle.Configure(tangle.MergeBranches(false))
+
 	testOpts := []Option{
 		WithBranchThresholdTranslation(TestBranchGoFTranslation),
 		WithMessageThresholdTranslation(TestMessageGoFTranslation),

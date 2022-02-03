@@ -2607,7 +2607,29 @@ func (o OutputsMetadata) ByID() (outputsMetadataByID OutputsMetadataByID) {
 	return
 }
 
-// String returns a human readable version of the OutputsMetadata.
+// BranchIDs returns the BranchIDs that are contained in the list of OutputsMetadata objects.
+func (o OutputsMetadata) BranchIDs() (branchIDs BranchIDs) {
+	branchIDs = NewBranchIDs()
+	for _, inputMetadata := range o {
+		branchIDs.Add(inputMetadata.BranchID())
+	}
+
+	return branchIDs
+}
+
+// SpentOutputsMetadata returns the spent elements of the list of OutputsMetadata objects.
+func (o OutputsMetadata) SpentOutputsMetadata() (spentOutputsMetadata OutputsMetadata) {
+	spentOutputsMetadata = make(OutputsMetadata, 0)
+	for _, inputMetadata := range o {
+		if inputMetadata.ConsumerCount() >= 1 {
+			spentOutputsMetadata = append(spentOutputsMetadata, inputMetadata)
+		}
+	}
+
+	return spentOutputsMetadata
+}
+
+// String returns a human-readable version of the OutputsMetadata.
 func (o OutputsMetadata) String() string {
 	structBuilder := stringify.StructBuilder("OutputsMetadata")
 	for i, outputMetadata := range o {

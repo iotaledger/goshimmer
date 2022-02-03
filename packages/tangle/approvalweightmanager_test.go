@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -43,24 +43,18 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
-	approvalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *MarkerWeightChangedEvent) {
-		fmt.Println(e.Marker.SequenceID(), e.Marker.Index(), e.Weight)
-	}))
-
 	// build markers DAG where each sequence has only 1 marker building a chain of sequences
 	totalMarkers := 10000
 	{
 		var previousMarker *markers.StructureDetails
 		for i := uint32(1); i < uint32(totalMarkers); i++ {
 			if previousMarker == nil {
-				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
-				fmt.Println(previousMarker.SequenceID, previousMarker.PastMarkers)
+				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback)
 				continue
 			}
 
-			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback)
 		}
-		fmt.Println(previousMarker.SequenceID, previousMarker.PastMarkers)
 	}
 
 	// measure time for each marker
@@ -72,7 +66,6 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 			approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
 			total += time.Since(start)
 		}
-		fmt.Printf("(%d,%d): %s\n", i, i, total/time.Duration(measurements))
 	}
 }
 
@@ -88,18 +81,6 @@ func TestBranchWeightMarshalling(t *testing.T) {
 	assert.Equal(t, branchWeight.Weight(), branchWeightFromBytes.Weight())
 }
 
-func TestStatementMarshalling(t *testing.T) {
-	statement := NewStatement(ledgerstate.BranchIDFromRandomness(), identity.GenerateIdentity().ID())
-	statement.UpdateSequenceNumber(10)
-	statementFromBytes, _, err := StatementFromBytes(statement.Bytes())
-	require.NoError(t, err)
-
-	assert.Equal(t, statement.Bytes(), statementFromBytes.Bytes())
-	assert.Equal(t, statement.BranchID(), statementFromBytes.BranchID())
-	assert.Equal(t, statement.Supporter(), statementFromBytes.Supporter())
-	assert.Equal(t, statement.SequenceNumber(), statementFromBytes.SequenceNumber())
-}
-
 func TestBranchSupportersMarshalling(t *testing.T) {
 	branchSupporters := NewBranchSupporters(ledgerstate.BranchIDFromRandomness())
 
@@ -112,7 +93,7 @@ func TestBranchSupportersMarshalling(t *testing.T) {
 
 	// verify that branchSupportersFromBytes has all supporters from branchSupporters
 	assert.Equal(t, branchSupporters.Supporters().Size(), branchSupportersFromBytes.Supporters().Size())
-	branchSupporters.Supporters().ForEach(func(supporter Supporter) {
+	branchSupporters.Supporters().ForEach(func(supporter Voter) {
 		assert.True(t, branchSupportersFromBytes.supporters.Has(supporter))
 	})
 }
@@ -135,6 +116,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
+	tangle.Configure(MergeBranches(false))
 
 	conflictIDs := map[string]ledgerstate.ConflictID{
 		"Conflict 1": ledgerstate.ConflictIDFromRandomness(),
@@ -173,12 +155,9 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	createBranch(t, tangle, "Branch 4.1.1", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 	createBranch(t, tangle, "Branch 4.1.2", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 
-	cachedAggregatedBranch, _, err := tangle.LedgerState.BranchDAG.AggregateBranches(ledgerstate.NewBranchIDs(branchIDs["Branch 1.1"], branchIDs["Branch 4.1.1"]))
-	require.NoError(t, err)
-	cachedAggregatedBranch.Consume(func(branch ledgerstate.Branch) {
-		branchIDs["Branch 1.1 + Branch 4.1.1"] = branch.ID()
-		ledgerstate.RegisterBranchIDAlias(branch.ID(), "Branch 1.1 + Branch 4.1.1")
-	})
+	aggregatedBranchID := tangle.LedgerState.BranchDAG.AggregateConflictBranchesID(ledgerstate.NewBranchIDs(branchIDs["Branch 1.1"], branchIDs["Branch 4.1.1"]))
+	branchIDs["Branch 1.1 + Branch 4.1.1"] = aggregatedBranchID
+	ledgerstate.RegisterBranchIDAlias(aggregatedBranchID, "Branch 1.1 + Branch 4.1.1")
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 
@@ -190,7 +169,11 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement2")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(branchIDs["Branch 4.1.2"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 4.1.2"])
+			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				PastMarkers:   markers.NewMarkers(),
+				FutureMarkers: markers.NewMarkers(),
+			})
 		})
 		approvalWeightManager.updateBranchSupporters(message)
 
@@ -216,7 +199,11 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement1")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(branchIDs["Branch 1.1 + Branch 4.1.1"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 1.1 + Branch 4.1.1"])
+			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				PastMarkers:   markers.NewMarkers(),
+				FutureMarkers: markers.NewMarkers(),
+			})
 		})
 		approvalWeightManager.updateBranchSupporters(message)
 
@@ -236,13 +223,17 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
-	//// statement 3: "Branch 2"
+	// // statement 3: "Branch 2"
 	{
 		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement3")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(branchIDs["Branch 2"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 2"])
+			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				PastMarkers:   markers.NewMarkers(),
+				FutureMarkers: markers.NewMarkers(),
+			})
 		})
 		approvalWeightManager.updateBranchSupporters(message)
 
@@ -289,107 +280,115 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 
 	// build markers DAG
 	{
-		markersMap["1,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,1"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["2,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,1"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,2"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["3,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"], markersMap["2,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"], markersMap["3,4"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,5"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,6"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("4")))
-		markersMap["5,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"], markersMap["2,4"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("5")))
+		markersMap["0,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback)
+		markersMap["0,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
+		markersMap["0,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,2"]}, increaseIndexCallback)
+		markersMap["0,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,3"]}, increaseIndexCallback)
+
+		markersMap["0,1"].PastMarkerGap = 50
+		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
+		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback)
+		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback)
+		markersMap["1,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"]}, increaseIndexCallback)
+
+		markersMap["0,3"].PastMarkerGap = 50
+		markersMap["1,4"].PastMarkerGap = 50
+		markersMap["2,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,3"], markersMap["1,4"]}, increaseIndexCallback)
+		markersMap["2,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,4"], markersMap["2,5"]}, increaseIndexCallback)
+		markersMap["2,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,6"]}, increaseIndexCallback)
+		markersMap["2,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
+
+		markersMap["2,7"].PastMarkerGap = 50
+		markersMap["3,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
+		markersMap["1,4"].PastMarkerGap = 50
+		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"], markersMap["1,4"]}, increaseIndexCallback)
 	}
 
-	// CASE1: APPROVE MARKER(1, 3)
+	// CASE1: APPROVE MARKER(0, 3)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 3)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(0, 3)))
 
 		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
+			"0,1": {supporters["A"]},
+			"0,2": {supporters["A"]},
+			"0,3": {supporters["A"]},
+			"0,4": {},
+			"1,2": {},
+			"1,3": {},
 			"1,4": {},
-			"2,1": {},
-			"2,2": {},
-			"2,3": {},
-			"2,4": {},
-			"3,4": {},
-			"3,5": {},
-			"3,6": {},
-			"3,7": {},
+			"1,5": {},
+			"2,5": {},
+			"2,6": {},
+			"2,7": {},
+			"2,8": {},
+			"3,8": {},
 			"4,8": {},
-			"5,8": {},
 		})
 	}
 
-	// CASE2: APPROVE MARKER(1, 4) + MARKER(3, 5)
+	// CASE2: APPROVE MARKER(0, 4) + MARKER(2, 6)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 4), markers.NewMarker(3, 5)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(0, 4), markers.NewMarker(2, 6)))
 
 		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
+			"0,1": {supporters["A"]},
+			"0,2": {supporters["A"]},
+			"0,3": {supporters["A"]},
+			"0,4": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
 			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"]},
-			"2,2": {supporters["A"]},
-			"2,3": {supporters["A"]},
-			"2,4": {},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {},
-			"3,7": {},
+			"1,5": {},
+			"2,5": {supporters["A"]},
+			"2,6": {supporters["A"]},
+			"2,7": {},
+			"2,8": {},
+			"3,8": {},
 			"4,8": {},
-			"5,8": {},
 		})
 	}
 
-	// CASE3: APPROVE MARKER(5, 8)
+	// CASE3: APPROVE MARKER(4, 8)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(5, 8)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(4, 8)))
 
 		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
+			"0,1": {supporters["A"]},
+			"0,2": {supporters["A"]},
+			"0,3": {supporters["A"]},
+			"0,4": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
 			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"]},
-			"2,2": {supporters["A"]},
-			"2,3": {supporters["A"]},
-			"2,4": {supporters["A"]},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {supporters["A"]},
-			"3,7": {supporters["A"]},
-			"4,8": {},
-			"5,8": {supporters["A"]},
+			"1,5": {},
+			"2,5": {supporters["A"]},
+			"2,6": {supporters["A"]},
+			"2,7": {supporters["A"]},
+			"2,8": {},
+			"3,8": {},
+			"4,8": {supporters["A"]},
 		})
 	}
 
-	// CASE4: APPROVE MARKER(2, 3)
+	// CASE4: APPROVE MARKER(1, 5)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(2, 3)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(1, 5)))
 
 		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
-			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"], supporters["B"]},
-			"2,2": {supporters["A"], supporters["B"]},
-			"2,3": {supporters["A"], supporters["B"]},
-			"2,4": {supporters["A"]},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {supporters["A"]},
-			"3,7": {supporters["A"]},
-			"4,8": {},
-			"5,8": {supporters["A"]},
+			"0,1": {supporters["A"], supporters["B"]},
+			"0,2": {supporters["A"]},
+			"0,3": {supporters["A"]},
+			"0,4": {supporters["A"]},
+			"1,2": {supporters["A"], supporters["B"]},
+			"1,3": {supporters["A"], supporters["B"]},
+			"1,4": {supporters["A"], supporters["B"]},
+			"1,5": {supporters["B"]},
+			"2,5": {supporters["A"]},
+			"2,6": {supporters["A"]},
+			"2,7": {supporters["A"]},
+			"2,8": {},
+			"3,8": {},
+			"4,8": {supporters["A"]},
 		})
 	}
 }
@@ -441,7 +440,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
 		testFramework.IssueMessages("Message1").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message1")), "Branch1")
-		fmt.Println(testFramework.MessageMetadata("Message1"))
 	}
 
 	// ISSUE Message2
@@ -449,8 +447,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
 		testFramework.IssueMessages("Message2").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message2")), "Branch2")
-
-		fmt.Println(testFramework.MessageMetadata("Message2"))
 	}
 
 	// ISSUE Message3
@@ -458,8 +454,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
 		testFramework.IssueMessages("Message3").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message3")), "Branch3")
-
-		fmt.Println(testFramework.MessageMetadata("Message3"))
 	}
 
 	// ISSUE Message4
@@ -467,8 +461,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		testFramework.IssueMessages("Message4").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message4")), "Branch4")
-
-		fmt.Println(testFramework.MessageMetadata("Message4"))
 	}
 
 	// ISSUE Message5
@@ -483,8 +475,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			}).ID(),
 			"Branch4+5",
 		)
-
-		fmt.Println(testFramework.MessageMetadata("Message5"))
 	}
 
 	// ISSUE Message6
@@ -493,12 +483,8 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.IssueMessages("Message6").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch6")
 
-		fmt.Println(testFramework.MessageMetadata("Message6"))
-		branchID, err := tangle.Booker.MessageBranchID(testFramework.Message("Message6").ID())
+		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message6").ID())
 		require.NoError(t, err)
-		tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-			fmt.Println(branch)
-		})
 	}
 
 	// ISSUE Message7
@@ -514,8 +500,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			}).ID(),
 			"Branch4+5+7",
 		)
-
-		fmt.Println(testFramework.MessageMetadata("Message7"))
 	}
 
 	// ISSUE Message8
@@ -531,22 +515,377 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			}).ID(),
 			"Branch4+5+8",
 		)
-		fmt.Println(testFramework.MessageMetadata("Message8"))
-		branchID, err := tangle.Booker.MessageBranchID(testFramework.Message("Message8").ID())
+		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message8").ID())
 		require.NoError(t, err)
-		tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-			fmt.Println(branch)
+	}
+}
+
+func TestOutOfOrderStatements(t *testing.T) {
+	nodes := make(map[string]*identity.Identity)
+	for _, node := range []string{"A", "B", "C", "D", "E"} {
+		nodes[node] = identity.GenerateIdentity()
+		identity.RegisterIDAlias(nodes[node].ID(), node)
+	}
+
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		for _, node := range nodes {
+			weightProvider.Update(time.Now(), node.ID())
+		}
+		return map[identity.ID]float64{
+			nodes["A"].ID(): 30,
+			nodes["B"].ID(): 15,
+			nodes["C"].ID(): 25,
+			nodes["D"].ID(): 20,
+			nodes["E"].ID(): 10,
+		}
+	}
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+
+	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+	tangle.Configure(MergeBranches(false))
+	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
+
+	tangle.Setup()
+	testEventMock := NewEventMock(t, tangle.ApprovalWeightManager)
+	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("A", 500), WithGenesisOutput("B", 500))
+
+	// ISSUE Message1
+	{
+		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.3)
+
+		IssueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 0.30,
 		})
 	}
+	// ISSUE Message2
+	{
+		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.45)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.15)
+
+		IssueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 0.45,
+			*markers.NewMarker(0, 2): 0.15,
+		})
+	}
+	// ISSUE Message3
+	{
+		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()), WithInputs("A"), WithOutput("A3", 500))
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.70)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.40)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.25)
+
+		IssueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 0.70,
+			*markers.NewMarker(0, 2): 0.40,
+			*markers.NewMarker(0, 3): 0.25,
+		})
+	}
+	// ISSUE Message4
+	{
+		testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.90)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.60)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.45)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.20)
+
+		IssueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 0.90,
+			*markers.NewMarker(0, 2): 0.60,
+			*markers.NewMarker(0, 3): 0.45,
+			*markers.NewMarker(0, 4): 0.20,
+		})
+	}
+	// ISSUE Message5
+	{
+		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A3"), WithOutput("A5", 500))
+		testFramework.RegisterBranchID("A", "Message5")
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.90)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.50)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.30)
+
+		IssueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 0.90,
+			*markers.NewMarker(0, 2): 0.90,
+			*markers.NewMarker(0, 3): 0.75,
+			*markers.NewMarker(0, 4): 0.50,
+			*markers.NewMarker(0, 5): 0.30,
+		})
+	}
+
+	// ISSUE Message6
+	{
+		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A3"), WithOutput("B6", 500))
+		testFramework.RegisterBranchID("B", "Message6")
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.60)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.30)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.10)
+
+		IssueAndValidateMessageApproval(t, "Message6", testEventMock, testFramework, map[string]float64{
+			"A": 0.3,
+			"B": 0.1,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 0.85,
+			*markers.NewMarker(0, 4): 0.60,
+			*markers.NewMarker(0, 5): 0.30,
+		})
+	}
+
+	// ISSUE Message7
+	{
+		testFramework.CreateMessage("Message7", WithStrongParents("Message3"), WithIssuer(nodes["B"].PublicKey()), WithInputs("B"), WithOutput("B7", 500))
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 1.0)
+
+		IssueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[string]float64{
+			"A": 0.30,
+			"B": 0.1,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.60,
+			*markers.NewMarker(0, 5): 0.30,
+		})
+	}
+	// ISSUE Message8
+	{
+		testFramework.CreateMessage("Message8", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()), WithInputs("B"), WithOutput("B8", 500))
+		testFramework.RegisterBranchID("C", "Message7")
+		testFramework.RegisterBranchID("D", "Message8")
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.15)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("D"), 0.20)
+
+		IssueAndValidateMessageApproval(t, "Message8", testEventMock, testFramework, map[string]float64{
+			"A": 0.30,
+			"B": 0.10,
+			"C": 0.15,
+			"D": 0.20,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.60,
+			*markers.NewMarker(0, 5): 0.30,
+		})
+	}
+	// ISSUE Message9
+	{
+		testFramework.CreateMessage("Message9", WithStrongParents("Message6", "Message7"), WithIssuer(nodes["A"].PublicKey()))
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.0)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.40)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.45)
+
+		IssueAndValidateMessageApproval(t, "Message9", testEventMock, testFramework, map[string]float64{
+			"A": 0,
+			"B": 0.40,
+			"C": 0.45,
+			"D": 0.20,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.60,
+			*markers.NewMarker(0, 5): 0.30,
+		})
+	}
+	// ISSUE Message10
+	{
+		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.15)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.55)
+
+		IssueAndValidateMessageApproval(t, "Message10", testEventMock, testFramework, map[string]float64{
+			"A": 0,
+			"B": 0.55,
+			"C": 0.45,
+			"D": 0.20,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.75,
+			*markers.NewMarker(0, 5): 0.30,
+			*markers.NewMarker(1, 5): 0.15,
+		})
+	}
+	// ISSUE Message11
+	{
+		// We skip ahead with the Sequence Number
+		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["E"].PublicKey()), WithSequenceNumber(1000))
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.40)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 6), 0.10)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.10)
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.45)
+
+		IssueAndValidateMessageApproval(t, "Message11", testEventMock, testFramework, map[string]float64{
+			"A": 0.10,
+			"B": 0.45,
+			"C": 0.45,
+			"D": 0.20,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.75,
+			*markers.NewMarker(0, 5): 0.40,
+			*markers.NewMarker(0, 6): 0.10,
+			*markers.NewMarker(1, 5): 0.15,
+		})
+	}
+
+	// ISSUE Message12
+	{
+		// We simulate an "old" vote
+		testFramework.CreateMessage("Message12", WithStrongParents("Message10"), WithIssuer(nodes["E"].PublicKey()))
+
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.25)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.10)
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.55)
+
+		IssueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, map[string]float64{
+			"A": 0.10,
+			"B": 0.45,
+			"C": 0.55,
+			"D": 0.20,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.75,
+			*markers.NewMarker(0, 5): 0.40,
+			*markers.NewMarker(0, 6): 0.10,
+			*markers.NewMarker(1, 5): 0.25,
+			*markers.NewMarker(1, 6): 0.10,
+		})
+	}
+
+	// ISSUE Message13
+	{
+		// We simulate an "old" vote
+		testFramework.CreateMessage("Message13", WithStrongParents("Message2"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("A13", 500))
+		testFramework.RegisterBranchID("X", "Message3")
+		testFramework.RegisterBranchID("Y", "Message13")
+
+		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 1.0)
+
+		IssueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[string]float64{
+			"A": 0.10,
+			"B": 0.45,
+			"C": 0.55,
+			"D": 0.20,
+			"X": 1.00,
+			"Y": 0.00,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.75,
+			*markers.NewMarker(0, 5): 0.40,
+			*markers.NewMarker(0, 6): 0.10,
+			*markers.NewMarker(1, 5): 0.25,
+			*markers.NewMarker(1, 6): 0.10,
+		})
+	}
+
+	testEventMock.AssertExpectations(t)
+}
+
+func TestLatestMarkerVotes(t *testing.T) {
+	{
+		latestMarkerVotes := NewLatestMarkerVotes(1, Voter{1})
+		latestMarkerVotes.Store(1, 8)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			1: 8,
+		})
+		latestMarkerVotes.Store(2, 10)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			2: 10,
+		})
+		latestMarkerVotes.Store(3, 7)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			2: 10,
+			3: 7,
+		})
+		latestMarkerVotes.Store(4, 9)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			2: 10,
+			4: 9,
+		})
+		latestMarkerVotes.Store(4, 11)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			4: 11,
+		})
+		latestMarkerVotes.Store(1, 15)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			1: 15,
+			4: 11,
+		})
+	}
+
+	{
+		latestMarkerVotes := NewLatestMarkerVotes(1, Voter{1})
+		latestMarkerVotes.Store(3, 7)
+		latestMarkerVotes.Store(2, 10)
+		latestMarkerVotes.Store(4, 9)
+		latestMarkerVotes.Store(1, 8)
+		latestMarkerVotes.Store(1, 15)
+		latestMarkerVotes.Store(4, 11)
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+			1: 15,
+			4: 11,
+		})
+	}
+
+}
+
+func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
+	votes.latestVotes.ForEach(func(node *thresholdmap.Element) bool {
+		index := node.Key().(markers.Index)
+		seq := node.Value().(uint64)
+
+		_, exists := expectedVotes[index]
+		assert.Truef(t, exists, "%s:%d does not exist in latestVotes", index, seq)
+		delete(expectedVotes, index)
+
+		return true
+	})
+	assert.Empty(t, expectedVotes)
 }
 
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
 	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
-		supporters := approvalWeightManager.supportersOfMarker(markersMap[markerAlias].PastMarkers.Marker())
+		// sanity check
+		assert.Equal(t, markerAlias, fmt.Sprintf("%d,%d", markersMap[markerAlias].PastMarkers.Marker().SequenceID(), markersMap[markerAlias].PastMarkers.Marker().Index()))
 
-		assert.Equal(t, len(expectedSupportersOfMarker), supporters.Size(), "size of supporters for Marker("+markerAlias+") does not match")
+		supporters := approvalWeightManager.markerVotes(markersMap[markerAlias].PastMarkers.Marker())
+
+		assert.Equal(t, len(expectedSupportersOfMarker), len(supporters), "size of supporters for Marker("+markerAlias+") does not match")
 		for _, supporter := range expectedSupportersOfMarker {
-			assert.Equal(t, true, supporters.Has(supporter.ID()))
+			_, supporterExists := supporters[supporter.ID()]
+			assert.True(t, supporterExists)
 		}
 	}
 }
@@ -580,12 +919,21 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 	ledgerstate.RegisterBranchIDAlias(branchID, branchAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Voter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		supporters := approvalWeightManager.SupportersOfAggregatedBranch(branchIDs[branchIDString])
-		if supporters != nil {
-			actualResult = supporters.Has(supporter)
+		conflictBranchIDs, err := approvalWeightManager.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchIDs[branchIDString]))
+		if err != nil {
+			panic(err)
+		}
+		for conflictBranchID := range conflictBranchIDs {
+			supporters := approvalWeightManager.SupportersOfConflictBranch(conflictBranchID)
+			if supporters != nil {
+				actualResult = supporters.Has(supporter)
+			}
+			if !actualResult {
+				break
+			}
 		}
 
 		assert.Equalf(t, expectedResult, actualResult, "%s(%s) does not match", branchIDString, branchIDs[branchIDString])

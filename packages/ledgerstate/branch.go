@@ -27,12 +27,6 @@ var (
 
 	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
 	MasterBranchID = BranchID{1}
-
-	// LazyBookedConflictsBranchID is the identifier of the Branch that is the root of all lazy booked ConflictBranches.
-	LazyBookedConflictsBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254}
-
-	// InvalidBranchID is the identifier of the Branch that contains the invalid Transactions.
-	InvalidBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
@@ -122,10 +116,6 @@ func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
 		return "BranchID(UndefinedBranchID)"
-	case LazyBookedConflictsBranchID:
-		return "BranchID(LazyBookedConflictsBranchID)"
-	case InvalidBranchID:
-		return "BranchID(InvalidBranchID)"
 	case MasterBranchID:
 		return "BranchID(MasterBranchID)"
 	default:
@@ -264,6 +254,19 @@ func (b BranchIDs) Slice() (list []BranchID) {
 	return
 }
 
+// IsMasterBranch returns true if the BranchIDs are either empty or contain only the MasterBranch.
+func (b BranchIDs) IsMasterBranch() (isMasterBranch bool) {
+	if len(b) == 0 {
+		return true
+	}
+
+	if _, masterBranchExists := b[MasterBranchID]; len(b) == 1 && masterBranchExists {
+		return true
+	}
+
+	return false
+}
+
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
 	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(b)*BranchIDLength)
@@ -378,7 +381,7 @@ type Branch interface {
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
 
-	// String returns a human readable version of the Branch.
+	// String returns a human-readable version of the Branch.
 	String() string
 
 	// StorableObject enables the Branch to be stored in the object storage.
@@ -514,6 +517,22 @@ func (c *CachedBranch) Consume(consumer func(branch Branch), forceRelease ...boo
 	}, forceRelease...)
 }
 
+// ConsumeConflictBranch unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not
+// empty - it exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranch) ConsumeConflictBranch(consumer func(conflictBranch *ConflictBranch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*ConflictBranch))
+	}, forceRelease...)
+}
+
+// ConsumeAggregatedBranch unwraps the CachedObject and passes a type-casted version to the consumer (if the object is
+// not empty - it exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranch) ConsumeAggregatedBranch(consumer func(aggregatedBranch *AggregatedBranch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*AggregatedBranch))
+	}, forceRelease...)
+}
+
 // String returns a human readable version of the CachedBranch.
 func (c *CachedBranch) String() string {
 	return stringify.Struct("CachedBranch",
@@ -528,11 +547,13 @@ func (c *CachedBranch) String() string {
 // ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type ConflictBranch struct {
-	id             BranchID
-	parents        BranchIDs
-	parentsMutex   sync.RWMutex
-	conflicts      ConflictIDs
-	conflictsMutex sync.RWMutex
+	id                  BranchID
+	parents             BranchIDs
+	parentsMutex        sync.RWMutex
+	conflicts           ConflictIDs
+	conflictsMutex      sync.RWMutex
+	inclusionState      InclusionState
+	inclusionStateMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -583,6 +604,10 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = errors.Errorf("failed to parse conflicts: %w", err)
 		return
 	}
+	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse inclusionState: %w", err)
+		return
+	}
 
 	return
 }
@@ -595,6 +620,31 @@ func (c *ConflictBranch) ID() BranchID {
 // Type returns the type of the Branch.
 func (c *ConflictBranch) Type() BranchType {
 	return ConflictBranchType
+}
+
+// InclusionState returns the InclusionState of the ConflictBranch.
+func (c *ConflictBranch) InclusionState() (inclusionState InclusionState) {
+	c.inclusionStateMutex.RLock()
+	defer c.inclusionStateMutex.RUnlock()
+
+	return c.inclusionState
+}
+
+// setInclusionState sets the InclusionState of the ConflictBranch (it is private because the InclusionState should be
+// set through the corresponding method in the BranchDAG).
+func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modified bool) {
+	c.inclusionStateMutex.Lock()
+	defer c.inclusionStateMutex.Unlock()
+
+	if modified = c.inclusionState != inclusionState; !modified {
+		return
+	}
+
+	c.inclusionState = inclusionState
+	c.SetModified()
+	c.Persist()
+
+	return
 }
 
 // Parents returns the BranchIDs of the Branches parents in the BranchDAG.
@@ -648,7 +698,7 @@ func (c *ConflictBranch) Bytes() []byte {
 	return c.ObjectStorageValue()
 }
 
-// String returns a human readable version of the Branch.
+// String returns a human-readable version of the Branch.
 func (c *ConflictBranch) String() string {
 	return stringify.Struct("ConflictBranch",
 		stringify.StructField("id", c.ID()),
@@ -673,9 +723,10 @@ func (c *ConflictBranch) ObjectStorageKey() []byte {
 func (c *ConflictBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(c.Type())).
-		WriteBytes(c.ID().Bytes()).
-		WriteBytes(c.Parents().Bytes()).
-		WriteBytes(c.Conflicts().Bytes()).
+		Write(c.ID()).
+		Write(c.Parents()).
+		Write(c.Conflicts()).
+		Write(c.InclusionState()).
 		Bytes()
 }
 

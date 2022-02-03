@@ -26,11 +26,11 @@ const storeSequenceInterval = 100
 type MessageFactory struct {
 	Events *MessageFactoryEvents
 
-	tangle             *Tangle
-	sequence           *kvstore.Sequence
-	localIdentity      *identity.LocalIdentity
-	selector           TipSelector
-	likeReferencesFunc LikeReferencesFunc
+	tangle         *Tangle
+	sequence       *kvstore.Sequence
+	localIdentity  *identity.LocalIdentity
+	selector       TipSelector
+	referencesFunc ReferencesFunc
 
 	powTimeout time.Duration
 
@@ -40,7 +40,7 @@ type MessageFactory struct {
 }
 
 // NewMessageFactory creates a new message factory.
-func NewMessageFactory(tangle *Tangle, selector TipSelector, likeReferences LikeReferencesFunc) *MessageFactory {
+func NewMessageFactory(tangle *Tangle, selector TipSelector, referencesFunc ReferencesFunc) *MessageFactory {
 	sequence, err := kvstore.NewSequence(tangle.Options.Store, []byte(DBSequenceNumber), storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
@@ -52,13 +52,13 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector, likeReferences Like
 			Error:              events.NewEvent(events.ErrorCaller),
 		},
 
-		tangle:             tangle,
-		sequence:           sequence,
-		localIdentity:      tangle.Options.Identity,
-		selector:           selector,
-		likeReferencesFunc: likeReferences,
-		worker:             ZeroWorker,
-		powTimeout:         0 * time.Second,
+		tangle:         tangle,
+		sequence:       sequence,
+		localIdentity:  tangle.Options.Identity,
+		selector:       selector,
+		referencesFunc: referencesFunc,
+		worker:         ZeroWorker,
+		powTimeout:     0 * time.Second,
 	}
 }
 
@@ -78,6 +78,9 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
+	f.tangle.Booker.Lock()
+	defer f.tangle.Booker.Unlock()
+
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -106,9 +109,9 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	startTime := time.Now()
 	var errPoW error
 	var nonce uint64
-	var parents MessageIDs
+	var parents MessageIDsSlice
 	var issuingTime time.Time
-	var likeReferences MessageIDs
+	var references map[ParentsType]MessageIDs
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
@@ -121,14 +124,14 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		}
 		issuingTime = f.getIssuingTime(parents)
 
-		likeReferences, err = f.likeReferencesFunc(parents, issuingTime, f.tangle)
+		references, err = f.referencesFunc(parents, issuingTime, f.tangle)
 		if err != nil {
 			err = errors.Errorf("like references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
 			f.issuanceMutex.Unlock()
 			return nil, err
 		}
-		nonce, errPoW = f.doPOW(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
 	if errPoW != nil {
@@ -140,7 +143,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	f.issuanceMutex.Unlock()
 
 	// create the signature
-	signature, err := f.sign(parents, nil, likeReferences, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 	if err != nil {
 		err = errors.Errorf("signing failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -148,10 +151,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	}
 
 	msg, err := NewMessage(
-		parents,
-		nil,
-		nil,
-		likeReferences,
+		references,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -169,7 +169,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
+func (f *MessageFactory) getIssuingTime(parents MessageIDsSlice) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
@@ -185,7 +185,7 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	return issuingTime
 }
 
-func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
+func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDsSlice, err error) {
 	parents, err = f.selector.Tips(p, parentsCount)
 
 	if p.Type() == ledgerstate.TransactionType {
@@ -227,9 +227,9 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(references map[ParentsType]MessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	message, err := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
+	message, err := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
 	if err != nil {
 		return 0, err
 	}
@@ -241,9 +241,9 @@ func (f *MessageFactory) doPOW(strongParents, weakParents, likeParents []Message
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(strongParents, weakParents, likeParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
+func (f *MessageFactory) sign(references map[ParentsType]MessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
-	dummy, err := NewMessage(strongParents, weakParents, nil, likeParents, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
+	dummy, err := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	if err != nil {
 		return ed25519.EmptySignature, err
 	}
@@ -276,7 +276,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countParents int) (parents MessageIDs, err error)
+	Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -284,10 +284,10 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDs, err error)
+type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
 	return f(p, countParents)
 }
 
@@ -323,53 +323,105 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// LikeReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type LikeReferencesFunc func(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error)
+// ReferencesFunc is a function type that returns like references a given set of parents of a Message.
+type ReferencesFunc func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error)
 
-// PrepareLikeReferences is an implementation of LikeReferencesFunc.
-func PrepareLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
-	branchIDs := ledgerstate.NewBranchIDs()
+// PrepareReferences is an implementation of LikeReferencesFunc.
+func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error) {
+	references = map[ParentsType]MessageIDs{StrongParentType: {}}
 
-	for _, parent := range parents {
-		branchID, err := tangle.Booker.MessageBranchID(parent)
-		if err != nil {
-			err = errors.Errorf("branchID can't be retrieved: %w", err)
-			return nil, err
-		}
-		branchIDs.Add(branchID)
-	}
-	_, dislikedBranches, err := tangle.OTVConsensusManager.Opinion(branchIDs)
-	if err != nil {
-		err = errors.Errorf("opinions could not be retrieved: %w", err)
-		return nil, err
-	}
-	likeReferencesMap := make(map[MessageID]types.Empty)
-	likeReferences := MessageIDs{}
-
-	for dislikedBranch := range dislikedBranches {
-		likedInstead, err := tangle.OTVConsensusManager.LikedInstead(dislikedBranch)
-		if err != nil {
-			err = errors.Errorf("branch liked instead could not be retrieved: %w", err)
-			return nil, err
+	for _, strongParent := range strongParents {
+		if strongParent == EmptyMessageID {
+			references[StrongParentType][strongParent] = types.Void
+			continue
 		}
 
-		for _, likeRef := range likedInstead {
-			oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likeRef.Liked.TransactionID())
+		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
+		if err != nil {
+			return nil, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
+		}
+
+		referencesCopy := make(map[ParentsType]MessageIDs)
+		for parentType, messageIDs := range references {
+			referencesCopy[parentType] = messageIDs.Clone()
+		}
+
+		opinionCanBeExpressed := true
+		for strongParentBranchID := range strongParentBranchIDs {
+			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
 			if err != nil {
-				return nil, err
+				return nil, errors.Errorf("failed to determine valid reference from Branch with %s: %w", strongParentBranchID, err)
 			}
-			// add like reference to a message only once if it appears in multiple conflict sets
-			if _, ok := likeReferencesMap[oldestAttachmentMessageID]; !ok {
-				likeReferencesMap[oldestAttachmentMessageID] = types.Void
-				// check difference between issuing time and message that would be set as like reference, to avoid setting too old message.
-				// what if original message is older than maxParentsTimeDifference even though the branch still exists?
-				if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
-					likeReferences = append(likeReferences, oldestAttachmentMessageID)
-				}
+
+			if referenceParentType == UndefinedParentType {
+				continue
+			}
+
+			if _, exists := references[referenceParentType]; !exists {
+				references[referenceParentType] = make(map[MessageID]types.Empty)
+			}
+			references[referenceParentType][referenceMessageID] = types.Void
+
+			if len(references[referenceParentType]) > MaxParentsCount {
+				opinionCanBeExpressed = false
+				break
 			}
 		}
+
+		if !opinionCanBeExpressed {
+			references = referencesCopy
+			continue
+		}
+
+		references[StrongParentType][strongParent] = types.Void
 	}
-	return likeReferences, nil
+
+	if len(references[StrongParentType]) == 0 {
+		return nil, errors.Errorf("none of the provided strong parents can be referenced")
+	}
+
+	return
+}
+
+func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
+	if strongParentBranchID == ledgerstate.MasterBranchID {
+		return
+	}
+
+	likedBranchID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(strongParentBranchID)
+	if likedBranchID == strongParentBranchID {
+		return
+	}
+
+	if likedBranchID != ledgerstate.UndefinedBranchID {
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likedBranchID.TransactionID())
+		if err != nil {
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", likedBranchID.TransactionID(), err)
+		}
+		if issuingTime.Sub(oldestAttachmentTime) >= maxParentsTimeDifference {
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow like reference needed for Transaction with %s is too far in the past", likedBranchID.TransactionID())
+		}
+
+		return ShallowLikeParentType, oldestAttachmentMessageID, nil
+	}
+
+	for conflictMember := range conflictMembers {
+		// Always point to another branch, to make sure the receiver forks the branch.
+		if conflictMember == strongParentBranchID {
+			continue
+		}
+
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(conflictMember.TransactionID())
+		if err != nil {
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", conflictMember.TransactionID(), err)
+		}
+
+		if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
+			return ShallowDislikeParentType, oldestAttachmentMessageID, nil
+		}
+	}
+
+	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID.TransactionID())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

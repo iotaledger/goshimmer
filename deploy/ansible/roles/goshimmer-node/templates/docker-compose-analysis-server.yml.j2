@@ -3,17 +3,20 @@ version: "3"
 
 services:
   analysis_server:
-    image: iotaledger/goshimmer:{{goshimmerDockerTag}}
+    image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: analysis-server
     restart: unless-stopped
-    network_mode: "host"
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - 6063:6063
+      - 21888:21888
+      - 28080:28080
+      - 9311:9311
     environment:
       - DATABASE_DIRECTORY=/db/mainnetdb
       - PROFILING_BINDADDRESS=0.0.0.0:6063
-    entrypoint: /run/goshimmer
     command: >
       --skip-config=true
       --node.overwriteStoredSeed=true
@@ -21,10 +24,10 @@ services:
       --analysis.client.serverAddress=
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
-      --analysis.dashboard.manaDashboardAddress="http://{{ manaDashboardHost }}:9001"
-      --prometheus.bindAddress=0.0.0.0:9312
+      --analysis.dashboard.manaDashboardAddress="{{ manaDashboardHost }}"
+      --prometheus.bindAddress=0.0.0.0:9311
       --metrics.local=false
       --metrics.global=true
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus
-      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint
-      --logger.level=debug
+      --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint,remotelog,remotelogmetrics
+      --logger.level={{ logLevel }}

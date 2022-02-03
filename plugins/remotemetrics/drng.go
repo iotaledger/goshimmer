@@ -27,7 +27,5 @@ func onRandomnessReceived(state *drng.State) {
 		DeltaReceived:     clock.Since(state.Randomness().Timestamp).Nanoseconds(),
 	}
 
-	if err := deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send Randomness record", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(record)
 }

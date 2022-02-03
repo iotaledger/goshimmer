@@ -36,7 +36,7 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
-	Orderer               *Orderer
+	Dispatcher            *Dispatcher
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -60,6 +60,7 @@ type ConfirmationOracle interface {
 	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
 	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
 	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
+	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
 	Events() *ConfirmationEvents
 }
 
@@ -91,9 +92,9 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareReferences)
 	tangle.Utils = NewUtils(tangle)
-	tangle.Orderer = NewOrderer(tangle)
+	tangle.Dispatcher = NewDispatcher(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
 
@@ -107,6 +108,7 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
+			LedgerState:                  struct{ MergeBranches bool }{MergeBranches: true},
 		}
 	}
 
@@ -121,8 +123,9 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.Scheduler.Setup()
-	t.Orderer.Setup()
+	t.Dispatcher.Setup()
 	t.Booker.Setup()
+	t.LedgerState.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
@@ -169,10 +172,11 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
+	t.Requester.Shutdown()
 	t.Parser.Shutdown()
 	t.MessageFactory.Shutdown()
 	t.Scheduler.Shutdown()
-	t.Orderer.Shutdown()
+	t.Dispatcher.Shutdown()
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
@@ -241,6 +245,7 @@ type Options struct {
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
 	CacheTimeProvider            *database.CacheTimeProvider
+	LedgerState                  struct{ MergeBranches bool }
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -327,6 +332,13 @@ func StartSynced(startSynced bool) Option {
 func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
 		options.CacheTimeProvider = cacheTimeProvider
+	}
+}
+
+// MergeBranches is an Option for the Tangle that prevents the LedgerState from merging Branches.
+func MergeBranches(mergeBranches bool) Option {
+	return func(o *Options) {
+		o.LedgerState.MergeBranches = mergeBranches
 	}
 }
 

@@ -16,7 +16,7 @@ var (
 	messageHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
 		"ScheduledTime", "BookedTime", "GradeOfFinality", "GradeOfFinalityTime", "StrongParents", "WeakParents",
-		"DislikeParents", "LikeParents", "StrongApprovers", "WeakApprovers", "BranchID", "Scheduled", "ScheduledBypass", "Booked",
+		"DislikeParents", "LikeParents", "StrongApprovers", "WeakApprovers", "BranchID", "Scheduled", "Booked",
 		"Invalid", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI",
 		"PayloadType", "TransactionID",
 	}
@@ -81,20 +81,6 @@ func TestDiagnosticApis(t *testing.T) {
 	records, err = branches.ReadAll()
 	require.NoError(t, err, "error while reading tools/diagnostic/branches csv")
 	require.Equal(t, branchesHeader, records[0], "unexpected branches header")
-
-	fmt.Println("run tools/diagnostic/branches/lazybooked")
-	lazyBookedBranches, err := peers[0].GoShimmerAPI.GetDiagnosticsLazyBookedBranches()
-	require.NoError(t, err, "error while running tools/diagnostic/branches/lazybooked api call")
-	records, err = lazyBookedBranches.ReadAll()
-	require.NoError(t, err, "error while reading tools/diagnostic/branches/lazybooked csv")
-	require.Equal(t, branchesHeader, records[0], "unexpected tips header")
-
-	fmt.Println("run tools/diagnostic/branches/invalid")
-	invalidBranches, err := peers[0].GoShimmerAPI.GetDiagnosticsInvalidBranches()
-	require.NoError(t, err, "error while running tools/diagnostic/branches/invalid api call")
-	records, err = invalidBranches.ReadAll()
-	require.NoError(t, err, "error while reading tools/diagnostic/branches/invalid csv")
-	require.Equal(t, branchesHeader, records[0], "unexpected tips header")
 
 	fmt.Println("run tools/diagnostic/utxodag")
 	dag, err := peers[0].GoShimmerAPI.GetDiagnosticsUtxoDag()

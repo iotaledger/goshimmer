@@ -2,22 +2,18 @@ package gossip
 
 import (
 	"io"
-	"net"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/netutil"
-	"github.com/iotaledger/hive.go/netutil/buffconn"
-	"go.uber.org/atomic"
-)
+	"github.com/libp2p/go-libp2p-core/mux"
+	"github.com/libp2p/go-yamux/v2"
 
-const (
-	neighborQueueSize        = 5000
-	maxNumReadErrors         = 10
-	droppedMessagesThreshold = 1000
+	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
@@ -33,146 +29,111 @@ const (
 // Neighbor describes the established gossip connection to another peer.
 type Neighbor struct {
 	*peer.Peer
-	*buffconn.BufferedConnection
+	Group NeighborsGroup
 
-	Group           NeighborsGroup
-	log             *logger.Logger
-	queue           chan []byte
-	messagesDropped atomic.Int32
-
-	wg             sync.WaitGroup
-	closing        chan struct{}
+	log            *logger.Logger
 	disconnectOnce sync.Once
+	wg             sync.WaitGroup
 
-	connectionEstablished time.Time
+	disconnected   *events.Event
+	packetReceived *events.Event
+
+	ps *packetsStream
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(p *peer.Peer, group NeighborsGroup, conn net.Conn, log *logger.Logger) *Neighbor {
-	if !IsSupported(p) {
-		panic("peer does not support gossip")
-	}
-
-	// always include ID and address with every log message
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, ps *packetsStream, log *logger.Logger) *Neighbor {
 	log = log.With(
 		"id", p.ID(),
-		"network", conn.LocalAddr().Network(),
-		"addr", conn.RemoteAddr().String(),
+		"localAddr", ps.Conn().LocalMultiaddr(),
+		"remoteAddr", ps.Conn().RemoteMultiaddr(),
 	)
-
 	return &Neighbor{
-		Peer:                  p,
-		Group:                 group,
-		BufferedConnection:    buffconn.NewBufferedConnection(conn, maxPacketSize),
-		log:                   log,
-		queue:                 make(chan []byte, neighborQueueSize),
-		closing:               make(chan struct{}),
-		connectionEstablished: time.Now(),
+		Peer:  p,
+		Group: group,
+
+		log: log,
+
+		disconnected:   events.NewEvent(disconnected),
+		packetReceived: events.NewEvent(packetReceived),
+
+		ps: ps,
 	}
+}
+
+// PacketsRead returns number of packets this neighbor has received.
+func (n *Neighbor) PacketsRead() uint64 {
+	return n.ps.packetsRead.Load()
+}
+
+// PacketsWritten returns number of packets this neighbor has sent.
+func (n *Neighbor) PacketsWritten() uint64 {
+	return n.ps.packetsWritten.Load()
+}
+
+func disconnected(handler interface{}, _ ...interface{}) {
+	handler.(func())()
+}
+
+func packetReceived(handler interface{}, params ...interface{}) {
+	handler.(func(*pb.Packet))(params[0].(*pb.Packet))
 }
 
 // ConnectionEstablished returns the connection established.
 func (n *Neighbor) ConnectionEstablished() time.Time {
-	return n.connectionEstablished
+	return n.ps.Stat().Opened
 }
 
-// Listen starts the communication to the neighbor.
-func (n *Neighbor) Listen() {
-	n.wg.Add(2)
-	go n.readLoop()
-	go n.writeLoop()
-
-	n.log.Info("Connection established")
+func (n *Neighbor) readLoop() {
+	n.wg.Add(1)
+	go func() {
+		defer n.wg.Done()
+		for {
+			// This loop gets terminated when we encounter an error on .read() function call.
+			// The error might be caused by another goroutine closing the connection by calling .disconnect() function.
+			// Or by a problem with the connection itself.
+			// In any case we call .disconnect() after encountering the error,
+			// the disconnect call is protected with sync.Once, so in case another goroutine called it before us,
+			// we won't execute it twice.
+			packet := &pb.Packet{}
+			err := n.ps.readPacket(packet)
+			if err != nil {
+				if isAlreadyClosedError(err) {
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
+					return
+				}
+				if !isTimeoutError(err) {
+					n.log.Debugw("Read error", "err", err)
+				}
+				continue
+			}
+			n.packetReceived.Trigger(packet)
+		}
+	}()
 }
 
-// Close closes the connection to the neighbor and stops all communication.
-func (n *Neighbor) Close() error {
-	err := n.disconnect()
-	// wait for everything to finish
+func (n *Neighbor) close() {
+	if err := n.disconnect(); err != nil {
+		n.log.Errorw("Failed to disconnect the neighbor", "err", err)
+	}
 	n.wg.Wait()
-
-	return err
-}
-
-// IsOutbound returns true if the neighbor is an outbound neighbor.
-func (n *Neighbor) IsOutbound() bool {
-	return GetAddress(n.Peer) == n.RemoteAddr().String()
 }
 
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
-		close(n.closing)
-		err = n.BufferedConnection.Close()
+		if streamErr := n.ps.Close(); streamErr != nil {
+			err = errors.WithStack(streamErr)
+		}
 		n.log.Info("Connection closed")
+		n.disconnected.Trigger()
 	})
-	return
+	return err
 }
 
-func (n *Neighbor) writeLoop() {
-	defer n.wg.Done()
-
-	for {
-		select {
-		case msg := <-n.queue:
-			if len(msg) == 0 {
-				continue
-			}
-			if _, err := n.BufferedConnection.Write(msg); err != nil {
-				n.log.Warnw("Write error", "err", err)
-				_ = n.disconnect()
-				return
-			}
-		case <-n.closing:
-			return
-		}
-	}
-}
-
-func (n *Neighbor) readLoop() {
-	defer n.wg.Done()
-
-	var numReadErrors uint
-	for {
-		err := n.Read()
-		if netutil.IsTemporaryError(err) {
-			// ignore temporary read errors.
-			n.log.Debugw("temporary read error", "err", err)
-			numReadErrors++
-			if numReadErrors > maxNumReadErrors {
-				n.log.Warnw("Too many read errors", "err", err)
-				_ = n.disconnect()
-				return
-			}
-			continue
-		}
-		if err != nil {
-			// return from the loop on all other errors
-			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				n.log.Warnw("Permanent error", "err", err)
-			}
-			_ = n.disconnect()
-			return
-		}
-	}
-}
-
-func (n *Neighbor) Write(b []byte) (int, error) {
-	l := len(b)
-	if l > maxPacketSize {
-		n.log.Panicw("message too large", "len", l, "max", maxPacketSize)
-	}
-
-	// add to queue
-	select {
-	case n.queue <- b:
-		return l, nil
-	case <-n.closing:
-		return 0, nil
-	default:
-		if n.messagesDropped.Inc() >= droppedMessagesThreshold {
-			n.messagesDropped.Store(0)
-			return 0, ErrNeighborQueueFull
-		}
-		return 0, nil
-	}
+func isAlreadyClosedError(err error) bool {
+	return strings.Contains(err.Error(), "use of closed network connection") ||
+		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset) || errors.Is(err, yamux.ErrStreamClosed) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }

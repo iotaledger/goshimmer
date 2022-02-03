@@ -114,7 +114,7 @@ func NewGetBranchSupportersResponse(branchID ledgerstate.BranchID, supporters *t
 		BranchID: branchID.Base58(),
 		Supporters: func() (supportersStr []string) {
 			supportersStr = make([]string, 0)
-			supporters.ForEach(func(supporter tangle.Supporter) {
+			supporters.ForEach(func(supporter tangle.Voter) {
 				supportersStr = append(supportersStr, supporter.String())
 			})
 			return
@@ -160,7 +160,7 @@ type GetTransactionAttachmentsResponse struct {
 }
 
 // NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
-func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
+func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDsSlice) *GetTransactionAttachmentsResponse {
 	var messageIDsBase58 []string
 	for _, messageID := range messageIDs {
 		messageIDsBase58 = append(messageIDsBase58, messageID.Base58())

@@ -47,11 +47,10 @@ func (a *AccessBaseMana) updateEBM2(n time.Duration) {
 		a.EffectiveBaseMana2 = 0
 		return
 	}
-
 	if emaCoeff2 != Decay {
 		a.EffectiveBaseMana2 = math.Pow(math.E, -emaCoeff2*n.Seconds())*a.EffectiveBaseMana2 +
-			(math.Pow(math.E, -Decay*n.Seconds())-math.Pow(math.E, -emaCoeff2*n.Seconds()))/
-				(emaCoeff2-Decay)*emaCoeff2/math.Pow(math.E, -Decay*n.Seconds())*a.BaseMana2
+			(1-math.Pow(math.E, -(emaCoeff2-Decay)*n.Seconds()))/
+				(emaCoeff2-Decay)*emaCoeff2*a.BaseMana2
 	} else {
 		a.EffectiveBaseMana2 = math.Pow(math.E, -Decay*n.Seconds())*a.EffectiveBaseMana2 +
 			Decay*n.Seconds()*a.BaseMana2
