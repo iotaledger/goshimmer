@@ -8,18 +8,82 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
 )
+
+// region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// IndexLength represents the amount of bytes of a marshaled Index.
+const IndexLength = marshalutil.Uint64Size
+
+// Index represents the ever-increasing number of the Markers in a Sequence.
+type Index uint64
+
+// IndexFromMarshalUtil unmarshals an Index using a MarshalUtil (for easier unmarshalling).
+func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, err error) {
+	untypedIndex, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = errors.Errorf("failed to parse Index (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	index = Index(untypedIndex)
+
+	return
+}
+
+// Bytes returns a marshaled version of the Index.
+func (i Index) Bytes() (marshaledIndex []byte) {
+	return marshalutil.New(marshalutil.Uint64Size).
+		WriteUint64(uint64(i)).
+		Bytes()
+}
+
+// String returns a human-readable version of the Index.
+func (i Index) String() (humanReadableIndex string) {
+	return "Index(" + strconv.FormatUint(uint64(i), 10) + ")"
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region IncreaseIndexCallback ////////////////////////////////////////////////////////////////////////////////////////
+
+// IncreaseIndexCallback is the type of the callback function that is used to determine if a new Index is supposed to be
+// assigned in a given Sequence.
+type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index) bool
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region IndexComparator //////////////////////////////////////////////////////////////////////////////////////////////
+
+// IndexComparator is a generic comparator for Index types.
+func IndexComparator(a, b interface{}) int {
+	aCasted := a.(Index)
+	bCasted := b.(Index)
+	switch {
+	case aCasted < bCasted:
+		return -1
+	case aCasted > bCasted:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // MarkerLength represents the amount of bytes of a marshaled Marker.
 const MarkerLength = SequenceIDLength + IndexLength
 
-// Marker represents a coordinate in a Sequence that is identified by an ever increasing Index.
+// Marker represents a coordinate in a Sequence that is identified by an ever-increasing Index.
 type Marker struct {
 	sequenceID SequenceID
 	index      Index
@@ -41,7 +105,7 @@ func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err
 	return
 }
 
-// MarkerFromMarshalUtil unmarshals a Marker using a MarshalUtil (for easier unmarshaling).
+// MarkerFromMarshalUtil unmarshals a Marker using a MarshalUtil (for easier unmarshalling).
 func MarkerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err error) {
 	marker = &Marker{}
 	if marker.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
@@ -68,13 +132,13 @@ func (m *Marker) Index() (index Index) {
 
 // Bytes returns a marshaled version of the Marker.
 func (m Marker) Bytes() (marshaledMarker []byte) {
-	return marshalutil.New(marshalutil.Uint64Size + marshalutil.Uint64Size).
+	return marshalutil.New(MarkerLength).
 		Write(m.sequenceID).
 		Write(m.index).
 		Bytes()
 }
 
-// String returns a human readable version of the Marker.
+// String returns a human-readable version of the Marker.
 func (m *Marker) String() (humanReadableMarker string) {
 	return stringify.Struct("Marker",
 		stringify.StructField("sequenceID", m.SequenceID()),
@@ -106,7 +170,7 @@ func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err er
 	return
 }
 
-// FromMarshalUtil unmarshals a collection of Markers using a MarshalUtil (for easier unmarshaling).
+// FromMarshalUtil unmarshals a collection of Markers using a MarshalUtil (for easier unmarshalling).
 func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Markers, err error) {
 	markersCount, err := marshalUtil.ReadUint32()
 	if err != nil {
@@ -262,6 +326,9 @@ func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
 // ForEach calls the iterator for each of the contained Markers. The iteration is aborted if the iterator returns false.
 // The method returns false if the iteration was aborted.
 func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
+	if m == nil {
+		return true
+	}
 	m.markersMutex.RLock()
 	markersCopy := make(map[SequenceID]Index)
 	for sequenceID, index := range m.markers {
@@ -282,20 +349,19 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 // ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
 // the iterator returns false. The method returns false if the iteration was aborted.
 func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	clonedMarkers := m.Clone().markers
 
-	sequenceIDs := make([]SequenceID, 0, len(m.markers))
-	for sequenceID := range m.markers {
+	sequenceIDs := make([]SequenceID, 0, len(clonedMarkers))
+	for sequenceID := range clonedMarkers {
 		sequenceIDs = append(sequenceIDs, sequenceID)
 	}
 	sort.Slice(sequenceIDs, func(i, j int) bool {
-		return sequenceIDs[i] < sequenceIDs[j]
+		return sequenceIDs[i] > sequenceIDs[j]
 	})
 
 	success = true
 	for _, sequenceID := range sequenceIDs {
-		if success = iterator(sequenceID, m.markers[sequenceID]); !success {
+		if success = iterator(sequenceID, clonedMarkers[sequenceID]); !success {
 			return
 		}
 	}
@@ -321,7 +387,7 @@ func (m *Markers) Merge(markers *Markers) {
 	})
 }
 
-// LowestIndex returns the the lowest Index of all Markers in the collection.
+// LowestIndex returns the lowest Index of all Markers in the collection.
 func (m *Markers) LowestIndex() (lowestIndex Index) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
@@ -331,7 +397,7 @@ func (m *Markers) LowestIndex() (lowestIndex Index) {
 	return
 }
 
-// HighestIndex returns the the highest Index of all Markers in the collection.
+// HighestIndex returns the highest Index of all Markers in the collection.
 func (m *Markers) HighestIndex() (highestIndex Index) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
@@ -397,7 +463,7 @@ func (m *Markers) Bytes() (marshalMarkers []byte) {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the Markers.
+// String returns a human-readable version of the Markers.
 func (m *Markers) String() (humanReadableMarkers string) {
 	structBuilder := stringify.StructBuilder("Markers")
 	m.ForEach(func(sequenceID SequenceID, index Index) bool {
@@ -454,7 +520,7 @@ func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMar
 	return
 }
 
-// ReferencingMarkersFromMarshalUtil unmarshals ReferencingMarkers using a MarshalUtil (for easier unmarshaling).
+// ReferencingMarkersFromMarshalUtil unmarshals ReferencingMarkers using a MarshalUtil (for easier unmarshalling).
 func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencingMarkers *ReferencingMarkers, err error) {
 	referencingMarkers = &ReferencingMarkers{
 		referencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
@@ -514,7 +580,7 @@ func (r *ReferencingMarkers) Bytes() (marshaledReferencingMarkers []byte) {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the ReferencingMarkers.
+// String returns a human-readable version of the ReferencingMarkers.
 func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -613,7 +679,7 @@ func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers
 	return
 }
 
-// ReferencedMarkersFromMarshalUtil unmarshals ReferencedMarkers using a MarshalUtil (for easier unmarshaling).
+// ReferencedMarkersFromMarshalUtil unmarshals ReferencedMarkers using a MarshalUtil (for easier unmarshalling).
 func ReferencedMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencedMarkers *ReferencedMarkers, err error) {
 	referencedMarkers = &ReferencedMarkers{
 		referencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
@@ -677,7 +743,7 @@ func (r *ReferencedMarkers) Bytes() (marshaledReferencedMarkers []byte) {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the ReferencedMarkers.
+// String returns a human-readable version of the ReferencedMarkers.
 func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -783,7 +849,7 @@ func (m *markersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (up
 	return
 }
 
-// Markers flattens the collection and returns a normal Markers collection by removing the rank information. The
+// Markers flattens the collection and returns a normal Marker's collection by removing the rank information. The
 // optionalRank parameter allows to optionally filter the collection by rank and only return the Markers of the given
 // rank. The method additionally returns an exists flag that indicates if the returned Markers contain at least one
 // element.
@@ -910,7 +976,7 @@ func (m *markersByRank) Clone() (clonedMarkersByRank *markersByRank) {
 	}
 }
 
-// String returns a human readable version of the markersByRank.
+// String returns a human-readable version of the markersByRank.
 func (m *markersByRank) String() (humanReadableMarkersByRank string) {
 	m.markersByRankMutex.RLock()
 	defer m.markersByRankMutex.RUnlock()
@@ -936,7 +1002,7 @@ func (m *markersByRank) String() (humanReadableMarkersByRank string) {
 // markerReferences represents a type that encodes the reference between Markers of different Sequences.
 type markerReferences map[SequenceID]*thresholdmap.ThresholdMap
 
-// markerReferencesFromMarshalUtil unmarshals markerReferences using a MarshalUtil (for easier unmarshaling).
+// markerReferencesFromMarshalUtil unmarshals markerReferences using a MarshalUtil (for easier unmarshalling).
 func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode thresholdmap.Mode) (referenceMarkers markerReferences, err error) {
 	referenceMarkers = make(map[SequenceID]*thresholdmap.ThresholdMap)
 
@@ -997,6 +1063,441 @@ func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode 
 	}
 
 	return referenceMarkers, err
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Sequence represents a set of ever-increasing Indexes that are encapsulating a certain part of the DAG.
+type Sequence struct {
+	id                               SequenceID
+	referencedMarkers                *ReferencedMarkers
+	referencingMarkers               *ReferencingMarkers
+	lowestIndex                      Index
+	highestIndex                     Index
+	verticesWithoutFutureMarker      uint64
+	verticesWithoutFutureMarkerMutex sync.RWMutex
+	highestIndexMutex                sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewSequence creates a new Sequence from the given details.
+func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
+	initialIndex := referencedMarkers.HighestIndex() + 1
+
+	if id == 0 {
+		initialIndex--
+	}
+
+	return &Sequence{
+		id:                 id,
+		referencedMarkers:  NewReferencedMarkers(referencedMarkers),
+		referencingMarkers: NewReferencingMarkers(),
+		lowestIndex:        initialIndex,
+		highestIndex:       initialIndex,
+	}
+}
+
+// SequenceFromBytes unmarshals a Sequence from a sequence of bytes.
+func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(sequenceBytes)
+	if sequence, err = SequenceFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// SequenceFromMarshalUtil unmarshals a Sequence using a MarshalUtil (for easier unmarshalling).
+func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
+	sequence = &Sequence{}
+	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+	}
+	if sequence.referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
+	}
+	if sequence.referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
+	}
+	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
+		return nil, errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
+	}
+	if sequence.highestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
+	}
+
+	return sequence, nil
+}
+
+// SequenceFromObjectStorage restores a Sequence that was stored in the object storage.
+func SequenceFromObjectStorage(key, data []byte) (sequence objectstorage.StorableObject, err error) {
+	if sequence, _, err = SequenceFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// ID returns the identifier of the Sequence.
+func (s *Sequence) ID() SequenceID {
+	return s.id
+}
+
+// ReferencedMarkers returns a collection of Markers that were referenced by the given Index.
+func (s *Sequence) ReferencedMarkers(index Index) *Markers {
+	return s.referencedMarkers.Get(index)
+}
+
+// ReferencingMarkers returns a collection of Markers that reference the given Index.
+func (s *Sequence) ReferencingMarkers(index Index) *Markers {
+	return s.referencingMarkers.Get(index)
+}
+
+// LowestIndex returns the Index of the very first Marker in the Sequence.
+func (s *Sequence) LowestIndex() Index {
+	return s.lowestIndex
+}
+
+// HighestIndex returns the Index of the latest Marker in the Sequence.
+func (s *Sequence) HighestIndex() Index {
+	s.highestIndexMutex.RLock()
+	defer s.highestIndexMutex.RUnlock()
+
+	return s.highestIndex
+}
+
+// TryExtend tries to extend the Sequence with a new Index by checking if the referenced PastMarkers contain the last
+// assigned Index of the Sequence. It returns the new Index, the remaining Markers pointing to other Sequences and a
+// boolean flag that indicating if a new Index was assigned.
+func (s *Sequence) TryExtend(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (index Index, remainingReferencedPastMarkers *Markers, extended bool) {
+	s.highestIndexMutex.Lock()
+	defer s.highestIndexMutex.Unlock()
+
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedPastMarkers.Get(s.id)
+	if !referencedSequenceIndexExists {
+		panic("tried to extend unreferenced Sequence")
+	}
+
+	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
+	//  For example, (1,5) <-> (1,8) are valid subsequent structureDetails of sequence 1.
+	if extended = referencedSequenceIndex == s.highestIndex && increaseIndexCallback(s.id, referencedSequenceIndex); extended {
+		s.highestIndex = referencedPastMarkers.HighestIndex() + 1
+
+		if referencedPastMarkers.Size() > 1 {
+			remainingReferencedPastMarkers = referencedPastMarkers.Clone()
+			remainingReferencedPastMarkers.Delete(s.id)
+
+			s.referencedMarkers.Add(s.highestIndex, remainingReferencedPastMarkers)
+		}
+
+		s.SetModified()
+	}
+	index = s.highestIndex
+
+	return
+}
+
+// IncreaseHighestIndex increases the highest Index of the Sequence if the referencedMarkers directly reference the
+// Marker with the highest Index. It returns the new Index and a boolean flag that indicates if the value was
+// increased.
+func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index, increased bool) {
+	s.highestIndexMutex.Lock()
+	defer s.highestIndexMutex.Unlock()
+
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedMarkers.Get(s.id)
+	if !referencedSequenceIndexExists {
+		panic("tried to increase Index of wrong Sequence")
+	}
+
+	if increased = referencedSequenceIndex >= s.highestIndex; increased {
+		s.highestIndex = referencedMarkers.HighestIndex() + 1
+
+		if referencedMarkers.Size() > 1 {
+			referencedMarkers.Delete(s.id)
+
+			s.referencedMarkers.Add(s.highestIndex, referencedMarkers)
+		}
+
+		s.SetModified()
+	}
+	index = s.highestIndex
+
+	return
+}
+
+// AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
+func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
+	s.referencingMarkers.Add(index, referencingMarker)
+
+	s.SetModified()
+}
+
+// String returns a human-readable version of the Sequence.
+func (s *Sequence) String() string {
+	return stringify.Struct("Sequence",
+		stringify.StructField("ID", s.ID()),
+		stringify.StructField("LowestIndex", s.LowestIndex()),
+		stringify.StructField("HighestIndex", s.HighestIndex()),
+	)
+}
+
+// Bytes returns a marshaled version of the Sequence.
+func (s *Sequence) Bytes() []byte {
+	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
+}
+
+// Update is required to match the StorableObject interface but updates of the object are disabled.
+func (s *Sequence) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *Sequence) ObjectStorageKey() []byte {
+	return s.id.Bytes()
+}
+
+// ObjectStorageValue marshals the Sequence into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the object storage.
+func (s *Sequence) ObjectStorageValue() []byte {
+	s.verticesWithoutFutureMarkerMutex.RLock()
+	defer s.verticesWithoutFutureMarkerMutex.RUnlock()
+
+	return marshalutil.New().
+		Write(s.referencedMarkers).
+		Write(s.referencingMarkers).
+		WriteUint64(s.verticesWithoutFutureMarker).
+		Write(s.lowestIndex).
+		Write(s.HighestIndex()).
+		Bytes()
+}
+
+// code contract (make sure the type implements all required methods).
+var _ objectstorage.StorableObject = &Sequence{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedSequence ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedSequence is a wrapper for the generic CachedObject returned by the object storage that
+// overrides the accessor methods with a type-casted one.
+type CachedSequence struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks this CachedObject to still be in use by the program.
+func (c *CachedSequence) Retain() *CachedSequence {
+	return &CachedSequence{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedSequence) Unwrap() *Sequence {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*Sequence)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
+// object when the consumer finishes and returns true of there was at least one object that was consumed.
+func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Sequence))
+	}, forceRelease...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SequenceIDLength represents the amount of bytes of a marshaled SequenceID.
+const SequenceIDLength = marshalutil.Uint64Size
+
+// SequenceID is the type of the identifier of a Sequence.
+type SequenceID uint64
+
+// SequenceIDFromBytes unmarshals a SequenceID from a sequence of bytes.
+func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(sequenceIDBytes)
+	if sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// SequenceIDFromMarshalUtil unmarshals a SequenceIDs using a MarshalUtil (for easier unmarshalling).
+func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID SequenceID, err error) {
+	untypedSequenceID, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = errors.Errorf("failed to parse SequenceID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	sequenceID = SequenceID(untypedSequenceID)
+
+	return
+}
+
+// Bytes returns a marshaled version of the SequenceID.
+func (a SequenceID) Bytes() (marshaledSequenceID []byte) {
+	return marshalutil.New(marshalutil.Uint64Size).WriteUint64(uint64(a)).Bytes()
+}
+
+// String returns a human-readable version of the SequenceID.
+func (a SequenceID) String() (humanReadableSequenceID string) {
+	return "SequenceID(" + strconv.FormatUint(uint64(a), 10) + ")"
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SequenceIDs //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SequenceIDs represents a collection of SequenceIDs.
+type SequenceIDs map[SequenceID]types.Empty
+
+// NewSequenceIDs creates a new collection of SequenceIDs.
+func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
+	result = make(SequenceIDs)
+	for _, sequenceID := range sequenceIDs {
+		result[sequenceID] = types.Void
+	}
+
+	return
+}
+
+// Bytes returns a marshaled version of the SequenceIDs.
+func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint32(uint32(len(s)))
+	for sequenceID := range s {
+		marshalUtil.Write(sequenceID)
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// String returns a human-readable version of the SequenceIDs.
+func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
+	result := "SequenceIDs("
+	firstItem := true
+	for sequenceID := range s {
+		if !firstItem {
+			result += ", "
+		}
+		result += strconv.FormatUint(uint64(sequenceID), 10)
+
+		firstItem = false
+	}
+	result += ")"
+
+	return result
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
+
+// StructureDetails represents a container for the complete Marker related information of a node in a DAG that are used
+// to interact with the public API of this package.
+type StructureDetails struct {
+	Rank                     uint64
+	PastMarkerGap            uint64
+	IsPastMarker             bool
+	PastMarkers              *Markers
+	FutureMarkers            *Markers
+	futureMarkersUpdateMutex sync.Mutex
+}
+
+// StructureDetailsFromMarshalUtil unmarshals a StructureDetails using a MarshalUtil (for easier unmarshalling).
+func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (structureDetails *StructureDetails, err error) {
+	detailsExist, err := marshalUtil.ReadBool()
+	if err != nil {
+		err = errors.Errorf("failed to parse exists flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if !detailsExist {
+		return
+	}
+
+	structureDetails = &StructureDetails{}
+	if structureDetails.Rank, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if structureDetails.PastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse PastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if structureDetails.IsPastMarker, err = marshalUtil.ReadBool(); err != nil {
+		err = errors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if structureDetails.PastMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
+		return
+	}
+	if structureDetails.FutureMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse FutureMarkers from MarshalUtil: %w", err)
+		return
+	}
+
+	return structureDetails, nil
+}
+
+// Clone creates a deep copy of the StructureDetails.
+func (m *StructureDetails) Clone() (clone *StructureDetails) {
+	return &StructureDetails{
+		Rank:          m.Rank,
+		PastMarkerGap: m.PastMarkerGap,
+		IsPastMarker:  m.IsPastMarker,
+		PastMarkers:   m.PastMarkers.Clone(),
+		FutureMarkers: m.FutureMarkers.Clone(),
+	}
+}
+
+// Bytes returns a marshaled version of the StructureDetails.
+func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
+	if m == nil {
+		return marshalutil.New(marshalutil.BoolSize).WriteBool(false).Bytes()
+	}
+
+	return marshalutil.New().
+		WriteBool(true).
+		WriteUint64(m.Rank).
+		WriteUint64(m.PastMarkerGap).
+		WriteBool(m.IsPastMarker).
+		Write(m.PastMarkers).
+		Write(m.FutureMarkers).
+		Bytes()
+}
+
+// String returns a human-readable version of the StructureDetails.
+func (m *StructureDetails) String() (humanReadableStructureDetails string) {
+	return stringify.Struct("StructureDetails",
+		stringify.StructField("Rank", m.Rank),
+		stringify.StructField("PastMarkerGap", m.PastMarkerGap),
+		stringify.StructField("IsPastMarker", m.IsPastMarker),
+		stringify.StructField("PastMarkers", m.PastMarkers),
+		stringify.StructField("FutureMarkers", m.FutureMarkers),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

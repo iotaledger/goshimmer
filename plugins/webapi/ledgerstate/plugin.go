@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -320,20 +318,20 @@ func GetBranchSupporters(c echo.Context) (err error) {
 
 // GetBranchSequenceIDs is the handler for the /ledgerstate/branch/:branchID endpoint.
 func GetBranchSequenceIDs(c echo.Context) (err error) {
-	branchID, err := branchIDFromContext(c)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	//branchID, err := branchIDFromContext(c)
+	//if err != nil {
+	//	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	//}
+	//
+	//sequenceIDs := make([]string, 0)
+	//deps.Tangle.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
+	//	sequenceAliasMapping.ForEachSequenceID(func(sequenceID markers.SequenceID) bool {
+	//		sequenceIDs = append(sequenceIDs, strconv.FormatUint(uint64(sequenceID), 10))
+	//		return true
+	//	})
+	//})
 
-	sequenceIDs := make([]string, 0)
-	deps.Tangle.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
-		sequenceAliasMapping.ForEachSequenceID(func(sequenceID markers.SequenceID) bool {
-			sequenceIDs = append(sequenceIDs, strconv.FormatUint(uint64(sequenceID), 10))
-			return true
-		})
-	})
-
-	return c.JSON(http.StatusOK, sequenceIDs)
+	return c.JSON(http.StatusOK, "ok")
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

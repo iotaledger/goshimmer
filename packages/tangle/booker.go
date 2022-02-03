@@ -26,7 +26,7 @@ type Booker struct {
 	Events *BookerEvents
 
 	tangle         *Tangle
-	MarkersManager *MarkersManager
+	MarkersManager *BranchMarkersMapper
 
 	bookerQueue chan MessageID
 	shutdown    chan struct{}
@@ -45,7 +45,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 			Error:                events.NewEvent(events.ErrorCaller),
 		},
 		tangle:         tangle,
-		MarkersManager: NewMarkersManager(tangle),
+		MarkersManager: NewBranchMarkersMapper(tangle),
 		bookerQueue:    make(chan MessageID, bookerQueueSize),
 		shutdown:       make(chan struct{}),
 	}
@@ -175,7 +175,7 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 
 	aggregatedInheritedBranchID := b.tangle.LedgerState.AggregateConflictBranchesID(inheritedBranchIDs)
 
-	inheritedStructureDetails, newSequenceCreated := b.MarkersManager.InheritStructureDetails(message, structureDetails, markers.NewSequenceAlias(aggregatedInheritedBranchID.Bytes()))
+	inheritedStructureDetails, newSequenceCreated := b.MarkersManager.InheritStructureDetails(message, structureDetails)
 	messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 	if newSequenceCreated {

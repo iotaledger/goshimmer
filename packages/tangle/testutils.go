@@ -818,7 +818,6 @@ var (
 	totalAMana          = 1000.0
 	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000
-	noAManaNode         = identity.GenerateIdentity()
 	selfLocalIdentity   = identity.GenerateLocalIdentity()
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
@@ -864,6 +863,10 @@ func NewTestTangle(options ...Option) *Tangle {
 	if t.WeightProvider == nil {
 		t.WeightProvider = &MockWeightProvider{}
 	}
+
+	t.Events.Error.Attach(events.NewClosure(func(e error) {
+		fmt.Println(e)
+	}))
 
 	return t
 }

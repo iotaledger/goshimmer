@@ -293,9 +293,6 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 		supportWalker := walker.New(false)
 
 		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			if sequenceID == 0 {
-				return true
-			}
 
 			supportWalker.Push(*markers.NewMarker(sequenceID, index))
 
@@ -328,10 +325,6 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 
 		a.tangle.Booker.MarkersManager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 			sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-				if sequenceID == 0 {
-					return true
-				}
-
 				walk.Push(*markers.NewMarker(sequenceID, index))
 
 				return true

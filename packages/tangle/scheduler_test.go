@@ -1,9 +1,10 @@
 package tangle
 
 import (
-	"github.com/iotaledger/hive.go/types"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -86,6 +87,8 @@ func TestScheduler_Discarded(t *testing.T) {
 	t.Skip("Skip test. Zero mana nodes are allowed to issue messages.")
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
+
+	noAManaNode := identity.GenerateIdentity()
 
 	messageDiscarded := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(id MessageID) { messageDiscarded <- id }))

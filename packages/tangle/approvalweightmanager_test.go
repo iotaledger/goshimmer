@@ -1,7 +1,7 @@
 package tangle
 
 import (
-	"encoding/binary"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,12 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
-
-func toByteArray(i uint32) (arr []byte) {
-	arr = make([]byte, 4)
-	binary.BigEndian.PutUint32(arr, i)
-	return
-}
 
 func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 	supporters := map[string]*identity.Identity{
@@ -48,11 +42,11 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 		var previousMarker *markers.StructureDetails
 		for i := uint32(1); i < uint32(totalMarkers); i++ {
 			if previousMarker == nil {
-				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback)
 				continue
 			}
 
-			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback, markers.NewSequenceAlias(toByteArray(i)))
+			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback)
 		}
 	}
 
@@ -279,107 +273,115 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 
 	// build markers DAG
 	{
-		markersMap["1,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,1"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
-		markersMap["2,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,1"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,2"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["2,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
-		markersMap["3,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"], markersMap["2,3"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"], markersMap["3,4"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,5"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["3,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,6"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("3")))
-		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("4")))
-		markersMap["5,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"], markersMap["2,4"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("5")))
+		markersMap["0,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback)
+		markersMap["0,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
+		markersMap["0,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,2"]}, increaseIndexCallback)
+		markersMap["0,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,3"]}, increaseIndexCallback)
+
+		markersMap["0,1"].PastMarkerGap = 50
+		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
+		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback)
+		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback)
+		markersMap["1,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"]}, increaseIndexCallback)
+
+		markersMap["0,3"].PastMarkerGap = 50
+		markersMap["1,4"].PastMarkerGap = 50
+		markersMap["2,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,3"], markersMap["1,4"]}, increaseIndexCallback)
+		markersMap["2,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,4"], markersMap["2,5"]}, increaseIndexCallback)
+		markersMap["2,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,6"]}, increaseIndexCallback)
+		markersMap["2,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
+
+		markersMap["2,7"].PastMarkerGap = 50
+		markersMap["3,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
+		markersMap["1,4"].PastMarkerGap = 50
+		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"], markersMap["1,4"]}, increaseIndexCallback)
 	}
 
-	// CASE1: APPROVE MARKER(1, 3)
+	// CASE1: APPROVE MARKER(0, 3)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 3)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(0, 3)))
 
 		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
+			"0,1": {supporters["A"]},
+			"0,2": {supporters["A"]},
+			"0,3": {supporters["A"]},
+			"0,4": {},
+			"1,2": {},
+			"1,3": {},
 			"1,4": {},
-			"2,1": {},
-			"2,2": {},
-			"2,3": {},
-			"2,4": {},
-			"3,4": {},
-			"3,5": {},
-			"3,6": {},
-			"3,7": {},
+			"1,5": {},
+			"2,5": {},
+			"2,6": {},
+			"2,7": {},
+			"2,8": {},
+			"3,8": {},
 			"4,8": {},
-			"5,8": {},
 		})
 	}
 
-	// CASE2: APPROVE MARKER(1, 4) + MARKER(3, 5)
+	// CASE2: APPROVE MARKER(0, 4) + MARKER(2, 6)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 4), markers.NewMarker(3, 5)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(0, 4), markers.NewMarker(2, 6)))
 
 		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
+			"0,1": {supporters["A"]},
+			"0,2": {supporters["A"]},
+			"0,3": {supporters["A"]},
+			"0,4": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
 			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"]},
-			"2,2": {supporters["A"]},
-			"2,3": {supporters["A"]},
-			"2,4": {},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {},
-			"3,7": {},
+			"1,5": {},
+			"2,5": {supporters["A"]},
+			"2,6": {supporters["A"]},
+			"2,7": {},
+			"2,8": {},
+			"3,8": {},
 			"4,8": {},
-			"5,8": {},
 		})
 	}
 
-	// CASE3: APPROVE MARKER(5, 8)
+	// CASE3: APPROVE MARKER(4, 8)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(5, 8)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(4, 8)))
 
 		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
+			"0,1": {supporters["A"]},
+			"0,2": {supporters["A"]},
+			"0,3": {supporters["A"]},
+			"0,4": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
 			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"]},
-			"2,2": {supporters["A"]},
-			"2,3": {supporters["A"]},
-			"2,4": {supporters["A"]},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {supporters["A"]},
-			"3,7": {supporters["A"]},
-			"4,8": {},
-			"5,8": {supporters["A"]},
+			"1,5": {},
+			"2,5": {supporters["A"]},
+			"2,6": {supporters["A"]},
+			"2,7": {supporters["A"]},
+			"2,8": {},
+			"3,8": {},
+			"4,8": {supporters["A"]},
 		})
 	}
 
-	// CASE4: APPROVE MARKER(2, 3)
+	// CASE4: APPROVE MARKER(1, 5)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(2, 3)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(1, 5)))
 
 		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"1,1": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
-			"1,4": {supporters["A"]},
-			"2,1": {supporters["A"], supporters["B"]},
-			"2,2": {supporters["A"], supporters["B"]},
-			"2,3": {supporters["A"], supporters["B"]},
-			"2,4": {supporters["A"]},
-			"3,4": {supporters["A"]},
-			"3,5": {supporters["A"]},
-			"3,6": {supporters["A"]},
-			"3,7": {supporters["A"]},
-			"4,8": {},
-			"5,8": {supporters["A"]},
+			"0,1": {supporters["A"], supporters["B"]},
+			"0,2": {supporters["A"]},
+			"0,3": {supporters["A"]},
+			"0,4": {supporters["A"]},
+			"1,2": {supporters["A"], supporters["B"]},
+			"1,3": {supporters["A"], supporters["B"]},
+			"1,4": {supporters["A"], supporters["B"]},
+			"1,5": {supporters["B"]},
+			"2,5": {supporters["A"]},
+			"2,6": {supporters["A"]},
+			"2,7": {supporters["A"]},
+			"2,8": {},
+			"3,8": {},
+			"4,8": {supporters["A"]},
 		})
 	}
 }
@@ -535,6 +537,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	tangle.Configure(MergeBranches(false))
+	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
+
 	tangle.Setup()
 	testEventMock := NewEventMock(t, tangle.ApprovalWeightManager)
 	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("A", 500), WithGenesisOutput("B", 500))
@@ -543,51 +547,51 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.3)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.3)
 
 		IssueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.30,
+			*markers.NewMarker(0, 1): 0.30,
 		})
 	}
 	// ISSUE Message2
 	{
 		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.45)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.15)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.45)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.15)
 
 		IssueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.45,
-			*markers.NewMarker(1, 2): 0.15,
+			*markers.NewMarker(0, 1): 0.45,
+			*markers.NewMarker(0, 2): 0.15,
 		})
 	}
 	// ISSUE Message3
 	{
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()), WithInputs("A"), WithOutput("A3", 500))
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.70)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.40)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.25)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.70)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.40)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.25)
 
 		IssueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.70,
-			*markers.NewMarker(1, 2): 0.40,
-			*markers.NewMarker(1, 3): 0.25,
+			*markers.NewMarker(0, 1): 0.70,
+			*markers.NewMarker(0, 2): 0.40,
+			*markers.NewMarker(0, 3): 0.25,
 		})
 	}
 	// ISSUE Message4
 	{
 		testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.90)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.60)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.45)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.20)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.90)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.60)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.45)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.20)
 
 		IssueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.90,
-			*markers.NewMarker(1, 2): 0.60,
-			*markers.NewMarker(1, 3): 0.45,
-			*markers.NewMarker(1, 4): 0.20,
+			*markers.NewMarker(0, 1): 0.90,
+			*markers.NewMarker(0, 2): 0.60,
+			*markers.NewMarker(0, 3): 0.45,
+			*markers.NewMarker(0, 4): 0.20,
 		})
 	}
 	// ISSUE Message5
@@ -595,29 +599,29 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A3"), WithOutput("A5", 500))
 		testFramework.RegisterBranchID("A", "Message5")
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.90)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.75)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.50)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.30)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.90)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.50)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.30)
 
 		IssueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 0.90,
-			*markers.NewMarker(1, 2): 0.90,
-			*markers.NewMarker(1, 3): 0.75,
-			*markers.NewMarker(1, 4): 0.50,
-			*markers.NewMarker(1, 5): 0.30,
+			*markers.NewMarker(0, 1): 0.90,
+			*markers.NewMarker(0, 2): 0.90,
+			*markers.NewMarker(0, 3): 0.75,
+			*markers.NewMarker(0, 4): 0.50,
+			*markers.NewMarker(0, 5): 0.30,
 		})
 	}
+
 	// ISSUE Message6
 	{
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A3"), WithOutput("B6", 500))
 		testFramework.RegisterBranchID("B", "Message6")
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.85)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.60)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.10)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.60)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.30)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.10)
@@ -626,12 +630,11 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"A": 0.3,
 			"B": 0.1,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 0.85,
-			*markers.NewMarker(1, 4): 0.60,
-			*markers.NewMarker(1, 5): 0.30,
-			*markers.NewMarker(2, 5): 0.10,
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 0.85,
+			*markers.NewMarker(0, 4): 0.60,
+			*markers.NewMarker(0, 5): 0.30,
 		})
 	}
 
@@ -639,18 +642,17 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message7", WithStrongParents("Message3"), WithIssuer(nodes["B"].PublicKey()), WithInputs("B"), WithOutput("B7", 500))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 1.0)
 
 		IssueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[string]float64{
 			"A": 0.30,
 			"B": 0.1,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 0.60,
-			*markers.NewMarker(1, 5): 0.30,
-			*markers.NewMarker(2, 5): 0.10,
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.60,
+			*markers.NewMarker(0, 5): 0.30,
 		})
 	}
 	// ISSUE Message8
@@ -658,8 +660,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testFramework.CreateMessage("Message8", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()), WithInputs("B"), WithOutput("B8", 500))
 		testFramework.RegisterBranchID("C", "Message7")
 		testFramework.RegisterBranchID("D", "Message8")
-
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 4), 0.20)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.15)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("D"), 0.20)
@@ -670,21 +670,16 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.15,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1,
-			*markers.NewMarker(1, 2): 1,
-			*markers.NewMarker(1, 3): 1,
-			*markers.NewMarker(1, 4): 0.60,
-			*markers.NewMarker(1, 5): 0.30,
-			*markers.NewMarker(2, 5): 0.10,
-			*markers.NewMarker(3, 4): 0.20,
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.60,
+			*markers.NewMarker(0, 5): 0.30,
 		})
 	}
 	// ISSUE Message9
 	{
 		testFramework.CreateMessage("Message9", WithStrongParents("Message6", "Message7"), WithIssuer(nodes["A"].PublicKey()))
-
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.40)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 6), 0.30)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.0)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.40)
@@ -696,24 +691,19 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.45,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1.0,
-			*markers.NewMarker(1, 2): 1.0,
-			*markers.NewMarker(1, 3): 1.0,
-			*markers.NewMarker(1, 4): 0.60,
-			*markers.NewMarker(1, 5): 0.30,
-			*markers.NewMarker(2, 5): 0.40,
-			*markers.NewMarker(3, 4): 0.20,
-			*markers.NewMarker(4, 6): 0.30,
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.60,
+			*markers.NewMarker(0, 5): 0.30,
 		})
 	}
 	// ISSUE Message10
 	{
 		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.75)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.55)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 6), 0.45)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 7), 0.15)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.15)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.55)
 
@@ -723,15 +713,12 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.45,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1.0,
-			*markers.NewMarker(1, 2): 1.0,
-			*markers.NewMarker(1, 3): 1.0,
-			*markers.NewMarker(1, 4): 0.75,
-			*markers.NewMarker(1, 5): 0.30,
-			*markers.NewMarker(2, 5): 0.55,
-			*markers.NewMarker(3, 4): 0.20,
-			*markers.NewMarker(4, 6): 0.45,
-			*markers.NewMarker(4, 7): 0.15,
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.75,
+			*markers.NewMarker(0, 5): 0.30,
+			*markers.NewMarker(1, 5): 0.15,
 		})
 	}
 	// ISSUE Message11
@@ -739,8 +726,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 		// We skip ahead with the Sequence Number
 		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["E"].PublicKey()), WithSequenceNumber(1000))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.40)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.10)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.40)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 6), 0.10)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.10)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.45)
@@ -751,16 +738,13 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.45,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1.0,
-			*markers.NewMarker(1, 2): 1.0,
-			*markers.NewMarker(1, 3): 1.0,
-			*markers.NewMarker(1, 4): 0.75,
-			*markers.NewMarker(1, 5): 0.40,
-			*markers.NewMarker(2, 5): 0.55,
-			*markers.NewMarker(3, 4): 0.20,
-			*markers.NewMarker(4, 6): 0.45,
-			*markers.NewMarker(4, 7): 0.15,
-			*markers.NewMarker(1, 6): 0.10,
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.75,
+			*markers.NewMarker(0, 5): 0.40,
+			*markers.NewMarker(0, 6): 0.10,
+			*markers.NewMarker(1, 5): 0.15,
 		})
 	}
 
@@ -769,9 +753,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 		// We simulate an "old" vote
 		testFramework.CreateMessage("Message12", WithStrongParents("Message10"), WithIssuer(nodes["E"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 6), 0.55)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 7), 0.25)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(4, 8), 0.10)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.25)
+		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.10)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.55)
 
@@ -781,31 +764,27 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.55,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1.0,
-			*markers.NewMarker(1, 2): 1.0,
-			*markers.NewMarker(1, 3): 1.0,
-			*markers.NewMarker(1, 4): 0.75,
-			*markers.NewMarker(1, 5): 0.40,
-			*markers.NewMarker(2, 5): 0.55,
-			*markers.NewMarker(3, 4): 0.20,
-			*markers.NewMarker(4, 6): 0.55,
-			*markers.NewMarker(4, 7): 0.25,
-			*markers.NewMarker(4, 8): 0.10,
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.75,
+			*markers.NewMarker(0, 5): 0.40,
+			*markers.NewMarker(0, 6): 0.10,
+			*markers.NewMarker(1, 5): 0.25,
+			*markers.NewMarker(1, 6): 0.10,
 		})
 	}
 
-	// ISSUE Message12.1
+	// ISSUE Message13
 	{
 		// We simulate an "old" vote
-		testFramework.CreateMessage("Message12.1", WithStrongParents("Message2"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("A12.1", 500))
+		testFramework.CreateMessage("Message13", WithStrongParents("Message2"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("A13", 500))
 		testFramework.RegisterBranchID("X", "Message3")
-		testFramework.RegisterBranchID("Y", "Message12.1")
-
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(5, 3), 0.10)
+		testFramework.RegisterBranchID("Y", "Message13")
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 1.0)
 
-		IssueAndValidateMessageApproval(t, "Message12.1", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[string]float64{
 			"A": 0.10,
 			"B": 0.45,
 			"C": 0.55,
@@ -813,63 +792,16 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"X": 1.00,
 			"Y": 0.00,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(1, 1): 1.0,
-			*markers.NewMarker(1, 2): 1.0,
-			*markers.NewMarker(1, 3): 1.0,
-			*markers.NewMarker(1, 4): 0.75,
-			*markers.NewMarker(1, 5): 0.40,
-			*markers.NewMarker(2, 5): 0.55,
-			*markers.NewMarker(3, 4): 0.20,
-			*markers.NewMarker(4, 6): 0.55,
-			*markers.NewMarker(4, 7): 0.25,
-			*markers.NewMarker(4, 8): 0.10,
-			*markers.NewMarker(5, 3): 0.10,
+			*markers.NewMarker(0, 1): 1,
+			*markers.NewMarker(0, 2): 1,
+			*markers.NewMarker(0, 3): 1,
+			*markers.NewMarker(0, 4): 0.75,
+			*markers.NewMarker(0, 5): 0.40,
+			*markers.NewMarker(0, 6): 0.10,
+			*markers.NewMarker(1, 5): 0.25,
+			*markers.NewMarker(1, 6): 0.10,
 		})
 	}
-	/*
-		// ISSUE Message13
-		{
-			// We simulate an "old" vote
-			testFramework.CreateMessage("Message13", WithStrongParents("Message6", "Message8"), WithIssuer(nodes["E"].PublicKey()))
-
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 4), 0.75)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 5), 0.55)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(3, 4), 0.30)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(5, 6), 0.10)
-			// Called again from the 3,4 path
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 1.0)
-
-			testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.45)
-
-			// TODO: SHOULD ADD TO D WITHOUT UPDATING X, CAUSE A MORE RECENT VOTE DID IT
-
-			testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("D"), 0.30)
-
-			IssueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[string]float64{
-				"A": 0.10,
-				"B": 0.45,
-				"C": 0.45,
-				"D": 0.30,
-			}, map[markers.Marker]float64{
-				*markers.NewMarker(1, 1): 1.0,
-				*markers.NewMarker(1, 2): 1.0,
-				*markers.NewMarker(1, 3): 1.0,
-				*markers.NewMarker(1, 4): 0.75,
-				*markers.NewMarker(1, 5): 0.40,
-				*markers.NewMarker(2, 5): 0.55,
-				*markers.NewMarker(3, 4): 0.30,
-				*markers.NewMarker(4, 6): 0.55,
-				*markers.NewMarker(4, 7): 0.25,
-				*markers.NewMarker(4, 8): 0.10,
-				*markers.NewMarker(5, 6): 0.10,
-			})
-		}
-	*/
 
 	testEventMock.AssertExpectations(t)
 }
@@ -938,6 +870,9 @@ func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedV
 
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
 	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
+		// sanity check
+		assert.Equal(t, markerAlias, fmt.Sprintf("%d,%d", markersMap[markerAlias].PastMarkers.Marker().SequenceID(), markersMap[markerAlias].PastMarkers.Marker().Index()))
+
 		supporters := approvalWeightManager.markerVotes(markersMap[markerAlias].PastMarkers.Marker())
 
 		assert.Equal(t, len(expectedSupportersOfMarker), len(supporters), "size of supporters for Marker("+markerAlias+") does not match")
