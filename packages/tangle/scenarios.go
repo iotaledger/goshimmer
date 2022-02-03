@@ -191,7 +191,6 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 3): 0.85,
 				*markers.NewMarker(0, 4): 0.60,
 				*markers.NewMarker(0, 5): 0.30,
-				//*markers.NewMarker(2, 5): 0.10, TODO: there's no new marker, so maybe we should check individual mappings?
 			})
 		},
 		// ISSUE Message7
@@ -221,8 +220,8 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testFramework.CreateMessage("Message7.1", WithStrongParents("Message7"), WithIssuer(nodes["A"].PublicKey()))
 
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 6), 0.55)
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 7), 0.30)
 
-			testFramework.PreventNewMarkers(true)
 			IssueAndValidateMessageApproval(t, "Message7.1", testEventMock, testFramework, map[string]float64{
 				"Branch1": 0.55,
 				"Branch2": 0.1,
@@ -233,8 +232,8 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 4): 0.85,
 				*markers.NewMarker(0, 5): 0.55,
 				*markers.NewMarker(0, 6): 0.55,
+				*markers.NewMarker(0, 7): 0.30,
 			})
-			testFramework.PreventNewMarkers(false)
 		},
 		// ISSUE Message8
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
@@ -252,6 +251,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 4): 0.85,
 				*markers.NewMarker(0, 5): 0.55,
 				*markers.NewMarker(0, 6): 0.55,
+				*markers.NewMarker(0, 7): 0.30,
 			})
 		},
 		// ISSUE Message9
@@ -273,6 +273,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 4): 0.85,
 				*markers.NewMarker(0, 5): 0.55,
 				*markers.NewMarker(0, 6): 0.55,
+				*markers.NewMarker(0, 7): 0.30,
 				*markers.NewMarker(1, 5): 0.30,
 			})
 		},
@@ -297,6 +298,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 4): 1,
 				*markers.NewMarker(0, 5): 0.55,
 				*markers.NewMarker(0, 6): 0.55,
+				*markers.NewMarker(0, 7): 0.30,
 				*markers.NewMarker(1, 5): 0.45,
 				*markers.NewMarker(1, 6): 0.15,
 			})
@@ -324,6 +326,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 4): 1,
 				*markers.NewMarker(0, 5): 0.55,
 				*markers.NewMarker(0, 6): 0.55,
+				*markers.NewMarker(0, 7): 0.30,
 				*markers.NewMarker(1, 5): 0.45,
 				*markers.NewMarker(1, 6): 0.15,
 			})
@@ -350,6 +353,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 4): 1,
 				*markers.NewMarker(0, 5): 0.75,
 				*markers.NewMarker(0, 6): 0.55,
+				*markers.NewMarker(0, 7): 0.30,
 				*markers.NewMarker(1, 5): 0.45,
 				*markers.NewMarker(1, 6): 0.15,
 			})
@@ -359,7 +363,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testFramework.CreateMessage("Message13", WithStrongParents("Message12"), WithIssuer(nodes["E"].PublicKey()))
 
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.85)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.1)
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.10)
 
 			testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch1"), 0.85)
 			testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("Branch2"), 0.15)
@@ -377,6 +381,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 4): 1,
 				*markers.NewMarker(0, 5): 0.85,
 				*markers.NewMarker(0, 6): 0.55,
+				*markers.NewMarker(0, 7): 0.30,
 				*markers.NewMarker(1, 5): 0.45,
 				*markers.NewMarker(1, 6): 0.15,
 				*markers.NewMarker(2, 6): 0.10,
@@ -386,7 +391,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 1.0)
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 1.00)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.25)
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 7), 0.15)
 
@@ -406,6 +411,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				*markers.NewMarker(0, 4): 1,
 				*markers.NewMarker(0, 5): 1,
 				*markers.NewMarker(0, 6): 0.55,
+				*markers.NewMarker(0, 7): 0.30,
 				*markers.NewMarker(1, 5): 0.45,
 				*markers.NewMarker(1, 6): 0.15,
 				*markers.NewMarker(2, 6): 0.25,
