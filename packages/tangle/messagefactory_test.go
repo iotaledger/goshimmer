@@ -359,9 +359,8 @@ func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDsSlice, expe
 	if len(errorExpected) > 0 && errorExpected[0] {
 		require.Error(t, err)
 		return
-	} else {
-		require.NoError(t, err)
 	}
+	require.NoError(t, err)
 
 	assert.Equal(t, parents.ToMessageIDs(), actualReferences[StrongParentType])
 

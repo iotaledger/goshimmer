@@ -944,7 +944,6 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 	// ISSUE A2*
 	{
-
 		testFramework.CreateMessage("A2*", WithStrongParents("A1"), WithInputs("A1"), WithOutput("A2*", 500))
 
 		testFramework.RegisterBranchID("A2", "A2")
