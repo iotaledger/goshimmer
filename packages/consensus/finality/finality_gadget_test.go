@@ -240,8 +240,6 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message9
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				//eventHandlerMock.On("MessageConfirmed", testFramework.Message("Message6").ID())
-				//eventHandlerMock.On("MessageConfirmed", testFramework.Message("Message8").ID())
 				eventHandlerMock.On("TransactionConfirmed", testFramework.TransactionID("Message6"))
 				eventHandlerMock.On("BranchConfirmed", testFramework.BranchIDFromMessage("Message6"))
 			},
