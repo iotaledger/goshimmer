@@ -198,6 +198,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	return u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, parentBranchIDs), nil
 }
 
+// TransactionBranchIDs returns the BranchIDs of the given Transaction.
 func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs BranchIDs, err error) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if branchIDs, err = u.ledgerstate.ResolveConflictBranchIDs(NewBranchIDs(transactionMetadata.BranchID())); err != nil {

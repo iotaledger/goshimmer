@@ -47,7 +47,7 @@ func (d *DebugLogger) Println(params ...interface{}) {
 // MethodStart logs a method call and indents the following log outputs. The indentation is reverted after a call of
 // MethodEnd.
 //
-// Usage: defer logger.MethodStart("myObject", "myMethod", param1, param2).MethodEnd() // at the beginning of the method
+// Usage: defer logger.MethodStart("myObject", "myMethod", param1, param2).MethodEnd() // at beginning of the method.
 func (d *DebugLogger) MethodStart(objectName, methodName string, params ...interface{}) (self *DebugLogger) {
 	if d.methodStartedBefore {
 		fmt.Print("[" + d.identifier + "] " + strings.Repeat("    ", d.Indentation()-1) + "{\n")
