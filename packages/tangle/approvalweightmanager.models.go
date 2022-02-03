@@ -593,7 +593,7 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 	return latestMarkerVotes, nil
 }
 
-// LatestMarkerVotesFromMarshalUtil restores a LatestMarkerVotes that was stored in the ObjectStorage.
+// LatestMarkerVotesFromObjectStorage restores a LatestMarkerVotes that was stored in the ObjectStorage.
 func LatestMarkerVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = LatestMarkerVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)

@@ -1,4 +1,4 @@
-//nolint:dupl
+//nolint:dupl,whitespace
 package tangle
 
 import (
@@ -3758,14 +3758,11 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 		})
 	})
 
-	fmt.Println(sequenceIDs)
-
 	for _, sequenceID := range []uint{1, 2} {
 		tg.Storage.MarkerIndexBranchIDMapping(markers.SequenceID(sequenceID)).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 			fmt.Println(markerIndexBranchIDMapping.String())
 		})
 	}
-
 }
 
 func TestObjectiveInvalidity(t *testing.T) {
