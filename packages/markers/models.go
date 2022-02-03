@@ -62,6 +62,7 @@ type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index
 
 // region IndexComparator //////////////////////////////////////////////////////////////////////////////////////////////
 
+// IndexComparator is a generic comparator for Index types.
 func IndexComparator(a, b interface{}) int {
 	aCasted := a.(Index)
 	bCasted := b.(Index)
@@ -1115,31 +1116,25 @@ func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes 
 func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
 	sequence = &Sequence{}
 	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 	}
 	if sequence.referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
 	}
 	if sequence.referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
 	}
 	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
 	}
 	if sequence.highestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
 	}
 
-	return
+	return sequence, nil
 }
 
 // SequenceFromObjectStorage restores a Sequence that was stored in the object storage.

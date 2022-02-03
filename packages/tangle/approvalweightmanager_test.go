@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"encoding/binary"
 	"fmt"
 	"testing"
 	"time"
@@ -16,12 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
-
-func toByteArray(i uint32) (arr []byte) {
-	arr = make([]byte, 4)
-	binary.BigEndian.PutUint32(arr, i)
-	return
-}
 
 func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 	supporters := map[string]*identity.Identity{

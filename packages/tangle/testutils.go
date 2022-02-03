@@ -818,7 +818,6 @@ var (
 	totalAMana          = 1000.0
 	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000
-	noAManaNode         = identity.GenerateIdentity()
 	selfLocalIdentity   = identity.GenerateLocalIdentity()
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()

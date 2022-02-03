@@ -459,7 +459,6 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message5": testFramework.BranchIDs("Message1"),
 			"Message6": testFramework.BranchIDs("Message1", "Message3"),
 		})
-
 	}
 
 	// ISSUE Message7
@@ -535,7 +534,6 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message7": testFramework.BranchIDs("Message1", "Message3", "Message5"),
 			"Message8": testFramework.BranchIDs("Message8"),
 		})
-
 	}
 }
 
