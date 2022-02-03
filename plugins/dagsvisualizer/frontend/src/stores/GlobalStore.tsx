@@ -1,5 +1,5 @@
 import {action, makeObservable, observable} from 'mobx';
-import {Moment} from 'moment';
+import moment, {Moment} from 'moment';
 import TangleStore from './TangleStore';
 import {tangleVertex} from 'models/tangle';
 import UTXOStore from './UTXOStore';
@@ -16,10 +16,11 @@ export class searchResult {
 }
 
 export class GlobalStore {
-    @observable searchStartingTime: number;
-    @observable searchEndingTime: number;
+    @observable searchStartingTime = moment().unix();
+    @observable searchEndingTime = moment().unix();
     @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     @observable searchResponse = '';
+    @observable manualPicker = [false, false];
 
     tangleStore: TangleStore;
     utxoStore: UTXOStore;
@@ -35,6 +36,15 @@ export class GlobalStore {
         this.tangleStore = tangleStore;
         this.utxoStore = utxoStore;
         this.branchStore = branchStore;
+    }
+
+    @action
+    updateStartManualPicker = (b: boolean) => {
+        this.manualPicker[0] = b;
+    }
+    @action
+    updateEndManualPicker = (b: boolean) => {
+        this.manualPicker[1] = b;
     }
 
     syncWithMsg = () => {
@@ -87,6 +97,14 @@ export class GlobalStore {
         this.branchStore.clearSelected(true);
     };
 
+    get SearchStartingTime() {
+        return moment(this.searchStartingTime);
+    }
+
+    get SearchEndingTime() {
+        return moment(this.searchStartingTime);
+    }
+
     @action
     updateExplorerAddress = (addr: string) => {
         this.explorerAddress = addr;
@@ -95,25 +113,11 @@ export class GlobalStore {
     @action
     updateSearchStartingTime = (dateTime: Moment) => {
         this.searchStartingTime = dateTime.unix();
-        console.log(this.searchStartingTime);
-
-    };
-
-    @action
-    setSearchStartingTime = (unixDateTime: number) => {
-        console.log(this.searchStartingTime);
-        this.searchStartingTime = Math.floor(unixDateTime / 1000);
-        console.log(this.searchStartingTime);
     };
 
     @action
     updateSearchEndingTime = (dateTime: Moment) => {
         this.searchEndingTime = dateTime.unix();
-    };
-
-    @action
-    setSearchEndingTime = (unixDateTime: number) => {
-        this.searchEndingTime = unixDateTime;
     };
 
     @action

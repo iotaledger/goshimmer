@@ -9,9 +9,9 @@ import GlobalStore from 'stores/GlobalStore';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
-import {isMoment} from 'moment';
+import moment, {isMoment} from 'moment';
 import 'react-datetime/css/react-datetime.css';
-import {TimePickerButtons} from './timeButtons';
+import {Picker, TimePickerButtons} from './timeButtons';
 
 interface Props {
     globalStore?: GlobalStore;
@@ -86,13 +86,24 @@ export default class GlobalSettings extends React.Component<Props, any> {
         this.props.globalStore.clearSync();
     };
 
+    onOpenStartPicker = () => {
+        this.props.globalStore.updateStartManualPicker(false);
+    }
+
+    onOpenEndPicker = () => {
+        this.props.globalStore.updateEndManualPicker(false);
+    }
+
     render() {
-        const { searchResponse } = this.props.globalStore;
+        const pickerStartValue = this.props.globalStore.manualPicker ? moment.unix(this.props.globalStore.searchStartingTime) : undefined;
+        const pickerEndValue = this.props.globalStore.manualPicker ? moment.unix(this.props.globalStore.searchEndingTime) : undefined;
+        const globalStore = this.props.globalStore;
+        const {searchResponse} = this.props.globalStore;
         return (
             <Container>
                 <div
                     onClick={() =>
-                        this.setState(prevState => ({ open: !prevState.open }))
+                        this.setState(prevState => ({open: !prevState.open}))
                     }
                 >
                     <h2>
@@ -127,10 +138,14 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 <Row md={4}>
                                     <Col>
                                         From:{' '}
+                                        <Picker isStartTime={true} globalStore={globalStore}
+                                            dateTime={pickerStartValue} onOpenFunc={this.onOpenStartPicker}/>
                                         <TimePickerButtons isStartTime={true}/>
                                     </Col>
                                     <Col>
                                         To:{' '}
+                                        <Picker isStartTime={false} globalStore={globalStore}
+                                            dateTime={pickerEndValue} onOpenFunc={this.onOpenEndPicker}/>
                                         <TimePickerButtons isStartTime={false}/>
                                     </Col>
                                     <Col
@@ -197,7 +212,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </h5>
                                 <p>
                                     {' '}
-                                    default is the local explorer:{' '}
+                                    Default is the local explorer:{' '}
                                     <i>http://localhost:8081</i>{' '}
                                 </p>
                             </div>

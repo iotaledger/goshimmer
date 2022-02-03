@@ -7,7 +7,7 @@ import BranchDAG from 'components/BranchDAG';
 import GlobalSettings from 'components/GlobalSettings';
 import {connectWebSocket} from 'utils/WS';
 import {Navbar} from 'react-bootstrap';
-import logo from './../images/logo_dark.png'
+import logo from './../images/logo_dark.png';
 
 export class Root extends React.Component {
     connect = () => {
