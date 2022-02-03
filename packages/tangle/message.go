@@ -182,6 +182,7 @@ func (ids MessageIDsSlice) ToStrings() []string {
 	return result
 }
 
+// ToMessageIDs converts the slice of MessageIDs into a set of MessageIDs.
 func (ids MessageIDsSlice) ToMessageIDs() MessageIDs {
 	msgIDs := make(MessageIDs)
 	for _, id := range ids {
@@ -194,8 +195,10 @@ func (ids MessageIDsSlice) ToMessageIDs() MessageIDs {
 
 // region MessageIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// MessageIDs is a set of MessageIDs where every MessageID is stored only once.
 type MessageIDs map[MessageID]types.Empty
 
+// Slice converts the set of MessageIDs into a slice of MessageIDs.
 func (m MessageIDs) Slice() MessageIDsSlice {
 	ids := make(MessageIDsSlice, 0)
 	for key := range m {
@@ -204,6 +207,7 @@ func (m MessageIDs) Slice() MessageIDsSlice {
 	return ids
 }
 
+// Clone creates a copy of the MessageIDs.
 func (m MessageIDs) Clone() (clonedMessageIDs MessageIDs) {
 	clonedMessageIDs = make(MessageIDs)
 	for key, value := range m {
@@ -1174,7 +1178,7 @@ func (m *MessageMetadata) BookedTime() time.Time {
 	return m.bookedTime
 }
 
-// IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
+// IsObjectivelyInvalid returns true if the message represented by this metadata is objectively invalid.
 func (m *MessageMetadata) IsObjectivelyInvalid() (result bool) {
 	m.invalidMutex.RLock()
 	defer m.invalidMutex.RUnlock()
@@ -1183,8 +1187,8 @@ func (m *MessageMetadata) IsObjectivelyInvalid() (result bool) {
 	return
 }
 
-// SetInvalid sets the message associated with this metadata as invalid.
-// It returns true if the invalid status is modified. False otherwise.
+// SetObjectivelyInvalid sets the message associated with this metadata as objectively invalid - it returns true if the
+// status was changed.
 func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
 	m.invalidMutex.Lock()
 	defer m.invalidMutex.Unlock()
@@ -1200,7 +1204,7 @@ func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
 	return
 }
 
-// IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
+// IsSubjectivelyInvalid returns true if the message represented by this metadata is subjectively invalid.
 func (m *MessageMetadata) IsSubjectivelyInvalid() (result bool) {
 	m.invalidMutex.RLock()
 	defer m.invalidMutex.RUnlock()
