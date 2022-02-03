@@ -187,8 +187,8 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 
 }
 
-// ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
-// AggregatedBranches to their corresponding ConflictBranches.
+// ResolvePendingConflictBranchIDs returns the BranchIDs of the pending and rejected ConflictBranches that are
+// addressed by the given BranchIDs.
 func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
 	branchWalker := walker.New()
 	for branchID := range branchIDs {

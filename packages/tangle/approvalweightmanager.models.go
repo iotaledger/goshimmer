@@ -552,7 +552,7 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 func LatestMarkerVotesFromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if latestMarkerVotes, err = LatestMarkerVotesFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse LatestVotes from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -799,7 +799,7 @@ func (l *LatestBranchVotes) Store(vote *Vote) (stored bool) {
 	return true
 }
 
-// NewLatestBranchVotes creates a new LatestVotes.
+// NewLatestBranchVotes creates a new LatestBranchVotes.
 func NewLatestBranchVotes(supporter Voter) (latestVotes *LatestBranchVotes) {
 	latestVotes = &LatestBranchVotes{
 		voter:       supporter,
@@ -812,11 +812,11 @@ func NewLatestBranchVotes(supporter Voter) (latestVotes *LatestBranchVotes) {
 	return
 }
 
-// LatestVotesFromBytes unmarshals a LatestVotes object from a sequence of bytes.
+// LatestVotesFromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
 func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestBranchVotes, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if latestVotes, err = LatestVotesFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse LatestVotes from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -824,7 +824,7 @@ func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestBranchVotes, consume
 	return
 }
 
-// LatestVotesFromMarshalUtil unmarshals a LatestVotes object using a MarshalUtil (for easier unmarshalling).
+// LatestVotesFromMarshalUtil unmarshals a LatestBranchVotes object using a MarshalUtil (for easier unmarshalling).
 func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVotes *LatestBranchVotes, err error) {
 	latestVotes = &LatestBranchVotes{}
 	if latestVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
@@ -855,24 +855,24 @@ func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVot
 	return latestVotes, nil
 }
 
-// LatestVotesFromObjectStorage restores a LatestVotes object from the object storage.
+// LatestVotesFromObjectStorage restores a LatestBranchVotes object from the object storage.
 func LatestVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = LatestVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse LatestVotes from bytes: %w", err)
+		err = errors.Errorf("failed to parse LatestBranchVotes from bytes: %w", err)
 		return
 	}
 
 	return
 }
 
-// Bytes returns a marshaled version of the LatestVotes.
+// Bytes returns a marshaled version of the LatestBranchVotes.
 func (l *LatestBranchVotes) Bytes() (marshaledSequenceSupporters []byte) {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
 }
 
-// String returns a human-readable version of the LatestVotes.
+// String returns a human-readable version of the LatestBranchVotes.
 func (l *LatestBranchVotes) String() string {
-	return stringify.Struct("LatestVotes",
+	return stringify.Struct("LatestBranchVotes",
 		stringify.StructField("voter", l.voter),
 	)
 }
@@ -888,7 +888,7 @@ func (l *LatestBranchVotes) ObjectStorageKey() []byte {
 	return l.voter.Bytes()
 }
 
-// ObjectStorageValue marshals the LatestVotes into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the LatestBranchVotes into a sequence of bytes that are used as the value part in the
 // object storage.
 func (l *LatestBranchVotes) ObjectStorageValue() []byte {
 	l.RLock()

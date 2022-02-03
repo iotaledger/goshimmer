@@ -41,7 +41,7 @@ const (
 	// PrefixBranchSupporters defines the storage prefix for the BranchSupporters.
 	PrefixBranchSupporters
 
-	// PrefixLatestBranchVotes defines the storage prefix for the LatestVotes.
+	// PrefixLatestBranchVotes defines the storage prefix for the LatestBranchVotes.
 	PrefixLatestBranchVotes
 
 	// PrefixLatestMarkerVotes defines the storage prefix for the LatestMarkerVotes.
@@ -329,8 +329,8 @@ func (s *Storage) BranchSupporters(branchID ledgerstate.BranchID, computeIfAbsen
 	return &CachedBranchSupporters{CachedObject: s.branchSupportersStorage.Load(branchID.Bytes())}
 }
 
-// Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
-func (s *Storage) LatestVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestBranchVotes) *CachedLatestBranchVotes {
+// LatestBranchVotes retrieves the LatestBranchVotes of the given Voter.
+func (s *Storage) LatestBranchVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestBranchVotes) *CachedLatestBranchVotes {
 	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedLatestBranchVotes{s.latestVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(voter.Bytes()), func(key []byte) objectstorage.StorableObject {
 			return computeIfAbsentCallback[0](voter)
@@ -340,6 +340,7 @@ func (s *Storage) LatestVotes(voter Voter, computeIfAbsentCallback ...func(voter
 	return &CachedLatestBranchVotes{CachedObject: s.latestVotesStorage.Load(byteutils.ConcatBytes(voter.Bytes()))}
 }
 
+// LatestMarkerVotes retrieves the LatestMarkerVotes of the given voter for the named Sequence.
 func (s *Storage) LatestMarkerVotes(sequenceID markers.SequenceID, voter Voter, computeIfAbsentCallback ...func(sequenceID markers.SequenceID, voter Voter) *LatestMarkerVotes) *CachedLatestMarkerVotes {
 	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedLatestMarkerVotes{s.latestMarkerVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(sequenceID.Bytes(), voter.Bytes()), func(key []byte) objectstorage.StorableObject {
@@ -350,6 +351,7 @@ func (s *Storage) LatestMarkerVotes(sequenceID markers.SequenceID, voter Voter, 
 	return &CachedLatestMarkerVotes{CachedObject: s.latestMarkerVotesStorage.Load(byteutils.ConcatBytes(sequenceID.Bytes(), voter.Bytes()))}
 }
 
+// AllLatestMarkerVotes retrieves all LatestMarkerVotes for the named Sequence.
 func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLatestMarkerVotesByVoter CachedLatestMarkerVotesByVoter) {
 	cachedLatestMarkerVotesByVoter = make(CachedLatestMarkerVotesByVoter)
 
@@ -364,7 +366,7 @@ func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLat
 	return cachedLatestMarkerVotesByVoter
 }
 
-// BranchWeight retrieves the BranchWeight with the given ledgerstate.BranchID.
+// BranchWeight retrieves the BranchWeight with the given BranchID.
 func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *CachedBranchWeight {
 	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedBranchWeight{s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {

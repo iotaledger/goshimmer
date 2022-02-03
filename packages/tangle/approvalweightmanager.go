@@ -150,7 +150,7 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 		return
 	}
 
-	a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
+	a.tangle.Storage.LatestBranchVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
 		addedVote := vote.WithOpinion(Confirmed)
 		for addBranchID := range addedBranchIDs {
 			latestVotes.Store(addedVote.WithBranchID(addBranchID))
@@ -255,7 +255,7 @@ func (a *ApprovalWeightManager) identicalVoteWithHigherSequenceExists(vote *Vote
 }
 
 func (a *ApprovalWeightManager) voteWithHigherSequence(vote *Vote) (existingVote *Vote, exists bool) {
-	a.tangle.Storage.LatestVotes(vote.Voter).Consume(func(latestVotes *LatestBranchVotes) {
+	a.tangle.Storage.LatestBranchVotes(vote.Voter).Consume(func(latestVotes *LatestBranchVotes) {
 		existingVote, exists = latestVotes.Vote(vote.BranchID)
 	})
 
@@ -422,7 +422,7 @@ func (a *ApprovalWeightManager) addSupportToForkedBranchSupporters(voter Voter, 
 		return false
 	}
 
-	a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
+	a.tangle.Storage.LatestBranchVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
 		supportAdded = latestVotes.Store(&Vote{
 			Voter:          voter,
 			BranchID:       forkedBranchSupporters.BranchID(),
