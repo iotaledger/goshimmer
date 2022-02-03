@@ -61,7 +61,6 @@ func GetSequence(c echo.Context) (err error) {
 		messageWithLastMarker := deps.Tangle.Booker.MarkersManager.MessageID(markers.NewMarker(sequenceID, sequence.HighestIndex()))
 		err = c.String(http.StatusOK, stringify.Struct("Sequence",
 			stringify.StructField("ID", sequence.ID()),
-			stringify.StructField("Rank", sequence.Rank()),
 			stringify.StructField("LowestIndex", sequence.LowestIndex()),
 			stringify.StructField("HighestIndex", sequence.HighestIndex()),
 			stringify.StructField("MessageWithLastMarker", messageWithLastMarker),

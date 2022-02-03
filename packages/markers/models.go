@@ -1073,7 +1073,6 @@ type Sequence struct {
 	id                               SequenceID
 	referencedMarkers                *ReferencedMarkers
 	referencingMarkers               *ReferencingMarkers
-	rank                             uint64
 	lowestIndex                      Index
 	highestIndex                     Index
 	verticesWithoutFutureMarker      uint64
@@ -1084,7 +1083,7 @@ type Sequence struct {
 }
 
 // NewSequence creates a new Sequence from the given details.
-func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequence {
+func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
 	initialIndex := referencedMarkers.HighestIndex() + 1
 
 	if id == 0 {
@@ -1095,7 +1094,6 @@ func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequen
 		id:                 id,
 		referencedMarkers:  NewReferencedMarkers(referencedMarkers),
 		referencingMarkers: NewReferencingMarkers(),
-		rank:               rank,
 		lowestIndex:        initialIndex,
 		highestIndex:       initialIndex,
 	}
@@ -1126,10 +1124,6 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 	}
 	if sequence.referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
-		return
-	}
-	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
@@ -1171,11 +1165,6 @@ func (s *Sequence) ReferencedMarkers(index Index) *Markers {
 // ReferencingMarkers returns a collection of Markers that reference the given Index.
 func (s *Sequence) ReferencingMarkers(index Index) *Markers {
 	return s.referencingMarkers.Get(index)
-}
-
-// Rank returns the rank of the Sequence (maximum distance from the root of the Sequence DAG).
-func (s *Sequence) Rank() uint64 {
-	return s.rank
 }
 
 // LowestIndex returns the Index of the very first Marker in the Sequence.
@@ -1261,7 +1250,6 @@ func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) 
 func (s *Sequence) String() string {
 	return stringify.Struct("Sequence",
 		stringify.StructField("ID", s.ID()),
-		stringify.StructField("Rank", s.Rank()),
 		stringify.StructField("LowestIndex", s.LowestIndex()),
 		stringify.StructField("HighestIndex", s.HighestIndex()),
 	)
@@ -1292,7 +1280,6 @@ func (s *Sequence) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(s.referencedMarkers).
 		Write(s.referencingMarkers).
-		WriteUint64(s.rank).
 		WriteUint64(s.verticesWithoutFutureMarker).
 		Write(s.lowestIndex).
 		Write(s.HighestIndex()).
