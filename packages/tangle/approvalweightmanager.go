@@ -341,7 +341,7 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 }
 
 // updateMarkerWeights updates the marker weights in the given range and triggers the MarkerWeightChanged event.
-func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceID, rangeStartIndex markers.Index, rangeEndIndex markers.Index) {
+func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceID, rangeStartIndex, rangeEndIndex markers.Index) {
 	if rangeStartIndex <= 1 {
 		rangeStartIndex = a.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(sequenceID)
 	}

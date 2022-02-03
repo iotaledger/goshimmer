@@ -548,6 +548,7 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 	return
 }
 
+// LatestMarkerVotesFromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
 func LatestMarkerVotesFromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if latestMarkerVotes, err = LatestMarkerVotesFromMarshalUtil(marshalUtil); err != nil {
@@ -559,6 +560,7 @@ func LatestMarkerVotesFromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVo
 	return
 }
 
+// LatestMarkerVotesFromMarshalUtil unmarshals a LatestMarkerVotes using a MarshalUtil (for easier unmarshaling).
 func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestMarkerVotes *LatestMarkerVotes, err error) {
 	latestMarkerVotes = &LatestMarkerVotes{}
 	if latestMarkerVotes.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
@@ -591,6 +593,7 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 	return latestMarkerVotes, nil
 }
 
+// LatestMarkerVotesFromMarshalUtil restores a LatestMarkerVotes that was stored in the ObjectStorage.
 func LatestMarkerVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = LatestMarkerVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)
@@ -600,10 +603,12 @@ func LatestMarkerVotesFromObjectStorage(key, data []byte) (result objectstorage.
 	return
 }
 
+// Voter returns the Voter for the LatestMarkerVotes.
 func (l *LatestMarkerVotes) Voter() Voter {
 	return l.voter
 }
 
+// SequenceNumber returns the sequence number of the vote for the given marker Index.
 func (l *LatestMarkerVotes) SequenceNumber(index markers.Index) (sequenceNumber uint64, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
@@ -616,6 +621,7 @@ func (l *LatestMarkerVotes) SequenceNumber(index markers.Index) (sequenceNumber 
 	return key.(uint64), exists
 }
 
+// Store stores the vote with the given marker Index and sequence number.
 func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (stored bool, previousHighestIndex markers.Index) {
 	l.Lock()
 	defer l.Unlock()
@@ -646,6 +652,7 @@ func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (s
 	return true, previousHighestIndex
 }
 
+// String returns a human readable version of the LastestMarkerVotes.
 func (l *LatestMarkerVotes) String() string {
 	builder := stringify.StructBuilder("LatestMarkerVotes")
 
@@ -658,13 +665,17 @@ func (l *LatestMarkerVotes) String() string {
 	return builder.String()
 }
 
+// Bytes returns a bytes version of the LastestMarkerVotes.
 func (l *LatestMarkerVotes) Bytes() []byte {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
 }
+
+// Update panics as updates are not supported for this object.
 func (l *LatestMarkerVotes) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
+// ObjectStorageKey returns the storage key for this instance of LatestMarkerVotes.
 func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
 	return marshalutil.New().
 		Write(l.sequenceID).
@@ -672,6 +683,7 @@ func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
 		Bytes()
 }
 
+// ObjectStorageValue returns the storage value for this instance of LatestMarkerVotes.
 func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(l.latestVotes.Size()))
@@ -736,8 +748,11 @@ func (c *CachedLatestMarkerVotes) String() string {
 
 // region CachedLatestMarkerVotesByVoter ///////////////////////////////////////////////////////////////////////////////
 
+// CachedLatestMarkerVotesByVoter represents a cached LatestMarkerVotesByVoter mapped by Voter.
 type CachedLatestMarkerVotesByVoter map[Voter]*CachedLatestMarkerVotes
 
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
 func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes *LatestMarkerVotes), forceRelease ...bool) (consumed bool) {
 	for _, cachedLatestMarkerVotes := range c {
 		consumed = cachedLatestMarkerVotes.Consume(consumer, forceRelease...) || consumed
@@ -750,7 +765,7 @@ func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes 
 
 // region LatestBranchVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
-// LatestBranchVotes represents the branch supported from an Issuer
+// LatestBranchVotes represents the branch supported from an Issuer.
 type LatestBranchVotes struct {
 	voter       Voter
 	latestVotes map[ledgerstate.BranchID]*Vote
@@ -759,6 +774,7 @@ type LatestBranchVotes struct {
 	objectstorage.StorableObjectFlags
 }
 
+// Vote returns the Vote for the LatestBranchVotes.
 func (l *LatestBranchVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
@@ -768,6 +784,7 @@ func (l *LatestBranchVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exi
 	return
 }
 
+// Store stores the vote for the LatestBranchVotes.
 func (l *LatestBranchVotes) Store(vote *Vote) (stored bool) {
 	l.Lock()
 	defer l.Unlock()
@@ -811,14 +828,12 @@ func LatestVotesFromBytes(bytes []byte) (latestVotes *LatestBranchVotes, consume
 func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVotes *LatestBranchVotes, err error) {
 	latestVotes = &LatestBranchVotes{}
 	if latestVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
 	}
 
 	mapSize, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = errors.Errorf("failed to parse map size (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse map size (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 
 	latestVotes.latestVotes = make(map[ledgerstate.BranchID]*Vote, int(mapSize))
@@ -826,20 +841,18 @@ func LatestVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestVot
 	for i := uint64(0); i < mapSize; i++ {
 		branchID, voteErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
 		if voteErr != nil {
-			err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", voteErr)
-			return
+			return nil, errors.Errorf("failed to parse BranchID from MarshalUtil: %w", voteErr)
 		}
 
 		vote, voteErr := VoteFromMarshalUtil(marshalUtil)
 		if voteErr != nil {
-			err = errors.Errorf("failed to parse Vote from MarshalUtil: %w", voteErr)
-			return
+			return nil, errors.Errorf("failed to parse Vote from MarshalUtil: %w", voteErr)
 		}
 
 		latestVotes.latestVotes[branchID] = vote
 	}
 
-	return
+	return latestVotes, nil
 }
 
 // LatestVotesFromObjectStorage restores a LatestVotes object from the object storage.
@@ -998,7 +1011,7 @@ func (v *Vote) WithBranchID(branchID ledgerstate.BranchID) (rejectedVote *Vote) 
 	}
 }
 
-// Bytes returns the bytes of the Vote
+// Bytes returns the bytes of the Vote.
 func (v *Vote) Bytes() []byte {
 	return marshalutil.New().
 		Write(v.Voter).
@@ -1008,6 +1021,7 @@ func (v *Vote) Bytes() []byte {
 		Bytes()
 }
 
+// String returns a human readable version of the Vote.
 func (v *Vote) String() string {
 	return stringify.Struct("Vote",
 		stringify.StructField("Voter", v.Voter),

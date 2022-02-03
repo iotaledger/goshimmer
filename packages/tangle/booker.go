@@ -688,7 +688,7 @@ func (a ArithmeticBranchIDs) String() string {
 	result := "ArithmeticBranchIDs("
 	i := 0
 	for branchID, value := range a {
-		switch true {
+		switch {
 		case value == 1:
 			if i != 0 {
 				result += " + "
