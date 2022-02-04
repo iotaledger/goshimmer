@@ -1,9 +1,10 @@
-import { IGraph } from './graph';
+import {IGraph} from './graph';
 import cytoscape from 'cytoscape';
-import { dagreOptions } from 'styles/graphStyle';
-import { utxoVertex } from 'models/utxo';
-import { branchVertex } from 'models/branch';
-import { ObservableMap } from 'mobx';
+import {dagreOptions} from 'styles/graphStyle';
+import {utxoVertex} from 'models/utxo';
+import {branchVertex} from 'models/branch';
+import {ObservableMap} from 'mobx';
+import {BRANCH, LINE, UTXO} from './../styles/cytoscapeStyles';
 
 export class cytoscapeLib implements IGraph {
     cy;
@@ -179,15 +180,15 @@ export function initUTXODAG() {
                     'font-weight': 'bold',
                     shape: 'rectangle',
                     width: 20,
-                    height: 20
+                    height: 20,
                 }
             },
             {
                 selector: 'edge',
                 style: {
                     width: 1,
-                    'curve-style': 'bezier',
-                    'line-color': '#696969',
+                    'curve-style': LINE.EDGE_STYLE,
+                    'line-color': LINE.COLOR,
                     'control-point-step-size': '10px',
                     events: 'no'
                 }
@@ -195,24 +196,26 @@ export function initUTXODAG() {
             {
                 selector: ':parent',
                 style: {
-                    'background-opacity': 0.333,
-                    'background-color': '#15B5B0',
+                    'background-color': UTXO.PARENT_COLOR,
                     'min-width': '50px',
-                    'min-height': '50px'
+                    'min-height': '50px',
+                    'border-color': UTXO.BORDER_COLOR
+
                 }
             },
             {
                 selector: 'node:selected',
                 style: {
-                    'background-opacity': 0.333,
-                    'background-color': 'red'
+                    'background-color': UTXO.SELECTED,
+                    'border-color': UTXO.BORDER_SELECTED
                 }
             },
             {
                 selector: '.input',
                 style: {
-                    'background-color': '#F9BDC0',
+                    'background-color': UTXO.INPUT_COLOR,
                     'font-size': 16,
+                    'padding-bottom': '2px',
                     label: 'data(label)',
                     events: 'no'
                 }
@@ -220,7 +223,7 @@ export function initUTXODAG() {
             {
                 selector: '.output',
                 style: {
-                    'background-color': '#FBE698',
+                    'background-color': UTXO.OUTPUT_COLOR,
                     'font-size': 16,
                     label: 'data(label)',
                     events: 'no'
@@ -234,7 +237,7 @@ export function initUTXODAG() {
             }
         ],
         layout: {
-            name: 'dagre'
+            name: LINE.LAYOUT
         }
     });
     const layout = dagreOptions;
@@ -256,7 +259,7 @@ export function initBranchDAG() {
             {
                 selector: 'node',
                 style: {
-                    'background-color': '#2E8BC0',
+                    'background-color': BRANCH.COLOR,
                     shape: 'rectangle',
                     width: 25,
                     height: 15
@@ -266,22 +269,22 @@ export function initBranchDAG() {
                 selector: 'edge',
                 style: {
                     width: 1,
-                    'curve-style': 'bezier',
-                    'line-color': '#696969',
-                    'control-point-step-size': '10px',
+                    'curve-style': LINE.EDGE_STYLE,
+                    'line-color': LINE.COLOR,
+                    'control-point-step-size': BRANCH.STEP,
                     events: 'no'
                 }
             },
             {
                 selector: 'node:selected',
                 style: {
-                    'background-opacity': 0.333,
-                    'background-color': 'red'
+                    'background-opacity': BRANCH.OPACITY,
+                    'background-color': BRANCH.SELECTED
                 }
             }
         ],
         layout: {
-            name: 'dagre'
+            name: LINE.LAYOUT
         }
     });
     const layout = dagreOptions;
