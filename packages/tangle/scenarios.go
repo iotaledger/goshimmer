@@ -1,4 +1,3 @@
-//nolint:gomnd,dupl
 package tangle
 
 import (

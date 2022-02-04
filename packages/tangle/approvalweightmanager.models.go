@@ -666,7 +666,7 @@ func (l *LatestMarkerVotes) String() string {
 	return builder.String()
 }
 
-// Bytes returns a marshalled version of the LatestMarkerVotes.
+// Bytes returns a marshaled version of the LatestMarkerVotes.
 func (l *LatestMarkerVotes) Bytes() []byte {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
 }
