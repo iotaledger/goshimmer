@@ -78,9 +78,7 @@ export class MessageInfo extends React.Component<Props, any> {
                                     <ListGroup.Item>
                                         Transaction:{' '}
                                         <LinkToDashboard
-                                            route={`explorer/transaction/${
-                                                selectedMsg.txID
-                                            }`}
+                                            route={`explorer/transaction/${selectedMsg.txID}`}
                                             title={selectedMsg.txID}
                                         />
                                     </ListGroup.Item>
@@ -88,9 +86,7 @@ export class MessageInfo extends React.Component<Props, any> {
                                 <ListGroup.Item>
                                     Branch:{' '}
                                     <LinkToDashboard
-                                        route={`explorer/branch/${
-                                            selectedMsg.branchID
-                                        }`}
+                                        route={`explorer/branch/${selectedMsg.branchID}`}
                                         title={resolveBase58BranchID(
                                             selectedMsg.branchID
                                         )}

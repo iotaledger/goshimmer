@@ -6,7 +6,7 @@ export var klayOptions = {
     animate: true, // Whether to transition the node positions
     animationDuration: 500, // Duration of animation in ms if enabled
     animationEasing: undefined, // Easing of animation if enabled
-    transform: function(node, pos) {
+    transform: function (node, pos) {
         return pos;
     }, // A function that applies a transform to the final node position
     ready: undefined, // Callback on layoutready
@@ -65,10 +65,10 @@ export var dagreOptions = {
     rankSep: undefined, // the separation between each rank in the layout
     rankDir: 'LR', // 'TB' for top to bottom flow, 'LR' for left to right,
     ranker: undefined, // Type of algorithm to assign a rank to each node in the input graph. Possible values: 'network-simplex', 'tight-tree' or 'longest-path'
-    minLen: function() {
+    minLen: function () {
         return 1;
     }, // number of ranks to keep between the source and target of the edge
-    edgeWeight: function() {
+    edgeWeight: function () {
         return 1;
     }, // higher weight edges are generally made shorter and straighter than lower weight edges
 
@@ -81,13 +81,13 @@ export var dagreOptions = {
     animationDuration: 500, // duration of animation in ms if enabled
     animationEasing: undefined, // easing of animation if enabled
     boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
-    transform: function(node, pos) {
+    transform: function (node, pos) {
         return pos;
     }, // a function that applies a transform to the final node position
-    ready: function() {
+    ready: function () {
         return true;
     }, // on layoutready
-    stop: function() {
+    stop: function () {
         return true;
     } // on layoutstop
 };

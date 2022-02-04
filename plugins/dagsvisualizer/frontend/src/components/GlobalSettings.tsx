@@ -1,17 +1,17 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
-import {inject, observer} from 'mobx-react';
-import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
-import {Collapse} from 'react-bootstrap';
+import { inject, observer } from 'mobx-react';
+import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
+import { Collapse } from 'react-bootstrap';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import GlobalStore from 'stores/GlobalStore';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
-import moment, {isMoment} from 'moment';
+import moment, { isMoment } from 'moment';
 import 'react-datetime/css/react-datetime.css';
-import {Picker, TimePickerButtons} from './timeButtons';
+import { Picker, TimePickerButtons } from './timeButtons';
 
 interface Props {
     globalStore?: GlobalStore;
@@ -33,13 +33,13 @@ export default class GlobalSettings extends React.Component<Props, any> {
         };
     }
 
-    updateFrom = date => {
+    updateFrom = (date) => {
         if (isMoment(date)) {
             this.props.globalStore.updateSearchStartingTime(date);
         }
     };
 
-    updateTo = date => {
+    updateTo = (date) => {
         if (isMoment(date)) {
             this.props.globalStore.updateSearchEndingTime(date);
         }
@@ -57,11 +57,11 @@ export default class GlobalSettings extends React.Component<Props, any> {
         this.props.globalStore.clearSearchAndResume();
     };
 
-    updateFormInput = e => {
+    updateFormInput = (e) => {
         this.setState({ [e.target.name]: e.target.value });
     };
 
-    setExplorerAddress = e => {
+    setExplorerAddress = (e) => {
         if (e.key === 'Enter') {
             this.props.globalStore.updateExplorerAddress(
                 this.state.explorerAddress
@@ -88,26 +88,32 @@ export default class GlobalSettings extends React.Component<Props, any> {
 
     onOpenStartPicker = () => {
         this.props.globalStore.updateStartManualPicker(false);
-    }
+    };
 
     onOpenEndPicker = () => {
         this.props.globalStore.updateEndManualPicker(false);
-    }
+    };
 
     renderSearchResults = () => {
         this.props.globalStore.renderSearchResults();
-    }
+    };
 
     render() {
-        const pickerStartValue = this.props.globalStore.manualPicker ? moment.unix(this.props.globalStore.searchStartingTime) : undefined;
-        const pickerEndValue = this.props.globalStore.manualPicker ? moment.unix(this.props.globalStore.searchEndingTime) : undefined;
+        const pickerStartValue = this.props.globalStore.manualPicker
+            ? moment.unix(this.props.globalStore.searchStartingTime)
+            : undefined;
+        const pickerEndValue = this.props.globalStore.manualPicker
+            ? moment.unix(this.props.globalStore.searchEndingTime)
+            : undefined;
         const globalStore = this.props.globalStore;
-        const {searchResponse, previewResponseSize} = this.props.globalStore;
+        const { searchResponse, previewResponseSize } = this.props.globalStore;
         return (
             <Container>
                 <div
                     onClick={() =>
-                        this.setState(prevState => ({open: !prevState.open}))
+                        this.setState((prevState) => ({
+                            open: !prevState.open
+                        }))
                     }
                 >
                     <h2>
@@ -124,7 +130,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                         <div className={'panel'}>
                             <div
                                 onClick={() =>
-                                    this.setState(prevState => ({
+                                    this.setState((prevState) => ({
                                         searchOpen: !prevState.searchOpen
                                     }))
                                 }
@@ -142,19 +148,27 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 <Row md={4}>
                                     <Col>
                                         From:{' '}
-                                        <Picker isStartTime={true} globalStore={globalStore}
-                                            dateTime={pickerStartValue} onOpenFunc={this.onOpenStartPicker}/>
-                                        <TimePickerButtons isStartTime={true}/>
+                                        <Picker
+                                            isStartTime={true}
+                                            globalStore={globalStore}
+                                            dateTime={pickerStartValue}
+                                            onOpenFunc={this.onOpenStartPicker}
+                                        />
+                                        <TimePickerButtons isStartTime={true} />
                                     </Col>
                                     <Col>
                                         To:{' '}
-                                        <Picker isStartTime={false} globalStore={globalStore}
-                                            dateTime={pickerEndValue} onOpenFunc={this.onOpenEndPicker}/>
-                                        <TimePickerButtons isStartTime={false}/>
+                                        <Picker
+                                            isStartTime={false}
+                                            globalStore={globalStore}
+                                            dateTime={pickerEndValue}
+                                            onOpenFunc={this.onOpenEndPicker}
+                                        />
+                                        <TimePickerButtons
+                                            isStartTime={false}
+                                        />
                                     </Col>
-                                    <Col
-                                        className="align-self-end"
-                                    >
+                                    <Col className="align-self-end">
                                         <Button
                                             className={'button'}
                                             onClick={
@@ -196,7 +210,9 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                         }}
                                     >
                                         <div>
-                                            <p className={'response-info'}>{previewResponseSize}</p>
+                                            <p className={'response-info'}>
+                                                {previewResponseSize}
+                                            </p>
                                             <p>{searchResponse}</p>
                                         </div>
                                     </Col>
@@ -206,17 +222,18 @@ export default class GlobalSettings extends React.Component<Props, any> {
                         <div className={'panel'}>
                             <div
                                 onClick={() =>
-                                    this.setState(prevState => ({
-                                        dashboardUrlOpen: !prevState.dashboardUrlOpen
+                                    this.setState((prevState) => ({
+                                        dashboardUrlOpen:
+                                            !prevState.dashboardUrlOpen
                                     }))
                                 }
                             >
-                                <h5 style={{marginTop: '10px'}}>
+                                <h5 style={{ marginTop: '10px' }}>
                                     Set explorer URL{' '}
                                     {this.state.dashboardUrlOpen ? (
-                                        <MdKeyboardArrowUp/>
+                                        <MdKeyboardArrowUp />
                                     ) : (
-                                        <MdKeyboardArrowDown/>
+                                        <MdKeyboardArrowDown />
                                     )}
                                 </h5>
                                 <p>
@@ -250,7 +267,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                         <div className={'panel'}>
                             <div
                                 onClick={() =>
-                                    this.setState(prevState => ({
+                                    this.setState((prevState) => ({
                                         syncOpen: !prevState.syncOpen
                                     }))
                                 }

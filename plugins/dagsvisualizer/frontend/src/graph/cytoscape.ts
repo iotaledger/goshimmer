@@ -1,10 +1,10 @@
-import {IGraph} from './graph';
+import { IGraph } from './graph';
 import cytoscape from 'cytoscape';
-import {dagreOptions} from 'styles/graphStyle';
-import {utxoVertex} from 'models/utxo';
-import {branchVertex} from 'models/branch';
-import {ObservableMap} from 'mobx';
-import {BRANCH, LINE, UTXO} from './../styles/cytoscapeStyles';
+import { dagreOptions } from 'styles/graphStyle';
+import { utxoVertex } from 'models/utxo';
+import { branchVertex } from 'models/branch';
+import { ObservableMap } from 'mobx';
+import { BRANCH, LINE, UTXO } from './../styles/cytoscapeStyles';
 
 export class cytoscapeLib implements IGraph {
     cy;
@@ -144,7 +144,11 @@ export function drawTransaction(
     graph.layoutApi.placeNewNodes(collection);
 }
 
-const drawSingleBranch = function(branch: branchVertex, graph: cytoscapeLib, branchMap: ObservableMap<string, branchVertex>): any {
+const drawSingleBranch = function (
+    branch: branchVertex,
+    graph: cytoscapeLib,
+    branchMap: ObservableMap<string, branchVertex>
+): any {
     if (!branch) {
         return;
     }
@@ -185,7 +189,8 @@ export async function drawBranch(
             });
         } else {
             const res = await fetch(`/api/dagsvisualizer/branch/${pID}`);
-            const branches: Array<branchVertex> = (await res.json()) as Array<branchVertex>;
+            const branches: Array<branchVertex> =
+                (await res.json()) as Array<branchVertex>;
             drawBranchesUpToMaster(branches, graph, branchMap);
             graph.cy.add({
                 group: 'edges',
@@ -195,12 +200,16 @@ export async function drawBranch(
     }
 }
 
-function drawBranchesUpToMaster(branches: Array<branchVertex>, graph: cytoscapeLib, branchMap: ObservableMap<string, branchVertex>) {
+function drawBranchesUpToMaster(
+    branches: Array<branchVertex>,
+    graph: cytoscapeLib,
+    branchMap: ObservableMap<string, branchVertex>
+) {
     for (let i = 0; i < branches.length; i++) {
         const branch = branches[i];
         drawSingleBranch(branch, graph, branchMap);
-        branch.parents?.forEach(parentID => {
-            const parent = branches.find(b => b.ID === parentID);
+        branch.parents?.forEach((parentID) => {
+            const parent = branches.find((b) => b.ID === parentID);
             if (parent) {
                 if (!branchMap.get(parentID)) {
                     drawSingleBranch(parent, graph, branchMap);
@@ -225,7 +234,7 @@ export function initUTXODAG() {
                     'font-weight': 'bold',
                     shape: 'rectangle',
                     width: 20,
-                    height: 20,
+                    height: 20
                 }
             },
             {
@@ -245,7 +254,6 @@ export function initUTXODAG() {
                     'min-width': '50px',
                     'min-height': '50px',
                     'border-color': UTXO.BORDER_COLOR
-
                 }
             },
             {

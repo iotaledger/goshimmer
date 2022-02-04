@@ -1,10 +1,10 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
-import {inject, observer} from 'mobx-react';
-import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
-import {Collapse} from 'react-bootstrap';
+import { inject, observer } from 'mobx-react';
+import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
+import { Collapse } from 'react-bootstrap';
 import BranchStore from 'stores/BranchStore';
-import {BranchInfo} from 'components/BranchInfo';
+import { BranchInfo } from 'components/BranchInfo';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
@@ -70,15 +70,14 @@ export default class BranchDAG extends React.Component<Props, any> {
                     <h2>
                         Branch DAG
                         {this.state.open ? (
-                            <MdKeyboardArrowUp/>
+                            <MdKeyboardArrowUp />
                         ) : (
-                            <MdKeyboardArrowDown/>
+                            <MdKeyboardArrowDown />
                         )}
                     </h2>
                 </div>
                 <Collapse in={this.state.open}>
-                    <div
-                        className={'panel'}>
+                    <div className={'panel'}>
                         <Row xs={5}>
                             <Col
                                 className="align-self-end"
