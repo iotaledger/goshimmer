@@ -153,15 +153,17 @@ export function drawBranch(
         data: { id: branch.ID }
     });
 
-    branch.parents.forEach((pID) => {
-        const b = branchMap.get(pID);
-        if (b) {
-            graph.cy.add({
-                group: 'edges',
-                data: { source: pID, target: branch.ID }
-            });
-        }
-    });
+    if (branch.parents) {
+        branch.parents.forEach((pID) => {
+            const b = branchMap.get(pID);
+            if (b) {
+                graph.cy.add({
+                    group: 'edges',
+                    data: { source: pID, target: branch.ID }
+                });
+            }
+        });
+    }
 
     graph.layoutApi.placeNewNodes(v);
 }
