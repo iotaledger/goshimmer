@@ -4,8 +4,6 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -14,13 +12,16 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region ApprovalWeightManager Models /////////////////////////////////////////////////////////////////////////////////
 
 // region BranchWeight /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchWeight is a data structure that tracks the weight of a ledgerstate.BranchID.
+// BranchWeight is a data structure that tracks the weight of a BranchID.
 type BranchWeight struct {
 	branchID ledgerstate.BranchID
 	weight   float64
@@ -54,7 +55,7 @@ func BranchWeightFromBytes(bytes []byte) (branchWeight *BranchWeight, consumedBy
 	return
 }
 
-// BranchWeightFromMarshalUtil unmarshals a BranchWeight object using a MarshalUtil (for easier unmarshaling).
+// BranchWeightFromMarshalUtil unmarshals a BranchWeight object using a MarshalUtil (for easier unmarshalling).
 func BranchWeightFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
 	branchWeight = &BranchWeight{}
 	if branchWeight.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
@@ -80,12 +81,12 @@ func BranchWeightFromObjectStorage(key, data []byte) (result objectstorage.Stora
 	return
 }
 
-// BranchID returns the ledgerstate.BranchID that is being tracked.
+// BranchID returns the BranchID that is being tracked.
 func (b *BranchWeight) BranchID() (branchID ledgerstate.BranchID) {
 	return b.branchID
 }
 
-// Weight returns the weight of the ledgerstate.BranchID.
+// Weight returns the weight of the BranchID.
 func (b *BranchWeight) Weight() (weight float64) {
 	b.weightMutex.RLock()
 	defer b.weightMutex.RUnlock()
@@ -93,7 +94,7 @@ func (b *BranchWeight) Weight() (weight float64) {
 	return b.weight
 }
 
-// SetWeight sets the weight for the ledgerstate.BranchID and returns true if it was modified.
+// SetWeight sets the weight for the BranchID and returns true if it was modified.
 func (b *BranchWeight) SetWeight(weight float64) (modified bool) {
 	b.weightMutex.Lock()
 	defer b.weightMutex.Unlock()
@@ -114,7 +115,7 @@ func (b *BranchWeight) Bytes() (marshaledBranchWeight []byte) {
 	return byteutils.ConcatBytes(b.ObjectStorageKey(), b.ObjectStorageValue())
 }
 
-// String returns a human readable version of the BranchWeight.
+// String returns a human-readable version of the BranchWeight.
 func (b *BranchWeight) String() string {
 	return stringify.Struct("BranchWeight",
 		stringify.StructField("branchID", b.BranchID()),
@@ -182,7 +183,7 @@ func (c *CachedBranchWeight) Consume(consumer func(branchWeight *BranchWeight), 
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedBranchWeight.
+// String returns a human-readable version of the CachedBranchWeight.
 func (c *CachedBranchWeight) String() string {
 	return stringify.Struct("CachedBranchWeight",
 		stringify.StructField("CachedObject", c.Unwrap()),
@@ -263,7 +264,7 @@ func (s *Supporters) Intersect(other *Supporters) (intersection *Supporters) {
 	return
 }
 
-// String returns a human readable version of the Supporters.
+// String returns a human-readable version of the Supporters.
 func (s *Supporters) String() string {
 	structBuilder := stringify.StructBuilder("Supporters")
 	s.ForEach(func(supporter Voter) {
@@ -312,7 +313,7 @@ func BranchSupportersFromBytes(bytes []byte) (branchSupporters *BranchSupporters
 	return
 }
 
-// BranchSupportersFromMarshalUtil unmarshals a BranchSupporters object using a MarshalUtil (for easier unmarshaling).
+// BranchSupportersFromMarshalUtil unmarshals a BranchSupporters object using a MarshalUtil (for easier unmarshalling).
 func BranchSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchSupporters *BranchSupporters, err error) {
 	branchSupporters = &BranchSupporters{}
 	if branchSupporters.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
@@ -349,7 +350,7 @@ func BranchSupportersFromObjectStorage(key, data []byte) (result objectstorage.S
 	return
 }
 
-// BranchID returns the ledgerstate.BranchID that is being tracked.
+// BranchID returns the BranchID that is being tracked.
 func (b *BranchSupporters) BranchID() (branchID ledgerstate.BranchID) {
 	return b.branchID
 }
@@ -362,7 +363,7 @@ func (b *BranchSupporters) Has(voter Voter) bool {
 	return b.supporters.Has(voter)
 }
 
-// AddSupporter adds a new Supporter to the tracked ledgerstate.BranchID.
+// AddSupporter adds a new Supporter to the tracked BranchID.
 func (b *BranchSupporters) AddSupporter(supporter Voter) (added bool) {
 	b.supportersMutex.Lock()
 	defer b.supportersMutex.Unlock()
@@ -375,7 +376,7 @@ func (b *BranchSupporters) AddSupporter(supporter Voter) (added bool) {
 	return
 }
 
-// AddSupporters adds the supporters set to the tracked ledgerstate.BranchID.
+// AddSupporters adds the supporters set to the tracked BranchID.
 func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
 	supporters.ForEach(func(supporter Voter) {
 		if b.supporters.Add(supporter) {
@@ -390,7 +391,7 @@ func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
 	return
 }
 
-// DeleteSupporter deletes a Supporter from the tracked ledgerstate.BranchID.
+// DeleteSupporter deletes a Supporter from the tracked BranchID.
 func (b *BranchSupporters) DeleteSupporter(supporter Voter) (deleted bool) {
 	b.supportersMutex.Lock()
 	defer b.supportersMutex.Unlock()
@@ -403,7 +404,7 @@ func (b *BranchSupporters) DeleteSupporter(supporter Voter) (deleted bool) {
 	return
 }
 
-// Supporters returns the set of Supporters that are supporting the given ledgerstate.BranchID.
+// Supporters returns the set of Supporters that are supporting the given BranchID.
 func (b *BranchSupporters) Supporters() (supporters *Supporters) {
 	b.supportersMutex.RLock()
 	defer b.supportersMutex.RUnlock()
@@ -416,7 +417,7 @@ func (b *BranchSupporters) Bytes() (marshaledBranchSupporters []byte) {
 	return byteutils.ConcatBytes(b.ObjectStorageKey(), b.ObjectStorageValue())
 }
 
-// String returns a human readable version of the BranchSupporters.
+// String returns a human-readable version of the BranchSupporters.
 func (b *BranchSupporters) String() string {
 	return stringify.Struct("BranchSupporters",
 		stringify.StructField("branchID", b.BranchID()),
@@ -492,7 +493,7 @@ func (c *CachedBranchSupporters) Consume(consumer func(branchSupporters *BranchS
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedBranchSupporters.
+// String returns a human-readable version of the CachedBranchSupporters.
 func (c *CachedBranchSupporters) String() string {
 	return stringify.Struct("CachedBranchSupporters",
 		stringify.StructField("CachedObject", c.Unwrap()),
@@ -560,7 +561,7 @@ func LatestMarkerVotesFromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVo
 	return
 }
 
-// LatestMarkerVotesFromMarshalUtil unmarshals a LatestMarkerVotes using a MarshalUtil (for easier unmarshaling).
+// LatestMarkerVotesFromMarshalUtil unmarshals a LatestMarkerVotes using a MarshalUtil (for easier unmarshalling).
 func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestMarkerVotes *LatestMarkerVotes, err error) {
 	latestMarkerVotes = &LatestMarkerVotes{}
 	if latestMarkerVotes.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
@@ -652,7 +653,7 @@ func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (s
 	return true, previousHighestIndex
 }
 
-// String returns a human readable version of the LastestMarkerVotes.
+// String returns a human-readable version of the LatestMarkerVotes.
 func (l *LatestMarkerVotes) String() string {
 	builder := stringify.StructBuilder("LatestMarkerVotes")
 
@@ -665,13 +666,13 @@ func (l *LatestMarkerVotes) String() string {
 	return builder.String()
 }
 
-// Bytes returns a bytes version of the LastestMarkerVotes.
+// Bytes returns a marshalled version of the LatestMarkerVotes.
 func (l *LatestMarkerVotes) Bytes() []byte {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
 }
 
 // Update panics as updates are not supported for this object.
-func (l *LatestMarkerVotes) Update(other objectstorage.StorableObject) {
+func (l *LatestMarkerVotes) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -947,7 +948,7 @@ func (c *CachedLatestBranchVotes) Consume(consumer func(latestBranchVotes *Lates
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedLatestBranchVotes.
+// String returns a human-readable version of the CachedLatestBranchVotes.
 func (c *CachedLatestBranchVotes) String() string {
 	return stringify.Struct("CachedLatestBranchVotes",
 		stringify.StructField("CachedObject", c.Unwrap()),
@@ -1021,7 +1022,7 @@ func (v *Vote) Bytes() []byte {
 		Bytes()
 }
 
-// String returns a human readable version of the Vote.
+// String returns a human-readable version of the Vote.
 func (v *Vote) String() string {
 	return stringify.Struct("Vote",
 		stringify.StructField("Voter", v.Voter),
