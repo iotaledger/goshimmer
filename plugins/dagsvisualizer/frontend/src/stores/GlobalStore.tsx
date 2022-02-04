@@ -1,5 +1,5 @@
 import { action, makeObservable, observable } from 'mobx';
-import { Moment } from 'moment';
+import moment, { Moment } from 'moment';
 import TangleStore from './TangleStore';
 import { tangleVertex } from 'models/tangle';
 import UTXOStore from './UTXOStore';
@@ -16,10 +16,13 @@ export class searchResult {
 }
 
 export class GlobalStore {
-    @observable searchStartingTime: number;
-    @observable searchEndingTime: number;
+    @observable searchStartingTime = moment().unix();
+    @observable searchEndingTime = moment().unix();
     @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     @observable searchResponse = '';
+    @observable previewResponseSize = '';
+    @observable manualPicker = [false, false];
+    searchResult: searchResult = undefined;
 
     tangleStore: TangleStore;
     utxoStore: UTXOStore;
@@ -36,6 +39,16 @@ export class GlobalStore {
         this.utxoStore = utxoStore;
         this.branchStore = branchStore;
     }
+
+    @action
+    updateStartManualPicker = (b: boolean) => {
+        this.manualPicker[0] = b;
+    };
+
+    @action
+    updateEndManualPicker = (b: boolean) => {
+        this.manualPicker[1] = b;
+    };
 
     syncWithMsg = () => {
         const msg = this.tangleStore.selectedMsg;
@@ -87,6 +100,14 @@ export class GlobalStore {
         this.branchStore.clearSelected(true);
     };
 
+    get SearchStartingTime() {
+        return moment(this.searchStartingTime);
+    }
+
+    get SearchEndingTime() {
+        return moment(this.searchStartingTime);
+    }
+
     @action
     updateExplorerAddress = (addr: string) => {
         this.explorerAddress = addr;
@@ -107,49 +128,76 @@ export class GlobalStore {
         this.searchResponse = e;
     };
 
+    updateSearchResults = (results: searchResult) => {
+        this.searchResult = results;
+    };
+
+    @action
+    updatePreviewResponseSize = (response: searchResult) => {
+        const numOfBranches = response.branches.length;
+        const numOfMessages = response.messages.length;
+        const numOfTransactions = response.txs.length;
+        this.previewResponseSize = `Found: messages: ${numOfMessages}; 
+            transactions: ${numOfTransactions}; 
+            branches: ${numOfBranches};`;
+    };
+
     @action
     searchAndDrawResults = async () => {
         try {
             const res = await fetch(
-                `/api/dagsvisualizer/search/${this.searchStartingTime}/${
-                    this.searchEndingTime
-                }`
+                `/api/dagsvisualizer/search/${this.searchStartingTime}/${this.searchEndingTime}`
             );
             const result: searchResult = await res.json();
             if (res.status !== 200) {
                 this.updateSearchResponse(result.error);
                 return;
             } else {
-                this.updateSearchResponse('Done!');
+                this.updateSearchResponse('To show the results click "Render"');
+                this.updatePreviewResponseSize(result);
             }
 
             if (result.messages.length === 0) {
                 this.updateSearchResponse('no messages found!');
                 return;
             }
-
-            this.stopDrawNewVertices();
-            this.clearGraphs();
-
-            (result.messages || []).forEach((msg) => {
-                this.tangleStore.drawVertex(msg);
-            });
-
-            (result.txs || []).forEach((tx) => {
-                this.utxoStore.drawVertex(tx);
-            });
-
-            const branches = result.branches || [];
-            for (let i = 0; i < branches.length; i++) {
-                await this.branchStore.drawVertex(branches[i]);
-                this.branchStore.graph.cy.getElementById(branches[i].ID).addClass('search');
-            }
+            this.updateSearchResults(result);
         } catch (err) {
             console.log(
                 'Fail to fetch messages/txs/branches with the given interval',
                 err
             );
         }
+        return;
+    };
+
+    @action
+    renderSearchResults = async () => {
+        if (!this.searchResult) {
+            return;
+        }
+        this.stopDrawNewVertices();
+        this.clearGraphs();
+
+        (this.searchResult.messages || []).forEach((msg) => {
+            this.tangleStore.drawVertex(msg);
+        });
+
+        (this.searchResult.txs || []).forEach((tx) => {
+            this.utxoStore.drawVertex(tx);
+        });
+
+        const branches = this.searchResult.branches || [];
+        for (let i = 0; i < branches.length; i++) {
+            await this.branchStore.drawVertex(branches[i]);
+            this.branchStore.graph.cy
+                .getElementById(branches[i].ID)
+                .addClass('search');
+        }
+
+        this.searchResult = undefined;
+        this.updateSearchResponse('');
+
         return;
     };
 

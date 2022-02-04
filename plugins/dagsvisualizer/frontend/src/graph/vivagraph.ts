@@ -1,8 +1,8 @@
-import {IGraph} from './graph';
-import {default as Viva} from 'vivagraphjs';
-import {parentRefType, tangleVertex} from 'models/tangle';
-import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from 'styles/tangleStyles';
-import {ObservableMap} from 'mobx';
+import { IGraph } from './graph';
+import { default as Viva } from 'vivagraphjs';
+import { parentRefType, tangleVertex } from 'models/tangle';
+import { COLOR, LINE_TYPE, LINE_WIDTH, VERTEX } from 'styles/tangleStyles';
+import { ObservableMap } from 'mobx';
 
 export class vivagraphLib implements IGraph {
     graph;
@@ -140,7 +140,7 @@ function setupSvgGraphics() {
                 LINE_TYPE.STRONG
             );
         })
-        .placeLink(function(linkUI, fromPos, toPos) {
+        .placeLink(function (linkUI, fromPos, toPos) {
             // linkUI - is the object returned from link() callback above.
             const data =
                 'M' +
@@ -173,7 +173,7 @@ function setupRenderer(graph: any, graphics: any, layout: any) {
 export function drawMessage(
     msg: tangleVertex,
     vivaLib: vivagraphLib,
-    messageMap: ObservableMap<string, tangleVertex>,
+    messageMap: ObservableMap<string, tangleVertex>
 ) {
     let node;
     const existing = vivaLib.graph.getNode(msg.ID);
@@ -336,7 +336,7 @@ export function reloadAfterShortPause(
     vivaLib: vivagraphLib,
     messageMap: ObservableMap<string, tangleVertex>
 ) {
-    vivaLib.graph.forEachNode(node => {
+    vivaLib.graph.forEachNode((node) => {
         const msg = messageMap.get(node.id);
         if (!msg) {
             vivaLib.graph.removeNode(node.id);
@@ -405,31 +405,31 @@ function updateParentRefUI(
     }
 
     switch (parentType) {
-    case parentRefType.StrongRef: {
-        setUILink(
-            linkUI,
-            COLOR.LINK_STRONG,
-            LINE_WIDTH.STRONG,
-            LINE_TYPE.STRONG
-        );
-        linkUI.refType = parentRefType.StrongRef;
-        break;
-    }
-    case parentRefType.WeakRef: {
-        setUILink(linkUI, COLOR.LINK_WEAK, LINE_WIDTH.WEAK, LINE_TYPE.WEAK);
-        linkUI.refType = parentRefType.WeakRef;
-        break;
-    }
-    case parentRefType.LikedRef: {
-        setUILink(
-            linkUI,
-            COLOR.LINK_LIKED,
-            LINE_WIDTH.LIKED,
-            LINE_TYPE.LIKED
-        );
-        linkUI.refType = parentRefType.LikedRef;
-        break;
-    }
+        case parentRefType.StrongRef: {
+            setUILink(
+                linkUI,
+                COLOR.LINK_STRONG,
+                LINE_WIDTH.STRONG,
+                LINE_TYPE.STRONG
+            );
+            linkUI.refType = parentRefType.StrongRef;
+            break;
+        }
+        case parentRefType.WeakRef: {
+            setUILink(linkUI, COLOR.LINK_WEAK, LINE_WIDTH.WEAK, LINE_TYPE.WEAK);
+            linkUI.refType = parentRefType.WeakRef;
+            break;
+        }
+        case parentRefType.LikedRef: {
+            setUILink(
+                linkUI,
+                COLOR.LINK_LIKED,
+                LINE_WIDTH.LIKED,
+                LINE_TYPE.LIKED
+            );
+            linkUI.refType = parentRefType.LikedRef;
+            break;
+        }
     }
 }
 
@@ -473,7 +473,7 @@ function dfsIterator(
     }
 }
 
-const svgNodeBuilder = function(): any {
+const svgNodeBuilder = function (): any {
     const ui = Viva.Graph.svg('rect');
     setUINodeColor(ui, COLOR.TIP);
     setUINodeSize(ui, VERTEX.SIZE_DEFAULT);
@@ -482,7 +482,7 @@ const svgNodeBuilder = function(): any {
     return ui;
 };
 
-const svgLinkBuilder = function(color: string, width: number, type: string) {
+const svgLinkBuilder = function (color: string, width: number, type: string) {
     return Viva.Graph.svg('path')
         .attr('stroke', color)
         .attr('stroke-width', width)

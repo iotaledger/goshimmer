@@ -23,9 +23,7 @@ export class TransactionInfo extends React.Component<Props, any> {
                         <Card.Body>
                             <Card.Title>
                                 <LinkToDashboard
-                                    route={`explorer/transaction/${
-                                        selectedTx.ID
-                                    }`}
+                                    route={`explorer/transaction/${selectedTx.ID}`}
                                     title={selectedTx.ID}
                                 />
                             </Card.Title>
@@ -33,9 +31,7 @@ export class TransactionInfo extends React.Component<Props, any> {
                                 <ListGroup.Item>
                                     Msg ID:
                                     <LinkToDashboard
-                                        route={`explorer/messasge/${
-                                            selectedTx.msgID
-                                        }`}
+                                        route={`explorer/messasge/${selectedTx.msgID}`}
                                         title={selectedTx.msgID}
                                     />
                                 </ListGroup.Item>
@@ -45,10 +41,7 @@ export class TransactionInfo extends React.Component<Props, any> {
                                         {selectedTx.inputs.map((p, i) => (
                                             <ListGroup.Item key={i}>
                                                 <LinkToDashboard
-                                                    route={`explorer/output/${
-                                                        p.referencedOutputID
-                                                            .base58
-                                                    }`}
+                                                    route={`explorer/output/${p.referencedOutputID.base58}`}
                                                     title={
                                                         p.referencedOutputID
                                                             .base58

@@ -4,7 +4,13 @@ import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import { cytoscapeLib, drawBranch, initBranchDAG } from 'graph/cytoscape';
-import { branchConfirmed, branchParentUpdate, branchVertex, branchWeightChanged } from 'models/branch';
+import {
+    branchConfirmed,
+    branchParentUpdate,
+    branchVertex,
+    branchWeightChanged
+} from 'models/branch';
+import { BRANCH } from '../styles/cytoscapeStyles';
 
 export class BranchStore {
     @observable maxBranchVertices = MAX_VERTICES;
@@ -267,8 +273,9 @@ export class BranchStore {
                 label: 'master'
             },
             style: {
-                'background-color': '#616161',
-                label: 'master'
+                'background-color': BRANCH.MASTER_COLOR,
+                label: 'master',
+                color: BRANCH.MASTER_LABEL
             }
         });
         return master;

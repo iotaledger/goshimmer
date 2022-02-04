@@ -9,9 +9,9 @@ import GlobalStore from 'stores/GlobalStore';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
-import Datetime from 'react-datetime';
-import { isMoment } from 'moment';
+import moment, { isMoment } from 'moment';
 import 'react-datetime/css/react-datetime.css';
+import { Picker, TimePickerButtons } from './timeButtons';
 
 interface Props {
     globalStore?: GlobalStore;
@@ -33,13 +33,13 @@ export default class GlobalSettings extends React.Component<Props, any> {
         };
     }
 
-    updateFrom = date => {
+    updateFrom = (date) => {
         if (isMoment(date)) {
             this.props.globalStore.updateSearchStartingTime(date);
         }
     };
 
-    updateTo = date => {
+    updateTo = (date) => {
         if (isMoment(date)) {
             this.props.globalStore.updateSearchEndingTime(date);
         }
@@ -57,11 +57,11 @@ export default class GlobalSettings extends React.Component<Props, any> {
         this.props.globalStore.clearSearchAndResume();
     };
 
-    updateFormInput = e => {
+    updateFormInput = (e) => {
         this.setState({ [e.target.name]: e.target.value });
     };
 
-    setExplorerAddress = e => {
+    setExplorerAddress = (e) => {
         if (e.key === 'Enter') {
             this.props.globalStore.updateExplorerAddress(
                 this.state.explorerAddress
@@ -86,13 +86,34 @@ export default class GlobalSettings extends React.Component<Props, any> {
         this.props.globalStore.clearSync();
     };
 
+    onOpenStartPicker = () => {
+        this.props.globalStore.updateStartManualPicker(false);
+    };
+
+    onOpenEndPicker = () => {
+        this.props.globalStore.updateEndManualPicker(false);
+    };
+
+    renderSearchResults = () => {
+        this.props.globalStore.renderSearchResults();
+    };
+
     render() {
-        const { searchResponse } = this.props.globalStore;
+        const pickerStartValue = this.props.globalStore.manualPicker
+            ? moment.unix(this.props.globalStore.searchStartingTime)
+            : undefined;
+        const pickerEndValue = this.props.globalStore.manualPicker
+            ? moment.unix(this.props.globalStore.searchEndingTime)
+            : undefined;
+        const globalStore = this.props.globalStore;
+        const { searchResponse, previewResponseSize } = this.props.globalStore;
         return (
             <Container>
                 <div
                     onClick={() =>
-                        this.setState(prevState => ({ open: !prevState.open }))
+                        this.setState((prevState) => ({
+                            open: !prevState.open
+                        }))
                     }
                 >
                     <h2>
@@ -106,10 +127,10 @@ export default class GlobalSettings extends React.Component<Props, any> {
                 </div>
                 <Collapse in={this.state.open}>
                     <div>
-                        <div>
+                        <div className={'panel'}>
                             <div
                                 onClick={() =>
-                                    this.setState(prevState => ({
+                                    this.setState((prevState) => ({
                                         searchOpen: !prevState.searchOpen
                                     }))
                                 }
@@ -127,20 +148,29 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 <Row md={4}>
                                     <Col>
                                         From:{' '}
-                                        <Datetime onChange={this.updateFrom} />
+                                        <Picker
+                                            isStartTime={true}
+                                            globalStore={globalStore}
+                                            dateTime={pickerStartValue}
+                                            onOpenFunc={this.onOpenStartPicker}
+                                        />
+                                        <TimePickerButtons isStartTime={true} />
                                     </Col>
                                     <Col>
                                         To:{' '}
-                                        <Datetime onChange={this.updateTo} />
+                                        <Picker
+                                            isStartTime={false}
+                                            globalStore={globalStore}
+                                            dateTime={pickerEndValue}
+                                            onOpenFunc={this.onOpenEndPicker}
+                                        />
+                                        <TimePickerButtons
+                                            isStartTime={false}
+                                        />
                                     </Col>
-                                    <Col
-                                        className="align-self-end"
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-evenly'
-                                        }}
-                                    >
+                                    <Col className="align-self-end">
                                         <Button
+                                            className={'button'}
                                             onClick={
                                                 this.searchVerticesInLedger
                                             }
@@ -156,6 +186,14 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                             )}
                                         </Button>
                                         <Button
+                                            className={'button'}
+                                            onClick={this.renderSearchResults}
+                                            variant="outline-secondary"
+                                        >
+                                            Render
+                                        </Button>
+                                        <Button
+                                            className={'button'}
                                             disabled={this.state.isIdle}
                                             onClick={this.clearSearch}
                                             variant="outline-secondary"
@@ -163,6 +201,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                             Clear and Resume
                                         </Button>
                                     </Col>
+
                                     <Col
                                         className="align-self-end"
                                         style={{
@@ -171,17 +210,21 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                         }}
                                     >
                                         <div>
+                                            <p className={'response-info'}>
+                                                {previewResponseSize}
+                                            </p>
                                             <p>{searchResponse}</p>
                                         </div>
                                     </Col>
                                 </Row>
                             </Collapse>
                         </div>
-                        <div>
+                        <div className={'panel'}>
                             <div
                                 onClick={() =>
-                                    this.setState(prevState => ({
-                                        dashboardUrlOpen: !prevState.dashboardUrlOpen
+                                    this.setState((prevState) => ({
+                                        dashboardUrlOpen:
+                                            !prevState.dashboardUrlOpen
                                     }))
                                 }
                             >
@@ -195,7 +238,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </h5>
                                 <p>
                                     {' '}
-                                    default is the local explorer:{' '}
+                                    Default is the local explorer:{' '}
                                     <i>http://localhost:8081</i>{' '}
                                 </p>
                             </div>
@@ -221,10 +264,10 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </Row>
                             </Collapse>
                         </div>
-                        <div>
+                        <div className={'panel'}>
                             <div
                                 onClick={() =>
-                                    this.setState(prevState => ({
+                                    this.setState((prevState) => ({
                                         syncOpen: !prevState.syncOpen
                                     }))
                                 }
@@ -247,6 +290,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 <Row>
                                     <Col xs="auto">
                                         <Button
+                                            className={'button'}
                                             onClick={this.syncWithMsg}
                                             variant="outline-secondary"
                                         >
@@ -255,6 +299,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     </Col>
                                     <Col xs="auto">
                                         <Button
+                                            className={'button'}
                                             onClick={this.syncWithTx}
                                             variant="outline-secondary"
                                         >
@@ -263,6 +308,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     </Col>
                                     <Col xs="auto">
                                         <Button
+                                            className={'button'}
                                             onClick={this.syncWithBranch}
                                             variant="outline-secondary"
                                         >
@@ -271,6 +317,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     </Col>
                                     <Col xs="auto">
                                         <Button
+                                            className={'button'}
                                             onClick={this.clearSync}
                                             variant="outline-secondary"
                                         >

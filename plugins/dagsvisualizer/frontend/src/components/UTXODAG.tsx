@@ -76,7 +76,7 @@ export default class UTXODAG extends React.Component<Props, any> {
                     </h2>
                 </div>
                 <Collapse in={this.state.open}>
-                    <div>
+                    <div className={'panel'}>
                         <Row xs={5}>
                             <Col
                                 className="align-self-end"
@@ -99,6 +99,7 @@ export default class UTXODAG extends React.Component<Props, any> {
                                         }
                                     >
                                         <Button
+                                            className={'button'}
                                             onClick={this.pauseResumeVisualizer}
                                             variant="outline-secondary"
                                         >
@@ -110,6 +111,7 @@ export default class UTXODAG extends React.Component<Props, any> {
                                 </InputGroup>
                                 <InputGroup className="mb-1">
                                     <Button
+                                        className={'button'}
                                         onClick={this.centerGraph}
                                         variant="outline-secondary"
                                     >
