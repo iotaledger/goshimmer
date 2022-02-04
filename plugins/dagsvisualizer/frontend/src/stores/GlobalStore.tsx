@@ -20,7 +20,9 @@ export class GlobalStore {
     @observable searchEndingTime = moment().unix();
     @observable explorerAddress = DEFAULT_DASHBOARD_URL;
     @observable searchResponse = '';
+    @observable previewResponseSize = '';
     @observable manualPicker = [false, false];
+    searchResult: searchResult = undefined;
 
     tangleStore: TangleStore;
     utxoStore: UTXOStore;
@@ -42,6 +44,7 @@ export class GlobalStore {
     updateStartManualPicker = (b: boolean) => {
         this.manualPicker[0] = b;
     }
+
     @action
     updateEndManualPicker = (b: boolean) => {
         this.manualPicker[1] = b;
@@ -125,6 +128,21 @@ export class GlobalStore {
         this.searchResponse = e;
     };
 
+    updateSearchResults = (results: searchResult) => {
+        this.searchResult = results;
+    }
+
+    @action
+    updatePreviewResponseSize = (response: searchResult) => {
+        const numOfBranches = response.branches.length;
+        const numOfMessages = response.messages.length;
+        const numOfTransactions = response.txs.length;
+        this.previewResponseSize =
+            `Found: messages: ${numOfMessages}; 
+            transactions: ${numOfTransactions}; 
+            branches: ${numOfBranches};`;
+    }
+
     @action
     searchAndDrawResults = async () => {
         try {
@@ -138,28 +156,15 @@ export class GlobalStore {
                 this.updateSearchResponse(result.error);
                 return;
             } else {
-                this.updateSearchResponse('Done!');
+                this.updateSearchResponse('To show the results click "Render"');
+                this.updatePreviewResponseSize(result);
             }
 
             if (result.messages.length === 0) {
                 this.updateSearchResponse('no messages found!');
                 return;
             }
-
-            this.stopDrawNewVertices();
-            this.clearGraphs();
-
-            result.messages.forEach((msg) => {
-                this.tangleStore.drawVertex(msg);
-            });
-
-            result.txs.forEach((tx) => {
-                this.utxoStore.drawVertex(tx);
-            });
-
-            result.branches.forEach((branch) => {
-                this.branchStore.drawVertex(branch);
-            });
+            this.updateSearchResults(result);
         } catch (err) {
             console.log(
                 'Fail to fetch messages/txs/branches with the given interval',
@@ -168,6 +173,32 @@ export class GlobalStore {
         }
         return;
     };
+
+    @action
+    renderSearchResults = () => {
+        console.log(this.searchResult);
+        if (!this.searchResult)  {
+            return;
+        }
+        this.stopDrawNewVertices();
+        this.clearGraphs();
+
+        this.searchResult.messages.forEach((msg) => {
+            this.tangleStore.drawVertex(msg);
+        });
+
+        this.searchResult.txs.forEach((tx) => {
+            this.utxoStore.drawVertex(tx);
+        });
+
+        this.searchResult.branches.forEach((branch) => {
+            this.branchStore.drawVertex(branch);
+        });
+
+        this.searchResult = undefined;
+        this.updateSearchResponse('');
+    }
+
 
     @action
     clearSearchAndResume = () => {

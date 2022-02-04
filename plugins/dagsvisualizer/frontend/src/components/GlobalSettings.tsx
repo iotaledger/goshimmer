@@ -94,11 +94,15 @@ export default class GlobalSettings extends React.Component<Props, any> {
         this.props.globalStore.updateEndManualPicker(false);
     }
 
+    renderSearchResults = () => {
+        this.props.globalStore.renderSearchResults();
+    }
+
     render() {
         const pickerStartValue = this.props.globalStore.manualPicker ? moment.unix(this.props.globalStore.searchStartingTime) : undefined;
         const pickerEndValue = this.props.globalStore.manualPicker ? moment.unix(this.props.globalStore.searchEndingTime) : undefined;
         const globalStore = this.props.globalStore;
-        const {searchResponse} = this.props.globalStore;
+        const {searchResponse, previewResponseSize} = this.props.globalStore;
         return (
             <Container>
                 <div
@@ -150,10 +154,6 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     </Col>
                                     <Col
                                         className="align-self-end"
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-evenly'
-                                        }}
                                     >
                                         <Button
                                             className={'button'}
@@ -173,6 +173,13 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                         </Button>
                                         <Button
                                             className={'button'}
+                                            onClick={this.renderSearchResults}
+                                            variant="outline-secondary"
+                                        >
+                                            Render
+                                        </Button>
+                                        <Button
+                                            className={'button'}
                                             disabled={this.state.isIdle}
                                             onClick={this.clearSearch}
                                             variant="outline-secondary"
@@ -180,6 +187,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                             Clear and Resume
                                         </Button>
                                     </Col>
+
                                     <Col
                                         className="align-self-end"
                                         style={{
@@ -188,6 +196,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                         }}
                                     >
                                         <div>
+                                            <p className={'response-info'}>{previewResponseSize}</p>
                                             <p>{searchResponse}</p>
                                         </div>
                                     </Col>

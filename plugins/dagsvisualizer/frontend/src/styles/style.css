@@ -189,3 +189,9 @@ h5 {
 .panel .rdtPicker .rdtSwitch:hover {
     background-color: var(--color-dark-blue);
 }
+
+.panel .response-info {
+    border: var(--color-shade-blue) solid 1px;
+    padding: 10px;
+    color: var(--color-light-grey);
+}
