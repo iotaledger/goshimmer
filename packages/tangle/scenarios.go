@@ -68,6 +68,7 @@ func (s *TestScenario) Next(prePostStepTuple *PrePostStepTuple) {
 }
 
 // ProcessMessageScenario the approval weight and supporter adjustments.
+//nolint:gomnd
 func ProcessMessageScenario(t *testing.T) *TestScenario {
 	s := &TestScenario{t: t}
 	s.nodes = make(map[string]*identity.Identity)
