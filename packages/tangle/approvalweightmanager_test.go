@@ -852,7 +852,6 @@ func TestLatestMarkerVotes(t *testing.T) {
 			4: 11,
 		})
 	}
-
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
