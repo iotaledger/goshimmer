@@ -1,10 +1,10 @@
-import { IGraph } from './graph';
+import {IGraph} from './graph';
 import cytoscape from 'cytoscape';
-import { dagreOptions } from 'styles/graphStyle';
-import { utxoVertex } from 'models/utxo';
-import { branchVertex } from 'models/branch';
-import { ObservableMap } from 'mobx';
-import { BRANCH, LINE, UTXO } from './../styles/cytoscapeStyles';
+import {dagreOptions} from 'styles/graphStyle';
+import {utxoVertex} from 'models/utxo';
+import {branchVertex} from 'models/branch';
+import {ObservableMap} from 'mobx';
+import {BRANCH, LINE, UTXO} from './../styles/cytoscapeStyles';
 
 export class cytoscapeLib implements IGraph {
     cy;
@@ -330,7 +330,7 @@ export function initBranchDAG() {
             {
                 selector: '.search',
                 style: {
-                    'background-color': 'yellow'
+                    'background-color': BRANCH.SEARCHED_COLOR
                 }
             }
         ],

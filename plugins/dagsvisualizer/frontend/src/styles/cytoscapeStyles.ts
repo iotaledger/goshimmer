@@ -17,5 +17,8 @@ export const BRANCH = {
     COLOR: '#2E8BC0',
     STEP: '20px',
     SELECTED: '#F0C808',
-    OPACITY: 1
+    OPACITY: 1,
+    SEARCHED_COLOR:'#EF8354',
+    MASTER_COLOR: '#A31621',
+    MASTER_LABEL: '#E7DFC6'
 };
