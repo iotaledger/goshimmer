@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Card from 'react-bootstrap/Card';
 import ListGroup from 'react-bootstrap/ListGroup';
-import { inject, observer } from 'mobx-react';
+import {inject, observer} from 'mobx-react';
 import BranchStore from 'stores/BranchStore';
 import LinkToDashboard from 'components/LinkToDashboard';
 
@@ -35,14 +35,19 @@ export class BranchInfo extends React.Component<Props, any> {
                                 <ListGroup.Item>
                                     Parent:
                                     <ListGroup>
-                                        {selectedBranch.parents.map((p, i) => (
-                                            <ListGroup.Item key={i}>
-                                                <LinkToDashboard
-                                                    route={`explorer/branch/${p}`}
-                                                    title={p}
-                                                />
-                                            </ListGroup.Item>
-                                        ))}
+                                        {
+                                            selectedBranch.parents ?
+                                                selectedBranch.parents.map((p, i) => (
+                                                    <ListGroup.Item key={i}>
+                                                        <LinkToDashboard
+                                                            route={`explorer/branch/${p}`}
+                                                            title={p}
+                                                        />
+                                                    </ListGroup.Item>
+                                                ))   
+                                                :
+                                                <></>    
+                                        }
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
