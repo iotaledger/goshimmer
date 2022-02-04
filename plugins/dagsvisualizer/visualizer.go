@@ -223,6 +223,24 @@ func registerBranchEvents() {
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
+	routeGroup.GET("/dagsvisualizer/branch/:branchID", func(c echo.Context) (err error) {
+		parents := make(map[string]*branchVertex)
+		var branchID ledgerstate.BranchID
+		if branchID, err = ledgerstate.BranchIDFromBase58(c.Param("branchID")); err != nil {
+			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+			return
+		}
+		vertex := newBranchVertex(branchID)
+		parents[vertex.ID] = vertex
+		getBranchesToMaster(vertex, parents)
+
+		var branches []*branchVertex
+		for _, branch := range parents {
+			branches = append(branches, branch)
+		}
+		return c.JSON(http.StatusOK, branches)
+	})
+
 	routeGroup.GET("/dagsvisualizer/search/:start/:end", func(c echo.Context) (err error) {
 		startTimestamp := parseStringToTimestamp(c.Param("start"))
 		endTimestamp := parseStringToTimestamp(c.Param("end"))
@@ -304,12 +322,16 @@ func isTimeIntervalValid(start, end time.Time) (valid bool) {
 func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
 	deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
+			branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
+			if err != nil {
+				branchID = ledgerstate.BranchID{}
+			}
 			ret = &tangleVertex{
 				ID:              messageID.Base58(),
 				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
 				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
 				LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
-				BranchID:        msgMetadata.BranchID().Base58(),
+				BranchID:        branchID.Base58(),
 				IsMarker:        msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 				IsConfirmed:     deps.FinalityGadget.IsMessageConfirmed(messageID),
@@ -390,4 +412,16 @@ func storeWsMessage(msg *wsMessage) {
 		buffer = buffer[1:]
 	}
 	buffer = append(buffer, msg)
+}
+
+func getBranchesToMaster(vertex *branchVertex, parents map[string]*branchVertex) {
+	for _, IDBase58 := range vertex.Parents {
+		if _, ok := parents[IDBase58]; !ok {
+			if ID, err := ledgerstate.BranchIDFromBase58(IDBase58); err == nil {
+				parentVertex := newBranchVertex(ID)
+				parents[parentVertex.ID] = parentVertex
+				getBranchesToMaster(parentVertex, parents)
+			}
+		}
+	}
 }

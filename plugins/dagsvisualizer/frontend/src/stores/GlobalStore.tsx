@@ -175,30 +175,32 @@ export class GlobalStore {
     };
 
     @action
-    renderSearchResults = () => {
-        console.log(this.searchResult);
+    renderSearchResults = async () => {
         if (!this.searchResult)  {
             return;
         }
         this.stopDrawNewVertices();
         this.clearGraphs();
 
-        this.searchResult.messages.forEach((msg) => {
+        (this.searchResult.messages || []).forEach((msg) => {
             this.tangleStore.drawVertex(msg);
         });
 
-        this.searchResult.txs.forEach((tx) => {
+        (this.searchResult.txs || []).forEach((tx) => {
             this.utxoStore.drawVertex(tx);
         });
 
-        this.searchResult.branches.forEach((branch) => {
-            this.branchStore.drawVertex(branch);
-        });
+        const branches = this.searchResult.branches || [];
+        for (let i = 0; i < branches.length; i++) {
+            await this.branchStore.drawVertex(branches[i]);
+            this.branchStore.graph.cy.getElementById(branches[i].ID).addClass('search');
+        }
 
         this.searchResult = undefined;
         this.updateSearchResponse('');
-    }
 
+        return;
+    };
 
     @action
     clearSearchAndResume = () => {
