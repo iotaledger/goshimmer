@@ -332,6 +332,12 @@ export function initBranchDAG() {
                 style: {
                     'background-color': BRANCH.SEARCHED_COLOR
                 }
+            },
+            {
+                selector: '.search:selected',
+                style: {
+                    'background-color': BRANCH.SELECTED
+                }
             }
         ],
         layout: {
